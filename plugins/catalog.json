@@ -184,7 +184,7 @@
     {
       "id": "daily-rewards",
       "name": "日常领奖",
-      "version": "0.7.15",
+      "version": "0.7.17",
       "icon": {
         "paths": [
           "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -199,8 +199,8 @@
       "minCoreVersion": "0.6.3",
       "apiVersion": 1,
       "description": "自动领取签到、任务、邮件与活动奖励，按账号记录",
-      "packageUrl": "packages/daily-rewards/0.7.15.json",
-      "sha256": "1e3097fa51f695bcdc1721abe46885e3d192a19f14f8b9e6fbe0b8b98f1b8695"
+      "packageUrl": "packages/daily-rewards/0.7.17.json",
+      "sha256": "1e1c19166aad7ee45d51f5bff384adf002972d86439a858da98fd81c824f6c8c"
     },
     {
       "id": "seckill",
