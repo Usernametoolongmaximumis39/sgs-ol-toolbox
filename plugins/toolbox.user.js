@@ -4898,7 +4898,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
             }
             handlers.setMarketUrl(url), render(), notify(url ? "\u5E02\u573A\u5730\u5740\u5DF2\u9009\u62E9\uFF0C\u624B\u52A8\u8FDE\u63A5\u540E\u8BFB\u53D6\u76EE\u5F55" : "\u5DF2\u5207\u6362\u4E3A\u79BB\u7EBF\uFF0C\u53EF\u7EE7\u7EED\u5BFC\u5165\u63D2\u4EF6\u5305");
           });
-          choice.setAttribute("aria-pressed", String(label2 === selected)), sources.append(choice);
+          choice.style.cssText = "white-space:nowrap;padding:4px 3px;font-size:10px;line-height:18px", choice.setAttribute("aria-pressed", String(label2 === selected)), sources.append(choice);
         }
         input.disabled = selected === "\u79BB\u7EBF", content2.append(sources, input, button("\u4FDD\u5B58\u5730\u5740", () => {
           handlers.setMarketUrl(input.value), render(), notify("\u5E02\u573A\u5730\u5740\u5DF2\u4FDD\u5B58");
