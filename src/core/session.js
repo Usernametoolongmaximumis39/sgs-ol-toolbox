@@ -1,0 +1,173 @@
+import { isObservedMessage, projectMessage } from './protocol.js';
+const WRAPPERS = new Set(['Protocol', 'protocol', 'ProtoObj', 'protoObj', 'Data', 'data', 'msg', 'Msg']);
+function packetBody(payload) {
+  const queue = [payload], seen = new Set(), body = {};
+  for (let i = 0; i < queue.length && i < 32; i++) {
+    const source = queue[i];
+    if (!source || typeof source !== 'object' || seen.has(source)) continue;
+    seen.add(source);
+    for (const [key, value] of Object.entries(source)) {
+      if (WRAPPERS.has(key) && value && typeof value === 'object') queue.push(value);
+      else if (!(key in body) || body[key] == null || (Array.isArray(body[key]) && !body[key].length)) body[key] = value;
+    }
+  }
+  return body;
+}
+function canonicalBody(value) {
+  if (Array.isArray(value)) return value.map(canonicalBody);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.keys(value).filter(key => !key.startsWith('_') && !['ClassName', 'className'].includes(key))
+    .sort().map(key => [key, canonicalBody(value[key])]));
+}
+function copy(value, depth = 0, seen = new WeakSet(), budget = { remaining: 8192 }) {
+  if (--budget.remaining < 0) return undefined;
+  if (value === null || typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number') return value;
+  if (typeof value !== 'object' || depth > 8 || seen.has(value)) return undefined;
+  seen.add(value);
+  // Journal inputs are already projected plain data. No native getter discovery
+  // is permitted here. The global budget also bounds shared object graphs.
+  const result = Array.isArray(value) ? [] : {};
+  for (const key of Object.keys(value).slice(0, 4096)) {
+    if (budget.remaining <= 0) break;
+    if (['__proto__', 'prototype', 'constructor'].includes(key)) continue;
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !('value' in descriptor)) continue;
+    const item = copy(descriptor.value, depth + 1, seen, budget); if (item !== undefined) result[key] = item;
+  }
+  seen.delete(value); return result;
+}
+export class SessionJournal {
+  constructor() { this.sessionId = 1; this.seq = 0; this.events = []; this.listeners = new Set(); this.incomplete = true; }
+  push(type, payload, at = Date.now()) {
+    payload = copy(payload);
+    const body = packetBody(payload), lists = [body.CardList, body.cardList, body.card_list];
+    const deck = lists.find(value => value?.length > 0) ?? lists.find(value => value != null);
+    const hasDeck = deck && typeof deck === 'object' && Number.isInteger(deck.length) && deck.length >= 0 && deck.length <= 10000;
+    if (type === 'MsgGamePlayCardNtf' && hasDeck) { this.sessionId++; this.events = []; this.incomplete = !deck.length || !!(body.IsResume ?? body.isResume); }
+    if (/Reconnect/.test(type) || type === 'toolbox:gap') this.incomplete = true;
+    const event = { seq: ++this.seq, sessionId: this.sessionId, type, payload, at };
+    this.events.push(event);
+    for (const fn of this.listeners) { try { fn(event); } catch { /* Consumers cannot break the game. */ } }
+    return event;
+  }
+  subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
+  snapshot() { return { sessionId: this.sessionId, seq: this.seq, incomplete: this.incomplete, events: this.events.slice() }; }
+}
+export function installMessageBridge(win, journal, scope, onStatus = () => {}, { getTargets = () => [], observeType = () => {} } = {}) {
+  let activeWrapper, restoreCurrent, depth = 0, consoleError = '', nativeErrors = [];
+  const native = new Map(), restores = [], stats = { received: 0, console: 0, native: 0, lastType: '', lastAt: null };
+  const duplicates = new Map(); let expiryTimer;
+  const pending = [], waiters = []; let drainTimer, draining = false;
+  stats.dropped = 0; stats.rejected = 0;
+  function schedule() { if (!drainTimer && !scope.closed) drainTimer = setTimeout(drain, 0); }
+  function drain() {
+    drainTimer = null; if (scope.closed) return;
+    draining = true;
+    const started = performance.now(); let count = 0;
+    // Yield a task between batches so input, layout and login handlers progress.
+    while (pending.length && count++ < 16 && performance.now() - started < 4) {
+      const event = pending.shift();
+      try { journal.push(event.type, event.payload, event.at); } catch { stats.rejected++; }
+    }
+    draining = false;
+    if (pending.length) schedule(); else for (const resolve of waiters.splice(0)) resolve();
+  }
+  function queue(type, payload, at = Date.now()) {
+    if (pending.length >= 512) {
+      stats.dropped += pending.length + 1; pending.length = 0;
+      pending.push({ type: 'toolbox:gap', payload: { reason: '消息突发超过处理上限，已停止追补该批记录' }, at });
+    } else pending.push({ type, payload, at });
+    schedule();
+  }
+  function receive(type, data, source) {
+    if (scope.closed) return;
+    try { observeType(type, source, isObservedMessage(type)); } catch { /* Diagnostics cannot affect delivery. */ }
+    if (!isObservedMessage(type)) return;
+    let payload;
+    try { payload = projectMessage(type, data); }
+    catch { stats.rejected++; queue('toolbox:gap', { reason: '卡牌消息字段超出支持范围，已跳过该条记录' }); return; }
+    if (payload?.isSend) return;
+    const signature = type + ':' + JSON.stringify(canonicalBody(payload));
+    let entry = duplicates.get(signature);
+    if (!entry) {
+      if (duplicates.size >= 2048) {
+        duplicates.clear(); queue('toolbox:gap', { reason: '短时间消息过多，去重窗口已重建' });
+      }
+      duplicates.set(signature, entry = { sources: new Map(), max: 0 });
+    }
+    const count = (entry.sources.get(source) || 0) + 1; entry.sources.set(source, count);
+    if (count <= entry.max) return;
+    entry.max = count;
+    // Match echoes across sources during one task, including Promise forwarding.
+    // Another delivery from the SAME source always creates another observation.
+    if (!expiryTimer) expiryTimer = setTimeout(() => { duplicates.clear(); expiryTimer = null; }, 0);
+    stats.received++; stats[source === 'console' ? 'console' : 'native']++; stats.lastType = type; stats.lastAt = Date.now();
+    queue(type, payload, stats.lastAt);
+  }
+  const installConsole = () => {
+    if (scope.closed) return;
+    if (win.console.log === activeWrapper) return;
+    const original = win.console.log, descriptor = Object.getOwnPropertyDescriptor(win.console, 'log');
+    const wrapper = function (...args) {
+      if (scope.closed) return Reflect.apply(original, this, args);
+      const outer = depth++ === 0;
+      try {
+        if (outer) { try {
+          const prefix = args.filter(x => typeof x === 'string').join(' ');
+          if (!/\bsend\b|发送/i.test(prefix)) for (let i = args.length - 1; i >= 0; i--) {
+            const data = args[i], type = data?.ClassName || data?.className;
+            if (typeof type === 'string') { receive(type, data, 'console'); if (isObservedMessage(type)) break; }
+          }
+        } catch { try { onStatus('消息格式无法解析'); } catch {} } }
+        return Reflect.apply(original, this, args);
+      } finally { depth--; }
+    };
+    try {
+      if (!descriptor || descriptor.configurable) Object.defineProperty(win.console, 'log', { value: wrapper, writable: true, configurable: true, enumerable: descriptor?.enumerable ?? true });
+      else if ('value' in descriptor && descriptor.writable) win.console.log = wrapper;
+      if (win.console.log !== wrapper) throw new Error('日志入口被不可配置的旧脚本锁定');
+      activeWrapper = wrapper; consoleError = '';
+      restoreCurrent = () => { if (win.console.log === wrapper) { if (descriptor) Object.defineProperty(win.console, 'log', descriptor); else delete win.console.log; } };
+    } catch (error) { consoleError = `日志接入失败：${error.message}`; try { onStatus(consoleError); } catch {} }
+  };
+  function installNative() {
+    if (scope.closed) return;
+    nativeErrors = [];
+    let targets; try { targets = getTargets() || []; } catch { targets = []; }
+    const live = new Set();
+    for (const { name, target } of targets) {
+      if (!target || typeof target.event !== 'function' || live.has(target)) continue;
+      live.add(target);
+      if (native.get(target)?.wrapper === target.event) continue;
+      try {
+        const descriptor = Object.getOwnPropertyDescriptor(target, 'event'), original = target.event;
+        const entry = { name, wrapper: null, active: true };
+        const wrapper = function (...args) {
+          if (!scope.closed && entry.active) try {
+            const [eventName, data] = args;
+            const packet = Array.isArray(data) && data.length === 1 && typeof data[0] === 'object' ? data[0] : data;
+            // For named unrelated events do not even inspect their payload.
+            const type = isObservedMessage(eventName) || /^(?:Msg|PubGs|Smsg|GsC|CGs|decode|Client)/.test(eventName) ? eventName : packet?.ClassName || packet?.className;
+            receive(type, packet, `native:${name}`);
+          } catch { /* Observing cannot interrupt native dispatch. */ }
+          return Reflect.apply(original, this, args);
+        };
+        if (!descriptor || descriptor.configurable) Object.defineProperty(target, 'event', { value: wrapper, writable: true, configurable: true, enumerable: descriptor?.enumerable ?? true });
+        else if ('value' in descriptor && descriptor.writable) target.event = wrapper;
+        if (target.event !== wrapper) throw new Error('事件入口不可写');
+        entry.wrapper = wrapper; native.get(target)?.release();
+        const release = () => {
+          entry.active = false;
+          if (target.event === wrapper) { if (descriptor) Object.defineProperty(target, 'event', descriptor); else delete target.event; }
+        };
+        entry.release = release; native.set(target, entry); restores.push(release);
+      } catch (error) { nativeErrors.push(`${name}: ${error.message}`); }
+    }
+    for (const [target, entry] of native) if (!live.has(target)) { entry.release(); native.delete(target); }
+  }
+  const check = () => { installConsole(); installNative(); };
+  check(); scope.interval(check, 500); scope.add(() => { clearTimeout(expiryTimer); clearTimeout(drainTimer); pending.length = 0; for (const resolve of waiters.splice(0)) resolve(); duplicates.clear(); for (const release of restores.reverse()) release(); restoreCurrent?.(); native.clear(); });
+  return { check, get error() { return native.size ? '' : [consoleError, ...nativeErrors].filter(Boolean).join('；'); },
+    flush: () => scope.closed || (!pending.length && !draining) ? Promise.resolve() : new Promise(resolve => { waiters.push(resolve); schedule(); }),
+    getStatus: () => ({ ...stats, pending: pending.length, targets: [...native.values()].map(entry => entry.name), errors: [consoleError, ...nativeErrors].filter(Boolean) }) };
+}

@@ -1,0 +1,19 @@
+{
+  "name": "sgs-ol-toolbox",
+  "version": "0.6.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "node tools/build-public.mjs",
+    "build:full": "node tools/build-public.mjs full",
+    "build:lite": "node tools/build-public.mjs lite",
+    "test": "node --test tests/distribution.test.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  },
+  "dependencies": {
+    "html-to-image": "1.11.13"
+  }
+}

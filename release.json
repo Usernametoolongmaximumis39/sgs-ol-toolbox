@@ -1,6 +1,17 @@
 {
-  "version": "0.6.0",
-  "distribution": "public",
+  "version": "0.6.1",
+  "editions": {
+    "full": {
+      "bytes": 2010046,
+      "plugins": 19,
+      "updatesTo": "lite"
+    },
+    "lite": {
+      "bytes": 327453,
+      "plugins": 0,
+      "updatesTo": "lite"
+    }
+  },
   "plugins": [
     {
       "id": "native-cards",

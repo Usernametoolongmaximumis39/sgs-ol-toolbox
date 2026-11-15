@@ -1,12 +1,21 @@
 # 三国杀 OL 工具箱
 
-**0.6.0 · 首个公开测试版**
+**0.6.1 · full / lite**
 
 为三国杀 OL 提供独立插件、统一主题、卡牌信息与常用工具。插件可以分别安装、停用、更新、回退与卸载，配置保存在当前浏览器。
 
 ## 安装
 
-使用篡改猴安装 [工具箱核心](https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/plugins/toolbox.user.js)，安装后刷新游戏。GitHub 无法访问时可使用 [OSS 备用安装入口](https://tools.3gs.xyz/sgs-toolbox/market/toolbox.user.js)。
+使用篡改猴安装下列一个版本，安装后刷新游戏。full 与 lite 使用同一脚本身份，切换时替换原脚本。
+
+| 版本 | 内容 | 安装 |
+| --- | --- | --- |
+| full 完整版 | 核心与全部 19 个插件，首次运行将随附插件独立保存到浏览器 | [GitHub](https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/full/toolbox.user.js) · [OSS 备用](https://tools.3gs.xyz/sgs-toolbox/full/toolbox.user.js) |
+| lite 轻量版 | 相同核心能力，无随附插件；沿用已保存的插件，也可从商城按需安装 | [GitHub](https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/lite/toolbox.user.js) · [OSS 备用](https://tools.3gs.xyz/sgs-toolbox/lite/toolbox.user.js) |
+
+full 与 lite 的后续核心更新统一下载 lite。插件、配置、停用状态、卸载选择与可回退版本保存在浏览器，不随核心反复下载。插件需要更新时另在商城操作。
+
+从 0.6.0 或更早版本升级时，旧安装地址先提供一次 full 兼容更新，确保原有随附插件转存成功；之后核心更新改走 lite。直接安装全新 lite 不会自动预装插件。
 
 游戏中的「管理 → 插件市场」提供插件安装和更新。公开版自动优先读取 GitHub，失败后尝试 OSS，无需选择来源；卡面索引和图片采用相同顺序，并校验固定摘要。安装、启用插件不会预先下载整套卡面，选择对应卡面时才加载。
 
@@ -44,8 +53,19 @@
 
 这是首个公开测试版本。构建、自动化回归及 Laya 演练覆盖的范围不代表所有官服玩法、协议时序、奖励到账或购买结果都已完成实局验收。历史未采集的数据无法补回。
 
-## 开发
+## 开源与构建
 
-开发版位于 [development/toolbox.user.js](https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/development/toolbox.user.js)，具有独立脚本名称与更新入口，保留离线、本机、GitHub、OSS 与自定义来源选择。一次只启用一个核心脚本。
+full 与 lite 的程序源码位于 src/，以 MIT 发布；第三方代码、图片和预览图保留各自许可，见 LICENSE 与 THIRD_PARTY_NOTICES.md。card-art/ 不是 MIT 程序代码的一部分。
 
-源码仓库可运行 npm install、npm run check:release、npm run check:plugin-lifecycle；npm run market 提供开发演练服务。发布目录中的 plugins/ 只包含核心、目录和插件包，card-art/ 保存固定版本素材，development/ 保存开发版核心；不含演练页面、账号数据或原始开发素材。
+需要 Node.js 22 或更新版本：
+
+~~~sh
+npm install
+npm test
+npm run build
+# 或 npm run build:full / npm run build:lite
+~~~
+
+结果在 dist/full/ 和 dist/lite/。公开构建只支持 full/lite，不分发 dev 安装包或演练页面。dev 保留在维护者工作区，包含开发来源选择。
+
+插件包在 plugins/packages/，图片按固定版本存于 card-art/。full/lite 均使用 GitHub 优先、OSS 备用的商城与卡面来源，公开版不展示来源选择。
