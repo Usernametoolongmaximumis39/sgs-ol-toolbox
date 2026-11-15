@@ -17,7 +17,7 @@ export async function bundleCore({ root, edition, packages }) {
 
 export function userscriptHeader({ edition, version, toolboxSvg }) {
   const dev = edition === 'dev', label = { dev: '开发版', full: '完整版', lite: '轻量版' }[edition];
-  const update = dev ? '' : `// @updateURL    https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/lite/toolbox.meta.js\n// @downloadURL  https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/lite/toolbox.user.js\n`;
+  const update = dev ? '// @updateURL    http://127.0.0.1:17321/dev/toolbox.meta.js\n// @downloadURL  http://127.0.0.1:17321/dev/toolbox.user.js\n' : `// @updateURL    https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/lite/toolbox.meta.js\n// @downloadURL  https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/lite/toolbox.user.js\n`;
   // Full and lite intentionally share script identity. An update replaces the
   // existing script instead of installing a second copy next to it.
   return `// ==UserScript==

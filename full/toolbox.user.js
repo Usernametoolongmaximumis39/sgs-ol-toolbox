@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.1
+// @version      0.6.5
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  完整版：工具箱核心与全部插件
@@ -71,7 +71,1017 @@
   var EDITION = "full", GITHUB_MARKET_URL = "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/plugins", OSS_MARKET_URL = "https://tools.3gs.xyz/sgs-toolbox/market";
 
   // src/core/bundled-plugins.js
-  var bundledPackages = [{ format: "sgs-toolbox-plugin-v1", manifest: { id: "native-cards", name: "\u5B98\u65B9\u5361\u724C", version: "0.1.0", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.95", categories: [], icon: "cards", priority: 50090, description: "\u590D\u7528\u5B98\u65B9\u7ECF\u5178\u4E0E\u5927\u5C06\u519B\u4E24\u5957\u5361\u9762\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u4E2D\u6210\u5957\u9009\u7528" }, code: `var SGSPlugin = (() => {
+  var bundledPackages = [{ format: "sgs-toolbox-plugin-v1", manifest: { id: "player-info", name: "\u73A9\u5BB6\u4FE1\u606F", version: "0.3.3", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.0", description: "\u6392\u4F4D\u3001\u5355\u9A91\u3001\u6597\u5730\u4E3B\u663E\u793A\u73A9\u5BB6\u80DC\u7387\u548C\u8FDE\u80DC\u8D25\uFF0C\u652F\u6301\u4EBA\u673A\u63D0\u793A\u4E0E\u81EA\u9009\u8EAB\u4EFD\u8865\u5168", icon: { paths: ["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"] }, priority: 30200, categories: [] }, code: `var SGSPlugin = (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+  // src/plugins/player-info/index.js
+  var index_exports = {};
+  __export(index_exports, {
+    activate: () => activate,
+    default: () => index_default,
+    initialState: () => initialState,
+    legacyRobot: () => legacyRobot,
+    manifest: () => manifest,
+    profileViews: () => profileViews,
+    reduce: () => reduce
+  });
+
+  // src/core/seat.js
+  var read = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return void 0;
+    }
+  };
+  function nativeSeat(ui) {
+    return read(() => ui.Seat) ?? read(() => ui.seat) ?? read(() => ui.cardContainer.Seat) ?? read(() => ui.cardContainer.seat) ?? null;
+  }
+
+  // src/core/themes.js
+  var BLACK_GOLD = { id: "core.black-gold", name: "\\u7384\\u91D1", tokens: { bg: "#201e1a", surface: "#2c2922", raised: "#383327", text: "#eee3cc", muted: "#b7aa8c", accent: "#dbba70", border: "#665b42", danger: "#f3988c", radius: "10px", font: '"Microsoft YaHei", system-ui, sans-serif', motion: "240ms", scheme: "dark" } };
+  var allowed = Object.keys(BLACK_GOLD.tokens);
+
+  // src/shared/info-runtime.js
+  var read2 = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return void 0;
+    }
+  };
+  function manager(ctx, name, event, guard) {
+    const type = read2(() => ctx.game.getClass(name));
+    const valid = (value) => value && read2(() => value.destroyed) !== true && read2(() => guard(value));
+    if (valid(type)) return type;
+    for (const key of ["instance", "_instance", "Instance", "s_instance"]) {
+      const descriptor = read2(() => Object.getOwnPropertyDescriptor(type, key));
+      if (descriptor && "value" in descriptor && valid(descriptor.value)) return descriptor.value;
+    }
+    const handlers = read2(() => ctx.game.getServerProxy()._events[event]);
+    for (const handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) if (valid(read2(() => handler.caller))) return handler.caller;
+    return null;
+  }
+
+  // src/plugins/player-info/identity.js
+  var ROLES = [1, 2, 2, 4, 3, 3, 3, 3];
+  var id = (value) => {
+    if (!["string", "number"].includes(typeof value) || String(value).trim() === "") return null;
+    const n = Number(value);
+    return Number.isSafeInteger(n) && n > 0 ? String(n) : null;
+  };
+  function roomMode(tableId) {
+    const n = Number(tableId);
+    return Number.isSafeInteger(n) && n >= 1e5 ? Math.floor(n / 1e5) % 1e3 : null;
+  }
+  function roomController(ctx) {
+    const guard = (value) => (value.TableSetting || value.tableSetting) && (value.TabbleSeatInfos || value.tabbleSeatInfos);
+    for (const event of ["ClientTableinfoRep", "GsCModifyUserseatNtf", "ClientTableInfoRep", "20508", "21208"]) {
+      const found = manager(ctx, "RoomControler", event, guard);
+      if (found) return found;
+    }
+    return null;
+  }
+  function inferIdentities({ modeId, setting, roster, seats, blocked = false, owned = /* @__PURE__ */ new Set() }) {
+    if (blocked || ![73, 74].includes(modeId) || setting?.IsChooseFigure !== true || !Array.isArray(roster) || roster.length !== 8 || !Array.isArray(seats) || seats.length !== 8) return [];
+    const roomIds = roster.map((row) => id(read2(() => row.SeatPlayerInfo.ClientId) ?? read2(() => row.playerInfo.ClientId) ?? read2(() => row.playerInfo.clientId)));
+    const seatIds = seats.map((ui) => {
+      const seat = nativeSeat(ui);
+      return seat?.IsFull === false ? null : id(read2(() => (seat.playerInfo ?? seat.PlayerInfo).ClientId) ?? read2(() => (seat.playerInfo ?? seat.PlayerInfo).clientId));
+    });
+    if (roomIds.includes(null) || seatIds.includes(null) || new Set(roomIds).size !== 8 || new Set(seatIds).size !== 8 || seatIds.some((value) => !roomIds.includes(value))) return [];
+    return seats.flatMap((ui, i) => {
+      const seat = nativeSeat(ui), known = read2(() => seat.Figure) ?? read2(() => seat.figure);
+      const shown = read2(() => ui.figureManager.Figure);
+      if (Number(known) > 0 || !owned.has(ui.figureManager) && Number(shown) > 0) return [];
+      return [{ ui, role: ROLES[roomIds.indexOf(seatIds[i])] }];
+    });
+  }
+  function createIdentityHints(ctx) {
+    const entries = /* @__PURE__ */ new Map();
+    function remove(ui) {
+      const e = entries.get(ui);
+      if (!e) return;
+      entries.delete(ui);
+      if (e.owned && !e.manager.destroyed && e.manager.Figure === e.applied) {
+        e.writing = true;
+        try {
+          e.manager.SetFigure(e.before);
+        } finally {
+          e.writing = false;
+          e.release();
+        }
+      } else e.release();
+    }
+    function clear() {
+      for (const ui of [...entries.keys()]) remove(ui);
+    }
+    ctx.scope.add(clear);
+    return { clear, update(snapshot, blocked) {
+      const rc = roomController(ctx), setting = read2(() => rc.TableSetting) ?? read2(() => rc.tableSetting);
+      const roster = read2(() => (rc.TabbleSeatInfos ?? rc.tabbleSeatInfos).datum);
+      const owned = new Set([...entries.values()].filter((e) => e.owned).map((e) => e.manager));
+      const rows = snapshot.inGame && !snapshot.isReplay ? inferIdentities({
+        modeId: snapshot.modeId ?? roomMode(read2(() => rc.TableId)),
+        setting,
+        roster,
+        seats: read2(() => ctx.game.getSeatUIs()),
+        owned,
+        blocked: blocked || read2(() => rc.isReconnected) === true
+      }) : [];
+      const active = /* @__PURE__ */ new Set();
+      for (const { ui, role } of rows) {
+        const target = read2(() => ui.figureManager);
+        if (!target || target.destroyed || typeof target.SetFigure !== "function") continue;
+        let e = entries.get(ui);
+        if (e && (e.manager !== target || e.applied !== role)) {
+          remove(ui);
+          e = null;
+        }
+        active.add(ui);
+        if (e) continue;
+        e = { manager: target, before: target.Figure || 0, applied: role, owned: true, writing: false, release: () => {
+        } };
+        e.release = ctx.scope.patch(target, "SetFigure", (original) => function(...args) {
+          if (!e.writing) e.owned = false;
+          return original.apply(this, args);
+        });
+        entries.set(ui, e);
+        e.writing = true;
+        try {
+          target.SetFigure(role);
+        } finally {
+          e.writing = false;
+        }
+      }
+      for (const ui of [...entries.keys()]) if (!active.has(ui)) remove(ui);
+    } };
+  }
+
+  // src/plugins/player-info/stats-model.js
+  function statsMode(raw) {
+    return {
+      132: { kind: "rank", tab: 1, record: 26 },
+      148: { kind: "ddz", tab: 9, record: 35 },
+      149: { kind: "ddz", tab: 9, record: 35 },
+      160: { kind: "single", tab: 12, record: 44 }
+    }[raw] || null;
+  }
+  var count = (n) => Number.isSafeInteger(n) && n >= 0 ? n : null;
+  function hundredRate(data) {
+    const total = count(data?.TotalCount), wins = count(data?.WinCount);
+    return total && wins !== null && wins <= total ? (100 * wins / total).toFixed(1) + "%" : null;
+  }
+  function currentStreak(records, { nativeOrder = false } = {}) {
+    if (!Array.isArray(records) || !records.length || records.length > 100) return null;
+    const rows = records.map((r) => ({ at: r?.GameOverTime, result: r?.GameResult }));
+    if (rows.every((r) => Number.isFinite(r.at) && r.at > 0)) rows.sort((a, b) => b.at - a.at);
+    else if (!nativeOrder || !rows.every((r) => r.at == null || r.at === 0)) return null;
+    const first = rows[0].result;
+    if (first !== 0 && first !== 1) return null;
+    let n = 0;
+    for (const row of rows) {
+      if (row.result !== first) break;
+      n++;
+    }
+    return { count: n, win: first === 0, lowerBound: n === rows.length };
+  }
+  function rankSummary(data, config) {
+    const r = data?.curCycData?.curRecord;
+    if (!r) return null;
+    const wins = count(r.winCnt), losses = count(r.loseCnt);
+    const level = r.maxLevel?.level, stars = count(r.maxLevel?.star);
+    const cfg = (config?.TTRankCfg || config?.root?.TTRankCfg || []).find((c) => Number(c.rankType) === 7);
+    const levelRow = cfg?.RankLevelCfg?.Item?.find((c) => Number(c.rank ?? c.Rank) === level);
+    let name = levelRow?.rankName ?? levelRow?.RankName ?? null;
+    if (level >= 21 && stars !== null) {
+      const list = String(cfg?.Common?.[0]?.xiaoxiongShow || "").split(";").map((s) => s.split(","));
+      name = list.find(([max]) => Number(max) >= stars)?.[1] || name;
+    }
+    return {
+      rate: wins !== null && losses !== null && wins + losses > 0 ? (100 * wins / (wins + losses)).toFixed(1) + "%" : null,
+      name,
+      stars,
+      season: data.curCycData.roundId ?? null
+    };
+  }
+  var overlaps = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+  function placeStats(avatar, obstacles, stage, width = 230, height = 70) {
+    const side = avatar.x + avatar.width / 2 < stage.width / 2 ? ["right", "left"] : ["left", "right"];
+    const candidates = [];
+    for (const direction of side) {
+      const gaps = [12, ...obstacles.map((o) => direction === "right" ? o.x + o.width - avatar.x - avatar.width + 8 : avatar.x - o.x + 8)].filter((n) => n >= 12 && n <= 240).sort((a, b) => a - b);
+      for (const gap of gaps) candidates.push({ direction, gap });
+    }
+    candidates.sort((a, b) => a.gap - b.gap || side.indexOf(a.direction) - side.indexOf(b.direction));
+    for (const { direction, gap } of candidates) for (const dy of [6, 38, 70]) {
+      const r = {
+        x: direction === "right" ? avatar.x + avatar.width + gap : avatar.x - width - gap,
+        y: avatar.y + dy,
+        width,
+        height
+      };
+      if (r.x >= 6 && r.y >= 6 && r.x + width <= stage.width - 6 && r.y + height <= stage.height - 6 && !obstacles.some((o) => overlaps(r, o))) return r;
+    }
+    return null;
+  }
+
+  // src/ui/native-theme.js
+  var colorKeys = ["bg", "surface", "raised", "text", "muted", "accent", "border", "danger"];
+  var contexts = /* @__PURE__ */ new WeakMap();
+  var textureCaches = /* @__PURE__ */ new WeakMap();
+  var destruction = /* @__PURE__ */ new WeakMap();
+  var channel = (n) => Math.max(0, Math.min(255, Math.round(n)));
+  var hex = (values) => "#" + values.map((n) => channel(n).toString(16).padStart(2, "0")).join("");
+  function parseHex(value) {
+    if (!/^#[\\da-f]{3}(?:[\\da-f]|[\\da-f]{3}|[\\da-f]{5})?$/i.test(value)) return null;
+    let raw = value.slice(1);
+    if (raw.length <= 4) raw = [...raw].map((n) => n + n).join("");
+    return [0, 2, 4].map((i) => parseInt(raw.slice(i, i + 2), 16)).concat(raw.length === 8 ? parseInt(raw.slice(6), 16) / 255 : 1);
+  }
+  function color(value, fallback, document, background = "#000000") {
+    let rgba = typeof value === "string" && parseHex(value.trim());
+    if (!rgba && typeof value === "string" && document) {
+      let ctx = contexts.get(document);
+      if (ctx === void 0) {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = canvas.height = 1;
+          ctx = canvas.getContext("2d", { willReadFrequently: true });
+        } catch {
+          ctx = null;
+        }
+        contexts.set(document, ctx || null);
+      }
+      if (ctx) try {
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = fallback;
+        ctx.fillStyle = value;
+        ctx.fillRect(0, 0, 1, 1);
+        const bytes = ctx.getImageData(0, 0, 1, 1).data;
+        rgba = [bytes[0], bytes[1], bytes[2], bytes[3] / 255];
+      } catch {
+      }
+    }
+    rgba ||= parseHex(fallback);
+    const base = parseHex(background);
+    return hex(rgba.slice(0, 3).map((v, i) => v * rgba[3] + base[i] * (1 - rgba[3])));
+  }
+  function mixNativeColors(a, b, amount = 0.5) {
+    if (!Number.isFinite(amount)) throw new Error("\\u539F\\u751F\\u4E3B\\u9898\\u6DF7\\u8272\\u6BD4\\u4F8B\\u5FC5\\u987B\\u662F\\u6709\\u9650\\u6570\\u503C");
+    const left = parseHex(a), right = parseHex(b), ratio = Math.max(0, Math.min(1, amount));
+    if (!left || !right) throw new Error("\\u539F\\u751F\\u4E3B\\u9898\\u6DF7\\u8272\\u9700\\u8981\\u5341\\u516D\\u8FDB\\u5236\\u989C\\u8272");
+    return hex(left.slice(0, 3).map((v, i) => v * (1 - ratio) + right[i] * ratio));
+  }
+  function resolveNativePalette(tokens = {}, document) {
+    const p = {};
+    for (const key of colorKeys) p[key] = color(tokens[key] ?? BLACK_GOLD.tokens[key], BLACK_GOLD.tokens[key], document, p.bg);
+    return Object.freeze({
+      ...p,
+      borderSoft: mixNativeColors(p.bg, p.border, 0.65),
+      highlight: mixNativeColors(p.accent, p.text, 0.36),
+      shadow: mixNativeColors(p.bg, "#000000", tokens.scheme === "light" ? 0.04 : 0.35),
+      selected: mixNativeColors(p.surface, p.accent, 0.23),
+      hover: mixNativeColors(p.surface, p.accent, 0.11),
+      accentSoft: mixNativeColors(p.bg, p.accent, 0.35)
+    });
+  }
+  var DEFAULT_NATIVE_PALETTE = resolveNativePalette();
+  function onDestroy(target, callback) {
+    if (!target || typeof target.destroy !== "function") return () => {
+    };
+    let entry = destruction.get(target);
+    if (!entry || target.destroy !== entry.wrapper) {
+      const original = target.destroy, own = Object.getOwnPropertyDescriptor(target, "destroy");
+      entry = { callbacks: /* @__PURE__ */ new Set(), own, original };
+      entry.wrapper = function(...args) {
+        try {
+          return original.apply(this, args);
+        } finally {
+          for (const fn of [...entry.callbacks]) fn();
+        }
+      };
+      try {
+        target.destroy = entry.wrapper;
+      } catch {
+        return () => {
+        };
+      }
+      if (target.destroy !== entry.wrapper) return () => {
+      };
+      destruction.set(target, entry);
+    }
+    entry.callbacks.add(callback);
+    return () => {
+      entry.callbacks.delete(callback);
+      if (!entry.callbacks.size) {
+        if (target.destroy === entry.wrapper) {
+          if (entry.own) Object.defineProperty(target, "destroy", entry.own);
+          else delete target.destroy;
+        }
+        if (destruction.get(target) === entry) destruction.delete(target);
+      }
+    };
+  }
+  function cacheFor(laya) {
+    let cache = textureCaches.get(laya);
+    if (!cache) textureCaches.set(laya, cache = /* @__PURE__ */ new Map());
+    return cache;
+  }
+  function prune(cache, laya) {
+    for (const [key, entry] of cache) {
+      if (cache.size <= 128) break;
+      if (entry.pending || entry.refs) continue;
+      cache.delete(key);
+      laya.loader.clearRes?.(entry.uri);
+    }
+  }
+  function surfaceSVG(p, width, height, { kind, selected, hover, disabled }) {
+    const panel = kind === "panel", option = kind === "option", tab = kind === "tab" || kind === "segment";
+    const active = selected && !disabled, over = hover && !disabled;
+    const radius = panel ? 6 : option ? 3 : 5, accent = disabled ? p.muted : p.accent;
+    let body;
+    if (option || tab) {
+      body = \`<defs><linearGradient id="wash"><stop stop-color="\${accent}" stop-opacity="\${active ? ".23" : ".09"}"/><stop offset="1" stop-color="\${accent}" stop-opacity="0"/></linearGradient></defs>\` + (active || over ? \`<rect x="1" y="1" width="\${width - 2}" height="\${height - 2}" rx="\${radius}" fill="url(#wash)"/>\` : "") + (active ? \`<rect x="1" y="\${option ? 7 : height - 2}" width="\${option ? 2 : width - 2}" height="\${option ? Math.max(1, height - 14) : 1}" rx="1" fill="\${accent}"/>\` : "");
+    } else {
+      body = \`<defs><linearGradient id="base" x2="0" y2="1"><stop stop-color="\${active ? p.selected : over ? p.hover : p.raised}"/><stop offset=".46" stop-color="\${active ? mixNativeColors(p.surface, p.accent, 0.16) : p.surface}"/><stop offset="1" stop-color="\${panel ? p.shadow : p.bg}"/></linearGradient><linearGradient id="rim" x2="0" y2="1"><stop stop-color="\${active ? accent : p.border}"/><stop offset=".5" stop-color="\${p.borderSoft}"/><stop offset="1" stop-color="\${p.shadow}"/></linearGradient></defs><rect x="1" y="2" width="\${width - 2}" height="\${height - 3}" rx="\${radius}" fill="#000" fill-opacity=".3"/><rect x=".5" y=".5" width="\${width - 1}" height="\${height - 2}" rx="\${radius}" fill="url(#base)" stroke="url(#rim)"/><path d="M\${radius + 1} 2H\${width - radius - 1}" stroke="\${p.highlight}" stroke-opacity="\${panel ? ".16" : ".21"}"/>\` + (active ? \`<path d="M8 \${height - 3}H\${width - 8}" stroke="\${accent}" stroke-opacity=".6"/>\` : "");
+    }
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(\`<svg xmlns="http://www.w3.org/2000/svg" width="\${width}" height="\${height}" viewBox="0 0 \${width} \${height}">\${body}</svg>\`);
+  }
+  function createNativeTheme({ themes, scope, window = {}, document = window.document } = {}) {
+    const states = /* @__PURE__ */ new WeakMap();
+    let lastSignature, palette = DEFAULT_NATIVE_PALETTE;
+    function current() {
+      const tokens = themes?.current?.tokens || {}, signature = JSON.stringify([...colorKeys, "scheme"].map((key) => tokens[key]));
+      if (lastSignature !== signature) {
+        lastSignature = signature;
+        palette = resolveNativePalette(tokens, document);
+      }
+      return palette;
+    }
+    function watch(fn, { target } = {}) {
+      if (scope.closed || target?.destroyed) return () => {
+      };
+      let off = () => {
+      }, offDestroy = () => {
+      }, active = true;
+      const release = scope.add(() => {
+        active = false;
+        off();
+        offDestroy();
+      });
+      const update = () => {
+        if (!active || scope.closed) return;
+        if (target?.destroyed) {
+          release();
+          return;
+        }
+        fn(current());
+      };
+      try {
+        off = themes?.subscribe?.(update) || (() => {
+        });
+        offDestroy = onDestroy(target, release);
+        update();
+      } catch (error) {
+        release();
+        throw error;
+      }
+      return release;
+    }
+    function bind(target, properties) {
+      if (!target || scope.closed || target.destroyed) return () => {
+      };
+      const saved = /* @__PURE__ */ new Map(), applied = /* @__PURE__ */ new Map();
+      let disposed = false;
+      for (const key of Object.keys(properties)) {
+        const own = Object.getOwnPropertyDescriptor(target, key);
+        let inherited;
+        for (let parent = Object.getPrototypeOf(target); parent && !inherited; parent = Object.getPrototypeOf(parent)) inherited = Object.getOwnPropertyDescriptor(parent, key);
+        saved.set(key, { own, setter: !!(own || inherited)?.set, value: target[key] });
+      }
+      const restoreFields = () => {
+        if (target.destroyed) return;
+        for (const [key, old] of saved) if (applied.has(key) && target[key] === applied.get(key)) {
+          applied.delete(key);
+          if (old.setter) target[key] = old.value;
+          else if (old.own) Object.defineProperty(target, key, old.own);
+          else delete target[key];
+        }
+      };
+      const restore = scope.add(() => {
+        disposed = true;
+        restoreFields();
+      });
+      let unwatch;
+      try {
+        unwatch = watch((p) => {
+          for (const [key, value] of Object.entries(properties)) {
+            if (typeof value !== "function" && !Object.hasOwn(p, value)) throw new Error(\`\\u672A\\u77E5\\u539F\\u751F\\u4E3B\\u9898\\u989C\\u8272\\uFF1A\${value}\`);
+            const next = typeof value === "function" ? value(p) : p[value];
+            if (disposed || scope.closed || target.destroyed) return;
+            applied.set(key, next);
+            target[key] = next;
+            if (target.destroyed) return;
+            applied.set(key, target[key]);
+            if (disposed || scope.closed) {
+              restoreFields();
+              return;
+            }
+          }
+        }, { target });
+      } catch (error) {
+        restore();
+        throw error;
+      }
+      if (scope.closed || target.destroyed) {
+        unwatch();
+        restore();
+        return () => {
+        };
+      }
+      let offDestroy = () => {
+      };
+      const release = scope.add(() => {
+        unwatch();
+        restore();
+        offDestroy();
+      });
+      if (!scope.closed && !target.destroyed) offDestroy = onDestroy(target, release);
+      return release;
+    }
+    function surface(node, options = {}) {
+      if (scope.closed || node?.destroyed || !node?.graphics) return;
+      const p = current(), width = Number(options.width ?? node.width), height = Number(options.height ?? node.height);
+      if (!Number.isFinite(width) || !Number.isFinite(height) || width < 4 || height < 4 || width > 4096 || height > 4096) return;
+      const config = { kind: options.kind || "button", selected: !!options.selected, hover: !!options.hover, disabled: !!options.disabled };
+      const uri = surfaceSVG(p, width, height, config), laya = window.Laya ?? window.laya;
+      let state = states.get(node);
+      if (state?.key === uri && state.entry && (state.entry.texture || state.entry.pending)) return;
+      if (!state) {
+        state = { key: "", entry: null, cancel: () => {
+        }, active: true };
+        states.set(node, state);
+        let offDestroy = () => {
+        };
+        const release = scope.add(() => {
+          state.active = false;
+          state.cancel();
+          if (state.entry) {
+            state.entry.refs--;
+            if (!node.destroyed && node._sgsNativeSurfaceKey === state.key) node.graphics.clear();
+            if (laya) prune(cacheFor(laya), laya);
+          }
+          offDestroy();
+          states.delete(node);
+        });
+        offDestroy = onDestroy(node, release);
+      }
+      state.cancel();
+      node.graphics.clear();
+      if (state.entry) state.entry.refs--;
+      state.entry = null;
+      state.key = uri;
+      node._sgsNativeSurfaceKey = uri;
+      node._sgsNativeSurfaceAppliedKey = "";
+      if (!["option", "tab", "segment"].includes(config.kind)) node.graphics.drawRect(1, 1, width - 2, height - 2, p.surface);
+      if (!laya?.loader?.load || !laya?.Handler?.create) return;
+      const cache = cacheFor(laya);
+      let entry = cache.get(uri);
+      if (entry) {
+        cache.delete(uri);
+        cache.set(uri, entry);
+      } else {
+        entry = { uri, refs: 0, pending: true, texture: null, waiters: /* @__PURE__ */ new Set() };
+        cache.set(uri, entry);
+      }
+      state.entry = entry;
+      entry.refs++;
+      const draw = (texture) => {
+        if (!texture || scope.closed || !state.active || node.destroyed || state.key !== uri || node._sgsNativeSurfaceKey !== uri) return;
+        state.cancel();
+        node.graphics.clear();
+        node.graphics.drawTexture(texture, 0, 0, width, height);
+        node._sgsNativeSurfaceAppliedKey = uri;
+      };
+      if (entry.texture) {
+        draw(entry.texture);
+        prune(cache, laya);
+        return;
+      }
+      entry.waiters.add(draw);
+      state.cancel = () => entry.waiters.delete(draw);
+      if (entry.started) return;
+      entry.started = true;
+      try {
+        laya.loader.load(uri, laya.Handler.create(null, (texture) => {
+          entry.pending = false;
+          entry.texture = texture;
+          for (const waiter of [...entry.waiters]) waiter(texture);
+          entry.waiters.clear();
+          if (!texture) cache.delete(uri);
+          prune(cache, laya);
+        }), null, laya.Loader?.IMAGE);
+      } catch (error) {
+        entry.pending = false;
+        cache.delete(uri);
+        entry.waiters.clear();
+        throw error;
+      }
+    }
+    return Object.freeze({
+      get palette() {
+        return current();
+      },
+      watch,
+      bind,
+      surface,
+      chevron(node, x, y, open, ink = current().accent) {
+        if (scope.closed || node?.destroyed) return;
+        node.graphics.clear();
+        node.graphics.drawLines(x, y, open ? [0, 3, 3, 0, 6, 3] : [0, 0, 3, 3, 6, 0], ink, 1.2);
+      },
+      get cacheStats() {
+        const laya = window.Laya ?? window.laya, entries = laya ? [...cacheFor(laya).values()] : [];
+        return { entries: entries.length, pending: entries.filter((e) => e.pending).length, live: entries.reduce((n, e) => n + e.refs, 0) };
+      }
+    });
+  }
+  var fallbacks = /* @__PURE__ */ new WeakMap();
+  function getNativeTheme(ctx) {
+    if (ctx.ui?.nativeTheme) return ctx.ui.nativeTheme;
+    let theme = fallbacks.get(ctx);
+    if (!theme) {
+      theme = createNativeTheme(ctx);
+      fallbacks.set(ctx, theme);
+    }
+    return theme;
+  }
+
+  // src/plugins/player-info/officer-style.js
+  function officerTone(name) {
+    const n = String(name || "").replace(/\\s/g, "");
+    if (/^(\u5927\u5C06\u519B|\u5927\u53F8\u9A6C)$/.test(n)) return "red";
+    if (n === "\\u536B\\u5C06\\u519B") return "green";
+    if (n === "\\u8F66\\u9A91\\u5C06\\u519B") return "blue";
+    if (n === "\\u9AA0\\u9A91\\u5C06\\u519B") return "purple";
+    if (n === "\\u56FD\\u90FD\\u62A4") return "gold";
+    if (/^(\u5C06\u519B|\u4E0A\u5C06\u519B|\u56FD\u62A4\u519B)$/.test(n)) return "purple";
+    if (/^(\u9A81\u5352|\u6821\u5C09|\u90CE\u5C06|\u504F\u5C06\u519B)$/.test(n)) return "gray";
+    return null;
+  }
+  function officerColor(name, surface, fallback) {
+    const rgb = /^#([0-9a-f]{6})$/i.exec(surface || "");
+    const bytes = rgb ? rgb[1].match(/../g).map((v) => parseInt(v, 16)) : [32, 30, 26];
+    const light = bytes[0] * 0.2126 + bytes[1] * 0.7152 + bytes[2] * 0.0722 > 150;
+    const colors = light ? { gray: "#706e69", purple: "#75429e", green: "#347349", blue: "#315c96", gold: "#886216", red: "#a23c36" } : { gray: "#aaa8a2", purple: "#c5a0f0", green: "#89c799", blue: "#8eb8f0", gold: "#ddbd74", red: "#f49388" };
+    return colors[officerTone(name)] || fallback;
+  }
+
+  // src/plugins/player-info/stats-view.js
+  function displayRect(host, L) {
+    if (!host || host.destroyed || host.visible === false || host.parent === null || !host.localToGlobal) return null;
+    for (let n = host, i = 0; n && i < 64; n = n.parent, i++) if (n.visible === false || n.destroyed) return null;
+    const a = host.localToGlobal(new L.Point(0, 0)), b = host.localToGlobal(new L.Point(host.width, host.height));
+    return [a.x, a.y, b.x, b.y].every(Number.isFinite) && b.x > a.x && b.y > a.y ? { x: a.x - 5, y: a.y - 5, width: b.x - a.x + 10, height: b.y - a.y + 10 } : null;
+  }
+  function portraitRect(ui, L) {
+    if (!ui || ui.destroyed || ui.visible === false) return null;
+    const avatar = ui.seatAvatar ?? ui.SeatAvatar, clip = avatar?.scrollRect;
+    const host = avatar || ui.seatBaseSprite;
+    if (!host || host.destroyed || host.parent === null || host.displayedInStage === false || typeof host.localToGlobal !== "function") return null;
+    for (let n = host, i = 0; n && i < 64; n = n.parent, i++) if (n.visible === false || n.destroyed) return null;
+    const x = avatar ? clip?.x || 0 : ui.seatX, y = avatar ? clip?.y || 0 : ui.seatY;
+    const w = avatar ? clip?.width || avatar.width : ui.ScaledWidth;
+    const h = avatar ? clip?.height || avatar.height : ui.ScaledHeight;
+    if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) return null;
+    const a = host.localToGlobal(new L.Point(x, y)), b = host.localToGlobal(new L.Point(x + w, y + h));
+    return { x: a.x, y: a.y, width: b.x - a.x, height: b.y - a.y };
+  }
+  function createStatsView(ctx) {
+    const entries = /* @__PURE__ */ new Map(), theme = getNativeTheme(ctx);
+    let palette = theme.palette;
+    function clear() {
+      for (const e of entries.values()) e.root.destroy(true);
+      entries.clear();
+    }
+    ctx.scope.add(clear);
+    ctx.scope.add(theme.watch((p) => {
+      palette = p;
+    }));
+    const view = { scene: null, clear, update(rows, seats = rows.map((row) => row.ui)) {
+      const L = ctx.window?.Laya ?? ctx.window?.laya, stage = L?.stage;
+      if (!stage || !L.Sprite || !L.Text || !L.Point) {
+        clear();
+        return;
+      }
+      const mapped = rows.map((row) => ({ ...row, rect: portraitRect(row.ui, L) })).filter((row) => row.rect);
+      const portraits = seats.map((ui) => ({ ui, rect: portraitRect(ui, L) })).filter((row) => row.rect);
+      const obstacles = portraits.flatMap(({ rect: r }) => [
+        r,
+        // Reserve the entire strip below each portrait for teammate/public hands.
+        { x: r.x - 180, y: r.y + r.height - 2, width: r.width + 360, height: 110 }
+      ]);
+      for (const { ui } of portraits) for (const node of [ui.otherTopManager?.handCardSpr, ui.otherTopManager?.proptip]) {
+        const r = displayRect(node, L);
+        if (r) obstacles.push(r);
+      }
+      const active = /* @__PURE__ */ new Set();
+      for (const row of mapped) {
+        let position = null;
+        for (const width of [248, 224, 208]) {
+          position = placeStats(row.rect, obstacles, stage, width, 86);
+          if (position) break;
+        }
+        if (!position) continue;
+        obstacles.push(position);
+        active.add(row.ui);
+        let e = entries.get(row.ui);
+        if (!e || e.root.destroyed) {
+          const root2 = new L.Sprite();
+          root2.name = "sgs-player-stats";
+          root2.mouseEnabled = false;
+          root2.zOrder = 90;
+          const background = new L.Sprite();
+          background.name = "sgs-player-stats-background";
+          background.alpha = 0.76;
+          background.mouseEnabled = false;
+          root2.addChild(background);
+          const lines2 = Array.from({ length: 3 }, (_, i) => {
+            const t = new L.Text();
+            t.font = "Microsoft YaHei";
+            t.fontSize = 12;
+            t.height = 23;
+            t.pos(12, [9, 35, 61][i]);
+            root2.addChild(t);
+            return t;
+          });
+          const badge2 = new L.Sprite();
+          root2.addChild(badge2);
+          const badgeText = new L.Text();
+          badgeText.width = 85;
+          badgeText.height = 18;
+          badge2.addChild(badgeText);
+          stage.addChild(root2);
+          e = { root: root2, background, lines: lines2, badge: badge2, badgeText };
+          entries.set(row.ui, e);
+        }
+        const { root, lines, badge } = e, p = palette;
+        root.pos(position.x, position.y);
+        root.size(position.width, 86);
+        e.background.size(position.width, 86);
+        theme.surface(e.background, { kind: "panel" });
+        lines[0].text = row.name;
+        lines[0].bold = true;
+        lines[0].color = p.text;
+        lines[1].text = row.second;
+        lines[2].text = row.third;
+        for (const line of lines) {
+          line.width = position.width - 24;
+          line.fontSize = 12;
+          line.wordWrap = false;
+          line.overflow = "hidden";
+        }
+        lines[0].fontSize = 14;
+        lines[1].fontSize = row.second.length > 22 ? 12 : 14;
+        lines[1].bold = true;
+        lines[0].width = position.width - 120;
+        while (lines[0].textWidth > lines[0].width && lines[0].text.length > 2) lines[0].text = lines[0].text.replace(/\u2026$/, "").slice(0, -1) + "\\u2026";
+        root.ToolTip = row.name;
+        lines[1].color = p.text;
+        lines[2].color = row.streakState === "win" ? p.accent : row.streakState === "loss" ? p.danger : p.muted;
+        badge.graphics.clear();
+        badge.pos(position.width - 107, 10);
+        e.badgeText.visible = !row.robot;
+        if (row.robot) {
+          badge.graphics.drawRect(5, 3, 18, 12, null, p.accent, 1.5);
+          badge.graphics.drawLine(14, 0, 14, 3, p.accent, 1.5);
+          badge.graphics.drawCircle(10, 8, 1.3, p.accent);
+          badge.graphics.drawCircle(18, 8, 1.3, p.accent);
+          badge.graphics.drawLine(10, 12, 18, 12, p.accent, 1);
+          badge.graphics.drawLine(2, 6, 2, 12, p.accent, 1.5);
+          badge.graphics.drawLine(26, 6, 26, 12, p.accent, 1.5);
+        } else {
+          const native = row.ui.otherTopManager, texture = native?.officerIcon?.texture;
+          if (texture) badge.graphics.drawTexture(texture, 0, -1, 23, 20);
+          const label = e.badgeText;
+          label.text = native?.officerText?.text || "\\u5B98\\u9636\\u672A\\u77E5";
+          label.font = native?.officerText?.font || "Microsoft YaHei";
+          label.fontSize = 12;
+          label.bold = true;
+          label.color = officerColor(label.text, p.surface, p.muted);
+          label.pos(texture ? 27 : 0, 1);
+        }
+      }
+      for (const [ui, e] of entries) if (!active.has(ui)) {
+        e.root.destroy(true);
+        entries.delete(ui);
+      }
+    } };
+    return view;
+  }
+
+  // src/plugins/player-info/stats.js
+  function createPlayerStats(ctx) {
+    const view = createStatsView(ctx);
+    let generation = 0, identity = "", requests = /* @__PURE__ */ new Map(), ranks = /* @__PURE__ */ new Map(), records = /* @__PURE__ */ new Map(), proxy = null, release = () => {
+    }, nextSend = 0;
+    let config = null, configRequested = false;
+    const getManager = () => manager(ctx, "UserInfoManger", "ClientGameRecordInfoRep", (m) => typeof m.SendClientGameRecordInfoReq === "function");
+    function clear() {
+      generation++;
+      requests.clear();
+      ranks.clear();
+      records.clear();
+      view.clear();
+      identity = "";
+      release();
+      proxy = null;
+    }
+    ctx.scope.add(clear);
+    function bind() {
+      const p = read2(() => ctx.game.getServerProxy());
+      if (p === proxy) return;
+      release();
+      proxy = p;
+      if (!p?.on || !p?.off) {
+        release = () => {
+        };
+        return;
+      }
+      const owner = {}, accept = (packet) => {
+        const body = read2(() => packet.Protocol);
+        const name = read2(() => body.nickName);
+        const record = read2(() => body.oriData.curCycData.curRecord);
+        if (body?.result !== 0 || body.ranktype != null && body.ranktype !== 7 || !record || !requests.has("rank:" + name)) return;
+        const value = { curCycData: { roundId: read2(() => body.oriData.curCycData.roundId), curRecord: {
+          winCnt: record.winCnt,
+          loseCnt: record.loseCnt,
+          maxLevel: { level: read2(() => record.maxLevel.level), star: read2(() => record.maxLevel.star) }
+        } } };
+        const token = generation;
+        ctx.scope.timeout(() => {
+          if (generation === token && !ctx.scope.signal.aborted) ranks.set(name, value);
+        }, 0);
+      };
+      p.on("ClientTTRankInfoRep", owner, accept);
+      const acceptRecords = (packet) => {
+        const body = read2(() => packet.Protocol), uuid = read2(() => body.Uuid), tab = read2(() => body.Tab), recordId = read2(() => body.RecordId);
+        const key = tab > 0 ? \`rate:\${uuid}:\${tab}\` : \`streak:\${uuid}:\${recordId}\`;
+        const rows = read2(() => body.RecordItems);
+        if (!requests.has(key) || !Array.isArray(rows) || rows.length > 100) return;
+        const value = rows.map((r) => ({ GameOverTime: read2(() => r.GameOverTime), GameResult: read2(() => r.GameResult) }));
+        const token = generation;
+        ctx.scope.timeout(() => {
+          if (generation === token && !ctx.scope.signal.aborted) records.set(key, value);
+        }, 0);
+      };
+      p.on("ClientGameRecordInfoRep", owner, acceptRecords);
+      release = ctx.scope.add(() => {
+        p.off("ClientTTRankInfoRep", owner, accept);
+        p.off("ClientGameRecordInfoRep", owner, acceptRecords);
+      });
+    }
+    function request(key, action) {
+      if (requests.has(key) || Date.now() < nextSend) return;
+      requests.set(key, true);
+      nextSend = Date.now() + 400;
+      try {
+        action();
+      } catch (e) {
+        requests.set(key, String(e?.message || e));
+      }
+    }
+    return { clear, update(snapshot, session) {
+      if (ctx.scope.signal.aborted) return;
+      const raw = snapshot.modeId ?? roomMode(read2(() => roomController(ctx).TableId)), mode = statsMode(raw);
+      const who = read2(() => ctx.game.getSelf()?.ClientId);
+      const scene = read2(() => ctx.game.getScene());
+      const key = \`\${who || ""}:\${session ?? ""}:\${raw ?? ""}\`;
+      if (!snapshot.inGame || snapshot.isReplay || !mode || !who) {
+        if (identity) clear();
+        return;
+      }
+      if (identity !== key || view.scene !== scene) {
+        clear();
+        identity = key;
+        view.scene = scene;
+      }
+      bind();
+      if (mode.kind === "rank" && !configRequested && typeof ctx.game.loadConfigData === "function") {
+        configRequested = true;
+        ctx.game.loadConfigData("mod_new_ttrank_config").then((value) => {
+          if (!ctx.scope.signal.aborted) config = value;
+        }, () => {
+        });
+      }
+      config ||= read2(() => ctx.game.getConfigData("mod_new_ttrank_config"));
+      const mgr = getManager(), self = read2(() => ctx.game.getSelf()), User = self?.constructor;
+      const seats = (read2(() => ctx.game.getSeatUIs()) || []).slice(0, 8), rows = [];
+      for (const ui of seats) {
+        const seat = nativeSeat(ui), user = read2(() => seat.PlayerInfo) ?? read2(() => seat.playerInfo);
+        const id2 = read2(() => user.ClientId) ?? read2(() => user.clientId), uuid = read2(() => user.Uuid);
+        if (!Number.isSafeInteger(Number(id2)) || Number(id2) <= 0 || seat?.IsFull === false) continue;
+        if (String(id2) === String(who) || seat?.IsSelf === true || user?.IsSelf === true) continue;
+        const robot = Number(id2) > 4e9 || user.IsRobot === true;
+        const nick = read2(() => user.Nickname) ?? read2(() => user.NickNameForLocal) ?? read2(() => user.NickName);
+        if (!robot && uuid > 0 && mgr) {
+          if (typeof mgr.SendClientGameRecordInfoReqByTab === "function")
+            request(\`rate:\${uuid}:\${mode.tab}\`, () => mgr.SendClientGameRecordInfoReqByTab(uuid, mode.tab, false, 100));
+          if (typeof mgr.SendClientGameRecordInfoReq === "function")
+            request(\`streak:\${uuid}:\${mode.record}\`, () => mgr.SendClientGameRecordInfoReq(uuid, mode.record, null, 100));
+          if (mode.kind === "rank" && nick && typeof User?.SendUserTTDateReq === "function")
+            request("rank:" + nick, () => User.SendUserTTDateReq(nick));
+        }
+        const hundred = read2(() => mgr.GetWinRateInfoByUuId(uuid, mode.tab));
+        const recent = read2(() => mgr.GetWinRateInfoById(uuid, mode.record));
+        const rank = rankSummary(ranks.get(nick), config);
+        const recentRows = records.get(\`streak:\${uuid}:\${mode.record}\`) ?? read2(() => recent.RecordItems);
+        const hundredRows = records.get(\`rate:\${uuid}:\${mode.tab}\`) ?? read2(() => hundred.RecordItems);
+        const streak = currentStreak(recentRows, { nativeOrder: true }) ?? currentStreak(hundredRows, { nativeOrder: true });
+        const rate = mode.kind === "rank" ? rank?.rate : hundredRate(hundred);
+        const second = \`\\u80DC\\u7387 \${rate ?? "\\u672A\\u77E5"}\${mode.kind === "rank" ? \` \\xB7 \${rank?.name ?? "\\u6BB5\\u4F4D\\u672A\\u77E5"} \${rank?.stars == null ? "\\u661F\\u6570\\u672A\\u77E5" : rank.stars + "\\u661F"}\` : ""}\`;
+        const failed = [...requests].some(([k, v]) => typeof v === "string" && (k.includes(String(uuid)) || k === "rank:" + nick));
+        const name = read2(() => user.NickNameForLocal) ?? nick;
+        rows.push({
+          ui,
+          name: typeof name === "string" && name.trim() ? name.trim() : "\\u6635\\u79F0\\u672A\\u77E5",
+          robot,
+          second: robot ? "\\u80DC\\u7387 \\u672A\\u77E5" : second,
+          third: robot ? "\\u6682\\u65E0\\u6218\\u7EE9" : streak ? \`\${streak.lowerBound ? "\\u81F3\\u5C11" : ""}\${streak.count}\${streak.win ? "\\u8FDE\\u80DC" : "\\u8FDE\\u8D25"}\` : failed ? "\\u6218\\u7EE9\\u8BFB\\u53D6\\u5931\\u8D25" : "\\u8FD1\\u671F\\u6218\\u7EE9\\u672A\\u8BFB\\u53D6",
+          streakState: streak ? streak.win ? "win" : "loss" : "unknown"
+        });
+      }
+      view.update(rows, seats);
+    } };
+  }
+
+  // src/plugins/player-info/index.js
+  var manifest = {
+    id: "player-info",
+    name: "\\u73A9\\u5BB6\\u4FE1\\u606F",
+    version: "0.3.3",
+    apiVersion: 1,
+    contractVersion: 1,
+    minCoreVersion: "0.5.0",
+    description: "\\u6392\\u4F4D\\u3001\\u5355\\u9A91\\u3001\\u6597\\u5730\\u4E3B\\u663E\\u793A\\u73A9\\u5BB6\\u80DC\\u7387\\u548C\\u8FDE\\u80DC\\u8D25\\uFF0C\\u652F\\u6301\\u4EBA\\u673A\\u63D0\\u793A\\u4E0E\\u81EA\\u9009\\u8EAB\\u4EFD\\u8865\\u5168",
+    icon: { paths: ["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"] },
+    priority: 30200,
+    categories: []
+  };
+  var read3 = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return void 0;
+    }
+  };
+  var initialState = () => ({ sessionId: null, identityBlocked: false });
+  var reduce = (state, event) => ({
+    sessionId: event.sessionId ?? state.sessionId,
+    identityBlocked: state.identityBlocked || /Reconnect/.test(event.type) || event.type === "toolbox:gap" || event.type === "MsgGamePlayCardNtf" && Boolean(event.payload?.IsResume)
+  });
+  function legacyRobot(id2) {
+    if (typeof id2 !== "number" && typeof id2 !== "string" || String(id2).trim() === "") return null;
+    const n = Number(id2);
+    return Number.isSafeInteger(n) && n > 0 ? n > 4e9 : null;
+  }
+  function visible(node, stage) {
+    const seen = /* @__PURE__ */ new Set();
+    for (let n = node; n && seen.size < 64 && !seen.has(n); n = n.parent) {
+      if (n.destroyed || n.visible === false || n._visible === false || n.alpha === 0) return false;
+      if (n === stage) return true;
+      seen.add(n);
+    }
+    return false;
+  }
+  function profileViews(stage, ViewClass) {
+    const queue = [...stage?._children || []], result = [], seen = /* @__PURE__ */ new Set();
+    for (let i = 0; i < queue.length && i < 512; i++) {
+      const n = queue[i];
+      if (!n || seen.has(n) || !visible(n, stage) || n.layerOrder === 2 || n.LayerOrder === 2) continue;
+      seen.add(n);
+      if ([read3(() => n.constructor.name), n.name, n.ClassName].includes("UserInfoView") || typeof ViewClass === "function" && read3(() => n instanceof ViewClass)) result.push(n);
+      if (Array.isArray(n._children)) queue.push(...n._children.slice(0, 512 - queue.length));
+    }
+    return result;
+  }
+  function activate(ctx) {
+    const { document: doc, scope } = ctx;
+    const identities = createIdentityHints(ctx);
+    const stats = createPlayerStats(ctx);
+    let banner = null, until = 0, account, battle = null, announced = false, profiles = /* @__PURE__ */ new Map();
+    function clear() {
+      banner?.remove();
+      banner = null;
+      until = 0;
+    }
+    function theme() {
+      if (!banner) return;
+      const t = { ...BLACK_GOLD.tokens, ...ctx.themes?.current?.tokens };
+      Object.assign(banner.style, { background: t.surface, color: t.text, borderColor: t.border, fontFamily: t.font });
+      banner.querySelector("small").style.color = t.muted;
+      banner.querySelector("strong").style.color = t.accent;
+    }
+    function show(text, duration) {
+      if (!doc.body) return;
+      clear();
+      banner = doc.createElement("div");
+      banner.dataset.sgsPlayerInfo = "";
+      banner.setAttribute("role", "status");
+      banner.style.cssText = "position:fixed;z-index:2147483600;box-sizing:border-box;padding:10px 18px;border:1px solid;border-radius:10px;box-shadow:0 5px 18px #0003;pointer-events:none;text-align:center;font-size:14px;line-height:1.6;overflow-wrap:anywhere";
+      const title = doc.createElement("strong"), detail = doc.createElement("small");
+      title.textContent = text;
+      detail.textContent = "\\u4F9D\\u636E\\u8D26\\u53F7\\u89C4\\u5219\\u8BC6\\u522B";
+      detail.style.cssText = "display:block;font-size:11px";
+      banner.append(title, detail);
+      doc.body.append(banner);
+      until = Date.now() + duration;
+      theme();
+      position();
+    }
+    function position() {
+      if (!banner) return;
+      const canvas = doc.querySelector("#layaCanvas") || doc.querySelector("canvas");
+      const r = canvas?.getBoundingClientRect();
+      if (!r || r.width <= 0 || r.height <= 0) {
+        clear();
+        return;
+      }
+      const width = Math.max(0, Math.min(r.width - 16, ctx.window.innerWidth - 16, 360));
+      banner.style.width = width + "px";
+      banner.style.left = Math.max(8, Math.min(r.left + (r.width - width) / 2, ctx.window.innerWidth - width - 8)) + "px";
+      banner.style.top = Math.max(8, r.top + 12) + "px";
+    }
+    function tick() {
+      if (scope.signal.aborted) return;
+      const nextAccount = read3(() => ctx.game.getSelf()?.ClientId);
+      if (account !== nextAccount) {
+        clear();
+        identities.clear();
+        profiles.clear();
+        battle = null;
+        announced = false;
+        account = nextAccount;
+      }
+      const stage = ctx.window.Laya?.stage ?? ctx.window.laya?.stage;
+      const nextProfiles = /* @__PURE__ */ new Map();
+      for (const view of profileViews(stage, read3(() => ctx.game.getClass("UserInfoView")))) {
+        const id2 = read3(() => view.userData.ClientId);
+        nextProfiles.set(view, id2);
+        if (profiles.get(view) !== id2 && legacyRobot(id2) === true) show("\\u8FD9\\u662F\\u4E2A\\u4EBA\\u673A", 5e3);
+      }
+      profiles = nextProfiles;
+      const snapshot = read3(() => ctx.game.getSnapshot()) || {};
+      const scene = snapshot.inGame ? read3(() => ctx.game.getScene()) : null;
+      const key = scene ? ctx.getState?.()?.sessionId : null;
+      if (!scene || battle?.scene !== scene || battle?.key !== key) {
+        identities.clear();
+        battle = scene ? { scene, key } : null;
+        announced = false;
+      }
+      identities.update(snapshot, ctx.getState?.()?.identityBlocked === true);
+      stats.update(snapshot, key);
+      if (scene && !announced) {
+        const seats = read3(() => ctx.game.getSeatUIs()) || [];
+        if (seats.slice(0, 8).some((ui) => {
+          const seat = nativeSeat(ui);
+          return seat?.IsFull !== false && legacyRobot(read3(() => (seat.playerInfo ?? seat.PlayerInfo).ClientId)) === true;
+        })) {
+          announced = true;
+          show("\\u4EBA\\u673A\\u5BF9\\u6218", 8e3);
+        }
+      }
+      if (banner && Date.now() >= until) clear();
+      position();
+    }
+    scope.add(clear);
+    if (ctx.themes?.subscribe) scope.add(ctx.themes.subscribe(theme));
+    scope.interval(tick, 250);
+    tick();
+  }
+  var index_default = { manifest, initialState, reduce, activate };
+  return __toCommonJS(index_exports);
+})();
+
+return {...SGSPlugin.default, manifest:{"id":"player-info","name":"\u73A9\u5BB6\u4FE1\u606F","version":"0.3.3","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.0","description":"\u6392\u4F4D\u3001\u5355\u9A91\u3001\u6597\u5730\u4E3B\u663E\u793A\u73A9\u5BB6\u80DC\u7387\u548C\u8FDE\u80DC\u8D25\uFF0C\u652F\u6301\u4EBA\u673A\u63D0\u793A\u4E0E\u81EA\u9009\u8EAB\u4EFD\u8865\u5168","icon":{"paths":["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0","M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"]},"priority":30200,"categories":[]}};
+`, sha256: "58f268e5b1e60da4b1177cf84c7b02f76331c99669e0dc74b614a22e4f8c80f9" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "native-cards", name: "\u5B98\u65B9\u5361\u724C", version: "0.1.0", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.95", categories: [], icon: "cards", priority: 50090, description: "\u590D\u7528\u5B98\u65B9\u7ECF\u5178\u4E0E\u5927\u5C06\u519B\u4E24\u5957\u5361\u9762\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u4E2D\u6210\u5957\u9009\u7528" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -9058,7 +10068,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\u8F85\u52A9","version":"0.1.6","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.13","description":"\u957F\u6309\u6280\u80FD\u81EA\u52A8\u53D1\u52A8\u4E0E\u8DE8\u5C40\u8BB0\u5FC6\uFF0C\u9009\u597D\u81EA\u52A8\u786E\u5B9A\u3001\u706B\u653B\u548C\u8BE2\u95EE\u8DF3\u8FC7\u3002","icon":{"paths":["M4 5h10v14H4zM7 8h4M7 11h3","m17 3-3 8h5l-3 10 7-13h-5l2-5"]},"priority":12000,"categories":["game"]}};
-`, sha256: "f156d1f1942ebc2abf0003230bdb175aac363c6f3e304441629f0f46ac866474" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "daily-rewards", name: "\u65E5\u5E38\u9886\u5956", version: "0.7.12", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.124", categories: ["automation"], icon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, priority: 2e4, description: "\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55" }, code: `var SGSPlugin = (() => {
+`, sha256: "f156d1f1942ebc2abf0003230bdb175aac363c6f3e304441629f0f46ac866474" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "daily-rewards", name: "\u65E5\u5E38\u9886\u5956", version: "0.7.15", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.6.3", categories: ["automation"], icon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, priority: 2e4, description: "\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -10178,6 +11188,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     return result;
   }
+  var CLIPBOARD_PARSER_VERSION = 2;
+  function shortClipboardPhrase(code) {
+    if (!/^[\\p{Script=Han}A-Za-z0-9]{4,14}$/u.test(code)) return false;
+    const han = (code.match(/\\p{Script=Han}/gu) || []).length;
+    const ascii = (code.match(/[A-Za-z0-9]/g) || []).length;
+    const status = /\u5DF2\u786E\u8BA4|\u672A\u786E\u8BA4|\u5DF2\u9886\u53D6|\u672A\u9886\u53D6|\u9886\u53D6\u6210\u529F|\u9886\u53D6\u5931\u8D25|\u5151\u6362\u6210\u529F|\u5151\u6362\u5931\u8D25|\u672A\u6536\u5230|\u5DF2\u8DF3\u8FC7|\u5DF2\u5FFD\u7565|\u5DF2\u5F00\u542F|\u5DF2\u5173\u95ED|\u5DF2\u505C\u6B62|\u7B49\u5F85|\u6B63\u5728|\u672C\u8F6E|\u526A\u8D34\u677F|\u670D\u52A1\u5668|\u81EA\u52A8\u9886\u53D6|\u8BFB\u53D6|\u65B0\u589E|\u6210\u529F\u4E0A\u62A5/;
+    return !status.test(code) && han <= 8 && ascii <= 6 && (han >= 4 || han >= 3 && ascii > 0);
+  }
   function parseClipboardCodes(text, known = /* @__PURE__ */ new Set()) {
     if (typeof text !== "string" || !text.trim() || text.length > MAX_TEXT) return { text: "", reason: "\\u526A\\u8D34\\u677F\\u4E0D\\u662F\\u53EF\\u8BC6\\u522B\\u7684\\u5151\\u6362\\u7801\\u5217\\u8868\\uFF0C\\u5DF2\\u5FFD\\u7565" };
     const lines = text.trim().split(/\\r?\\n/).filter((line) => line.trim());
@@ -10188,7 +11206,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       for (const code of tokens) {
         const valid3 = /^[\\p{Script=Han}A-Za-z0-9!\uFF01_-]{3,40}$/u.test(code) && new TextEncoder().encode(code).length <= 64;
         const serial = /^[A-Za-z0-9_-]{6,40}$/.test(code) && /[A-Za-z]/.test(code) && /\\d/.test(code);
-        if (!valid3 || !marked && !serial && !known.has(code)) return { text: "", reason: "\\u526A\\u8D34\\u677F\\u5305\\u542B\\u666E\\u901A\\u6587\\u5B57\\u6216\\u672A\\u6807\\u660E\\u7684\\u53E3\\u4EE4\\uFF0C\\u5DF2\\u6574\\u6BB5\\u5FFD\\u7565\\uFF1B\\u4E2D\\u6587\\u53E3\\u4EE4\\u8BF7\\u590D\\u5236\\u201C\\u5151\\u6362\\u7801\\uFF1A\\u53E3\\u4EE4\\u201D" };
+        if (!valid3 || !marked && !serial && !known.has(code) && !shortClipboardPhrase(code)) return { text: "", reason: "\\u526A\\u8D34\\u677F\\u5305\\u542B\\u8BF4\\u660E\\u3001\\u72B6\\u6001\\u6216\\u65E0\\u6CD5\\u8BC6\\u522B\\u7684\\u6587\\u5B57\\uFF0C\\u5DF2\\u6574\\u6BB5\\u5FFD\\u7565\\uFF1B\\u7279\\u6B8A\\u53E3\\u4EE4\\u8BF7\\u590D\\u5236\\u201C\\u5151\\u6362\\u7801\\uFF1A\\u53E3\\u4EE4\\u201D" };
+        if (!marked && line.trim() !== code && !serial && !known.has(code)) return { text: "", reason: "\\u4E2D\\u6587\\u53E3\\u4EE4\\u8BF7\\u6BCF\\u884C\\u4E00\\u4E2A\\uFF1B\\u6DF7\\u6709\\u8BF4\\u660E\\u6216\\u72B6\\u6001\\u7684\\u5185\\u5BB9\\u5DF2\\u6574\\u6BB5\\u5FFD\\u7565" };
         codes.push(code);
       }
     }
@@ -10205,6 +11224,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
   function shareableCode(code) {
     return typeof code === "string" && parseCodes(code).codes.length === 1 && /^[\\p{Script=Han}A-Za-z0-9\uFF01!_-]{4,40}$/u.test(code) && /\\p{Script=Han}/u.test(code) && !/[A-Za-z0-9_-]*[A-Za-z][A-Za-z0-9_-]*\\d[A-Za-z0-9_-]*|[A-Za-z0-9_-]*\\d[A-Za-z0-9_-]*[A-Za-z][A-Za-z0-9_-]*/u.test(code);
+  }
+  function reportableCode(code) {
+    return typeof code === "string" && /^[\\p{Script=Han}A-Za-z0-9\uFF01!_-]{3,40}$/u.test(code) && new TextEncoder().encode(code).length <= 64;
   }
   function replyMatches(message, code) {
     const protocol2 = read4(() => message.Protocol);
@@ -11328,7 +12350,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     if (codes.length > 100) throw new Error("\\u5408\\u5E76\\u540E\\u8D85\\u8FC7 100 \\u4E2A\\u5151\\u6362\\u7801\\uFF0C\\u8BF7\\u5148\\u5151\\u6362\\u6216\\u6E05\\u7406\\u5F53\\u524D\\u5217\\u8868");
     return { text: codes.join("\\n"), count: parsed.codes.length, added: codes.length - previous.codes.length, invalid: parsed.invalid };
   }
-  function createCodeSources(win) {
+  function createCodeSources(win, { core } = {}) {
     const sessionKey = Symbol.for("sgs.ol.toolbox.daily-rewards.server-session");
     const serverSession = win[sessionKey] ||= { checked: false, text: "", url: "", promise: null };
     let clipboardDenied = false;
@@ -11342,6 +12364,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return null;
     }
     return {
+      get communityConfirmations() {
+        return serverSession.communityConfirmations === true;
+      },
       serverSession,
       resumeClipboard() {
         clipboardDenied = false;
@@ -11360,6 +12385,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         const timer = setTimeout(abort, 6e3);
         try {
           const response = await win.fetch(url, { method: "GET", credentials: "omit", redirect: "error", cache: "no-store", signal: aborter.signal });
+          serverSession.communityConfirmations = response.headers.get("x-redeem-protocol") === "two-confirmations-v1";
           if (response.status === 304 && previous) return previous.text;
           if (!response.ok) throw new Error(\`\\u5151\\u6362\\u7801\\u6587\\u4EF6\\u8BFB\\u53D6\\u5931\\u8D25\\uFF08HTTP \${response.status}\\uFF09\`);
           if (!/^text\\/plain(?:;|$)/i.test(response.headers.get("content-type") || "")) throw new Error("\\u670D\\u52A1\\u7AEF\\u8FD4\\u56DE\\u7684\\u4E0D\\u662F\\u7EAF\\u6587\\u672C\\u5151\\u6362\\u7801\\u6587\\u4EF6");
@@ -11424,8 +12450,17 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           throw new Error("\\u526A\\u8D34\\u677F\\u8BFB\\u53D6\\u672A\\u83B7\\u5141\\u8BB8\\uFF0C\\u5141\\u8BB8\\u540E\\u91CD\\u65B0\\u5F00\\u542F\\u526A\\u8D34\\u677F\\u9009\\u9879");
         });
       },
-      async shareCode(baseUrl, code, { signal } = {}) {
-        if (!shareableCode(code) || signal?.aborted) return false;
+      async shareCode(baseUrl, code, { signal, account } = {}) {
+        if (!(serverSession.communityConfirmations ? reportableCode(code) : shareableCode(code)) || signal?.aborted) return false;
+        let report = { code };
+        if (serverSession.communityConfirmations) {
+          if (!account) return false;
+          const accountHash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("redeem.3gs.xyz:v1:" + account)))].map((value) => value.toString(16).padStart(2, "0")).join("");
+          if (signal?.aborted) return false;
+          report = { code, account: accountHash, confirmed: true };
+          const edition = core?.distribution;
+          if (["dev", "full", "lite"].includes(edition)) report.coreEdition = edition;
+        }
         const control = new AbortController(), abort = () => control.abort();
         signal?.addEventListener("abort", abort, { once: true });
         const timer = setTimeout(abort, 6e3);
@@ -11436,7 +12471,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             redirect: "error",
             signal: control.signal,
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code })
+            body: JSON.stringify(report)
           });
           if (!response.ok) throw new Error("\\u901A\\u7528\\u5151\\u6362\\u7801\\u5171\\u4EAB\\u5931\\u8D25");
           return true;
@@ -11682,7 +12717,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           if (typeof incoming !== "string" || incoming.length > 16e3) throw new Error("\\u526A\\u8D34\\u677F\\u6587\\u672C\\u8FC7\\u957F\\u6216\\u4E0D\\u662F\\u6587\\u672C\\uFF0C\\u5DF2\\u8DF3\\u8FC7");
           fingerprint = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(incoming)))].map((value) => value.toString(16).padStart(2, "0")).join("");
           if (!valid3()) return false;
-          if (settings.get(key(owner) + "last-clipboard", "") === fingerprint) {
+          if (settings.get(key(owner) + "last-clipboard", "") === fingerprint && settings.get(key(owner) + "clipboard-parser-version", 0) === CLIPBOARD_PARSER_VERSION) {
             state.sourceStatus = "\\u526A\\u8D34\\u677F\\u672A\\u53D8\\u5316\\uFF0C\\u5DF2\\u8DF3\\u8FC7";
             return false;
           }
@@ -11692,6 +12727,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         const clipboard = kind === "clipboard" ? parseClipboardCodes(incoming, new Set(parseCodes(serverSession?.text || "").codes)) : null;
         if (clipboard && !clipboard.text) {
           settings.set(key(owner) + "last-clipboard", fingerprint);
+          settings.set(key(owner) + "clipboard-parser-version", CLIPBOARD_PARSER_VERSION);
           state.sourceStatus = clipboard.reason;
           return false;
         }
@@ -11699,8 +12735,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         const merged = mergeCodeText(config().codeInputVersion === 1 ? fresh(config().codeText) : "", fresh(validated.text));
         if (kind === "server") verifiedCodes = new Set(parseCodes(incoming).codes.filter(shareableCode));
         if (!options({ codeText: merged.text })) return false;
-        if (kind === "clipboard") settings.set(key(owner) + "last-clipboard", fingerprint);
-        else appliedServer.add(owner);
+        if (kind === "clipboard") {
+          settings.set(key(owner) + "last-clipboard", fingerprint);
+          settings.set(key(owner) + "clipboard-parser-version", CLIPBOARD_PARSER_VERSION);
+        } else appliedServer.add(owner);
         state.sourceStatus = \`\${kind === "server" ? "\\u670D\\u52A1\\u5668" : "\\u526A\\u8D34\\u677F"}\\u8BFB\\u53D6 \${merged.count} \\u4E2A\\uFF0C\\u65B0\\u589E \${merged.added} \\u4E2A\${merged.invalid ? \`\\uFF1B\\u8DF3\\u8FC7 \${merged.invalid} \\u4E2A\\u683C\\u5F0F\\u65E0\\u6548\\u9879\` : ""}\`;
         log("codes", state.sourceStatus);
         return merged.added > 0;
@@ -11937,13 +12975,13 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           log(action.category, \`\${action.label}\\uFF1A\${result.text}\`, result.status);
           if (result.status === "confirmed") {
             if (!action.auxiliary) state.confirmed++;
-            if (action.category === "codes" && verifiedCodes.has(action.code) && shareableCode(action.code) && config().codes && config().shareCodes && sources?.shareCode && valid3()) {
+            if (action.category === "codes" && (sources?.communityConfirmations ? reportableCode(action.code) : verifiedCodes.has(action.code) && shareableCode(action.code)) && config().codes && config().shareCodes && sources?.shareCode && valid3()) {
               const sharing = new AbortController();
               sourceAborter = sharing;
               const cancel = () => sharing.abort();
               signal.addEventListener("abort", cancel, { once: true });
               try {
-                await sources.shareCode(config().codeServerUrl, action.code, { signal: sharing.signal });
+                await sources.shareCode(config().codeServerUrl, action.code, { signal: sharing.signal, account: owner });
               } catch {
                 log("codes", "\\u5171\\u4EAB\\u672A\\u5B8C\\u6210\\uFF1B\\u672C\\u673A\\u5151\\u6362\\u7ED3\\u679C\\u5DF2\\u4FDD\\u5B58", "error");
               } finally {
@@ -12022,10 +13060,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     manifest: {
       id: "daily-rewards",
       name: "\\u65E5\\u5E38\\u9886\\u5956",
-      version: "0.7.12",
+      version: "0.7.15",
       apiVersion: 1,
       contractVersion: 1,
-      minCoreVersion: "0.5.124",
+      minCoreVersion: "0.6.3",
       categories: ["automation"],
       icon: PLUGIN_ICONS["daily-rewards"],
       priority: 2e4,
@@ -12033,7 +13071,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     },
     activate(ctx) {
       const debug = ctx.window.__SGS_TOOLBOX_DEMO__?.onlyPlugin === "daily-rewards";
-      const controller = createRewardsController({ adapter: createNativeAdapter(ctx), settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window), debug });
+      const controller = createRewardsController({ adapter: createNativeAdapter(ctx), settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window, { core: ctx.core }), debug });
       ctx.ui.registerPanel({ id: "main", title: "\\u65E5\\u5E38\\u9886\\u5956", category: "automation", priority: 32768, render(container) {
         const doc = ctx.document;
         const el = (tag, text, className) => {
@@ -12120,7 +13158,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         const codeToggles = el("div", void 0, "reward-code-toggles");
         codeToggles.append(option("codes", "\\u9886\\u53D6", { accessibleLabel: "\\u9886\\u53D6\\u5151\\u6362\\u7801" }), option("clipboardCodes", "\\u526A\\u8D34\\u677F", { accessibleLabel: "\\u8BFB\\u53D6\\u526A\\u8D34\\u677F" }), option("shareCodes", "\\u5171\\u4EAB", { accessibleLabel: "\\u5171\\u4EAB\\u5151\\u6362\\u7801" }));
         codes.append(el("span", "\\u5151\\u6362\\u7801", "muted"), codeToggles);
-        codes.title = "\\u81EA\\u52A8\\u68C0\\u67E5\\u526A\\u8D34\\u677F\\u4E2D\\u7684\\u5B8C\\u6574\\u5E8F\\u5217\\u53F7\\u5217\\u8868\\uFF1B\\u4E2D\\u6587\\u53E3\\u4EE4\\u8BF7\\u590D\\u5236\\u201C\\u5151\\u6362\\u7801\\uFF1A\\u53E3\\u4EE4\\u201D\\uFF0C\\u666E\\u901A\\u6587\\u5B57\\u6574\\u6BB5\\u5FFD\\u7565\\u3002\\u53EA\\u5151\\u6362\\u65B0\\u589E\\u7801\\uFF1B\\u670D\\u52A1\\u5668\\u6BCF\\u6B21\\u6253\\u5F00\\u6E38\\u620F\\u4EC5\\u68C0\\u67E5\\u4E00\\u6B21\\u3002\\u4EC5\\u5171\\u4EAB\\u5DF2\\u6838\\u9A8C\\u901A\\u7528\\u7801\\uFF0C\\u968F\\u673A\\u5E8F\\u5217\\u53F7\\u4E0D\\u5206\\u4EAB\\u3002";
+        codes.title = "\\u81EA\\u52A8\\u68C0\\u67E5\\u5B8C\\u6574\\u5E8F\\u5217\\u53F7\\u53CA4\\u20138\\u5B57\\u4E2D\\u6587\\u77ED\\u53E3\\u4EE4\\uFF0C\\u53EF\\u5939\\u5E26\\u5C11\\u91CF\\u82F1\\u6587\\u6570\\u5B57\\uFF1B\\u4E2D\\u6587\\u53E3\\u4EE4\\u6BCF\\u884C\\u4E00\\u4E2A\\uFF0C\\u6DF7\\u6709\\u8BF4\\u660E\\u6216\\u72B6\\u6001\\u7684\\u5185\\u5BB9\\u6574\\u6BB5\\u5FFD\\u7565\\u3002\\u7279\\u6B8A\\u53E3\\u4EE4\\u53EF\\u6807\\u6CE8\\u201C\\u5151\\u6362\\u7801\\uFF1A\\u53E3\\u4EE4\\u201D\\u3002\\u53EA\\u5151\\u6362\\u672A\\u5C1D\\u8BD5\\u7684\\u65B0\\u7801\\uFF1B\\u5171\\u4EAB\\u9ED8\\u8BA4\\u5173\\u95ED\\uFF0C\\u5F00\\u542F\\u540E\\u4EC5\\u4E0A\\u62A5\\u6E38\\u620F\\u786E\\u8BA4\\u6210\\u529F\\u7684\\u5355\\u4E2A\\u7801\\u3002";
         const status = el("p", void 0, "muted reward-status");
         status.setAttribute("role", "status");
         status.dataset.rewardsStatus = "";
@@ -12175,8 +13213,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E38\u9886\u5956","version":"0.7.12","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.124","categories":["automation"],"icon":{"paths":["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13","M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"]},"priority":20000,"description":"\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55"}};
-`, sha256: "7119a7edc207c2b95a72ed136d04ccfd10bd63f02adbe25388622c12c3d454e7" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "seckill", name: "\u81EA\u52A8\u79D2\u6740", version: "0.1.1", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.13", description: "\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4", icon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E38\u9886\u5956","version":"0.7.15","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.6.3","categories":["automation"],"icon":{"paths":["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13","M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"]},"priority":20000,"description":"\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55"}};
+`, sha256: "1e3097fa51f695bcdc1721abe46885e3d192a19f14f8b9e6fbe0b8b98f1b8695" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "seckill", name: "\u81EA\u52A8\u79D2\u6740", version: "0.1.1", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.13", description: "\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4", icon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -25648,7 +26686,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.1", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.5", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
     "43a4cbff657c319e8b7b1bf2ec7689e0a557fc9bb17a9090d24a2163d1857dda",
@@ -27710,8 +28748,8 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
 
   // src/core/market-connection.js
   var LOCAL_MARKET_URL = "http://127.0.0.1:17321", PublicMarketClient = class {
-    constructor(fetchImpl, options = {}) {
-      this.clients = [GITHUB_MARKET_URL, OSS_MARKET_URL].map((baseUrl) => new MarketClient({ ...options, baseUrl, fetchImpl })), this.active = this.clients[0];
+    constructor(fetchImpl, { sources = [GITHUB_MARKET_URL, OSS_MARKET_URL], ...options } = {}) {
+      this.clients = sources.map((baseUrl) => new MarketClient({ ...options, baseUrl, fetchImpl })), this.active = this.clients[0];
     }
     get baseUrl() {
       return this.active.baseUrl;
@@ -27723,7 +28761,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
           let result = await action(client);
           return this.active = client, result;
         } catch (error) {
-          failures.push(`${client === this.clients[0] ? "GitHub" : "OSS"}\uFF1A${error.message}`);
+          failures.push(`${client.baseUrl === GITHUB_MARKET_URL ? "GitHub" : client.baseUrl === OSS_MARKET_URL ? "OSS" : "\u672C\u5730"}\uFF1A${error.message}`);
         }
       throw new Error(`\u63D2\u4EF6\u5E02\u573A\u6682\u65F6\u65E0\u6CD5\u8FDE\u63A5\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002
 ` + failures.join(`
@@ -27756,7 +28794,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
         throw new Error("\u516C\u5F00\u7248\u81EA\u52A8\u8FDE\u63A5\u63D2\u4EF6\u5E02\u573A\u3002");
       } };
     }
-    let create = (baseUrl) => baseUrl === "" ? null : new MarketClient({ baseUrl, fetchImpl }), client;
+    let create = (baseUrl) => baseUrl === "" ? null : baseUrl.replace(/\/+$/, "") === LOCAL_MARKET_URL ? new PublicMarketClient(fetchImpl, { sources: [LOCAL_MARKET_URL, GITHUB_MARKET_URL, OSS_MARKET_URL] }) : new MarketClient({ baseUrl, fetchImpl }), client;
     try {
       client = create(settings.get("marketUrl", LOCAL_MARKET_URL));
     } catch {
@@ -29420,7 +30458,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       journal,
       store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : "sgs-ol-toolbox"),
       settings,
-      context: { window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds, notify: shell.notify },
+      context: { core: Object.freeze({ version: CORE_VERSION, distribution: EDITION }), window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds, notify: shell.notify },
       onChange: () => shell.render()
     });
     scope.add(() => manager.dispose());

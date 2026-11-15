@@ -1,9 +1,28 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.1"
+    "version": "0.6.5"
   },
   "plugins": [
+    {
+      "id": "player-info",
+      "name": "玩家信息",
+      "version": "0.3.3",
+      "icon": {
+        "paths": [
+          "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
+          "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"
+        ]
+      },
+      "priority": 30200,
+      "categories": [],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.0",
+      "apiVersion": 1,
+      "description": "排位、单骑、斗地主显示玩家胜率和连胜败，支持人机提示与自选身份补全",
+      "packageUrl": "packages/player-info/0.3.3.json",
+      "sha256": "58f268e5b1e60da4b1177cf84c7b02f76331c99669e0dc74b614a22e4f8c80f9"
+    },
     {
       "id": "native-cards",
       "name": "官方卡牌",
@@ -165,7 +184,7 @@
     {
       "id": "daily-rewards",
       "name": "日常领奖",
-      "version": "0.7.12",
+      "version": "0.7.15",
       "icon": {
         "paths": [
           "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -177,11 +196,11 @@
         "automation"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.5.124",
+      "minCoreVersion": "0.6.3",
       "apiVersion": 1,
       "description": "自动领取签到、任务、邮件与活动奖励，按账号记录",
-      "packageUrl": "packages/daily-rewards/0.7.12.json",
-      "sha256": "7119a7edc207c2b95a72ed136d04ccfd10bd63f02adbe25388622c12c3d454e7"
+      "packageUrl": "packages/daily-rewards/0.7.15.json",
+      "sha256": "1e3097fa51f695bcdc1721abe46885e3d192a19f14f8b9e6fbe0b8b98f1b8695"
     },
     {
       "id": "seckill",

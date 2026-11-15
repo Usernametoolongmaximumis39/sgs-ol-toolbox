@@ -331,11 +331,11 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     const state = currentMarketState(), latest = coreUpdateStatus();
     const card = el('section', undefined, 'card plugin-card' + (latest?.order > 0 ? ' has-update' : ''));
     card.dataset.coreUpgrade = '';
-    pluginIdentity(card, { name: '工具箱核心', version: CORE_VERSION, icon: 'toolbox', description: '通过用户脚本安装页升级，安装完成后刷新游戏。' });
+    pluginIdentity(card, { name: '工具箱核心', version: CORE_VERSION, icon: 'toolbox', description: DEVELOPMENT ? '开发版：仅通过本机开发版安装页升级，安装完成后刷新游戏。' : '通过用户脚本安装页升级，安装完成后刷新游戏。' });
     const status = !state.client ? '离线 · 未检测核心版本' : state.loading ? '正在检测核心版本…' : state.error ? '核心版本检测失败，请重试' : !latest ? '尚未获取核心正式版信息' : latest.order > 0 ? '发现核心更新：' + CORE_VERSION + ' → ' + latest.version : latest.order < 0 ? '当前核心高于市场正式版 ' + latest.version : '核心已是市场最新正式版';
-    card.append(el('div', status, 'notice'));
+    card.append(el('div', DEVELOPMENT ? '开发版仅从本机 dev 构建升级；请先运行 npm run dev。' : status, 'notice'));
     const link = el('a', latest?.order > 0 ? '跳转升级至 ' + latest.version : '查看核心安装页');
-    link.href = new URL(DEVELOPMENT ? 'toolbox.user.js' : '../lite/toolbox.user.js', (state.client?.baseUrl || OSS_MARKET_URL) + '/').href;
+    link.href = DEVELOPMENT ? 'http://127.0.0.1:17321/dev/toolbox.user.js' : new URL('../lite/toolbox.user.js', (state.client?.baseUrl || OSS_MARKET_URL) + '/').href;
     link.target = '_blank'; link.rel = 'noopener noreferrer';
     link.style.cssText = 'display:inline-flex;align-items:center;gap:6px;color:var(--sgs-accent);padding:6px 0;';
     const actions = el('div', undefined, 'core-upgrade-actions');

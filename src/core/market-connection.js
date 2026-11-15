@@ -6,8 +6,8 @@ export const LOCAL_MARKET_URL = 'http://127.0.0.1:17321';
 
 // Keep one client identity while falling back so in-flight UI operations stay valid.
 export class PublicMarketClient {
-  constructor(fetchImpl, options = {}) {
-    this.clients = [GITHUB_MARKET_URL, OSS_MARKET_URL].map(baseUrl => new MarketClient({ ...options, baseUrl, fetchImpl }));
+  constructor(fetchImpl, { sources = [GITHUB_MARKET_URL, OSS_MARKET_URL], ...options } = {}) {
+    this.clients = sources.map(baseUrl => new MarketClient({ ...options, baseUrl, fetchImpl }));
     this.active = this.clients[0];
   }
   get baseUrl() { return this.active.baseUrl; }
@@ -15,7 +15,7 @@ export class PublicMarketClient {
     const failures = [];
     for (const client of clients) {
       try { const result = await action(client); this.active = client; return result; }
-      catch (error) { failures.push(`${client === this.clients[0] ? 'GitHub' : 'OSS'}：${error.message}`); }
+      catch (error) { failures.push(`${client.baseUrl === GITHUB_MARKET_URL ? 'GitHub' : client.baseUrl === OSS_MARKET_URL ? 'OSS' : '本地'}：${error.message}`); }
     }
     throw new Error('插件市场暂时无法连接，请稍后重试。\n' + failures.join('\n'));
   }
@@ -38,7 +38,9 @@ export function createMarketConnection(settings, fetchImpl, onError = () => {}, 
     const client = new PublicMarketClient(fetchImpl);
     return { get: () => client, set() { throw new Error('公开版自动连接插件市场。'); } };
   }
-  const create = baseUrl => baseUrl === '' ? null : new MarketClient({ baseUrl, fetchImpl });
+  const create = baseUrl => baseUrl === '' ? null : baseUrl.replace(/\/+$/, '') === LOCAL_MARKET_URL
+    ? new PublicMarketClient(fetchImpl, { sources: [LOCAL_MARKET_URL, GITHUB_MARKET_URL, OSS_MARKET_URL] })
+    : new MarketClient({ baseUrl, fetchImpl });
   let client;
   try { client = create(settings.get('marketUrl', LOCAL_MARKET_URL)); }
   catch (error) { client = create(LOCAL_MARKET_URL); settings.set('marketUrl', client.baseUrl); onError('保存的市场地址无效，已恢复本机默认地址。'); }

@@ -34,9 +34,16 @@ export function parseCodes(text) {
   return result;
 }
 
-// Clipboard monitoring sees arbitrary private prose. Never tokenize a sentence
-// and send its words to the game. Unmarked input must be an entire list of
-// serials or known public codes; unknown Chinese phrases need an explicit label.
+export const CLIPBOARD_PARSER_VERSION = 2;
+// Recognize whole short phrases only; never extract tokens from prose or status.
+function shortClipboardPhrase(code) {
+  if (!/^[\p{Script=Han}A-Za-z0-9]{4,14}$/u.test(code)) return false;
+  const han = (code.match(/\p{Script=Han}/gu) || []).length;
+  const ascii = (code.match(/[A-Za-z0-9]/g) || []).length;
+  const status = /已确认|未确认|已领取|未领取|领取成功|领取失败|兑换成功|兑换失败|未收到|已跳过|已忽略|已开启|已关闭|已停止|等待|正在|本轮|剪贴板|服务器|自动领取|读取|新增|成功上报/;
+  return !status.test(code) && han <= 8 && ascii <= 6 && (han >= 4 || (han >= 3 && ascii > 0));
+}
+
 export function parseClipboardCodes(text, known = new Set()) {
   if (typeof text !== 'string' || !text.trim() || text.length > MAX_TEXT) return { text: '', reason: '剪贴板不是可识别的兑换码列表，已忽略' };
   const lines = text.trim().split(/\r?\n/).filter(line => line.trim());
@@ -47,7 +54,8 @@ export function parseClipboardCodes(text, known = new Set()) {
     for (const code of tokens) {
       const valid = /^[\p{Script=Han}A-Za-z0-9!！_-]{3,40}$/u.test(code) && new TextEncoder().encode(code).length <= 64;
       const serial = /^[A-Za-z0-9_-]{6,40}$/.test(code) && /[A-Za-z]/.test(code) && /\d/.test(code);
-      if (!valid || (!marked && !serial && !known.has(code))) return { text: '', reason: '剪贴板包含普通文字或未标明的口令，已整段忽略；中文口令请复制“兑换码：口令”' };
+      if (!valid || (!marked && !serial && !known.has(code) && !shortClipboardPhrase(code))) return { text: '', reason: '剪贴板包含说明、状态或无法识别的文字，已整段忽略；特殊口令请复制“兑换码：口令”' };
+      if (!marked && line.trim() !== code && !serial && !known.has(code)) return { text: '', reason: '中文口令请每行一个；混有说明或状态的内容已整段忽略' };
       codes.push(code);
     }
   }
@@ -67,6 +75,11 @@ export function shareableCode(code) {
   return typeof code === 'string' && parseCodes(code).codes.length === 1 &&
     /^[\p{Script=Han}A-Za-z0-9！!_-]{4,40}$/u.test(code) && /\p{Script=Han}/u.test(code) &&
     !/[A-Za-z0-9_-]*[A-Za-z][A-Za-z0-9_-]*\d[A-Za-z0-9_-]*|[A-Za-z0-9_-]*\d[A-Za-z0-9_-]*[A-Za-z][A-Za-z0-9_-]*/u.test(code);
+}
+
+// Candidates remain private until the remote service has two independent reports.
+export function reportableCode(code) {
+  return typeof code === 'string' && /^[\p{Script=Han}A-Za-z0-9！!_-]{3,40}$/u.test(code) && new TextEncoder().encode(code).length <= 64;
 }
 
 function replyMatches(message, code) {

@@ -1,18 +1,23 @@
 {
-  "version": "0.6.1",
+  "version": "0.6.5",
   "editions": {
     "full": {
-      "bytes": 2010046,
-      "plugins": 19,
+      "bytes": 2061114,
+      "plugins": 20,
       "updatesTo": "lite"
     },
     "lite": {
-      "bytes": 327453,
+      "bytes": 327768,
       "plugins": 0,
       "updatesTo": "lite"
     }
   },
   "plugins": [
+    {
+      "id": "player-info",
+      "version": "0.3.3",
+      "sha256": "58f268e5b1e60da4b1177cf84c7b02f76331c99669e0dc74b614a22e4f8c80f9"
+    },
     {
       "id": "native-cards",
       "version": "0.1.0",
@@ -55,8 +60,8 @@
     },
     {
       "id": "daily-rewards",
-      "version": "0.7.12",
-      "sha256": "7119a7edc207c2b95a72ed136d04ccfd10bd63f02adbe25388622c12c3d454e7"
+      "version": "0.7.15",
+      "sha256": "1e3097fa51f695bcdc1721abe46885e3d192a19f14f8b9e6fbe0b8b98f1b8695"
     },
     {
       "id": "seckill",

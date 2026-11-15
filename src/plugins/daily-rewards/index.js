@@ -7,12 +7,12 @@ import { rewardExclusions } from './exclusions.js';
 
 
 export default {
-  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.12', apiVersion: 1, contractVersion: 1,
-    minCoreVersion: '0.5.124', categories: ['automation'], icon: PLUGIN_ICONS['daily-rewards'], priority: 20000,
+  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.15', apiVersion: 1, contractVersion: 1,
+    minCoreVersion: '0.6.3', categories: ['automation'], icon: PLUGIN_ICONS['daily-rewards'], priority: 20000,
     description: '自动领取签到、任务、邮件与活动奖励，按账号记录' },
   activate(ctx) {
     const debug = ctx.window.__SGS_TOOLBOX_DEMO__?.onlyPlugin === 'daily-rewards';
-    const controller = createRewardsController({ adapter: createNativeAdapter(ctx), settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window), debug });
+    const controller = createRewardsController({ adapter: createNativeAdapter(ctx), settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window, { core: ctx.core }), debug });
     ctx.ui.registerPanel({ id: 'main', title: '日常领奖', category: 'automation', priority: 32768, render(container) {
       const doc = ctx.document;
       const el = (tag, text, className) => { const node = doc.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
@@ -77,7 +77,7 @@ export default {
       const codeToggles = el('div', undefined, 'reward-code-toggles');
       codeToggles.append(option('codes', '领取', { accessibleLabel: '领取兑换码' }), option('clipboardCodes', '剪贴板', { accessibleLabel: '读取剪贴板' }), option('shareCodes', '共享', { accessibleLabel: '共享兑换码' }));
       codes.append(el('span', '兑换码', 'muted'), codeToggles);
-      codes.title = '自动检查剪贴板中的完整序列号列表；中文口令请复制“兑换码：口令”，普通文字整段忽略。只兑换新增码；服务器每次打开游戏仅检查一次。仅共享已核验通用码，随机序列号不分享。';
+      codes.title = '自动检查完整序列号及4–8字中文短口令，可夹带少量英文数字；中文口令每行一个，混有说明或状态的内容整段忽略。特殊口令可标注“兑换码：口令”。只兑换未尝试的新码；共享默认关闭，开启后仅上报游戏确认成功的单个码。';
       const status = el('p', undefined, 'muted reward-status'); status.setAttribute('role', 'status'); status.dataset.rewardsStatus = '';
       root.append(style, heading, excluded, codes, status);
       let list, notes, sourceStatus;

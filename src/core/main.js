@@ -44,7 +44,7 @@ export async function boot(win = window) {
   compat.setEnabled(settings.get('compatEnabled', false)); compat.start(); scope.add(() => compat.stop());
   const marketConnection = createMarketConnection(settings, win.fetch.bind(win), shell.notify);
   const manager = new PluginManager({ journal, store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : 'sgs-ol-toolbox'), settings,
-    context: { window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds, notify: shell.notify }, onChange: () => shell.render() });
+    context: { core: Object.freeze({ version: CORE_VERSION, distribution: EDITION }), window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds, notify: shell.notify }, onChange: () => shell.render() });
   scope.add(() => manager.dispose());
   const replacements = { cards: REPLACED_CARD_PACKAGES, backgrounds: REPLACED_BACKGROUND_PACKAGES,
     'daily-rewards': REPLACED_REWARD_PACKAGES, effects: REPLACED_EFFECT_PACKAGES, skins: REPLACED_SKIN_PACKAGES,

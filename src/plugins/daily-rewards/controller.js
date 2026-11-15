@@ -2,7 +2,7 @@ import { planRewards, rows, nativeMethod, taskSkipReason } from './native.js';
 import { planChoiceRewards } from './choice-rewards.js';
 import { DEFAULT_CODE_SERVER, codeServerUrl, mergeCodeText } from './code-sources.js';
 import { rewardExclusions } from './exclusions.js';
-import { shareableCode, parseCodes, parseClipboardCodes, codeAttemptLabel } from './codes.js';
+import { shareableCode, reportableCode, parseCodes, parseClipboardCodes, codeAttemptLabel, CLIPBOARD_PARSER_VERSION } from './codes.js';
 
 const defaults = { automatic: false, sign: true, mail: true, tasks: true, welfare: true, activities: true, autoFlip: false, codes: true, serverCodes: true, clipboardCodes: false, shareCodes: false, ...Object.fromEntries(rewardExclusions.map(([key]) => [key, false])) };
 const names = { sign: '签到', mail: '邮件', tasks: '任务', welfare: '福利', activities: '活动', codes: '兑换码' };
@@ -188,7 +188,7 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
         if (typeof incoming !== 'string' || incoming.length > 16000) throw new Error('剪贴板文本过长或不是文本，已跳过');
         fingerprint = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(incoming)))].map(value => value.toString(16).padStart(2, '0')).join('');
         if (!valid()) return false;
-        if (settings.get(key(owner) + 'last-clipboard', '') === fingerprint) {
+        if (settings.get(key(owner) + 'last-clipboard', '') === fingerprint && settings.get(key(owner) + 'clipboard-parser-version', 0) === CLIPBOARD_PARSER_VERSION) {
           state.sourceStatus = '剪贴板未变化，已跳过'; return false;
         }
       }
@@ -198,13 +198,17 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
       const clipboard = kind === 'clipboard' ? parseClipboardCodes(incoming, new Set(parseCodes(serverSession?.text || '').codes)) : null;
       if (clipboard && !clipboard.text) {
         settings.set(key(owner) + 'last-clipboard', fingerprint);
+        settings.set(key(owner) + 'clipboard-parser-version', CLIPBOARD_PARSER_VERSION);
         state.sourceStatus = clipboard.reason; return false;
       }
       const validated = mergeCodeText('', clipboard ? clipboard.text : incoming);
       const merged = mergeCodeText(config().codeInputVersion === 1 ? fresh(config().codeText) : '', fresh(validated.text));
       if (kind === 'server') verifiedCodes = new Set(parseCodes(incoming).codes.filter(shareableCode));
       if (!options({ codeText: merged.text })) return false;
-      if (kind === 'clipboard') settings.set(key(owner) + 'last-clipboard', fingerprint);
+      if (kind === 'clipboard') {
+        settings.set(key(owner) + 'last-clipboard', fingerprint);
+        settings.set(key(owner) + 'clipboard-parser-version', CLIPBOARD_PARSER_VERSION);
+      }
       else appliedServer.add(owner);
       state.sourceStatus = `${kind === 'server' ? '服务器' : '剪贴板'}读取 ${merged.count} 个，新增 ${merged.added} 个${merged.invalid ? `；跳过 ${merged.invalid} 个格式无效项` : ''}`;
       log('codes', state.sourceStatus); return merged.added > 0;
@@ -372,10 +376,10 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
         log(action.category, `${action.label}：${result.text}`, result.status);
         if (result.status === 'confirmed') {
           if (!action.auxiliary) state.confirmed++;
-          if (action.category === 'codes' && verifiedCodes.has(action.code) && shareableCode(action.code) && config().codes && config().shareCodes && sources?.shareCode && valid()) {
+          if (action.category === 'codes' && (sources?.communityConfirmations ? reportableCode(action.code) : verifiedCodes.has(action.code) && shareableCode(action.code)) && config().codes && config().shareCodes && sources?.shareCode && valid()) {
             const sharing = new AbortController(); sourceAborter = sharing;
             const cancel = () => sharing.abort(); signal.addEventListener('abort', cancel, { once: true });
-            try { await sources.shareCode(config().codeServerUrl, action.code, { signal: sharing.signal }); }
+            try { await sources.shareCode(config().codeServerUrl, action.code, { signal: sharing.signal, account: owner }); }
             catch { log('codes', '共享未完成；本机兑换结果已保存', 'error'); }
             finally { signal.removeEventListener('abort', cancel); if (sourceAborter === sharing) sourceAborter = null; }
           }

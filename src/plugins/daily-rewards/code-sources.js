@@ -1,4 +1,4 @@
-import { parseCodes, shareableCode } from './codes.js';
+import { parseCodes, shareableCode, reportableCode } from './codes.js';
 
 export const DEFAULT_CODE_SERVER = 'http://127.0.0.1:17321';
 export function codeServerUrl(value) {
@@ -23,7 +23,7 @@ export function mergeCodeText(current, incoming) {
   return { text: codes.join('\n'), count: parsed.codes.length, added: codes.length - previous.codes.length, invalid: parsed.invalid };
 }
 
-export function createCodeSources(win) {
+export function createCodeSources(win, { core } = {}) {
   const sessionKey = Symbol.for('sgs.ol.toolbox.daily-rewards.server-session');
   const serverSession = win[sessionKey] ||= { checked: false, text: '', url: '', promise: null };
   let clipboardDenied = false;
@@ -36,6 +36,7 @@ export function createCodeSources(win) {
     return null;
   }
   return {
+    get communityConfirmations() { return serverSession.communityConfirmations === true; },
     serverSession,
     resumeClipboard() { clipboardDenied = false; },
     canReadClipboard() { return !clipboardDenied && win.document?.visibilityState !== 'hidden' && (typeof win.document?.hasFocus !== 'function' || win.document.hasFocus()); },
@@ -51,6 +52,7 @@ export function createCodeSources(win) {
       const timer = setTimeout(abort, 6000);
       try {
         const response = await win.fetch(url, { method: 'GET', credentials: 'omit', redirect: 'error', cache: 'no-store', signal: aborter.signal });
+        serverSession.communityConfirmations = response.headers.get('x-redeem-protocol') === 'two-confirmations-v1';
         if (response.status === 304 && previous) return previous.text;
         if (!response.ok) throw new Error(`兑换码文件读取失败（HTTP ${response.status}）`);
         if (!/^text\/plain(?:;|$)/i.test(response.headers.get('content-type') || '')) throw new Error('服务端返回的不是纯文本兑换码文件');
@@ -90,15 +92,24 @@ export function createCodeSources(win) {
       if (typeof win.navigator?.clipboard?.readText !== 'function') { clipboardDenied = true; return Promise.reject(new Error('浏览器不支持读取剪贴板，可在游戏兑换入口粘贴')); }
       return win.navigator.clipboard.readText().catch(() => { clipboardDenied = true; throw new Error('剪贴板读取未获允许，允许后重新开启剪贴板选项'); });
     },
-    async shareCode(baseUrl, code, { signal } = {}) {
-      if (!shareableCode(code) || signal?.aborted) return false;
+    async shareCode(baseUrl, code, { signal, account } = {}) {
+      if (!(serverSession.communityConfirmations ? reportableCode(code) : shareableCode(code)) || signal?.aborted) return false;
+      let report = { code };
+      if (serverSession.communityConfirmations) {
+        if (!account) return false;
+        const accountHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('redeem.3gs.xyz:v1:' + account)))].map(value => value.toString(16).padStart(2, '0')).join('');
+        if (signal?.aborted) return false;
+        report = { code, account: accountHash, confirmed: true };
+        const edition = core?.distribution;
+        if (['dev', 'full', 'lite'].includes(edition)) report.coreEdition = edition;
+      }
       const control = new AbortController(), abort = () => control.abort();
       signal?.addEventListener('abort', abort, { once: true });
       const timer = setTimeout(abort, 6000);
       try {
         const response = await win.fetch(codeServerUrl(baseUrl) + '/reward-codes/share', {
           method: 'POST', credentials: 'omit', redirect: 'error', signal: control.signal,
-          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }),
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(report),
         });
         if (!response.ok) throw new Error('通用兑换码共享失败');
         return true;
