@@ -6,6 +6,7 @@ import { mountThemeWorkshop } from './theme-workshop.js';
 import { CONTROL_STYLES, controlIcon, styleSwitch } from './controls.js';
 import { CORE_VERSION } from '../core/version.js';
 import { DEFAULT_SCREENSHOT_SHORTCUT, shortcutFromEvent, shortcutLabel } from '../core/screenshot.js';
+import { planDependencies } from '../market/dependencies.js';
 import { findPluginUpdates, compareVersions } from '../market/updates.js';
 import { selectGamePanels } from '../core/game-view.js';
 import { comparePanelOrder, comparePluginOrder } from '../core/plugin-contract.js';
@@ -57,7 +58,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   const content = shadow.querySelector('.content'); let active = settings.get('category', 'game'); let management = 'market'; let renderedCleanup; let handlers = {}; const panels = new Map(); let toastTimer;
   let pluginSearch = '';
   let onlyUninstalled = settings.get('marketOnlyUninstalled', false) === true;
-  let marketState = {}; let marketRequest = 0; const installing = new Set();
+  let marketState = {}; let marketRequest = 0; const installing = new Set(); const dependencyPrompts = new Map();
   function currentMarketState() {
     const client = handlers.market?.();
     if (marketState.client !== client) { marketRequest++; marketState = { client }; }
@@ -273,14 +274,37 @@ export function createShell({ window: win, document: doc, settings, scope }) {
         const upgrade = button(`更新至 ${update.entry.version}`, () => installEntry(update.entry, true)); upgrade.prepend(svgIcon('update')); upgrade.disabled = installing.has(item.id) || !!maintenance;
         notice.append(info, upgrade); card.append(notice);
       }
-      markSearchable(card, item); content.append(card);
+      renderDependencyPrompt(card, update?.entry || item); markSearchable(card, item); content.append(card);
     }
   }
-  async function installEntry(entry, updateOnly = false) {
+  async function installEntry(entry, updateOnly = false, confirmed = false) {
     const client = handlers.market();
     if (installing.has(entry.id)) return;
-    installing.add(entry.id); render();
+    let dependencies;
+    try { dependencies = planDependencies(entry, handlers.manager.list(), currentMarketState().catalog?.plugins || []); }
+    catch (error) { dependencyPrompts.set(entry.id, { entry, error: error.message, updateOnly }); render(); return; }
+    const previous = dependencyPrompts.get(entry.id);
+    const signature = JSON.stringify(dependencies.map(item => [item.id, item.version, item.sha256]));
+    if (dependencies.length && (!confirmed || previous?.signature !== signature || previous?.client !== client)) {
+      dependencyPrompts.set(entry.id, { entry, dependencies, signature, client, updateOnly }); render(); return;
+    }
+    dependencyPrompts.delete(entry.id);
+    const locked = [entry.id, ...dependencies.map(item => item.id)];
+    if (locked.some(id => installing.has(id))) throw new Error('前置插件正在安装，请稍后重试。');
+    for (const id of locked) installing.add(id);
+    render();
     try {
+      for (const dependency of dependencies) {
+        if (scope.closed) return;
+        if (handlers.market() !== client) throw new Error('市场地址已改变，请重新检测更新。');
+        if (handlers.manager.list().some(item => item.id === dependency.id)) continue;
+        const dependencyPackage = await client.getPackage(dependency);
+        if (scope.closed) return;
+        if (handlers.market() !== client) throw new Error('市场地址已改变，请重新检测更新。');
+        await handlers.manager.install(dependencyPackage);
+      }
+      // Recheck disabled/failed prerequisites after asynchronous installs.
+      planDependencies(entry, handlers.manager.list(), currentMarketState().catalog?.plugins || []);
       const pkg = await client.getPackage(entry);
       if (scope.closed) return;
       if (handlers.market() !== client) throw new Error('市场地址已改变，请重新检测更新。');
@@ -289,7 +313,21 @@ export function createShell({ window: win, document: doc, settings, scope }) {
         if (!installed || compareVersions(entry.version, installed.version) <= 0) throw new Error('插件安装状态已改变，请重新检测更新。');
       }
       await handlers.manager.install(pkg); notify(`${entry.name} ${entry.version} 已安装`);
-    } finally { installing.delete(entry.id); if (!scope.closed) render(); }
+    } catch (error) {
+      if (!scope.closed) dependencyPrompts.set(entry.id, { entry, error: error.message, updateOnly });
+      throw error;
+    } finally { for (const id of locked) installing.delete(id); if (!scope.closed) render(); }
+  }
+  function renderDependencyPrompt(card, entry) {
+    const prompt = dependencyPrompts.get(entry.id);
+    if (!prompt || prompt.entry.version !== entry.version) return;
+    const box = el('div', undefined, 'plugin-update'); box.dataset.dependencyPrompt = entry.id;
+    box.setAttribute('role', 'status');
+    const message = el('div', prompt.error || '需要先安装并启用：' + prompt.dependencies.map(item => `${item.name} ${item.version}`).join('、') + '。是否继续？');
+    message.style.overflowWrap = 'anywhere'; box.append(message);
+    if (!prompt.error) box.append(button('安装前置并继续', () => installEntry(entry, prompt.updateOnly, true)));
+    box.append(button(prompt.error ? '关闭提示' : '取消', () => { dependencyPrompts.delete(entry.id); render(); }));
+    card.append(box);
   }
   async function fetchCatalog() {
     const state = currentMarketState(); if (!state.client || state.loading) return;
@@ -358,7 +396,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       const install = button(busy ? '正在安装…' : same ? '已安装' : current ? '替换此版本' : '安装此版本', () => installEntry(entry));
       install.disabled = busy || same; install.style.marginLeft = 'auto'; install.style.flexShrink = '0';
       if (busy) card.setAttribute('aria-busy', 'true');
-      bottom.append(install); card.append(bottom); markSearchable(card, entry); container.append(card);
+      bottom.append(install); card.append(bottom); renderDependencyPrompt(card, entry); markSearchable(card, entry); container.append(card);
     }
   }
   function coreUpdateStatus() {
