@@ -413,6 +413,28 @@
       "description": "官服微信／支付宝充值及旧周月卡原生直购入口，操作前请阅读风险",
       "packageUrl": "packages/recharge/0.1.5.json",
       "sha256": "6b216a07879353c9c433073ec6b36529886057b81eecb1ea7ae7762c63294643"
+    },
+    {
+      "id": "social",
+      "name": "好友与聊天",
+      "version": "0.1.6",
+      "icon": {
+        "paths": [
+          "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
+          "M2 21v-3a6 6 0 0 1 12 0v3",
+          "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"
+        ]
+      },
+      "priority": 30300,
+      "categories": [
+        "tools"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.13",
+      "apiVersion": 1,
+      "description": "原生好友置顶、好友改名提醒、公屏一键进房与聊天官阶补全",
+      "packageUrl": "packages/social/0.1.6.json",
+      "sha256": "3de8ac1c941bfde9a5c918b2c4bb70757932126e860f21f54a0aa00e4ddc889a"
     }
   ]
 }
