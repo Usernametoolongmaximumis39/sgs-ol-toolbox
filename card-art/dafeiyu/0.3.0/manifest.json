@@ -1,0 +1,561 @@
+{
+  "schemaVersion": 1,
+  "name": "大肥鱼卡面-Lite",
+  "version": "0.3.0",
+  "pixelRatio": 3,
+  "cardPixels": {
+    "width": 405,
+    "height": 570
+  },
+  "cards": [
+    {
+      "name": "Sha",
+      "label": "杀",
+      "group": "standard",
+      "kind": "基本",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/Sha.png",
+      "sourceSha256": "6859ba2e628f9754e395cfd99ffd8d96487feaca483eaecc76633069a97969bf",
+      "sourceBytes": 2786449,
+      "localCardFile": "cards/Sha.png"
+    },
+    {
+      "name": "Shan",
+      "label": "闪",
+      "group": "standard",
+      "kind": "基本",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/Shan.png",
+      "sourceSha256": "1cb09e80cc8778a07956780819ed93e7f5a1080231ded4550254414d7500d9dc",
+      "sourceBytes": 2229091,
+      "localCardFile": "cards/Shan.png"
+    },
+    {
+      "name": "Tao",
+      "label": "桃",
+      "group": "standard",
+      "kind": "基本",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/Tao.png",
+      "sourceSha256": "e1ddf77fd24355442b7479d950998aadbca6eb564ede109dc3282d7eed7e726d",
+      "sourceBytes": 2347505,
+      "localCardFile": "cards/Tao.png"
+    },
+    {
+      "name": "HuoSha",
+      "label": "火杀",
+      "group": "maneuver",
+      "kind": "基本",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/HuoSha.png",
+      "sourceSha256": "0843bf7afd837e3b0cd727a4a5dd8bcf8273808d82be370899b39a140678bbb8",
+      "sourceBytes": 2511601,
+      "localCardFile": "cards/HuoSha.png"
+    },
+    {
+      "name": "LeiSha",
+      "label": "雷杀",
+      "group": "maneuver",
+      "kind": "基本",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/LeiSha.png",
+      "sourceSha256": "492d49dcefd0e6e1201202b3a0c00190d4580ca3f6132f8f85b2829b9d40d0b2",
+      "sourceBytes": 2578239,
+      "localCardFile": "cards/LeiSha.png"
+    },
+    {
+      "name": "Jiu",
+      "label": "酒",
+      "group": "maneuver",
+      "kind": "基本",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/Jiu.png",
+      "sourceSha256": "aecbb41e9dfb62f8656d0b81413d26c177f63b23ef09ad84f9c47cd51aa41e14",
+      "sourceBytes": 2392459,
+      "localCardFile": "cards/Jiu.png"
+    },
+    {
+      "name": "JueDou",
+      "label": "决斗",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/JueDou.png",
+      "sourceSha256": "37849f163408e73eda6e52643fa0a655f5a16b27dde82ad038a798c13e025204",
+      "sourceBytes": 2672740,
+      "localCardFile": "cards/JueDou.png"
+    },
+    {
+      "name": "ShunShouQianYang",
+      "label": "顺手牵羊",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/ShunShouQianYang.png",
+      "sourceSha256": "9ac4188ef86e88c0f8e75883c8e21b0d2412451225339c1795722af44abecb10",
+      "sourceBytes": 2384937,
+      "localCardFile": "cards/ShunShouQianYang.png"
+    },
+    {
+      "name": "GuoHeChaiQiao",
+      "label": "过河拆桥",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/GuoHeChaiQiao.png",
+      "sourceSha256": "c4752c626604a3cd4bab4bda3bfa11659b33a991791ed1874b66e042ac5c942c",
+      "sourceBytes": 2429080,
+      "localCardFile": "cards/GuoHeChaiQiao.png"
+    },
+    {
+      "name": "WuZhongShengYou",
+      "label": "无中生有",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/WuZhongShengYou.png",
+      "sourceSha256": "afbc4204865b02fb2f6ca50de2498a11166e96045b2b9c9f0c94e1db2d751e11",
+      "sourceBytes": 2435386,
+      "localCardFile": "cards/WuZhongShengYou.png"
+    },
+    {
+      "name": "JieDaoShaRen",
+      "label": "借刀杀人",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/JieDaoShaRen.png",
+      "sourceSha256": "489c07424a0371191a14004cdb07a88c1fc4d91f17de0a6847b4b0e9ae0b25aa",
+      "sourceBytes": 2507916,
+      "localCardFile": "cards/JieDaoShaRen.png"
+    },
+    {
+      "name": "WuXieKeJi",
+      "label": "无懈可击",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/WuXieKeJi.png",
+      "sourceSha256": "8b824c19b7408366b525dcc9af2d888183b8e6439bc75577f3ec71b334928af1",
+      "sourceBytes": 2343747,
+      "localCardFile": "cards/WuXieKeJi.png"
+    },
+    {
+      "name": "WanJianQiFa",
+      "label": "万箭齐发",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/WanJianQiFa.png",
+      "sourceSha256": "c7cae982158eae325094b7e24e3d079ca30f7487a95ff462f1a6e0bb9c4fda8d",
+      "sourceBytes": 3053526,
+      "localCardFile": "cards/WanJianQiFa.png"
+    },
+    {
+      "name": "NanManRuQin",
+      "label": "南蛮入侵",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/NanManRuQin.png",
+      "sourceSha256": "6197e4b925f57b1396c5fa8c552c9d76f936a7c6b00028541a76a14b67c5e23a",
+      "sourceBytes": 2735425,
+      "localCardFile": "cards/NanManRuQin.png"
+    },
+    {
+      "name": "TaoYuanJieYi",
+      "label": "桃园结义",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/TaoYuanJieYi.png",
+      "sourceSha256": "c980785a153eaeb9ba2b2ec63279a375a31af89c81a7892461ced6465b1d7373",
+      "sourceBytes": 2427667,
+      "localCardFile": "cards/TaoYuanJieYi.png"
+    },
+    {
+      "name": "WuGuFengDeng",
+      "label": "五谷丰登",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/WuGuFengDeng.png",
+      "sourceSha256": "f1a2d797c08975dd9defc6bb8e1eca9ab2feb897dfefb1dac8a2a3a1a8362abe",
+      "sourceBytes": 2742907,
+      "localCardFile": "cards/WuGuFengDeng.png"
+    },
+    {
+      "name": "LeBuSiShu",
+      "label": "乐不思蜀",
+      "group": "standard",
+      "kind": "延时锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/LeBuSiShu.png",
+      "sourceSha256": "3aab6f3262dbb80506d0262655b5ce19c21fbcbbaa5f8f3a0ec5b1387c843307",
+      "sourceBytes": 2446758,
+      "localCardFile": "cards/LeBuSiShu.png"
+    },
+    {
+      "name": "ShanDian",
+      "label": "闪电",
+      "group": "standard",
+      "kind": "延时锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/ShanDian.png",
+      "sourceSha256": "dee11c3bfd8578f746a56eb56205352855faf61d884296556ba1f654a9c1bd1b",
+      "sourceBytes": 2557698,
+      "localCardFile": "cards/ShanDian.png"
+    },
+    {
+      "name": "HuoGong",
+      "label": "火攻",
+      "group": "maneuver",
+      "kind": "锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/HuoGong.png",
+      "sourceSha256": "e7057558774298c73547064c6d44aa75f90ef91ea3ce2cec55977e8469500bc5",
+      "sourceBytes": 2661061,
+      "localCardFile": "cards/HuoGong.png"
+    },
+    {
+      "name": "TieSuoLianHuan",
+      "label": "铁索连环",
+      "group": "maneuver",
+      "kind": "锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/TieSuoLianHuan.png",
+      "sourceSha256": "2eb37f3e3ca610ec172f36d5974ff7526a90bbb1dea607504e0076d4db395bb8",
+      "sourceBytes": 2479098,
+      "localCardFile": "cards/TieSuoLianHuan.png"
+    },
+    {
+      "name": "BingLiangCunDuan",
+      "label": "兵粮寸断",
+      "group": "maneuver",
+      "kind": "延时锦囊",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/BingLiangCunDuan.png",
+      "sourceSha256": "8ea8ab4fd0cf5506fa1ade0ca60bb486aae527940eb11d7d6045b8e5bc1c831f",
+      "sourceBytes": 2438608,
+      "localCardFile": "cards/BingLiangCunDuan.png"
+    },
+    {
+      "name": "ZhuGeLianNu",
+      "label": "诸葛连弩",
+      "group": "standard",
+      "kind": "武器",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/ZhuGeLianNu.png",
+      "sourceSha256": "7ceb70550ac9e7dedabeca04820b396d841131d5790a8f6288b853270d07fcb4",
+      "sourceBytes": 2601159,
+      "localCardFile": "cards/ZhuGeLianNu.png"
+    },
+    {
+      "name": "CiXiongShuangGuJian",
+      "label": "雌雄双股剑",
+      "group": "standard",
+      "kind": "武器",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/CiXiongShuangGuJian.png",
+      "sourceSha256": "78b8ad9f2bddf6ffc6b5c27b636a77a62b077da2aae1e11e986ce1daf3289614",
+      "sourceBytes": 2592271,
+      "localCardFile": "cards/CiXiongShuangGuJian.png"
+    },
+    {
+      "name": "QingGangJian",
+      "label": "青釭剑",
+      "group": "standard",
+      "kind": "武器",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/QingGangJian.png",
+      "sourceSha256": "174ee2cfbd1856594b93d48b5712917bb35cfacca81a5ea3d6290aca3b63fe51",
+      "sourceBytes": 2641032,
+      "localCardFile": "cards/QingGangJian.png"
+    },
+    {
+      "name": "QingLongYanYueDao",
+      "label": "青龙偃月刀",
+      "group": "standard",
+      "kind": "武器",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/QingLongYanYueDao.png",
+      "sourceSha256": "5eef25005c5158b2eea40cec58f2a70ec66d307bf9a1e1beb20c8697dff5f562",
+      "sourceBytes": 2764295,
+      "localCardFile": "cards/QingLongYanYueDao.png"
+    },
+    {
+      "name": "ZhangBaSheMao",
+      "label": "丈八蛇矛",
+      "group": "standard",
+      "kind": "武器",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/ZhangBaSheMao.png",
+      "sourceSha256": "92378d0caa080a79c33c5fb4bb726f56b780888806e1a63c2cf4c74c78513fb7",
+      "sourceBytes": 2684135,
+      "localCardFile": "cards/ZhangBaSheMao.png"
+    },
+    {
+      "name": "GuanShiFu",
+      "label": "贯石斧",
+      "group": "standard",
+      "kind": "武器",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/GuanShiFu.png",
+      "sourceSha256": "552bfbc8b602a266f26987d082da8e5febb7f5b69199dfd63a47e6cbeb314dab",
+      "sourceBytes": 2514249,
+      "localCardFile": "cards/GuanShiFu.png"
+    },
+    {
+      "name": "FangTianHuaJi",
+      "label": "方天画戟",
+      "group": "standard",
+      "kind": "武器",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/FangTianHuaJi.png",
+      "sourceSha256": "21ef8d5a8d37722d872ce1b67370921676a71b5e6052671e02f34d3c05f155e7",
+      "sourceBytes": 2479751,
+      "localCardFile": "cards/FangTianHuaJi.png"
+    },
+    {
+      "name": "QiLinGong",
+      "label": "麒麟弓",
+      "group": "standard",
+      "kind": "武器",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/QiLinGong.png",
+      "sourceSha256": "a43829b9d8fff768e12d6589c43da2108d7d610236cf5038b328823336205d53",
+      "sourceBytes": 2940426,
+      "localCardFile": "cards/QiLinGong.png"
+    },
+    {
+      "name": "HanBingJian",
+      "label": "寒冰剑",
+      "group": "standard",
+      "kind": "武器",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/HanBingJian.png",
+      "sourceSha256": "e11c23e1388886931f5642878ce8b4fe37cad54680eae37bd9491fa17478e41d",
+      "sourceBytes": 2495548,
+      "localCardFile": "cards/HanBingJian.png"
+    },
+    {
+      "name": "GuDingDao",
+      "label": "古锭刀",
+      "group": "maneuver",
+      "kind": "武器",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/GuDingDao.png",
+      "sourceSha256": "0c9ab54c7755eed9102c9a22d34b1e170598b59ec1481216ae67e6c820beeee2",
+      "sourceBytes": 2854913,
+      "localCardFile": "cards/GuDingDao.png"
+    },
+    {
+      "name": "ZhuQueYuShan",
+      "label": "朱雀羽扇",
+      "group": "maneuver",
+      "kind": "武器",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/ZhuQueYuShan.png",
+      "sourceSha256": "cbc4761e889584721bed1055c9d8d33fdfbdf68b417000c749cdff349828e8b9",
+      "sourceBytes": 2732792,
+      "localCardFile": "cards/ZhuQueYuShan.png"
+    },
+    {
+      "name": "BaGuaZhen",
+      "label": "八卦阵",
+      "group": "standard",
+      "kind": "防具",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/BaGuaZhen.png",
+      "sourceSha256": "5034ffa583631833f57349d05dbf0d20af6bcb6d82bc2d79f148c2c622b52aff",
+      "sourceBytes": 2234554,
+      "localCardFile": "cards/BaGuaZhen.png"
+    },
+    {
+      "name": "RenWangDun",
+      "label": "仁王盾",
+      "group": "standard",
+      "kind": "防具",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/RenWangDun.png",
+      "sourceSha256": "7e171fc9f63a74cf92e452be260ea18975313b26006609c23e08eac4a78f032b",
+      "sourceBytes": 2493541,
+      "localCardFile": "cards/RenWangDun.png"
+    },
+    {
+      "name": "TengJia",
+      "label": "藤甲",
+      "group": "maneuver",
+      "kind": "防具",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/TengJia.png",
+      "sourceSha256": "aebf232a363f8fdcbe3f79aa85d3d1dcf980cf964250a9a212eb2ce33a26178b",
+      "sourceBytes": 2663073,
+      "localCardFile": "cards/TengJia.png"
+    },
+    {
+      "name": "BaiYinShiZi",
+      "label": "白银狮子",
+      "group": "maneuver",
+      "kind": "防具",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/BaiYinShiZi.png",
+      "sourceSha256": "2ef775d7d77c3f74c343261dd76f098778245141e4785077ae22d2e836079437",
+      "sourceBytes": 2479134,
+      "localCardFile": "cards/BaiYinShiZi.png"
+    },
+    {
+      "name": "ChiTu",
+      "label": "赤兔",
+      "group": "standard",
+      "kind": "坐骑",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/ChiTu.png",
+      "sourceSha256": "ad13fd555129d10abd5397cf82b300c1346aba44311b460e77efd2e8d987aeb2",
+      "sourceBytes": 2619185,
+      "localCardFile": "cards/ChiTu.png"
+    },
+    {
+      "name": "DaWan",
+      "label": "大宛",
+      "group": "standard",
+      "kind": "坐骑",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/DaWan.png",
+      "sourceSha256": "d75a3deb03c8b94adeda1c9fc1b85dcf86a1a10cf596a8cca6ead0d6477b4319",
+      "sourceBytes": 2579155,
+      "localCardFile": "cards/DaWan.png"
+    },
+    {
+      "name": "ZiXing",
+      "label": "紫騂",
+      "group": "standard",
+      "kind": "坐骑",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/ZiXing.png",
+      "sourceSha256": "5ba55286ca2e1816e5f30ee7559468108607b3cbd410c5876392f49782a55d6d",
+      "sourceBytes": 2437189,
+      "localCardFile": "cards/ZiXing.png"
+    },
+    {
+      "name": "DiLu",
+      "label": "的卢",
+      "group": "standard",
+      "kind": "坐骑",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/DiLu.png",
+      "sourceSha256": "f3e89f90fb71df868c26bbfae74b923ed5bd746a4837b5aa9a7f06b8a646f9be",
+      "sourceBytes": 2692392,
+      "localCardFile": "cards/DiLu.png"
+    },
+    {
+      "name": "JueYing",
+      "label": "绝影",
+      "group": "standard",
+      "kind": "坐骑",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/JueYing.png",
+      "sourceSha256": "64d7c1381631fa6986c6e92ea26baa097fc8e440051e6f112f47a8c54a631653",
+      "sourceBytes": 2458598,
+      "localCardFile": "cards/JueYing.png"
+    },
+    {
+      "name": "ZhuaHuangFeiDian",
+      "label": "爪黄飞电",
+      "group": "standard",
+      "kind": "坐骑",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/ZhuaHuangFeiDian.png",
+      "sourceSha256": "4b5be5aeedc4fe9a3ac8f48d0fa421187a4ef033500c3222b6c0fc90ca3ff50c",
+      "sourceBytes": 2662208,
+      "localCardFile": "cards/ZhuaHuangFeiDian.png"
+    },
+    {
+      "name": "HuaLiu",
+      "label": "骅骝",
+      "group": "maneuver",
+      "kind": "坐骑",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/HuaLiu.png",
+      "sourceSha256": "384f6ee58ee38c5d7d1bdc6e0ce5492a2e99879471042f5ba2822a6786608178",
+      "sourceBytes": 2369873,
+      "localCardFile": "cards/HuaLiu.png"
+    },
+    {
+      "name": "MuNiuLiuMa",
+      "label": "木牛流马",
+      "group": "treasure",
+      "kind": "宝物",
+      "sourceFile": "assets/dafeiyu/revisions/polish-2026-11-15/MuNiuLiuMa.png",
+      "sourceSha256": "42a9451911f4ab4755cc275ae65fa75091466415157380c5741d9fb579156727",
+      "sourceBytes": 2584987,
+      "localCardFile": "cards/MuNiuLiuMa.png"
+    },
+    {
+      "name": "HunTianYi",
+      "label": "浑天仪",
+      "group": "derived",
+      "kind": "宝物",
+      "sourceFile": "assets/dafeiyu/revisions/general-special-2026-11-15/HunTianYi.png",
+      "sourceSha256": "6768ac534aea4074876135e2dbf6a25dad195203bc5840f7f8de4c5d7c2d8a9a",
+      "sourceBytes": 2532971,
+      "localCardFile": "cards/HunTianYi.png"
+    },
+    {
+      "name": "QiongShu",
+      "label": "琼梳",
+      "group": "derived",
+      "kind": "宝物",
+      "sourceFile": "assets/dafeiyu/revisions/general-special-2026-11-15/QiongShu.png",
+      "sourceSha256": "f667832de3da1d25644373c58ab767e3bee23dea8261677c228626b05c63a8d7",
+      "sourceBytes": 2399186,
+      "localCardFile": "cards/QiongShu.png"
+    },
+    {
+      "name": "XiShu",
+      "label": "犀梳",
+      "group": "derived",
+      "kind": "宝物",
+      "sourceFile": "assets/dafeiyu/revisions/general-special-2026-11-15/XiShu.png",
+      "sourceSha256": "772732044a3cce406c8f839e93ed5533bce9e91f68669e19246e6e0ffcb5dad7",
+      "sourceBytes": 2308604,
+      "localCardFile": "cards/XiShu.png"
+    },
+    {
+      "name": "JinShu",
+      "label": "金梳",
+      "group": "derived",
+      "kind": "宝物",
+      "sourceFile": "assets/dafeiyu/revisions/general-special-2026-11-15/JinShu.png",
+      "sourceSha256": "c4a2063a4e5ed32b6982d851ec924c1270bb432f622c3283c69eb2da147cf5a3",
+      "sourceBytes": 2311766,
+      "localCardFile": "cards/JinShu.png"
+    },
+    {
+      "name": "ShuFaZiJinGuan",
+      "label": "束发紫金冠",
+      "group": "derived",
+      "kind": "宝物",
+      "sourceFile": "assets/dafeiyu/revisions/lvlingqi-polish-2026-11-15/ShuFaZiJinGuan.png",
+      "sourceSha256": "e2b760901171fe186a7d799e8a9c2b890610b3f286000f0394657b1138d67c5c",
+      "sourceBytes": 2506523,
+      "localCardFile": "cards/ShuFaZiJinGuan.png"
+    },
+    {
+      "name": "LingLongShiManDai",
+      "label": "玲珑狮蛮带",
+      "group": "derived",
+      "kind": "防具",
+      "sourceFile": "assets/dafeiyu/revisions/lvlingqi-polish-2026-11-15/LingLongShiManDai.png",
+      "sourceSha256": "c64fad47130c090f1325a364a6b07930e60b29ca42bcdf3f626794e49f2a84d0",
+      "sourceBytes": 2500590,
+      "localCardFile": "cards/LingLongShiManDai.png"
+    },
+    {
+      "name": "HongMianBaiHuaPao",
+      "label": "红锦百花袍",
+      "group": "derived",
+      "kind": "防具",
+      "sourceFile": "assets/dafeiyu/revisions/lvlingqi-polish-2026-11-15/HongMianBaiHuaPao.png",
+      "sourceSha256": "e6d8e9a800843bbfd58ba3be05369de4b72d273f4c35dd063518c139be8bb899",
+      "sourceBytes": 2656209,
+      "localCardFile": "cards/HongMianBaiHuaPao.png"
+    },
+    {
+      "name": "WuShuangFangTianJi",
+      "label": "无双方天戟",
+      "group": "derived",
+      "kind": "武器",
+      "sourceFile": "assets/dafeiyu/revisions/lvlingqi-polish-2026-11-15/WuShuangFangTianJi.png",
+      "sourceSha256": "df49de36b285fdbc5d950ae58ac2d0d2c64db64c267efa53313b934cd0774f4b",
+      "sourceBytes": 2433176,
+      "localCardFile": "cards/WuShuangFangTianJi.png"
+    }
+  ],
+  "files": [
+    {
+      "url": "http://127.0.0.1:17321/card-art/dafeiyu/0.3.0/card.atlas",
+      "bytes": 9676,
+      "sha256": "445a7cf515c93774448c0c4576b33703a2a775144212477be9a5273051d92459"
+    },
+    {
+      "url": "http://127.0.0.1:17321/card-art/dafeiyu/0.3.0/cards.png",
+      "bytes": 6019399,
+      "sha256": "63feb16cad91ce7415ac2d0ceac57a25dd46f4da37dd87c8710196998afe153c"
+    },
+    {
+      "url": "http://127.0.0.1:17321/card-art/dafeiyu/0.3.0/cards1.png",
+      "bytes": 6113702,
+      "sha256": "e27930df7749ed66e51488120ea1ac511225ffa8f830b21a0dfb5216f5590caa"
+    },
+    {
+      "url": "http://127.0.0.1:17321/card-art/dafeiyu/0.3.0/cards2.png",
+      "bytes": 5313485,
+      "sha256": "d91c812096a7187bfcd03819cb993252c2a745732fd9d4fb7ef983a6ce9ed962"
+    }
+  ],
+  "creation": "44 refined image_gen illustrations plus 8 general-derived equipment illustrations including 4 polished Lv Lingqi edits; code-native card typography/layout at 3x resolution. No downloaded sticker artwork used.",
+  "references": [
+    "https://aigengtu.com/zh/whale-chan",
+    "https://github.com/lmy414/bluedafeiyu",
+    "https://www.sanguosha.com/news/20140521_4929_0717"
+  ],
+  "attribution": "Character reference: 上善无形／溟月, ZipZipPipe／女仆鲸鱼娘; chibi community adaptation. Not official DeepSeek or Sanguosha artwork. New layout/illustration compilation shared noncommercially under CC BY-NC-SA 4.0, subject to underlying character rights."
+}

@@ -1,0 +1,8 @@
+大肥鱼卡面-Lite
+角色参考：上善无形／溟月、ZipZipPipe／女仆鲸鱼娘及社区 Q 版形象。
+本套 52 张插画为内置 image_gen 生成及精修，参考用户提供图片；没有直接采用网站图库表情包。
+卡牌版式、字体排版及图集由本项目编排；并非 DeepSeek 或三国杀官方资源。
+角色及既有设计权利归原权利人；本套新增编排按 CC BY-NC-SA 4.0 非商业共享。
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+角色来源说明：https://aigengtu.com/zh/whale-chan
+本轮提示词保存在 assets/dafeiyu/revisions/polish-2026-11-15/ 和 general-special-2026-11-15/prompts*.json。

@@ -1,0 +1,135 @@
+{
+  "version": "0.6.0",
+  "distribution": "public",
+  "plugins": [
+    {
+      "id": "native-cards",
+      "version": "0.1.0",
+      "sha256": "22950fcd5b71918f6f7c35166726c51aaa016581bff5047e29f0b19454732592"
+    },
+    {
+      "id": "yjcm-cards",
+      "version": "0.1.2",
+      "sha256": "63ec4317e93a6b215790b9865bd8d8b887676a5c00d118eff2ff7d4f79765ac4"
+    },
+    {
+      "id": "dafeiyu-cards",
+      "version": "0.3.1",
+      "sha256": "54eac14b53d86450fcf8901dab2a391e3492a5c1b20d2d8b55c8151172be5629"
+    },
+    {
+      "id": "backgrounds",
+      "version": "0.2.1",
+      "sha256": "9c6ee349b4ca59a1eb797a5863ee3ac0cb17c252e0bab79440a26d90dc7eddfe"
+    },
+    {
+      "id": "gold-cards",
+      "version": "0.1.0",
+      "sha256": "223cb665ae968062d24d4cf2f4757f8508e47f20c7e162da08eabf9e3dc5ecba"
+    },
+    {
+      "id": "shanhetu",
+      "version": "0.2.25",
+      "sha256": "164df50f777eee9c554ee324ce99da8e569bbe4ad21aa10ed99a672690d9397d"
+    },
+    {
+      "id": "cards",
+      "version": "0.1.55",
+      "sha256": "28836c7bb94ab403bcc5dfbb0d5f01e735accd85b129a18fe4c1a158308e9a10"
+    },
+    {
+      "id": "play-assist",
+      "version": "0.1.6",
+      "sha256": "f156d1f1942ebc2abf0003230bdb175aac363c6f3e304441629f0f46ac866474"
+    },
+    {
+      "id": "daily-rewards",
+      "version": "0.7.12",
+      "sha256": "7119a7edc207c2b95a72ed136d04ccfd10bd63f02adbe25388622c12c3d454e7"
+    },
+    {
+      "id": "seckill",
+      "version": "0.1.1",
+      "sha256": "2b78f390601bb9e30f8c7bdf9293bfc580a60b7830ec0f2e1bb734635d6105f0"
+    },
+    {
+      "id": "gaizhu",
+      "version": "0.1.11",
+      "sha256": "c780e6f6570313eb17eb207a506bedbdf8f18493031cdda9388ea1dcdd0b4e9a"
+    },
+    {
+      "id": "effects",
+      "version": "0.5.9",
+      "sha256": "0ce88f8ee888c4810b1829855db890d7903f374413696278016ca711e4d799ff"
+    },
+    {
+      "id": "skins",
+      "version": "0.4.7",
+      "sha256": "989470c87531dc87c27718303b0f27a8fd3866efee9f84893d63e619e787aeda"
+    },
+    {
+      "id": "wish-progress",
+      "version": "0.1.1",
+      "sha256": "bd7b8ea40bce5789378875f648fca9d0a40ba7977517f2f4879f70a7cab4522e"
+    },
+    {
+      "id": "themes",
+      "version": "0.1.4",
+      "sha256": "eae835ca2fca5e48d607b4186e011992bb4eab88456b6543d1768d8891b0d8d2"
+    },
+    {
+      "id": "baisheng",
+      "version": "0.1.3",
+      "sha256": "c0c5737eb6c21df228b59bc2ac80f3721bba2fd746a65042516ac4fb2e84ae30"
+    },
+    {
+      "id": "appearances",
+      "version": "0.4.5",
+      "sha256": "ccd0e7cfe63403cdc8ef1a8a596928d6c320ae3ff709ed181373f30cb364c4a0"
+    },
+    {
+      "id": "ledger",
+      "version": "0.3.1",
+      "sha256": "463721eeed62ae69025bb0b0b53fb95fd15225d2423da5e74ff14307cb7c6edc"
+    },
+    {
+      "id": "recharge",
+      "version": "0.1.5",
+      "sha256": "6b216a07879353c9c433073ec6b36529886057b81eecb1ea7ae7762c63294643"
+    }
+  ],
+  "assets": [
+    {
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.3.0/card.atlas",
+      "bytes": 9676,
+      "sha256": "445a7cf515c93774448c0c4576b33703a2a775144212477be9a5273051d92459",
+      "fallbackUrls": [
+        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.3.0/card.atlas"
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.3.0/cards.png",
+      "bytes": 6019399,
+      "sha256": "63feb16cad91ce7415ac2d0ceac57a25dd46f4da37dd87c8710196998afe153c",
+      "fallbackUrls": [
+        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.3.0/cards.png"
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.3.0/cards1.png",
+      "bytes": 6113702,
+      "sha256": "e27930df7749ed66e51488120ea1ac511225ffa8f830b21a0dfb5216f5590caa",
+      "fallbackUrls": [
+        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.3.0/cards1.png"
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.3.0/cards2.png",
+      "bytes": 5313485,
+      "sha256": "d91c812096a7187bfcd03819cb993252c2a745732fd9d4fb7ef983a6ce9ed962",
+      "fallbackUrls": [
+        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.3.0/cards2.png"
+      ]
+    }
+  ]
+}

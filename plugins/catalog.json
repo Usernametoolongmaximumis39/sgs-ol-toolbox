@@ -1,0 +1,399 @@
+{
+  "schemaVersion": 1,
+  "core": {
+    "version": "0.6.0"
+  },
+  "plugins": [
+    {
+      "id": "native-cards",
+      "name": "官方卡牌",
+      "version": "0.1.0",
+      "icon": "cards",
+      "priority": 50090,
+      "categories": [],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.95",
+      "apiVersion": 1,
+      "description": "复用官方经典与大将军两套卡面卡背，在设置中成套选用",
+      "packageUrl": "packages/native-cards/0.1.0.json",
+      "sha256": "22950fcd5b71918f6f7c35166726c51aaa016581bff5047e29f0b19454732592"
+    },
+    {
+      "id": "yjcm-cards",
+      "name": "一将成名卡面包",
+      "version": "0.1.2",
+      "icon": {
+        "paths": [
+          "M8 3h12v17H8ZM4 5H2v17h13v-2",
+          "M14 6l3 4-3 4-3-4ZM11 17h6"
+        ]
+      },
+      "priority": 50095,
+      "categories": [],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.125",
+      "apiVersion": 1,
+      "description": "喵喵杯、猪猪侠逐牌卡面；来源为一将成名官方资源，缺失特殊卡图时保留游戏原生显示",
+      "packageUrl": "packages/yjcm-cards/0.1.2.json",
+      "sha256": "63ec4317e93a6b215790b9865bd8d8b887676a5c00d118eff2ff7d4f79765ac4"
+    },
+    {
+      "id": "dafeiyu-cards",
+      "name": "大肥鱼卡面",
+      "version": "0.3.1",
+      "icon": {
+        "paths": [
+          "M3 5h13v16H3Z",
+          "M7 2h14v16h-2",
+          "M5 12c3-5 6-5 8 0-2 5-5 5-8 0Z",
+          "M13 12l2-2v4Z",
+          "M8 11v.1"
+        ]
+      },
+      "priority": 50096,
+      "categories": [],
+      "contractVersion": 1,
+      "minCoreVersion": "0.6.0",
+      "apiVersion": 1,
+      "description": "三倍高清大肥鱼卡面，共 52 种，含军争卡组与 8 张衍生装备及吕玲绮四件装备精修；图片按需加载",
+      "packageUrl": "packages/dafeiyu-cards/0.3.1.json",
+      "sha256": "54eac14b53d86450fcf8901dab2a391e3492a5c1b20d2d8b55c8151172be5629"
+    },
+    {
+      "id": "backgrounds",
+      "name": "自定义背景",
+      "version": "0.2.1",
+      "icon": {
+        "paths": [
+          "M3 4h18v16H3Z",
+          "M3 16 9 10l4 4 3-3 5 5",
+          "M16 7h1"
+        ]
+      },
+      "priority": 31000,
+      "categories": [
+        "tools"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.130",
+      "apiVersion": 1,
+      "dependencies": [
+        "skins"
+      ],
+      "description": "将皮肤原画或动态用作牌局背景，保留天气与武将技能背景",
+      "packageUrl": "packages/backgrounds/0.2.1.json",
+      "sha256": "9c6ee349b4ca59a1eb797a5863ee3ac0cb17c252e0bab79440a26d90dc7eddfe"
+    },
+    {
+      "id": "gold-cards",
+      "name": "金色卡牌",
+      "version": "0.1.0",
+      "icon": "cards",
+      "priority": 50100,
+      "categories": [],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.90",
+      "apiVersion": 1,
+      "description": "金色卡面底纹与玄金卡背，在设置的卡面与卡背中成套选用",
+      "packageUrl": "packages/gold-cards/0.1.0.json",
+      "sha256": "223cb665ae968062d24d4cf2f4757f8508e47f20c7e162da08eabf9e3dc5ecba"
+    },
+    {
+      "id": "shanhetu",
+      "name": "山河图",
+      "version": "0.2.25",
+      "icon": {
+        "paths": [
+          "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+          "M6 12 10 7l4 5 3-3 2 3",
+          "M6 16c3-3 7 3 12-1"
+        ]
+      },
+      "priority": 11000,
+      "categories": [
+        "game"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.82",
+      "apiVersion": 1,
+      "description": "敌军、问号与商店预览，换将卡预判与跨模式战法计数",
+      "packageUrl": "packages/shanhetu/0.2.25.json",
+      "sha256": "164df50f777eee9c554ee324ce99da8e569bbe4ad21aa10ed99a672690d9397d"
+    },
+    {
+      "id": "cards",
+      "name": "卡牌",
+      "version": "0.1.55",
+      "icon": {
+        "paths": [
+          "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
+          "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"
+        ]
+      },
+      "priority": 10000,
+      "categories": [
+        "game"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.76",
+      "apiVersion": 1,
+      "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
+      "packageUrl": "packages/cards/0.1.55.json",
+      "sha256": "28836c7bb94ab403bcc5dfbb0d5f01e735accd85b129a18fe4c1a158308e9a10"
+    },
+    {
+      "id": "play-assist",
+      "name": "出牌辅助",
+      "version": "0.1.6",
+      "icon": {
+        "paths": [
+          "M4 5h10v14H4zM7 8h4M7 11h3",
+          "m17 3-3 8h5l-3 10 7-13h-5l2-5"
+        ]
+      },
+      "priority": 12000,
+      "categories": [
+        "game"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.13",
+      "apiVersion": 1,
+      "description": "长按技能自动发动与跨局记忆，选好自动确定、火攻和询问跳过。",
+      "packageUrl": "packages/play-assist/0.1.6.json",
+      "sha256": "f156d1f1942ebc2abf0003230bdb175aac363c6f3e304441629f0f46ac866474"
+    },
+    {
+      "id": "daily-rewards",
+      "name": "日常领奖",
+      "version": "0.7.12",
+      "icon": {
+        "paths": [
+          "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
+          "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"
+        ]
+      },
+      "priority": 20000,
+      "categories": [
+        "automation"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.124",
+      "apiVersion": 1,
+      "description": "自动领取签到、任务、邮件与活动奖励，按账号记录",
+      "packageUrl": "packages/daily-rewards/0.7.12.json",
+      "sha256": "7119a7edc207c2b95a72ed136d04ccfd10bd63f02adbe25388622c12c3d454e7"
+    },
+    {
+      "id": "seckill",
+      "name": "自动秒杀",
+      "version": "0.1.1",
+      "icon": {
+        "paths": [
+          "M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2",
+          "M13 10 9 15h3l-1 4 5-6h-4Z"
+        ]
+      },
+      "priority": 21000,
+      "categories": [
+        "automation"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.13",
+      "apiVersion": 1,
+      "description": "按所选物品与关键词自动抢购秒杀商品，支持跨场次排队与购买确认",
+      "packageUrl": "packages/seckill/0.1.1.json",
+      "sha256": "2b78f390601bb9e30f8c7bdf9293bfc580a60b7830ec0f2e1bb734635d6105f0"
+    },
+    {
+      "id": "gaizhu",
+      "name": "盖主速刷",
+      "version": "0.1.11",
+      "icon": {
+        "paths": [
+          "M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0",
+          "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3",
+          "M2 21h6"
+        ]
+      },
+      "priority": 21000,
+      "categories": [
+        "automation"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.62",
+      "apiVersion": 1,
+      "dependencies": [
+        "baisheng"
+      ],
+      "description": "黄盖房主苦肉速刷，反贼自动选将、准备与托管，支持百胜轮换和延时收尾。",
+      "packageUrl": "packages/gaizhu/0.1.11.json",
+      "sha256": "c780e6f6570313eb17eb207a506bedbdf8f18493031cdda9388ea1dcdd0b4e9a"
+    },
+    {
+      "id": "effects",
+      "name": "特效屏蔽",
+      "version": "0.5.9",
+      "icon": {
+        "paths": [
+          "M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2",
+          "M3 3 21 21M19 3v4M17 5h4"
+        ]
+      },
+      "priority": 20000,
+      "categories": [
+        "tools"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.0",
+      "apiVersion": 1,
+      "description": "按需屏蔽对局特效与界面提醒，让画面更清爽",
+      "packageUrl": "packages/effects/0.5.9.json",
+      "sha256": "0ce88f8ee888c4810b1829855db890d7903f374413696278016ca711e4d799ff"
+    },
+    {
+      "id": "skins",
+      "name": "皮肤收集",
+      "version": "0.4.7",
+      "icon": {
+        "paths": [
+          "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
+          "M8 3l8 9M16 3l-6 7M8 16h8"
+        ]
+      },
+      "priority": 30000,
+      "categories": [],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.101",
+      "apiVersion": 1,
+      "description": "筛选、查找皮肤，查看收藏与动态状态",
+      "packageUrl": "packages/skins/0.4.7.json",
+      "sha256": "989470c87531dc87c27718303b0f27a8fd3866efee9f84893d63e619e787aeda"
+    },
+    {
+      "id": "wish-progress",
+      "name": "心愿进度",
+      "version": "0.1.1",
+      "icon": {
+        "paths": [
+          "M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z",
+          "M4 21h9M16 21h4"
+        ]
+      },
+      "priority": 30100,
+      "categories": [],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.0",
+      "apiVersion": 1,
+      "description": "游戏心愿窗口显示武将格数、皮肤百分比与最近一次抽取净变化",
+      "packageUrl": "packages/wish-progress/0.1.1.json",
+      "sha256": "bd7b8ea40bce5789378875f648fca9d0a40ba7977517f2f4879f70a7cab4522e"
+    },
+    {
+      "id": "themes",
+      "name": "雅色主题包",
+      "version": "0.1.4",
+      "icon": {
+        "paths": [
+          "M12 21 2 8a16 16 0 0 1 20 0Z",
+          "M12 21 7 5.3M12 21V4.5M12 21 17 5.3",
+          "M10 19a3 3 0 0 1 4 0"
+        ]
+      },
+      "priority": 50000,
+      "categories": [],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.15",
+      "apiVersion": 1,
+      "description": "提供五套深色与宣纸、晴岚、桃夭三套浅色配色，在设置的主题工坊中选用",
+      "packageUrl": "packages/themes/0.1.4.json",
+      "sha256": "eae835ca2fca5e48d607b4186e011992bb4eab88456b6543d1768d8891b0d8d2"
+    },
+    {
+      "id": "baisheng",
+      "name": "百胜战功",
+      "version": "0.1.3",
+      "icon": {
+        "paths": [
+          "M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4",
+          "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"
+        ]
+      },
+      "priority": 31000,
+      "categories": [
+        "info"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.13",
+      "apiVersion": 1,
+      "description": "查看当前账号百胜进度、完成日期与技能战功，仅保存在本机",
+      "packageUrl": "packages/baisheng/0.1.3.json",
+      "sha256": "c0c5737eb6c21df228b59bc2ac80f3721bba2fd746a65042516ac4fb2e84ae30"
+    },
+    {
+      "id": "appearances",
+      "name": "出框与胜率统计",
+      "version": "0.4.5",
+      "icon": {
+        "paths": [
+          "M9 21H3V3h18v9",
+          "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1",
+          "M12 21 16 17l3 2 3-5M19 14h3v3"
+        ]
+      },
+      "priority": 32000,
+      "categories": [
+        "info"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.13",
+      "apiVersion": 1,
+      "description": "本机统计正式排位、斗地主与单骑无双的出框、选取、胜率及对局历史",
+      "packageUrl": "packages/appearances/0.4.5.json",
+      "sha256": "ccd0e7cfe63403cdc8ef1a8a596928d6c320ae3ff709ed181373f30cb364c4a0"
+    },
+    {
+      "id": "ledger",
+      "name": "账本",
+      "version": "0.3.1",
+      "icon": {
+        "paths": [
+          "M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18",
+          "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"
+        ]
+      },
+      "priority": 30000,
+      "categories": [
+        "info"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.142",
+      "apiVersion": 1,
+      "description": "重要物品余额、登录收支与祈愿记录，背包道具搜索和抵价券满减角标",
+      "packageUrl": "packages/ledger/0.3.1.json",
+      "sha256": "463721eeed62ae69025bb0b0b53fb95fd15225d2423da5e74ff14307cb7c6edc"
+    },
+    {
+      "id": "recharge",
+      "name": "95折充值与旧卡",
+      "version": "0.1.5",
+      "icon": {
+        "paths": [
+          "M3 6h18v14H3Z",
+          "M3 10h18",
+          "M15 15h3",
+          "M6 3h12"
+        ]
+      },
+      "priority": 45000,
+      "categories": [
+        "tools"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.13",
+      "apiVersion": 1,
+      "description": "官服微信／支付宝充值及旧周月卡原生直购入口，操作前请阅读风险",
+      "packageUrl": "packages/recharge/0.1.5.json",
+      "sha256": "6b216a07879353c9c433073ec6b36529886057b81eecb1ea7ae7762c63294643"
+    }
+  ]
+}
