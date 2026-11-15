@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.28
+// @version      0.6.29
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  轻量版：独立核心，按需安装插件并沿用已保存的插件
@@ -1072,7 +1072,7 @@
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.28", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.29", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
@@ -4366,7 +4366,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     for (let [selector, name] of [[".mark", "toolbox"], ["[data-screenshot]", "camera"], ["[data-expand]", "expand"], [".brand button", "collapse"], ["[data-open-market]", "package"]])
       shadow.querySelector(selector).append(createIcon(doc, name));
     for (let [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
-    let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, pluginSearch = "", marketState = {}, marketRequest = 0, installing = /* @__PURE__ */ new Set();
+    let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, pluginSearch = "", onlyUninstalled = settings.get("marketOnlyUninstalled", !1) === !0, marketState = {}, marketRequest = 0, installing = /* @__PURE__ */ new Set();
     function currentMarketState() {
       let client = handlers.market?.();
       return marketState.client !== client && (marketRequest++, marketState = { client }), marketState;
@@ -4669,7 +4669,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     }
     function filterPlugins() {
       let terms = pluginSearch.trim().toLocaleLowerCase().split(/\s+/), cards = [...content.querySelectorAll("[data-search-text]")];
-      for (let card of cards) card.hidden = !terms.every((term) => card.dataset.searchText.includes(term));
+      for (let card of cards) card.hidden = onlyUninstalled && card.dataset.catalogInstalled === "true" || !terms.every((term) => card.dataset.searchText.includes(term));
       let empty2 = content.querySelector(".plugin-search-empty");
       empty2 && (empty2.hidden = !pluginSearch.trim() || cards.some((card) => !card.hidden));
     }
@@ -4706,12 +4706,21 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         container.append(el("div", "\u70B9\u51FB\u8FDE\u63A5\u540E\u8BFB\u53D6\u9759\u6001\u76EE\u5F55\u3002\u76EE\u5F55\u79BB\u7EBF\u4E0D\u4F1A\u505C\u6B62\u5DF2\u5B89\u88C5\u63D2\u4EF6\u3002", "notice"));
         return;
       }
-      container.append(el("div", `${state.catalog.plugins.length} \u4E2A\u53EF\u7528\u53D1\u5E03\u5305`, "muted"));
+      let installed = new Map((handlers.manager?.list() || []).map((item) => [item.id, item])), filter = el("label", void 0, "row"), toggle = styleSwitch(el("input"));
+      toggle.type = "checkbox", toggle.checked = onlyUninstalled, toggle.addEventListener("change", () => {
+        onlyUninstalled = toggle.checked, settings.set("marketOnlyUninstalled", onlyUninstalled), render();
+      }), filter.append(el("span", "\u53EA\u663E\u793A\u672A\u5B89\u88C5"), toggle), container.append(filter);
+      let count = state.catalog.plugins.filter((entry) => !onlyUninstalled || !installed.has(entry.id)).length;
+      container.append(el("div", `${count} \u4E2A${onlyUninstalled ? "\u672A\u5B89\u88C5" : "\u53EF\u7528"}\u53D1\u5E03\u5305`, "muted")), count || container.append(el("div", "\u76EE\u5F55\u4E2D\u7684\u63D2\u4EF6\u5747\u5DF2\u5B89\u88C5", "notice"));
       for (let entry of [...state.catalog.plugins].sort(comparePluginOrder)) {
         let card = el("section", void 0, "card plugin-card");
-        pluginIdentity(card, entry);
-        let install2 = button("\u5B89\u88C5\u6B64\u7248\u672C", () => installEntry(entry));
-        install2.disabled = installing.has(entry.id), card.append(install2), markSearchable(card, entry), container.append(card);
+        pluginIdentity(card, entry), card.dataset.catalogKey = JSON.stringify([entry.id, entry.version]);
+        let current = installed.get(entry.id), same = current?.version === entry.version;
+        card.dataset.catalogInstalled = String(!!current);
+        let bottom = el("div", void 0, "plugin-bottom"), status = el("span", current ? `\u5DF2\u5B89\u88C5${same ? "\u6B64\u7248\u672C" : " " + current.version}` : "\u672A\u5B89\u88C5", "plugin-status");
+        status.title = status.textContent, status.style.whiteSpace = "normal", bottom.append(status);
+        let busy = installing.has(entry.id), install2 = button(busy ? "\u6B63\u5728\u5B89\u88C5\u2026" : same ? "\u5DF2\u5B89\u88C5" : current ? "\u66FF\u6362\u6B64\u7248\u672C" : "\u5B89\u88C5\u6B64\u7248\u672C", () => installEntry(entry));
+        install2.disabled = busy || same, install2.style.marginLeft = "auto", install2.style.flexShrink = "0", busy && card.setAttribute("aria-busy", "true"), bottom.append(install2), card.append(bottom), markSearchable(card, entry), container.append(card);
       }
     }
     function coreUpdateStatus() {
@@ -4764,6 +4773,16 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       content.append(tabs), management === "settings" ? renderSettings(cleanups) : management === "market" ? renderMarket() : management === "appearance" && renderAppearance(cleanups);
     }
     function render() {
+      let previousKey = renderedKey, anchors = renderedKey === "manage:market" ? [...content.querySelectorAll("[data-catalog-key]")].filter((card) => !card.hidden && card.getBoundingClientRect().bottom > content.getBoundingClientRect().top).map((card) => ({ key: card.dataset.catalogKey, top: card.getBoundingClientRect().top })) : [], restoreScroll = () => {
+        if (content.scrollTop = viewScroll.get(renderedKey) || 0, previousKey === renderedKey)
+          for (let anchor of anchors) {
+            let card = [...content.querySelectorAll("[data-catalog-key]")].find((card2) => !card2.hidden && card2.dataset.catalogKey === anchor.key);
+            if (card) {
+              content.scrollTop += card.getBoundingClientRect().top - anchor.top;
+              break;
+            }
+          }
+      };
       renderedKey && viewScroll.set(renderedKey, content.scrollTop);
       try {
         renderedCleanup?.();
@@ -4789,7 +4808,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       renderedKey = active + ":" + (active === "game" ? gameView : active === "manage" ? management : ""), active === "manage" && (renderManagement(cleanups), filterPlugins());
       let categoryPanels = [...panels.values()].filter((p) => p.category === (active === "manage" && management === "appearance" ? "appearance" : active)).sort(comparePanelOrder), available = active === "game" ? selectGamePanels(categoryPanels, gameView) : categoryPanels;
       if (!available.length) {
-        active !== "manage" && empty("\u5C1A\u672A\u5B89\u88C5\u6B64\u7C7B\u63D2\u4EF6", active === "game" ? "\u524D\u5F80\u7BA1\u7406 \u2192 \u63D2\u4EF6\u5E02\u573A\u5B89\u88C5\u5361\u724C\u63D2\u4EF6\u3002" : "\u6B64\u5206\u7C7B\u4E3A\u540E\u7EED\u63D2\u4EF6\u4FDD\u7559\u3002"), content.scrollTop = viewScroll.get(renderedKey) || 0;
+        active !== "manage" && empty("\u5C1A\u672A\u5B89\u88C5\u6B64\u7C7B\u63D2\u4EF6", active === "game" ? "\u524D\u5F80\u7BA1\u7406 \u2192 \u63D2\u4EF6\u5E02\u573A\u5B89\u88C5\u5361\u724C\u63D2\u4EF6\u3002" : "\u6B64\u5206\u7C7B\u4E3A\u540E\u7EED\u63D2\u4EF6\u4FDD\u7559\u3002"), restoreScroll();
         return;
       }
       content.classList.add("has-plugin-panels");
@@ -4823,7 +4842,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
           section.append(el("div", "\u9762\u677F\u52A0\u8F7D\u5931\u8D25\uFF1A" + e.message, "error"));
         }
       }
-      content.scrollTop = viewScroll.get(renderedKey) || 0;
+      restoreScroll();
     }
     for (let b of shadow.querySelectorAll("[data-category]")) scope.listen(b, "click", () => {
       active = b.dataset.category, settings.set("category", active), render();

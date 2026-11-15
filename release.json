@@ -1,13 +1,13 @@
 {
-  "version": "0.6.28",
+  "version": "0.6.29",
   "editions": {
     "full": {
-      "bytes": 3047929,
+      "bytes": 3050337,
       "plugins": 21,
       "updatesTo": "lite"
     },
     "lite": {
-      "bytes": 344044,
+      "bytes": 346452,
       "plugins": 0,
       "updatesTo": "lite"
     }

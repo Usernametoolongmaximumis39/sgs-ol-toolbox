@@ -10,6 +10,10 @@
 
 使用篡改猴安装下列一个版本，安装后刷新游戏。full 与 lite 使用同一脚本身份，切换时替换原脚本。
 
+**安装前请开启「允许用户脚本」：仅启用篡改猴扩展还不够。** 在 Edge / Chrome 的「扩展 → 管理扩展 → 篡改猴 → 详情」中，打开「允许用户脚本」开关，允许扩展访问游戏网站，再安装工具箱并刷新游戏。Edge 可在地址栏输入 `edge://extensions`，Chrome 输入 `chrome://extensions`，找到篡改猴进入详情。
+
+若扩展详情中没有「允许用户脚本」，按[篡改猴官方权限说明](https://www.tampermonkey.net/faq.php?locale=zh&q=Q209)开启「开发者模式」。安装不弹窗或游戏里没有工具箱时，请先检查这项权限，以及篡改猴管理面板中的工具箱脚本是否启用。
+
 | 版本 | 内容 | 安装 |
 | --- | --- | --- |
 | full 完整版 | 核心与全部 19 个插件，首次运行将随附插件独立保存到浏览器 | [GitHub](https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/full/toolbox.user.js) · [OSS 备用](https://tools.3gs.xyz/sgs-toolbox/full/toolbox.user.js) |

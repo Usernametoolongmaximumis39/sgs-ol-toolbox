@@ -56,6 +56,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   for (const [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
   const content = shadow.querySelector('.content'); let active = settings.get('category', 'game'); let management = 'market'; let renderedCleanup; let handlers = {}; const panels = new Map(); let toastTimer;
   let pluginSearch = '';
+  let onlyUninstalled = settings.get('marketOnlyUninstalled', false) === true;
   let marketState = {}; let marketRequest = 0; const installing = new Set();
   function currentMarketState() {
     const client = handlers.market?.();
@@ -312,7 +313,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   function filterPlugins() {
     const terms = pluginSearch.trim().toLocaleLowerCase().split(/\s+/);
     const cards = [...content.querySelectorAll('[data-search-text]')];
-    for (const card of cards) card.hidden = !terms.every(term => card.dataset.searchText.includes(term));
+    for (const card of cards) card.hidden = (onlyUninstalled && card.dataset.catalogInstalled === 'true') || !terms.every(term => card.dataset.searchText.includes(term));
     const empty = content.querySelector('.plugin-search-empty');
     if (empty) empty.hidden = !pluginSearch.trim() || cards.some(card => !card.hidden);
   }
@@ -336,10 +337,28 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     if (state.loading) { container.append(el('div', '正在读取插件目录…', 'notice')); return; }
     if (state.error) { container.append(el('div', DEVELOPMENT ? '请检查目录地址、网络与跨域权限。' : '请检查网络后重试，已安装插件可继续使用。', 'muted')); return; }
     if (!state.catalog) { container.append(el('div', '点击连接后读取静态目录。目录离线不会停止已安装插件。', 'notice')); return; }
-    container.append(el('div', `${state.catalog.plugins.length} 个可用发布包`, 'muted'));
+    const installed = new Map((handlers.manager?.list() || []).map(item => [item.id, item]));
+    const filter = el('label', undefined, 'row');
+    const toggle = styleSwitch(el('input')); toggle.type = 'checkbox'; toggle.checked = onlyUninstalled;
+    toggle.addEventListener('change', () => { onlyUninstalled = toggle.checked; settings.set('marketOnlyUninstalled', onlyUninstalled); render(); });
+    filter.append(el('span', '只显示未安装'), toggle); container.append(filter);
+    const count = state.catalog.plugins.filter(entry => !onlyUninstalled || !installed.has(entry.id)).length;
+    container.append(el('div', `${count} 个${onlyUninstalled ? '未安装' : '可用'}发布包`, 'muted'));
+    if (!count) container.append(el('div', '目录中的插件均已安装', 'notice'));
+
     for (const entry of [...state.catalog.plugins].sort(comparePluginOrder)) {
       const card = el('section', undefined, 'card plugin-card'); pluginIdentity(card, entry);
-      const install = button('安装此版本', () => installEntry(entry)); install.disabled = installing.has(entry.id); card.append(install); markSearchable(card, entry); container.append(card);
+      card.dataset.catalogKey = JSON.stringify([entry.id, entry.version]);
+      const current = installed.get(entry.id), same = current?.version === entry.version;
+      card.dataset.catalogInstalled = String(!!current);
+      const bottom = el('div', undefined, 'plugin-bottom');
+      const status = el('span', current ? `已安装${same ? '此版本' : ' ' + current.version}` : '未安装', 'plugin-status');
+      status.title = status.textContent; status.style.whiteSpace = 'normal'; bottom.append(status);
+      const busy = installing.has(entry.id);
+      const install = button(busy ? '正在安装…' : same ? '已安装' : current ? '替换此版本' : '安装此版本', () => installEntry(entry));
+      install.disabled = busy || same; install.style.marginLeft = 'auto'; install.style.flexShrink = '0';
+      if (busy) card.setAttribute('aria-busy', 'true');
+      bottom.append(install); card.append(bottom); markSearchable(card, entry); container.append(card);
     }
   }
   function coreUpdateStatus() {
@@ -396,6 +415,18 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     else if (management === 'appearance') renderAppearance(cleanups);
   }
   function render() {
+    const previousKey = renderedKey;
+    const anchors = renderedKey === 'manage:market' ? [...content.querySelectorAll('[data-catalog-key]')]
+      .filter(card => !card.hidden && card.getBoundingClientRect().bottom > content.getBoundingClientRect().top)
+      .map(card => ({ key: card.dataset.catalogKey, top: card.getBoundingClientRect().top })) : [];
+    const restoreScroll = () => {
+      content.scrollTop = viewScroll.get(renderedKey) || 0;
+      if (previousKey !== renderedKey) return;
+      for (const anchor of anchors) {
+        const card = [...content.querySelectorAll('[data-catalog-key]')].find(card => !card.hidden && card.dataset.catalogKey === anchor.key);
+        if (card) { content.scrollTop += card.getBoundingClientRect().top - anchor.top; break; }
+      }
+    };
     if (renderedKey) viewScroll.set(renderedKey, content.scrollTop);
     try { renderedCleanup?.(); } catch {} renderedCleanup = null; content.replaceChildren(); content.classList.remove('has-plugin-panels', 'appearance-page');
     const cleanups = [];
@@ -413,7 +444,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     if (active === 'manage') { renderManagement(cleanups); filterPlugins(); }
     const categoryPanels = [...panels.values()].filter(p => p.category === (active === 'manage' && management === 'appearance' ? 'appearance' : active)).sort(comparePanelOrder);
     const available = active === 'game' ? selectGamePanels(categoryPanels, gameView) : categoryPanels;
-    if (!available.length) { if (active !== 'manage') empty('尚未安装此类插件', active === 'game' ? '前往管理 → 插件市场安装卡牌插件。' : '此分类为后续插件保留。'); content.scrollTop = viewScroll.get(renderedKey) || 0; return; }
+    if (!available.length) { if (active !== 'manage') empty('尚未安装此类插件', active === 'game' ? '前往管理 → 插件市场安装卡牌插件。' : '此分类为后续插件保留。'); restoreScroll(); return; }
     content.classList.add('has-plugin-panels');
     const groups = new Map();
     for (const panel of available) {
@@ -443,7 +474,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       try { const clean = panel.render(section); if (typeof clean === 'function') cleanups.push(clean); }
       catch (e) { section.append(el('div', '面板加载失败：' + e.message, 'error')); }
     }
-    content.scrollTop = viewScroll.get(renderedKey) || 0;
+    restoreScroll();
   }
   for (const b of shadow.querySelectorAll('[data-category]')) scope.listen(b, 'click', () => { active = b.dataset.category; settings.set('category', active); render(); });
   scope.listen(shadow.querySelector('.nav'), 'keydown', e => { if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return; const buttons = [...shadow.querySelectorAll('[data-category]')]; const i = buttons.indexOf(shadow.activeElement); buttons[(i + (e.key === 'ArrowLeft' ? 4 : 1)) % 5].focus(); e.preventDefault(); });
