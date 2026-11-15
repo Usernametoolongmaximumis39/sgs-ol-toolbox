@@ -1,15 +1,17 @@
 {
-  "version": "0.6.30",
+  "version": "0.6.31",
   "editions": {
     "full": {
-      "bytes": 3054886,
+      "bytes": 3055614,
       "plugins": 21,
-      "updatesTo": "lite"
+      "updatesTo": "full",
+      "toolboxUpdatesTo": "lite"
     },
     "lite": {
-      "bytes": 351001,
+      "bytes": 351729,
       "plugins": 0,
-      "updatesTo": "lite"
+      "updatesTo": "lite",
+      "toolboxUpdatesTo": "lite"
     }
   },
   "plugins": [

@@ -19,7 +19,7 @@
 | full 完整版 | 核心与全部 19 个插件，首次运行将随附插件独立保存到浏览器 | [GitHub](https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/full/toolbox.user.js) · [OSS 备用](https://tools.3gs.xyz/sgs-toolbox/full/toolbox.user.js) |
 | lite 轻量版 | 相同核心能力，无随附插件；沿用已保存的插件，也可从商城按需安装 | [GitHub](https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/lite/toolbox.user.js) · [OSS 备用](https://tools.3gs.xyz/sgs-toolbox/lite/toolbox.user.js) |
 
-full 与 lite 的后续核心更新统一下载 lite。插件、配置、停用状态、卸载选择与可回退版本保存在浏览器，不随核心反复下载。插件需要更新时另在商城操作。
+篡改猴内更新保持当前 full / lite 版本；工具箱内更新统一转到 lite。full/lite 共用脚本身份，切换时替换；dev 独立安装和更新。同时启用时仅 dev 运行，公开版会退出。插件、配置、停用状态、卸载选择与可回退版本保存在浏览器，不随核心反复下载。插件需要更新时另在商城操作。
 
 从 0.6.0 或更早版本升级时，旧安装地址先提供一次 full 兼容更新，确保原有随附插件转存成功；之后核心更新改走 lite。直接安装全新 lite 不会自动预装插件。
 

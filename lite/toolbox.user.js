@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.30
+// @version      0.6.31
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  轻量版：独立核心，按需安装插件并沿用已保存的插件
@@ -127,6 +127,29 @@
       return errors;
     }
   };
+
+  // src/core/runtime-owner.js
+  var KEY2 = Symbol.for("sgs.ol.toolbox.core");
+  function startOwnedRuntime(win, edition, start) {
+    let previous = win[KEY2];
+    if (previous && (previous.distribution === "dev" || edition !== "dev")) return previous.ready || Promise.resolve(previous);
+    previous?.dispose?.();
+    let scope = new ResourceScope(), api = { distribution: edition, scope, dispose() {
+      scope.dispose(), win[KEY2] === api && delete win[KEY2];
+    } };
+    return win[KEY2] = api, api.ready = (async () => {
+      try {
+        await previous?.ready;
+      } catch {
+      }
+      if (scope.closed) return null;
+      try {
+        return await start(api);
+      } catch (error) {
+        throw api.dispose(), error;
+      }
+    })(), api.ready;
+  }
 
   // src/core/storage.js
   var Settings = class _Settings {
@@ -1072,7 +1095,7 @@
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.30", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.31", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
@@ -3669,7 +3692,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), () => scope.dispose();
   }
 
-  // node_modules/html-to-image/es/util.js
+  // ../../node_modules/html-to-image/es/util.js
   function resolveUrl(url, baseUrl) {
     if (url.match(/^[a-z]+:\/\//i))
       return url;
@@ -3750,7 +3773,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return nodePrototype === null ? !1 : nodePrototype.constructor.name === instance.name || isInstanceOfElement(nodePrototype, instance);
   };
 
-  // node_modules/html-to-image/es/clone-pseudos.js
+  // ../../node_modules/html-to-image/es/clone-pseudos.js
   function formatCSSText(style2) {
     let content = style2.getPropertyValue("content");
     return `${style2.cssText} content: '${content.replace(/'|"/g, "")}';`;
@@ -3782,7 +3805,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     clonePseudoElement(nativeNode, clonedNode, ":before", options), clonePseudoElement(nativeNode, clonedNode, ":after", options);
   }
 
-  // node_modules/html-to-image/es/mimes.js
+  // ../../node_modules/html-to-image/es/mimes.js
   var WOFF = "application/font-woff", JPEG = "image/jpeg", mimes = {
     woff: WOFF,
     woff2: WOFF,
@@ -3805,7 +3828,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return mimes[extension] || "";
   }
 
-  // node_modules/html-to-image/es/dataurl.js
+  // ../../node_modules/html-to-image/es/dataurl.js
   function getContentFromDataUrl(dataURL) {
     return dataURL.split(/,/)[1];
   }
@@ -3853,7 +3876,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return cache[cacheKey] = dataURL, dataURL;
   }
 
-  // node_modules/html-to-image/es/clone-node.js
+  // ../../node_modules/html-to-image/es/clone-node.js
   async function cloneCanvasElement(canvas) {
     let dataURL = canvas.toDataURL();
     return dataURL === "data:," ? canvas.cloneNode(!1) : createImage(dataURL);
@@ -3940,7 +3963,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return !isRoot && options.filter && !options.filter(node) ? null : Promise.resolve(node).then((clonedNode) => cloneSingleNode(clonedNode, options)).then((clonedNode) => cloneChildren(node, clonedNode, options)).then((clonedNode) => decorate(node, clonedNode, options)).then((clonedNode) => ensureSVGSymbols(clonedNode, options));
   }
 
-  // node_modules/html-to-image/es/embed-resources.js
+  // ../../node_modules/html-to-image/es/embed-resources.js
   var URL_REGEX = /url\((['"]?)([^'"]+?)\1\)/g, URL_WITH_FORMAT_REGEX = /url\([^)]+\)\s*format\((["']?)([^"']+)\1\)/g, FONT_SRC_REGEX = /src:\s*(?:url\([^)]+\)\s*format\([^)]+\)[,;]\s*)+/g;
   function toRegex(url) {
     let escaped = url.replace(/([.*+?^${}()|\[\]\/\\])/g, "\\$1");
@@ -3984,7 +4007,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return parseURLs(filteredCSSText).reduce((deferred, url) => deferred.then((css) => embed(css, url, baseUrl, options)), Promise.resolve(filteredCSSText));
   }
 
-  // node_modules/html-to-image/es/embed-images.js
+  // ../../node_modules/html-to-image/es/embed-images.js
   async function embedProp(propName, node, options) {
     var _a;
     let propValue = (_a = node.style) === null || _a === void 0 ? void 0 : _a.getPropertyValue(propName);
@@ -4022,7 +4045,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     isInstanceOfElement(clonedNode, Element) && (await embedBackground(clonedNode, options), await embedImageNode(clonedNode, options), await embedChildren(clonedNode, options));
   }
 
-  // node_modules/html-to-image/es/apply-style.js
+  // ../../node_modules/html-to-image/es/apply-style.js
   function applyStyle(node, options) {
     let { style: style2 } = node;
     options.backgroundColor && (style2.backgroundColor = options.backgroundColor), options.width && (style2.width = `${options.width}px`), options.height && (style2.height = `${options.height}px`);
@@ -4032,7 +4055,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), node;
   }
 
-  // node_modules/html-to-image/es/embed-webfonts.js
+  // ../../node_modules/html-to-image/es/embed-webfonts.js
   var cssFetchCache = {};
   async function fetchCSS(url) {
     let cache2 = cssFetchCache[url];
@@ -4152,7 +4175,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
   }
 
-  // node_modules/html-to-image/es/index.js
+  // ../../node_modules/html-to-image/es/index.js
   async function toSvg(node, options = {}) {
     let { width, height } = getImageSize(node, options), clonedNode = await cloneNode(node, options, !0);
     return await embedWebFonts(clonedNode, options), await embedImages(clonedNode, options), applyStyle(clonedNode, options), await nodeToDataURL(clonedNode, width, height);
@@ -5039,12 +5062,13 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
   }
 
   // src/core/main.js
-  async function boot(win = window) {
-    if (installRefreshReentry(win)) return null;
-    let key = Symbol.for("sgs.ol.toolbox.core");
-    if (win[key]) return win[key];
-    let onlyPlugin = null, scope = new ResourceScope(), settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION }), api = { version: CORE_VERSION, distribution: EDITION, journal, scope, diagnostics };
-    win[key] = api;
+  function boot(win = window) {
+    return startOwnedRuntime(win, EDITION, (api) => initialize(win, api));
+  }
+  async function initialize(win, api) {
+    if (installRefreshReentry(win)) return api;
+    let scope = api.scope, onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
+    Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
     let shell = createShell({ window: win, document: win.document, settings, scope }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), game = createGameAdapter(win, scope), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope });
     scope.add(game.onSceneChange((scene) => shell.setGameView(gameViewForScene(scene)))), shell.setGameView(gameViewForScene(game.getScene()));
     let screenshot = createScreenshotController({ window: win, game, settings, scope, notify: shell.notify }), bridge = installMessageBridge(win, journal, scope, (message) => shell.setStatus(message), {
@@ -5073,7 +5097,8 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       baisheng: REPLACED_BAISHENG_PACKAGES,
       appearances: REPLACED_APPEARANCE_PACKAGES
     };
-    for (let pkg of bundledPackages) (!onlyPlugin || pkg.manifest.id === onlyPlugin || onlyPlugin === "gaizhu" && pkg.manifest.id === "baisheng") && await manager.registerBundled(pkg, replacements[pkg.manifest.id] || []);
+    for (let pkg of bundledPackages) if ((!onlyPlugin || pkg.manifest.id === onlyPlugin || onlyPlugin === "gaizhu" && pkg.manifest.id === "baisheng") && (await manager.registerBundled(pkg, replacements[pkg.manifest.id] || []), scope.closed))
+      return null;
     shell.setHandlers({
       manager,
       themes,
@@ -5093,21 +5118,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       shell.host.style.display = ready ? "" : "none", ready && !legacyWarned && compat.getStatus().sources.length && (legacyWarned = !0, shell.showLegacyWarning()), ready && !mounted && (mounted = !0, snapshots.request());
       let capture = bridge.getStatus();
       shell.setStatus(bridge.error || (ready ? capture.received ? `\u5DF2\u6536 ${capture.received} \u6761\u6D88\u606F \xB7 ${journal.incomplete ? "\u7F3A\u5C11\u5F00\u5C40\u8BB0\u5F55" : "\u672C\u5C40\u8BB0\u5F55\u4E2D"}` : capture.targets.length ? "\u6D88\u606F\u5165\u53E3\u5DF2\u8FDE\u63A5 \xB7 \u7B49\u5F85\u6536\u5305" : "\u672A\u63A5\u5165\u6E38\u620F\u6D88\u606F \xB7 \u4EC5\u539F\u751F\u663E\u793A\u53EF\u7528" : "\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6"));
-    }, 500), !win.__SGS_TOOLBOX_DEMO__ && !win.Laya?.stage && (shell.host.style.display = "none"), await manager.init(), Object.assign(api, {
-      manager,
-      game,
-      themes,
-      cardStyles,
-      backgrounds,
-      compat,
-      shell,
-      settings,
-      bridge,
-      market: marketConnection.get,
-      dispose() {
-        scope.dispose(), win[key] === api && delete win[key];
-      }
-    }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager.errors.length && shell.notify(manager.errors.join("\uFF1B")), api;
+    }, 500), !win.__SGS_TOOLBOX_DEMO__ && !win.Laya?.stage && (shell.host.style.display = "none"), await manager.init(), scope.closed ? null : (Object.assign(api, { manager, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager.errors.length && shell.notify(manager.errors.join("\uFF1B")), api);
   }
   boot().catch((error) => {
     console.error("[\u4E09\u56FD\u6740OL\u5DE5\u5177\u7BB1]", error);

@@ -1,7 +1,7 @@
 import { installRefreshReentry } from './refresh-reentry.js';
 import { DEVELOPMENT, EDITION } from './distribution.js';
 import { bundledPackages } from './bundled-plugins.js';
-import { ResourceScope } from './resources.js';
+import { startOwnedRuntime } from './runtime-owner.js';
 import { Settings, PackageStore } from './storage.js';
 import { SessionJournal, installMessageBridge } from './session.js';
 import { CardStyleRegistry } from './card-styles.js';
@@ -19,14 +19,17 @@ import { createScreenshotController } from './screenshot.js';
 import { gameViewForScene } from './game-view.js';
 import { CORE_VERSION, REPLACED_CARD_PACKAGES, REPLACED_REWARD_PACKAGES, REPLACED_EFFECT_PACKAGES, REPLACED_SKIN_PACKAGES, REPLACED_SHANHETU_PACKAGES, REPLACED_THEME_PACKAGES, REPLACED_BAISHENG_PACKAGES, REPLACED_APPEARANCE_PACKAGES } from './version.js';
 
-export async function boot(win = window) {
-  if (installRefreshReentry(win)) return null;
-  const key = Symbol.for('sgs.ol.toolbox.core'); if (win[key]) return win[key];
+export function boot(win = window) {
+  return startOwnedRuntime(win, EDITION, api => initialize(win, api));
+}
+async function initialize(win, api) {
+  if (installRefreshReentry(win)) return api;
+  const scope = api.scope;
   const onlyPlugin = DEVELOPMENT && ['daily-rewards', 'effects', 'skins', 'wish-progress', 'shanhetu', 'themes', 'baisheng', 'appearances', 'seckill', 'gaizhu', 'ledger', 'recharge'].includes(win.__SGS_TOOLBOX_DEMO__?.onlyPlugin)
     && win.location?.hostname === '127.0.0.1' ? win.__SGS_TOOLBOX_DEMO__.onlyPlugin : null;
-  const scope = new ResourceScope(), settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : 'sgstoolbox:'), journal = new SessionJournal();
+  const settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : 'sgstoolbox:'), journal = new SessionJournal();
   const diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
-  const api = { version: CORE_VERSION, distribution: EDITION, journal, scope, diagnostics }; win[key] = api;
+  Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
   const shell = createShell({ window: win, document: win.document, settings, scope });
   const themes = new ThemeRegistry(settings, tokens => shell.applyTheme(tokens));
   const game = createGameAdapter(win, scope);
@@ -52,6 +55,7 @@ export async function boot(win = window) {
     baisheng: REPLACED_BAISHENG_PACKAGES, appearances: REPLACED_APPEARANCE_PACKAGES };
   for (const pkg of bundledPackages) if (!onlyPlugin || pkg.manifest.id === onlyPlugin || (onlyPlugin === 'gaizhu' && pkg.manifest.id === 'baisheng')) {
     await manager.registerBundled(pkg, replacements[pkg.manifest.id] || []);
+    if (scope.closed) return null;
   }
   shell.setHandlers({ manager, themes, cardStyles, compat, market: marketConnection.get, setMarketUrl: marketConnection.set,
     screenshot: screenshot.capture,
@@ -77,8 +81,8 @@ export async function boot(win = window) {
   }, 500);
   if (!win.__SGS_TOOLBOX_DEMO__ && !win.Laya?.stage) shell.host.style.display = 'none';
   await manager.init();
-  Object.assign(api, { manager, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get,
-    dispose() { scope.dispose(); if (win[key] === api) delete win[key]; } });
+  if (scope.closed) return null;
+  Object.assign(api, { manager, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get });
   if (win.__SGS_TOOLBOX_DEMO__) snapshots.request();
   if (manager.errors.length) shell.notify(manager.errors.join('；'));
   return api;
