@@ -1,8 +1,12 @@
+import { nativeSeat, nativeSeatId } from '../../core/seat.js';
 import { read, field } from '../../shared/info-runtime.js';
 
 export function nativeSide(ctx, selfSeat) {
   if (!Number.isInteger(selfSeat) || selfSeat<0) return {position:null,figure:null};
-  const context=read(()=>ctx.game.getClass('GameContext')),seat=read(()=>context.GetSeat(selfSeat));
+  const context=read(()=>ctx.game.getClass('GameContext'));
+  const ui=read(()=>ctx.game.getSeatUIs())?.find(ui=>nativeSeatId(ui)===selfSeat)
+    ?? read(()=>ctx.game.getSelfSeatUI());
+  const seat=read(()=>context.GetSeat(selfSeat)) ?? (nativeSeatId(ui)===selfSeat ? nativeSeat(ui) : null);
   const position=read(()=>seat.FixedViewId),figure=read(()=>seat.Figure);
   return {position:Number.isInteger(position)&&position>=1&&position<=4?position:null,
     figure:figure===1||figure===3?figure:null};

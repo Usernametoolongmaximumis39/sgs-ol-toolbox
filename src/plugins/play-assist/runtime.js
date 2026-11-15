@@ -1,7 +1,11 @@
+import { createQuandaoDisplay } from './quandao.js';
 import { read, field } from '../../shared/info-runtime.js';
+import { EXTRA_IDS, skillKind } from './strategies.js';
+import { createExtended, redShaOwnTurn } from './extended.js';
 
 // Static baseline: 小抄 1.6.75 uO/uE. Conditional judgement skills need 洛神 / 界洛神.
-export const SKILL_IDS = Object.freeze([62,769,726,3295,3310,792,3751,295,250,784,445,49,716,101,3269,273,97,3260,102,891]);
+export const SKILL_IDS = Object.freeze([62,769,726,3295,3310,792,3750,3753,295,250,784,445,49,716,101,3269,273,97,3260,102,891,...EXTRA_IDS]);
+const QIANFU_IDS = [3750,3753];
 export const CONDITIONAL_SKILL_IDS = Object.freeze([48,719,79,883]);
 export function supported(item) {
   const id = Number(item?.Skill?.SkillId);
@@ -27,9 +31,11 @@ function nativeClick(node, type = 'click') {
 }
 
 export function createRuntime(ctx, getSettings, onChange = () => {}) {
+  const quandao = createQuandaoDisplay();
   let state = null, disposed = false, proxy = null, proxyCleanup = [], ended = false, currentSeat = null, phase = null, sourceCard = null, wuxie = null, judgementFlower = null, lastRemember = Boolean(getSettings().remember);
   let locks = new Set(lastRemember ? list(ctx.settings.get('lockedSkillIds', [])).map(Number) : []);
   const releases = [], tracked = fn => { const release = ctx.scope.add(fn); releases.push(release); return release; };
+  const extended = createExtended(ctx, {button,choice,locked:id=>locks.has(id),hasKind:kind=>EXTRA_IDS.some(id=>locks.has(id) && skillKind(id)===kind)});
   function persist() { ctx.settings.set('lockedSkillIds', getSettings().remember ? [...locks] : []); }
   function gameContext() { return read(() => ctx.game.getClass('GameContext')); }
   function alive(s = state) {
@@ -78,9 +84,11 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       cancel(); suppress = false;
       if (!alive(s) || !getSettings().skillLock) return;
       if (locks.has(id)) { suppress = true; toggle(id); return; }
+      const gc = gameContext();
+      const shanhe = Boolean(gc?.IsRoguelike1v1 || gc?.IsRogueLike || /Rogue/.test(String(s.scene.SceneName)));
       const handle = setTimeout(() => { cancel(); if (alive(s) && Number(item.Skill?.SkillId) === id && toggle(id)) {
-        suppress = true; ctx.notify?.(`已启用 ${item.Skill.Name} 自动发动，再点一次解除`);
-      } }, 500);
+        suppress = true; ctx.notify?.(`已启用 ${item.Skill.Name} 技能辅助，再点一次解除`);
+      } }, shanhe ? 500 : 2000);
       timer = ctx.scope.add(() => clearTimeout(handle));
     };
     const wrapped = function(...args) { if (suppress && !s.automatic) { suppress = false; return; } rapid(); const result = original.apply(this, args); rapid(); return result; };
@@ -116,6 +124,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     return {id, label, rapid, dispose:ctx.scope.add(() => { cancel(); rapidRestore?.(); clean.reverse().forEach(fn => fn()); })};
   }
   function clear() {
+    quandao.clear();
     if (!state) return;
     for (const b of state.bindings.values()) b.dispose();
     state.barClean?.forEach(fn => fn());
@@ -171,6 +180,33 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     try { return nativeClick(item); }
     finally { s.automatic = false; }
   }
+  function declineQianfuFollowup(s, context) {
+    if (!getSettings().skillLock || !QIANFU_IDS.some(id => locks.has(id))) return false;
+    const self = s.self, selector = self.spellSelector;
+    const plain = value => String(value || '').replace(/<[^>]*>/g,'').replace(/\s/g,'');
+    const texts = [context?.message, buttonBar(self)?.txtOptMsg?._innerHTML,
+      selector?.visible ? selector.txtOptMsg?._innerHTML : ''].map(plain);
+    const ids = [context?.Skill?.SkillId, context?.SpecifySkillId,
+      s.scene.seatContainer?.selectContext?.Skill?.SkillId,
+      selector?.visible ? selector.spell?.SkillId : 0].map(Number);
+    const triggerId = data => Number(data.callBackParams?.[0]?.FirstTriggerParam?.SpellId ?? data.callBackParams?.[0]?.TriggerSpellData?.[0]?.SpellId);
+    const forbidden = id => QIANFU_IDS.includes(id) || id === 3751;
+    const triggerPrompt = selector?.visible && list(selector.btnList).some(b => forbidden(triggerId(b.data || b.Data || {})));
+    const optional = ids.includes(3751) || texts.some(t => /是否.*(?:弃置.*牌.*(?:置于|放.*)牌堆顶|发动[“「]?迁附)/.test(t));
+    if (!triggerPrompt && !optional) return false;
+    if (selector?.visible) {
+      // Other locked skills may still be chosen from a mixed trigger list.
+      if (triggerPrompt && choice(s,d => !forbidden(triggerId(d)) && locks.has(triggerId(d)))) return true;
+      // Seat_TriggerSpellMulti builds Cancel with a callback whose first
+      // argument is null. It has no sendData; do not invoke a skill callback.
+      choice(s,d => typeof d.callBack === 'function' && Array.isArray(d.callBackParams) &&
+        d.callBackParams[0] === null && plain(d.label) === '取消' ||
+        !d.callBack && [0,255].includes(Number(d.sendData)));
+    } else button(s,'btnCancel');
+    // A missing/disabled Cancel must keep this prompt manual, never fall
+    // through to conversion confirmation, generic skill activation or OK.
+    return true;
+  }
   function lockedAction(s, context, message, gc) {
     if (!getSettings().skillLock || !locks.size) return false;
     const self = s.self, selector = self.spellSelector, cards = list(self.cardContainer?.cardUis);
@@ -186,6 +222,14 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     }
     const id = Number(context?.Skill?.SkillId);
     if (locks.has(id)) {
+      if (QIANFU_IDS.includes(id)) {
+        // The native selector filters by current yin/yang state, card colour,
+        // equipment restrictions and target legality. Select exactly one card;
+        // keep target choice manual, and confirm only when native OK is enabled.
+        if (!/请选择一张(?:黑|红)色牌，当(?:过河拆桥|火攻)使用/.test(message)) return false;
+        if (cards.filter(c => c.selected).length > 1) return false;
+        return chooseCard(s) && button(s,'btnOK');
+      }
       if ([102,891].includes(id)) {
         const selected = cards.filter(c => c.selected), suit = selected[0]?.Card?.FlowerOnSeat;
         if (selected.length > 2 || selected.some(c => c.Card?.FlowerOnSeat !== suit)) return false;
@@ -215,6 +259,8 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       }
     }
     for (const item of list(self.skillItems).filter(x => supported(x) && locks.has(Number(x.Skill?.SkillId)))) {
+      const kind=skillKind(Number(item.Skill.SkillId));
+      if (kind==='yingyuan' || kind==='weishu' || kind==='longyin' && !redShaOwnTurn(s,sourceCard,currentSeat)) continue;
       if (Number(item.Skill.SkillId) === 62 && Number(self.seat?.Hp) <= 1) {
         const usableHeal = Number(self.seat?.Hp) === 1 && !self.seat.CannotUseCardBySeatState && list(self.seat.HandCards).some(c =>
           [3,82].includes(Number(c.FirstSkillId)) && !list(self.seat.CantUseCardIds).includes(c.CardId) &&
@@ -231,6 +277,8 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     const opt = getSettings(), self = s.self, context = self.cardContainer?.selectCardContext, gc = gameContext();
     const message = String(context?.message || buttonBar(self)?.txtOptMsg?._innerHTML || '').replace(/<[^>]*>/g,'');
     const specify = Number(context?.SpecifySkillId), skill = Number(context?.Skill?.SkillId), selection = self.spellSelector?.visible ? Number(self.spellSelector.spell?.SkillId) : 0;
+    if (declineQianfuFollowup(s,context)) return;
+    if (opt.skillLock && locks.size && extended.run(s,context,message,sourceCard,currentSeat,gc)) return;
     if (opt.skillLock && locks.has(62) && Number(self.seat?.Hp) <= 0 && specify === 3 && Number(gc?.NextSpellTargets?.[0]) === Number(self.seat?.Index)) {
       if (!self.spellSelector?.visible && chooseCard(s,c => [3,82].includes(Number(c.Card?.FirstSkillId)))) button(s,'btnOK'); return;
     }
@@ -275,14 +323,42 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     bind('ClientLeavetableRep',() => { ended = true; resetRound(); clear(); notify(); });
     bind('MsgGamePlayCardNtf',() => { if (ended) resetRound(); ended = false; });
     bind('MsgGameTurnNtf',packet => { const id = Number(field(packet,'SeatID')); currentSeat = Number.isInteger(id) && id >= 0 && id < 255 ? id : null; });
-    bind('GsCGamephaseNtf',packet => { const value = Number(field(packet,'Round')); phase = Number.isFinite(value) ? value : null; wuxie = null; });
+    bind('GsCGamephaseNtf',packet => {
+      const value = Number(field(packet,'Round')), seat = Number(field(packet,'SeatID'));
+      phase = Number.isFinite(value) ? value : null;
+      if (Number.isInteger(seat) && seat >= 0 && seat < 255) currentSeat = seat;
+      wuxie = null;
+    });
     bind('PubGsCUseCard',packet => {
       const id = Number(field(packet,'CardID')), meta = read(() => ctx.game.getCardMeta(id));
-      sourceCard = {seat:Number(field(packet,'SeatID')),spell:Number(field(packet,'SpellID')),type:Number(meta?.type)};
+      const rawSpell=Number(field(packet,'spellID') ?? field(packet,'SpellID') ?? field(packet,'spellId'));
+      // Native PubGsCUseCard uses lowercase spellID. A normal, unconverted
+      // physical card may use zero; recover only an explicitly known Sha.
+      const spell=rawSpell === 0 && (meta?.name === '杀' || meta?.cardClass === 'Sha') ? 1 : rawSpell;
+      sourceCard = {seat:Number(field(packet,'SeatID')),spell,type:Number(meta?.type),suit:Number(meta?.suit),
+        castId:rawSpell,redMaterials:[1,2].includes(Number(meta?.suit)),mayBeSha:spell===1 || read(()=>field(packet,'Spell').IsThis(1))===true};
+    });
+    bind('PubGsCUseSpell',packet => {
+      const ids=field(packet,'CardIDs');
+      if (!Array.isArray(ids) || !ids.length || ids.length>128) return;
+      const metas=ids.map(id=>read(()=>ctx.game.getCardMeta(Number(id))));
+      const spell=Number(field(packet,'SpellID') ?? field(packet,'spellID'));
+      const native=field(packet,'Spell');
+      sourceCard={seat:Number(field(packet,'SeatID')),spell,castId:spell,type:NaN,
+        suit:metas.length===1 ? Number(metas[0]?.suit) : metas.every(m=>[1,2].includes(Number(m?.suit))) ? 1 : NaN,
+        redMaterials:metas.every(m=>[1,2].includes(Number(m?.suit))),
+        mayBeSha:spell===1 || read(()=>native.IsThis(1))===true};
     });
     bind('GsCTriggerSpellNew',packet => {
       const trigger = field(packet,'FirstTriggerParam') || field(packet,'TriggerSpellData')?.[0];
       const spell = Number(field(packet,'SrcSpellID')), seat = Number(trigger?.SeatId);
+      const triggers=[field(packet,'FirstTriggerParam'),...(field(packet,'TriggerSpellData') || [])].filter(Boolean);
+      // A native 龙吟 inquiry proves the resulting card is Sha. Bind that
+      // proof to the source caster/skill and known red materials, rather than
+      // maintaining a whitelist of conversion skills or calling a red 闪 Sha.
+      if (sourceCard?.redMaterials && Number(field(packet,'SrcSpellCasterSeat'))===sourceCard.seat &&
+        triggers.some(t=>[446,21003].includes(Number(t.SpellId))) &&
+        (spell===sourceCard.castId || spell===1 && sourceCard.mayBeSha)) sourceCard.spell=1;
       wuxie = Number(trigger?.SpellId) === 13 ? {spell,seat,type:sourceCard?.spell === spell && sourceCard?.seat === seat ? sourceCard.type : null} : null;
     });
     // Old journal zone 3 / owner 255 is the public judgement processing area.
@@ -306,6 +382,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       if (!state && !ended) bind(scene,self);
       if (state) syncBar(state);
       // Pause/temporary operation restrictions suspend execution, not this round's configuration.
+      quandao.update(self, Boolean(getSettings().quandaoCount) && alive());
       if (!alive()) return;
       const current = list(self.skillItems).filter(item => !item.destroyed && (supported(item) || getSettings().rapid));
       for (const [item,b] of state.bindings) if (!current.includes(item) || Number(item.Skill?.SkillId) !== b.id) { b.dispose(); state.bindings.delete(item); }

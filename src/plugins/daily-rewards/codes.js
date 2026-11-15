@@ -34,7 +34,7 @@ export function parseCodes(text) {
   return result;
 }
 
-export const CLIPBOARD_PARSER_VERSION = 2;
+export const CLIPBOARD_PARSER_VERSION = 3;
 // Recognize whole short phrases only; never extract tokens from prose or status.
 function shortClipboardPhrase(code) {
   if (!/^[\p{Script=Han}A-Za-z0-9]{4,14}$/u.test(code)) return false;
@@ -47,20 +47,25 @@ function shortClipboardPhrase(code) {
 export function parseClipboardCodes(text, known = new Set()) {
   if (typeof text !== 'string' || !text.trim() || text.length > MAX_TEXT) return { text: '', reason: '剪贴板不是可识别的兑换码列表，已忽略' };
   const lines = text.trim().split(/\r?\n/).filter(line => line.trim());
-  const codes = [];
+  const codes = []; let skipped = 0;
   for (const line of lines) {
     const marked = /^\s*(?:兑换码|礼包码|激活码|CDKEY)\s*[:：]\s*(\S+)\s*$/i.exec(line);
     const tokens = marked ? [marked[1]] : line.trim().split(/[\s,;，；]+/u);
+    const accepted = [];
     for (const code of tokens) {
       const valid = /^[\p{Script=Han}A-Za-z0-9!！_-]{3,40}$/u.test(code) && new TextEncoder().encode(code).length <= 64;
       const serial = /^[A-Za-z0-9_-]{6,40}$/.test(code) && /[A-Za-z]/.test(code) && /\d/.test(code);
-      if (!valid || (!marked && !serial && !known.has(code) && !shortClipboardPhrase(code))) return { text: '', reason: '剪贴板包含说明、状态或无法识别的文字，已整段忽略；特殊口令请复制“兑换码：口令”' };
-      if (!marked && line.trim() !== code && !serial && !known.has(code)) return { text: '', reason: '中文口令请每行一个；混有说明或状态的内容已整段忽略' };
-      codes.push(code);
+      if (!valid || (!marked && !serial && !known.has(code) && !shortClipboardPhrase(code)) ||
+          (!marked && line.trim() !== code && !serial && !known.has(code))) break;
+      accepted.push(code);
     }
+    // Never extract a plausible token from a prose line, but keep independent lines.
+    if (accepted.length !== tokens.length) { skipped++; continue; }
+    codes.push(...accepted);
   }
   if (codes.length > MAX_CODES) return { text: '', reason: '剪贴板兑换码过多，已忽略' };
-  return { text: [...new Set(codes)].join('\n'), reason: '' };
+  return { text: [...new Set(codes)].join('\n'), skipped,
+    reason: skipped ? `已跳过 ${skipped} 行无法识别的内容；中文口令请每行一个，特殊口令可标注“兑换码：口令”` : '' };
 }
 
 export function codeAttemptLabel(key) {

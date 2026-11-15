@@ -1,3 +1,4 @@
+import { createGameViewport } from './game-viewport.js';
 import { LOCAL_MARKET_URL, OSS_MARKET_URL, GITHUB_MARKET_URL } from '../core/market-connection.js';
 import { DEVELOPMENT, EDITION } from '../core/distribution.js';
 import { mountCardStyleWorkshop } from './card-style-workshop.js';
@@ -11,6 +12,7 @@ import { comparePanelOrder, comparePluginOrder } from '../core/plugin-contract.j
 import { createIcon } from './icons.js';
 const categories = [['game', '牌局'], ['automation', '自动'], ['tools', '工具'], ['manage', '管理'], ['info', '信息']];
 const style = `
+.appearance-page .plugin-heading{margin:0}
 .management-tabs{position:sticky;top:-12px;z-index:8;background:var(--sgs-bg)!important;box-shadow:0 5px 8px var(--sgs-bg)!important}
 .card-style-workshop summary{cursor:pointer;color:var(--sgs-accent);padding:8px 0;font-size:12px;min-height:34px}.card-style-workshop summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}.card-style-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-style-choices button{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;font-size:11px}.card-style-choices button[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 3px 0 var(--sgs-accent);background:color-mix(in srgb,var(--sgs-accent) 12%,var(--sgs-surface))}.card-style-preview{display:flex;gap:4px;width:100%;justify-content:center}.card-style-preview canvas,.card-style-preview img{width:43%;max-width:64px;height:auto;aspect-ratio:93/130;border-radius:3px}.card-style-workshop p{margin:8px 0}
 
@@ -20,7 +22,8 @@ const style = `
 :host{all:initial;position:fixed;top:72px;right:24px;width:280px;min-width:248px;max-width:420px;z-index:2147483000;color:var(--sgs-text);font:13px/1.55 var(--sgs-font);color-scheme:var(--sgs-scheme,dark)}
 *{box-sizing:border-box}button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:wait;opacity:.5}button,input,select{color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 9px}button:hover{background:var(--sgs-raised);border-color:var(--sgs-accent)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}a{color:var(--sgs-accent)}
 .shell{background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:var(--sgs-radius);box-shadow:0 16px 48px #0006;overflow:hidden;resize:horizontal;min-width:248px;max-width:420px;width:100%}
-.content.has-plugin-panels{min-height:0}.plugin-group{min-width:0}.plugin-group+.plugin-group{border-top:1px solid var(--sgs-border);margin-top:10px;padding-top:10px}.plugin-heading{margin:0;font-size:13px}.plugin-heading .plugin-toggle{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;padding:6px 3px;border:0;border-radius:6px;background:transparent;box-shadow:none;text-align:left;color:var(--sgs-accent)}.plugin-heading .plugin-toggle:hover{background:color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.plugin-toggle svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.plugin-toggle .plugin-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;letter-spacing:.5px}.plugin-toggle .plugin-chevron{width:15px;height:15px;color:var(--sgs-muted);transition:transform .16s}.plugin-toggle[aria-expanded=false] .plugin-chevron{transform:rotate(-90deg)}.plugin-body{padding:9px 2px 2px}.plugin-body[hidden]{display:none!important}@media(prefers-reduced-motion:reduce){.plugin-toggle .plugin-chevron{transition:none}}
+.content.has-plugin-panels{min-height:0}.plugin-group{min-width:0}.plugin-group+.plugin-group{border-top:1px solid var(--sgs-border);margin-top:10px;padding-top:10px}.plugin-heading{margin:0;font-size:13px}.plugin-heading .plugin-toggle{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;padding:6px 3px;border:0;border-radius:6px;background:transparent;box-shadow:none;text-align:left;color:var(--sgs-accent)}.plugin-heading .plugin-toggle:hover{background:color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.plugin-toggle svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.plugin-toggle .plugin-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;letter-spacing:.5px}.plugin-toggle .plugin-chevron{width:15px;height:15px;color:var(--sgs-muted);transition:transform .16s}.plugin-toggle[aria-expanded=false] .plugin-chevron{transform:rotate(-90deg)}.plugin-body{padding:9px 2px 2px}.plugin-body[hidden]{display:none!important}:host([data-edge-docked]){left:auto!important;right:0!important;transition:transform 180ms ease;transform:translateX(0)}:host([data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 5px));background:var(--sgs-bg);border-left:1px solid var(--sgs-accent);border-radius:5px 0 0 5px}:host([data-edge-hidden]) .shell{visibility:hidden}:host([data-edge-fixed]){transition:none;top:0!important;bottom:0!important;height:100vh;height:100dvh}:host([data-edge-fixed]) .shell{display:flex;flex-direction:column;height:100%;border-radius:0}:host([data-edge-fixed]) .shell>.brand,:host([data-edge-fixed]) .shell>.status,:host([data-edge-fixed]) .shell>.nav,:host([data-edge-fixed]) .shell>.footer,:host([data-edge-fixed]) .shell>.compact{flex-shrink:0}:host([data-edge-fixed]) .content{flex:1;min-height:0;max-height:none}.edge-resizer{display:none;position:absolute;left:0;bottom:0;width:22px;height:22px;z-index:12;color:var(--sgs-muted);cursor:ew-resize;touch-action:none;user-select:none;align-items:center;justify-content:center}.edge-resizer svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round}.edge-resizer:hover{color:var(--sgs-accent)}.edge-resizer:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:-3px}:host([data-edge-docked]) .shell{resize:none}:host([data-edge-docked]:not([data-collapsed]):not([data-edge-hidden])) .edge-resizer{display:flex}:host([data-edge-docked]) .footer{padding-left:25px}:host([data-edge-docked]:focus-visible){outline:2px solid var(--sgs-accent);outline-offset:-2px}
+@media(prefers-reduced-motion:reduce){.plugin-toggle .plugin-chevron{transition:none}}
 .brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand strong{letter-spacing:1px;font-size:13px}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
 .nav{display:flex;gap:4px;padding:7px 9px;border-block:1px solid var(--sgs-border);background:var(--sgs-surface)}.nav button{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:0;height:42px;padding:0;border-color:transparent;background:transparent;overflow:hidden;transition:flex-grow var(--sgs-motion) cubic-bezier(.2,.8,.2,1),background var(--sgs-motion),gap var(--sgs-motion)}.nav button svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform var(--sgs-motion)}.nav button span{max-width:0;opacity:0;white-space:nowrap;overflow:hidden;transition:max-width var(--sgs-motion),opacity var(--sgs-motion)}.nav button[aria-selected=true]{color:var(--sgs-accent);background:var(--sgs-raised)}.nav:has(button:hover) button:not(:hover):not(:focus-visible) svg,.nav:has(button:focus-visible) button:not(:hover):not(:focus-visible) svg{transform:scale(.92)}.nav button:hover,.nav button:focus-visible{flex-grow:2.2;gap:5px;color:var(--sgs-accent);background:var(--sgs-raised)}.nav button:hover svg,.nav button:focus-visible svg{transform:scale(1.15)}.nav button:hover span,.nav button:focus-visible span{max-width:32px;opacity:1}
 .content{padding:12px;max-height:65vh;min-height:200px;overflow:auto;scrollbar-width:thin}.footer{display:flex;justify-content:space-between;border-top:1px solid var(--sgs-border);padding:7px 12px;color:var(--sgs-muted);font-size:10px}.footer button{padding:0;border:0;background:none;font-size:10px;color:var(--sgs-muted)}.empty{text-align:center;padding:35px 12px;color:var(--sgs-muted)}.empty svg{width:32px;height:32px;fill:none;stroke:var(--sgs-accent);stroke-width:1.2;margin-bottom:12px}.empty strong{display:block;color:var(--sgs-text);font-size:14px;margin-bottom:7px}.tabs{display:flex;gap:4px;margin-bottom:13px}.tabs button{flex:1;padding:5px 2px;font-size:12px}.tabs button.active{border-color:var(--sgs-accent);color:var(--sgs-accent)}h3{font-size:13px;margin:15px 0 7px}h3:first-child{margin-top:0}.card{padding:10px;border:1px solid var(--sgs-border);border-radius:8px;margin-bottom:8px;background:var(--sgs-surface)}.card .title{display:flex;justify-content:space-between;gap:5px}.muted{color:var(--sgs-muted);font-size:11px}.actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.actions button{font-size:11px;padding:4px 7px}.notice{color:var(--sgs-muted);font-size:11px;overflow-wrap:anywhere;padding:7px 0}.error{color:var(--sgs-danger)}label.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0}input[type=checkbox]{accent-color:var(--sgs-accent)}input.address{width:100%;font-size:11px}select{max-width:145px}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);max-width:80vw;background:var(--sgs-raised);color:var(--sgs-text);padding:10px 16px;border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 4px 20px #0008;z-index:2147483647}
@@ -103,8 +106,8 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     details.append(input, actions, hint); panel.append(details);
     panel.append(button('继续使用', () => panel.remove())); shadow.append(panel);
   }
-  function renderSettings(cleanups) {
-    const first = content.children.length;
+  function renderAppearance(cleanups) {
+    content.classList.add('appearance-page');
     const themeHeading = el('h3', undefined, 'plugin-heading');
     const themeToggle = el('button', undefined, 'plugin-toggle'); themeToggle.type = 'button';
     themeToggle.append(createIcon(doc, 'palette'), el('span', '主题工坊', 'plugin-title'), createIcon(doc, 'chevron', 'plugin-chevron'));
@@ -121,11 +124,27 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       const collapsed = !workshop.hidden;
       settings.set('themeWorkshopCollapsed', collapsed); applyThemeFold(collapsed);
     };
-    themeHeading.append(themeToggle); content.append(themeHeading, workshop);
+    const themeGroup = el('section', undefined, 'plugin-group appearance-section');
+    themeHeading.append(themeToggle); themeGroup.append(themeHeading, workshop); content.append(themeGroup);
     cleanups.push(mountThemeWorkshop(workshop, { document: doc, themes: handlers.themes, notify }));
-    content.append(el('h3', '卡牌外观'));
-    const cardWorkshop = el('div'); content.append(cardWorkshop);
+    const cardWorkshop = el('div', undefined, 'plugin-group appearance-section'); content.append(cardWorkshop);
     cleanups.push(mountCardStyleWorkshop(cardWorkshop, { document: doc, cardStyles: handlers.cardStyles, settings }));
+  }
+  function renderSettings(cleanups) {
+    const first = content.children.length;
+    if (!mobileDevice()) {
+      content.append(el('h3', 'HUD 靠边行为'));
+      const choices = el('div', undefined, 'sgs-segments'); choices.setAttribute('role', 'group'); choices.setAttribute('aria-label', 'HUD 靠边行为');
+      for (const [value, label] of [['none', '无操作'], ['hide', '收起'], ['fixed', '固定']]) {
+        const choice = button(label, () => {
+          settings.set('hudEdgeBehavior', value);
+          const atEdge = host.hasAttribute('data-edge-docked') || host.getBoundingClientRect().right >= win.innerWidth - 12;
+          setEdgeDocked(atEdge); render();
+        });
+        choice.dataset.edgeBehavior = value; choice.setAttribute('aria-pressed', String(edgeBehavior() === value)); choices.append(choice);
+      }
+      content.append(choices, el('div', '拖到右边缘时：无操作保持悬浮；收起在鼠标移开后隐藏；固定为侧栏并为游戏画布留出空间。', 'muted'));
+    }
     content.append(el('h3', '截图'));
     const cleanRow = el('label', undefined, 'row'); cleanRow.append(el('span', '截图时隐藏工具箱 UI'));
     const clean = el('input'); clean.type = 'checkbox'; styleSwitch(clean); clean.checked = settings.get('screenshotHideUI', true); clean.dataset.setting = 'screenshotHideUI';
@@ -371,13 +390,14 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     catalogCards(catalog);
   }
   function renderManagement(cleanups) {
-    const tabs = el('div', undefined, 'tabs management-tabs'); for (const [id, title] of [['settings', '设置'], ['market', '插件市场']]) { const b = button(title, () => { management = id; render(); }); if (management === id) b.className = 'active'; tabs.append(b); } content.append(tabs);
+    const tabs = el('div', undefined, 'tabs management-tabs'); for (const [id, title] of [['settings', '设置'], ['market', '插件市场'], ['appearance', '外观']]) { const b = button(title, () => { management = id; render(); }); if (management === id) b.className = 'active'; tabs.append(b); } content.append(tabs);
     if (management === 'settings') renderSettings(cleanups);
     else if (management === 'market') renderMarket();
+    else if (management === 'appearance') renderAppearance(cleanups);
   }
   function render() {
     if (renderedKey) viewScroll.set(renderedKey, content.scrollTop);
-    try { renderedCleanup?.(); } catch {} renderedCleanup = null; content.replaceChildren(); content.classList.remove('has-plugin-panels');
+    try { renderedCleanup?.(); } catch {} renderedCleanup = null; content.replaceChildren(); content.classList.remove('has-plugin-panels', 'appearance-page');
     const cleanups = [];
     renderedCleanup = () => { for (const clean of cleanups.splice(0)) { try { clean(); } catch {} } };
     const installed = handlers.manager?.list() || [], market = currentMarketState();
@@ -389,9 +409,9 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     manage.title = alerts || '管理';
     if (alerts) { const badge = el('i', String(failures || (upgrades + Number(coreUpgrade))), `nav-alert${failures ? ' is-error' : ''}`); badge.setAttribute('aria-label', alerts); manage.append(badge); }
     for (const b of shadow.querySelectorAll('[data-category]')) b.setAttribute('aria-selected', String(b.dataset.category === active));
-    renderedKey = active + ':' + (active === 'game' ? gameView : '');
+    renderedKey = active + ':' + (active === 'game' ? gameView : active === 'manage' ? management : '');
     if (active === 'manage') { renderManagement(cleanups); filterPlugins(); }
-    const categoryPanels = [...panels.values()].filter(p => p.category === active).sort(comparePanelOrder);
+    const categoryPanels = [...panels.values()].filter(p => p.category === (active === 'manage' && management === 'appearance' ? 'appearance' : active)).sort(comparePanelOrder);
     const available = active === 'game' ? selectGamePanels(categoryPanels, gameView) : categoryPanels;
     if (!available.length) { if (active !== 'manage') empty('尚未安装此类插件', active === 'game' ? '前往管理 → 插件市场安装卡牌插件。' : '此分类为后续插件保留。'); content.scrollTop = viewScroll.get(renderedKey) || 0; return; }
     content.classList.add('has-plugin-panels');
@@ -428,7 +448,16 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   for (const b of shadow.querySelectorAll('[data-category]')) scope.listen(b, 'click', () => { active = b.dataset.category; settings.set('category', active); render(); });
   scope.listen(shadow.querySelector('.nav'), 'keydown', e => { if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return; const buttons = [...shadow.querySelectorAll('[data-category]')]; const i = buttons.indexOf(shadow.activeElement); buttons[(i + (e.key === 'ArrowLeft' ? 4 : 1)) % 5].focus(); e.preventDefault(); });
   scope.listen(shadow.querySelector('[data-open-market]'), 'click', () => { active = 'manage'; management = 'market'; render(); });
-  const setCollapsed = value => { host.toggleAttribute('data-collapsed', value); settings.set('collapsed', value); };
+  const setCollapsed = value => {
+    if (value && host.hasAttribute('data-edge-docked')) {
+      setEdgeDocked(false);
+      const width = parseFloat(host.style.width) || 280;
+      const free = settings.get('hudFloatingPosition', { x: Math.max(0, win.innerWidth - width - 24), y: 72 });
+      host.style.left = Math.max(0, Math.min(win.innerWidth - 156, Number(free?.x) || 0)) + 'px';
+      host.style.top = Math.max(0, Math.min(win.innerHeight - 45, Number(free?.y) || 0)) + 'px'; host.style.right = 'auto';
+      settings.set('position', { x: parseFloat(host.style.left), y: parseFloat(host.style.top) });
+    }
+    host.toggleAttribute('data-collapsed', value); settings.set('collapsed', value); if (typeof syncGameViewport === 'function') syncGameViewport(); };
   host.toggleAttribute('data-collapsed', settings.get('collapsed', false));
   scope.listen(shadow.querySelector('.brand button'), 'click', () => setCollapsed(true));
   const expandHUD = () => {
@@ -441,17 +470,65 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     event.preventDefault(); expandHUD();
   });
   scope.listen(shadow.querySelector('[data-screenshot]'), 'click', () => handlers.screenshot?.());
+  const mobileDevice = () => !!win.navigator.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(win.navigator.userAgent || '') || (win.navigator.platform === 'MacIntel' && win.navigator.maxTouchPoints > 1) || !!win.matchMedia?.('(pointer: coarse)').matches;
+  const edgeBehavior = () => { const value = settings.get('hudEdgeBehavior', 'fixed'); return mobileDevice() ? 'none' : ['none', 'hide', 'fixed'].includes(value) ? value : 'fixed'; };
+  const gameViewport = createGameViewport({ window: win, document: doc, scope });
+  const syncGameViewport = () => gameViewport.reserve(host.hasAttribute('data-edge-fixed') ? (host.hasAttribute('data-collapsed') ? 156 : parseFloat(host.style.width) || 280) : 0);
+  let edgeHideTimer, draggingHUD = false;
+  const revealEdge = () => { clearTimeout(edgeHideTimer); host.removeAttribute('data-edge-hidden'); };
+  const hasKeyboardFocus = () => host.matches(':focus-visible') || !!shadow.activeElement?.matches(':focus-visible');
+  const hideEdge = () => {
+    clearTimeout(edgeHideTimer);
+    if (!host.hasAttribute('data-edge-docked') || host.hasAttribute('data-edge-fixed') || draggingHUD || hasKeyboardFocus()) return;
+    edgeHideTimer = setTimeout(() => { if (!scope.closed && !draggingHUD && !hasKeyboardFocus()) host.setAttribute('data-edge-hidden', ''); }, 180);
+  };
+  const setEdgeDocked = (value, hidden = false) => {
+    const behavior = edgeBehavior(), docked = !!value && behavior !== 'none'; revealEdge();
+    host.toggleAttribute('data-edge-docked', docked); host.toggleAttribute('data-edge-fixed', docked && behavior === 'fixed'); host.toggleAttribute('data-edge-hidden', docked && behavior === 'hide' && hidden);
+    if (docked) { setCollapsed(false); host.tabIndex = 0; host.setAttribute('aria-label', behavior === 'fixed' ? '工具箱固定侧栏' : '工具箱自动隐藏侧栏'); }
+    else { host.removeAttribute('tabindex'); host.removeAttribute('aria-label'); }
+    settings.set('edgeDocked', docked); syncGameViewport();
+  };
+  const edgeResizer = doc.createElement('div'); edgeResizer.className = 'edge-resizer'; edgeResizer.tabIndex = 0;
+  edgeResizer.setAttribute('role', 'separator'); edgeResizer.setAttribute('aria-orientation', 'vertical'); edgeResizer.setAttribute('aria-label', '调整侧栏宽度'); edgeResizer.title = '向左拖动加宽，向右拖动变窄；方向键调整';
+  edgeResizer.setAttribute('aria-valuemin', '248'); edgeResizer.setAttribute('aria-valuemax', '420');
+  const grip = doc.createElementNS('http://www.w3.org/2000/svg', 'svg'); grip.setAttribute('viewBox', '0 0 24 24'); grip.setAttribute('aria-hidden', 'true');
+  const gripPath = doc.createElementNS('http://www.w3.org/2000/svg', 'path'); gripPath.setAttribute('d', 'M5 11l8 8M5 16l3 3'); grip.append(gripPath); edgeResizer.append(grip); shadow.append(edgeResizer);
+  const applyEdgeWidth = value => {
+    const width = Math.max(248, Math.min(420, Math.round(value))); host.style.width = width + 'px'; shadow.querySelector('.shell').style.width = width + 'px';
+    edgeResizer.setAttribute('aria-valuenow', String(width)); syncGameViewport(); return width;
+  };
+  let edgeResize;
+  const finishEdgeResize = () => { if (!edgeResize) return; edgeResize = undefined; draggingHUD = false; settings.set('width', parseFloat(host.style.width)); if (!host.matches(':hover')) hideEdge(); };
+  scope.listen(edgeResizer, 'pointerdown', event => {
+    if (event.button !== 0) return; event.preventDefault(); event.stopPropagation(); revealEdge(); draggingHUD = true;
+    edgeResize = { x: event.clientX, width: host.getBoundingClientRect().width };
+  });
+  scope.listen(win, 'pointermove', event => { if (edgeResize) { event.preventDefault(); applyEdgeWidth(edgeResize.width + edgeResize.x - event.clientX); } });
+  scope.listen(win, 'pointerup', finishEdgeResize); scope.listen(win, 'pointercancel', finishEdgeResize);
+  scope.listen(edgeResizer, 'keydown', event => {
+    const current = parseFloat(host.style.width) || 280;
+    const next = { ArrowLeft: current + 8, ArrowRight: current - 8, Home: 248, End: 420 }[event.key];
+    if (next === undefined) return; event.preventDefault(); settings.set('width', applyEdgeWidth(next));
+  });
+  scope.listen(host, 'pointerenter', revealEdge);
+  scope.listen(host, 'pointerleave', hideEdge);
+  scope.listen(host, 'focusin', revealEdge);
+  scope.listen(host, 'focusout', () => { if (!host.matches(':hover')) hideEdge(); });
+  scope.listen(win, 'resize', () => { if (mobileDevice()) { setEdgeDocked(false); if (active === 'manage') render(); } if (host.style.left) host.style.left = Math.max(0, Math.min(win.innerWidth - (host.hasAttribute('data-collapsed') ? 156 : parseFloat(host.style.width) || 280), parseFloat(host.style.left))) + 'px'; });
+  scope.add(() => clearTimeout(edgeHideTimer));
+  setEdgeDocked(settings.get('edgeDocked', false), true);
   const position = settings.get('position', null); if (position) { host.style.left = Math.max(0, Math.min(win.innerWidth - 248, position.x)) + 'px'; host.style.top = Math.max(0, Math.min(win.innerHeight - 50, position.y)) + 'px'; host.style.right = 'auto'; }
-  host.style.width = Math.max(248, Math.min(420, settings.get('width', 280))) + 'px';
+  host.style.width = Math.max(248, Math.min(420, settings.get('width', 280))) + 'px'; edgeResizer.setAttribute('aria-valuenow', String(parseFloat(host.style.width))); syncGameViewport();
   if (win.ResizeObserver) {
     let saveWidth;
-    const observer = new win.ResizeObserver(entries => { if (host.hasAttribute('data-collapsed')) return; const width = Math.round(entries[0].borderBoxSize?.[0]?.inlineSize || shadow.querySelector('.shell').getBoundingClientRect().width); if (width < 248) return; host.style.width = width + 'px'; clearTimeout(saveWidth); saveWidth = setTimeout(() => settings.set('width', width), 200); });
+    const observer = new win.ResizeObserver(entries => { if (host.hasAttribute('data-collapsed')) return; const width = Math.round(entries[0].borderBoxSize?.[0]?.inlineSize || shadow.querySelector('.shell').getBoundingClientRect().width); if (width < 248) return; host.style.width = width + 'px'; edgeResizer.setAttribute('aria-valuenow', String(width)); syncGameViewport(); clearTimeout(saveWidth); saveWidth = setTimeout(() => settings.set('width', width), 200); });
     observer.observe(shadow.querySelector('.shell')); scope.add(() => { observer.disconnect(); clearTimeout(saveWidth); });
   }
   for (const handle of shadow.querySelectorAll('.brand,.compact')) scope.listen(handle, 'pointerdown', e => {
-    if (e.target.closest('button')) return; const rect = host.getBoundingClientRect(), dx = e.clientX - rect.left, dy = e.clientY - rect.top;
-    const move = event => { host.style.left = Math.max(0, Math.min(win.innerWidth - rect.width, event.clientX - dx)) + 'px'; host.style.top = Math.max(0, Math.min(win.innerHeight - 45, event.clientY - dy)) + 'px'; host.style.right = 'auto'; };
-    const up = () => { win.removeEventListener('pointermove', move); win.removeEventListener('pointerup', up); settings.set('position', { x: host.offsetLeft, y: host.offsetTop }); };
+    if (e.button !== 0 || e.target.closest('button')) return; let moved = false; const rect = host.getBoundingClientRect(); if (!host.hasAttribute('data-edge-docked') && rect.right < win.innerWidth - 12) settings.set('hudFloatingPosition', { x: rect.left, y: rect.top }); draggingHUD = true; setEdgeDocked(false); host.style.left = rect.left + 'px'; host.style.right = 'auto'; const dx = e.clientX - rect.left, dy = e.clientY - rect.top;
+    const move = event => { moved ||= Math.abs(event.clientX - e.clientX) > 3 || Math.abs(event.clientY - e.clientY) > 3; host.style.left = Math.max(0, Math.min(win.innerWidth - rect.width, event.clientX - dx)) + 'px'; host.style.top = Math.max(0, Math.min(win.innerHeight - 45, event.clientY - dy)) + 'px'; host.style.right = 'auto'; };
+    const up = () => { win.removeEventListener('pointermove', move); win.removeEventListener('pointerup', up); draggingHUD = false; settings.set('position', { x: host.offsetLeft, y: host.offsetTop }); if (moved && !mobileDevice() && host.getBoundingClientRect().right >= win.innerWidth - 12) { setEdgeDocked(true); if (!host.matches(':hover')) hideEdge(); } };
     win.addEventListener('pointermove', move); win.addEventListener('pointerup', up); scope.add(() => { win.removeEventListener('pointermove', move); win.removeEventListener('pointerup', up); });
   });
   const mount = () => { if (!host.isConnected && doc.documentElement) doc.documentElement.append(host); }; mount(); scope.interval(mount, 1000);

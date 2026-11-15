@@ -30,6 +30,14 @@ export function sortHand(game, mode, { automatic = false } = {}) {
       const order = new Map(cards.map((ui, index) => [ui.Card, index]));
       container.seat.HandCards.sort((a, b) => (order.get(a) ?? cards.length) - (order.get(b) ?? cards.length));
     }
+    // Match SortNormalCards: layout moves cards but does not reorder the
+    // flat renderer's existing graphics commands. Reattach in sorted order.
+    for (const ui of cards) {
+      if (typeof ui.clear === 'function' && typeof ui.Draw === 'function') {
+        ui.clear(false);
+        ui.Draw(container);
+      }
+    }
     container.invalidateLayoutHandCard?.();
   }
   for (const [ui, value] of selected) {
@@ -134,9 +142,14 @@ export function roundInfoBounds(window, scene) {
   } catch { return null; }
 }
 
-// HTML sits above the game canvas. Remove window rectangles from the reveal
-// layer so native dialogs cover both its pixels and its pointer targets.
-export function revealWindowClip(window) {
+// Only native card-interaction windows can cover revealed hands. Never use
+// aggregate child bounds: hidden/offscreen children can enlarge those bounds.
+export function revealWindowClip(window, game) {
+  const classes = ['CheckSeatCardWindow', 'SelectCardWindow'].flatMap(name => {
+    try { const type = game?.getClass?.(name); return typeof type === 'function' ? [type] : []; }
+    catch { return []; }
+  });
+  if (!classes.length) return '';
   const stage = (window.Laya ?? window.laya)?.stage;
   let regions = [{ x: 0, y: 0, right: window.innerWidth, bottom: window.innerHeight }];
   let clipped = false;
@@ -147,9 +160,17 @@ export function revealWindowClip(window) {
     seen.add(layer);
     if (layer.layerOrder === 4 || layer.LayerOrder === 4) {
       for (const panel of (layer._children || []).slice(0, 128)) {
-        if (!panel || panel.alpha === 0 || panel.scaleX === 0 || panel.scaleY === 0) continue;
+        if (!panel || !classes.some(type => panel instanceof type)) continue;
+        let attached = false;
+        const ancestors = new Set();
+        for (let node = panel; node && !ancestors.has(node) && ancestors.size < 64; node = node.parent) {
+          if (node.destroyed || node.visible === false || node._visible === false || node.alpha === 0 || node.scaleX === 0 || node.scaleY === 0) break;
+          if (node === stage) { attached = true; break; }
+          ancestors.add(node);
+        }
+        if (!attached) continue;
         try {
-          const b = panel.getSelfBounds?.() ?? { x: 0, y: 0, width: panel.width, height: panel.height };
+          const b = panel.scrollRect ?? { x: 0, y: 0, width: panel.width, height: panel.height };
           if (!(b.width > 0 && b.height > 0)) continue;
           const points = [[b.x, b.y], [b.x + b.width, b.y], [b.x + b.width, b.y + b.height], [b.x, b.y + b.height]]
             .map(([x, y]) => nativeAnchor(window, panel, x, y));
@@ -239,14 +260,16 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
     if (!state) return;
     const revealScroll = new Map([...seatLayer.children].map(box => [box.dataset.seatId, box.scrollTop]));
     seatLayer.replaceChildren(); labelLayer.replaceChildren();
-    seatLayer.style.clipPath = revealWindowClip(window);
     if (!state.active) {
+      seatLayer.style.clipPath = '';
       countdowns.clear(); skillCounts.clear(); sortControls.hide(); releaseOriginal();
       restoreSelectionWindow?.(); restoreSelectionWindow = null; patchedSelectionPrototype = null;
       return;
     }
     // Loading and lobby screens have no card overlays to position. Discovering
     // seats there repeatedly can scan thousands of native UI nodes each tick.
+    const clip = revealWindowClip(window, game);
+    if (seatLayer.style.clipPath !== clip) seatLayer.style.clipPath = clip;
     const self = ownUi(game);
     skillCounts.update(self, state, settings.get('skillCounts', true));
     let seats = [];
@@ -270,7 +293,7 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
         position(box, anchor);
         const revealWidth = Math.min(8, known.length + possible.length) * 42 + 8;
         box.style.width = revealWidth + 'px';
-        box.style.left = Math.max(0, Math.min(window.innerWidth - revealWidth, anchor.x)) + 'px';
+        box.style.left = Math.max(0, Math.min(window.innerWidth - revealWidth, anchor.x - 20)) + 'px';
         seatLayer.append(box); box.scrollTop = revealScroll.get(String(seatId)) || 0;
       });
     }

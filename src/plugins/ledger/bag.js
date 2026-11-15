@@ -86,26 +86,18 @@ export function enhanceBagView(ctx, owner, getConfig) {
   function clear() { input.text = ''; apply(); }
   patch(owner, 'showBags', () => function (rows) { return draw(Array.isArray(rows) ? rows : []); });
   patch(owner, 'updatePageIdx', () => function () { return page(); });
-  // These handlers are also stored by identity in the native goods manager.
-  // Rebind only entries whose caller and original method both match this view.
-  for (const key of ['onAddBagItem', 'onUpdateBagItem', 'onDelBagItem']) if (typeof owner[key] === 'function') {
-    const old = owner[key];
-    patch(owner, key, previous => function (...args) { const result = previous.apply(this, args); if (query) draw(); return result; });
-    const wrapped = owner[key];
-    const proxies = [read(() => ctx.game.getClass('GameGoodsManager'))];
-    const type = proxies[0];
-    for (const name of ['instance', '_instance', 'Instance', 's_instance']) {
-      const d = read(() => Object.getOwnPropertyDescriptor(type, name)); if (d && 'value' in d) proxies.push(d.value);
-    }
-    // The known BAG_* event callers expose the manager even in closure builds.
-    const serverEvents = read(() => ctx.game.getServerProxy()._events);
-    for (const event of ['DbsCcMovegoodsRep', 'DbsCcUserGoodslistRep', 'DbsCcUpdategoodsAttribNtf', 'DbsCcUserDelgoodsNtf']) {
-      const handlers = serverEvents?.[event];
-      for (const h of Array.isArray(handlers) ? handlers : [handlers]) if (h?.caller && typeof h.caller.GetGoodsNumByBaseID === 'function') proxies.push(h.caller);
-    }
-    for (const manager of new Set(proxies.filter(Boolean))) for (const event of Object.values(manager._events || {})) {
-      for (const h of Array.isArray(event) ? event : [event]) if (h?.caller === owner && h.method === old) patch(h, 'method', () => wrapped);
-    }
+  // Native on/off requires the exact same callback identity. Leave both the
+  // view handlers and pooled manager handlers untouched across close/reopen.
+  let lastInventory = '';
+  function inventoryKey() {
+    return JSON.stringify((owner.bagDatas || []).map(row => [row?.ID, row?.BaseID,
+      row?.Count, row?.BitMark, row?.Expirydate, row?.RemainingTime,
+      row?.baseInfo?.ItemName, row?.baseInfo?.name, row?.baseInfo?.sortindex]));
+  }
+  function refresh() {
+    const next = inventoryKey();
+    if (next !== lastInventory) { draw(); lastInventory = inventoryKey(); }
+    else syncSlots();
   }
   listen(input, L.Event.INPUT, apply);
   listen(input, L.Event.KEY_DOWN, event => { if (event.keyCode === 13) apply(); if (event.keyCode === 27) { clear(); input.focus = false; } });
@@ -165,8 +157,8 @@ export function enhanceBagView(ctx, owner, getConfig) {
     input.focus = false; root.destroy(true); empty.destroy(true); for (const badge of slots.values()) badge.destroy(true); slots.clear();
     if (!owner.destroyed && owner.parent) { originalPage.call(owner); originalShow.call(owner, owner.bagDatas); }
   });
-  draw();
-  return { dispose: release, refresh: syncSlots, input, button };
+  draw(); lastInventory = inventoryKey();
+  return { dispose: release, refresh, input, button };
 }
 
 export function createBagEnhancements(ctx) {

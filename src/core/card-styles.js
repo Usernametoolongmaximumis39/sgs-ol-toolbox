@@ -61,7 +61,7 @@ export class CardStyleRegistry {
     this.insertions = new Map();
     this.selfModels = new WeakSet(); this.selfIds = new Set(); this.selfHand = null;
     this.scene = null;
-    this.atlases = new Map();
+    this.atlases = new Map(); this.backImages = new Map();
     this.status = '跟随游戏原始外观'; this.closed = false;
     scope.interval(() => this.refreshNative(), 400);
     if (game.onSceneChange) scope.add(game.onSceneChange(() => this.refreshNative()));
@@ -71,7 +71,8 @@ export class CardStyleRegistry {
     if (this.closed) return () => {};
     if (!style?.id?.startsWith(owner + '.') || !/^[a-z][a-z0-9.-]{0,63}$/.test(style.id) || this.styles.has(style.id)) throw new Error('卡牌样式 ID 无效或已注册');
     if (typeof style.name !== 'string' || !style.name.trim() || style.name.length > 48) throw new Error('卡牌样式名称无效');
-    const cleaned = { id: style.id, name: style.name };
+    if (style.backName !== undefined && (typeof style.backName !== 'string' || !style.backName.trim() || style.backName.length > 48 || /[\r\n]/.test(style.backName))) throw new Error('卡背名称无效');
+    const cleaned = { id: style.id, name: style.name, ...(style.backName === undefined ? {} : { backName: style.backName }) };
     if (style.atlas) {
       if (style.native || style.face || style.back) throw new Error('完整卡图与底纹不能混用');
       cleaned.atlas = validateCardAtlas(style.atlas);
@@ -96,7 +97,7 @@ export class CardStyleRegistry {
   selectSide(side, id) {
     if (!['face', 'back'].includes(side)) throw new Error('无效卡牌面');
     if (id && !this.styles.has(id)) throw new Error('卡牌样式尚未启用');
-    if (side === 'back' && this.styles.get(id)?.atlas) throw new Error('此套装仅提供卡面');
+    if (side === 'back' && this.styles.get(id)?.atlas && !this.styles.get(id).atlas.backImage) throw new Error('此套装仅提供卡面');
     this.settings.set(side === 'face' ? 'cardFaceStyle' : 'cardBackStyle', id);
     this.restore(); this.refreshNative(); this.emit();
   }
@@ -118,13 +119,14 @@ export class CardStyleRegistry {
   select(id) {
     if (id && !this.styles.has(id)) throw new Error('卡牌样式尚未启用');
     this.settings.set('cardStyle', id); this.settings.set('cardFaceStyle', id);
-    if (!this.styles.get(id)?.atlas) this.settings.set('cardBackStyle', id);
+    if (!this.styles.get(id)?.atlas || this.styles.get(id).atlas.backImage) this.settings.set('cardBackStyle', id);
     this.restore(); this.refreshNative(); this.emit();
   }
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   emit() { for (const fn of [...this.listeners]) { try { fn(); } catch (e) { console.warn('[卡牌样式]',e); } } }
   setStatus(value) { if (this.status !== value) { this.status = value; this.emit(); } }
   clearTextures(id) {
+    for (const [key, image] of this.backImages) if (!id || key === id) { image.onload = image.onerror = null; image.src = ''; this.backImages.delete(key); }
     for (const [key, entry] of this.atlases) if (!id || key === id) {
       entry.controller.abort(); entry.data?.dispose(); this.atlases.delete(key);
     }
@@ -194,7 +196,11 @@ export class CardStyleRegistry {
   }
   preview(style, back) {
     if (style.atlas) {
-      if (back) return null;
+      if (back) {
+        if (!style.atlas.backImage) return null;
+        const image = this.doc.createElement('img'); image.src = style.atlas.backImage;
+        image.alt = ''; image.width = 135; image.height = 190; return image;
+      }
       if (style.atlas.previewImage) {
         const image = this.doc.createElement('img'); image.src = style.atlas.previewImage;
         image.alt = ''; image.width = 135; image.height = 190; return image;
@@ -220,7 +226,24 @@ export class CardStyleRegistry {
     } catch { return null; }
   }
   texture(style, back, immediate = false) {
-    if (style.atlas) return null;
+    if (style.atlas) {
+      if (!back || !style.atlas.backImage) return null;
+      let image = this.backImages.get(style.id);
+      if (!image) {
+        image = new this.win.Image(); this.backImages.set(style.id, image);
+        image.onload = () => { if (!this.closed && this.backImages.get(style.id) === image) { this.refreshNative(); this.emit(); } };
+        image.src = style.atlas.backImage;
+      }
+      if (!image.complete || image.naturalWidth !== 405 || image.naturalHeight !== 570) return null;
+      const key = style.id + ':back';
+      if (!this.textures.has(key)) {
+        const bitmap = new this.win.Laya.Texture2D(405, 570); bitmap.loadImageSource(image);
+        const texture = new this.win.Laya.Texture(bitmap);
+        texture.width = texture.sourceWidth = 93; texture.height = texture.sourceHeight = 130;
+        this.textures.set(key, texture);
+      }
+      return this.textures.get(key);
+    }
     if (style.native) return this.nativeTexture(style.native[back ? 'back' : 'face'], immediate);
     const key = style.id + ':' + back;
     if (!this.textures.has(key)) {
@@ -258,7 +281,7 @@ export class CardStyleRegistry {
         const size = { width: dimension(ui.width, binding.original?.width, ui.bmpFace.width),
           height: dimension(ui.height, binding.original?.height, ui.bmpFace.height) };
         const texture = eligible && !binding.special
-          ? style.atlas ? this.atlasTexture(style, ui, size) : this.texture(style, Boolean(card.IsEmpty), force) : null;
+          ? style.atlas && !card.IsEmpty ? this.atlasTexture(style, ui, size) : this.texture(style, Boolean(card.IsEmpty), force) : null;
         binding.reason = !style ? '跟随游戏' : !eligible ? '范围或原生显示限制' : binding.special ? '原生指定特殊卡图'
           : texture ? '' : ui.isNewCardUI !== true && ui.IsYiCard ? '异牌专用卡图'
           : style.atlas?.replaceCards && !style.atlas.replaceCards.includes(card?.ResName)
@@ -420,8 +443,9 @@ export class CardStyleRegistry {
   }
   refreshNative() {
     if (this.closed) return;
+    for (const id of this.backImages.keys()) if (id !== this.selection.back) this.clearTextures(id);
     const selectedAtlas = this.styles.get(this.selection.face);
-    for (const id of this.atlases.keys()) if (id !== selectedAtlas?.id) this.clearTextures(id);
+    for (const id of this.atlases.keys()) if (id !== selectedAtlas?.id && id !== this.selection.back) this.clearTextures(id);
     if (selectedAtlas?.atlas) this.ensureAtlas(selectedAtlas);
     if (this.listeners.size) {
       const before = [...this.nativeResources.values()];

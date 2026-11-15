@@ -1,22 +1,27 @@
 {
-  "version": "0.6.5",
+  "version": "0.6.28",
   "editions": {
     "full": {
-      "bytes": 2061114,
-      "plugins": 20,
+      "bytes": 3047929,
+      "plugins": 21,
       "updatesTo": "lite"
     },
     "lite": {
-      "bytes": 327768,
+      "bytes": 344044,
       "plugins": 0,
       "updatesTo": "lite"
     }
   },
   "plugins": [
     {
+      "id": "social",
+      "version": "0.1.6",
+      "sha256": "3de8ac1c941bfde9a5c918b2c4bb70757932126e860f21f54a0aa00e4ddc889a"
+    },
+    {
       "id": "player-info",
-      "version": "0.3.3",
-      "sha256": "58f268e5b1e60da4b1177cf84c7b02f76331c99669e0dc74b614a22e4f8c80f9"
+      "version": "0.3.4",
+      "sha256": "43a162e8d94e64e2d82472c1e6a9470d14e9523b043218cbcbc857de9681d4d3"
     },
     {
       "id": "native-cards",
@@ -30,13 +35,13 @@
     },
     {
       "id": "dafeiyu-cards",
-      "version": "0.3.1",
-      "sha256": "54eac14b53d86450fcf8901dab2a391e3492a5c1b20d2d8b55c8151172be5629"
+      "version": "0.4.1",
+      "sha256": "c3ee772bf9bf1e17754145f93999eed01ca4cc042a25a846605b50164e0e7752"
     },
     {
       "id": "backgrounds",
-      "version": "0.2.1",
-      "sha256": "9c6ee349b4ca59a1eb797a5863ee3ac0cb17c252e0bab79440a26d90dc7eddfe"
+      "version": "0.2.3",
+      "sha256": "241f0411d3ed2eae54641cd295ce9cafa945aafcb9971db90463304d93fe414e"
     },
     {
       "id": "gold-cards",
@@ -50,18 +55,18 @@
     },
     {
       "id": "cards",
-      "version": "0.1.55",
-      "sha256": "28836c7bb94ab403bcc5dfbb0d5f01e735accd85b129a18fe4c1a158308e9a10"
+      "version": "0.1.58",
+      "sha256": "1abcedbc5f33fa479cbba2362d11cc5428844f6906b217a3a2b2a255f2ec207c"
     },
     {
       "id": "play-assist",
-      "version": "0.1.6",
-      "sha256": "f156d1f1942ebc2abf0003230bdb175aac363c6f3e304441629f0f46ac866474"
+      "version": "0.2.6",
+      "sha256": "bcb1c892f1a6dbfbdc565d144ac40743bd32eb6362f6080f3f53c86d8457a805"
     },
     {
       "id": "daily-rewards",
-      "version": "0.7.15",
-      "sha256": "1e3097fa51f695bcdc1721abe46885e3d192a19f14f8b9e6fbe0b8b98f1b8695"
+      "version": "0.7.18",
+      "sha256": "201333ed802b057b85791b9b6dfffe0f945b532e43985efb94aa8e8a1a31c2e4"
     },
     {
       "id": "seckill",
@@ -80,8 +85,8 @@
     },
     {
       "id": "skins",
-      "version": "0.4.7",
-      "sha256": "989470c87531dc87c27718303b0f27a8fd3866efee9f84893d63e619e787aeda"
+      "version": "0.4.8",
+      "sha256": "db9ee5d0364a26725bb17f4ec187d4d1b7a92b60a12ecbe34b4d750bfedee3eb"
     },
     {
       "id": "wish-progress",
@@ -100,13 +105,13 @@
     },
     {
       "id": "appearances",
-      "version": "0.4.5",
-      "sha256": "ccd0e7cfe63403cdc8ef1a8a596928d6c320ae3ff709ed181373f30cb364c4a0"
+      "version": "0.4.6",
+      "sha256": "e3b39b402049721a80db9176bcd84c787da7b17301d6d0c9bca29b6d625daa36"
     },
     {
       "id": "ledger",
-      "version": "0.3.1",
-      "sha256": "463721eeed62ae69025bb0b0b53fb95fd15225d2423da5e74ff14307cb7c6edc"
+      "version": "0.3.2",
+      "sha256": "43ea981f26eb499464401fb79aacf98f66fdb93ebd86b99ab247e0dff670e48c"
     },
     {
       "id": "recharge",

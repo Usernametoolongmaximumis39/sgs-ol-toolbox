@@ -7,6 +7,10 @@ export function hundredRate(data) {
   const total = count(data?.TotalCount), wins = count(data?.WinCount);
   return total && wins !== null && wins <= total ? (100 * wins / total).toFixed(1) + '%' : null;
 }
+export function ddzRoleRates(data) {
+  const rate = v => typeof v === 'string' && /^(?:100(?:\.0+)?|\d{1,2}(?:\.\d+)?)%$/.test(v) ? v : '未知';
+  return '地主胜率 ' + rate(data?.DiZhuWinRate) + ' · 农民胜率 ' + rate(data?.NongMinWinRate);
+}
 export function currentStreak(records, { nativeOrder = false } = {}) {
   if (!Array.isArray(records) || !records.length || records.length > 100) return null;
   const rows = records.map(r => ({ at: r?.GameOverTime, result: r?.GameResult }));

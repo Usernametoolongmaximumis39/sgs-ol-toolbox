@@ -1,8 +1,9 @@
+import { findSkinDetail, watchSkinDetail } from '../../shared/skin-detail.js';
 import { CONTROL_STYLES } from '../../ui/controls.js';
 
 export const manifest = {
-  id: 'backgrounds', name: '自定义背景', version: '0.2.1', apiVersion: 1, contractVersion: 1,
-  minCoreVersion: '0.5.130', dependencies: ['skins'], categories: ['tools'], priority: 31000,
+  id: 'backgrounds', name: '自定义背景', version: '0.2.3', apiVersion: 1, contractVersion: 1,
+  minCoreVersion: '0.6.18', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
   icon: { paths: ['M3 4h18v16H3Z', 'M3 16 9 10l4 4 3-3 5 5', 'M16 7h1'] },
   description: '将皮肤原画或动态用作牌局背景，保留天气与武将技能背景',
 };
@@ -24,17 +25,7 @@ const STYLES = `${CONTROL_STYLES}
 [data-sgs-backgrounds].bg-skin-action button{box-sizing:border-box;min-width:178px;min-height:52px;padding:12px 20px;font-size:18px;font-weight:600;line-height:1.4;white-space:nowrap;border-radius:10px}
 `;
 
-export function findSkinDetails(stage) {
-  const queue = stage ? [stage] : [];
-  for (let i = 0; i < queue.length && i < 4000; i++) {
-    const node = queue[i];
-    if (!node || node.destroyed || node.visible === false) continue;
-    if (node.skinData?.skinBaseVo && node.skinImg && typeof node.showMaxSkinWindow === 'function'
-      && typeof node.updateSkinInfo === 'function') return node;
-    if (Array.isArray(node._children)) queue.push(...node._children);
-  }
-  return null;
-}
+export const findSkinDetails = findSkinDetail;
 
 export function canUseSkinBackground(owner, laya) {
   if (!owner || !(owner.is169 || owner.isHor)) return false;
@@ -82,7 +73,8 @@ export function activate(ctx) {
   ctx.ui.nativeTheme.watch(p => {
     for (const key of ['text', 'muted', 'accent', 'border', 'surface']) floating.style.setProperty('--sgs-' + key, p[key]);
   });
-  let owner = null;
+  let owner = null, observed = null;
+  ctx.scope.add(() => observed?.dispose());
   function refreshButton() {
     try { refreshReadyButton(); }
     catch (error) {
@@ -94,7 +86,9 @@ export function activate(ctx) {
   }
   function refreshReadyButton() {
     const laya = ctx.window.Laya;
-    owner = findSkinDetails(laya?.stage);
+    const next = findSkinDetails(laya?.stage);
+    if (next !== owner) { observed?.dispose(); owner = next; observed = owner ? watchSkinDetail(ctx.scope, owner, () => { floating.hidden = true; }) : null; }
+    if (observed?.closing) { floating.hidden = true; return; }
     const vo = owner?.skinData?.skinBaseVo, img = owner?.skinImg;
     const canvas = laya?.Render?.canvas || doc.querySelector('#layaCanvas') || doc.querySelector('canvas');
     if (!canUseSkinBackground(owner, laya) || !img?.localToGlobal || !canvas || !laya.Point) { floating.hidden = true; return; }
@@ -122,7 +116,7 @@ export function activate(ctx) {
     } catch (error) { ctx.notify(error.message); }
   });
   ctx.scope.interval(refreshButton, 200); refreshButton();
-  ctx.ui.registerPanel({ id: 'main', category: 'tools', render(container) {
+  ctx.ui.registerPanel({ id: 'main', category: 'appearance', render(container) {
     const root = element('div'); root.dataset.sgsBackgrounds = '';
     const panelStyle = element('style'); panelStyle.textContent = STYLES; root.append(panelStyle);
     const name = element('div', '', 'bg-name'), status = element('p', '', 'bg-note'); status.setAttribute('role', 'status');

@@ -1,11 +1,11 @@
 import { parseCodes, shareableCode, reportableCode } from './codes.js';
 
-export const DEFAULT_CODE_SERVER = 'http://127.0.0.1:17321';
+export const DEFAULT_CODE_SERVER = 'https://redeem.3gs.xyz';
 export function codeServerUrl(value) {
   let url;
-  try { url = new URL(String(value).trim()); } catch { throw new Error('请输入 http://127.0.0.1:端口 格式的服务地址'); }
-  if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.username || url.password || url.search || url.hash || !['/', '/reward-codes.txt'].includes(url.pathname)) {
-    throw new Error('兑换码服务地址须为 http://127.0.0.1:端口，不支持其他主机或路径');
+  try { url = new URL(String(value).trim()); } catch { throw new Error('请输入官方 HTTPS 兑换码服务或本机服务地址'); }
+  if (!((url.protocol === 'http:' && url.hostname === '127.0.0.1') || url.origin === DEFAULT_CODE_SERVER) || url.username || url.password || url.search || url.hash || !['/', '/reward-codes.txt'].includes(url.pathname)) {
+    throw new Error('仅支持官方 HTTPS 兑换码服务或本机回环服务');
   }
   return url.origin;
 }
@@ -24,6 +24,7 @@ export function mergeCodeText(current, incoming) {
 }
 
 export function createCodeSources(win, { core } = {}) {
+  const defaultUrl = win.location?.hostname === '127.0.0.1' && win.location?.protocol === 'http:' ? win.location.origin : DEFAULT_CODE_SERVER;
   const sessionKey = Symbol.for('sgs.ol.toolbox.daily-rewards.server-session');
   const serverSession = win[sessionKey] ||= { checked: false, text: '', url: '', promise: null };
   let clipboardDenied = false;
@@ -36,11 +37,11 @@ export function createCodeSources(win, { core } = {}) {
     return null;
   }
   return {
-    get communityConfirmations() { return serverSession.communityConfirmations === true; },
+    get communityConfirmations() { return serverSession.communityConfirmations === true || defaultUrl === DEFAULT_CODE_SERVER; },
     serverSession,
     resumeClipboard() { clipboardDenied = false; },
     canReadClipboard() { return !clipboardDenied && win.document?.visibilityState !== 'hidden' && (typeof win.document?.hasFocus !== 'function' || win.document.hasFocus()); },
-    defaultUrl: win.location?.hostname === '127.0.0.1' && win.location?.protocol === 'http:' ? win.location.origin : DEFAULT_CODE_SERVER,
+    defaultUrl,
     async readServer(baseUrl, { signal } = {}) {
       const previous = cached(baseUrl);
       // Query validation avoids an extra CORS preflight for If-None-Match.
@@ -83,8 +84,8 @@ export function createCodeSources(win, { core } = {}) {
         return text;
       } catch (error) {
         if (signal?.aborted) throw new Error('读取已取消');
-        if (aborter.signal.aborted) throw new Error('连接本机兑换码服务超时');
-        if (error instanceof TypeError) throw new Error('无法连接兑换码服务，请确认服务已启动并授予浏览器网络访问权限');
+        if (aborter.signal.aborted) throw new Error('连接兑换码服务超时');
+        if (error instanceof TypeError) throw new Error('无法连接兑换码服务，请检查网络连接');
         throw error;
       } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); }
     },
@@ -93,9 +94,11 @@ export function createCodeSources(win, { core } = {}) {
       return win.navigator.clipboard.readText().catch(() => { clipboardDenied = true; throw new Error('剪贴板读取未获允许，允许后重新开启剪贴板选项'); });
     },
     async shareCode(baseUrl, code, { signal, account } = {}) {
-      if (!(serverSession.communityConfirmations ? reportableCode(code) : shareableCode(code)) || signal?.aborted) return false;
+      const direct = codeServerUrl(baseUrl) === DEFAULT_CODE_SERVER;
+      const community = direct || serverSession.communityConfirmations;
+      if (!(community ? reportableCode(code) : shareableCode(code)) || signal?.aborted) return false;
       let report = { code };
-      if (serverSession.communityConfirmations) {
+      if (community) {
         if (!account) return false;
         const accountHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('redeem.3gs.xyz:v1:' + account)))].map(value => value.toString(16).padStart(2, '0')).join('');
         if (signal?.aborted) return false;
@@ -107,6 +110,26 @@ export function createCodeSources(win, { core } = {}) {
       signal?.addEventListener('abort', abort, { once: true });
       const timer = setTimeout(abort, 6000);
       try {
+        if (direct) {
+          const key = 'sgstoolbox:redeem-identity:v1';
+          let identity;
+          try { identity = JSON.parse(win.localStorage?.getItem(key) || 'null'); } catch { /* Invalid identity. */ }
+          if (!/^[a-f0-9]{64}$/.test(identity?.client || '') || !/^[a-f0-9]{64}$/.test(identity?.token || '')) {
+            const client = [...crypto.getRandomValues(new Uint8Array(32))].map(x => x.toString(16).padStart(2, '0')).join('');
+            const response = await win.fetch(DEFAULT_CODE_SERVER + '/register', {
+              method: 'POST', credentials: 'omit', redirect: 'error', signal: control.signal,
+              headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client }),
+            });
+            if (!response.ok) throw new Error('兑换码共享身份注册失败');
+            const result = await response.json();
+            if (!result.ok || !/^[a-f0-9]{64}$/.test(result.token || '')) throw new Error('兑换码共享身份响应无效');
+            identity = { client, token: result.token };
+            if (!win.localStorage) throw new Error('无法保存兑换码共享身份');
+            win.localStorage.setItem(key, JSON.stringify(identity));
+          }
+          if (signal?.aborted || control.signal.aborted) return false;
+          report = { ...report, ...identity };
+        }
         const response = await win.fetch(codeServerUrl(baseUrl) + '/reward-codes/share', {
           method: 'POST', credentials: 'omit', redirect: 'error', signal: control.signal,
           headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(report),

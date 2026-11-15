@@ -95,6 +95,7 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
     const saved = owner ? settings.get(key(owner) + 'options', {}) : {};
     return { ...defaults, codeText: '', codeServerUrl: sources?.defaultUrl || DEFAULT_CODE_SERVER, ...saved,
       ...(saved.schemaVersion !== 2 ? { sign: true, mail: true, tasks: true, welfare: true, activities: true, serverCodes: true } : {}),
+      ...(saved.codeServerUrl === 'http://127.0.0.1:17321' && sources?.defaultUrl === DEFAULT_CODE_SERVER ? { codeServerUrl: DEFAULT_CODE_SERVER } : {}),
       schemaVersion: 2, ...(!owner ? { automatic: false } : {}) };
   }
   state.status = config().automatic ? '自动领取已开启，等待检查' : state.status;
@@ -210,7 +211,7 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
         settings.set(key(owner) + 'clipboard-parser-version', CLIPBOARD_PARSER_VERSION);
       }
       else appliedServer.add(owner);
-      state.sourceStatus = `${kind === 'server' ? '服务器' : '剪贴板'}读取 ${merged.count} 个，新增 ${merged.added} 个${merged.invalid ? `；跳过 ${merged.invalid} 个格式无效项` : ''}`;
+      state.sourceStatus = `${kind === 'server' ? '服务器' : '剪贴板'}读取 ${merged.count} 个，新增 ${merged.added} 个${merged.invalid ? `；跳过 ${merged.invalid} 个格式无效项` : ''}${clipboard?.skipped ? `；跳过 ${clipboard.skipped} 行无法识别内容` : ''}`;
       log('codes', state.sourceStatus); return merged.added > 0;
     } catch (error) {
       if (account() === owner && !scope.signal.aborted) { state.sourceStatus = control.signal.aborted ? '读取已取消或超时' : error.message; state.sourceError = state.sourceStatus; log('codes', state.sourceStatus, 'error'); }
@@ -329,6 +330,8 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
       if (valid() && selection().codes && selection().serverCodes && sources) await importCodes('server', { duringRun: true, signal });
       try { if (valid()) await adapter.prepare?.(selection(), { signal, valid }); }
       catch { log('system', '部分奖励配置加载失败，仍检查已就绪的领取项目'); }
+      const codeTotal = inspect(selection()).actions.filter(item => item.category === 'codes').length;
+      let codeAttempted = 0;
       while (valid() && count < 200) {
         const plan = inspect(selection());
         for (const action of plan.actions) {
@@ -367,7 +370,9 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
         records[action.key] = { status: 'pending', at: now(), label: action.label, workflowGroup: rewardWorkflowGroup(action), ...attempts, ...(action.flowVersion ? { flowVersion: action.flowVersion } : {}) };
         try { write(); }
         catch { state.status = '无法保存领取记录，本轮未继续发送请求'; log('system', state.status, 'error'); break; }
-        count++; state.status = `正在领取：${action.label}`; emit();
+        count++; state.status = action.category === 'codes'
+          ? `正在兑换 ${++codeAttempted}/${codeTotal}：${action.code}`
+          : `正在领取：${action.label}`; emit();
         pendingActions.set(action.key, { action, owner, date });
         const result = await awaitClaim(action, { signal, valid, timeout, poll });
         records[action.key] = { status: result.status, at: now(), label: action.label, text: result.text, workflowGroup: rewardWorkflowGroup(action), ...attempts, ...(action.flowVersion ? { flowVersion: action.flowVersion } : {}) };

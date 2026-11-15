@@ -13,6 +13,7 @@ function resource(value) {
 export function validateCardAtlas(value) {
   if (!value || !Array.isArray(value.pages) || !value.pages.length || value.pages.length > 4
     || typeof value.source !== 'string' || !value.source.trim() || value.source.length > 500) throw new Error('卡图来源或图片清单无效');
+  if (value.backImage !== undefined && (typeof value.backImage !== 'string' || value.backImage.length > 1024 * 1024 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value.backImage))) throw new Error('卡背须为不超过 1 MiB 的内嵌 PNG');
   const pixelRatio = value.pixelRatio ?? 1;
   if (!Number.isInteger(pixelRatio) || pixelRatio < 1 || pixelRatio > 3) throw new Error('卡图像素倍率须为 1、2 或 3');
   if (value.previewImage !== undefined && (typeof value.previewImage !== 'string' || value.previewImage.length > 160 * 1024
@@ -20,7 +21,7 @@ export function validateCardAtlas(value) {
   if (value.replaceCards !== undefined && (!Array.isArray(value.replaceCards) || value.replaceCards.length > 2048
     || value.replaceCards.some(name => typeof name !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,95}$/.test(name))
     || new Set(value.replaceCards).size !== value.replaceCards.length)) throw new Error('差异卡面清单无效');
-  return Object.freeze({ index: resource(value.index), pages: Object.freeze(value.pages.map(resource)), source: value.source, previewImage: value.previewImage, pixelRatio,
+  return Object.freeze({ index: resource(value.index), pages: Object.freeze(value.pages.map(resource)), source: value.source, backImage: value.backImage, previewImage: value.previewImage, pixelRatio,
     replaceCards: value.replaceCards === undefined ? null : Object.freeze([...value.replaceCards]),
     preview: /^[A-Za-z][A-Za-z0-9_]{0,95}$/.test(value.preview) ? value.preview : 'Sha' });
 }

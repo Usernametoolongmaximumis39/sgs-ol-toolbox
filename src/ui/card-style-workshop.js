@@ -1,11 +1,21 @@
+import { createIcon } from './icons.js';
 import { drawCardStyle } from '../core/card-styles.js';
 
 export function mountCardStyleWorkshop(container, { document: doc, cardStyles, settings }) {
-  const details = doc.createElement('details'); details.className = 'card-style-workshop';
-  details.open = settings.get('cardStyleExpanded', false);
-  const summary = doc.createElement('summary'); summary.textContent = '卡面与卡背';
-  const body = doc.createElement('div'); details.append(summary,body); container.append(details);
-  details.addEventListener('toggle', () => settings.set('cardStyleExpanded',details.open));
+  const details = doc.createElement('section'); details.className = 'card-style-workshop plugin-group';
+  const heading = doc.createElement('h3'); heading.className = 'plugin-heading';
+  const toggle = doc.createElement('button'); toggle.type = 'button'; toggle.className = 'plugin-toggle';
+  const title = doc.createElement('span'); title.className = 'plugin-title'; title.textContent = '卡牌外观';
+  toggle.append(createIcon(doc, 'cards'), title, createIcon(doc, 'chevron', 'plugin-chevron'));
+  const body = doc.createElement('div'); body.className = 'plugin-body'; body.id = 'core-card-style-workshop';
+  toggle.setAttribute('aria-controls', body.id);
+  const apply = expanded => {
+    body.hidden = !expanded; toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.title = (expanded ? '收起' : '展开') + '卡牌外观'; toggle.setAttribute('aria-label', toggle.title);
+  };
+  apply(settings.get('cardStyleExpanded', false));
+  toggle.onclick = () => { const expanded = body.hidden; settings.set('cardStyleExpanded', expanded); apply(expanded); };
+  heading.append(toggle); details.append(heading, body); container.append(details);
   const render = () => {
     body.replaceChildren();
     const intro = doc.createElement('p'); intro.className = 'muted'; intro.textContent = '卡面与卡背独立选择。完整卡面按牌名匹配，缺失卡图保留游戏原生显示；花色点数沿用游戏。'; body.append(intro);
@@ -28,9 +38,9 @@ export function mountCardStyleWorkshop(container, { document: doc, cardStyles, s
           if (canvas) { canvas.setAttribute('aria-hidden','true'); previews.append(canvas); }
           else { const placeholder = doc.createElement('span'); placeholder.className = 'muted'; placeholder.textContent = style.atlas ? '选用后加载预览' : back ? '原生卡背' : '原生卡面'; previews.append(placeholder); }
         } b.append(previews); }
-      const text = doc.createElement('span'); text.textContent = name; b.append(text); b.onclick = () => cardStyles?.selectSide(side, id); choices.append(b);
+      const text = doc.createElement('span'); text.textContent = side === 'back' ? style?.backName || name : name; b.append(text); b.onclick = () => cardStyles?.selectSide(side, id); choices.append(b);
     };
-    option('','跟随游戏'); for (const style of cardStyles?.list() || []) if (side !== 'back' || !style.atlas) option(style.id,style.name,style);
+    option('','跟随游戏'); for (const style of cardStyles?.list() || []) if (side !== 'back' || !style.atlas || style.atlas.backImage) option(style.id,style.name,style);
     if (side === 'face') {
       const selected = cardStyles?.list().find(style => style.id === cardStyles.selection?.face);
       if (selected?.atlas) {

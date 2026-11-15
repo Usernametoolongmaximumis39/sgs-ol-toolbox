@@ -133,8 +133,19 @@ export function planWelfare(adapter, selected) {
         else if (itemCount() >= 1 && typeof welfare.ReqJbpAwd === 'function') {
           const before = itemCount();
           let refreshed = false;
+          let redUpdated = false;
           add('tree:claim', '捡起发财树元宝', welfare, () => sameTree(1) && enabledTree() && tree()?.HasTriggerEvent !== true && itemCount() >= 1,
-            () => itemCount() < before && (tree()?.Status !== 1 || Number(tree()?.Count) > count),
+            () => {
+              const completed = itemCount() < before && (tree()?.Status !== 1 || Number(tree()?.Count) > count);
+              if (completed && !redUpdated && valid(adapter)) {
+                redUpdated = true;
+                // Match the native window's daily-visit bookkeeping, then let
+                // the hall recompute its node (remaining awards stay visible).
+                read(() => welfare.SaveKanShuPhpData());
+                if (valid(adapter)) read(() => welfare.event('KANSHU_DALIY_TIME_UPDATE'));
+              }
+              return completed;
+            },
             () => welfare.ReqJbpAwd(itemId), [{ event: 'KANSHU_GET_AWARD', accept: () => {
               if (!refreshed && valid(adapter)) { refreshed = true; welfare.ReqJbpInfo(); }
               return false; // Anonymous success cannot identify the requested item.

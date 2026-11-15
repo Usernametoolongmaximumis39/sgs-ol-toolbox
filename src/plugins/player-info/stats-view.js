@@ -42,8 +42,9 @@ export function createStatsView(ctx) {
     }
     const active = new Set();
     for (const row of mapped) {
+      const height = row.roles ? 110 : 86;
       let position = null;
-      for (const width of [248, 224, 208]) { position = placeStats(row.rect, obstacles, stage, width, 86); if (position) break; }
+      for (const width of [248, 224, 208]) { position = placeStats(row.rect, obstacles, stage, width, height); if (position) break; }
       if (!position) continue;
       obstacles.push(position); active.add(row.ui);
       let e = entries.get(row.ui);
@@ -51,26 +52,28 @@ export function createStatsView(ctx) {
         const root = new L.Sprite(); root.name = 'sgs-player-stats'; root.mouseEnabled = false; root.zOrder = 90;
         const background = new L.Sprite(); background.name = 'sgs-player-stats-background'; background.alpha = .76;
         background.mouseEnabled = false; root.addChild(background);
-        const lines = Array.from({ length: 3 }, (_, i) => {
+        const lines = Array.from({ length: 4 }, (_, i) => {
           const t = new L.Text(); t.font = 'Microsoft YaHei'; t.fontSize = 12; t.height = 23;
-          t.pos(12, [9, 35, 61][i]); root.addChild(t); return t;
+          t.pos(12, [9, 35, 61, 85][i]); root.addChild(t); return t;
         });
         const badge = new L.Sprite(); root.addChild(badge);
         const badgeText = new L.Text(); badgeText.width = 85; badgeText.height = 18; badge.addChild(badgeText);
         stage.addChild(root); e = { root, background, lines, badge, badgeText }; entries.set(row.ui, e);
       }
       const { root, lines, badge } = e, p = palette;
-      root.pos(position.x, position.y); root.size(position.width, 86);
-      e.background.size(position.width, 86); theme.surface(e.background, { kind: 'panel' });
+      root.pos(position.x, position.y); root.size(position.width, height);
+      e.background.size(position.width, height); theme.surface(e.background, { kind: 'panel' });
       lines[0].text = row.name; lines[0].bold = true; lines[0].color = p.text;
-      lines[1].text = row.second; lines[2].text = row.third;
+      lines[1].text = row.second; lines[2].text = row.roles || row.third; lines[3].text = row.roles ? row.third : ''; lines[3].visible = Boolean(row.roles);
       for (const line of lines) { line.width = position.width - 24; line.fontSize = 12; line.wordWrap = false; line.overflow = 'hidden'; }
       lines[0].fontSize = 14; lines[1].fontSize = row.second.length > 22 ? 12 : 14;
       lines[1].bold = true;
+      if (row.roles) while (lines[2].textWidth > lines[2].width && lines[2].fontSize > 10) lines[2].fontSize--;
       lines[0].width = position.width - 120;
       while (lines[0].textWidth > lines[0].width && lines[0].text.length > 2) lines[0].text = lines[0].text.replace(/…$/, '').slice(0, -1) + '…';
       root.ToolTip = row.name;
-      lines[1].color = p.text; lines[2].color = row.streakState === 'win' ? p.accent : row.streakState === 'loss' ? p.danger : p.muted;
+      lines[1].color = p.text; lines[2].color = row.roles ? p.text : row.streakState === 'win' ? p.accent : row.streakState === 'loss' ? p.danger : p.muted;
+      lines[3].color = row.streakState === 'win' ? p.accent : row.streakState === 'loss' ? p.danger : p.muted;
       badge.graphics.clear();
       badge.pos(position.width - 107, 10); e.badgeText.visible = !row.robot;
       if (row.robot) {

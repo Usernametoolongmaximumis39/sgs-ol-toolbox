@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.5
+// @version      0.6.28
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  轻量版：独立核心，按需安装插件并沿用已保存的插件
@@ -510,6 +510,7 @@
   }
   function validateCardAtlas(value) {
     if (!value || !Array.isArray(value.pages) || !value.pages.length || value.pages.length > 4 || typeof value.source != "string" || !value.source.trim() || value.source.length > 500) throw new Error("\u5361\u56FE\u6765\u6E90\u6216\u56FE\u7247\u6E05\u5355\u65E0\u6548");
+    if (value.backImage !== void 0 && (typeof value.backImage != "string" || value.backImage.length > 1024 * 1024 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value.backImage))) throw new Error("\u5361\u80CC\u987B\u4E3A\u4E0D\u8D85\u8FC7 1 MiB \u7684\u5185\u5D4C PNG");
     let pixelRatio = value.pixelRatio ?? 1;
     if (!Number.isInteger(pixelRatio) || pixelRatio < 1 || pixelRatio > 3) throw new Error("\u5361\u56FE\u50CF\u7D20\u500D\u7387\u987B\u4E3A 1\u30012 \u6216 3");
     if (value.previewImage !== void 0 && (typeof value.previewImage != "string" || value.previewImage.length > 160 * 1024 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value.previewImage))) throw new Error("\u5361\u9762\u9884\u89C8\u987B\u4E3A\u5185\u5D4C PNG\uFF0C\u4E14\u4E0D\u8D85\u8FC7 160 KiB");
@@ -518,6 +519,7 @@
       index: resource(value.index),
       pages: Object.freeze(value.pages.map(resource)),
       source: value.source,
+      backImage: value.backImage,
       previewImage: value.previewImage,
       pixelRatio,
       replaceCards: value.replaceCards === void 0 ? null : Object.freeze([...value.replaceCards]),
@@ -634,7 +636,7 @@
   }
   var CardStyleRegistry = class {
     constructor({ window: win, document: doc, game, settings, scope }) {
-      Object.assign(this, { win, doc, game, settings, scope }), this.styles = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set(), this.textures = /* @__PURE__ */ new Map(), this.bindings = /* @__PURE__ */ new Map(), this.nativeResources = /* @__PURE__ */ new Map(), this.nativeAttempts = /* @__PURE__ */ new Map(), this.previews = /* @__PURE__ */ new WeakMap(), this.factories = /* @__PURE__ */ new Map(), this.pools = /* @__PURE__ */ new Map(), this.insertions = /* @__PURE__ */ new Map(), this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds = /* @__PURE__ */ new Set(), this.selfHand = null, this.scene = null, this.atlases = /* @__PURE__ */ new Map(), this.status = "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2", this.closed = !1, scope.interval(() => this.refreshNative(), 400), game.onSceneChange && scope.add(game.onSceneChange(() => this.refreshNative())), scope.add(() => {
+      Object.assign(this, { win, doc, game, settings, scope }), this.styles = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set(), this.textures = /* @__PURE__ */ new Map(), this.bindings = /* @__PURE__ */ new Map(), this.nativeResources = /* @__PURE__ */ new Map(), this.nativeAttempts = /* @__PURE__ */ new Map(), this.previews = /* @__PURE__ */ new WeakMap(), this.factories = /* @__PURE__ */ new Map(), this.pools = /* @__PURE__ */ new Map(), this.insertions = /* @__PURE__ */ new Map(), this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds = /* @__PURE__ */ new Set(), this.selfHand = null, this.scene = null, this.atlases = /* @__PURE__ */ new Map(), this.backImages = /* @__PURE__ */ new Map(), this.status = "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2", this.closed = !1, scope.interval(() => this.refreshNative(), 400), game.onSceneChange && scope.add(game.onSceneChange(() => this.refreshNative())), scope.add(() => {
         this.closed = !0, this.restore(), this.clearTextures(), this.nativeResources.clear(), this.nativeAttempts.clear(), this.listeners.clear();
       });
     }
@@ -643,7 +645,8 @@
       };
       if (!style2?.id?.startsWith(owner + ".") || !/^[a-z][a-z0-9.-]{0,63}$/.test(style2.id) || this.styles.has(style2.id)) throw new Error("\u5361\u724C\u6837\u5F0F ID \u65E0\u6548\u6216\u5DF2\u6CE8\u518C");
       if (typeof style2.name != "string" || !style2.name.trim() || style2.name.length > 48) throw new Error("\u5361\u724C\u6837\u5F0F\u540D\u79F0\u65E0\u6548");
-      let cleaned = { id: style2.id, name: style2.name };
+      if (style2.backName !== void 0 && (typeof style2.backName != "string" || !style2.backName.trim() || style2.backName.length > 48 || /[\r\n]/.test(style2.backName))) throw new Error("\u5361\u80CC\u540D\u79F0\u65E0\u6548");
+      let cleaned = { id: style2.id, name: style2.name, ...style2.backName === void 0 ? {} : { backName: style2.backName } };
       if (style2.atlas) {
         if (style2.native || style2.face || style2.back) throw new Error("\u5B8C\u6574\u5361\u56FE\u4E0E\u5E95\u7EB9\u4E0D\u80FD\u6DF7\u7528");
         cleaned.atlas = validateCardAtlas(style2.atlas);
@@ -676,7 +679,7 @@
     selectSide(side, id) {
       if (!["face", "back"].includes(side)) throw new Error("\u65E0\u6548\u5361\u724C\u9762");
       if (id && !this.styles.has(id)) throw new Error("\u5361\u724C\u6837\u5F0F\u5C1A\u672A\u542F\u7528");
-      if (side === "back" && this.styles.get(id)?.atlas) throw new Error("\u6B64\u5957\u88C5\u4EC5\u63D0\u4F9B\u5361\u9762");
+      if (side === "back" && this.styles.get(id)?.atlas && !this.styles.get(id).atlas.backImage) throw new Error("\u6B64\u5957\u88C5\u4EC5\u63D0\u4F9B\u5361\u9762");
       this.settings.set(side === "face" ? "cardFaceStyle" : "cardBackStyle", id), this.restore(), this.refreshNative(), this.emit();
     }
     selectScope(value) {
@@ -698,7 +701,7 @@
     }
     select(id) {
       if (id && !this.styles.has(id)) throw new Error("\u5361\u724C\u6837\u5F0F\u5C1A\u672A\u542F\u7528");
-      this.settings.set("cardStyle", id), this.settings.set("cardFaceStyle", id), this.styles.get(id)?.atlas || this.settings.set("cardBackStyle", id), this.restore(), this.refreshNative(), this.emit();
+      this.settings.set("cardStyle", id), this.settings.set("cardFaceStyle", id), (!this.styles.get(id)?.atlas || this.styles.get(id).atlas.backImage) && this.settings.set("cardBackStyle", id), this.restore(), this.refreshNative(), this.emit();
     }
     subscribe(fn) {
       return this.listeners.add(fn), () => this.listeners.delete(fn);
@@ -715,6 +718,7 @@
       this.status !== value && (this.status = value, this.emit());
     }
     clearTextures(id) {
+      for (let [key, image] of this.backImages) (!id || key === id) && (image.onload = image.onerror = null, image.src = "", this.backImages.delete(key));
       for (let [key, entry] of this.atlases) (!id || key === id) && (entry.controller.abort(), entry.data?.dispose(), this.atlases.delete(key));
       for (let [key, texture] of this.textures) (!id || key.startsWith(id + ":")) && (texture.destroy(!0), this.textures.delete(key));
     }
@@ -775,7 +779,11 @@
     }
     preview(style2, back) {
       if (style2.atlas) {
-        if (back) return null;
+        if (back) {
+          if (!style2.atlas.backImage) return null;
+          let image = this.doc.createElement("img");
+          return image.src = style2.atlas.backImage, image.alt = "", image.width = 135, image.height = 190, image;
+        }
         if (style2.atlas.previewImage) {
           let image = this.doc.createElement("img");
           return image.src = style2.atlas.previewImage, image.alt = "", image.width = 135, image.height = 190, image;
@@ -803,7 +811,21 @@
       }
     }
     texture(style2, back, immediate = !1) {
-      if (style2.atlas) return null;
+      if (style2.atlas) {
+        if (!back || !style2.atlas.backImage) return null;
+        let image = this.backImages.get(style2.id);
+        if (image || (image = new this.win.Image(), this.backImages.set(style2.id, image), image.onload = () => {
+          !this.closed && this.backImages.get(style2.id) === image && (this.refreshNative(), this.emit());
+        }, image.src = style2.atlas.backImage), !image.complete || image.naturalWidth !== 405 || image.naturalHeight !== 570) return null;
+        let key2 = style2.id + ":back";
+        if (!this.textures.has(key2)) {
+          let bitmap = new this.win.Laya.Texture2D(405, 570);
+          bitmap.loadImageSource(image);
+          let texture = new this.win.Laya.Texture(bitmap);
+          texture.width = texture.sourceWidth = 93, texture.height = texture.sourceHeight = 130, this.textures.set(key2, texture);
+        }
+        return this.textures.get(key2);
+      }
       if (style2.native) return this.nativeTexture(style2.native[back ? "back" : "face"], immediate);
       let key = style2.id + ":" + back;
       if (!this.textures.has(key)) {
@@ -835,7 +857,7 @@
             let dimension = (...values) => values.find((value) => Number.isFinite(value) && value > 0 && value <= 4096), size = {
               width: dimension(ui.width, binding.original?.width, ui.bmpFace.width),
               height: dimension(ui.height, binding.original?.height, ui.bmpFace.height)
-            }, texture = eligible && !binding.special ? style2.atlas ? this.atlasTexture(style2, ui, size) : this.texture(style2, !!card.IsEmpty, force) : null;
+            }, texture = eligible && !binding.special ? style2.atlas && !card.IsEmpty ? this.atlasTexture(style2, ui, size) : this.texture(style2, !!card.IsEmpty, force) : null;
             if (binding.reason = style2 ? eligible ? binding.special ? "\u539F\u751F\u6307\u5B9A\u7279\u6B8A\u5361\u56FE" : texture ? "" : ui.isNewCardUI !== !0 && ui.IsYiCard ? "\u5F02\u724C\u4E13\u7528\u5361\u56FE" : style2.atlas?.replaceCards && !style2.atlas.replaceCards.includes(card?.ResName) && this.atlases.get(style2.id)?.data?.frames.has(cardFrameName(card?.ResName)) ? "\u4E0E\u9ED8\u8BA4\u5361\u9762\u76F8\u540C\uFF0C\u4FDD\u7559\u539F\u751F" : style2.atlas ? `\u65E0\u540C\u540D\u5361\u56FE\uFF1A${String(card?.ResName || "\u7A7A\u8D44\u6E90\u540D").slice(0, 96)}` : "\u8D44\u6E90\u672A\u5C31\u7EEA" : "\u8303\u56F4\u6216\u539F\u751F\u663E\u793A\u9650\u5236" : "\u8DDF\u968F\u6E38\u620F", !texture) {
               ui.bmpFace.texture === binding.applied && (ui.bmpFace.texture = binding.original), binding.applied = null, binding.restoreLayers();
               return;
@@ -1012,8 +1034,9 @@
     }
     refreshNative() {
       if (this.closed) return;
+      for (let id of this.backImages.keys()) id !== this.selection.back && this.clearTextures(id);
       let selectedAtlas = this.styles.get(this.selection.face);
-      for (let id of this.atlases.keys()) id !== selectedAtlas?.id && this.clearTextures(id);
+      for (let id of this.atlases.keys()) id !== selectedAtlas?.id && id !== this.selection.back && this.clearTextures(id);
       if (selectedAtlas?.atlas && this.ensureAtlas(selectedAtlas), this.listeners.size) {
         let before = [...this.nativeResources.values()];
         for (let item of this.styles.values()) if (item.native) for (let name of Object.values(item.native)) this.nativeTexture(name);
@@ -1049,8 +1072,9 @@
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.5", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.28", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
+    "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
     "43a4cbff657c319e8b7b1bf2ec7689e0a557fc9bb17a9090d24a2163d1857dda",
     "8c052bb3d022cd8beb67a86f2ff6b85c26b5ee7b45fcb4ab50fbe84b051ba644",
@@ -1592,7 +1616,7 @@
   }
 
   // src/core/plugin-contract.js
-  var DEFAULT_PLUGIN_PRIORITY = 32768, PANEL_CATEGORIES = Object.freeze(["game", "automation", "tools", "manage", "info"]), localId = /^[a-z][a-z0-9.-]{0,63}$/, stableVersion = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/, validPriority = (value) => Number.isInteger(value) && value >= 0 && value <= 65535;
+  var DEFAULT_PLUGIN_PRIORITY = 32768, PANEL_CATEGORIES = Object.freeze(["game", "automation", "tools", "manage", "info", "appearance"]), localId = /^[a-z][a-z0-9.-]{0,63}$/, stableVersion = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/, validPriority = (value) => Number.isInteger(value) && value >= 0 && value <= 65535;
   function requirePriority(value) {
     if (!validPriority(value)) throw new Error("\u6392\u5E8F\u4F18\u5148\u7EA7\u5FC5\u987B\u662F 0\u201365535 \u7684\u6574\u6570\u3002");
   }
@@ -3405,14 +3429,78 @@
     };
   }
 
+  // src/ui/game-viewport.js
+  function createGameViewport({ window: win, document: doc, scope }) {
+    let reserved = 0, stage, original, wrapper, descriptor, appliedWidth = 0, appliedHeight = 0, browser, widthDescriptor, widthGetter, styles = /* @__PURE__ */ new Map();
+    function releaseBrowser() {
+      browser && Object.getOwnPropertyDescriptor(browser, "clientWidth")?.get === widthGetter && (widthDescriptor ? Object.defineProperty(browser, "clientWidth", widthDescriptor) : delete browser.clientWidth), browser = widthDescriptor = widthGetter = void 0;
+    }
+    function syncBrowser() {
+      let next = reserved ? win.Laya?.Browser : void 0;
+      if (browser === next || (releaseBrowser(), !next)) return;
+      let own3 = Object.getOwnPropertyDescriptor(next, "clientWidth");
+      if (own3 && !own3.configurable) return;
+      browser = next, widthDescriptor = own3;
+      let readWidth = own3?.get ? () => Reflect.apply(own3.get, next, []) : () => win.innerWidth;
+      widthGetter = () => Math.max(1, readWidth() - reserved), Object.defineProperty(browser, "clientWidth", { configurable: !0, enumerable: own3?.enumerable ?? !0, get: widthGetter }), appliedWidth = -1;
+    }
+    function restoreStyles() {
+      for (let [node, previous] of styles)
+        node.style.getPropertyValue("width") === previous.applied && (previous.value ? node.style.setProperty("width", previous.value, previous.priority) : node.style.removeProperty("width"));
+      styles.clear();
+    }
+    function resize(target) {
+      if (typeof target?.setScreenSize != "function") return;
+      let ratio = Number(win.Laya?.Browser?.pixelRatio) || win.devicePixelRatio || 1;
+      target.setScreenSize(win.innerWidth * ratio, win.innerHeight * ratio);
+    }
+    function releaseStage() {
+      stage && stage.setScreenSize === wrapper && (descriptor ? Object.defineProperty(stage, "setScreenSize", descriptor) : delete stage.setScreenSize), resize(stage), stage = original = wrapper = void 0;
+    }
+    function sync() {
+      let next = reserved ? win.Laya?.stage : void 0, width = reserved ? Math.max(1, win.innerWidth - reserved) : 0;
+      if (syncBrowser(), reserved || restoreStyles(), stage !== next && (releaseStage(), typeof next?.setScreenSize == "function")) {
+        stage = next, original = stage.setScreenSize, descriptor = Object.getOwnPropertyDescriptor(stage, "setScreenSize");
+        let nativeResize = original;
+        wrapper = function(screenWidth, screenHeight, ...args) {
+          let ratio = Number(win.Laya?.Browser?.pixelRatio) || win.devicePixelRatio || 1, limit2 = Math.max(1, win.innerWidth - reserved) * ratio;
+          return Reflect.apply(nativeResize, this, [Math.min(screenWidth, limit2), screenHeight, ...args]);
+        }, stage.setScreenSize = wrapper, appliedWidth = -1;
+      }
+      if (!reserved) {
+        restoreStyles(), appliedWidth = 0;
+        return;
+      }
+      for (let node of doc.querySelectorAll("#bgDiv,#layaContainer,#laya_container,#GameDiv"))
+        styles.has(node) || styles.set(node, { value: node.style.getPropertyValue("width"), priority: node.style.getPropertyPriority("width") }), node.style.setProperty("width", width + "px", "important"), styles.get(node).applied = width + "px";
+      (width !== appliedWidth || win.innerHeight !== appliedHeight) && (resize(stage), typeof win.SystemContext?.UpdateGameSize == "function" && win.SystemContext.UpdateGameSize(width, win.Laya?.Browser?.clientHeight || win.innerHeight), appliedWidth = width, appliedHeight = win.innerHeight);
+    }
+    return scope.listen(win, "resize", sync), scope.interval(sync, 500), scope.add(() => {
+      reserved = 0, restoreStyles(), releaseBrowser(), releaseStage();
+    }), { reserve(width) {
+      reserved = Math.max(0, Number(width) || 0), sync();
+    } };
+  }
+
   // src/ui/card-style-workshop.js
   function mountCardStyleWorkshop(container, { document: doc, cardStyles, settings }) {
-    let details = doc.createElement("details");
-    details.className = "card-style-workshop", details.open = settings.get("cardStyleExpanded", !1);
-    let summary = doc.createElement("summary");
-    summary.textContent = "\u5361\u9762\u4E0E\u5361\u80CC";
+    let details = doc.createElement("section");
+    details.className = "card-style-workshop plugin-group";
+    let heading = doc.createElement("h3");
+    heading.className = "plugin-heading";
+    let toggle = doc.createElement("button");
+    toggle.type = "button", toggle.className = "plugin-toggle";
+    let title = doc.createElement("span");
+    title.className = "plugin-title", title.textContent = "\u5361\u724C\u5916\u89C2", toggle.append(createIcon(doc, "cards"), title, createIcon(doc, "chevron", "plugin-chevron"));
     let body = doc.createElement("div");
-    details.append(summary, body), container.append(details), details.addEventListener("toggle", () => settings.set("cardStyleExpanded", details.open));
+    body.className = "plugin-body", body.id = "core-card-style-workshop", toggle.setAttribute("aria-controls", body.id);
+    let apply = (expanded) => {
+      body.hidden = !expanded, toggle.setAttribute("aria-expanded", String(expanded)), toggle.title = (expanded ? "\u6536\u8D77" : "\u5C55\u5F00") + "\u5361\u724C\u5916\u89C2", toggle.setAttribute("aria-label", toggle.title);
+    };
+    apply(settings.get("cardStyleExpanded", !1)), toggle.onclick = () => {
+      let expanded = body.hidden;
+      settings.set("cardStyleExpanded", expanded), apply(expanded);
+    }, heading.append(toggle), details.append(heading, body), container.append(details);
     let render = () => {
       body.replaceChildren();
       let intro = doc.createElement("p");
@@ -3449,10 +3537,10 @@
             b.append(previews);
           }
           let text2 = doc.createElement("span");
-          text2.textContent = name, b.append(text2), b.onclick = () => cardStyles?.selectSide(side, id), choices.append(b);
+          text2.textContent = side === "back" && style2?.backName || name, b.append(text2), b.onclick = () => cardStyles?.selectSide(side, id), choices.append(b);
         };
         option("", "\u8DDF\u968F\u6E38\u620F");
-        for (let style2 of cardStyles?.list() || []) (side !== "back" || !style2.atlas) && option(style2.id, style2.name, style2);
+        for (let style2 of cardStyles?.list() || []) (side !== "back" || !style2.atlas || style2.atlas.backImage) && option(style2.id, style2.name, style2);
         if (side === "face") {
           let selected = cardStyles?.list().find((style2) => style2.id === cardStyles.selection?.face);
           if (selected?.atlas) {
@@ -4237,6 +4325,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 
   // src/ui/shell.js
   var categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], style = `
+.appearance-page .plugin-heading{margin:0}
 .management-tabs{position:sticky;top:-12px;z-index:8;background:var(--sgs-bg)!important;box-shadow:0 5px 8px var(--sgs-bg)!important}
 .card-style-workshop summary{cursor:pointer;color:var(--sgs-accent);padding:8px 0;font-size:12px;min-height:34px}.card-style-workshop summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}.card-style-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-style-choices button{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;font-size:11px}.card-style-choices button[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 3px 0 var(--sgs-accent);background:color-mix(in srgb,var(--sgs-accent) 12%,var(--sgs-surface))}.card-style-preview{display:flex;gap:4px;width:100%;justify-content:center}.card-style-preview canvas,.card-style-preview img{width:43%;max-width:64px;height:auto;aspect-ratio:93/130;border-radius:3px}.card-style-workshop p{margin:8px 0}
 
@@ -4246,7 +4335,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 :host{all:initial;position:fixed;top:72px;right:24px;width:280px;min-width:248px;max-width:420px;z-index:2147483000;color:var(--sgs-text);font:13px/1.55 var(--sgs-font);color-scheme:var(--sgs-scheme,dark)}
 *{box-sizing:border-box}button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:wait;opacity:.5}button,input,select{color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 9px}button:hover{background:var(--sgs-raised);border-color:var(--sgs-accent)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}a{color:var(--sgs-accent)}
 .shell{background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:var(--sgs-radius);box-shadow:0 16px 48px #0006;overflow:hidden;resize:horizontal;min-width:248px;max-width:420px;width:100%}
-.content.has-plugin-panels{min-height:0}.plugin-group{min-width:0}.plugin-group+.plugin-group{border-top:1px solid var(--sgs-border);margin-top:10px;padding-top:10px}.plugin-heading{margin:0;font-size:13px}.plugin-heading .plugin-toggle{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;padding:6px 3px;border:0;border-radius:6px;background:transparent;box-shadow:none;text-align:left;color:var(--sgs-accent)}.plugin-heading .plugin-toggle:hover{background:color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.plugin-toggle svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.plugin-toggle .plugin-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;letter-spacing:.5px}.plugin-toggle .plugin-chevron{width:15px;height:15px;color:var(--sgs-muted);transition:transform .16s}.plugin-toggle[aria-expanded=false] .plugin-chevron{transform:rotate(-90deg)}.plugin-body{padding:9px 2px 2px}.plugin-body[hidden]{display:none!important}@media(prefers-reduced-motion:reduce){.plugin-toggle .plugin-chevron{transition:none}}
+.content.has-plugin-panels{min-height:0}.plugin-group{min-width:0}.plugin-group+.plugin-group{border-top:1px solid var(--sgs-border);margin-top:10px;padding-top:10px}.plugin-heading{margin:0;font-size:13px}.plugin-heading .plugin-toggle{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;padding:6px 3px;border:0;border-radius:6px;background:transparent;box-shadow:none;text-align:left;color:var(--sgs-accent)}.plugin-heading .plugin-toggle:hover{background:color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.plugin-toggle svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.plugin-toggle .plugin-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;letter-spacing:.5px}.plugin-toggle .plugin-chevron{width:15px;height:15px;color:var(--sgs-muted);transition:transform .16s}.plugin-toggle[aria-expanded=false] .plugin-chevron{transform:rotate(-90deg)}.plugin-body{padding:9px 2px 2px}.plugin-body[hidden]{display:none!important}:host([data-edge-docked]){left:auto!important;right:0!important;transition:transform 180ms ease;transform:translateX(0)}:host([data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 5px));background:var(--sgs-bg);border-left:1px solid var(--sgs-accent);border-radius:5px 0 0 5px}:host([data-edge-hidden]) .shell{visibility:hidden}:host([data-edge-fixed]){transition:none;top:0!important;bottom:0!important;height:100vh;height:100dvh}:host([data-edge-fixed]) .shell{display:flex;flex-direction:column;height:100%;border-radius:0}:host([data-edge-fixed]) .shell>.brand,:host([data-edge-fixed]) .shell>.status,:host([data-edge-fixed]) .shell>.nav,:host([data-edge-fixed]) .shell>.footer,:host([data-edge-fixed]) .shell>.compact{flex-shrink:0}:host([data-edge-fixed]) .content{flex:1;min-height:0;max-height:none}.edge-resizer{display:none;position:absolute;left:0;bottom:0;width:22px;height:22px;z-index:12;color:var(--sgs-muted);cursor:ew-resize;touch-action:none;user-select:none;align-items:center;justify-content:center}.edge-resizer svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round}.edge-resizer:hover{color:var(--sgs-accent)}.edge-resizer:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:-3px}:host([data-edge-docked]) .shell{resize:none}:host([data-edge-docked]:not([data-collapsed]):not([data-edge-hidden])) .edge-resizer{display:flex}:host([data-edge-docked]) .footer{padding-left:25px}:host([data-edge-docked]:focus-visible){outline:2px solid var(--sgs-accent);outline-offset:-2px}
+@media(prefers-reduced-motion:reduce){.plugin-toggle .plugin-chevron{transition:none}}
 .brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand strong{letter-spacing:1px;font-size:13px}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
 .nav{display:flex;gap:4px;padding:7px 9px;border-block:1px solid var(--sgs-border);background:var(--sgs-surface)}.nav button{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:0;height:42px;padding:0;border-color:transparent;background:transparent;overflow:hidden;transition:flex-grow var(--sgs-motion) cubic-bezier(.2,.8,.2,1),background var(--sgs-motion),gap var(--sgs-motion)}.nav button svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform var(--sgs-motion)}.nav button span{max-width:0;opacity:0;white-space:nowrap;overflow:hidden;transition:max-width var(--sgs-motion),opacity var(--sgs-motion)}.nav button[aria-selected=true]{color:var(--sgs-accent);background:var(--sgs-raised)}.nav:has(button:hover) button:not(:hover):not(:focus-visible) svg,.nav:has(button:focus-visible) button:not(:hover):not(:focus-visible) svg{transform:scale(.92)}.nav button:hover,.nav button:focus-visible{flex-grow:2.2;gap:5px;color:var(--sgs-accent);background:var(--sgs-raised)}.nav button:hover svg,.nav button:focus-visible svg{transform:scale(1.15)}.nav button:hover span,.nav button:focus-visible span{max-width:32px;opacity:1}
 .content{padding:12px;max-height:65vh;min-height:200px;overflow:auto;scrollbar-width:thin}.footer{display:flex;justify-content:space-between;border-top:1px solid var(--sgs-border);padding:7px 12px;color:var(--sgs-muted);font-size:10px}.footer button{padding:0;border:0;background:none;font-size:10px;color:var(--sgs-muted)}.empty{text-align:center;padding:35px 12px;color:var(--sgs-muted)}.empty svg{width:32px;height:32px;fill:none;stroke:var(--sgs-accent);stroke-width:1.2;margin-bottom:12px}.empty strong{display:block;color:var(--sgs-text);font-size:14px;margin-bottom:7px}.tabs{display:flex;gap:4px;margin-bottom:13px}.tabs button{flex:1;padding:5px 2px;font-size:12px}.tabs button.active{border-color:var(--sgs-accent);color:var(--sgs-accent)}h3{font-size:13px;margin:15px 0 7px}h3:first-child{margin-top:0}.card{padding:10px;border:1px solid var(--sgs-border);border-radius:8px;margin-bottom:8px;background:var(--sgs-surface)}.card .title{display:flex;justify-content:space-between;gap:5px}.muted{color:var(--sgs-muted);font-size:11px}.actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.actions button{font-size:11px;padding:4px 7px}.notice{color:var(--sgs-muted);font-size:11px;overflow-wrap:anywhere;padding:7px 0}.error{color:var(--sgs-danger)}label.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0}input[type=checkbox]{accent-color:var(--sgs-accent)}input.address{width:100%;font-size:11px}select{max-width:145px}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);max-width:80vw;background:var(--sgs-raised);color:var(--sgs-text);padding:10px 16px;border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 4px 20px #0008;z-index:2147483647}
@@ -4361,8 +4451,9 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         settings.set("userscriptDashboardAddress", ""), input.value = "", hint.textContent = "\u5DF2\u6E05\u9664\u672C\u673A\u5730\u5740\u3002";
       })), details.append(input, actions, hint), panel.append(details), panel.append(button("\u7EE7\u7EED\u4F7F\u7528", () => panel.remove())), shadow.append(panel);
     }
-    function renderSettings(cleanups) {
-      let first = content.children.length, themeHeading = el("h3", void 0, "plugin-heading"), themeToggle = el("button", void 0, "plugin-toggle");
+    function renderAppearance(cleanups) {
+      content.classList.add("appearance-page");
+      let themeHeading = el("h3", void 0, "plugin-heading"), themeToggle = el("button", void 0, "plugin-toggle");
       themeToggle.type = "button", themeToggle.append(createIcon(doc, "palette"), el("span", "\u4E3B\u9898\u5DE5\u574A", "plugin-title"), createIcon(doc, "chevron", "plugin-chevron"));
       let workshop = el("div", void 0, "plugin-body");
       workshop.id = "core-theme-workshop", themeToggle.setAttribute("aria-controls", workshop.id);
@@ -4372,9 +4463,29 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       applyThemeFold(settings.get("themeWorkshopCollapsed", !1)), themeToggle.onclick = () => {
         let collapsed = !workshop.hidden;
         settings.set("themeWorkshopCollapsed", collapsed), applyThemeFold(collapsed);
-      }, themeHeading.append(themeToggle), content.append(themeHeading, workshop), cleanups.push(mountThemeWorkshop(workshop, { document: doc, themes: handlers.themes, notify })), content.append(el("h3", "\u5361\u724C\u5916\u89C2"));
-      let cardWorkshop = el("div");
-      content.append(cardWorkshop), cleanups.push(mountCardStyleWorkshop(cardWorkshop, { document: doc, cardStyles: handlers.cardStyles, settings })), content.append(el("h3", "\u622A\u56FE"));
+      };
+      let themeGroup = el("section", void 0, "plugin-group appearance-section");
+      themeHeading.append(themeToggle), themeGroup.append(themeHeading, workshop), content.append(themeGroup), cleanups.push(mountThemeWorkshop(workshop, { document: doc, themes: handlers.themes, notify }));
+      let cardWorkshop = el("div", void 0, "plugin-group appearance-section");
+      content.append(cardWorkshop), cleanups.push(mountCardStyleWorkshop(cardWorkshop, { document: doc, cardStyles: handlers.cardStyles, settings }));
+    }
+    function renderSettings(cleanups) {
+      let first = content.children.length;
+      if (!mobileDevice()) {
+        content.append(el("h3", "HUD \u9760\u8FB9\u884C\u4E3A"));
+        let choices = el("div", void 0, "sgs-segments");
+        choices.setAttribute("role", "group"), choices.setAttribute("aria-label", "HUD \u9760\u8FB9\u884C\u4E3A");
+        for (let [value, label] of [["none", "\u65E0\u64CD\u4F5C"], ["hide", "\u6536\u8D77"], ["fixed", "\u56FA\u5B9A"]]) {
+          let choice = button(label, () => {
+            settings.set("hudEdgeBehavior", value);
+            let atEdge = host.hasAttribute("data-edge-docked") || host.getBoundingClientRect().right >= win.innerWidth - 12;
+            setEdgeDocked(atEdge), render();
+          });
+          choice.dataset.edgeBehavior = value, choice.setAttribute("aria-pressed", String(edgeBehavior() === value)), choices.append(choice);
+        }
+        content.append(choices, el("div", "\u62D6\u5230\u53F3\u8FB9\u7F18\u65F6\uFF1A\u65E0\u64CD\u4F5C\u4FDD\u6301\u60AC\u6D6E\uFF1B\u6536\u8D77\u5728\u9F20\u6807\u79FB\u5F00\u540E\u9690\u85CF\uFF1B\u56FA\u5B9A\u4E3A\u4FA7\u680F\u5E76\u4E3A\u6E38\u620F\u753B\u5E03\u7559\u51FA\u7A7A\u95F4\u3002", "muted"));
+      }
+      content.append(el("h3", "\u622A\u56FE"));
       let cleanRow = el("label", void 0, "row");
       cleanRow.append(el("span", "\u622A\u56FE\u65F6\u9690\u85CF\u5DE5\u5177\u7BB1 UI"));
       let clean2 = el("input");
@@ -4644,13 +4755,13 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     }
     function renderManagement(cleanups) {
       let tabs = el("div", void 0, "tabs management-tabs");
-      for (let [id, title] of [["settings", "\u8BBE\u7F6E"], ["market", "\u63D2\u4EF6\u5E02\u573A"]]) {
+      for (let [id, title] of [["settings", "\u8BBE\u7F6E"], ["market", "\u63D2\u4EF6\u5E02\u573A"], ["appearance", "\u5916\u89C2"]]) {
         let b = button(title, () => {
           management = id, render();
         });
         management === id && (b.className = "active"), tabs.append(b);
       }
-      content.append(tabs), management === "settings" ? renderSettings(cleanups) : management === "market" && renderMarket();
+      content.append(tabs), management === "settings" ? renderSettings(cleanups) : management === "market" ? renderMarket() : management === "appearance" && renderAppearance(cleanups);
     }
     function render() {
       renderedKey && viewScroll.set(renderedKey, content.scrollTop);
@@ -4658,7 +4769,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         renderedCleanup?.();
       } catch {
       }
-      renderedCleanup = null, content.replaceChildren(), content.classList.remove("has-plugin-panels");
+      renderedCleanup = null, content.replaceChildren(), content.classList.remove("has-plugin-panels", "appearance-page");
       let cleanups = [];
       renderedCleanup = () => {
         for (let clean2 of cleanups.splice(0))
@@ -4675,8 +4786,8 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         badge.setAttribute("aria-label", alerts), manage.append(badge);
       }
       for (let b of shadow.querySelectorAll("[data-category]")) b.setAttribute("aria-selected", String(b.dataset.category === active));
-      renderedKey = active + ":" + (active === "game" ? gameView : ""), active === "manage" && (renderManagement(cleanups), filterPlugins());
-      let categoryPanels = [...panels.values()].filter((p) => p.category === active).sort(comparePanelOrder), available = active === "game" ? selectGamePanels(categoryPanels, gameView) : categoryPanels;
+      renderedKey = active + ":" + (active === "game" ? gameView : active === "manage" ? management : ""), active === "manage" && (renderManagement(cleanups), filterPlugins());
+      let categoryPanels = [...panels.values()].filter((p) => p.category === (active === "manage" && management === "appearance" ? "appearance" : active)).sort(comparePanelOrder), available = active === "game" ? selectGamePanels(categoryPanels, gameView) : categoryPanels;
       if (!available.length) {
         active !== "manage" && empty("\u5C1A\u672A\u5B89\u88C5\u6B64\u7C7B\u63D2\u4EF6", active === "game" ? "\u524D\u5F80\u7BA1\u7406 \u2192 \u63D2\u4EF6\u5E02\u573A\u5B89\u88C5\u5361\u724C\u63D2\u4EF6\u3002" : "\u6B64\u5206\u7C7B\u4E3A\u540E\u7EED\u63D2\u4EF6\u4FDD\u7559\u3002"), content.scrollTop = viewScroll.get(renderedKey) || 0;
         return;
@@ -4725,7 +4836,12 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       active = "manage", management = "market", render();
     });
     let setCollapsed = (value) => {
-      host.toggleAttribute("data-collapsed", value), settings.set("collapsed", value);
+      if (value && host.hasAttribute("data-edge-docked")) {
+        setEdgeDocked(!1);
+        let width = parseFloat(host.style.width) || 280, free = settings.get("hudFloatingPosition", { x: Math.max(0, win.innerWidth - width - 24), y: 72 });
+        host.style.left = Math.max(0, Math.min(win.innerWidth - 156, Number(free?.x) || 0)) + "px", host.style.top = Math.max(0, Math.min(win.innerHeight - 45, Number(free?.y) || 0)) + "px", host.style.right = "auto", settings.set("position", { x: parseFloat(host.style.left), y: parseFloat(host.style.top) });
+      }
+      host.toggleAttribute("data-collapsed", value), settings.set("collapsed", value), typeof syncGameViewport == "function" && syncGameViewport();
     };
     host.toggleAttribute("data-collapsed", settings.get("collapsed", !1)), scope.listen(shadow.querySelector(".brand button"), "click", () => setCollapsed(!0));
     let expandHUD = () => {
@@ -4734,23 +4850,61 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     scope.listen(shadow.querySelector("[data-expand]"), "click", expandHUD), scope.listen(shadow.querySelector(".compact"), "dblclick", (event) => {
       event.target.closest("button") || (event.preventDefault(), expandHUD());
     }), scope.listen(shadow.querySelector("[data-screenshot]"), "click", () => handlers.screenshot?.());
+    let mobileDevice = () => !!win.navigator.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(win.navigator.userAgent || "") || win.navigator.platform === "MacIntel" && win.navigator.maxTouchPoints > 1 || !!win.matchMedia?.("(pointer: coarse)").matches, edgeBehavior = () => {
+      let value = settings.get("hudEdgeBehavior", "fixed");
+      return mobileDevice() ? "none" : ["none", "hide", "fixed"].includes(value) ? value : "fixed";
+    }, gameViewport = createGameViewport({ window: win, document: doc, scope }), syncGameViewport = () => gameViewport.reserve(host.hasAttribute("data-edge-fixed") ? host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280 : 0), edgeHideTimer, draggingHUD = !1, revealEdge = () => {
+      clearTimeout(edgeHideTimer), host.removeAttribute("data-edge-hidden");
+    }, hasKeyboardFocus = () => host.matches(":focus-visible") || !!shadow.activeElement?.matches(":focus-visible"), hideEdge = () => {
+      clearTimeout(edgeHideTimer), !(!host.hasAttribute("data-edge-docked") || host.hasAttribute("data-edge-fixed") || draggingHUD || hasKeyboardFocus()) && (edgeHideTimer = setTimeout(() => {
+        !scope.closed && !draggingHUD && !hasKeyboardFocus() && host.setAttribute("data-edge-hidden", "");
+      }, 180));
+    }, setEdgeDocked = (value, hidden = !1) => {
+      let behavior = edgeBehavior(), docked = !!value && behavior !== "none";
+      revealEdge(), host.toggleAttribute("data-edge-docked", docked), host.toggleAttribute("data-edge-fixed", docked && behavior === "fixed"), host.toggleAttribute("data-edge-hidden", docked && behavior === "hide" && hidden), docked ? (setCollapsed(!1), host.tabIndex = 0, host.setAttribute("aria-label", behavior === "fixed" ? "\u5DE5\u5177\u7BB1\u56FA\u5B9A\u4FA7\u680F" : "\u5DE5\u5177\u7BB1\u81EA\u52A8\u9690\u85CF\u4FA7\u680F")) : (host.removeAttribute("tabindex"), host.removeAttribute("aria-label")), settings.set("edgeDocked", docked), syncGameViewport();
+    }, edgeResizer = doc.createElement("div");
+    edgeResizer.className = "edge-resizer", edgeResizer.tabIndex = 0, edgeResizer.setAttribute("role", "separator"), edgeResizer.setAttribute("aria-orientation", "vertical"), edgeResizer.setAttribute("aria-label", "\u8C03\u6574\u4FA7\u680F\u5BBD\u5EA6"), edgeResizer.title = "\u5411\u5DE6\u62D6\u52A8\u52A0\u5BBD\uFF0C\u5411\u53F3\u62D6\u52A8\u53D8\u7A84\uFF1B\u65B9\u5411\u952E\u8C03\u6574", edgeResizer.setAttribute("aria-valuemin", "248"), edgeResizer.setAttribute("aria-valuemax", "420");
+    let grip = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+    grip.setAttribute("viewBox", "0 0 24 24"), grip.setAttribute("aria-hidden", "true");
+    let gripPath = doc.createElementNS("http://www.w3.org/2000/svg", "path");
+    gripPath.setAttribute("d", "M5 11l8 8M5 16l3 3"), grip.append(gripPath), edgeResizer.append(grip), shadow.append(edgeResizer);
+    let applyEdgeWidth = (value) => {
+      let width = Math.max(248, Math.min(420, Math.round(value)));
+      return host.style.width = width + "px", shadow.querySelector(".shell").style.width = width + "px", edgeResizer.setAttribute("aria-valuenow", String(width)), syncGameViewport(), width;
+    }, edgeResize, finishEdgeResize = () => {
+      edgeResize && (edgeResize = void 0, draggingHUD = !1, settings.set("width", parseFloat(host.style.width)), host.matches(":hover") || hideEdge());
+    };
+    scope.listen(edgeResizer, "pointerdown", (event) => {
+      event.button === 0 && (event.preventDefault(), event.stopPropagation(), revealEdge(), draggingHUD = !0, edgeResize = { x: event.clientX, width: host.getBoundingClientRect().width });
+    }), scope.listen(win, "pointermove", (event) => {
+      edgeResize && (event.preventDefault(), applyEdgeWidth(edgeResize.width + edgeResize.x - event.clientX));
+    }), scope.listen(win, "pointerup", finishEdgeResize), scope.listen(win, "pointercancel", finishEdgeResize), scope.listen(edgeResizer, "keydown", (event) => {
+      let current = parseFloat(host.style.width) || 280, next = { ArrowLeft: current + 8, ArrowRight: current - 8, Home: 248, End: 420 }[event.key];
+      next !== void 0 && (event.preventDefault(), settings.set("width", applyEdgeWidth(next)));
+    }), scope.listen(host, "pointerenter", revealEdge), scope.listen(host, "pointerleave", hideEdge), scope.listen(host, "focusin", revealEdge), scope.listen(host, "focusout", () => {
+      host.matches(":hover") || hideEdge();
+    }), scope.listen(win, "resize", () => {
+      mobileDevice() && (setEdgeDocked(!1), active === "manage" && render()), host.style.left && (host.style.left = Math.max(0, Math.min(win.innerWidth - (host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280), parseFloat(host.style.left))) + "px");
+    }), scope.add(() => clearTimeout(edgeHideTimer)), setEdgeDocked(settings.get("edgeDocked", !1), !0);
     let position = settings.get("position", null);
-    if (position && (host.style.left = Math.max(0, Math.min(win.innerWidth - 248, position.x)) + "px", host.style.top = Math.max(0, Math.min(win.innerHeight - 50, position.y)) + "px", host.style.right = "auto"), host.style.width = Math.max(248, Math.min(420, settings.get("width", 280))) + "px", win.ResizeObserver) {
+    if (position && (host.style.left = Math.max(0, Math.min(win.innerWidth - 248, position.x)) + "px", host.style.top = Math.max(0, Math.min(win.innerHeight - 50, position.y)) + "px", host.style.right = "auto"), host.style.width = Math.max(248, Math.min(420, settings.get("width", 280))) + "px", edgeResizer.setAttribute("aria-valuenow", String(parseFloat(host.style.width))), syncGameViewport(), win.ResizeObserver) {
       let saveWidth, observer = new win.ResizeObserver((entries) => {
         if (host.hasAttribute("data-collapsed")) return;
         let width = Math.round(entries[0].borderBoxSize?.[0]?.inlineSize || shadow.querySelector(".shell").getBoundingClientRect().width);
-        width < 248 || (host.style.width = width + "px", clearTimeout(saveWidth), saveWidth = setTimeout(() => settings.set("width", width), 200));
+        width < 248 || (host.style.width = width + "px", edgeResizer.setAttribute("aria-valuenow", String(width)), syncGameViewport(), clearTimeout(saveWidth), saveWidth = setTimeout(() => settings.set("width", width), 200));
       });
       observer.observe(shadow.querySelector(".shell")), scope.add(() => {
         observer.disconnect(), clearTimeout(saveWidth);
       });
     }
     for (let handle of shadow.querySelectorAll(".brand,.compact")) scope.listen(handle, "pointerdown", (e) => {
-      if (e.target.closest("button")) return;
-      let rect = host.getBoundingClientRect(), dx = e.clientX - rect.left, dy = e.clientY - rect.top, move = (event) => {
-        host.style.left = Math.max(0, Math.min(win.innerWidth - rect.width, event.clientX - dx)) + "px", host.style.top = Math.max(0, Math.min(win.innerHeight - 45, event.clientY - dy)) + "px", host.style.right = "auto";
+      if (e.button !== 0 || e.target.closest("button")) return;
+      let moved = !1, rect = host.getBoundingClientRect();
+      !host.hasAttribute("data-edge-docked") && rect.right < win.innerWidth - 12 && settings.set("hudFloatingPosition", { x: rect.left, y: rect.top }), draggingHUD = !0, setEdgeDocked(!1), host.style.left = rect.left + "px", host.style.right = "auto";
+      let dx = e.clientX - rect.left, dy = e.clientY - rect.top, move = (event) => {
+        moved ||= Math.abs(event.clientX - e.clientX) > 3 || Math.abs(event.clientY - e.clientY) > 3, host.style.left = Math.max(0, Math.min(win.innerWidth - rect.width, event.clientX - dx)) + "px", host.style.top = Math.max(0, Math.min(win.innerHeight - 45, event.clientY - dy)) + "px", host.style.right = "auto";
       }, up = () => {
-        win.removeEventListener("pointermove", move), win.removeEventListener("pointerup", up), settings.set("position", { x: host.offsetLeft, y: host.offsetTop });
+        win.removeEventListener("pointermove", move), win.removeEventListener("pointerup", up), draggingHUD = !1, settings.set("position", { x: host.offsetLeft, y: host.offsetTop }), moved && !mobileDevice() && host.getBoundingClientRect().right >= win.innerWidth - 12 && (setEdgeDocked(!0), host.matches(":hover") || hideEdge());
       };
       win.addEventListener("pointermove", move), win.addEventListener("pointerup", up), scope.add(() => {
         win.removeEventListener("pointermove", move), win.removeEventListener("pointerup", up);

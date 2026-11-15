@@ -1,13 +1,35 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.5"
+    "version": "0.6.28"
   },
   "plugins": [
     {
+      "id": "social",
+      "name": "好友与聊天",
+      "version": "0.1.6",
+      "icon": {
+        "paths": [
+          "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
+          "M2 21v-3a6 6 0 0 1 12 0v3",
+          "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"
+        ]
+      },
+      "priority": 30300,
+      "categories": [
+        "tools"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.5.13",
+      "apiVersion": 1,
+      "description": "原生好友置顶、好友改名提醒、公屏一键进房与聊天官阶补全",
+      "packageUrl": "packages/social/0.1.6.json",
+      "sha256": "3de8ac1c941bfde9a5c918b2c4bb70757932126e860f21f54a0aa00e4ddc889a"
+    },
+    {
       "id": "player-info",
       "name": "玩家信息",
-      "version": "0.3.3",
+      "version": "0.3.4",
       "icon": {
         "paths": [
           "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
@@ -20,8 +42,8 @@
       "minCoreVersion": "0.5.0",
       "apiVersion": 1,
       "description": "排位、单骑、斗地主显示玩家胜率和连胜败，支持人机提示与自选身份补全",
-      "packageUrl": "packages/player-info/0.3.3.json",
-      "sha256": "58f268e5b1e60da4b1177cf84c7b02f76331c99669e0dc74b614a22e4f8c80f9"
+      "packageUrl": "packages/player-info/0.3.4.json",
+      "sha256": "43a162e8d94e64e2d82472c1e6a9470d14e9523b043218cbcbc857de9681d4d3"
     },
     {
       "id": "native-cards",
@@ -59,7 +81,7 @@
     {
       "id": "dafeiyu-cards",
       "name": "大肥鱼卡面",
-      "version": "0.3.1",
+      "version": "0.4.1",
       "icon": {
         "paths": [
           "M3 5h13v16H3Z",
@@ -72,16 +94,16 @@
       "priority": 50096,
       "categories": [],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.0",
+      "minCoreVersion": "0.6.9",
       "apiVersion": 1,
-      "description": "三倍高清大肥鱼卡面，共 52 种，含军争卡组与 8 张衍生装备及吕玲绮四件装备精修；图片按需加载",
-      "packageUrl": "packages/dafeiyu-cards/0.3.1.json",
-      "sha256": "54eac14b53d86450fcf8901dab2a391e3492a5c1b20d2d8b55c8151172be5629"
+      "description": "三倍高清大肥鱼卡面与鲸浪藏锋卡背，共 52 种卡面，含军争卡组与 8 张衍生装备及吕玲绮四件装备精修；图片按需加载",
+      "packageUrl": "packages/dafeiyu-cards/0.4.1.json",
+      "sha256": "c3ee772bf9bf1e17754145f93999eed01ca4cc042a25a846605b50164e0e7752"
     },
     {
       "id": "backgrounds",
       "name": "自定义背景",
-      "version": "0.2.1",
+      "version": "0.2.3",
       "icon": {
         "paths": [
           "M3 4h18v16H3Z",
@@ -91,17 +113,17 @@
       },
       "priority": 31000,
       "categories": [
-        "tools"
+        "appearance"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.5.130",
+      "minCoreVersion": "0.6.18",
       "apiVersion": 1,
       "dependencies": [
         "skins"
       ],
       "description": "将皮肤原画或动态用作牌局背景，保留天气与武将技能背景",
-      "packageUrl": "packages/backgrounds/0.2.1.json",
-      "sha256": "9c6ee349b4ca59a1eb797a5863ee3ac0cb17c252e0bab79440a26d90dc7eddfe"
+      "packageUrl": "packages/backgrounds/0.2.3.json",
+      "sha256": "241f0411d3ed2eae54641cd295ce9cafa945aafcb9971db90463304d93fe414e"
     },
     {
       "id": "gold-cards",
@@ -142,7 +164,7 @@
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.55",
+      "version": "0.1.58",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -157,13 +179,13 @@
       "minCoreVersion": "0.5.76",
       "apiVersion": 1,
       "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
-      "packageUrl": "packages/cards/0.1.55.json",
-      "sha256": "28836c7bb94ab403bcc5dfbb0d5f01e735accd85b129a18fe4c1a158308e9a10"
+      "packageUrl": "packages/cards/0.1.58.json",
+      "sha256": "1abcedbc5f33fa479cbba2362d11cc5428844f6906b217a3a2b2a255f2ec207c"
     },
     {
       "id": "play-assist",
       "name": "出牌辅助",
-      "version": "0.1.6",
+      "version": "0.2.6",
       "icon": {
         "paths": [
           "M4 5h10v14H4zM7 8h4M7 11h3",
@@ -177,9 +199,9 @@
       "contractVersion": 1,
       "minCoreVersion": "0.5.13",
       "apiVersion": 1,
-      "description": "长按技能自动发动与跨局记忆，选好自动确定、火攻和询问跳过。",
-      "packageUrl": "packages/play-assist/0.1.6.json",
-      "sha256": "f156d1f1942ebc2abf0003230bdb175aac363c6f3e304441629f0f46ac866474"
+      "description": "长按技能辅助、自动确定与询问跳过。",
+      "packageUrl": "packages/play-assist/0.2.6.json",
+      "sha256": "bcb1c892f1a6dbfbdc565d144ac40743bd32eb6362f6080f3f53c86d8457a805"
     },
     {
       "id": "daily-rewards",
@@ -272,7 +294,7 @@
     {
       "id": "skins",
       "name": "皮肤收集",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "icon": {
         "paths": [
           "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
@@ -285,8 +307,8 @@
       "minCoreVersion": "0.5.101",
       "apiVersion": 1,
       "description": "筛选、查找皮肤，查看收藏与动态状态",
-      "packageUrl": "packages/skins/0.4.7.json",
-      "sha256": "989470c87531dc87c27718303b0f27a8fd3866efee9f84893d63e619e787aeda"
+      "packageUrl": "packages/skins/0.4.8.json",
+      "sha256": "db9ee5d0364a26725bb17f4ec187d4d1b7a92b60a12ecbe34b4d750bfedee3eb"
     },
     {
       "id": "wish-progress",
@@ -351,7 +373,7 @@
     {
       "id": "appearances",
       "name": "出框与胜率统计",
-      "version": "0.4.5",
+      "version": "0.4.6",
       "icon": {
         "paths": [
           "M9 21H3V3h18v9",
@@ -367,13 +389,13 @@
       "minCoreVersion": "0.5.13",
       "apiVersion": 1,
       "description": "本机统计正式排位、斗地主与单骑无双的出框、选取、胜率及对局历史",
-      "packageUrl": "packages/appearances/0.4.5.json",
-      "sha256": "ccd0e7cfe63403cdc8ef1a8a596928d6c320ae3ff709ed181373f30cb364c4a0"
+      "packageUrl": "packages/appearances/0.4.6.json",
+      "sha256": "e3b39b402049721a80db9176bcd84c787da7b17301d6d0c9bca29b6d625daa36"
     },
     {
       "id": "ledger",
       "name": "账本",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "icon": {
         "paths": [
           "M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18",
@@ -388,8 +410,8 @@
       "minCoreVersion": "0.5.142",
       "apiVersion": 1,
       "description": "重要物品余额、登录收支与祈愿记录，背包道具搜索和抵价券满减角标",
-      "packageUrl": "packages/ledger/0.3.1.json",
-      "sha256": "463721eeed62ae69025bb0b0b53fb95fd15225d2423da5e74ff14307cb7c6edc"
+      "packageUrl": "packages/ledger/0.3.2.json",
+      "sha256": "43ea981f26eb499464401fb79aacf98f66fdb93ebd86b99ab247e0dff670e48c"
     },
     {
       "id": "recharge",
@@ -413,28 +435,6 @@
       "description": "官服微信／支付宝充值及旧周月卡原生直购入口，操作前请阅读风险",
       "packageUrl": "packages/recharge/0.1.5.json",
       "sha256": "6b216a07879353c9c433073ec6b36529886057b81eecb1ea7ae7762c63294643"
-    },
-    {
-      "id": "social",
-      "name": "好友与聊天",
-      "version": "0.1.6",
-      "icon": {
-        "paths": [
-          "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
-          "M2 21v-3a6 6 0 0 1 12 0v3",
-          "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"
-        ]
-      },
-      "priority": 30300,
-      "categories": [
-        "tools"
-      ],
-      "contractVersion": 1,
-      "minCoreVersion": "0.5.13",
-      "apiVersion": 1,
-      "description": "原生好友置顶、好友改名提醒、公屏一键进房与聊天官阶补全",
-      "packageUrl": "packages/social/0.1.6.json",
-      "sha256": "3de8ac1c941bfde9a5c918b2c4bb70757932126e860f21f54a0aa00e4ddc889a"
     }
   ]
 }

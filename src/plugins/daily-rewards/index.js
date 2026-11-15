@@ -7,7 +7,7 @@ import { rewardExclusions } from './exclusions.js';
 
 
 export default {
-  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.15', apiVersion: 1, contractVersion: 1,
+  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.18', apiVersion: 1, contractVersion: 1,
     minCoreVersion: '0.6.3', categories: ['automation'], icon: PLUGIN_ICONS['daily-rewards'], priority: 20000,
     description: '自动领取签到、任务、邮件与活动奖励，按账号记录' },
   activate(ctx) {
@@ -77,7 +77,7 @@ export default {
       const codeToggles = el('div', undefined, 'reward-code-toggles');
       codeToggles.append(option('codes', '领取', { accessibleLabel: '领取兑换码' }), option('clipboardCodes', '剪贴板', { accessibleLabel: '读取剪贴板' }), option('shareCodes', '共享', { accessibleLabel: '共享兑换码' }));
       codes.append(el('span', '兑换码', 'muted'), codeToggles);
-      codes.title = '自动检查完整序列号及4–8字中文短口令，可夹带少量英文数字；中文口令每行一个，混有说明或状态的内容整段忽略。特殊口令可标注“兑换码：口令”。只兑换未尝试的新码；共享默认关闭，开启后仅上报游戏确认成功的单个码。';
+      codes.title = '自动检查完整序列号及4–8字中文短口令，可夹带少量英文数字；中文口令每行一个，无法识别的行会跳过并继续处理其他行。特殊口令可标注“兑换码：口令”。只兑换未尝试的新码；共享默认关闭，开启后仅上报游戏确认成功的单个码。';
       const status = el('p', undefined, 'muted reward-status'); status.setAttribute('role', 'status'); status.dataset.rewardsStatus = '';
       root.append(style, heading, excluded, codes, status);
       let list, notes, sourceStatus;

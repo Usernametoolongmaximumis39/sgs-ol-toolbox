@@ -2,7 +2,7 @@ import { CORE_VERSION } from './version.js';
 import { isIconSpec } from '../ui/icons.js';
 
 export const DEFAULT_PLUGIN_PRIORITY = 32768;
-export const PANEL_CATEGORIES = Object.freeze(['game', 'automation', 'tools', 'manage', 'info']);
+export const PANEL_CATEGORIES = Object.freeze(['game', 'automation', 'tools', 'manage', 'info', 'appearance']);
 const localId = /^[a-z][a-z0-9.-]{0,63}$/;
 const stableVersion = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 export const validPriority = value => Number.isInteger(value) && value >= 0 && value <= 65535;

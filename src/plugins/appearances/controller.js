@@ -59,7 +59,8 @@ export function createController(ctx) {
     const room = manager(ctx, 'RoomControler', 'ClientTrainingRep', v => 'isTrainingGame' in v);
     return { ...evidence, mode: read(() => room.isTrainingGame) === true ? 0 : eligibleMode(evidence.rawMode, evidence.rawGroup) };
   };
-  const viewer = () => read(() => ctx.game.getClass('GameContext').IsViewerOrReplay()) === true;
+  const viewer = () => read(() => ctx.game.getClass('GameContext').IsViewerOrReplay()) === true
+    || read(() => ctx.game.getSnapshot().isReplay) === true || read(() => ctx.game.getScene().IsViewer) === true;
   const seatId = () => { const v = read(() => ctx.game.getSnapshot().selfSeatId); return Number.isSafeInteger(v) && v >= 0 && v < 8 ? v : null; };
   const reset = () => { draft = active = null; };
   function gap() { sync(); reset(); gaps++; error = '消息记录有缺口，已舍弃当前未完成对局；历史记录保留。'; if (who.id) save(); notify(); }
@@ -115,7 +116,7 @@ export function createController(ctx) {
     if (type === 'MsgGameDealCharacter' || type === 'MsgGameDealCharacterPaiwei') {
       if (data.type === 1 || data.type === 9 && data.mode.mode === 26) {
         const evidence = tableEvidence || data.mode; reset();
-        if (!inTraining && evidence.mode && data.mode.mode && !(evidence.mode === 44 && data.isAiMatch === true)) {
+        if (!inTraining && evidence.mode && !(evidence.mode === 44 && data.isAiMatch === true)) {
           active = { ...evidence, id: `${data.time}-${ctx.window.crypto?.randomUUID?.() || records.length}`, time: data.time, selfSeat: data.selfSeat, selected: null, isAiMatch: data.isAiMatch };
           draft = { ...capture(null, { type: 'frame', mode: evidence.mode, general: data.general, time: data.time }), ...evidence, isAiMatch: data.isAiMatch };
         }
@@ -126,7 +127,7 @@ export function createController(ctx) {
       if (selfSeat === null) { if (draft) error = '无法确认自己的座位，已舍弃当前出框与战绩。'; reset(); notify(); return; }
       const selected = data.infos.filter(r => r.seat === selfSeat).map(r => r.id); if (!selected.length) return;
       const evidence = tableEvidence || data.mode;
-      if (!active && !inTraining && evidence.mode && data.mode.mode && !(evidence.mode === 44 && data.isAiMatch === true)) active = { ...evidence, id: `${data.time}-${ctx.window.crypto?.randomUUID?.() || matches.length}`, time: data.time, selfSeat, isAiMatch: data.isAiMatch };
+      if (!active && !inTraining && evidence.mode && !(evidence.mode === 44 && data.isAiMatch === true)) active = { ...evidence, id: `${data.time}-${ctx.window.crypto?.randomUUID?.() || matches.length}`, time: data.time, selfSeat, isAiMatch: data.isAiMatch };
       if (!active) return;
       active.selected = ids(selected); active.selfSeat = selfSeat;
       active.position=data.side?.position ?? active.position ?? null;active.figure=data.side?.figure ?? active.figure ?? null;

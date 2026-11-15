@@ -441,7 +441,7 @@ export function activate(ctx) {
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.55', apiVersion: 1, contractVersion: 1,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.58', apiVersion: 1, contractVersion: 1,
     minCoreVersion: '0.5.76', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
     description: '记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数' },
   initialState, reduce, activate,

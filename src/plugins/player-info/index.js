@@ -4,7 +4,7 @@ import { createIdentityHints } from './identity.js';
 import { createPlayerStats } from './stats.js';
 
 export const manifest = {
-  id: 'player-info', name: '玩家信息', version: '0.3.3', apiVersion: 1, contractVersion: 1,
+  id: 'player-info', name: '玩家信息', version: '0.3.4', apiVersion: 1, contractVersion: 1,
   minCoreVersion: '0.5.0', description: '排位、单骑、斗地主显示玩家胜率和连胜败，支持人机提示与自选身份补全',
   icon: { paths: ['M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0', 'M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3'] },
   priority: 30200, categories: [],

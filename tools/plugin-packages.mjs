@@ -5,6 +5,7 @@ import { runInNewContext } from 'node:vm';
 import { packageDigest, PACKAGE_FORMAT, validateManifest } from '../src/core/packages.js';
 
 export const pluginReleases = [
+  { id: 'social' },
   { id: 'player-info' },
   { id: 'native-cards' },
   { id: 'yjcm-cards' },

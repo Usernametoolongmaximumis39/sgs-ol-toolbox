@@ -1,7 +1,7 @@
 import { nativeSeat } from '../../core/seat.js';
 import { manager, read } from '../../shared/info-runtime.js';
 import { roomController, roomMode } from './identity.js';
-import { statsMode, hundredRate, currentStreak, rankSummary } from './stats-model.js';
+import { statsMode, hundredRate, ddzRoleRates, currentStreak, rankSummary } from './stats-model.js';
 import { createStatsView } from './stats-view.js';
 
 export function createPlayerStats(ctx) {
@@ -88,7 +88,7 @@ export function createPlayerStats(ctx) {
       const second = `胜率 ${rate ?? '未知'}${mode.kind === 'rank' ? ` · ${rank?.name ?? '段位未知'} ${rank?.stars == null ? '星数未知' : rank.stars + '星'}` : ''}`;
       const failed = [...requests].some(([k, v]) => typeof v === 'string' && (k.includes(String(uuid)) || k === 'rank:' + nick));
       const name = read(() => user.NickNameForLocal) ?? nick;
-      rows.push({ ui, name: typeof name === 'string' && name.trim() ? name.trim() : '昵称未知', robot, second: robot ? '胜率 未知' : second,
+      rows.push({ ui, name: typeof name === 'string' && name.trim() ? name.trim() : '昵称未知', robot, roles: mode.kind === 'ddz' ? ddzRoleRates(robot ? null : hundred) : null, second: robot ? '胜率 未知' : second,
         third: robot ? '暂无战绩' : streak ? `${streak.lowerBound ? '至少' : ''}${streak.count}${streak.win ? '连胜' : '连败'}` : failed ? '战绩读取失败' : '近期战绩未读取',
         streakState: streak ? streak.win ? 'win' : 'loss' : 'unknown' });
     }
