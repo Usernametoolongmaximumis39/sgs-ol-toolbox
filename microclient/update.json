@@ -1,7 +1,7 @@
 {
   "format": "sgs-toolbox-script-v1",
   "hostApi": 1,
-  "version": "0.6.51",
+  "version": "0.6.52",
   "bytes": 375071,
-  "sha256": "31d409d127b55e3e4ce16f67958d5ee6e26388fc3e18842f8393a4ac1aff6f2b"
+  "sha256": "13a7bb6314da4e35691930128501a55fc25eee8fe21ca49beb06bb189e955c36"
 }

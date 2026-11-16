@@ -104,8 +104,26 @@ test('login warning compares last online balance once, persists latest and isola
  f.self.YuanBao=450;c.view();assert.equal(settings.get('balance:41')['100016'].count,450);
  await f.emit('ClientLoginRep',{userID:41});assert.equal(c.view().items[0].count,null);
  f.self.YuanBao=250;await f.emit('DbsCcUserGoodslistRep',{GoodsList:[]});
+ assert.equal(c.view().items[0].count,null);
+ await new Promise(resolve=>setTimeout(resolve,2100));
  assert.equal(c.view().items[0].comparison.delta,-200);assert.equal(c.view().alerts.length,1);
  f.self.ClientId=42;assert.equal(c.view().alerts.length,0);assert.equal(c.view().items[0].comparison,null);
+});
+
+test('login partial wallet cannot trigger a warning or overwrite the saved balance', async t => {
+ let now=Date.now();t.mock.method(Date,'now',()=>now);
+ const settings=new Map([['balance:41',{'100016':{count:205199,at:now,basis:'all-yuanbao'}}]]);
+ const f=fixture(t,settings),c=f.controller;
+ f.self.YuanBao=196847;f.self.BindYuanBao=8352;c.view();
+ await f.emit('ClientLoginRep',{userID:41});
+ f.self.YuanBao=0;await f.emit('DbsCcUserGoodslistRep',{GoodsList:[]});
+ assert.equal(c.view().items[0].count,null);assert.equal(c.view().alerts.length,0);
+ assert.equal(settings.get('balance:41')[100016].count,205199);
+ now+=1000;await f.emit('DbsCUpdatauserYaunbaoNtf',{ChangeYB:0});
+ assert.equal(c.view().items[0].count,null);
+ f.self.YuanBao=196847;now+=1000;c.view();now+=2001;
+ assert.equal(c.view().items[0].count,205199);assert.equal(c.view().items[0].comparison.delta,0);
+ assert.equal(c.view().alerts.length,0);assert.equal(c.view().items[0].expense,0);
 });
 test('unknown quantity preserves prior balance; fresh install establishes baseline without warning', t => {
  const f=fixture(t);assert.equal(f.controller.view().alerts.length,0);assert.equal(f.controller.view().items[0].comparison,null);

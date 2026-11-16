@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.51
+// @version      0.6.52
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  完整版：工具箱核心与全部插件
@@ -24357,7 +24357,7 @@ main{box-sizing:border-box;position:relative;width:100%;max-width:1100px;min-wid
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1","version":"0.4.19","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8BE6\u60C5\u6539\u4E3A\u6E38\u620F\u5185\u7F6E\u9762\u677F\uFF0C\u4FEE\u590D\u5FAE\u7AEF\u6253\u5F00\u8BE6\u60C5\u65F6\u51FA\u73B0\u7CFB\u7EDF\u94FE\u63A5\u63D0\u793A\u7684\u95EE\u9898\uFF1B\u4FDD\u7559\u7B5B\u9009\u3001\u5BF9\u5C40\u5386\u53F2\u548C\u624B\u52A8\u5BFC\u5165\u5DE5\u5177\u7BB1 JSON \u5907\u4EFD\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M9 21H3V3h18v9","M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1","M12 21 16 17l3 2 3-5M19 14h3v3"]},"priority":32000,"description":"\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2"}};
-`, sha256: "4ea01e0496266bd6a718b5ea9d10fe0a0c979aa2f5dc288fa22b7ed0b5d9e614" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "ledger", name: "\u8D26\u672C", version: "0.3.5", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8D26\u672C\u8BE6\u60C5\u6539\u4E3A\u7D27\u90BB\u5DE5\u5177\u7BB1\u7684\u4FA7\u8FB9\u9762\u677F\uFF0C\u652F\u6301\u5173\u95ED\u548C Escape\uFF1B\u6539\u5584\u7269\u54C1\u5361\u7247\u3001\u6D41\u6C34\u548C\u7B5B\u9009\u663E\u793A\uFF0C\u4FDD\u7559\u672C\u673A\u8D26\u53F7\u6570\u636E\u4E0E\u5BFC\u51FA\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, priority: 3e4, description: "\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807" }, code: `var SGSPlugin = (() => {
+`, sha256: "4ea01e0496266bd6a718b5ea9d10fe0a0c979aa2f5dc288fa22b7ed0b5d9e614" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "ledger", name: "\u8D26\u672C", version: "0.3.6", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4FEE\u590D\u767B\u5F55\u65F6\u5143\u5B9D\u4F59\u989D\u5C1A\u672A\u52A0\u8F7D\u5B8C\u6574\u5C31\u8BEF\u62A5\u5927\u91CF\u6D88\u8017\u7684\u95EE\u9898\uFF1B\u4FEE\u590D\u90E8\u5206\u5FAE\u7AEF\u7269\u54C1\u51CF\u5C11\u63D0\u9192\u5F39\u7A97\u504F\u79FB\u3001\u5185\u5BB9\u8D85\u51FA\u7A97\u53E3\u7684\u95EE\u9898\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, priority: 3e4, description: "\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -24786,6 +24786,31 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     const runtimeKey = Symbol.for("sgs.toolbox.ledger.login");
     const runtime = ctx.window[runtimeKey] ||= { account: "", session: null };
     let lastAccount = runtime.account, inventoryReady = true, currencyReady = true;
+    let currencyPending = false, currencySample = null, currencySampleAt = 0;
+    function beginCurrencyBaseline() {
+      currencyReady = false;
+      currencyPending = true;
+      currencySample = null;
+      currencySampleAt = 0;
+    }
+    function settleCurrencyBaseline() {
+      if (!currencyPending) return;
+      const count = native.yuanbao(), now = Date.now();
+      if (!inventoryReady || !native.snapshot().complete || count === null) {
+        currencySample = null;
+        currencySampleAt = now;
+        return;
+      }
+      if (currencySample !== count) {
+        currencySample = count;
+        currencySampleAt = now;
+        return;
+      }
+      if (now - currencySampleAt >= 2e3) {
+        currencyReady = true;
+        currencyPending = false;
+      }
+    }
     const notify = () => {
       if (ctx.scope.signal.aborted) return;
       ctx.reportError?.(error || configError);
@@ -24819,6 +24844,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     }
     function checkAssets() {
       if (!who.id || !session || !ctx.settings) return;
+      settleCurrencyBaseline();
       if (watch?.session !== session.id) {
         const saved = ctx.settings.get("balance:" + who.id, {});
         watch = runtime.watch?.session === session.id && runtime.watch.schema === 2 ? runtime.watch : { schema: 2, session: session.id, previous: saved, latest: { ...saved }, changes: {}, warned: {}, alerts: [] };
@@ -24886,8 +24912,11 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
         return;
       }
       const requireBaseline = Boolean(lastAccount && (lastAccount !== who.id || !(session || runtime.session)));
-      if (requireBaseline) inventoryReady = currencyReady = false;
-      else if (!lastAccount) inventoryReady = currencyReady = true;
+      if (requireBaseline) {
+        inventoryReady = false;
+        beginCurrencyBaseline();
+      } else if (!lastAccount) inventoryReady = currencyReady = true;
+      if (!native.snapshot().complete) beginCurrencyBaseline();
       lastAccount = who.id;
       if (runtime.account === who.id && runtime.session) session = runtime.session;
       else newSession();
@@ -24960,11 +24989,12 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
       if (type === "ClientLoginRep") {
         if (data.id !== who.id) return;
         newSession();
-        inventoryReady = currencyReady = false;
+        inventoryReady = false;
+        beginCurrencyBaseline();
         seed();
         add({ kind: "notice", source: type, note: "\\u672C\\u6B21\\u767B\\u5F55\\u5F00\\u59CB\\uFF1B\\u4EC5\\u7EDF\\u8BA1\\u63D2\\u4EF6\\u89C2\\u5BDF\\u5230\\u7684\\u53D8\\u52A8\\u3002" });
       } else if (type === "DbsCcUserGoodslistRep") {
-        inventoryReady = currencyReady = true;
+        inventoryReady = true;
         for (const i of data.instances) instances.set(i.id, i);
       } else if (type === "DbsCcUserGoodshintNtf") {
         const row = changes(type, "hint", data.items, { type: data.type, giver: data.giver, prayerReward: data.type === 2010 });
@@ -24994,7 +25024,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
         if (missing) gap("\\u79FB\\u9664\\u901A\\u77E5\\u5305\\u542B\\u672A\\u89C2\\u5BDF\\u5230\\u57FA\\u7EBF\\u7684\\u7269\\u54C1\\u5B9E\\u4F8B\\uFF0C\\u65E0\\u6CD5\\u8FD8\\u539F\\u5176\\u6D88\\u8017\\u6570\\u91CF\\u3002");
       } else if (type === "DbsCUpdatauserYaunbaoNtf") {
         if (!Number.isSafeInteger(data.delta)) throw new Error("\\u5143\\u5B9D\\u53D8\\u52A8\\u5B57\\u6BB5\\u65E0\\u6548");
-        currencyReady = true;
+        if (!currencyPending) currencyReady = true;
         changes(type, "currency", [{ id: YUANBAO, delta: data.delta }], { type: data.why });
       } else if (type === "decodeClientSecretExploreRep") {
         if (data.result !== 0) {
@@ -25027,6 +25057,8 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
       checkAssets();
       const knots = native.knots(qifu, defs), next = JSON.stringify([
         who.id,
+        currencyReady,
+        inventoryReady,
         native.yuanbao(),
         [...knots.active],
         knots.known,
@@ -25132,7 +25164,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
 .sgs-ledger .alert-settings{margin:8px 0}.sgs-ledger .alert-settings summary{color:var(--sgs-accent);padding:5px 0}.sgs-ledger .threshold{display:grid;grid-template-columns:minmax(0,1fr) 108px;align-items:center;gap:8px;font-size:10px;color:var(--sgs-muted);margin-top:6px}.sgs-ledger .threshold input{width:100%;min-width:0;padding:5px 32px 5px 9px;text-align:right;appearance:textfield;-moz-appearance:textfield;font-variant-numeric:tabular-nums}.sgs-ledger .threshold input::-webkit-inner-spin-button,.sgs-ledger .threshold input::-webkit-outer-spin-button{appearance:none;margin:0}
 .sgs-ledger .threshold-field{position:relative;min-width:0}.sgs-ledger .threshold-unit{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;pointer-events:none;color:var(--sgs-muted)}
 .sgs-ledger .alert-settings{border-top:1px solid var(--sgs-border);border-bottom:1px solid var(--sgs-border);padding:5px 0}.sgs-ledger .alert-settings summary{display:flex;align-items:center;gap:7px;list-style:none;min-height:32px}.sgs-ledger .alert-settings summary::-webkit-details-marker{display:none}.sgs-ledger .alert-settings summary:before{content:'';width:5px;height:5px;border-right:1px solid currentColor;border-bottom:1px solid currentColor;transform:rotate(-45deg);transition:transform var(--sgs-motion,0s)}.sgs-ledger .alert-settings[open] summary:before{transform:rotate(45deg)}.sgs-ledger .setting-status{margin-left:auto;font-size:10px;color:var(--sgs-muted)}.sgs-ledger .rules{font-size:10px;color:var(--sgs-muted);margin:10px 0 5px}.sgs-ledger .thresholds{padding-bottom:2px}
-.sgs-ledger-alert{position:fixed;z-index:2147483647;inset:15% auto auto 50%;transform:translateX(-50%);width:min(420px,calc(100vw - 32px));padding:20px;background:var(--sgs-bg);border:1px solid var(--sgs-danger);border-radius:12px;box-shadow:0 12px 48px #0008;max-height:70vh;overflow:auto}
+.sgs-ledger-alert{box-sizing:border-box;position:fixed;z-index:2147483647;top:15%;left:50%;right:auto;bottom:auto;transform:translateX(-50%);width:420px;max-width:calc(100vw - 32px);padding:20px;background:var(--sgs-bg);border:1px solid var(--sgs-danger);border-radius:12px;box-shadow:0 12px 48px #0008;max-height:70vh;overflow:auto;overflow-wrap:anywhere}
 .sgs-ledger .assets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px}
 .sgs-ledger .asset{padding:8px 0;min-width:0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 50%,transparent)}
 .sgs-ledger .asset-head{display:flex;gap:5px;align-items:center;min-width:0}
@@ -26119,10 +26151,10 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
   var manifest = {
     id: "ledger",
     name: "\\u8D26\\u672C",
-    version: "0.3.5",
+    version: "0.3.6",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u8D26\\u672C\\u8BE6\\u60C5\\u6539\\u4E3A\\u7D27\\u90BB\\u5DE5\\u5177\\u7BB1\\u7684\\u4FA7\\u8FB9\\u9762\\u677F\\uFF0C\\u652F\\u6301\\u5173\\u95ED\\u548C Escape\\uFF1B\\u6539\\u5584\\u7269\\u54C1\\u5361\\u7247\\u3001\\u6D41\\u6C34\\u548C\\u7B5B\\u9009\\u663E\\u793A\\uFF0C\\u4FDD\\u7559\\u672C\\u673A\\u8D26\\u53F7\\u6570\\u636E\\u4E0E\\u5BFC\\u51FA\\u3002",
+    releaseNotes: "\\u4FEE\\u590D\\u767B\\u5F55\\u65F6\\u5143\\u5B9D\\u4F59\\u989D\\u5C1A\\u672A\\u52A0\\u8F7D\\u5B8C\\u6574\\u5C31\\u8BEF\\u62A5\\u5927\\u91CF\\u6D88\\u8017\\u7684\\u95EE\\u9898\\uFF1B\\u4FEE\\u590D\\u90E8\\u5206\\u5FAE\\u7AEF\\u7269\\u54C1\\u51CF\\u5C11\\u63D0\\u9192\\u5F39\\u7A97\\u504F\\u79FB\\u3001\\u5185\\u5BB9\\u8D85\\u51FA\\u7A97\\u53E3\\u7684\\u95EE\\u9898\\u3002",
     minCoreVersion: "0.6.37",
     categories: ["info"],
     icon: PLUGIN_ICONS["ledger"],
@@ -26140,8 +26172,8 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"ledger","name":"\u8D26\u672C","version":"0.3.5","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8D26\u672C\u8BE6\u60C5\u6539\u4E3A\u7D27\u90BB\u5DE5\u5177\u7BB1\u7684\u4FA7\u8FB9\u9762\u677F\uFF0C\u652F\u6301\u5173\u95ED\u548C Escape\uFF1B\u6539\u5584\u7269\u54C1\u5361\u7247\u3001\u6D41\u6C34\u548C\u7B5B\u9009\u663E\u793A\uFF0C\u4FDD\u7559\u672C\u673A\u8D26\u53F7\u6570\u636E\u4E0E\u5BFC\u51FA\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18","M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"]},"priority":30000,"description":"\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807"}};
-`, sha256: "f05df4a84dfc8c991e389b7d0be26ca229453bea1be7fd511ac8d2c558783e1a" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "recharge", name: "95\u6298\u5145\u503C\u4E0E\u65E7\u5361", version: "0.1.7", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4FEE\u590D\u5FAE\u7AEF\u652F\u4ED8\u5B9D\u6B63\u5E38\u4ED8\u6B3E\u4E8C\u7EF4\u7801\u533A\u57DF\u7A7A\u767D\u7684\u95EE\u9898\uFF0C\u4FDD\u7559\u5907\u7528\u8DF3\u8F6C\u7801\u548C\u6536\u94F6\u53F0\u5165\u53E3\u3002\u51FA\u7801\u4ECD\u9700\u6838\u5BF9\u8D26\u53F7\u4E0E\u91D1\u989D\u5E76\u786E\u8BA4\uFF1B\u4ED8\u6B3E\u987B\u624B\u52A8\u5B8C\u6210\uFF0C\u51FA\u7801\u4E0D\u4EE3\u8868\u4ED8\u6B3E\u6216\u5230\u8D26\u3002", minCoreVersion: "0.6.37", categories: ["tools"], priority: 45e3, icon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] }, description: "\u5B98\u670D\u5FAE\u4FE1\uFF0F\u652F\u4ED8\u5B9D\u5145\u503C\u53CA\u65E7\u5468\u6708\u5361\u539F\u751F\u76F4\u8D2D\u5165\u53E3\uFF0C\u64CD\u4F5C\u524D\u8BF7\u9605\u8BFB\u98CE\u9669" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"ledger","name":"\u8D26\u672C","version":"0.3.6","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4FEE\u590D\u767B\u5F55\u65F6\u5143\u5B9D\u4F59\u989D\u5C1A\u672A\u52A0\u8F7D\u5B8C\u6574\u5C31\u8BEF\u62A5\u5927\u91CF\u6D88\u8017\u7684\u95EE\u9898\uFF1B\u4FEE\u590D\u90E8\u5206\u5FAE\u7AEF\u7269\u54C1\u51CF\u5C11\u63D0\u9192\u5F39\u7A97\u504F\u79FB\u3001\u5185\u5BB9\u8D85\u51FA\u7A97\u53E3\u7684\u95EE\u9898\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18","M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"]},"priority":30000,"description":"\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807"}};
+`, sha256: "91b2b39bbedebf1ff5939ca5fd31d5d4f5d7debf5c67a67aaf07105d66f210de" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "recharge", name: "95\u6298\u5145\u503C\u4E0E\u65E7\u5361", version: "0.1.7", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4FEE\u590D\u5FAE\u7AEF\u652F\u4ED8\u5B9D\u6B63\u5E38\u4ED8\u6B3E\u4E8C\u7EF4\u7801\u533A\u57DF\u7A7A\u767D\u7684\u95EE\u9898\uFF0C\u4FDD\u7559\u5907\u7528\u8DF3\u8F6C\u7801\u548C\u6536\u94F6\u53F0\u5165\u53E3\u3002\u51FA\u7801\u4ECD\u9700\u6838\u5BF9\u8D26\u53F7\u4E0E\u91D1\u989D\u5E76\u786E\u8BA4\uFF1B\u4ED8\u6B3E\u987B\u624B\u52A8\u5B8C\u6210\uFF0C\u51FA\u7801\u4E0D\u4EE3\u8868\u4ED8\u6B3E\u6216\u5230\u8D26\u3002", minCoreVersion: "0.6.37", categories: ["tools"], priority: 45e3, icon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] }, description: "\u5B98\u670D\u5FAE\u4FE1\uFF0F\u652F\u4ED8\u5B9D\u5145\u503C\u53CA\u65E7\u5468\u6708\u5361\u539F\u751F\u76F4\u8D2D\u5165\u53E3\uFF0C\u64CD\u4F5C\u524D\u8BF7\u9605\u8BFB\u98CE\u9669" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -28537,7 +28569,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.51", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.52", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",

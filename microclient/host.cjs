@@ -13,6 +13,45 @@ app.once('browser-window-created', function (_, window) {
 const fs = require('fs');
 const path = require('path');
 const code = fs.readFileSync(path.join(__dirname, 'toolbox.js'), 'utf8');
+const installedPackage = (() => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')); } catch (_) { return {}; } })();
+const CHANNELS = [{ id: 1, name: '官服' }, { id: 3, name: '4399' }];
+function channelFile() {
+  let base;
+  try { base = app.getPath('userData'); } catch (_) { base = process.env.APPDATA ? path.join(process.env.APPDATA, 'SGSOL') : path.join(__dirname, '..'); }
+  return path.join(base, 'sgs-toolbox-channel.json');
+}
+function readChannel() {
+  try {
+    const value = JSON.parse(fs.readFileSync(channelFile(), 'utf8'));
+    const packageId = Number(value && value.packageId);
+    return Number.isInteger(packageId) ? packageId : null;
+  } catch (_) { return null; }
+}
+function saveChannel(packageId) {
+  const file = channelFile(), temp = file + '.tmp';
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  try { fs.writeFileSync(temp, JSON.stringify({ packageId }), { mode: 0o600 }); fs.renameSync(temp, file); }
+  finally { try { fs.unlinkSync(temp); } catch (_) {} }
+}
+function channelList() {
+  const login = Array.isArray(installedPackage.LoginURL) ? installedPackage.LoginURL : [];
+  return CHANNELS.filter(channel => typeof login[channel.id - 1] === 'string' && login[channel.id - 1].length > 0);
+}
+function channelPackageId(fallback) {
+  const saved = readChannel();
+  if (saved !== null && channelList().some(channel => channel.id === saved)) return saved;
+  const value = Number(fallback);
+  return Number.isInteger(value) && value > 0 ? value : 1;
+}
+function channelState() {
+  const channels = channelList();
+  const installed = Number.isInteger(Number(installedPackage.packageId)) ? Number(installedPackage.packageId) : 1;
+  const running = Number.isInteger(Number(global.PackageId)) ? Number(global.PackageId) : installed;
+  const saved = readChannel();
+  const selected = saved !== null && channels.some(channel => channel.id === saved) ? saved : running;
+  return { running, selected, installed, channels, restartRequired: selected !== running };
+}
+if (typeof module !== 'undefined') module.exports = { channelPackageId };
 const navigations = new Map();
 const mainFrames = new Map();
 const crypto = require('crypto');
@@ -88,6 +127,17 @@ function allowed(event) {
 ipcMain.handle('sgs-toolbox:update:v1', async (event, action) => {
   if (!allowed(event)) throw new Error('仅允许官方游戏主页面更新工具箱');
   return updateScript(action);
+});
+ipcMain.handle('sgs-toolbox:channel-shell:v1', (event, request) => {
+  const url = event.senderFrame ? event.senderFrame.url : event.sender.getURL();
+  if (!/^file:/i.test(url) || !/index_wd\.html(?:[?#]|$)/i.test(url)) throw new Error('仅允许微端外壳切换游戏渠道');
+  if (!request || typeof request !== 'object') throw new Error('无效的渠道请求');
+  if (request.action === 'get') return channelState();
+  if (request.action !== 'set') throw new Error('未知渠道操作');
+  const packageId = Number(request.packageId);
+  if (!Number.isInteger(packageId) || !channelList().some(channel => channel.id === packageId)) throw new Error('当前客户端不包含该游戏渠道');
+  saveChannel(packageId);
+  return channelState();
 });
 // Electron 10 getURL() can still return the previous document during preload.
 // Record the actual main-frame navigation before the new preload requests source.

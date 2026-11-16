@@ -67,6 +67,12 @@ try{
  await page.evaluate(()=>{const d=window.__SGS_TOOLBOX_DEMO__;d.self.YuanBao-=2000;d.emit('DbsCcUserGoodslistRep',{GoodsList:d.gm.goodsList});});
  const alert=page.getByRole('alertdialog',{name:'重要物品减少预警',exact:true});await alert.waitFor();await alert.getByText(/较上次在线减少 2000/).waitFor();
  await alert.screenshot({path:resolve(out,'login-warning.png')});
+ for(const width of [320,525,1200]) {
+  await page.setViewportSize({width,height:440});
+  const r=await alert.boundingBox();assert.ok(r.x>=15 && r.x+r.width<=width-15);assert.ok(Math.abs(r.x+r.width/2-width/2)<1);
+  await alert.screenshot({path:resolve(out,`login-warning-${width}.png`)});
+ }
+ await page.setViewportSize({width:1200,height:1000});
  await alert.getByRole('button',{name:'知道了，立即检查',exact:true}).click();await alert.waitFor({state:'hidden'});
  await page.waitForTimeout(1200);assert.equal(await alert.isVisible(),false);checks.push('阈值2000恰好触发跨登录提醒，关闭后不重复弹出');
  await page.evaluate(()=>window[Symbol.for('sgs.ol.toolbox.core')].manager.uninstall('ledger'));assert.equal((await listeners()).DbsCcUserGoodshintNtf,0);checks.push('停用/启用/热重载/升级/回退/刷新/卸载；监听不累积，历史不丢');

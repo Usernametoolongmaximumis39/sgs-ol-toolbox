@@ -19,6 +19,6 @@ export const pluginQuality = {
   themes: { docs: ['docs/themes.md'], tests: ['tests/themes.test.js'], browser: ['tools/browser-themes-check.mjs'] },
   baisheng: { docs: ['docs/info-plugins.md'], tests: ['tests/info-plugins.test.js', 'tests/baisheng-export.test.js'], browser: ['tools/browser-info-check.mjs'] },
   appearances: { docs: ['docs/info-plugins.md'], tests: ['tests/info-plugins.test.js', 'tests/appearance-mode-evidence.test.js'], browser: ['tools/browser-info-check.mjs'] },
-  ledger: { docs: ['docs/ledger.md'], tests: ['tests/ledger.test.js', 'tests/ledger-bag.test.js'], browser: ['tools/browser-ledger-check.mjs', 'tools/browser-ledger-bag-check.mjs'] },
+  ledger: { docs: ['docs/ledger.md'], tests: ['tests/ledger.test.js', 'tests/ledger-bag.test.js'], browser: ['tools/browser-ledger-check.mjs', 'tools/browser-ledger-bag-check.mjs', 'tools/microclient-ledger-alert-check.mjs'] },
   recharge: { docs: ['docs/recharge.md'], tests: ['tests/recharge.test.js'], browser: ['tools/browser-recharge-check.mjs'] },
 };

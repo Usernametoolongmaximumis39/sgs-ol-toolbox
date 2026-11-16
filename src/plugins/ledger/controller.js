@@ -13,6 +13,19 @@ export function createController(ctx, options = {}) {
   const runtimeKey = Symbol.for('sgs.toolbox.ledger.login');
   const runtime = ctx.window[runtimeKey] ||= { account: '', session: null };
   let lastAccount = runtime.account, inventoryReady = true, currencyReady = true;
+  let currencyPending = false, currencySample = null, currencySampleAt = 0;
+  function beginCurrencyBaseline() {
+    currencyReady = false; currencyPending = true; currencySample = null; currencySampleAt = 0;
+  }
+  function settleCurrencyBaseline() {
+    if (!currencyPending) return;
+    const count = native.yuanbao(), now = Date.now();
+    if (!inventoryReady || !native.snapshot().complete || count === null) { currencySample = null; currencySampleAt = now; return; }
+    if (currencySample !== count) { currencySample = count; currencySampleAt = now; return; }
+    // Login populates the wallet in stages. Never persist or compare a partial
+    // wallet merely because the unrelated bag response has already arrived.
+    if (now - currencySampleAt >= 2000) { currencyReady = true; currencyPending = false; }
+  }
   const notify = () => { if (ctx.scope.signal.aborted) return; ctx.reportError?.(error || configError); for (const fn of [...listeners]) fn(); };
   const fail = e => { if (ctx.scope.signal.aborted) return; error = String(e?.stack || e); notify(); };
   const store = options.store || openLedgerStore(ctx.window, ctx.scope, fail);
@@ -32,6 +45,7 @@ export function createController(ctx, options = {}) {
   }
   function checkAssets() {
     if (!who.id || !session || !ctx.settings) return;
+    settleCurrencyBaseline();
     if (watch?.session !== session.id) {
       const saved = ctx.settings.get('balance:' + who.id, {});
       watch = runtime.watch?.session === session.id && runtime.watch.schema === 2 ? runtime.watch : { schema: 2, session: session.id, previous: saved, latest: { ...saved }, changes: {}, warned: {}, alerts: [] };
@@ -78,8 +92,9 @@ export function createController(ctx, options = {}) {
     // A changed account cannot reuse the previous account's still-mounted bag
     // or currency model. Wait for its own incoming baseline/notification.
     const requireBaseline = Boolean(lastAccount && (lastAccount !== who.id || !(session || runtime.session)));
-    if (requireBaseline) inventoryReady = currencyReady = false;
+    if (requireBaseline) { inventoryReady = false; beginCurrencyBaseline(); }
     else if (!lastAccount) inventoryReady = currencyReady = true;
+    if (!native.snapshot().complete) beginCurrencyBaseline();
     lastAccount = who.id;
     if (runtime.account === who.id && runtime.session) session = runtime.session; else newSession();
     seed(); const expected = generation, id = who.id; loading = true;
@@ -127,10 +142,10 @@ export function createController(ctx, options = {}) {
     sync(); if (!who.id || sender.id !== who.id) return;
     if (type === 'ClientLoginRep') {
       if (data.id !== who.id) return;
-      newSession(); inventoryReady = currencyReady = false; seed(); add({ kind: 'notice', source: type, note: '本次登录开始；仅统计插件观察到的变动。' });
+      newSession(); inventoryReady = false; beginCurrencyBaseline(); seed(); add({ kind: 'notice', source: type, note: '本次登录开始；仅统计插件观察到的变动。' });
     } else if (type === 'DbsCcUserGoodslistRep') {
       // Initial/list refresh is a baseline, never income.
-      inventoryReady = currencyReady = true;
+      inventoryReady = true;
       for (const i of data.instances) instances.set(i.id, i);
     } else if (type === 'DbsCcUserGoodshintNtf') {
       const row = changes(type, 'hint', data.items, { type: data.type, giver: data.giver, prayerReward: data.type === 2010 });
@@ -149,7 +164,7 @@ export function createController(ctx, options = {}) {
       if (missing) gap('移除通知包含未观察到基线的物品实例，无法还原其消耗数量。');
     } else if (type === 'DbsCUpdatauserYaunbaoNtf') {
       if (!Number.isSafeInteger(data.delta)) throw new Error('元宝变动字段无效');
-      currencyReady = true;
+      if (!currencyPending) currencyReady = true;
       changes(type, 'currency', [{ id: YUANBAO, delta: data.delta }], { type: data.why });
     } else if (type === 'decodeClientSecretExploreRep') {
       if (data.result !== 0) { add({ kind: 'notice', source: type, note: `祈愿台请求失败，错误码 ${data.result}，不计入次数。` }); }
@@ -168,7 +183,7 @@ export function createController(ctx, options = {}) {
   prayer = read(() => ctx.game.getConfigData('ff_tiangong'));
   let metrics = '';
   sync(); ctx.scope.interval(() => {
-    sync(); checkAssets(); const knots = native.knots(qifu, defs), next = JSON.stringify([who.id, native.yuanbao(), [...knots.active], knots.known,
+    sync(); checkAssets(); const knots = native.knots(qifu, defs), next = JSON.stringify([who.id, currencyReady, inventoryReady, native.yuanbao(), [...knots.active], knots.known,
       importantItems(defs, knots.active).map(row => native.count(Number(row.ID)))]);
     if (metrics !== next) { metrics = next; notify(); }
   }, 1000);

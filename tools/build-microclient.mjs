@@ -36,7 +36,7 @@ export async function buildMicroclient({ root = resolve(import.meta.dirname, '..
     await put('payload/toolbox.js', source);
     await put('approved-payloads.json', JSON.stringify(approved, null, 2) + '\n');
     for (const name of ['host.cjs', 'preload.cjs']) await put('payload/' + name, await readFile(resolve(root, 'microclient', name)));
-    for (const name of ['install.bat', 'uninstall.bat', 'restore.bat', 'installer.ps1', 'official-windows.json']) {
+    for (const name of ['install.bat', 'uninstall.bat', 'restore.bat', 'installer.ps1', 'official-windows.json', 'switch-channel.bat', 'switch-channel.ps1']) {
       let text = await readFile(resolve(root, 'microclient', name), 'utf8');
       if (name.endsWith('.ps1')) text = '\ufeff' + text.replace(/^\ufeff/, '');
       if (name.endsWith('.bat') || name.endsWith('.ps1')) text = text.replace(/\r?\n/g, '\r\n');

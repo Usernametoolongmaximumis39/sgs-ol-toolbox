@@ -1,8 +1,8 @@
 {
-  "version": "0.6.51",
+  "version": "0.6.52",
   "editions": {
     "full": {
-      "bytes": 3058523,
+      "bytes": 3059602,
       "plugins": 21,
       "updatesTo": "full",
       "toolboxUpdatesTo": "lite"
@@ -112,8 +112,8 @@
     },
     {
       "id": "ledger",
-      "version": "0.3.5",
-      "sha256": "f05df4a84dfc8c991e389b7d0be26ca229453bea1be7fd511ac8d2c558783e1a"
+      "version": "0.3.6",
+      "sha256": "91b2b39bbedebf1ff5939ca5fd31d5d4f5d7debf5c67a67aaf07105d66f210de"
     },
     {
       "id": "recharge",

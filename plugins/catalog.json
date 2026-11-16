@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.51"
+    "version": "0.6.52"
   },
   "plugins": [
     {
@@ -408,7 +408,7 @@
     {
       "id": "ledger",
       "name": "账本",
-      "version": "0.3.5",
+      "version": "0.3.6",
       "icon": {
         "paths": [
           "M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18",
@@ -423,9 +423,9 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "重要物品余额、登录收支与祈愿记录，背包道具搜索和抵价券满减角标",
-      "releaseNotes": "账本详情改为紧邻工具箱的侧边面板，支持关闭和 Escape；改善物品卡片、流水和筛选显示，保留本机账号数据与导出。",
-      "packageUrl": "packages/ledger/0.3.5.json",
-      "sha256": "f05df4a84dfc8c991e389b7d0be26ca229453bea1be7fd511ac8d2c558783e1a"
+      "releaseNotes": "修复登录时元宝余额尚未加载完整就误报大量消耗的问题；修复部分微端物品减少提醒弹窗偏移、内容超出窗口的问题。",
+      "packageUrl": "packages/ledger/0.3.6.json",
+      "sha256": "91b2b39bbedebf1ff5939ca5fd31d5d4f5d7debf5c67a67aaf07105d66f210de"
     },
     {
       "id": "recharge",
