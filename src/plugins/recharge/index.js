@@ -1,8 +1,8 @@
 import { qrData } from './encoding.js';
 import { PAY_BASE, CARDS, isOfficialServer, buildPayload, paymentResult, queryCards, validateCard } from './payment.js';
 export const manifest = {
-  id: 'recharge', name: '95折充值与旧卡', version: '0.1.6', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "统一充值与旧卡界面的提示和操作外观，保留每次订单的账号核对与风险确认。付款仍须人工操作，不保证折扣、到账或旧卡激活。", minCoreVersion: '0.6.37', categories: ['tools'], priority: 45000,
+  id: 'recharge', name: '95折充值与旧卡', version: '0.1.7', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "修复微端支付宝正常付款二维码区域空白的问题，保留备用跳转码和收银台入口。出码仍需核对账号与金额并确认；付款须手动完成，出码不代表付款或到账。", minCoreVersion: '0.6.37', categories: ['tools'], priority: 45000,
   icon: { paths: ['M3 6h18v14H3Z', 'M3 10h18', 'M15 15h3', 'M6 3h12'] },
   description: '官服微信／支付宝充值及旧周月卡原生直购入口，操作前请阅读风险',
 };
@@ -185,7 +185,11 @@ export function activate(ctx) {
             frame.title = '支付宝最终付款码'; frame.setAttribute('sandbox', 'allow-scripts allow-same-origin'); frame.setAttribute('scrolling', 'no'); frame.referrerPolicy = 'no-referrer';
             const resize = () => {
               const size = wrap.clientWidth || 230, padding = Math.max(14, Math.round(size * .06)), edge = size - padding * 2, scale = edge / 170;
-              viewport.style.inset = padding + 'px';
+              // Chromium 85 supports neither aspect-ratio nor inline inset.
+              // Without an explicit height the absolutely positioned cashier
+              // collapses to zero while the independent backup QR still shows.
+              wrap.style.height = size + 'px';
+              for (const side of ['top', 'right', 'bottom', 'left']) viewport.style[side] = padding + 'px';
               frame.style.width = Math.ceil((size + 80) / scale) + 'px'; frame.style.height = Math.ceil((size + 260) / scale) + 'px';
               // Current cashier renders its QR at the page origin. Legacy (8,4)
               // subtraction cuts into the first modules and shifts the code up/left.

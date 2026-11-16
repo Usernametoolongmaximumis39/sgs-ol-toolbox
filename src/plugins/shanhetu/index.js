@@ -254,8 +254,8 @@ export function activate(ctx) {
   ctx.scope.add(() => { offManager?.(); offScene?.(); cancelPending(); listeners.clear(); });
   return () => { offPanel(); labels.clear(); };
 }
-export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.29', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "保留自选战斗背景改为默认开启，已有明确设置保持不变；精简地图设置和帮助说明。", minCoreVersion: '0.6.37', categories: ['game'], icon: PLUGIN_ICONS['shanhetu'], priority: 11000,
+export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.31', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "修复微端换将卡预判浮层贴在左上角的问题，改为在游戏区域顶部居中，并避开固定工具箱侧栏。", minCoreVersion: '0.6.37', categories: ['game'], icon: PLUGIN_ICONS['shanhetu'], priority: 11000,
     description: '敌军、问号与商店预览，换将卡预判与跨模式战法计数' }, initialState, reduce, activate };
 
 

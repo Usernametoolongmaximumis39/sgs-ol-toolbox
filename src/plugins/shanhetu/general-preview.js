@@ -5,7 +5,7 @@ import { isShanhe } from './model.js';
 
 const WINDOW = 'RogueSelectGeneralWindow';
 const CSS = `
-:host{position:fixed;inset:22px 16px auto;z-index:2147483646;display:flex;justify-content:center;pointer-events:none;font:12px/1.7 var(--sgs-font,system-ui);color:var(--sgs-text)}
+:host{position:fixed;top:22px;right:16px;bottom:auto;left:16px;z-index:2147483646;display:flex;justify-content:center;pointer-events:none;font:12px/1.7 var(--sgs-font,system-ui);color:var(--sgs-text)}
 .preview{box-sizing:border-box;position:relative;width:520px;max-width:100%;padding:12px 44px 13px 16px;border:1px solid var(--sgs-border);border-radius:10px;background:var(--sgs-surface);box-shadow:0 6px 24px #0003;pointer-events:auto}
 strong{display:block;margin-bottom:4px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em;font-weight:600}
 p{margin:0;max-height:min(180px,28vh);overflow:auto;overflow-wrap:anywhere;white-space:pre-wrap;scrollbar-width:thin}
@@ -55,6 +55,23 @@ export function createGeneralPreview(ctx, native) {
     const text = ctx.document.createElement('p'), close = ctx.document.createElement('button'); close.type = 'button';
     close.title = '关闭换将卡预判'; close.setAttribute('aria-label', close.title); close.append(ctx.ui.icon('close'));
     panel.append(title, text, close); shadow.append(style, panel); ctx.document.body.append(host);
+    // Game-page rules can override :host declarations from outside the shadow.
+    // Own the outer geometry inline and centre inside the visible game region,
+    // excluding the toolbox's fixed sidebar.
+    const position = () => {
+      const win = ctx.document.defaultView;
+      const viewportWidth = win.innerWidth, viewportHeight = win.innerHeight;
+      const canvas = ctx.document.querySelector('#layaCanvas')?.getBoundingClientRect();
+      let left = canvas?.width > 0 ? Math.max(0, canvas.left) : 0;
+      let right = canvas?.width > 0 ? Math.min(viewportWidth, canvas.right) : viewportWidth;
+      const sidebar = ctx.document.querySelector('[data-sgs-toolbox="core"][data-edge-fixed]')?.getBoundingClientRect();
+      if (sidebar?.width > 0 && sidebar.left > left) right = Math.min(right, sidebar.left);
+      if (right - left < 64) { left = 0; right = viewportWidth; }
+      const top = Math.min(Math.max(22, canvas?.top || 0), Math.max(0, viewportHeight - 100));
+      const geometry = { position: 'fixed', top: top + 'px', left: left + 16 + 'px', right: 'auto', bottom: 'auto', width: Math.max(1, right - left - 32) + 'px', height: 'auto', display: 'flex', 'justify-content': 'center', 'pointer-events': 'none', 'z-index': '2147483646', margin: '0', padding: '0', transform: 'none' };
+      for (const [key, value] of Object.entries(geometry)) host.style.setProperty(key, value, 'important');
+    };
+    position(); scope.listen(ctx.document.defaultView, 'resize', position); scope.interval(position, 250);
     notice = { scope, host, text, ids }; paintNames();
     scope.add(() => host.remove()); scope.listen(close, 'click', clear);
     scope.add(theme.watch(palette => {

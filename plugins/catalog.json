@@ -145,7 +145,7 @@
     {
       "id": "shanhetu",
       "name": "山河图",
-      "version": "0.2.29",
+      "version": "0.2.31",
       "icon": {
         "paths": [
           "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
@@ -161,9 +161,9 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "敌军、问号与商店预览，换将卡预判与跨模式战法计数",
-      "releaseNotes": "保留自选战斗背景改为默认开启，已有明确设置保持不变；精简地图设置和帮助说明。",
-      "packageUrl": "packages/shanhetu/0.2.29.json",
-      "sha256": "ca03e331f1dd6f1bb0f9a952d4ef4edf2630d8c9dae2e1d0af1e7b935a5cc4ab"
+      "releaseNotes": "修复微端换将卡预判浮层贴在左上角的问题，改为在游戏区域顶部居中，并避开固定工具箱侧栏。",
+      "packageUrl": "packages/shanhetu/0.2.31.json",
+      "sha256": "57a4cfd8c4c49dfd5353456041be215dfbbe2ed6ea09d790c626edb2ccf3d663"
     },
     {
       "id": "cards",
@@ -430,7 +430,7 @@
     {
       "id": "recharge",
       "name": "95折充值与旧卡",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "icon": {
         "paths": [
           "M3 6h18v14H3Z",
@@ -447,9 +447,9 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "官服微信／支付宝充值及旧周月卡原生直购入口，操作前请阅读风险",
-      "releaseNotes": "统一充值与旧卡界面的提示和操作外观，保留每次订单的账号核对与风险确认。付款仍须人工操作，不保证折扣、到账或旧卡激活。",
-      "packageUrl": "packages/recharge/0.1.6.json",
-      "sha256": "58c35b342f0f1e4624b6208a779088a3afde59b5daeace49c060cc56b8a43022"
+      "releaseNotes": "修复微端支付宝正常付款二维码区域空白的问题，保留备用跳转码和收银台入口。出码仍需核对账号与金额并确认；付款须手动完成，出码不代表付款或到账。",
+      "packageUrl": "packages/recharge/0.1.7.json",
+      "sha256": "fa5422c3c6f7177240a4bc982f363db8d90b639b6e94244cacaac2824f05ce28"
     }
   ]
 }

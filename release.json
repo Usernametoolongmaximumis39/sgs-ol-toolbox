@@ -52,8 +52,8 @@
     },
     {
       "id": "shanhetu",
-      "version": "0.2.29",
-      "sha256": "ca03e331f1dd6f1bb0f9a952d4ef4edf2630d8c9dae2e1d0af1e7b935a5cc4ab"
+      "version": "0.2.31",
+      "sha256": "57a4cfd8c4c49dfd5353456041be215dfbbe2ed6ea09d790c626edb2ccf3d663"
     },
     {
       "id": "cards",
@@ -117,8 +117,8 @@
     },
     {
       "id": "recharge",
-      "version": "0.1.6",
-      "sha256": "58c35b342f0f1e4624b6208a779088a3afde59b5daeace49c060cc56b8a43022"
+      "version": "0.1.7",
+      "sha256": "fa5422c3c6f7177240a4bc982f363db8d90b639b6e94244cacaac2824f05ce28"
     }
   ],
   "assets": [
