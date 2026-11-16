@@ -237,35 +237,47 @@ try {
       checks.push('appearances: observed ranked model 7, complete opening roster and first seat produce position 2 and loss');
     }
     if (id === 'appearances') {
-      await page.evaluate(() => { const original = window.open; window.open = function(...args) { window.__detailOpenFeatures = args[2]; return original.apply(this,args); }; });
-      const popupEvent = context.waitForEvent('page');
-      await root.getByRole('button', {name:'独立窗口查看详情',exact:true}).click();
-      const detail = await popupEvent; await detail.waitForLoadState();
+      await page.evaluate(() => { window.open = () => { throw new Error('external popup forbidden'); }; });
+      await root.getByRole('button', { name: '查看详情', exact: true }).click();
+      const detailHost = page.locator('[data-sgs-toolbox="appearance-details"]');
+      const detail = detailHost.getByRole('dialog', {name: '出框与胜率统计详情'});
       await detail.locator('[data-appearance-details]').waitFor();
-      assert.equal(await detail.title(), '出框与胜率统计 · 详细信息');
-      assert.match(await page.evaluate(() => window.__detailOpenFeatures), /popup=yes,width=\d+,height=\d+,left=\d+,top=\d+/);
+      assert.equal(context.pages().length, 1);
+      await root.getByRole('button', { name: '查看详情', exact: true }).evaluate(n => n.click());
+      assert.equal(await detailHost.count(), 1);
       assert.equal(await detail.getByRole('button',{name:'全部',exact:true}).count(),0);
-      assert.equal(await detail.evaluate(() => window.opener), null);
+      await detail.getByText('统计口径与数据记录',{exact:true}).click();
+      await detail.getByRole('button',{name:'恢复工具箱备份',exact:true}).waitFor();
+      const backupEvent = page.waitForEvent('download');
+      await detail.getByRole('button',{name:'导出',exact:true}).click();
+      const backup = await backupEvent;
+      await detail.locator('input[type=file]').setInputFiles(await backup.path());
+      await detail.getByText(/^11 条出框 · 11 条战绩已保存/).waitFor();
       for (const name of ['胜率','胜场数','出场数','出框数']) {
         await detail.getByRole('button',{name,exact:true}).click();
         assert.equal(await detail.getByRole('button',{name,exact:true}).getAttribute('aria-pressed'),'true');
       }
       await detail.getByRole('button',{name:'从低到高',exact:true}).click();
-      await detail.setViewportSize({width:1200,height:850});
-      await detail.screenshot({path:fileURLToPath(new URL('appearances-details.png',output)),animations:'disabled'});
+      await page.screenshot({path:fileURLToPath(new URL('appearances-details.png',output)),animations:'disabled'});
       await detail.getByRole('searchbox',{name:'搜索武将'}).fill('没有这个武将');
       await detail.getByText('没有符合筛选的记录',{exact:true}).waitFor();
       await detail.getByRole('searchbox',{name:'搜索武将'}).fill('');
-      await detail.close();
-      const secondPopup = context.waitForEvent('page');
-      await root.getByRole('button',{name:'独立窗口查看详情',exact:true}).click();
-      const secondDetail = await secondPopup; await secondDetail.locator('[data-appearance-details]').waitFor();
-      const closed = secondDetail.waitForEvent('close');
+      for (const width of [248, 280, 420]) {
+        await page.setViewportSize({width, height: 650});
+        const r = await detail.evaluate(n => { const r=n.getBoundingClientRect(); return {left:r.left,right:r.right,width:innerWidth,overflow:n.scrollWidth>n.clientWidth}; });
+        assert.ok(r.left>=0 && r.right<=r.width && !r.overflow);
+        await page.screenshot({path:fileURLToPath(new URL('appearances-details-'+width+'.png',output)),animations:'disabled'});
+      }
+      await page.setViewportSize({width:1150,height:1050});
+      await detail.getByRole('button',{name:'关闭统计详情'}).click();
+      assert.equal(await detailHost.count(),0);
+      await root.getByRole('button', {name:'查看详情',exact:true}).click();
+      await page.keyboard.press('Escape'); assert.equal(await detailHost.count(),0);
+      await root.getByRole('button', {name:'查看详情',exact:true}).click();
       await page.evaluate(() => window[Symbol.for('sgs.ol.toolbox.core')].manager.disable('appearances'));
-      await closed;
-      assert.equal(secondDetail.isClosed(), true);
+      assert.equal(await detailHost.count(),0);
       await page.evaluate(() => window[Symbol.for('sgs.ol.toolbox.core')].manager.enable('appearances'));
-      checks.push('appearances: live detail tab, four sorts and direction, inherited mode, search, opener detached, close and disable cleanup');
+      checks.push('appearances: built-in detail, JSON import entry, no external popup, sorts, search, 248/280/420px, close, Escape and disable cleanup');
     }
     const [major, minor, patch] = baseVersion.split('.').map(Number);
     const upgrade = await makePluginPackage(await bundlePlugin(id), `${major}.${minor}.${patch + 1}-local`);

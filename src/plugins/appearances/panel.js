@@ -14,6 +14,7 @@ export function compareStats(a, b, key, direction = 'desc') {
 }
 export function activate(ctx) {
   const controller = createController(ctx);
+  let details = null;
   const render = (container, { detailed = false, initial = {} } = {}) => {
     const ui = ctx.ui.panel(container), { root, el, listen, input, button, segments } = ui;
     let { tab = 'stats', mode = 26, search = '', sort = 'appear', min = 0, start = 0, end = 0, role = 'all', direction = 'desc' } = initial;
@@ -25,7 +26,7 @@ export function activate(ctx) {
       format: BACKUP_FORMAT, schema: 1, accountId: v.who.id, startedAt: v.startedAt, records: v.records, matches: v.matches }); });
     bar.append(refresh, exportButton);
     if (!detailed) {
-      const detailButton = button('独立窗口查看详情', 'info', () => openDetails({ tab, mode, search, sort, min, start, end, role, direction }));
+      const detailButton = button('查看详情', 'info', () => openDetails({ tab, mode, search, sort, min, start, end, role, direction }));
       detailButton.style.gridColumn = '1 / -1'; bar.append(detailButton);
     }
     else { root.dataset.appearanceDetails = ''; root.prepend(el('h1', '', '出框与胜率统计')); }
@@ -78,7 +79,7 @@ export function activate(ctx) {
       note.hidden = Boolean(v.who.id);
       note.textContent = '等待登录当前账号';
       refresh.disabled = !v.who.id || v.loading; exportButton.disabled = !v.who.id || busy;
-      if (detailed) { restore.hidden = true; clear.hidden = true; }
+      if (detailed) clear.hidden = true;
       clear.disabled = !v.who.id || busy || (!v.records.length && !v.matches.length && !v.storageBlocked); restore.disabled = !v.who.id || busy || v.storageBlocked;
       roles.hidden = !mode;
       for(const {id,group,items} of roleGroups){group.hidden=id!==mode;[...group.children].forEach((b,i)=>b.setAttribute('aria-pressed',String(items[i][0]===role)));}
@@ -124,26 +125,34 @@ export function activate(ctx) {
     return ctx.scope.add(() => { alive = false; off(); ui.dispose(); });
   };
   function openDetails(initial) {
-    const screen = ctx.window.screen;
-    const availableWidth = screen?.availWidth || 1280, availableHeight = screen?.availHeight || 900;
-    const width = Math.min(1100, Math.max(640, Math.round(availableWidth * .72)), availableWidth);
-    const height = Math.min(850, Math.max(480, availableHeight - 120), availableHeight);
-    const left = (screen?.availLeft || 0) + Math.max(0, availableWidth - width - 24);
-    const top = (screen?.availTop || 0) + Math.max(0, Math.min(80, availableHeight - height));
-    const target = ctx.window.open('about:blank', '_blank', `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`);
-    if (!target) { ctx.reportError?.('详情窗口被浏览器拦截，请允许此站点打开弹出窗口后重试。'); return; }
-    target.opener = null;
-    const doc = target.document; doc.title = '出框与胜率统计 · 详细信息';
-    const style = doc.createElement('style');
-    style.textContent = INFO_STYLES + CONTROL_STYLES + `body{margin:0;padding:24px;background:var(--sgs-bg);color:var(--sgs-text)}main{max-width:1200px;margin:auto}.sgs-info{font-size:14px}.sgs-info .list{max-height:none;overflow:visible;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.sgs-info .row{padding:16px;background:var(--sgs-surface);border-radius:10px;border:1px solid var(--sgs-border)}.sgs-info .filters{max-width:700px}.sgs-info .sgs-segments{max-width:700px}.sgs-info h1{font-size:24px}@media(max-width:500px){body{padding:12px}.sgs-info .list{grid-template-columns:1fr}}`;
-    doc.head.append(style); const main = doc.createElement('main'); doc.body.append(main);
-    const theme = current => { for (const [key, value] of Object.entries(current?.tokens || {})) doc.documentElement.style.setProperty('--sgs-' + key, value); };
+    if (details) { details.root.focus(); return; }
+    const doc = ctx.document, host = doc.createElement('div');
+    host.dataset.sgsToolbox = 'appearance-details';
+    const shadow = host.attachShadow({ mode: 'open' }), style = doc.createElement('style');
+    style.textContent = INFO_STYLES + CONTROL_STYLES + `
+:host{position:fixed;top:12px;right:12px;bottom:12px;left:12px;z-index:2147483646;display:flex;justify-content:center;pointer-events:none}
+main{box-sizing:border-box;position:relative;width:100%;max-width:1100px;min-width:0;padding:20px;overflow:auto;background:var(--sgs-bg);color:var(--sgs-text);border:1px solid var(--sgs-border);border-radius:12px;box-shadow:0 12px 40px #0006;pointer-events:auto;scrollbar-width:thin}
+.sgs-info h1{font-size:20px;margin:0 36px 16px 0}.sgs-info .list{max-height:none;overflow:visible;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.sgs-info .row{padding:12px;background:var(--sgs-surface);border-radius:8px}.sgs-info .filters,.sgs-info .sgs-segments{max-width:700px}
+.close{position:absolute;top:12px;right:12px;width:32px;height:32px;padding:7px;border:0;border-radius:6px;background:var(--sgs-surface);color:var(--sgs-text);cursor:pointer}.close:hover{background:var(--sgs-raised)}.close:focus-visible{outline:2px solid var(--sgs-accent)}
+@media(max-width:500px){main{padding:12px}.sgs-info .list{grid-template-columns:1fr}}
+`;
+    const main = doc.createElement('main'); main.tabIndex = -1;
+    main.setAttribute('role', 'dialog'); main.setAttribute('aria-label', '出框与胜率统计详情');
+    const close = doc.createElement('button'); close.className = 'close'; close.type = 'button';
+    close.title = '关闭统计详情'; close.setAttribute('aria-label', close.title); close.append(ctx.ui.icon('close'));
+    main.append(close); shadow.append(style, main); doc.body.append(host);
+    const theme = current => { for (const [key, value] of Object.entries(current?.tokens || {})) host.style.setProperty('--sgs-' + key, value); };
     theme(ctx.themes?.current); const offTheme = ctx.themes?.subscribe(theme) || (() => {});
     const dispose = render(main, { detailed: true, initial });
-    let offSource = () => {};
-    const release = ctx.scope.add(() => { offSource(); dispose(); offTheme(); target.close(); });
-    offSource = ctx.scope.listen(ctx.window, 'pagehide', release);
-    target.addEventListener('pagehide', release, { once: true });
+    const previous = shadow.activeElement || doc.activeElement;
+    let offClose = () => {}, offKey = () => {};
+    const release = ctx.scope.add(() => {
+      offClose(); offKey(); dispose(); offTheme(); host.remove(); details = null;
+      if (previous?.isConnected) previous.focus?.();
+    });
+    offClose = ctx.scope.listen(close, 'click', release);
+    offKey = ctx.scope.listen(ctx.window, 'keydown', event => { if (event.key === 'Escape') { event.preventDefault(); release(); } });
+    details = { root: main, release }; main.focus();
   }
   ctx.ui.registerPanel({ id: 'main', category: 'info', render: container => render(container) });
 }
