@@ -1,0 +1,27 @@
+{
+  "file": "C:/Users/Admin/AppData/Local/Temp/sgs-client/game/sgsGame_a.sgs",
+  "sha256": "c1f3d824d59a7c2ca9f335cbe50fcc24dd4cd75a614fadf26cf65ddd7b668473",
+  "regions": {
+    "activity": {
+      "charStart": 2936075,
+      "charEnd": 2939201,
+      "byteStart": 2946209,
+      "byteEnd": 2949335,
+      "source": "class SK{static TYPE_ITEM=1;static TYPE_GEN_SKIN=2;static TYPE_ITEM_BETTER=3;goodsDataDic=new SNt;get CommonVO(){return this.commonVO||(this.commonVO=IK.I().GetVoByID(this.configId)),this.commonVO}get GoodsDataDic(){return this.goodsDataDic}get ItemIconPic(){return Ps.I().makeUpRootResouceToUrl(\"activity/seckill/yeqian/\",\"item_yq.png\")}constructor(t){this.UpdateMsgData(t)}UpdateMsgData(t){this.id=t.act_id;for(let i=0;i<t.goods.length;i++){if(!t.goods[i].item_id)continue;let s=this.goodsDataDic.getNumberKey(t.goods[i].item_id);s?s.UpdateData(t.goods[i]):(s=new TK,s.UpdateData(t.goods[i]),this.goodsDataDic.addNumberKey(s.itemId,s)),this.configId||(this.configId=s.itemId)}this.show_time_begin=t.show_time_begin,this.show_time_end=t.show_time_end,this.buy_time_begin=t.buy_time_begin,this.buy_time_end=t.buy_time_end,this.appoint=t.appoint,this.appointTotal=t.appoint_total,this.type=Number(this.configId.toString()[0]);let i=IK.I().JumpATime,s=IK.I().JumpBTime;this.canJumpA=this.TimeBeforeBuy>i&&i>0,this.canJumpB=this.TimeBeforeBuy>s&&s>0}SetStockInfo(t){let i=t.item_id;if(i){let s=this.goodsDataDic.getNumberKey(i);s&&s.UpdateStockData(t)}}get BuyTime(){return this.buy_time_begin||0}get BuyEndTime(){return this.buy_time_end||0}get ShowTime(){return this.show_time_begin||0}get ShowEndTime(){return this.show_time_end||0}get ActID(){return this.id}get InBuyTime(){let t=HNt.I().LocalStaticServerTime;return this.BuyTime<=t&&this.BuyEndTime>t}get InShowTime(){let t=HNt.I().LocalStaticServerTime;return this.ShowTime<=t&&this.ShowEndTime>t}get CanShow(){if(this.InShowTime){if(this.InBuyTime)return!0;{let t=HNt.I().LocalStaticServerTime;return this.BuyEndTime>t}}return!1}get InAppointTime(){let t=HNt.I().LocalStaticServerTime;return this.ShowTime<t&&this.BuyTime>t}get CanJumpA(){return this.canJumpA}get CanJumpB(){return this.canJumpB}set CanJumpA(t){this.canJumpA=t}set CanJumpB(t){this.canJumpB=t}get TimeBeforeBuy(){let t=HNt.I().LocalStaticServerTime,i=this.BuyTime-t;return i<=0?-1:Math.ceil(i/60)}get IsGenSkin(){return this.DataType==SK.TYPE_GEN_SKIN}get IsItem(){return this.DataType==SK.TYPE_ITEM}get IsItemBetter(){return this.DataType==SK.TYPE_ITEM_BETTER}get DataType(){return!this.type&&this.FirstGoods&&(this.type=Number(this.FirstGoods.itemId.toString()[0])),this.type}get IsGen(){if(this.IsGenSkin){let t=XJt.I().C(this.FirstGoods.baseId);if(t)return t.IsGeneral}return!1}get IsSkin(){if(this.IsGenSkin){let t=XJt.I().C(this.FirstGoods.baseId);if(t)return!t.IsGeneral}return!1}get FirstGoods(){return this.firstGoods||(this.firstGoods=this.goodsDataDic.datum[0]),this.firstGoods}get IsAppointed(){return this.appoint||!1}set IsAppointed(t){this.appoint=t}get AppointCount(){return this.appointTotal||0}set AppointCount(t){this.appointTotal=t}Clear(){this.goodsDataDic.destroy()}get ReachLimit(){let t=!1;if(this.InBuyTime)if(this.IsGenSkin){let i=this.firstGoods;t=i.StockNow<=0||i.LimitSelfCount>=i.limitSumCount}else{if(this.GoodsDataDic){let i=this.GoodsDataDic.datum;if(i&&i.length){let s=0;i.forEach((t=>{(t.StockNow<=0||t.LimitSelfCount>=t.limitSumCount)&&s++})),t=s==i.length}}}return t}}"
+    },
+    "goods": {
+      "charStart": 2939201,
+      "charEnd": 2940111,
+      "byteStart": 2949335,
+      "byteEnd": 2950245,
+      "source": "class TK{static Price_Type_Tongyong=1;static Price_Type_Bangding=2;static Price_Type_Yinliang=3;UpdateData(t){this.itemId=t.item_id,this.baseId=t.base_id,this.count=t.count,this.price_type=t.price_type,this.price=t.price,this.priceOrigin=t.price_ori,this.StockTotal=t.stock_total,this.limitSumCount=t.limit_buy_cnt||0,this.stockBought=t.stock_bought||0,this.limitSelfCount=t.my_buy_cnt||0}UpdateStockData(t){this.stockBought=t.stock_bought||0,this.limitSelfCount=t.my_buy_cnt||0}get LimitSelfCount(){return this.limitSelfCount||0}get StockBought(){return this.stockBought||0}get HasStockLimit(){return this.StockTotal>0}get StockNow(){return this.HasStockLimit?Math.max(0,this.StockTotal-this.StockBought):1}get IsGenSkinHad(){let t=XJt.I().C(this.baseId);if(t){if(t.IsGeneral)return M$t.I().HasGeneral(t.firstUsedEffect);{let i=JJt.I().GetSkinListBySkinID(t.firstUsedEffect);return!(!i||!i.length)}}return!1}}"
+    },
+    "purchase": {
+      "charStart": 11185707,
+      "charEnd": 11186415,
+      "byteStart": 11419134,
+      "byteEnd": 11419866,
+      "source": "tt(t,i){if(!t)return;if((t.price_type==TK.Price_Type_Tongyong||t.price_type==TK.Price_Type_Bangding)&&(PU.HasBlackListGoods(t.baseId)||PU.HasBlackListBar(z0t.NEW_SECKILL_BUY_FORM))){let i=V2t.IsU3d?0:Math.max(0,NNt.Self.FreeLimitYuanBaoNum||0),s=Math.max(0,NNt.Self.YuanBao);if(t.price_type==TK.Price_Type_Bangding&&(s+=Math.max(0,NNt.Self.BindYuanBao)),s<t.price&&s+i>=t.price)return void ue.I().ShowTextPrompt(\"该商品不可用限时元宝购买\")}let s=new Oq;s.GoodsCount=1;let e=new EQ;e.ItemID=t.baseId,e.ItemNum=t.count,t.price_type==TK.Price_Type_Yinliang?e.PriceTongQian=t.price:e.PriceYuanBao=t.price,s.GoodsList[0]=e,s.buyFrom=z0t.NEW_SECKILL_BUY_FORM,s.newSecKill_baseID=i,s.newSecKill_ItemID=t.itemId,this.proxy.L(s)}"
+    }
+  }
+}

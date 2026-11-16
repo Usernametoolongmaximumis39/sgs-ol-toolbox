@@ -1,9 +1,8 @@
-import { CONTROL_STYLES } from '../../ui/controls.js';
 import { qrData } from './encoding.js';
 import { PAY_BASE, CARDS, isOfficialServer, buildPayload, paymentResult, queryCards, validateCard } from './payment.js';
 export const manifest = {
-  id: 'recharge', name: '95折充值与旧卡', version: '0.1.5', apiVersion: 1, contractVersion: 1,
-  minCoreVersion: '0.5.13', categories: ['tools'], priority: 45000,
+  id: 'recharge', name: '95折充值与旧卡', version: '0.1.6', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "统一充值与旧卡界面的提示和操作外观，保留每次订单的账号核对与风险确认。付款仍须人工操作，不保证折扣、到账或旧卡激活。", minCoreVersion: '0.6.37', categories: ['tools'], priority: 45000,
   icon: { paths: ['M3 6h18v14H3Z', 'M3 10h18', 'M15 15h3', 'M6 3h12'] },
   description: '官服微信／支付宝充值及旧周月卡原生直购入口，操作前请阅读风险',
 };
@@ -44,7 +43,7 @@ export function activate(ctx) {
   ctx.scope.add(() => detach()); ctx.scope.interval(observe, 1000); observe();
   ctx.ui.registerPanel({ id: 'main', category: 'tools', render(container) {
     const doc = ctx.document, root = doc.createElement('div'); root.dataset.sgsRecharge = '';
-    const style = doc.createElement('style'); style.textContent = CONTROL_STYLES + `
+    const style = doc.createElement('style'); style.textContent = `
       [data-sgs-recharge]{font:12px/1.65 var(--sgs-font,sans-serif);color:var(--sgs-text);overflow-wrap:anywhere}
       [data-sgs-recharge] *{box-sizing:border-box}
       [data-sgs-recharge] p{margin:6px 0 10px}

@@ -1,11 +1,10 @@
 import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
-import { CONTROL_STYLES, controlIcon, styleSwitch } from '../../ui/controls.js';
 import { createNativeAdapter } from './native.js';
 import { createController } from './controller.js';
 import { ITEMS, normalize, rowLabel } from './model.js';
 
 export default {
-  manifest: { id: 'seckill', name: '自动秒杀', version: '0.1.1', apiVersion: 1, contractVersion: 1, minCoreVersion: '0.5.13',
+  manifest: { id: 'seckill', name: '自动秒杀', version: '0.1.3', apiVersion: 1, contractVersion: 1, releaseNotes: "精简自动购买界面，统一商品选择与开关外观；自动购买仍默认关闭，开启后会消耗对应游戏货币，结果未确认时仍保留核对状态。", minCoreVersion: '0.6.37',
     description: '按所选物品与关键词自动抢购秒杀商品，支持跨场次排队与购买确认', icon: PLUGIN_ICONS['seckill'], priority: 21000, categories: ['automation'] },
   activate(ctx) {
     const controller = createController({ adapter: createNativeAdapter(ctx), settings: ctx.settings, scope: ctx.scope, reportError: e => ctx.reportError?.(e), notify: ctx.notify });
@@ -13,7 +12,7 @@ export default {
       const doc = ctx.document, cleanups = [];
       const el = (tag, text, cls) => { const node = doc.createElement(tag); if (text !== undefined) node.textContent = text; if (cls) node.className = cls; return node; };
       const root = el('section'); root.dataset.seckill = '';
-      const style = el('style'); style.textContent = `${CONTROL_STYLES}
+      const style = el('style'); style.textContent = `
         [data-seckill]{color:var(--sgs-text);font:12px/1.6 var(--sgs-font);min-width:0}
         [data-seckill] *{box-sizing:border-box}[data-seckill] button{font:inherit;cursor:pointer}
         [data-seckill] button:disabled{opacity:.45;cursor:not-allowed}[data-seckill] button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:2px}
@@ -31,9 +30,9 @@ export default {
         [data-seckill] .sk-goods{max-height:260px;overflow:auto;margin-top:4px}[data-seckill] .sk-row{display:flex;align-items:center;gap:7px;padding:8px 0;border-top:1px solid color-mix(in srgb,var(--sgs-border) 45%,transparent)}[data-seckill] .sk-row>div{flex:1;min-width:0;overflow-wrap:anywhere}[data-seckill] .sk-row small{display:block;color:var(--sgs-muted);font-size:10px;font-variant-numeric:tabular-nums}[data-seckill] .sk-row[data-selected=true]{border-left:2px solid var(--sgs-accent);padding-left:6px}[data-seckill] details{margin-top:7px}[data-seckill] summary{cursor:pointer;color:var(--sgs-muted)}[data-seckill] pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto;color:var(--sgs-danger);font:11px/1.5 var(--sgs-font)}
       `;
       const listen = (target, type, fn) => cleanups.push(ctx.scope.listen(target, type, fn));
-      const iconButton = (icon, name, fn) => { const b = el('button', undefined, 'sk-icon'); b.type = 'button'; b.title = name; b.setAttribute('aria-label', name); b.append(controlIcon(doc, icon)); listen(b, 'click', fn); return b; };
-      const heading = el('div', undefined, 'sk-heading'), title = el('h3', '自动购买'); title.prepend(controlIcon(doc, PLUGIN_ICONS.seckill));
-      const power = el('label', undefined, 'sk-power'), powerText = el('span'), toggle = styleSwitch(el('input')); toggle.type = 'checkbox'; toggle.setAttribute('aria-label', '自动购买所选秒杀物品');
+      const iconButton = (icon, name, fn) => { const b = el('button', undefined, 'sk-icon'); b.type = 'button'; b.title = name; b.setAttribute('aria-label', name); b.append(ctx.ui.icon(icon)); listen(b, 'click', fn); return b; };
+      const heading = el('div', undefined, 'sk-heading'), title = el('h3', '自动购买'); title.prepend(ctx.ui.icon(PLUGIN_ICONS.seckill));
+      const power = el('label', undefined, 'sk-power'), powerText = el('span'), toggle = ctx.ui.styleSwitch(el('input')); toggle.type = 'checkbox'; toggle.setAttribute('aria-label', '自动购买所选秒杀物品');
       power.append(powerText, toggle); heading.append(title, power);
       listen(toggle, 'change', () => controller.options({ enabled: toggle.checked }));
       const note = el('p', '开启后会自动购买并扣除对应游戏货币。预置物品与自定义关键词共同生效。', 'sk-note');
@@ -66,7 +65,7 @@ export default {
         status.textContent = s.status; statusRow.classList.toggle('is-error', Boolean(s.error)); errors.hidden = !s.error; errorText.textContent = s.error;
         if (JSON.stringify(s.config.custom) !== tagSignature) {
           tagSignature = JSON.stringify(s.config.custom); tags.replaceChildren();
-          for (const kw of s.config.custom) { const tag = el('span', undefined, 'sk-tag'), remove = el('button', undefined, 'sk-icon'); remove.type = 'button'; remove.title = `删除关键词 ${kw}`; remove.setAttribute('aria-label', remove.title); remove.append(controlIcon(doc, 'close'));
+          for (const kw of s.config.custom) { const tag = el('span', undefined, 'sk-tag'), remove = el('button', undefined, 'sk-icon'); remove.type = 'button'; remove.title = `删除关键词 ${kw}`; remove.setAttribute('aria-label', remove.title); remove.append(ctx.ui.icon('close'));
             // These nodes are replaced as a group; no global subscription is retained.
             remove.dataset.keyword = kw; tag.append(el('span', kw), remove); tags.append(tag); }
         }

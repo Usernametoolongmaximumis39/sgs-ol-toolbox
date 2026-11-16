@@ -92,6 +92,6 @@ export function createPlayerStats(ctx) {
         third: robot ? '暂无战绩' : streak ? `${streak.lowerBound ? '至少' : ''}${streak.count}${streak.win ? '连胜' : '连败'}` : failed ? '战绩读取失败' : '近期战绩未读取',
         streakState: streak ? streak.win ? 'win' : 'loss' : 'unknown' });
     }
-    view.update(rows, seats);
+    view.update(rows, seats, mode.kind);
   } };
 }

@@ -1,0 +1,665 @@
+{
+  "source": "sgsres/allcfg, public official config cache, 2026-11-14",
+  "pay": {
+    "root": {
+      "new_card": {
+        "new_card_content": [
+          {
+            "ID": 1,
+            "goodsId": 12980101,
+            "name": "周卡月卡",
+            "open": 1,
+            "level": 12,
+            "type": 1,
+            "duration": "20261019T100000,20990111T235959",
+            "days": 30,
+            "price": 1,
+            "reward_m": "100016,3000;12980601,1",
+            "reward_e": "100016,300;12980401,2;",
+            "Renew": 1,
+            "RenewDays": 330,
+            "desc1": "专属表情<br>专属卡面",
+            "desc1Jump": "372209;13200702",
+            "desc2": "1000",
+            "instruction": "1、购买月卡后，30天内每天可领取月卡每日奖励；购买周卡后，7天内每天可领取周卡每日奖励<br/>\n2、每日奖励需要当日领取，第二日过期后无法补领<br/>\n3、购买月卡&周卡计入充值奖励，不计入消费奖励<br/>\n4、月卡/周卡激活期间仍可续费，最多可分别续费至360天、70天；续费后将直接获得“立即获得”的奖励，并延长30天/7天剩余时间",
+            "questid": 58538,
+            "deleteTime": "20990111T235959"
+          },
+          {
+            "ID": 2,
+            "goodsId": 12980201,
+            "name": "周卡月卡",
+            "open": 1,
+            "level": 12,
+            "type": 2,
+            "duration": "20261019T100000,20990111T235959",
+            "days": 7,
+            "price": 1,
+            "reward_m": "100016,1200;8100201,3",
+            "reward_e": "100016,400;953701,3;",
+            "Renew": 1,
+            "RenewDays": 63,
+            "desc2": "700",
+            "questid": 58538,
+            "deleteTime": "20990111T235959"
+          }
+        ]
+      }
+    }
+  },
+  "military": {
+    "root": {
+      "abbreviation": [
+        {
+          "Long": "teamid",
+          "Short": "a"
+        },
+        {
+          "Long": "id",
+          "Short": "b"
+        },
+        {
+          "Long": "point",
+          "Short": "c"
+        },
+        {
+          "Long": "item",
+          "Short": "d"
+        },
+        {},
+        {
+          "Long": "ffitem",
+          "Short": "e"
+        },
+        {},
+        {
+          "Long": "isgeneral",
+          "Short": "f"
+        },
+        {
+          "Long": "isneedbp",
+          "Short": "g"
+        },
+        {
+          "Long": "import",
+          "Short": "h"
+        }
+      ],
+      "dailytask": [
+        {
+          "id": 53,
+          "showrule": "1.累计军典积分到达领奖需求即可领取军典奖励；<br/>2.军典积分将在本期军典结束后清零；<br/>3.购买进阶军典不计入首充和消费充值奖励；<br/>4.本期军典持续时间：2026年11月1日至2026年11月30日",
+          "stime": "20261101T000000",
+          "etime": "20261130T235959",
+          "shoutxt": "1.累计军典积分到达领奖需求即可领取军典奖励；<br/>2.军典积分将在本期军典结束后清零；<br/>3.购买进阶军典不计入首充和消费充值奖励；<br/>4.本期军典持续时间：2026年11月1日至2026年11月30日",
+          "usecoin": "0,10,20,30,40,50;10",
+          "reward": 146,
+          "exchange": 1101,
+          "pointup": 10,
+          "bangenerals": 1,
+          "usegenerals": 1,
+          "shownum": 3,
+          "desctext": "1、成长任务可刷新\n2、身份场额外选将框+1\n3、禁将方案数量+1\n4、每周额外1个周任务",
+          "xiangqing": "1、成长任务可刷新<br>\n2、身份模式额外选将框+1（叠加后最高为5）<br>\n3、禁将方案数量+1<br>\n4、禁将框数量+1（叠加后最高为6）<br>\n5、每周额外获得1个周任务<br>\n6、周任务与限时任务可使用银两刷新（刷新价格逐渐升高）",
+          "levelshow": 201,
+          "value": 42700
+        }
+      ],
+      "newbp": [
+        {
+          "id": 4,
+          "stime": "20261111T000001",
+          "etime": "20270203T235959",
+          "reward": 200,
+          "exchange": 1102,
+          "pointup": 10,
+          "bangenerals": 1,
+          "usegenerals": 1,
+          "characterid": 755,
+          "skinid": 75501,
+          "backgroundid": "bg",
+          "recharge": 1,
+          "showrule1": "购买说明：<br>1、购买豪华节钺道具后立即获得当期动态皮肤；达到相应等级即可领取对应奖励。<br><br>2、已购买豪华节钺道具的玩家，可再花费198元升级为至臻节钺道具。<br><br>3、豪华节钺道具购买金额计入充值返利活动。<br><br>碎片说明：<br>1、当期武将碎片可在当期赛季用于兑换当期新武将。<br><br>2、 赛季结束后，未使用的武将碎片将按1:1自动转换为节钺碎片（永久保留）。",
+          "showrule2": "购买说明：<br>1、可直接购买至臻节钺道具，也可先购买豪华节钺道具（68元）后再花费198元升级为至臻。<br><br>2、购买/升级至臻后立即获得海量额外奖励。<br><br>3、至臻节钺道具购买金额计入充值返利活动。<br><br>4、至臻节钺道具享有豪华节钺道具全部奖励及特权。<br><br>碎片说明：<br>1、当期武将碎片可在本赛季内用于兑换当期新武将。<br><br>2、 赛季结束后，未使用的武将碎片将按1:1自动转换为节钺碎片（永久保留）。",
+          "levelshow": 201,
+          "value": 163000,
+          "showrule3": "完成日常及周常任务即可获得大量节钺积分，节钺积分可用于提升节钺令等级。"
+        }
+      ],
+      "dailyreward": [
+        {
+          "a": 146,
+          "b": 1,
+          "c": 0,
+          "d": "100011,100",
+          "e": "100016,3000",
+          "h": 1
+        },
+        {
+          "a": 146,
+          "b": 2,
+          "c": 100,
+          "d": "111801,50"
+        },
+        {
+          "a": 146,
+          "b": 3,
+          "c": 200,
+          "d": "100301,2",
+          "e": "6192609,1",
+          "h": 1
+        },
+        {
+          "a": 146,
+          "b": 4,
+          "c": 300,
+          "d": "435401,1"
+        },
+        {
+          "a": 146,
+          "b": 5,
+          "c": 400,
+          "d": "112301,1",
+          "e": "100016,300",
+          "h": 1
+        }
+      ],
+      "newdailyreward": [
+        {
+          "a": 200,
+          "b": 11,
+          "c": 3000,
+          "d": "111801,100",
+          "e": "100301,10"
+        },
+        {
+          "a": 200,
+          "b": 12,
+          "c": 3300,
+          "d": "100011,200",
+          "e": "435401,1"
+        },
+        {
+          "a": 200,
+          "b": 13,
+          "c": 3600,
+          "d": "100011,200",
+          "e": "100201,5"
+        },
+        {
+          "a": 200,
+          "b": 14,
+          "c": 3900,
+          "d": "9020101,100",
+          "e": "9020101,300"
+        }
+      ]
+    }
+  },
+  "goods": {
+    "root": {
+      "abbreviation": {
+        "field": [
+          {
+            "Long": "ID",
+            "Short": "a"
+          },
+          {
+            "Long": "StackID",
+            "Short": "d"
+          },
+          {
+            "Long": "TypeID",
+            "Short": "e"
+          },
+          {
+            "Long": "name",
+            "Short": "b"
+          },
+          {
+            "Long": "shopvisual",
+            "Short": "f"
+          },
+          {
+            "Long": "period",
+            "Short": "g"
+          },
+          {
+            "Long": "undropType",
+            "Short": "h"
+          },
+          {
+            "Long": "countincorp",
+            "Short": "cc"
+          },
+          {
+            "Long": "shoptype",
+            "Short": "st"
+          },
+          {
+            "Long": "shoptype1",
+            "Short": "st1"
+          },
+          {
+            "Long": "shoptype2",
+            "Short": "st2"
+          },
+          {
+            "Long": "tongqian",
+            "Short": "i"
+          },
+          {
+            "Long": "yuanbao",
+            "Short": "j"
+          },
+          {
+            "Long": "shoprecom",
+            "Short": "sr"
+          },
+          {
+            "Long": "shophot",
+            "Short": "sh"
+          },
+          {
+            "Long": "shopnew",
+            "Short": "sn"
+          },
+          {
+            "Long": "shopdiscount",
+            "Short": "sd"
+          },
+          {
+            "Long": "sortindex",
+            "Short": "ba"
+          },
+          {
+            "Long": "ShopPosID",
+            "Short": "spi"
+          },
+          {
+            "Long": "PropPosID",
+            "Short": "k"
+          },
+          {
+            "Long": "returngoods",
+            "Short": "l"
+          },
+          {
+            "Long": "PicID",
+            "Short": "m"
+          },
+          {
+            "Long": "PicType",
+            "Short": "n"
+          },
+          {
+            "Long": "usedeffect",
+            "Short": "o"
+          },
+          {
+            "Long": "discount",
+            "Short": "p"
+          },
+          {
+            "Long": "expirydate",
+            "Short": "ex"
+          },
+          {
+            "Long": "activetype",
+            "Short": "at"
+          },
+          {
+            "Long": "timeincorp",
+            "Short": "tin"
+          },
+          {
+            "Long": "maxBuyCount",
+            "Short": "q"
+          },
+          {
+            "Long": "maxBuyNum",
+            "Short": "mbn"
+          },
+          {
+            "Long": "shoppresent",
+            "Short": "r"
+          },
+          {
+            "Long": "level",
+            "Short": "s"
+          },
+          {
+            "Long": "SoundID",
+            "Short": "soi"
+          },
+          {
+            "Long": "shopmaybuy",
+            "Short": "smb"
+          },
+          {
+            "Long": "sex",
+            "Short": "t"
+          },
+          {
+            "Long": "maxsellcount",
+            "Short": "u"
+          },
+          {
+            "Long": "clientControl",
+            "Short": "v"
+          },
+          {
+            "Long": "orignprice",
+            "Short": "w"
+          },
+          {
+            "Long": "SellTime",
+            "Short": "x"
+          },
+          {
+            "Long": "SecKillShowTime",
+            "Short": "y"
+          },
+          {
+            "Long": "sellmaxver",
+            "Short": "smv"
+          },
+          {
+            "Long": "pricetype",
+            "Short": "z"
+          },
+          {
+            "Long": "glory",
+            "Short": "aa"
+          },
+          {
+            "Long": "gouyu",
+            "Short": "ab"
+          },
+          {
+            "Long": "usingType",
+            "Short": "ac"
+          },
+          {
+            "Long": "shoptype3",
+            "Short": "st3"
+          },
+          {
+            "Long": "yuanbaoonly",
+            "Short": "ad"
+          },
+          {
+            "Long": "qualityType",
+            "Short": "ae"
+          },
+          {
+            "Long": "useLevel",
+            "Short": "af"
+          },
+          {
+            "Long": "toneType",
+            "Short": "ag"
+          },
+          {
+            "Long": "lotteryPrice",
+            "Short": "ah"
+          },
+          {
+            "Long": "guildselltype",
+            "Short": "ai"
+          },
+          {
+            "Long": "guild_min_level",
+            "Short": "gml"
+          },
+          {
+            "Long": "guild_min_job",
+            "Short": "gmj"
+          },
+          {
+            "Long": "mentor",
+            "Short": "aj"
+          },
+          {
+            "Long": "typeunique",
+            "Short": "tu"
+          },
+          {
+            "Long": "comfromgoods",
+            "Short": "cg"
+          },
+          {
+            "Long": "decomtogoods",
+            "Short": "dg"
+          },
+          {
+            "Long": "skinlevel",
+            "Short": "sl"
+          },
+          {
+            "Long": "CDSTime",
+            "Short": "sdst"
+          },
+          {
+            "Long": "comfromgoods1",
+            "Short": "cg1"
+          },
+          {
+            "Long": "decomtogoods1",
+            "Short": "dg1"
+          },
+          {
+            "Long": "fragment",
+            "Short": "ak"
+          },
+          {
+            "Long": "hideInTips",
+            "Short": "hit"
+          },
+          {
+            "Long": "desc",
+            "Short": "de"
+          },
+          {
+            "Long": "ProductID",
+            "Short": "pri"
+          },
+          {
+            "Long": "subgoods",
+            "Short": "sg"
+          },
+          {
+            "Long": "buyBigShow",
+            "Short": "bbs"
+          },
+          {
+            "Long": "pricelabel1",
+            "Short": "pl1"
+          },
+          {
+            "Long": "pricelabel2",
+            "Short": "pl2"
+          },
+          {
+            "Long": "server_id",
+            "Short": "c"
+          },
+          {
+            "Long": "propdelete",
+            "Short": "al"
+          },
+          {
+            "Long": "exchange",
+            "Short": "am"
+          }
+        ]
+      },
+      "goodslist": {
+        "goods": [
+          {
+            "a": 100011,
+            "b": "银两",
+            "d": 0,
+            "e": 100,
+            "g": 32140800,
+            "ba": 0,
+            "m": 65,
+            "o": "0",
+            "r": 2,
+            "ag": 0
+          },
+          {
+            "a": 100016,
+            "b": "元宝",
+            "d": 0,
+            "e": 100,
+            "g": 32140800,
+            "j": 1,
+            "ba": 0,
+            "m": 70,
+            "o": "0",
+            "q": "0;1",
+            "r": 2,
+            "ag": 3,
+            "localRes": 1
+          },
+          {
+            "a": 100201,
+            "b": "点将卡",
+            "d": 0,
+            "e": 1,
+            "f": 1,
+            "g": 86400,
+            "j": 100,
+            "ba": 90,
+            "k": 1,
+            "m": 100201,
+            "o": "0",
+            "r": 2,
+            "ag": 0,
+            "localRes": 1
+          },
+          {
+            "a": 100301,
+            "b": "手气卡",
+            "d": 0,
+            "e": 8,
+            "f": 1,
+            "g": 86400,
+            "j": 50,
+            "ba": 80,
+            "k": 1,
+            "m": 100301,
+            "o": "0",
+            "r": 2,
+            "ag": 0,
+            "localRes": 1
+          },
+          {
+            "a": 111801,
+            "b": "功勋",
+            "d": 0,
+            "e": 118,
+            "g": 86400,
+            "j": 10,
+            "ba": 6,
+            "k": 1,
+            "m": 111801,
+            "o": "5",
+            "r": 2,
+            "ag": 1
+          },
+          {
+            "a": 112301,
+            "b": "校尉将印",
+            "d": 0,
+            "e": 123,
+            "f": 3,
+            "g": 86400,
+            "j": 200,
+            "ba": 6,
+            "k": 1,
+            "m": 112301,
+            "o": "0",
+            "r": 2,
+            "v": 1,
+            "ag": 1,
+            "ak": 1
+          },
+          {
+            "a": 435401,
+            "b": "皮肤包",
+            "d": 0,
+            "e": 43,
+            "g": 604800,
+            "j": 500,
+            "ba": 797,
+            "k": 1,
+            "m": 435401,
+            "o": "63",
+            "r": 2,
+            "ag": 3
+          },
+          {
+            "a": 6192609,
+            "b": "烈烈如晖*界刘备",
+            "d": 1,
+            "e": 36,
+            "g": 315360000,
+            "j": 20000,
+            "ba": 347,
+            "k": 4,
+            "l": "0",
+            "m": 29914,
+            "o": "29914",
+            "ag": 3
+          },
+          {
+            "a": 9020101,
+            "b": "欢乐豆",
+            "d": 0,
+            "e": 42,
+            "g": 315360000,
+            "j": 1,
+            "ba": 0,
+            "k": 1,
+            "m": 9020101,
+            "o": "0",
+            "r": 2,
+            "ag": 0
+          },
+          {
+            "a": 12980401,
+            "b": "月卡每日福袋",
+            "d": 0,
+            "e": 43,
+            "g": 86400,
+            "j": 500,
+            "ba": 500,
+            "k": 1,
+            "m": 12980401,
+            "o": "12980401",
+            "r": 2,
+            "v": 8,
+            "ag": 2
+          },
+          {
+            "a": 953701,
+            "b": "互动保护（1次）",
+            "d": 0,
+            "e": 42,
+            "f": 2,
+            "g": 315360000,
+            "j": 50,
+            "ba": 501,
+            "k": 2,
+            "m": 953701,
+            "o": "0",
+            "r": 2,
+            "ag": 2
+          }
+        ]
+      }
+    }
+  }
+}

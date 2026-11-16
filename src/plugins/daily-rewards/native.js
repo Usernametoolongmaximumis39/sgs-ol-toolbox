@@ -7,6 +7,7 @@ import { managerSpecs as flipSpecs, planFreeFlip } from './free-flip.js';
 import { managerSpecs as freeWelfareSpecs, planFreeWelfare, prepareFreeWelfare } from './free-welfare.js';
 import { planMailClaims, confirmedMailAttempt } from './mail-claims.js';
 import { createMilitaryPopupGuard } from './military-popup.js';
+import { managerSpecs as exchangeSpecs } from './exchange-native.js';
 // Read only existing client objects. Never instantiate managers or load Xiaochao.
 const read = fn => { try { return fn(); } catch { return undefined; } };
 const live = object => object && object.destroyed !== true;
@@ -23,7 +24,7 @@ const guards = {
   TimerManager: value => read(() => value.ServerDate) instanceof Date,
   TianTiManager: value => typeof value.reqDailyReward === 'function',
 };
-for (const specs of [welfareSpecs, activitySpecs, codeSpecs, questSpecs, flipSpecs, freeWelfareSpecs]) for (const [name, spec] of Object.entries(specs)) {
+for (const specs of [welfareSpecs, activitySpecs, codeSpecs, questSpecs, flipSpecs, freeWelfareSpecs, exchangeSpecs]) for (const [name, spec] of Object.entries(specs)) {
   events[name] = [...new Set([...(events[name] || []), ...(spec.events || [])])];
   const previous = guards[name];
   guards[name] = value => Boolean(read(() => previous?.(value)) || read(() => spec.guard(value)));

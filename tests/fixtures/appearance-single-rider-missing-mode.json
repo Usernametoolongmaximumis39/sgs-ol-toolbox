@@ -1,0 +1,447 @@
+[
+  {
+    "type": "ClientEnterpageRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientEnterpageRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientEnterpageRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientTrainingRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 25,
+      "Datas": [
+        567,
+        720,
+        12
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 1,
+      "Datas": [
+        567,
+        720,
+        12,
+        7006
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 2,
+      "Datas": [
+        1
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 8,
+      "Datas": [
+        315
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 3,
+      "Datas": [
+        715
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 3,
+      "Datas": [
+        715
+      ]
+    }
+  },
+  {
+    "type": "SmsgGameSetCharacter",
+    "packet": {
+      "Infos": [
+        {
+          "SeatID": 0,
+          "CharacterID": 720
+        }
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 8,
+      "Datas": [
+        720
+      ]
+    }
+  },
+  {
+    "type": "SmsgGameSetCharacter",
+    "packet": {
+      "Infos": [
+        {
+          "SeatID": 0,
+          "CharacterID": 720
+        },
+        {
+          "SeatID": 1,
+          "CharacterID": 315
+        }
+      ]
+    }
+  },
+  {
+    "type": "GsCFirstPhaseRole",
+    "packet": {
+      "SeatID": 0
+    }
+  },
+  {
+    "type": "MsgGameOver",
+    "packet": {
+      "Result": 1,
+      "ModeType": 160,
+      "GoupID": 3,
+      "GameModel": 37,
+      "time": 49,
+      "Players": [
+        {
+          "SeatID": 0,
+          "Result": 0,
+          "Figure": 1,
+          "isRobot": false,
+          "isProjectRobot": null
+        },
+        {
+          "SeatID": 1,
+          "Result": 1,
+          "Figure": 4,
+          "isRobot": true,
+          "isProjectRobot": false
+        }
+      ]
+    }
+  },
+  {
+    "type": "ClientLeavetableRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientEnterpageRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientEnterpageRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientEnterpageRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientEnterpageRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientEnterpageRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientTrainingRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 25,
+      "Datas": [
+        644,
+        498,
+        7006
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 1,
+      "Datas": [
+        644,
+        498,
+        7006,
+        690
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 2,
+      "Datas": [
+        1
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 8,
+      "Datas": [
+        328
+      ]
+    }
+  },
+  {
+    "type": "SmsgGameSetCharacter",
+    "packet": {
+      "Infos": [
+        {
+          "SeatID": 0,
+          "CharacterID": 690
+        }
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 8,
+      "Datas": [
+        690
+      ]
+    }
+  },
+  {
+    "type": "SmsgGameSetCharacter",
+    "packet": {
+      "Infos": [
+        {
+          "SeatID": 0,
+          "CharacterID": 690
+        },
+        {
+          "SeatID": 1,
+          "CharacterID": 328
+        }
+      ]
+    }
+  },
+  {
+    "type": "GsCFirstPhaseRole",
+    "packet": {
+      "SeatID": 0
+    }
+  },
+  {
+    "type": "MsgGameOver",
+    "packet": {
+      "Result": 1,
+      "ModeType": 160,
+      "GoupID": 3,
+      "GameModel": 37,
+      "time": 28,
+      "Players": [
+        {
+          "SeatID": 0,
+          "Result": 0,
+          "Figure": 1,
+          "isRobot": false,
+          "isProjectRobot": null
+        },
+        {
+          "SeatID": 1,
+          "Result": 1,
+          "Figure": 4,
+          "isRobot": true,
+          "isProjectRobot": false
+        }
+      ]
+    }
+  },
+  {
+    "type": "ClientLeavetableRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientEnterpageRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientEnterpageRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 25,
+      "Datas": [
+        374,
+        393,
+        498
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 1,
+      "Datas": [
+        374,
+        393,
+        498,
+        709,
+        437
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 2,
+      "Datas": [
+        1
+      ]
+    }
+  },
+  {
+    "type": "SmsgGameSetCharacter",
+    "packet": {
+      "Infos": [
+        {
+          "SeatID": 0,
+          "CharacterID": 709
+        }
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 8,
+      "Datas": [
+        709
+      ]
+    }
+  },
+  {
+    "type": "MsgGameDealCharacter",
+    "packet": {
+      "Type": 8,
+      "Datas": [
+        740
+      ]
+    }
+  },
+  {
+    "type": "SmsgGameSetCharacter",
+    "packet": {
+      "Infos": [
+        {
+          "SeatID": 0,
+          "CharacterID": 709
+        },
+        {
+          "SeatID": 1,
+          "CharacterID": 740
+        }
+      ]
+    }
+  },
+  {
+    "type": "GsCFirstPhaseRole",
+    "packet": {
+      "SeatID": 1
+    }
+  },
+  {
+    "type": "MsgGameOver",
+    "packet": {
+      "Result": 3,
+      "ModeType": 160,
+      "GoupID": 2,
+      "GameModel": 37,
+      "time": 142,
+      "Players": [
+        {
+          "SeatID": 0,
+          "Result": 0,
+          "Figure": 4,
+          "isRobot": false,
+          "isProjectRobot": null
+        },
+        {
+          "SeatID": 1,
+          "Result": 1,
+          "Figure": 1,
+          "isRobot": false,
+          "isProjectRobot": null
+        }
+      ]
+    }
+  },
+  {
+    "type": "ClientLeavetableRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientEnterpageRep",
+    "packet": {
+      "Result": 1
+    }
+  },
+  {
+    "type": "ClientEnterpageRep",
+    "packet": {
+      "Result": 1
+    }
+  }
+]

@@ -1,13 +1,12 @@
 import { findSkinDetail, watchSkinDetail } from '../../shared/skin-detail.js';
-import { CONTROL_STYLES } from '../../ui/controls.js';
 
 export const manifest = {
-  id: 'backgrounds', name: '自定义背景', version: '0.2.3', apiVersion: 1, contractVersion: 1,
-  minCoreVersion: '0.6.18', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
+  id: 'backgrounds', name: '自定义背景', version: '0.2.5', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "精简背景设置说明，统一开关与帮助提示的外观，保留已有背景和动态播放选择。", minCoreVersion: '0.6.37', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
   icon: { paths: ['M3 4h18v16H3Z', 'M3 16 9 10l4 4 3-3 5 5', 'M16 7h1'] },
   description: '将皮肤原画或动态用作牌局背景，保留天气与武将技能背景',
 };
-const STYLES = `${CONTROL_STYLES}
+const STYLES = `
 [data-sgs-backgrounds]{color:var(--sgs-text);font:12px/1.6 "Microsoft YaHei",sans-serif}
 [data-sgs-backgrounds] button{appearance:none;border:1px solid var(--sgs-border);border-radius:7px;background:var(--sgs-surface);color:var(--sgs-text);padding:6px 12px;cursor:pointer;font:inherit}
 [data-sgs-backgrounds] button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}
@@ -124,7 +123,7 @@ export function activate(ctx) {
     const segments = element('div', '', 'sgs-segments'); segments.setAttribute('role', 'group'); segments.setAttribute('aria-label', '背景播放');
     const dynamic = element('button', '动态'), still = element('button', '静态');
     dynamic.type = still.type = 'button'; segments.append(dynamic, still); mode.append(segments);
-    const hint = element('p', '默认播放皮肤动态，无需拥有皮肤或解锁动态；没有动态时显示原画。仅横版或 16:9 原画可选，技能背景保持优先。', 'bg-note');
+    const hint = ctx.ui.helpTip('默认播放皮肤动态，无需拥有皮肤或解锁动态；没有动态时显示原画。仅横版或 16:9 原画可选，技能背景保持优先。');
     const capability = element('p', '', 'bg-note');
     const reset = element('button', '恢复游戏背景'); reset.type = 'button';
     const update = () => {

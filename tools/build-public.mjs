@@ -4,10 +4,12 @@ import { bundleCore, userscriptHeader } from './distribution-build.mjs';
 import { CORE_VERSION } from '../src/core/version.js';
 import { pluginReleases, bundlePlugin, makePluginPackage } from './plugin-packages.mjs';
 import { TOOLBOX_ICON } from '../src/ui/plugin-icons.js';
+import { validateRepositoryPlugins } from './plugin-validation.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const edition = process.argv[2];
 if (edition && !['full', 'lite'].includes(edition)) throw new Error('Public builds support full/lite only');
+await validateRepositoryPlugins({ root });
 const packages = [];
 if (edition !== 'lite') for (const spec of pluginReleases) {
   const pkg = await makePluginPackage(await bundlePlugin(spec.id, { root })); packages.push(pkg);

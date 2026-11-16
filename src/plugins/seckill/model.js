@@ -7,7 +7,7 @@ export const ITEMS = [
 ];
 export const normalize = text => String(text ?? '').replace(/[\s\u00a0]+/g, '').toLowerCase();
 export function cleanConfig(value = {}) {
-  return { enabled: value.enabled === true, items: Object.fromEntries(ITEMS.map(([id]) => [id, value.items?.[id] === true])),
+  return { enabled: value.enabled === true, items: Object.fromEntries(ITEMS.map(([id]) => [id, (value.items?.[id] ?? ['gongxun', 'pifubao'].includes(id)) === true])),
     custom: [...new Map((Array.isArray(value.custom) ? value.custom : []).filter(s => typeof s === 'string').map(s => s.trim().slice(0, 24)).filter(Boolean).map(s => [normalize(s), s])).values()].slice(0, 20) };
 }
 export function keywords(config) { return [...ITEMS.filter(([id]) => config.items[id]).map(([, , kw]) => kw), ...config.custom]; }

@@ -1,5 +1,5 @@
+import { singleRiderShopVisible } from '../../shared/native-shop.js';
 import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
-import { CONTROL_STYLES, styleSwitch } from '../../ui/controls.js';
 import { initialState, reduce, observedHandCandidates, handCandidates, zoneKey, metadata, sortCards, queryCards, deckComposition, ZONE_NAMES, REFERENCE, seatLabel } from './model.js';
 import { createNativeEnhancements, roundInfoBounds } from './native.js';
 
@@ -48,7 +48,7 @@ const STYLES = `
 .sgs-card-seat-reveal .sgs-card-mini{height:54px;pointer-events:auto}.sgs-card-seat-reveal .sgs-card-mini:hover{transform:translateY(-5px);z-index:1}
 .sgs-card-possible-count,.sgs-card-overflow{font-size:10px;color:var(--sgs-muted,#b7aa8c);padding:2px}
 .sgs-card-source-label{background:var(--sgs-bg,#201e1a);border:1px solid var(--sgs-border,#665b42);border-radius:3px;padding:1px 4px;font-size:10px;max-width:90px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-${CONTROL_STYLES}
+
 .sgs-card-setting-grid{grid-template-columns:1fr;gap:0;margin:4px 0 0}.sgs-card-setting{justify-content:space-between;gap:12px;min-height:37px;padding:7px 2px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent);font-size:12px;cursor:pointer}.sgs-card-setting:last-child{border:0}.sgs-card-setting span{min-width:0;color:var(--sgs-text,#eee3cc)}.sgs-card-settings{padding:0 10px;margin-top:10px;border-radius:9px;background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-accent,#dbba70) 5%,transparent),#00000018);border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 40%,transparent)}.sgs-cards .sgs-fold>summary{padding:10px 0}.sgs-cards .sgs-segments{flex-wrap:nowrap;gap:2px}.sgs-cards .sgs-segments>button{border:0;background:transparent;font-size:11px;border-radius:5px;padding:4px 6px;color:var(--sgs-muted,#b7aa8c)}.sgs-cards .sgs-segments>button.is-active,.sgs-cards .sgs-segments>button[aria-pressed=true]{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent);color:var(--sgs-accent,#dbba70)}.sgs-cards select.sgs-select{padding:5px 27px 5px 9px;background-color:var(--sgs-bg,#201e1a);border-color:color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);font-size:11px}.sgs-card-section{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 45%,transparent)}.sgs-card-composition th,.sgs-card-composition td{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent)}.sgs-card-hud .sgs-card-hud-recent{background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-raised,#383327) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions{gap:3px;padding:2px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);border-radius:7px;background:linear-gradient(color-mix(in srgb,var(--sgs-surface,#2c2922) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions>button{border:0;background:transparent;padding:0 3px;font-size:14px;color:var(--sgs-muted,#b7aa8c)}.sgs-card-hud-actions>button[aria-expanded=true]{color:var(--sgs-accent,#dbba70);background:color-mix(in srgb,var(--sgs-accent,#dbba70) 10%,transparent);box-shadow:inset 0 -1px color-mix(in srgb,var(--sgs-accent,#dbba70) 50%,transparent)}.sgs-card-hud-list{border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:0 8px 24px #0004}
 @media(prefers-reduced-motion:no-preference){.sgs-cards button{transition:background 140ms,border-color 140ms}}
 `;
@@ -129,6 +129,7 @@ export function activate(ctx) {
   overlayHost.dataset.sgsCardsOverlay = 'true';
   overlayHost.dataset.sgsToolbox = 'cards';
   const shadow = overlayHost.attachShadow({ mode: 'open' });
+  ctx.ui.mountStyles(shadow);
   const overlayStyle = element('style'); overlayStyle.textContent = STYLES;
   const overlay = element('div', 'sgs-cards sgs-cards-overlay');
   shadow.append(overlayStyle, overlay);
@@ -137,7 +138,7 @@ export function activate(ctx) {
   hud.setAttribute('aria-label', '卡牌快捷查看');
   function positionHud() {
     if (disposed) return;
-    if (!currentState().active || !['recent', 'deck', 'discard'].some(key => setting(key))) { hud.hidden = true; return; }
+    if (singleRiderShopVisible(window, ctx.game) || !currentState().active || !['recent', 'deck', 'discard'].some(key => setting(key))) { hud.hidden = true; return; }
     let scene;
     try { scene = ctx.game.getScene?.(); } catch { /* Scene may be changing. */ }
     const bounds = roundInfoBounds(window, scene);
@@ -200,8 +201,9 @@ export function activate(ctx) {
     for (const [key, button] of Object.entries(hudButtons)) button.setAttribute('aria-expanded', String(key === shownList));
     hudList.hidden = !shownList;
     if (shownList) {
-      const caption = { top: '牌堆顶 · 最顶在左', bottom: '牌堆底 · 最底在左', discard: `本回合弃牌 · ${discardMode === 'time' ? '新的在右' : { suit: '花色顺序', type: '类型顺序', number: '点数顺序' }[discardMode]}` }[shownList];
-      const cards = element('div'); cardList(cards, listIds(state, shownList));
+      const caption = { top: '牌堆顶 · 最顶在左', bottom: '牌堆底 · 最底在右', discard: `本回合弃牌 · ${discardMode === 'time' ? '新的在右' : { suit: '花色顺序', type: '类型顺序', number: '点数顺序' }[discardMode]}` }[shownList];
+      const ids = listIds(state, shownList);
+      const cards = element('div'); cardList(cards, shownList === 'bottom' ? ids.slice().reverse() : ids);
       hudList.replaceChildren(element('p', 'sgs-card-hud-caption', caption));
       if (shownList === 'discard') {
         const controls = element('div', 'sgs-card-controls sgs-segments');
@@ -265,7 +267,7 @@ export function activate(ctx) {
     const inputs = [];
     for (const [key, title, fallback] of SETTINGS) {
       const label = element('label', 'sgs-card-setting');
-      const input = element('input'); input.type = 'checkbox'; styleSwitch(input); input.checked = setting(key, fallback); input.dataset.setting = key;
+      const input = element('input'); input.type = 'checkbox'; ctx.ui.styleSwitch(input); input.checked = setting(key, fallback); input.dataset.setting = key;
       input.addEventListener('change', () => { settings.set(key, input.checked); refresh(); });
       label.append(element('span', '', title), input); settingsGrid.append(label); inputs.push([key, fallback, input]);
     }
@@ -296,7 +298,7 @@ export function activate(ctx) {
     queryForm.append(nameSelect);
     const queryResults = element('div'), queryCount = element('p', 'sgs-card-muted');
     function updateQuery() {
-      if (!currentState().active || !querySection.open) { queryResults.replaceChildren(); return; }
+      if (singleRiderShopVisible(window, ctx.game) || !currentState().active || !querySection.open) { queryResults.replaceChildren(); return; }
       const names = deckComposition({ ...currentState(), deckIds: Object.keys(currentState().cards).map(Number) }, 'name', getMeta).rows.map(row => row.key);
       const rank = name => { const index = QUERY_PRIORITY.indexOf(name); return index < 0 ? QUERY_PRIORITY.length : index; };
       names.sort((a, b) => Number(pinnedDeckRows.has('name:' + b)) - Number(pinnedDeckRows.has('name:' + a)) ||
@@ -441,8 +443,8 @@ export function activate(ctx) {
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.58', apiVersion: 1, contractVersion: 1,
-    minCoreVersion: '0.5.76', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.62', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "补充司契、劼力展示牌堆信息的记录，调整牌堆顺序提示；单骑商店打开时收起相关悬浮信息，减少遮挡。", minCoreVersion: '0.6.37', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
     description: '记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数' },
   initialState, reduce, activate,
 };

@@ -14,6 +14,10 @@ const CONSERVATIVE = new Set(CONSERVATIVE_SKILLS);
 // Official client SkillId.ZUIFENG / OPT_SKILL_FLAG1. See docs/醉锋明牌协议核查.md.
 // Other skills also use Params for choices; they are not card observations.
 const ZUIFENG = 4025, OPT_SKILL_FLAG1 = 28;
+const SIQI = 3543, JIELI = 3483;
+const orderedSiqiMove = data => Number(data.SpellID) === SIQI &&
+  (Number(data.ToZone) === 1 && Number(data.ToPosition) === POSITION.bottom && Number(data.CardCount) === 1 ||
+   Number(data.FromZone) === 1 && Number(data.FromPosition) === POSITION.bottom);
 const EVENT_TYPES = new Set([
   'toolbox:snapshot', 'toolbox:gap', 'MsgGamePlayCardNtf', 'PubGsCMoveCard',
   'PubGsCUseCard', 'PubGsCUseSpell', 'MsgGameTurnNtf', 'GsCGamephaseNtf',
@@ -225,7 +229,7 @@ function inferIds(state, payload, source, supplied, count, position) {
     if (skill === 0xf0e && Number(payload.MoveType) === 18 && Number(payload.ToZone) === 5 && count === 1 && shown?.turn === state.turn) correlated = [shown.id];
   }
   if (supplied.length === count) return supplied;
-  if (CONSERVATIVE.has(skill)) return [];
+  if (CONSERVATIVE.has(skill) && !orderedSiqiMove(payload)) return [];
   if (correlated?.length === count) return correlated;
   if (skill === 0xdb7 && source.kind === 2 && Number(payload.ToZone) === 5 && state.pending.gainedDiscard?.length === count) {
     const ids = state.pending.gainedDiscard;
@@ -280,7 +284,7 @@ function move(state, data, seq) {
     if (skill === 0xec0 && target.kind === 10 && count === 3 || skill === 0xc1d && target.kind === 5 && count === 1) position = POSITION.bottom;
     if ([0x1b68, 0x1b69].includes(skill) && !state.mode.flags.includes('guozhan') && target.kind === 5 && count === 1) position = POSITION.top;
   }
-  if (CONSERVATIVE.has(skill) && !supplied.length) {
+  if (CONSERVATIVE.has(skill) && !supplied.length && !orderedSiqiMove(data)) {
     note(state, `skill:${skill}`, `技能 ${skill} 的隐藏移牌仅保留可能归属`, seq);
     source.top = []; source.bottom = [];
     destination = POSITION.unknown;
@@ -391,6 +395,32 @@ function revealZhitianTop(state, data, seq) {
   target.top = values.slice();
   target.bottom = target.bottom.filter(id => !values.includes(id));
   target.count = Math.max(target.count, values.length);
+}
+
+function revealSkillPile(state, data, seq) {
+  if (int(data.Type) !== OPT_SKILL_FLAG1) return;
+  const values = data.Params;
+  const validIds = ids => ids.length > 0 && ids.every(id => Number.isInteger(id) && id > 0 && id < 0xffff) && new Set(ids).size === ids.length;
+  let ids, side;
+  if (int(data.SpellID) === SIQI) {
+    // SiQi.OutsideCards reads only the revealed bottom cards from Params.
+    if (!Array.isArray(values) || values.length > 3 || !validIds(values)) return;
+    ids = values; side = 'bottom';
+  } else if (int(data.SpellID) === JIELI) {
+    // GuanXuWindow.SetCardIds: [pileCount, handCount, ...pile, ...hand].
+    if (!Array.isArray(values)) return;
+    const [pileCount, handCount] = values;
+    if (!Number.isInteger(pileCount) || pileCount < 1 || pileCount > 32 ||
+        !Number.isInteger(handCount) || handCount < 0 || handCount > 200 ||
+        values.length !== 2 + pileCount + handCount) return;
+    ids = values.slice(2, 2 + pileCount); side = 'top';
+    if (!validIds(ids)) return;
+  } else return;
+  const target = zone(state, zoneKey(1)), other = side === 'top' ? 'bottom' : 'top';
+  for (const id of ids) locate(state, id, target.key, seq);
+  target[side] = ids.slice();
+  target[other] = target[other].filter(id => !ids.includes(id));
+  target.count = Math.max(target.count, ids.length);
 }
 
 // The native protocol classes use getters over Protocol/ProtoObj while forks
@@ -519,6 +549,7 @@ export function reduce(previous, event) {
     }
     case 'GsCRoleOptTargetNtf':
       revealSkillHand(state, data, seq);
+      revealSkillPile(state, data, seq);
       if (CONSERVATIVE.has(Number(data.SpellID))) note(state, `skill:${data.SpellID}`, `技能 ${data.SpellID} 的隐藏移牌仅保留可能归属`, seq);
       break;
     case 'CGsRoleSpellOptRep':

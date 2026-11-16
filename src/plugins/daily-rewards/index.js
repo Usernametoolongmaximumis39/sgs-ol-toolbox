@@ -1,18 +1,32 @@
 import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
-import { CONTROL_STYLES, controlIcon } from '../../ui/controls.js';
 import { createNativeAdapter } from './native.js';
 import { createRewardsController, rewardCategoryNames } from './controller.js';
 import { createCodeSources } from './code-sources.js';
 import { rewardExclusions } from './exclusions.js';
+import { createExchangeController } from './exchange.js';
+import { createExchangeAdapter } from './exchange-native.js';
+import { createExchangeUI } from './exchange-ui.js';
 
 
 export default {
-  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.18', apiVersion: 1, contractVersion: 1,
-    minCoreVersion: '0.6.3', categories: ['automation'], icon: PLUGIN_ICONS['daily-rewards'], priority: 20000,
+  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.26', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "补全斗地主与单骑连胜奖励领取，避免同一宝箱重复请求；优化奖励说明和状态显示。自动领取仍默认关闭，兑换可能消耗欢乐豆，共享兑换码仍需单独开启且只上传游戏明确成功的码及账号摘要。", minCoreVersion: '0.6.38', categories: ['automation'], icon: PLUGIN_ICONS['daily-rewards'], priority: 20000,
     description: '自动领取签到、任务、邮件与活动奖励，按账号记录' },
   activate(ctx) {
     const debug = ctx.window.__SGS_TOOLBOX_DEMO__?.onlyPlugin === 'daily-rewards';
-    const controller = createRewardsController({ adapter: createNativeAdapter(ctx), settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window, { core: ctx.core }), debug });
+    const native = createNativeAdapter(ctx);
+    const controller = createRewardsController({ adapter: native, settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window, { core: ctx.core }), debug });
+    const exchangeAdapter = createExchangeAdapter(ctx, native);
+    const exchange = createExchangeController({ adapter: exchangeAdapter, settings: ctx.settings, enabled: () => controller.snapshot().config.automatic });
+    const exchangeUI = createExchangeUI(ctx, exchange, exchangeAdapter);
+    const exchangeTick = () => {
+      exchangeAdapter.bind(reply => { if (reply) exchange.reply(reply.id, reply.result); else exchange.tick(); });
+      exchange.tick();
+      // Request only after the account/day transition has invalidated the snapshot.
+      if (exchangeAdapter.account() && ctx.settings.get(`account:${exchangeAdapter.account()}:shop-exchange`, {}).selected?.length) exchangeAdapter.refresh();
+      exchangeUI.refresh();
+    };
+    ctx.scope.interval(exchangeTick, 250); ctx.scope.add(() => exchange.stop());
     ctx.ui.registerPanel({ id: 'main', title: '日常领奖', category: 'automation', priority: 32768, render(container) {
       const doc = ctx.document;
       const el = (tag, text, className) => { const node = doc.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
@@ -46,7 +60,7 @@ export default {
         [data-daily-rewards] .reward-status{font-size:11px;line-height:1.5;margin:7px 0 0;overflow-wrap:anywhere}
         [data-daily-rewards] details{font-size:12px;margin-top:8px}
         [data-daily-rewards] [data-rewards-log]{max-height:120px;overflow:auto}
-        ${CONTROL_STYLES}
+        
         [data-daily-rewards] .reward-heading{padding-bottom:6px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 45%,transparent);margin-bottom:6px}[data-daily-rewards] .reward-heading h3{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--sgs-accent)}
         [data-daily-rewards] .reward-rail{width:30px;height:18px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg) 80%,#000),var(--sgs-surface));box-shadow:inset 0 1px 3px #0006;border-color:color-mix(in srgb,var(--sgs-border) 65%,transparent)}[data-daily-rewards] .reward-rail:after{top:3px;left:3px;width:10px;height:10px;background:linear-gradient(color-mix(in srgb,var(--sgs-muted) 85%,var(--sgs-text)),color-mix(in srgb,var(--sgs-muted) 65%,var(--sgs-bg)));box-shadow:0 1px 2px #0008}[data-daily-rewards] [aria-checked=true] .reward-rail{background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 35%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 17%,var(--sgs-surface)));border-color:color-mix(in srgb,var(--sgs-accent) 65%,transparent)}[data-daily-rewards] [aria-checked=true] .reward-rail:after{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 45%,var(--sgs-text)),var(--sgs-accent))}
         [data-daily-rewards] .reward-card{position:relative;border:1px solid color-mix(in srgb,var(--sgs-border) 40%,transparent);border-radius:8px;padding:6px 8px;min-height:34px;background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-accent) 7%,transparent),color-mix(in srgb,var(--sgs-surface) 20%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 4%,transparent)}[data-daily-rewards] .reward-card:before{content:'';position:absolute;left:0;top:10px;bottom:10px;width:2px;border-radius:2px;background:var(--sgs-accent);opacity:.7}[data-daily-rewards] .reward-card .reward-name{font-size:11px;white-space:nowrap}[data-daily-rewards] .reward-card .reward-mark{font-size:9px;font-weight:400;white-space:nowrap}[data-daily-rewards] .reward-card.is-excluded{filter:none;background:#0002;border-color:color-mix(in srgb,var(--sgs-border) 25%,transparent)}[data-daily-rewards] .reward-card.is-excluded:before{background:var(--sgs-muted);opacity:.25}[data-daily-rewards] .reward-card.is-excluded .reward-name{opacity:.65}
@@ -61,14 +75,14 @@ export default {
         button.setAttribute('aria-label', accessibleLabel);
         if (!exclusion) button.setAttribute('role', 'switch');
         if (switchRail) { const rail = el('span', undefined, 'reward-rail'); rail.setAttribute('aria-hidden', 'true'); button.append(rail); }
-        if (['codes', 'clipboardCodes', 'shareCodes'].includes(key)) button.append(controlIcon(doc, ({ codes: 'gift', clipboardCodes: 'clipboard', shareCodes: 'share' })[key]));
+        if (['codes', 'clipboardCodes', 'shareCodes'].includes(key)) button.append(ctx.ui.icon(({ codes: 'gift', clipboardCodes: 'clipboard', shareCodes: 'share' })[key]));
         const name = el('span', label, 'reward-name'); button.append(name);
         if (exclusion) { const mark = el('span', '领取', 'reward-mark'); mark.setAttribute('aria-hidden', 'true'); button.append(mark); }
         button.addEventListener('click', () => controller.options({ [key]: !controller.snapshot().config[key] })); inputs[key] = button;
         return button;
       };
       const heading = el('div', undefined, 'reward-heading'); heading.append(el('h3', '自动领取'), option('automatic', '已关闭', { switchRail: true, accessibleLabel: '自动领取' }));
-      heading.querySelector('h3').prepend(controlIcon(doc, PLUGIN_ICONS['daily-rewards']));
+      heading.querySelector('h3').prepend(ctx.ui.icon(PLUGIN_ICONS['daily-rewards']));
       const excluded = el('div'); excluded.dataset.rewardExclusions = ''; excluded.setAttribute('role', 'group'); excluded.setAttribute('aria-label', '点按排除不领取的奖励');
       excluded.append(...rewardExclusions.map(([key, name]) => option(key, name, { exclusion: true, accessibleLabel: `不领取${name}` })));
       excluded.append(option('mail', '邮件', { exclusion: true, inverted: true, accessibleLabel: '不领取邮件' }), option('autoFlip', '免费翻翻', { exclusion: true, inverted: true, accessibleLabel: '不自动免费翻翻' }));
@@ -111,7 +125,10 @@ export default {
       };
       controller.refresh(); render(controller.snapshot());
       const off = controller.subscribe(render);
-      return () => { off(); root.remove(); };
+      const exchangeStatus = el('p', '', 'muted reward-status'); root.append(exchangeStatus);
+      const updateExchange = () => { exchangeStatus.textContent = exchange.view().status; };
+      updateExchange(); const timer = ctx.window.setInterval(updateExchange, 250);
+      return () => { ctx.window.clearInterval(timer); off(); root.remove(); };
     } });
   },
 };

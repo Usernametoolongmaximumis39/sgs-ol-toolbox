@@ -1,3 +1,5 @@
+import { validReleaseNotes } from '../shared/plugin-release-notes.js';
+
 const PACKAGE_FORMAT = 'sgs-toolbox-plugin-v1';
 const ID = /^[a-z][a-z0-9._-]{0,95}$/;
 const VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
@@ -25,6 +27,7 @@ function validIdentity(value) {
 function validEntry(entry) {
   return validIdentity(entry) && typeof entry.name === 'string' && entry.name.trim().length > 0
     && typeof entry.description === 'string' && typeof entry.packageUrl === 'string'
+    && validReleaseNotes(entry.releaseNotes)
     && typeof entry.sha256 === 'string' && DIGEST.test(entry.sha256);
 }
 
@@ -134,6 +137,7 @@ export class MarketClient {
     const pkg = await this.requestJson(this.resolvePackageUrl(entry.packageUrl));
     if (!isObject(pkg) || pkg.format !== PACKAGE_FORMAT || !validIdentity(pkg.manifest)
       || typeof pkg.manifest.name !== 'string' || !pkg.manifest.name.trim()
+      || !validReleaseNotes(pkg.manifest.releaseNotes)
       || !Number.isInteger(pkg.manifest.apiVersion) || pkg.manifest.apiVersion < 1
       || !Array.isArray(pkg.manifest.categories) || pkg.manifest.categories.some((v) => typeof v !== 'string')
       || typeof pkg.code !== 'string' || !pkg.code.trim()
@@ -145,6 +149,9 @@ export class MarketClient {
     }
     if (pkg.sha256.toLowerCase() !== entry.sha256.toLowerCase()) {
       throw new MarketError('CATALOG_DIGEST_MISMATCH', '插件包摘要与目录不一致，请刷新市场目录后重试。');
+    }
+    if (entry.releaseNotes !== undefined && entry.releaseNotes !== pkg.manifest.releaseNotes) {
+      throw new MarketError('RELEASE_NOTES_MISMATCH', '插件更新内容与目录不一致，请刷新市场目录后重试。');
     }
     return pkg;
   }

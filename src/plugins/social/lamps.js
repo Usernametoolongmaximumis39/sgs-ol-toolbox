@@ -1,0 +1,108 @@
+import { account, read, manager, observeNative, generalNames } from '../../shared/info-runtime.js';
+import { userId } from './model.js';
+
+export function projectLamp(packet) {
+  const p = packet?.Protocol ?? packet;
+  if (p?.Type !== 1 || typeof p.Nickname !== 'string' || !Array.isArray(p.GeneralIDList) || p.GeneralIDList.length > 10000) return null;
+  if (p.GeneralIDList.some(g => !Number.isSafeInteger(g?.ID) || g.ID <= 0 || !Number.isFinite(g.EndTime) || !Number.isFinite(g.GoodsID))) return null;
+  return { name: p.Nickname, end: p.IsEnd === true || p.IsEnd === 1,
+    ids: p.GeneralIDList.filter(g => g.EndTime <= 0 && g.GoodsID > 0).map(g => g.ID) };
+}
+
+export function createLampBanner(ctx) {
+  let root;
+  const theme = () => {
+    const t = ctx.themes?.current?.tokens;
+    if (root && t) { root.style.background = t.surface; root.style.color = t.text; root.style.borderColor = t.border; }
+  };
+  if (ctx.themes?.subscribe) ctx.scope.add(ctx.themes.subscribe(theme));
+  const position = () => {
+    if (!root) return;
+    const r = (ctx.document.querySelector('#layaCanvas') || ctx.document.querySelector('canvas'))?.getBoundingClientRect();
+    const width = Math.max(0, Math.min((r?.width || ctx.window.innerWidth) - 16, ctx.window.innerWidth - 16, 460));
+    root.style.width = width + 'px';
+    root.style.left = Math.max(8, Math.min((r?.left || 0) + ((r?.width || ctx.window.innerWidth) - width) / 2, ctx.window.innerWidth - width - 8)) + 'px';
+    root.style.top = Math.max(8, (r?.top || 0) + 12) + 'px';
+  };
+  function clear() { root?.remove(); root = null; }
+  ctx.scope.add(clear); ctx.scope.interval(position, 500);
+  return { clear, show(name, names) {
+    if (!ctx.document.body || ctx.scope.signal.aborted) return;
+    if (!root) {
+      root = ctx.document.createElement('section'); root.dataset.socialLamps = ''; root.setAttribute('aria-label', '置顶好友新增武将');
+      root.style.cssText = 'position:fixed;z-index:2147483601;box-sizing:border-box;padding:12px 16px;border:1px solid var(--sgs-border,#695b3d);border-radius:10px;background:var(--sgs-surface,#202426);color:var(--sgs-text,#eee4ce);box-shadow:0 5px 18px #0005;font:14px/1.7 sans-serif;max-height:40vh;overflow:auto;overflow-wrap:anywhere';
+      ctx.document.body.append(root);
+    }
+    const row = ctx.document.createElement('div'), text = ctx.document.createElement('span'), close = ctx.document.createElement('button');
+    row.style.cssText = 'display:flex;align-items:flex-start;gap:12px;padding:4px 0'; row.setAttribute('role', 'status');
+    text.textContent = `你的置顶好友[${name}]氪了[${names.length}]个武将：${names.join('、')}`;
+    close.type = 'button'; close.textContent = '×'; close.setAttribute('aria-label', '关闭这条武将提醒'); close.title = '关闭这条提醒';
+    close.style.cssText = 'flex:0 0 28px;min-height:28px;border:0;border-radius:5px;background:transparent;color:inherit;font:22px sans-serif;cursor:pointer';
+    close.onclick = () => { row.remove(); if (!root?.children.length) clear(); };
+    row.append(text, close); root.append(row); theme(); position();
+  } };
+}
+
+export function createLampTracking(ctx, friends) {
+  const banner = createLampBanner(ctx);
+  let owner = '', snapshots = {}, pending = null, due = new Map(), names = {}, loading = false, retryNames = 0, readable = true;
+  const current = () => userId(account(ctx).id);
+  function sync() {
+    const next = current();
+    if (next !== owner) { owner = next; snapshots = {}; pending = null; due.clear(); banner.clear(); readable = true;
+      if (owner) { try { const saved = ctx.storage.get('lamps:' + owner); if (saved?.version === 1 && saved.friends && typeof saved.friends === 'object' && !Array.isArray(saved.friends)) {
+        for (const [id, entry] of Object.entries(saved.friends)) if (userId(id) === id && Array.isArray(entry?.ids) && entry.ids.length <= 10000 && entry.ids.every(n => Number.isSafeInteger(n) && n > 0)) snapshots[id] = entry;
+      } } catch (e) { readable = false; ctx.reportError?.(e); } }
+    }
+  }
+  function consume(_, p) {
+    sync(); const task = pending, data = friends.getRecord();
+    if (!task || current() !== owner || task.owner !== owner || p.name !== task.name || !data.pins.includes(task.id) || data.friends[task.id]?.name !== task.name) return;
+    p.ids.forEach(id => task.ids.add(id));
+    if (task.ids.size > 10000) { pending = null; return; }
+    if (!p.end) return;
+    pending = null;
+    const ids = [...task.ids].sort((a,b) => a-b), old = snapshots[task.id];
+    const added = Array.isArray(old?.ids) ? ids.filter(id => !old.ids.includes(id)) : [];
+    // Missing names must not consume a change before its full name is available.
+    if (added.some(id => !names[id])) { due.set(task.id, Date.now() + 660000); ctx.reportError?.('新增武将名称暂不可读，保留上次将灯记录，稍后重试'); return; }
+    const next = { ...snapshots, [task.id]: { name: task.name, ids,
+      names: Object.fromEntries(ids.filter(id => names[id] || old?.names?.[id]).map(id => [id, names[id] || old.names[id]])), at: Date.now() } };
+    try { ctx.storage.set('lamps:' + owner, { version: 1, friends: next }); snapshots = next; }
+    catch (e) { ctx.reportError?.(e); return; }
+    if (added.length) banner.show(task.name, added.map(id => names[id]));
+  }
+  observeNative(ctx, { ClientSelfbuygeneralRep: projectLamp }, consume, () => { pending = null; });
+  function tick() {
+    sync(); if (!owner || !readable) return;
+    if (!Object.keys(names).length) {
+      names = generalNames(read(() => ctx.game.getConfigData('character')));
+      if (!Object.keys(names).length && !loading && Date.now() >= retryNames && ctx.game.loadConfigData) {
+        loading = true; retryNames = Date.now() + 10000;
+        Promise.resolve().then(() => ctx.game.loadConfigData('character')).then(c => { if (!ctx.scope.signal.aborted) names = generalNames(c); }, () => {}).finally(() => { loading = false; });
+      }
+    }
+    const data = friends.getRecord();
+    if (pending && (!data.pins.includes(pending.id) || data.friends[pending.id]?.name !== pending.name)) pending = null;
+    if (pending && Date.now() - pending.at < 30000) return;
+    pending = null;
+    const id = data.pins.find(id => data.friends[id]?.name && Date.now() >= (due.get(id) || 0));
+    if (!id) return;
+    const m = manager(ctx, 'GeneralManager', 'ClientSelfbuygeneralRep', m => typeof m.ReqOtherbuygeneral === 'function');
+    if (!m) return;
+    pending = { owner, id, name: data.friends[id].name, ids: new Set(), at: Date.now() };
+    due.set(id, Date.now() + 660000);
+    try { m.ReqOtherbuygeneral(pending.name); } catch (e) { pending = null; ctx.reportError?.(e); }
+  }
+  ctx.scope.add(() => { pending = null; snapshots = {}; due.clear(); });
+  ctx.scope.interval(tick, 1000); tick();
+  return { tick, getRecords() {
+    sync();
+    const data = friends.getRecord();
+    return structuredClone(Object.fromEntries(Object.entries(snapshots).map(([id, entry]) => [id, {
+      name: data.friends[id]?.name || entry.name,
+      pinned: data.pins.includes(id), queriedAt: entry.at,
+      generals: entry.ids.map(generalId => ({ id: generalId, name: names[generalId] || entry.names?.[generalId] || null })),
+    }])));
+  } };
+}

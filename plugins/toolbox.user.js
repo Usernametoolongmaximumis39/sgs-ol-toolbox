@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.31
+// @version      0.6.45
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  完整版：工具箱核心与全部插件
@@ -68,10 +68,111 @@
   }
 
   // src/core/distribution.js
-  var EDITION = "full", GITHUB_MARKET_URL = "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/plugins", OSS_MARKET_URL = "https://tools.3gs.xyz/sgs-toolbox/market";
+  var EDITION = "full";
+  var GITHUB_MARKET_URL = "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/plugins", OSS_MARKET_URL = "https://tools.3gs.xyz/sgs-toolbox/market";
+
+  // src/core/micro-compatibility.js
+  function installMicroAPIs(win) {
+    for (let proto of [win.Element.prototype, win.DocumentFragment.prototype, win.Document.prototype]) proto.replaceChildren || Object.defineProperty(proto, "replaceChildren", { configurable: !0, writable: !0, value(...nodes) {
+      for (; this.firstChild; ) this.removeChild(this.firstChild);
+      this.append(...nodes);
+    } });
+    if (win.Object.hasOwn || Object.defineProperty(win.Object, "hasOwn", { value: (o, k) => win.Object.prototype.hasOwnProperty.call(o, k), configurable: !0, writable: !0 }), win.Array.prototype.at || Object.defineProperty(win.Array.prototype, "at", { value(index) {
+      let n = Math.trunc(Number(index) || 0), i = n < 0 ? this.length + n : n;
+      return i < 0 || i >= this.length ? void 0 : this[i];
+    }, configurable: !0, writable: !0 }), win.structuredClone || (win.structuredClone = (value) => {
+      let seen = new win.Map(), clone = (v) => {
+        if (typeof v == "function" || typeof v == "symbol" || v instanceof win.Node) throw new win.DOMException("Value cannot be cloned", "DataCloneError");
+        if (v === null || typeof v != "object") return v;
+        if (seen.has(v)) return seen.get(v);
+        let out;
+        if (v instanceof win.Date ? out = new win.Date(v) : v instanceof win.RegExp ? out = new win.RegExp(v.source, v.flags) : v instanceof win.ArrayBuffer ? out = v.slice(0) : win.ArrayBuffer.isView(v) ? out = v instanceof win.DataView ? new win.DataView(clone(v.buffer), v.byteOffset, v.byteLength) : new v.constructor(clone(v.buffer), v.byteOffset, v.length) : out = Array.isArray(v) ? [] : v instanceof win.Map ? new win.Map() : v instanceof win.Set ? new win.Set() : {}, seen.set(v, out), v instanceof win.Map) for (let [k, item] of v) out.set(clone(k), clone(item));
+        else if (v instanceof win.Set) for (let item of v) out.add(clone(item));
+        else if (Array.isArray(v) || Object.getPrototypeOf(v) === win.Object.prototype || Object.getPrototypeOf(v) === null) for (let k of Object.keys(v)) Object.defineProperty(out, k, { value: clone(v[k]), enumerable: !0, configurable: !0, writable: !0 });
+        return out;
+      };
+      return clone(value);
+    }), !win.HTMLElement.prototype.showPopover) {
+      let matches = win.Element.prototype.matches;
+      win.Element.prototype.matches = function(selector) {
+        return selector === ":popover-open" ? this.hasAttribute("data-micro-popover-open") : matches.call(this, selector);
+      }, win.HTMLElement.prototype.showPopover = function() {
+        this.setAttribute("data-micro-popover-open", "");
+      }, win.HTMLElement.prototype.hidePopover = function() {
+        this.removeAttribute("data-micro-popover-open");
+      };
+    }
+  }
+  function splitArguments(text2) {
+    let parts = [], depth = 0, start = 0;
+    for (let i = 0; i < text2.length; i++)
+      text2[i] === "(" ? depth++ : text2[i] === ")" ? depth-- : text2[i] === "," && !depth && (parts.push(text2.slice(start, i).trim()), start = i + 1);
+    return parts.push(text2.slice(start).trim()), parts;
+  }
+  function replaceFunction(text2, name, replace) {
+    let start = text2.indexOf(name + "(");
+    for (; start >= 0; ) {
+      let end = start + name.length + 1, depth = 1;
+      for (; end < text2.length && depth; end++)
+        text2[end] === "(" ? depth++ : text2[end] === ")" && depth--;
+      if (depth) break;
+      let result = replace(text2.slice(start + name.length + 1, end - 1));
+      text2 = text2.slice(0, start) + result + text2.slice(end), start = text2.indexOf(name + "(", start + result.length);
+    }
+    return text2;
+  }
+  function legacyMicroCSS(css, variable, pixel) {
+    let color2 = (text2) => pixel(replaceFunction(text2, "var", (body) => {
+      let [name, fallback] = splitArguments(body);
+      return variable(name) || fallback || "#000";
+    }));
+    return css = replaceFunction(css, "color-mix", (body) => {
+      let [space, a, b] = splitArguments(body);
+      if (space !== "in srgb" || !a || !b) return "transparent";
+      let parse2 = (text2) => {
+        let match = text2.match(/\s+([\d.]+)%$/);
+        return { rgba: color2(match ? text2.slice(0, match.index) : text2), weight: match ? Number(match[1]) / 100 : null };
+      }, x = parse2(a), y = parse2(b), p = x.weight ?? (y.weight === null ? 0.5 : 1 - y.weight), q = y.weight ?? 1 - p, alpha = x.rgba[3] / 255 * p + y.rgba[3] / 255 * q;
+      return `rgba(${[0, 1, 2].map((i) => alpha ? Math.round((x.rgba[i] * x.rgba[3] / 255 * p + y.rgba[i] * y.rgba[3] / 255 * q) / alpha) : 0).join(",")},${alpha})`;
+    }), css.replace(/:focus-visible/g, ":focus").replace(/overflow:\s*clip/g, "overflow:hidden").replace(/\binset:\s*([^;}]+)/g, (_, value) => {
+      let v = value.trim().split(/\s+/);
+      return `top:${v[0]};right:${v[1] || v[0]};bottom:${v[2] || v[0]};left:${v[3] || v[1] || v[0]}`;
+    });
+  }
+  function installMicroCompatibility(win, scope) {
+    if (installMicroAPIs(win), win.CSS?.supports("color", "color-mix(in srgb,black,white)")) return;
+    let doc = win.document, watched = /* @__PURE__ */ new Map(), canvas = doc.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    let context = canvas.getContext("2d"), pixel = (value) => (context.clearRect(0, 0, 1, 1), context.fillStyle = "transparent", context.fillStyle = value, context.fillRect(0, 0, 1, 1), context.getImageData(0, 0, 1, 1).data), update = (host) => {
+      let root = host.shadowRoot, record = watched.get(host);
+      if (!root || !record || !host.isConnected) return;
+      let computed = win.getComputedStyle(host), css = [...root.querySelectorAll("style")].filter((el) => el !== record.style).map((el) => el.textContent).join(`
+`), output = legacyMicroCSS(css, (name) => computed.getPropertyValue(name).trim(), pixel) + `
+[popover]:not([data-micro-popover-open]){display:none!important}[popover][data-micro-popover-open]{display:block;z-index:2147483647}`;
+      record.style.textContent !== output && (record.style.textContent = output);
+    }, discover = () => {
+      for (let [host, record] of watched) host.isConnected || (record.observer.disconnect(), record.style.remove(), watched.delete(host));
+      for (let host of doc.querySelectorAll("[data-sgs-toolbox]")) {
+        if (!host.shadowRoot || watched.has(host)) continue;
+        let style2 = doc.createElement("style");
+        style2.dataset.microFallback = "", host.shadowRoot.append(style2);
+        let queued = !1, observer = new win.MutationObserver((records) => {
+          records.every((r) => r.target === style2 || r.target.parentNode === style2) || queued || (queued = !0, Promise.resolve().then(() => {
+            queued = !1, scope.closed || update(host);
+          }));
+        });
+        observer.observe(host, { attributes: !0, attributeFilter: ["style", "data-theme-scheme"] }), observer.observe(host.shadowRoot, { childList: !0, characterData: !0, subtree: !0 }), watched.set(host, { style: style2, observer }), update(host);
+      }
+    };
+    discover(), scope.interval(discover, 250), scope.add(() => {
+      for (let { style: style2, observer } of watched.values())
+        observer.disconnect(), style2.remove();
+      watched.clear();
+    });
+  }
 
   // src/core/bundled-plugins.js
-  var bundledPackages = [{ format: "sgs-toolbox-plugin-v1", manifest: { id: "social", name: "\u597D\u53CB\u4E0E\u804A\u5929", version: "0.1.6", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.13", description: "\u539F\u751F\u597D\u53CB\u7F6E\u9876\u3001\u597D\u53CB\u6539\u540D\u63D0\u9192\u3001\u516C\u5C4F\u4E00\u952E\u8FDB\u623F\u4E0E\u804A\u5929\u5B98\u9636\u8865\u5168", icon: { paths: ["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", "M2 21v-3a6 6 0 0 1 12 0v3", "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"] }, priority: 30300, categories: ["tools"] }, code: `var SGSPlugin = (() => {
+  var bundledPackages = [{ format: "sgs-toolbox-plugin-v1", manifest: { id: "social", name: "\u597D\u53CB\u4E0E\u804A\u5929", version: "0.1.12", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u7F6E\u9876\u597D\u53CB\u5C06\u706F\u53D8\u5316\u63D0\u9192\u4E0E\u5DF2\u62E5\u6709\u6B66\u5C06\u8BB0\u5F55\uFF0C\u53EF\u5BFC\u51FA\u5F53\u524D\u8D26\u53F7\u8BB0\u5F55\uFF1B\u804A\u5929\u5B98\u9636\u67E5\u8BE2\u548C\u597D\u53CB\u754C\u9762\u663E\u793A\u66F4\u6E05\u6670\u3002\u5C06\u706F\u53D8\u5316\u4E0D\u4EE3\u8868\u4ED8\u8D39\u5224\u65AD\uFF0C\u9996\u6B21\u8BFB\u53D6\u4EC5\u5EFA\u7ACB\u57FA\u51C6\u3002", minCoreVersion: "0.6.37", description: "\u597D\u53CB\u7F6E\u9876\u3001\u6539\u540D\u4E0E\u5C06\u706F\u65B0\u589E\u63D0\u9192\u3001\u516C\u5C4F\u4E00\u952E\u8FDB\u623F\u4E0E\u804A\u5929\u5B98\u9636\u8865\u5168", icon: { paths: ["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", "M2 21v-3a6 6 0 0 1 12 0v3", "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"] }, priority: 30300, categories: ["tools"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -125,6 +226,82 @@
     const handlers = read(() => ctx.game.getServerProxy()._events[event]);
     for (const handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) if (valid(read(() => handler.caller))) return handler.caller;
     return null;
+  }
+  function observeNative(ctx, project, consume, gap = () => {
+  }) {
+    let bound = null, releases = [], queue = [], scheduled = false, overflow = false;
+    const caller = {};
+    const flush = () => {
+      scheduled = false;
+      if (ctx.scope.signal.aborted) return;
+      const batch = queue;
+      queue = [];
+      if (overflow) {
+        overflow = false;
+        gap();
+        return;
+      }
+      for (const item of batch) {
+        if (item.account.id && item.account.id === account(ctx).id) {
+          try {
+            consume(item.type, item.data, item.account);
+          } catch {
+            gap();
+          }
+        }
+      }
+    };
+    const enqueue = (type, packet) => {
+      try {
+        const data = project[type](packet);
+        if (data == null) return;
+        if (queue.length >= 256) {
+          overflow = true;
+          queue = [];
+        }
+        if (!overflow) queue.push({ type, data, account: account(ctx) });
+      } catch {
+        overflow = true;
+        queue = [];
+      }
+      if (!scheduled) {
+        scheduled = true;
+        ctx.scope.timeout(flush, 0);
+      }
+    };
+    function bind() {
+      const proxy = read(() => ctx.game.getServerProxy());
+      if (proxy === bound) return;
+      for (const release of releases) release();
+      releases = [];
+      if (bound) {
+        queue = [];
+        gap();
+      }
+      bound = proxy;
+      if (typeof read(() => proxy.on) !== "function" || typeof read(() => proxy.off) !== "function") return;
+      for (const type of Object.keys(project)) {
+        const handler = (packet) => enqueue(type, packet);
+        proxy.on(type, caller, handler);
+        releases.push(ctx.scope.add(() => proxy.off(type, caller, handler)));
+      }
+    }
+    bind();
+    ctx.scope.interval(bind, 500);
+    ctx.scope.add(() => {
+      queue = [];
+      for (const release of releases) release();
+      releases = [];
+      bound = null;
+    });
+  }
+  function generalNames(config) {
+    const names = {};
+    for (const row of config?.GameCharacters?.character || []) {
+      const id = Number(row.id ?? row.a), name = row.name ?? row.b;
+      if (id > 0 && name) names[id] = String((row.name_prefix ?? row.ai ?? "") + name);
+    }
+    return names;
   }
   function downloadJSON(ctx, filename, value) {
     const url = ctx.window.URL.createObjectURL(new ctx.window.Blob([JSON.stringify(value, null, 2)], { type: "application/json" }));
@@ -629,7 +806,10 @@
     }
   }
   function roomNumbers(text) {
-    return [...new Set([...String(text || "").matchAll(/(?:^|[^\\d])(\\d{1,5})(?!\\d)/g)].map((match) => match[1]).filter((value) => Number(value) > 0))].slice(0, 8);
+    const raw = decodeHTML(String(text || ""));
+    if (raw.includes("*&.!**.%#") || raw.includes("*&.!.%#")) return [];
+    const plain = raw.replace(/<(a|font)\\b[^>]*\\bhref\\s*=\\s*(['"])[\\s\\S]*?\\2[^>]*>[\\s\\S]*?<\\/\\1\\s*>/gi, " ").replace(/<[^>]*>/g, " ").replace(/(?:[a-z][a-z\\d+.-]*:\\/\\/|www\\.)[^\\s<>"'\uFF0C\u3002\uFF01\uFF1F\uFF1B\u3001]+/gi, " ");
+    return [...new Set([...plain.matchAll(/(?:^|[^\\d])(\\d{1,5})(?!\\d)/g)].map((match) => match[1]).filter((value) => Number(value) > 0))].slice(0, 8);
   }
   function roomTableId(room, mode, group) {
     if (!/^\\d{1,5}$/.test(String(room)) || Number(room) < 1 || !Number.isInteger(mode) || mode < 1 || mode > 999 || !Number.isInteger(group) || group < 1 || group > 999) return null;
@@ -1132,72 +1312,241 @@
     return { tick, dispose, requestEnterRoom, getDiagnostics: () => ({ ...diagnostics }) };
   }
 
+  // src/plugins/social/lamps.js
+  function projectLamp(packet) {
+    const p = packet?.Protocol ?? packet;
+    if (p?.Type !== 1 || typeof p.Nickname !== "string" || !Array.isArray(p.GeneralIDList) || p.GeneralIDList.length > 1e4) return null;
+    if (p.GeneralIDList.some((g) => !Number.isSafeInteger(g?.ID) || g.ID <= 0 || !Number.isFinite(g.EndTime) || !Number.isFinite(g.GoodsID))) return null;
+    return {
+      name: p.Nickname,
+      end: p.IsEnd === true || p.IsEnd === 1,
+      ids: p.GeneralIDList.filter((g) => g.EndTime <= 0 && g.GoodsID > 0).map((g) => g.ID)
+    };
+  }
+  function createLampBanner(ctx) {
+    let root;
+    const theme = () => {
+      const t = ctx.themes?.current?.tokens;
+      if (root && t) {
+        root.style.background = t.surface;
+        root.style.color = t.text;
+        root.style.borderColor = t.border;
+      }
+    };
+    if (ctx.themes?.subscribe) ctx.scope.add(ctx.themes.subscribe(theme));
+    const position = () => {
+      if (!root) return;
+      const r = (ctx.document.querySelector("#layaCanvas") || ctx.document.querySelector("canvas"))?.getBoundingClientRect();
+      const width = Math.max(0, Math.min((r?.width || ctx.window.innerWidth) - 16, ctx.window.innerWidth - 16, 460));
+      root.style.width = width + "px";
+      root.style.left = Math.max(8, Math.min((r?.left || 0) + ((r?.width || ctx.window.innerWidth) - width) / 2, ctx.window.innerWidth - width - 8)) + "px";
+      root.style.top = Math.max(8, (r?.top || 0) + 12) + "px";
+    };
+    function clear() {
+      root?.remove();
+      root = null;
+    }
+    ctx.scope.add(clear);
+    ctx.scope.interval(position, 500);
+    return { clear, show(name, names) {
+      if (!ctx.document.body || ctx.scope.signal.aborted) return;
+      if (!root) {
+        root = ctx.document.createElement("section");
+        root.dataset.socialLamps = "";
+        root.setAttribute("aria-label", "\\u7F6E\\u9876\\u597D\\u53CB\\u65B0\\u589E\\u6B66\\u5C06");
+        root.style.cssText = "position:fixed;z-index:2147483601;box-sizing:border-box;padding:12px 16px;border:1px solid var(--sgs-border,#695b3d);border-radius:10px;background:var(--sgs-surface,#202426);color:var(--sgs-text,#eee4ce);box-shadow:0 5px 18px #0005;font:14px/1.7 sans-serif;max-height:40vh;overflow:auto;overflow-wrap:anywhere";
+        ctx.document.body.append(root);
+      }
+      const row = ctx.document.createElement("div"), text = ctx.document.createElement("span"), close = ctx.document.createElement("button");
+      row.style.cssText = "display:flex;align-items:flex-start;gap:12px;padding:4px 0";
+      row.setAttribute("role", "status");
+      text.textContent = \`\\u4F60\\u7684\\u7F6E\\u9876\\u597D\\u53CB[\${name}]\\u6C2A\\u4E86[\${names.length}]\\u4E2A\\u6B66\\u5C06\\uFF1A\${names.join("\\u3001")}\`;
+      close.type = "button";
+      close.textContent = "\\xD7";
+      close.setAttribute("aria-label", "\\u5173\\u95ED\\u8FD9\\u6761\\u6B66\\u5C06\\u63D0\\u9192");
+      close.title = "\\u5173\\u95ED\\u8FD9\\u6761\\u63D0\\u9192";
+      close.style.cssText = "flex:0 0 28px;min-height:28px;border:0;border-radius:5px;background:transparent;color:inherit;font:22px sans-serif;cursor:pointer";
+      close.onclick = () => {
+        row.remove();
+        if (!root?.children.length) clear();
+      };
+      row.append(text, close);
+      root.append(row);
+      theme();
+      position();
+    } };
+  }
+  function createLampTracking(ctx, friends) {
+    const banner = createLampBanner(ctx);
+    let owner = "", snapshots = {}, pending = null, due = /* @__PURE__ */ new Map(), names = {}, loading = false, retryNames = 0, readable = true;
+    const current = () => userId(account(ctx).id);
+    function sync() {
+      const next = current();
+      if (next !== owner) {
+        owner = next;
+        snapshots = {};
+        pending = null;
+        due.clear();
+        banner.clear();
+        readable = true;
+        if (owner) {
+          try {
+            const saved = ctx.storage.get("lamps:" + owner);
+            if (saved?.version === 1 && saved.friends && typeof saved.friends === "object" && !Array.isArray(saved.friends)) {
+              for (const [id, entry] of Object.entries(saved.friends)) if (userId(id) === id && Array.isArray(entry?.ids) && entry.ids.length <= 1e4 && entry.ids.every((n) => Number.isSafeInteger(n) && n > 0)) snapshots[id] = entry;
+            }
+          } catch (e) {
+            readable = false;
+            ctx.reportError?.(e);
+          }
+        }
+      }
+    }
+    function consume(_, p) {
+      sync();
+      const task = pending, data = friends.getRecord();
+      if (!task || current() !== owner || task.owner !== owner || p.name !== task.name || !data.pins.includes(task.id) || data.friends[task.id]?.name !== task.name) return;
+      p.ids.forEach((id) => task.ids.add(id));
+      if (task.ids.size > 1e4) {
+        pending = null;
+        return;
+      }
+      if (!p.end) return;
+      pending = null;
+      const ids = [...task.ids].sort((a, b) => a - b), old = snapshots[task.id];
+      const added = Array.isArray(old?.ids) ? ids.filter((id) => !old.ids.includes(id)) : [];
+      if (added.some((id) => !names[id])) {
+        due.set(task.id, Date.now() + 66e4);
+        ctx.reportError?.("\\u65B0\\u589E\\u6B66\\u5C06\\u540D\\u79F0\\u6682\\u4E0D\\u53EF\\u8BFB\\uFF0C\\u4FDD\\u7559\\u4E0A\\u6B21\\u5C06\\u706F\\u8BB0\\u5F55\\uFF0C\\u7A0D\\u540E\\u91CD\\u8BD5");
+        return;
+      }
+      const next = { ...snapshots, [task.id]: {
+        name: task.name,
+        ids,
+        names: Object.fromEntries(ids.filter((id) => names[id] || old?.names?.[id]).map((id) => [id, names[id] || old.names[id]])),
+        at: Date.now()
+      } };
+      try {
+        ctx.storage.set("lamps:" + owner, { version: 1, friends: next });
+        snapshots = next;
+      } catch (e) {
+        ctx.reportError?.(e);
+        return;
+      }
+      if (added.length) banner.show(task.name, added.map((id) => names[id]));
+    }
+    observeNative(ctx, { ClientSelfbuygeneralRep: projectLamp }, consume, () => {
+      pending = null;
+    });
+    function tick() {
+      sync();
+      if (!owner || !readable) return;
+      if (!Object.keys(names).length) {
+        names = generalNames(read(() => ctx.game.getConfigData("character")));
+        if (!Object.keys(names).length && !loading && Date.now() >= retryNames && ctx.game.loadConfigData) {
+          loading = true;
+          retryNames = Date.now() + 1e4;
+          Promise.resolve().then(() => ctx.game.loadConfigData("character")).then((c) => {
+            if (!ctx.scope.signal.aborted) names = generalNames(c);
+          }, () => {
+          }).finally(() => {
+            loading = false;
+          });
+        }
+      }
+      const data = friends.getRecord();
+      if (pending && (!data.pins.includes(pending.id) || data.friends[pending.id]?.name !== pending.name)) pending = null;
+      if (pending && Date.now() - pending.at < 3e4) return;
+      pending = null;
+      const id = data.pins.find((id2) => data.friends[id2]?.name && Date.now() >= (due.get(id2) || 0));
+      if (!id) return;
+      const m = manager(ctx, "GeneralManager", "ClientSelfbuygeneralRep", (m2) => typeof m2.ReqOtherbuygeneral === "function");
+      if (!m) return;
+      pending = { owner, id, name: data.friends[id].name, ids: /* @__PURE__ */ new Set(), at: Date.now() };
+      due.set(id, Date.now() + 66e4);
+      try {
+        m.ReqOtherbuygeneral(pending.name);
+      } catch (e) {
+        pending = null;
+        ctx.reportError?.(e);
+      }
+    }
+    ctx.scope.add(() => {
+      pending = null;
+      snapshots = {};
+      due.clear();
+    });
+    ctx.scope.interval(tick, 1e3);
+    tick();
+    return { tick, getRecords() {
+      sync();
+      const data = friends.getRecord();
+      return structuredClone(Object.fromEntries(Object.entries(snapshots).map(([id, entry]) => [id, {
+        name: data.friends[id]?.name || entry.name,
+        pinned: data.pins.includes(id),
+        queriedAt: entry.at,
+        generals: entry.ids.map((generalId) => ({ id: generalId, name: names[generalId] || entry.names?.[generalId] || null }))
+      }])));
+    } };
+  }
+
   // src/plugins/social/index.js
   var manifest = {
     id: "social",
     name: "\\u597D\\u53CB\\u4E0E\\u804A\\u5929",
-    version: "0.1.6",
+    version: "0.1.12",
     apiVersion: 1,
     contractVersion: 1,
-    minCoreVersion: "0.5.13",
-    description: "\\u539F\\u751F\\u597D\\u53CB\\u7F6E\\u9876\\u3001\\u597D\\u53CB\\u6539\\u540D\\u63D0\\u9192\\u3001\\u516C\\u5C4F\\u4E00\\u952E\\u8FDB\\u623F\\u4E0E\\u804A\\u5929\\u5B98\\u9636\\u8865\\u5168",
+    releaseNotes: "\\u65B0\\u589E\\u7F6E\\u9876\\u597D\\u53CB\\u5C06\\u706F\\u53D8\\u5316\\u63D0\\u9192\\u4E0E\\u5DF2\\u62E5\\u6709\\u6B66\\u5C06\\u8BB0\\u5F55\\uFF0C\\u53EF\\u5BFC\\u51FA\\u5F53\\u524D\\u8D26\\u53F7\\u8BB0\\u5F55\\uFF1B\\u804A\\u5929\\u5B98\\u9636\\u67E5\\u8BE2\\u548C\\u597D\\u53CB\\u754C\\u9762\\u663E\\u793A\\u66F4\\u6E05\\u6670\\u3002\\u5C06\\u706F\\u53D8\\u5316\\u4E0D\\u4EE3\\u8868\\u4ED8\\u8D39\\u5224\\u65AD\\uFF0C\\u9996\\u6B21\\u8BFB\\u53D6\\u4EC5\\u5EFA\\u7ACB\\u57FA\\u51C6\\u3002",
+    minCoreVersion: "0.6.37",
+    description: "\\u597D\\u53CB\\u7F6E\\u9876\\u3001\\u6539\\u540D\\u4E0E\\u5C06\\u706F\\u65B0\\u589E\\u63D0\\u9192\\u3001\\u516C\\u5C4F\\u4E00\\u952E\\u8FDB\\u623F\\u4E0E\\u804A\\u5929\\u5B98\\u9636\\u8865\\u5168",
     icon: { paths: ["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", "M2 21v-3a6 6 0 0 1 12 0v3", "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"] },
     priority: 30300,
     categories: ["tools"]
   };
   function activate(ctx) {
     const friends = createFriendManagement(ctx);
-    const chat = createChatEnhancements(ctx);
+    const lamps = createLampTracking(ctx, friends);
+    createChatEnhancements(ctx);
     ctx.ui.registerPanel({ id: "history", category: "tools", render(container) {
-      return renderHistory(ctx, container, friends, chat);
+      return renderHistory(ctx, container, friends, lamps);
     } });
   }
-  function renderHistory(ctx, container, friends, chat) {
+  function renderHistory(ctx, container, friends, lamps) {
     const local = new ResourceScope(), doc = ctx.document;
     const root = doc.createElement("section");
     root.className = "sgs-social";
     const style = doc.createElement("style");
     style.textContent = \`.sgs-social{color:var(--sgs-text);font:12px/1.65 var(--sgs-font,sans-serif);min-width:0}.sgs-social p{margin:0 0 10px;overflow-wrap:anywhere}.sgs-social .social-muted{color:var(--sgs-muted)}.sgs-social button{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:5px 10px;border:1px solid var(--sgs-border);border-radius:7px;background:var(--sgs-raised);color:var(--sgs-text);font:inherit;cursor:pointer}.sgs-social button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}.sgs-social button:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}.sgs-social button:disabled{opacity:.45;cursor:not-allowed}.sgs-social button svg{width:15px;height:15px}.sgs-social ol{list-style:none;padding:0;margin:12px 0;max-height:260px;overflow:auto}.sgs-social li{padding:8px 0;border-top:1px solid var(--sgs-border);overflow-wrap:anywhere}.sgs-social li small{display:block;color:var(--sgs-muted)}.sgs-social li strong{color:var(--sgs-accent);font-weight:500}\`;
-    const intro = doc.createElement("p");
-    intro.className = "social-muted";
-    intro.textContent = "\\u5728\\u6E38\\u620F\\u597D\\u53CB\\u83DC\\u5355\\u4E2D\\u7F6E\\u9876\\u6216\\u53D6\\u6D88\\u7F6E\\u9876\\u3002\\u6BCF\\u5206\\u949F\\u4FDD\\u5B58\\u597D\\u53CB\\u6635\\u79F0\\uFF1B\\u53D1\\u73B0\\u53D8\\u5316\\u53EA\\u63D0\\u9192\\u4E00\\u6B21\\uFF0C\\u8BB0\\u5F55\\u4FDD\\u7559\\u5728\\u672C\\u673A\\u3002";
+    const intro = ctx.ui.helpTip("\\u5728\\u6E38\\u620F\\u597D\\u53CB\\u83DC\\u5355\\u4E2D\\u7F6E\\u9876\\u6216\\u53D6\\u6D88\\u7F6E\\u9876\\u3002\\u6BCF\\u5206\\u949F\\u4FDD\\u5B58\\u597D\\u53CB\\u6635\\u79F0\\uFF1B\\u81EA\\u52A8\\u67E5\\u8BE2\\u7F6E\\u9876\\u597D\\u53CB\\u5C06\\u706F\\uFF0C\\u7EA611\\u5206\\u949F\\u590D\\u67E5\\uFF0C\\u9996\\u6B21\\u5EFA\\u7ACB\\u57FA\\u51C6\\u3002\\u65B0\\u589E\\u6C38\\u4E45\\u62E5\\u6709\\u7684\\u6B66\\u5C06\\u5728\\u6E38\\u620F\\u4E0A\\u90E8\\u63D0\\u9192\\uFF0C\\u70B9\\u51FB\\u53C9\\u5173\\u95ED\\u3002\\u5C06\\u706F\\u4E0D\\u80FD\\u5224\\u65AD\\u662F\\u5426\\u4ED8\\u8D39\\uFF1B\\u8BB0\\u5F55\\u4EC5\\u5B58\\u672C\\u673A\\uFF0C\\u6309\\u8D26\\u53F7\\u9694\\u79BB\\u3002");
     const status = doc.createElement("p");
     status.dataset.socialStatus = "";
     status.setAttribute("role", "status");
     const button = doc.createElement("button");
     button.type = "button";
     button.dataset.socialExport = "";
-    button.textContent = "\\u5BFC\\u51FA\\u597D\\u53CB\\u4E0E\\u6539\\u540D\\u8BB0\\u5F55";
-    button.title = "\\u4EC5\\u4E0B\\u8F7D\\u5F53\\u524D\\u8D26\\u53F7\\u7684\\u672C\\u673A\\u597D\\u53CB\\u5FEB\\u7167\\u3001\\u7F6E\\u9876\\u540D\\u5355\\u548C\\u6539\\u540D\\u8BB0\\u5F55";
+    button.textContent = "\\u5BFC\\u51FA\\u597D\\u53CB\\u8BB0\\u5F55";
+    button.title = "\\u4E0B\\u8F7D\\u5F53\\u524D\\u8D26\\u53F7\\u597D\\u53CB\\u3001\\u6539\\u540D\\u8BB0\\u5F55\\u53CA\\u6240\\u6709\\u5DF2\\u4FDD\\u5B58\\u7684\\u6B66\\u5C06\\u540D\\u5355\\uFF1B\\u53D6\\u6D88\\u7F6E\\u9876\\u4E0D\\u5220\\u9664\\u6B66\\u5C06\\u8BB0\\u5F55";
     const history = doc.createElement("ol");
     history.dataset.socialHistory = "";
     history.setAttribute("aria-label", "\\u53EF\\u80FD\\u6539\\u540D\\u7684\\u597D\\u53CB");
     const empty = doc.createElement("p");
     empty.className = "social-muted";
-    const chatStatus = doc.createElement("p");
-    chatStatus.className = "social-muted";
-    chatStatus.dataset.socialChatStatus = "";
-    chatStatus.hidden = !chat;
-    const chatExport = doc.createElement("button");
-    chatExport.type = "button";
-    chatExport.dataset.socialChatExport = "";
-    chatExport.textContent = "\\u5BFC\\u51FA\\u804A\\u5929\\u8BCA\\u65AD";
-    chatExport.hidden = !chat;
     const error = doc.createElement("p");
     error.style.color = "var(--sgs-danger)";
     error.setAttribute("role", "alert");
-    root.append(style, intro, status, error, button, history, empty, chatStatus, chatExport);
+    root.append(style, status, error, button, intro, history, empty);
     container.append(root);
     let stamp;
     function render() {
-      const data = friends.getRecord(), diag = chat?.getDiagnostics?.(), next = JSON.stringify([data, diag]);
+      const data = friends.getRecord(), next = JSON.stringify(data);
       if (stamp === next) return;
       stamp = next;
-      if (diag) chatStatus.textContent = \`\\u804A\\u5929 \${diag.rows || 0} \\u884C \\xB7 \\u7528\\u6237\\u94FE\\u63A5 \${diag.links || 0} \\xB7 \\u6709\\u5B98\\u9636\\u8D44\\u6599 \${diag.profiles || 0} \\xB7 \\u663E\\u793A\\u56FE\\u6807 \${diag.inserted || 0}\\u3002\\u539F\\u751F\\u5B98\\u9636\\u670D\\u52A1\${diag.nativeOfficer ? "\\u5DF2\\u63A5\\u5165" : "\\u672A\\u63A5\\u5165"}\\uFF0C\\u914D\\u7F6E\${diag.config ? "\\u5DF2\\u5C31\\u7EEA" : "\\u672A\\u5C31\\u7EEA"}\\uFF0C\\u56FE\\u7247\\u52A0\\u8F7D\\u4E2D \${diag.loading || 0} / \\u5931\\u8D25 \${diag.failed || 0}\\u3002\`;
       button.disabled = !data.accountId;
       error.hidden = !data.error;
       error.textContent = data.error || "";
-      status.textContent = data.accountId ? \`\\u8D26\\u53F7 \${data.accountId} \\xB7 \\u5DF2\\u8BB0\\u5F55 \${Object.keys(data.friends).length} \\u4F4D\\u597D\\u53CB \\xB7 \\u7F6E\\u9876 \${data.pins.length} \\u4F4D\` : "\\u7B49\\u5F85\\u767B\\u5F55\\u4E0E\\u597D\\u53CB\\u8D44\\u6599";
+      status.hidden = !!data.accountId;
+      status.textContent = data.accountId ? "" : "\\u7B49\\u5F85\\u767B\\u5F55\\u4E0E\\u597D\\u53CB\\u8D44\\u6599";
       empty.textContent = data.changes.length ? "\\u6635\\u79F0\\u53D8\\u5316\\u4EC5\\u8868\\u793A\\u53EF\\u80FD\\u6539\\u540D\\uFF0C\\u7528\\u6237 ID \\u4FDD\\u6301\\u4E0D\\u53D8\\u3002\\u6700\\u591A\\u4FDD\\u7559\\u6700\\u8FD1 200 \\u6761\\u53D8\\u5316\\uFF1B\\u5BFC\\u51FA\\u542B\\u5DF2\\u4FDD\\u5B58\\u597D\\u53CB\\u3002" : "\\u5C1A\\u672A\\u53D1\\u73B0\\u597D\\u53CB\\u6635\\u79F0\\u53D8\\u5316\\u3002\\u9996\\u6B21\\u8BB0\\u5F55\\u4F5C\\u4E3A\\u6BD4\\u8F83\\u57FA\\u51C6\\u3002";
       history.replaceChildren();
       for (const change of [...data.changes].reverse()) {
@@ -1212,14 +1561,7 @@
       const data = friends.getRecord();
       if (!data.accountId) return;
       try {
-        downloadJSON(ctx, \`\\u597D\\u53CB-\${data.accountId}.json\`, data);
-      } catch (error2) {
-        ctx.reportError?.(error2);
-      }
-    });
-    local.listen(chatExport, "click", () => {
-      try {
-        downloadJSON(ctx, "\\u804A\\u5929\\u8BCA\\u65AD.json", { version: manifest.version, ...chat?.getDiagnostics?.() });
+        downloadJSON(ctx, \`\\u597D\\u53CB-\${data.accountId}.json\`, { ...data, ownedGenerals: lamps?.getRecords() ?? {} });
       } catch (error2) {
         ctx.reportError?.(error2);
       }
@@ -1235,8 +1577,8 @@
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E\u804A\u5929","version":"0.1.6","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.13","description":"\u539F\u751F\u597D\u53CB\u7F6E\u9876\u3001\u597D\u53CB\u6539\u540D\u63D0\u9192\u3001\u516C\u5C4F\u4E00\u952E\u8FDB\u623F\u4E0E\u804A\u5929\u5B98\u9636\u8865\u5168","icon":{"paths":["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8","M2 21v-3a6 6 0 0 1 12 0v3","M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"]},"priority":30300,"categories":["tools"]}};
-`, sha256: "3de8ac1c941bfde9a5c918b2c4bb70757932126e860f21f54a0aa00e4ddc889a" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "player-info", name: "\u73A9\u5BB6\u4FE1\u606F", version: "0.3.4", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.0", description: "\u6392\u4F4D\u3001\u5355\u9A91\u3001\u6597\u5730\u4E3B\u663E\u793A\u73A9\u5BB6\u80DC\u7387\u548C\u8FDE\u80DC\u8D25\uFF0C\u652F\u6301\u4EBA\u673A\u63D0\u793A\u4E0E\u81EA\u9009\u8EAB\u4EFD\u8865\u5168", icon: { paths: ["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"] }, priority: 30200, categories: [] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E\u804A\u5929","version":"0.1.12","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u7F6E\u9876\u597D\u53CB\u5C06\u706F\u53D8\u5316\u63D0\u9192\u4E0E\u5DF2\u62E5\u6709\u6B66\u5C06\u8BB0\u5F55\uFF0C\u53EF\u5BFC\u51FA\u5F53\u524D\u8D26\u53F7\u8BB0\u5F55\uFF1B\u804A\u5929\u5B98\u9636\u67E5\u8BE2\u548C\u597D\u53CB\u754C\u9762\u663E\u793A\u66F4\u6E05\u6670\u3002\u5C06\u706F\u53D8\u5316\u4E0D\u4EE3\u8868\u4ED8\u8D39\u5224\u65AD\uFF0C\u9996\u6B21\u8BFB\u53D6\u4EC5\u5EFA\u7ACB\u57FA\u51C6\u3002","minCoreVersion":"0.6.37","description":"\u597D\u53CB\u7F6E\u9876\u3001\u6539\u540D\u4E0E\u5C06\u706F\u65B0\u589E\u63D0\u9192\u3001\u516C\u5C4F\u4E00\u952E\u8FDB\u623F\u4E0E\u804A\u5929\u5B98\u9636\u8865\u5168","icon":{"paths":["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8","M2 21v-3a6 6 0 0 1 12 0v3","M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"]},"priority":30300,"categories":["tools"]}};
+`, sha256: "f2c3aee7c8e827bb5eaca47eaac95a26fec266f5c46cc2e9ed4f3103bdbac5a1" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "player-info", name: "\u73A9\u5BB6\u4FE1\u606F", version: "0.3.8", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4F18\u5316\u73A9\u5BB6\u8D44\u6599\u5361\u7684\u9009\u5C06\u663E\u793A\uFF1A\u4E0E\u9009\u5C06\u5361\u724C\u91CD\u53E0\u7684\u5C40\u90E8\u533A\u57DF\u534A\u900F\u660E\uFF0C\u5176\u4ED6\u90E8\u5206\u4FDD\u6301\u6E05\u6670\uFF1B\u9009\u5C06\u7ED3\u675F\u540E\u6062\u590D\u3002", minCoreVersion: "0.5.0", description: "\u6392\u4F4D\u3001\u5355\u9A91\u3001\u6597\u5730\u4E3B\u663E\u793A\u73A9\u5BB6\u80DC\u7387\u548C\u8FDE\u80DC\u8D25\uFF0C\u652F\u6301\u4EBA\u673A\u63D0\u793A\u4E0E\u81EA\u9009\u8EAB\u4EFD\u8865\u5168", icon: { paths: ["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"] }, priority: 30200, categories: [] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -1469,6 +1811,25 @@ return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E
       if (r.x >= 6 && r.y >= 6 && r.x + width <= stage.width - 6 && r.y + height <= stage.height - 6 && !obstacles.some((o) => overlaps(r, o))) return r;
     }
     return null;
+  }
+
+  // src/shared/native-shop.js
+  function singleRiderShopVisible(window, game) {
+    const stage = (window.Laya ?? window.laya)?.stage;
+    let Type;
+    try {
+      Type = game?.getClass?.("RogueLike1v1GameShopWindow");
+    } catch {
+    }
+    const queue = [...stage?._children || []], seen = /* @__PURE__ */ new Set();
+    for (let i = 0; i < queue.length && i < 512; i++) {
+      const node = queue[i];
+      if (!node || seen.has(node) || node.destroyed || node.visible === false || node._visible === false || node.alpha === 0) continue;
+      seen.add(node);
+      if (typeof Type === "function" && node instanceof Type || node.name === "RogueLike1v1GameShopWindow" || node.ClassName === "RogueLike1v1GameShopWindow") return true;
+      if (Array.isArray(node._children)) queue.push(...node._children.slice(0, 512 - queue.length));
+    }
+    return false;
   }
 
   // src/ui/native-theme.js
@@ -1830,6 +2191,68 @@ return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E
     const a = host.localToGlobal(new L.Point(0, 0)), b = host.localToGlobal(new L.Point(host.width, host.height));
     return [a.x, a.y, b.x, b.y].every(Number.isFinite) && b.x > a.x && b.y > a.y ? { x: a.x - 5, y: a.y - 5, width: b.x - a.x + 10, height: b.y - a.y + 10 } : null;
   }
+  function rankedSelection(ctx, L, scene) {
+    const visible2 = (node) => {
+      for (let n = node, i = 0; n && i < 64; n = n.parent, i++) {
+        if (n.destroyed || n.visible === false || n._visible === false || n.alpha === 0) return false;
+        if (n === L.stage) return true;
+      }
+      return false;
+    };
+    if (scene?.selectGeneralView && visible2(scene.selectGeneralView)) return scene.selectGeneralView;
+    const names = ["SelectNewPaiWeiGeneralWindow", "PWRandomSelectGeneralWindow", "PWStandardSelectGenralWindow"];
+    const types = names.map((name) => {
+      try {
+        return ctx.game.getClass(name);
+      } catch {
+        return null;
+      }
+    });
+    const queue = [...L.stage._children || []], seen = /* @__PURE__ */ new Set();
+    for (let i = 0; i < queue.length && i < 512; i++) {
+      const node = queue[i];
+      if (!node || seen.has(node) || !visible2(node)) continue;
+      seen.add(node);
+      if (names.includes(node.name) || names.includes(node.ClassName) || types.some((Type) => typeof Type === "function" && node instanceof Type)) return node;
+      if (Array.isArray(node._children)) queue.push(...node._children.slice(0, 512 - queue.length));
+    }
+    return null;
+  }
+  function selectionRects(selection, L) {
+    if (!selection) return [];
+    const parts = [selection.selectGeneralItem0, selection.selectGeneralItem1, selection.selectGeneralBpItem].filter(Boolean);
+    return (parts.length ? parts : [selection]).flatMap((node) => {
+      if (node.destroyed || node.visible === false || node.alpha === 0) return [];
+      const bounds = node.getBounds();
+      const parent = node.parent;
+      if (!parent || !bounds || bounds.width <= 0 || bounds.height <= 0) return [];
+      const a = L.stage.globalToLocal(parent.localToGlobal(new L.Point(bounds.x, bounds.y)));
+      const b = L.stage.globalToLocal(parent.localToGlobal(new L.Point(bounds.x + bounds.width, bounds.y + bounds.height)));
+      return [{ x: a.x, y: a.y, width: b.x - a.x, height: b.y - a.y }];
+    });
+  }
+  function maskOverlap(entry, position, rects, L) {
+    const w = position.width, h = position.height;
+    const overlaps2 = rects.map((r) => ({
+      x: Math.max(0, r.x - position.x),
+      y: Math.max(0, r.y - position.y),
+      right: Math.min(w, r.x + r.width - position.x),
+      bottom: Math.min(h, r.y + r.height - position.y)
+    })).filter((r) => r.right > r.x && r.bottom > r.y);
+    const normal = entry.parts[0], faded = entry.parts[1];
+    normal.root.mask = overlaps2.length ? normal.mask : null;
+    faded.root.visible = overlaps2.length > 0;
+    if (!overlaps2.length) return;
+    faded.root.mask = faded.mask;
+    normal.mask.graphics.clear();
+    faded.mask.graphics.clear();
+    const xs = [.../* @__PURE__ */ new Set([0, w, ...overlaps2.flatMap((r) => [r.x, r.right])])].sort((a, b) => a - b);
+    const ys = [.../* @__PURE__ */ new Set([0, h, ...overlaps2.flatMap((r) => [r.y, r.bottom])])].sort((a, b) => a - b);
+    for (let x = 0; x < xs.length - 1; x++) for (let y = 0; y < ys.length - 1; y++) {
+      const hit = overlaps2.some((r) => xs[x] >= r.x && xs[x + 1] <= r.right && ys[y] >= r.y && ys[y + 1] <= r.bottom);
+      (hit ? faded.mask : normal.mask).graphics.drawRect(xs[x], ys[y], xs[x + 1] - xs[x], ys[y + 1] - ys[y], "#fff");
+    }
+  }
   function portraitRect(ui, L) {
     if (!ui || ui.destroyed || ui.visible === false) return null;
     const avatar = ui.seatAvatar ?? ui.SeatAvatar, clip = avatar?.scrollRect;
@@ -1846,20 +2269,30 @@ return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E
   function createStatsView(ctx) {
     const entries = /* @__PURE__ */ new Map(), theme = getNativeTheme(ctx);
     let palette = theme.palette;
+    function disposeEntry(e) {
+      e.root.destroy(true);
+      for (const part of e.parts) part.mask.destroy(true);
+    }
     function clear() {
-      for (const e of entries.values()) e.root.destroy(true);
+      for (const e of entries.values()) disposeEntry(e);
       entries.clear();
     }
     ctx.scope.add(clear);
     ctx.scope.add(theme.watch((p) => {
       palette = p;
     }));
-    const view = { scene: null, clear, update(rows, seats = rows.map((row) => row.ui)) {
+    const view = { scene: null, clear, update(rows, seats = rows.map((row) => row.ui), mode = null) {
       const L = ctx.window?.Laya ?? ctx.window?.laya, stage = L?.stage;
       if (!stage || !L.Sprite || !L.Text || !L.Point) {
         clear();
         return;
       }
+      if (singleRiderShopVisible(ctx.window, ctx.game)) {
+        clear();
+        return;
+      }
+      const selection = mode === "rank" ? rankedSelection(ctx, L, view.scene) : null;
+      const occluders = selectionRects(selection, L);
       const mapped = rows.map((row) => ({ ...row, rect: portraitRect(row.ui, L) })).filter((row) => row.rect);
       const portraits = seats.map((ui) => ({ ui, rect: portraitRect(ui, L) })).filter((row) => row.rect);
       const obstacles = portraits.flatMap(({ rect: r }) => [
@@ -1882,89 +2315,102 @@ return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E
         if (!position) continue;
         obstacles.push(position);
         active.add(row.ui);
-        let e = entries.get(row.ui);
-        if (!e || e.root.destroyed) {
-          const root2 = new L.Sprite();
-          root2.name = "sgs-player-stats";
-          root2.mouseEnabled = false;
-          root2.zOrder = 90;
-          const background = new L.Sprite();
-          background.name = "sgs-player-stats-background";
-          background.alpha = 0.76;
-          background.mouseEnabled = false;
-          root2.addChild(background);
-          const lines2 = Array.from({ length: 4 }, (_, i) => {
-            const t = new L.Text();
-            t.font = "Microsoft YaHei";
-            t.fontSize = 12;
-            t.height = 23;
-            t.pos(12, [9, 35, 61, 85][i]);
-            root2.addChild(t);
-            return t;
-          });
-          const badge2 = new L.Sprite();
-          root2.addChild(badge2);
-          const badgeText = new L.Text();
-          badgeText.width = 85;
-          badgeText.height = 18;
-          badge2.addChild(badgeText);
-          stage.addChild(root2);
-          e = { root: root2, background, lines: lines2, badge: badge2, badgeText };
-          entries.set(row.ui, e);
+        let entry = entries.get(row.ui);
+        if (!entry || entry.root.destroyed) {
+          const wrapper = new L.Sprite();
+          wrapper.name = "sgs-player-stats";
+          wrapper.mouseEnabled = false;
+          wrapper.zOrder = 90;
+          const makePart = (alpha) => {
+            const root = new L.Sprite();
+            root.name = "sgs-player-stats-content";
+            root.mouseEnabled = false;
+            root.alpha = alpha;
+            const background = new L.Sprite();
+            background.name = "sgs-player-stats-background";
+            background.alpha = 0.76;
+            background.mouseEnabled = false;
+            root.addChild(background);
+            const lines = Array.from({ length: 4 }, (_, i) => {
+              const t = new L.Text();
+              t.font = "Microsoft YaHei";
+              t.fontSize = 12;
+              t.height = 23;
+              t.pos(12, [9, 35, 61, 85][i]);
+              root.addChild(t);
+              return t;
+            });
+            const badge = new L.Sprite();
+            root.addChild(badge);
+            const badgeText = new L.Text();
+            badgeText.width = 85;
+            badgeText.height = 18;
+            badge.addChild(badgeText);
+            const mask = new L.Sprite();
+            wrapper.addChild(root);
+            return { root, background, lines, badge, badgeText, mask };
+          };
+          entry = { root: wrapper, parts: [makePart(1), makePart(0.5)] };
+          stage.addChild(wrapper);
+          entries.set(row.ui, entry);
         }
-        const { root, lines, badge } = e, p = palette;
-        root.pos(position.x, position.y);
-        root.size(position.width, height);
-        e.background.size(position.width, height);
-        theme.surface(e.background, { kind: "panel" });
-        lines[0].text = row.name;
-        lines[0].bold = true;
-        lines[0].color = p.text;
-        lines[1].text = row.second;
-        lines[2].text = row.roles || row.third;
-        lines[3].text = row.roles ? row.third : "";
-        lines[3].visible = Boolean(row.roles);
-        for (const line of lines) {
-          line.width = position.width - 24;
-          line.fontSize = 12;
-          line.wordWrap = false;
-          line.overflow = "hidden";
-        }
-        lines[0].fontSize = 14;
-        lines[1].fontSize = row.second.length > 22 ? 12 : 14;
-        lines[1].bold = true;
-        if (row.roles) while (lines[2].textWidth > lines[2].width && lines[2].fontSize > 10) lines[2].fontSize--;
-        lines[0].width = position.width - 120;
-        while (lines[0].textWidth > lines[0].width && lines[0].text.length > 2) lines[0].text = lines[0].text.replace(/\u2026$/, "").slice(0, -1) + "\\u2026";
-        root.ToolTip = row.name;
-        lines[1].color = p.text;
-        lines[2].color = row.roles ? p.text : row.streakState === "win" ? p.accent : row.streakState === "loss" ? p.danger : p.muted;
-        lines[3].color = row.streakState === "win" ? p.accent : row.streakState === "loss" ? p.danger : p.muted;
-        badge.graphics.clear();
-        badge.pos(position.width - 107, 10);
-        e.badgeText.visible = !row.robot;
-        if (row.robot) {
-          badge.graphics.drawRect(5, 3, 18, 12, null, p.accent, 1.5);
-          badge.graphics.drawLine(14, 0, 14, 3, p.accent, 1.5);
-          badge.graphics.drawCircle(10, 8, 1.3, p.accent);
-          badge.graphics.drawCircle(18, 8, 1.3, p.accent);
-          badge.graphics.drawLine(10, 12, 18, 12, p.accent, 1);
-          badge.graphics.drawLine(2, 6, 2, 12, p.accent, 1.5);
-          badge.graphics.drawLine(26, 6, 26, 12, p.accent, 1.5);
-        } else {
-          const native = row.ui.otherTopManager, texture = native?.officerIcon?.texture;
-          if (texture) badge.graphics.drawTexture(texture, 0, -1, 23, 20);
-          const label = e.badgeText;
-          label.text = native?.officerText?.text || "\\u5B98\\u9636\\u672A\\u77E5";
-          label.font = native?.officerText?.font || "Microsoft YaHei";
-          label.fontSize = 12;
-          label.bold = true;
-          label.color = officerColor(label.text, p.surface, p.muted);
-          label.pos(texture ? 27 : 0, 1);
+        entry.root.pos(position.x, position.y);
+        entry.root.size(position.width, height);
+        maskOverlap(entry, position, occluders, L);
+        for (const e of entry.parts) {
+          const { root, lines, badge } = e, p = palette;
+          root.size(position.width, height);
+          e.background.size(position.width, height);
+          theme.surface(e.background, { kind: "panel" });
+          lines[0].text = row.name;
+          lines[0].bold = true;
+          lines[0].color = p.text;
+          lines[1].text = row.second;
+          lines[2].text = row.roles || row.third;
+          lines[3].text = row.roles ? row.third : "";
+          lines[3].visible = Boolean(row.roles);
+          for (const line of lines) {
+            line.width = position.width - 24;
+            line.fontSize = 12;
+            line.wordWrap = false;
+            line.overflow = "hidden";
+          }
+          lines[0].fontSize = 14;
+          lines[1].fontSize = row.second.length > 22 ? 12 : 14;
+          lines[1].bold = true;
+          if (row.roles) while (lines[2].textWidth > lines[2].width && lines[2].fontSize > 10) lines[2].fontSize--;
+          lines[0].width = position.width - 120;
+          while (lines[0].textWidth > lines[0].width && lines[0].text.length > 2) lines[0].text = lines[0].text.replace(/\u2026$/, "").slice(0, -1) + "\\u2026";
+          root.ToolTip = row.name;
+          lines[1].color = p.text;
+          lines[2].color = row.roles ? p.text : row.streakState === "win" ? p.accent : row.streakState === "loss" ? p.danger : p.muted;
+          lines[3].color = row.streakState === "win" ? p.accent : row.streakState === "loss" ? p.danger : p.muted;
+          badge.graphics.clear();
+          badge.pos(position.width - 107, 10);
+          e.badgeText.visible = !row.robot;
+          if (row.robot) {
+            badge.graphics.drawRect(5, 3, 18, 12, null, p.accent, 1.5);
+            badge.graphics.drawLine(14, 0, 14, 3, p.accent, 1.5);
+            badge.graphics.drawCircle(10, 8, 1.3, p.accent);
+            badge.graphics.drawCircle(18, 8, 1.3, p.accent);
+            badge.graphics.drawLine(10, 12, 18, 12, p.accent, 1);
+            badge.graphics.drawLine(2, 6, 2, 12, p.accent, 1.5);
+            badge.graphics.drawLine(26, 6, 26, 12, p.accent, 1.5);
+          } else {
+            const native = row.ui.otherTopManager, texture = native?.officerIcon?.texture;
+            if (texture) badge.graphics.drawTexture(texture, 0, -1, 23, 20);
+            const label = e.badgeText;
+            label.text = native?.officerText?.text || "\\u5B98\\u9636\\u672A\\u77E5";
+            label.font = native?.officerText?.font || "Microsoft YaHei";
+            label.fontSize = 12;
+            label.bold = true;
+            label.color = officerColor(label.text, p.surface, p.muted);
+            label.pos(texture ? 27 : 0, 1);
+          }
         }
       }
       for (const [ui, e] of entries) if (!active.has(ui)) {
-        e.root.destroy(true);
+        disposeEntry(e);
         entries.delete(ui);
       }
     } };
@@ -2103,7 +2549,7 @@ return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E
           streakState: streak ? streak.win ? "win" : "loss" : "unknown"
         });
       }
-      view.update(rows, seats);
+      view.update(rows, seats, mode.kind);
     } };
   }
 
@@ -2111,9 +2557,10 @@ return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E
   var manifest = {
     id: "player-info",
     name: "\\u73A9\\u5BB6\\u4FE1\\u606F",
-    version: "0.3.4",
+    version: "0.3.8",
     apiVersion: 1,
     contractVersion: 1,
+    releaseNotes: "\\u4F18\\u5316\\u73A9\\u5BB6\\u8D44\\u6599\\u5361\\u7684\\u9009\\u5C06\\u663E\\u793A\\uFF1A\\u4E0E\\u9009\\u5C06\\u5361\\u724C\\u91CD\\u53E0\\u7684\\u5C40\\u90E8\\u533A\\u57DF\\u534A\\u900F\\u660E\\uFF0C\\u5176\\u4ED6\\u90E8\\u5206\\u4FDD\\u6301\\u6E05\\u6670\\uFF1B\\u9009\\u5C06\\u7ED3\\u675F\\u540E\\u6062\\u590D\\u3002",
     minCoreVersion: "0.5.0",
     description: "\\u6392\\u4F4D\\u3001\\u5355\\u9A91\\u3001\\u6597\\u5730\\u4E3B\\u663E\\u793A\\u73A9\\u5BB6\\u80DC\\u7387\\u548C\\u8FDE\\u80DC\\u8D25\\uFF0C\\u652F\\u6301\\u4EBA\\u673A\\u63D0\\u793A\\u4E0E\\u81EA\\u9009\\u8EAB\\u4EFD\\u8865\\u5168",
     icon: { paths: ["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"] },
@@ -2255,8 +2702,8 @@ return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"player-info","name":"\u73A9\u5BB6\u4FE1\u606F","version":"0.3.4","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.0","description":"\u6392\u4F4D\u3001\u5355\u9A91\u3001\u6597\u5730\u4E3B\u663E\u793A\u73A9\u5BB6\u80DC\u7387\u548C\u8FDE\u80DC\u8D25\uFF0C\u652F\u6301\u4EBA\u673A\u63D0\u793A\u4E0E\u81EA\u9009\u8EAB\u4EFD\u8865\u5168","icon":{"paths":["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0","M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"]},"priority":30200,"categories":[]}};
-`, sha256: "43a162e8d94e64e2d82472c1e6a9470d14e9523b043218cbcbc857de9681d4d3" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "native-cards", name: "\u5B98\u65B9\u5361\u724C", version: "0.1.0", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.95", categories: [], icon: "cards", priority: 50090, description: "\u590D\u7528\u5B98\u65B9\u7ECF\u5178\u4E0E\u5927\u5C06\u519B\u4E24\u5957\u5361\u9762\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u4E2D\u6210\u5957\u9009\u7528" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"player-info","name":"\u73A9\u5BB6\u4FE1\u606F","version":"0.3.8","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4F18\u5316\u73A9\u5BB6\u8D44\u6599\u5361\u7684\u9009\u5C06\u663E\u793A\uFF1A\u4E0E\u9009\u5C06\u5361\u724C\u91CD\u53E0\u7684\u5C40\u90E8\u533A\u57DF\u534A\u900F\u660E\uFF0C\u5176\u4ED6\u90E8\u5206\u4FDD\u6301\u6E05\u6670\uFF1B\u9009\u5C06\u7ED3\u675F\u540E\u6062\u590D\u3002","minCoreVersion":"0.5.0","description":"\u6392\u4F4D\u3001\u5355\u9A91\u3001\u6597\u5730\u4E3B\u663E\u793A\u73A9\u5BB6\u80DC\u7387\u548C\u8FDE\u80DC\u8D25\uFF0C\u652F\u6301\u4EBA\u673A\u63D0\u793A\u4E0E\u81EA\u9009\u8EAB\u4EFD\u8865\u5168","icon":{"paths":["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0","M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"]},"priority":30200,"categories":[]}};
+`, sha256: "49a4f41653aabb6f1a7fe8e50d15c6fe6140d0eb5357b500ee946e134d58d9c9" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "native-cards", name: "\u5B98\u65B9\u5361\u724C", version: "0.1.0", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.95", categories: [], icon: "cards", priority: 50090, description: "\u590D\u7528\u5B98\u65B9\u7ECF\u5178\u4E0E\u5927\u5C06\u519B\u4E24\u5957\u5361\u9762\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u4E2D\u6210\u5957\u9009\u7528" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -2661,7 +3108,7 @@ return {...SGSPlugin.default, manifest:{"id":"yjcm-cards","name":"\u4E00\u5C06\u
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A5\u9C7C\u5361\u9762","version":"0.4.1","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.6.9","categories":[],"icon":{"paths":["M3 5h13v16H3Z","M7 2h14v16h-2","M5 12c3-5 6-5 8 0-2 5-5 5-8 0Z","M13 12l2-2v4Z","M8 11v.1"]},"priority":50096,"description":"\u4E09\u500D\u9AD8\u6E05\u5927\u80A5\u9C7C\u5361\u9762\u4E0E\u9CB8\u6D6A\u85CF\u950B\u5361\u80CC\uFF0C\u5171 52 \u79CD\u5361\u9762\uFF0C\u542B\u519B\u4E89\u5361\u7EC4\u4E0E 8 \u5F20\u884D\u751F\u88C5\u5907\u53CA\u5415\u73B2\u7EEE\u56DB\u4EF6\u88C5\u5907\u7CBE\u4FEE\uFF1B\u56FE\u7247\u6309\u9700\u52A0\u8F7D"}};
-`, sha256: "c3ee772bf9bf1e17754145f93999eed01ca4cc042a25a846605b50164e0e7752" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "backgrounds", name: "\u81EA\u5B9A\u4E49\u80CC\u666F", version: "0.2.3", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.6.18", dependencies: ["skins"], categories: ["appearance"], priority: 31e3, icon: { paths: ["M3 4h18v16H3Z", "M3 16 9 10l4 4 3-3 5 5", "M16 7h1"] }, description: "\u5C06\u76AE\u80A4\u539F\u753B\u6216\u52A8\u6001\u7528\u4F5C\u724C\u5C40\u80CC\u666F\uFF0C\u4FDD\u7559\u5929\u6C14\u4E0E\u6B66\u5C06\u6280\u80FD\u80CC\u666F" }, code: `var SGSPlugin = (() => {
+`, sha256: "c3ee772bf9bf1e17754145f93999eed01ca4cc042a25a846605b50164e0e7752" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "backgrounds", name: "\u81EA\u5B9A\u4E49\u80CC\u666F", version: "0.2.5", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u80CC\u666F\u8BBE\u7F6E\u8BF4\u660E\uFF0C\u7EDF\u4E00\u5F00\u5173\u4E0E\u5E2E\u52A9\u63D0\u793A\u7684\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u80CC\u666F\u548C\u52A8\u6001\u64AD\u653E\u9009\u62E9\u3002", minCoreVersion: "0.6.37", dependencies: ["skins"], categories: ["appearance"], priority: 31e3, icon: { paths: ["M3 4h18v16H3Z", "M3 16 9 10l4 4 3-3 5 5", "M16 7h1"] }, description: "\u5C06\u76AE\u80A4\u539F\u753B\u6216\u52A8\u6001\u7528\u4F5C\u724C\u5C40\u80CC\u666F\uFF0C\u4FDD\u7559\u5929\u6C14\u4E0E\u6B66\u5C06\u6280\u80FD\u80CC\u666F" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -2723,135 +3170,22 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
     return null;
   }
 
-  // src/ui/plugin-icons.js
-  var icon = (...paths) => Object.freeze({ paths: Object.freeze(paths) });
-  var PLUGIN_ICONS = Object.freeze({
-    cards: icon(
-      "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
-      "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"
-    ),
-    shanhetu: icon(
-      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
-      "M6 12 10 7l4 5 3-3 2 3",
-      "M6 16c3-3 7 3 12-1"
-    ),
-    "daily-rewards": icon(
-      "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
-      "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"
-    ),
-    seckill: icon(
-      "M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2",
-      "M13 10 9 15h3l-1 4 5-6h-4Z"
-    ),
-    gaizhu: icon(
-      "M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0",
-      "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3",
-      "M2 21h6"
-    ),
-    effects: icon(
-      "M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2",
-      "M3 3 21 21M19 3v4M17 5h4"
-    ),
-    skins: icon(
-      "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
-      "M8 3l8 9M16 3l-6 7M8 16h8"
-    ),
-    "wish-progress": icon(
-      "M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z",
-      "M4 21h9M16 21h4"
-    ),
-    themes: icon(
-      "M12 21 2 8a16 16 0 0 1 20 0Z",
-      "M12 21 7 5.3M12 21V4.5M12 21 17 5.3",
-      "M10 19a3 3 0 0 1 4 0"
-    ),
-    baisheng: icon(
-      "M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4",
-      "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"
-    ),
-    appearances: icon(
-      "M9 21H3V3h18v9",
-      "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1",
-      "M12 21 16 17l3 2 3-5M19 14h3v3"
-    ),
-    ledger: icon(
-      "M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18",
-      "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"
-    )
-  });
-  var TOOLBOX_ICON = icon(
-    "M3 7h18v13H3ZM8 7V4h8v3M3 12h6M15 12h6",
-    "M12 9l3 3-3 3-3-3Z"
-  );
-
-  // src/ui/icons.js
-  var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
-    toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
-    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
-    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
-    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
-    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
-    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
-    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
-    close: '<path d="m6 6 12 12M6 18 18 6"/>',
-    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
-    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
-    collapse: '<path d="M5 12h14"/>',
-    chevron: '<path d="m6 9 6 6 6-6"/>',
-    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
-    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
-    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
-    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
-    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
-    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
-    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
-    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
-  });
-  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
-  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-
-  // src/ui/controls.js
-  var CONTROL_STYLES = \`
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-\`;
-
   // src/plugins/backgrounds/index.js
   var manifest = {
     id: "backgrounds",
     name: "\\u81EA\\u5B9A\\u4E49\\u80CC\\u666F",
-    version: "0.2.3",
+    version: "0.2.5",
     apiVersion: 1,
     contractVersion: 1,
-    minCoreVersion: "0.6.18",
+    releaseNotes: "\\u7CBE\\u7B80\\u80CC\\u666F\\u8BBE\\u7F6E\\u8BF4\\u660E\\uFF0C\\u7EDF\\u4E00\\u5F00\\u5173\\u4E0E\\u5E2E\\u52A9\\u63D0\\u793A\\u7684\\u5916\\u89C2\\uFF0C\\u4FDD\\u7559\\u5DF2\\u6709\\u80CC\\u666F\\u548C\\u52A8\\u6001\\u64AD\\u653E\\u9009\\u62E9\\u3002",
+    minCoreVersion: "0.6.37",
     dependencies: ["skins"],
     categories: ["appearance"],
     priority: 31e3,
     icon: { paths: ["M3 4h18v16H3Z", "M3 16 9 10l4 4 3-3 5 5", "M16 7h1"] },
     description: "\\u5C06\\u76AE\\u80A4\\u539F\\u753B\\u6216\\u52A8\\u6001\\u7528\\u4F5C\\u724C\\u5C40\\u80CC\\u666F\\uFF0C\\u4FDD\\u7559\\u5929\\u6C14\\u4E0E\\u6B66\\u5C06\\u6280\\u80FD\\u80CC\\u666F"
   };
-  var STYLES = \`\${CONTROL_STYLES}
+  var STYLES = \`
 [data-sgs-backgrounds]{color:var(--sgs-text);font:12px/1.6 "Microsoft YaHei",sans-serif}
 [data-sgs-backgrounds] button{appearance:none;border:1px solid var(--sgs-border);border-radius:7px;background:var(--sgs-surface);color:var(--sgs-text);padding:6px 12px;cursor:pointer;font:inherit}
 [data-sgs-backgrounds] button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}
@@ -2999,7 +3333,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       dynamic.type = still.type = "button";
       segments.append(dynamic, still);
       mode.append(segments);
-      const hint = element("p", "\\u9ED8\\u8BA4\\u64AD\\u653E\\u76AE\\u80A4\\u52A8\\u6001\\uFF0C\\u65E0\\u9700\\u62E5\\u6709\\u76AE\\u80A4\\u6216\\u89E3\\u9501\\u52A8\\u6001\\uFF1B\\u6CA1\\u6709\\u52A8\\u6001\\u65F6\\u663E\\u793A\\u539F\\u753B\\u3002\\u4EC5\\u6A2A\\u7248\\u6216 16:9 \\u539F\\u753B\\u53EF\\u9009\\uFF0C\\u6280\\u80FD\\u80CC\\u666F\\u4FDD\\u6301\\u4F18\\u5148\\u3002", "bg-note");
+      const hint = ctx.ui.helpTip("\\u9ED8\\u8BA4\\u64AD\\u653E\\u76AE\\u80A4\\u52A8\\u6001\\uFF0C\\u65E0\\u9700\\u62E5\\u6709\\u76AE\\u80A4\\u6216\\u89E3\\u9501\\u52A8\\u6001\\uFF1B\\u6CA1\\u6709\\u52A8\\u6001\\u65F6\\u663E\\u793A\\u539F\\u753B\\u3002\\u4EC5\\u6A2A\\u7248\\u6216 16:9 \\u539F\\u753B\\u53EF\\u9009\\uFF0C\\u6280\\u80FD\\u80CC\\u666F\\u4FDD\\u6301\\u4F18\\u5148\\u3002");
       const capability = element("p", "", "bg-note");
       const reset = element("button", "\\u6062\\u590D\\u6E38\\u620F\\u80CC\\u666F");
       reset.type = "button";
@@ -3044,8 +3378,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"backgrounds","name":"\u81EA\u5B9A\u4E49\u80CC\u666F","version":"0.2.3","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.6.18","dependencies":["skins"],"categories":["appearance"],"priority":31000,"icon":{"paths":["M3 4h18v16H3Z","M3 16 9 10l4 4 3-3 5 5","M16 7h1"]},"description":"\u5C06\u76AE\u80A4\u539F\u753B\u6216\u52A8\u6001\u7528\u4F5C\u724C\u5C40\u80CC\u666F\uFF0C\u4FDD\u7559\u5929\u6C14\u4E0E\u6B66\u5C06\u6280\u80FD\u80CC\u666F"}};
-`, sha256: "241f0411d3ed2eae54641cd295ce9cafa945aafcb9971db90463304d93fe414e" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "gold-cards", name: "\u91D1\u8272\u5361\u724C", version: "0.1.0", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.90", categories: [], icon: "cards", priority: 50100, description: "\u91D1\u8272\u5361\u9762\u5E95\u7EB9\u4E0E\u7384\u91D1\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u7684\u5361\u9762\u4E0E\u5361\u80CC\u4E2D\u6210\u5957\u9009\u7528" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"backgrounds","name":"\u81EA\u5B9A\u4E49\u80CC\u666F","version":"0.2.5","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7CBE\u7B80\u80CC\u666F\u8BBE\u7F6E\u8BF4\u660E\uFF0C\u7EDF\u4E00\u5F00\u5173\u4E0E\u5E2E\u52A9\u63D0\u793A\u7684\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u80CC\u666F\u548C\u52A8\u6001\u64AD\u653E\u9009\u62E9\u3002","minCoreVersion":"0.6.37","dependencies":["skins"],"categories":["appearance"],"priority":31000,"icon":{"paths":["M3 4h18v16H3Z","M3 16 9 10l4 4 3-3 5 5","M16 7h1"]},"description":"\u5C06\u76AE\u80A4\u539F\u753B\u6216\u52A8\u6001\u7528\u4F5C\u724C\u5C40\u80CC\u666F\uFF0C\u4FDD\u7559\u5929\u6C14\u4E0E\u6B66\u5C06\u6280\u80FD\u80CC\u666F"}};
+`, sha256: "859c0003a48b25ed30212abea63b1f208c7041d92d887e851ea3238aa7ff7a21" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "gold-cards", name: "\u91D1\u8272\u5361\u724C", version: "0.1.0", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.90", categories: [], icon: "cards", priority: 50100, description: "\u91D1\u8272\u5361\u9762\u5E95\u7EB9\u4E0E\u7384\u91D1\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u7684\u5361\u9762\u4E0E\u5361\u80CC\u4E2D\u6210\u5957\u9009\u7528" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -3096,7 +3430,7 @@ return {...SGSPlugin.default, manifest:{"id":"backgrounds","name":"\u81EA\u5B9A\
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u5361\u724C","version":"0.1.0","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.90","categories":[],"icon":"cards","priority":50100,"description":"\u91D1\u8272\u5361\u9762\u5E95\u7EB9\u4E0E\u7384\u91D1\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u7684\u5361\u9762\u4E0E\u5361\u80CC\u4E2D\u6210\u5957\u9009\u7528"}};
-`, sha256: "223cb665ae968062d24d4cf2f4757f8508e47f20c7e162da08eabf9e3dc5ecba" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "shanhetu", name: "\u5C71\u6CB3\u56FE", version: "0.2.25", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.82", categories: ["game"], icon: { paths: ["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z", "M6 12 10 7l4 5 3-3 2 3", "M6 16c3-3 7 3 12-1"] }, priority: 11e3, description: "\u654C\u519B\u3001\u95EE\u53F7\u4E0E\u5546\u5E97\u9884\u89C8\uFF0C\u6362\u5C06\u5361\u9884\u5224\u4E0E\u8DE8\u6A21\u5F0F\u6218\u6CD5\u8BA1\u6570" }, code: `var SGSPlugin = (() => {
+`, sha256: "223cb665ae968062d24d4cf2f4757f8508e47f20c7e162da08eabf9e3dc5ecba" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "shanhetu", name: "\u5C71\u6CB3\u56FE", version: "0.2.29", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4FDD\u7559\u81EA\u9009\u6218\u6597\u80CC\u666F\u6539\u4E3A\u9ED8\u8BA4\u5F00\u542F\uFF0C\u5DF2\u6709\u660E\u786E\u8BBE\u7F6E\u4FDD\u6301\u4E0D\u53D8\uFF1B\u7CBE\u7B80\u5730\u56FE\u8BBE\u7F6E\u548C\u5E2E\u52A9\u8BF4\u660E\u3002", minCoreVersion: "0.6.37", categories: ["game"], icon: { paths: ["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z", "M6 12 10 7l4 5 3-3 2 3", "M6 16c3-3 7 3 12-1"] }, priority: 11e3, description: "\u654C\u519B\u3001\u95EE\u53F7\u4E0E\u5546\u5E97\u9884\u89C8\uFF0C\u6362\u5C06\u5361\u9884\u5224\u4E0E\u8DE8\u6A21\u5F0F\u6218\u6CD5\u8BA1\u6570" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -3182,92 +3516,6 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     "M3 7h18v13H3ZM8 7V4h8v3M3 12h6M15 12h6",
     "M12 9l3 3-3 3-3-3Z"
   );
-
-  // src/ui/icons.js
-  var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
-    toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
-    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
-    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
-    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
-    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
-    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
-    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
-    close: '<path d="m6 6 12 12M6 18 18 6"/>',
-    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
-    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
-    collapse: '<path d="M5 12h14"/>',
-    chevron: '<path d="m6 9 6 6 6-6"/>',
-    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
-    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
-    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
-    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
-    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
-    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
-    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
-    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
-  });
-  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
-  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-  function isIconSpec(value) {
-    if (typeof value === "string") return Object.hasOwn(markup, value) || Object.hasOwn(aliases, value);
-    return value !== null && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.paths) && value.paths.length >= 1 && value.paths.length <= 8 && value.paths.every((path) => typeof path === "string" && path.length <= 1024 && /^[Mm][\\s\\d.,+\\-eEMmLlHhVvCcSsQqTtAaZz]+$/.test(path) && /\\d/.test(path));
-  }
-  function createIcon(doc, value = "package", className = "sgs-line-icon") {
-    const spec = isIconSpec(value) ? value : "package", icon3 = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon3.setAttribute("viewBox", "0 0 24 24");
-    icon3.setAttribute("class", className);
-    icon3.setAttribute("aria-hidden", "true");
-    icon3.setAttribute("focusable", "false");
-    icon3.setAttribute("fill", "none");
-    icon3.setAttribute("stroke", "currentColor");
-    icon3.setAttribute("stroke-width", "1.5");
-    icon3.setAttribute("stroke-linecap", "round");
-    icon3.setAttribute("stroke-linejoin", "round");
-    icon3.dataset.icon = typeof spec === "string" ? spec : "custom";
-    const shape = typeof spec === "string" ? markup[aliases[spec] || spec] : spec;
-    if (typeof shape === "string") icon3.innerHTML = shape;
-    else for (const d of shape.paths) {
-      const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", d);
-      icon3.append(path);
-    }
-    return icon3;
-  }
-
-  // src/ui/controls.js
-  var CONTROL_STYLES = \`
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-\`;
-  function controlIcon(doc, name) {
-    return createIcon(doc, name);
-  }
-  function styleSwitch(input) {
-    input.classList.add("sgs-switch");
-    input.setAttribute("role", "switch");
-    return input;
-  }
 
   // src/plugins/shanhetu/city-names.js
   var numbered = [
@@ -6935,7 +7183,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function createBackgroundPreference(ctx) {
     let entry = null, status = "\\u5DF2\\u5173\\u95ED";
     const listeners = /* @__PURE__ */ new Set();
-    const enabled = () => ctx.settings.get("keepBattleBackground", false) === true;
+    const enabled = () => ctx.settings.get("keepBattleBackground", true) === true;
     const scene = () => ctx.game.getScene?.();
     const account = () => ctx.game.getSelf?.()?.ClientId ?? null;
     const name = (current) => current && (current.SceneName || current.sceneName || current.name);
@@ -7148,7 +7396,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 
   // src/plugins/shanhetu/general-preview.js
   var WINDOW = "RogueSelectGeneralWindow";
-  var CSS = \`\${CONTROL_STYLES}
+  var CSS = \`
 :host{position:fixed;inset:22px 16px auto;z-index:2147483646;display:flex;justify-content:center;pointer-events:none;font:12px/1.7 var(--sgs-font,system-ui);color:var(--sgs-text)}
 .preview{box-sizing:border-box;position:relative;width:520px;max-width:100%;padding:12px 44px 13px 16px;border:1px solid var(--sgs-border);border-radius:10px;background:var(--sgs-surface);box-shadow:0 6px 24px #0003;pointer-events:auto}
 strong{display:block;margin-bottom:4px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em;font-weight:600}
@@ -7229,7 +7477,7 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
       close.type = "button";
       close.title = "\\u5173\\u95ED\\u6362\\u5C06\\u5361\\u9884\\u5224";
       close.setAttribute("aria-label", close.title);
-      close.append(controlIcon(ctx.document, "close"));
+      close.append(ctx.ui.icon("close"));
       panel.append(title, text, close);
       shadow.append(style, panel);
       ctx.document.body.append(host);
@@ -7328,7 +7576,7 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
   }
 
   // src/plugins/shanhetu/index.js
-  var CSS2 = \`\${CONTROL_STYLES}
+  var CSS2 = \`
 .sh-root .sh-warning{color:var(--sgs-danger,#db8175);font-weight:600;font-size:11px;line-height:1.6;overflow-wrap:anywhere}
 .sh-coin{display:inline-flex;align-items:center;gap:3px;white-space:nowrap;vertical-align:middle}.sh-coin img{width:17px;height:17px;object-fit:contain;flex:none}
 .sh-coin.sh-wrap{display:inline;white-space:normal;overflow-wrap:anywhere}.sh-coin.sh-wrap img{display:inline-block;vertical-align:-3px;margin-right:3px}.sh-stats .sh-coin,.sh-enemy-stats .sh-coin{margin-right:3px}
@@ -7573,9 +7821,9 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
         const options = details("options", "sh-options");
         options.append(el("summary", "", "\\u663E\\u793A\\u8BBE\\u7F6E"));
         for (const [key2, label] of [["labels", "\\u5730\\u56FE\\u6807\\u6CE8"], ["enemies", "\\u654C\\u519B\\u6807\\u6CE8"], ["events", "\\u95EE\\u53F7\\u4E0E\\u4E8B\\u4EF6\\u6807\\u6CE8"], ["keepBattleBackground", "\\u4FDD\\u7559\\u81EA\\u9009\\u6218\\u6597\\u80CC\\u666F"]]) {
-          const row = el("label"), input = styleSwitch(el("input"));
+          const row = el("label"), input = ctx.ui.styleSwitch(el("input"));
           input.type = "checkbox";
-          input.checked = ctx.settings.get(key2, key2 !== "keepBattleBackground");
+          input.checked = ctx.settings.get(key2, true);
           input.dataset.key = key2;
           input.setAttribute("aria-label", label);
           input.onchange = () => {
@@ -7583,11 +7831,12 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
             background.refresh();
             publish(true);
           };
-          row.append(el("span", "", label), input);
+          const copy = el("span", "", label);
+          if (key2 === "keepBattleBackground") copy.append(ctx.ui.helpTip("\\u8FDB\\u5165\\u5C71\\u6CB3\\u5BF9\\u5C40\\u540E\\uFF0C\\u901A\\u8FC7\\u5B98\\u65B9\\u80CC\\u666F\\u9009\\u62E9\\u5165\\u53E3\\u91CD\\u65B0\\u5E94\\u7528\\u5F53\\u524D\\u9009\\u62E9\\uFF1B\\u6BCF\\u5C40\\u81EA\\u52A8\\u89E6\\u53D1\\u3002", "\\u6218\\u6597\\u80CC\\u666F\\u8BF4\\u660E"));
+          row.append(copy, input);
           options.append(row);
         }
-        options.append(muted("\\u8FDB\\u5165\\u5C71\\u6CB3\\u5BF9\\u5C40\\u540E\\uFF0C\\u901A\\u8FC7\\u5B98\\u65B9\\u80CC\\u666F\\u9009\\u62E9\\u5165\\u53E3\\u91CD\\u65B0\\u5E94\\u7528\\u5F53\\u524D\\u9009\\u62E9\\uFF1B\\u6BCF\\u5C40\\u81EA\\u52A8\\u89E6\\u53D1\\u3002"));
-        if (ctx.settings.get("keepBattleBackground", false)) {
+        if (ctx.settings.get("keepBattleBackground", true)) {
           const status = muted(background.status);
           status.dataset.backgroundStatus = "true";
           options.append(status);
@@ -7605,7 +7854,7 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
         refresh.dataset.key = "refresh";
         refresh.title = "\\u91CD\\u65B0\\u540C\\u6B65\\u5C71\\u6CB3\\u6570\\u636E";
         refresh.setAttribute("aria-label", refresh.title);
-        refresh.append(controlIcon(doc, "refresh"));
+        refresh.append(ctx.ui.icon("refresh"));
         refresh.disabled = !!pending || !active || !manager || blockedAccount;
         refresh.onclick = () => {
           void loadConfig(true);
@@ -7695,7 +7944,7 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
             fold.append(body);
             root.append(fold);
           }
-          root.append(el("p", "sh-hint", "\\u654C\\u519B\\u6570\\u503C\\u4F9D\\u5F53\\u524D\\u96BE\\u5EA6\\u3001\\u6708\\u4EFD\\u4E0E\\u7AE0\\u8282\\u914D\\u7F6E\\u63A8\\u7B97\\uFF1B\\u968F\\u673A\\u5956\\u52B1\\u4FDD\\u7559\\u968F\\u673A\\u3002"));
+          root.append(ctx.ui.helpTip("\\u654C\\u519B\\u6570\\u503C\\u4F9D\\u5F53\\u524D\\u96BE\\u5EA6\\u3001\\u6708\\u4EFD\\u4E0E\\u7AE0\\u8282\\u914D\\u7F6E\\u63A8\\u7B97\\uFF1B\\u968F\\u673A\\u5956\\u52B1\\u4FDD\\u7559\\u968F\\u673A\\u3002"));
         } else if (tab === "shop") {
           const line = el("div", "sh-shop-head"), shop = view.shop;
           line.append(muted(shop?.open === true ? "\\u5165\\u53E3\\u5DF2\\u5F00\\u653E \\xB7 \\u4EA4\\u6613\\u4EE5\\u6E38\\u620F\\u56DE\\u6267\\u4E3A\\u51C6" : shop?.open === false ? "\\u63D0\\u524D\\u9884\\u89C8 \\xB7 \\u5730\\u56FE\\u5165\\u53E3\\u672A\\u663E\\u793A" : "\\u5F00\\u653E\\u72B6\\u6001\\u5F85\\u540C\\u6B65"));
@@ -7718,7 +7967,7 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
             fold.append(summary, muted(good.desc || "\\u8BF4\\u660E\\u5F85\\u540C\\u6B65"));
             root.append(fold);
           }
-          root.append(el("p", "sh-hint", "\\u63D0\\u524D\\u6253\\u5F00\\u6CBF\\u7528\\u539F\\u751F\\u5546\\u5E97\\uFF1B\\u8D2D\\u4E70\\u3001\\u5237\\u65B0\\u7531\\u6E38\\u620F\\u5904\\u7406\\uFF0C\\u9884\\u89C8\\u4E0D\\u6539\\u53D8\\u5F00\\u653E\\u6761\\u4EF6\\u3002"));
+          root.append(ctx.ui.helpTip("\\u63D0\\u524D\\u6253\\u5F00\\u6CBF\\u7528\\u539F\\u751F\\u5546\\u5E97\\uFF1B\\u8D2D\\u4E70\\u3001\\u5237\\u65B0\\u7531\\u6E38\\u620F\\u5904\\u7406\\uFF0C\\u9884\\u89C8\\u4E0D\\u6539\\u53D8\\u5F00\\u653E\\u6761\\u4EF6\\u3002"));
         } else {
           const player = snapshot.gameData?.myGeneral, grid = el("div", "sh-grid");
           for (const [label, value, icon3, qualifier] of [["\\u521D\\u59CB\\u4F53\\u529B", player?.uInitHp, "stat_hp", "\\u521D\\u59CB"], ["\\u4F53\\u529B\\u4E0A\\u9650", player?.uMaxHp, "stat_hp", "\\u4E0A\\u9650"], ["\\u521D\\u59CB\\u724C", player?.uInitCardNum, "stat_card", "\\u521D\\u59CB"], ["\\u6478\\u724C", player?.uDrawNum, "stat_draw", ""], ["\\u62A4\\u7532", player?.uArmor, "stat_armor", ""], ["\\u51FA\\u6740\\u6B21\\u6570", num(player?.uExUseShaNum) === null ? null : player.uExUseShaNum + 1, "stat_sha", ""], ["\\u7D2F\\u8BA1\\u4F24\\u5BB3", snapshot.gameData?.accDamage], ["\\u6700\\u9AD8\\u4F24\\u5BB3", snapshot.gameData?.maxDamage]]) {
@@ -7765,10 +8014,11 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
   var index_default = { manifest: {
     id: "shanhetu",
     name: "\\u5C71\\u6CB3\\u56FE",
-    version: "0.2.25",
+    version: "0.2.29",
     apiVersion: 1,
     contractVersion: 1,
-    minCoreVersion: "0.5.82",
+    releaseNotes: "\\u4FDD\\u7559\\u81EA\\u9009\\u6218\\u6597\\u80CC\\u666F\\u6539\\u4E3A\\u9ED8\\u8BA4\\u5F00\\u542F\\uFF0C\\u5DF2\\u6709\\u660E\\u786E\\u8BBE\\u7F6E\\u4FDD\\u6301\\u4E0D\\u53D8\\uFF1B\\u7CBE\\u7B80\\u5730\\u56FE\\u8BBE\\u7F6E\\u548C\\u5E2E\\u52A9\\u8BF4\\u660E\\u3002",
+    minCoreVersion: "0.6.37",
     categories: ["game"],
     icon: PLUGIN_ICONS["shanhetu"],
     priority: 11e3,
@@ -7777,8 +8027,8 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56FE","version":"0.2.25","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.82","categories":["game"],"icon":{"paths":["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z","M6 12 10 7l4 5 3-3 2 3","M6 16c3-3 7 3 12-1"]},"priority":11000,"description":"\u654C\u519B\u3001\u95EE\u53F7\u4E0E\u5546\u5E97\u9884\u89C8\uFF0C\u6362\u5C06\u5361\u9884\u5224\u4E0E\u8DE8\u6A21\u5F0F\u6218\u6CD5\u8BA1\u6570"}};
-`, sha256: "164df50f777eee9c554ee324ce99da8e569bbe4ad21aa10ed99a672690d9397d" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "cards", name: "\u5361\u724C", version: "0.1.58", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.76", categories: ["game"], icon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, priority: 1e4, description: "\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570" }, code: `var SGSCards = (() => {
+return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56FE","version":"0.2.29","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4FDD\u7559\u81EA\u9009\u6218\u6597\u80CC\u666F\u6539\u4E3A\u9ED8\u8BA4\u5F00\u542F\uFF0C\u5DF2\u6709\u660E\u786E\u8BBE\u7F6E\u4FDD\u6301\u4E0D\u53D8\uFF1B\u7CBE\u7B80\u5730\u56FE\u8BBE\u7F6E\u548C\u5E2E\u52A9\u8BF4\u660E\u3002","minCoreVersion":"0.6.37","categories":["game"],"icon":{"paths":["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z","M6 12 10 7l4 5 3-3 2 3","M6 16c3-3 7 3 12-1"]},"priority":11000,"description":"\u654C\u519B\u3001\u95EE\u53F7\u4E0E\u5546\u5E97\u9884\u89C8\uFF0C\u6362\u5C06\u5361\u9884\u5224\u4E0E\u8DE8\u6A21\u5F0F\u6218\u6CD5\u8BA1\u6570"}};
+`, sha256: "ca03e331f1dd6f1bb0f9a952d4ef4edf2630d8c9dae2e1d0af1e7b935a5cc4ab" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "cards", name: "\u5361\u724C", version: "0.1.62", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8865\u5145\u53F8\u5951\u3001\u52BC\u529B\u5C55\u793A\u724C\u5806\u4FE1\u606F\u7684\u8BB0\u5F55\uFF0C\u8C03\u6574\u724C\u5806\u987A\u5E8F\u63D0\u793A\uFF1B\u5355\u9A91\u5546\u5E97\u6253\u5F00\u65F6\u6536\u8D77\u76F8\u5173\u60AC\u6D6E\u4FE1\u606F\uFF0C\u51CF\u5C11\u906E\u6321\u3002", minCoreVersion: "0.6.37", categories: ["game"], icon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, priority: 1e4, description: "\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570" }, code: `var SGSCards = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -7805,6 +8055,25 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     initialState: () => initialState,
     reduce: () => reduce
   });
+
+  // src/shared/native-shop.js
+  function singleRiderShopVisible(window, game) {
+    const stage = (window.Laya ?? window.laya)?.stage;
+    let Type;
+    try {
+      Type = game?.getClass?.("RogueLike1v1GameShopWindow");
+    } catch {
+    }
+    const queue = [...stage?._children || []], seen = /* @__PURE__ */ new Set();
+    for (let i = 0; i < queue.length && i < 512; i++) {
+      const node = queue[i];
+      if (!node || seen.has(node) || node.destroyed || node.visible === false || node._visible === false || node.alpha === 0) continue;
+      seen.add(node);
+      if (typeof Type === "function" && node instanceof Type || node.name === "RogueLike1v1GameShopWindow" || node.ClassName === "RogueLike1v1GameShopWindow") return true;
+      if (Array.isArray(node._children)) queue.push(...node._children.slice(0, 512 - queue.length));
+    }
+    return false;
+  }
 
   // src/ui/plugin-icons.js
   var icon = (...paths) => Object.freeze({ paths: Object.freeze(paths) });
@@ -7867,64 +8136,6 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     "M12 9l3 3-3 3-3-3Z"
   );
 
-  // src/ui/icons.js
-  var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
-    toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
-    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
-    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
-    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
-    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
-    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
-    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
-    close: '<path d="m6 6 12 12M6 18 18 6"/>',
-    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
-    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
-    collapse: '<path d="M5 12h14"/>',
-    chevron: '<path d="m6 9 6 6 6-6"/>',
-    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
-    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
-    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
-    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
-    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
-    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
-    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
-    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
-  });
-  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
-  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-
-  // src/ui/controls.js
-  var CONTROL_STYLES = \`
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-\`;
-  function styleSwitch(input) {
-    input.classList.add("sgs-switch");
-    input.setAttribute("role", "switch");
-    return input;
-  }
-
   // src/plugins/cards/model.js
   var REFERENCE = Object.freeze({
     version: "1.6.76",
@@ -7938,6 +8149,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var CONSERVATIVE = new Set(CONSERVATIVE_SKILLS);
   var ZUIFENG = 4025;
   var OPT_SKILL_FLAG1 = 28;
+  var SIQI = 3543;
+  var JIELI = 3483;
+  var orderedSiqiMove = (data) => Number(data.SpellID) === SIQI && (Number(data.ToZone) === 1 && Number(data.ToPosition) === POSITION.bottom && Number(data.CardCount) === 1 || Number(data.FromZone) === 1 && Number(data.FromPosition) === POSITION.bottom);
   var EVENT_TYPES = /* @__PURE__ */ new Set([
     "toolbox:snapshot",
     "toolbox:gap",
@@ -8171,7 +8385,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       if (skill === 3854 && Number(payload.MoveType) === 18 && Number(payload.ToZone) === 5 && count2 === 1 && shown?.turn === state.turn) correlated = [shown.id];
     }
     if (supplied.length === count2) return supplied;
-    if (CONSERVATIVE.has(skill)) return [];
+    if (CONSERVATIVE.has(skill) && !orderedSiqiMove(payload)) return [];
     if (correlated?.length === count2) return correlated;
     if (skill === 3511 && source.kind === 2 && Number(payload.ToZone) === 5 && state.pending.gainedDiscard?.length === count2) {
       const ids = state.pending.gainedDiscard;
@@ -8225,7 +8439,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       if (skill === 3776 && target.kind === 10 && count2 === 3 || skill === 3101 && target.kind === 5 && count2 === 1) position = POSITION.bottom;
       if ([7016, 7017].includes(skill) && !state.mode.flags.includes("guozhan") && target.kind === 5 && count2 === 1) position = POSITION.top;
     }
-    if (CONSERVATIVE.has(skill) && !supplied.length) {
+    if (CONSERVATIVE.has(skill) && !supplied.length && !orderedSiqiMove(data)) {
       note(state, \`skill:\${skill}\`, \`\\u6280\\u80FD \${skill} \\u7684\\u9690\\u85CF\\u79FB\\u724C\\u4EC5\\u4FDD\\u7559\\u53EF\\u80FD\\u5F52\\u5C5E\`, seq);
       source.top = [];
       source.bottom = [];
@@ -8332,6 +8546,29 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     target.bottom = target.bottom.filter((id) => !values.includes(id));
     target.count = Math.max(target.count, values.length);
   }
+  function revealSkillPile(state, data, seq) {
+    if (int(data.Type) !== OPT_SKILL_FLAG1) return;
+    const values = data.Params;
+    const validIds = (ids2) => ids2.length > 0 && ids2.every((id) => Number.isInteger(id) && id > 0 && id < 65535) && new Set(ids2).size === ids2.length;
+    let ids, side;
+    if (int(data.SpellID) === SIQI) {
+      if (!Array.isArray(values) || values.length > 3 || !validIds(values)) return;
+      ids = values;
+      side = "bottom";
+    } else if (int(data.SpellID) === JIELI) {
+      if (!Array.isArray(values)) return;
+      const [pileCount, handCount] = values;
+      if (!Number.isInteger(pileCount) || pileCount < 1 || pileCount > 32 || !Number.isInteger(handCount) || handCount < 0 || handCount > 200 || values.length !== 2 + pileCount + handCount) return;
+      ids = values.slice(2, 2 + pileCount);
+      side = "top";
+      if (!validIds(ids)) return;
+    } else return;
+    const target = zone(state, zoneKey(1)), other = side === "top" ? "bottom" : "top";
+    for (const id of ids) locate(state, id, target.key, seq);
+    target[side] = ids.slice();
+    target[other] = target[other].filter((id) => !ids.includes(id));
+    target.count = Math.max(target.count, ids.length);
+  }
   function normalizeCardPayload(payload = {}) {
     const queue = [payload], sources = [], seen = /* @__PURE__ */ new Set();
     for (let index = 0; index < queue.length && index < 32; index++) {
@@ -8357,7 +8594,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       return empty;
     };
-    const aliases2 = {
+    const aliases = {
       CardList: ["cardList", "card_list"],
       CardIDs: ["CardIds", "cardIDs", "cardIds", "card_ids", "Cards", "cards", "hand_cards", "card_list", "cardList"],
       CardID: ["CardId", "cardID", "cardId"],
@@ -8385,9 +8622,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       error_id: ["ErrorID", "errorId"]
     };
     for (const key of ["FromZone", "ToZone", "FromPosition", "ToPosition", "FromZoneParam", "ToZoneParam", "MoveType"]) {
-      aliases2[key] = [key[0].toLowerCase() + key.slice(1), key.replace(/[A-Z]/g, (char, index) => (index ? "_" : "") + char.toLowerCase())];
+      aliases[key] = [key[0].toLowerCase() + key.slice(1), key.replace(/[A-Z]/g, (char, index) => (index ? "_" : "") + char.toLowerCase())];
     }
-    for (const [key, names] of Object.entries(aliases2)) {
+    for (const [key, names] of Object.entries(aliases)) {
       const value = pick([key, ...names]);
       if (value !== void 0) result[key] = value;
     }
@@ -8502,6 +8739,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       case "GsCRoleOptTargetNtf":
         revealSkillHand(state, data, seq);
+        revealSkillPile(state, data, seq);
         if (CONSERVATIVE.has(Number(data.SpellID))) note(state, \`skill:\${data.SpellID}\`, \`\\u6280\\u80FD \${data.SpellID} \\u7684\\u9690\\u85CF\\u79FB\\u724C\\u4EC5\\u4FDD\\u7559\\u53EF\\u80FD\\u5F52\\u5C5E\`, seq);
         break;
       case "CGsRoleSpellOptRep":
@@ -9856,7 +10094,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .sgs-card-seat-reveal .sgs-card-mini{height:54px;pointer-events:auto}.sgs-card-seat-reveal .sgs-card-mini:hover{transform:translateY(-5px);z-index:1}
 .sgs-card-possible-count,.sgs-card-overflow{font-size:10px;color:var(--sgs-muted,#b7aa8c);padding:2px}
 .sgs-card-source-label{background:var(--sgs-bg,#201e1a);border:1px solid var(--sgs-border,#665b42);border-radius:3px;padding:1px 4px;font-size:10px;max-width:90px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-\${CONTROL_STYLES}
+
 .sgs-card-setting-grid{grid-template-columns:1fr;gap:0;margin:4px 0 0}.sgs-card-setting{justify-content:space-between;gap:12px;min-height:37px;padding:7px 2px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent);font-size:12px;cursor:pointer}.sgs-card-setting:last-child{border:0}.sgs-card-setting span{min-width:0;color:var(--sgs-text,#eee3cc)}.sgs-card-settings{padding:0 10px;margin-top:10px;border-radius:9px;background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-accent,#dbba70) 5%,transparent),#00000018);border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 40%,transparent)}.sgs-cards .sgs-fold>summary{padding:10px 0}.sgs-cards .sgs-segments{flex-wrap:nowrap;gap:2px}.sgs-cards .sgs-segments>button{border:0;background:transparent;font-size:11px;border-radius:5px;padding:4px 6px;color:var(--sgs-muted,#b7aa8c)}.sgs-cards .sgs-segments>button.is-active,.sgs-cards .sgs-segments>button[aria-pressed=true]{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent);color:var(--sgs-accent,#dbba70)}.sgs-cards select.sgs-select{padding:5px 27px 5px 9px;background-color:var(--sgs-bg,#201e1a);border-color:color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);font-size:11px}.sgs-card-section{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 45%,transparent)}.sgs-card-composition th,.sgs-card-composition td{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent)}.sgs-card-hud .sgs-card-hud-recent{background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-raised,#383327) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions{gap:3px;padding:2px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);border-radius:7px;background:linear-gradient(color-mix(in srgb,var(--sgs-surface,#2c2922) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions>button{border:0;background:transparent;padding:0 3px;font-size:14px;color:var(--sgs-muted,#b7aa8c)}.sgs-card-hud-actions>button[aria-expanded=true]{color:var(--sgs-accent,#dbba70);background:color-mix(in srgb,var(--sgs-accent,#dbba70) 10%,transparent);box-shadow:inset 0 -1px color-mix(in srgb,var(--sgs-accent,#dbba70) 50%,transparent)}.sgs-card-hud-list{border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:0 8px 24px #0004}
 @media(prefers-reduced-motion:no-preference){.sgs-cards button{transition:background 140ms,border-color 140ms}}
 \`;
@@ -9998,6 +10236,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     overlayHost.dataset.sgsCardsOverlay = "true";
     overlayHost.dataset.sgsToolbox = "cards";
     const shadow = overlayHost.attachShadow({ mode: "open" });
+    ctx.ui.mountStyles(shadow);
     const overlayStyle = element("style");
     overlayStyle.textContent = STYLES;
     const overlay = element("div", "sgs-cards sgs-cards-overlay");
@@ -10007,7 +10246,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     hud.setAttribute("aria-label", "\\u5361\\u724C\\u5FEB\\u6377\\u67E5\\u770B");
     function positionHud() {
       if (disposed) return;
-      if (!currentState().active || !["recent", "deck", "discard"].some((key) => setting(key))) {
+      if (singleRiderShopVisible(window, ctx.game) || !currentState().active || !["recent", "deck", "discard"].some((key) => setting(key))) {
         hud.hidden = true;
         return;
       }
@@ -10106,9 +10345,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       for (const [key, button] of Object.entries(hudButtons)) button.setAttribute("aria-expanded", String(key === shownList));
       hudList.hidden = !shownList;
       if (shownList) {
-        const caption = { top: "\\u724C\\u5806\\u9876 \\xB7 \\u6700\\u9876\\u5728\\u5DE6", bottom: "\\u724C\\u5806\\u5E95 \\xB7 \\u6700\\u5E95\\u5728\\u5DE6", discard: \`\\u672C\\u56DE\\u5408\\u5F03\\u724C \\xB7 \${discardMode === "time" ? "\\u65B0\\u7684\\u5728\\u53F3" : { suit: "\\u82B1\\u8272\\u987A\\u5E8F", type: "\\u7C7B\\u578B\\u987A\\u5E8F", number: "\\u70B9\\u6570\\u987A\\u5E8F" }[discardMode]}\` }[shownList];
+        const caption = { top: "\\u724C\\u5806\\u9876 \\xB7 \\u6700\\u9876\\u5728\\u5DE6", bottom: "\\u724C\\u5806\\u5E95 \\xB7 \\u6700\\u5E95\\u5728\\u53F3", discard: \`\\u672C\\u56DE\\u5408\\u5F03\\u724C \\xB7 \${discardMode === "time" ? "\\u65B0\\u7684\\u5728\\u53F3" : { suit: "\\u82B1\\u8272\\u987A\\u5E8F", type: "\\u7C7B\\u578B\\u987A\\u5E8F", number: "\\u70B9\\u6570\\u987A\\u5E8F" }[discardMode]}\` }[shownList];
+        const ids = listIds(state, shownList);
         const cards = element("div");
-        cardList(cards, listIds(state, shownList));
+        cardList(cards, shownList === "bottom" ? ids.slice().reverse() : ids);
         hudList.replaceChildren(element("p", "sgs-card-hud-caption", caption));
         if (shownList === "discard") {
           const controls = element("div", "sgs-card-controls sgs-segments");
@@ -10205,7 +10445,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         const label = element("label", "sgs-card-setting");
         const input = element("input");
         input.type = "checkbox";
-        styleSwitch(input);
+        ctx.ui.styleSwitch(input);
         input.checked = setting(key, fallback);
         input.dataset.setting = key;
         input.addEventListener("change", () => {
@@ -10255,7 +10495,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       queryForm.append(nameSelect);
       const queryResults = element("div"), queryCount = element("p", "sgs-card-muted");
       function updateQuery() {
-        if (!currentState().active || !querySection.open) {
+        if (singleRiderShopVisible(window, ctx.game) || !currentState().active || !querySection.open) {
           queryResults.replaceChildren();
           return;
         }
@@ -10472,10 +10712,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     manifest: {
       id: "cards",
       name: "\\u5361\\u724C",
-      version: "0.1.58",
+      version: "0.1.62",
       apiVersion: 1,
       contractVersion: 1,
-      minCoreVersion: "0.5.76",
+      releaseNotes: "\\u8865\\u5145\\u53F8\\u5951\\u3001\\u52BC\\u529B\\u5C55\\u793A\\u724C\\u5806\\u4FE1\\u606F\\u7684\\u8BB0\\u5F55\\uFF0C\\u8C03\\u6574\\u724C\\u5806\\u987A\\u5E8F\\u63D0\\u793A\\uFF1B\\u5355\\u9A91\\u5546\\u5E97\\u6253\\u5F00\\u65F6\\u6536\\u8D77\\u76F8\\u5173\\u60AC\\u6D6E\\u4FE1\\u606F\\uFF0C\\u51CF\\u5C11\\u906E\\u6321\\u3002",
+      minCoreVersion: "0.6.37",
       categories: ["game"],
       icon: PLUGIN_ICONS["cards"],
       priority: 1e4,
@@ -10488,8 +10729,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","version":"0.1.58","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.76","categories":["game"],"icon":{"paths":["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z","M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"]},"priority":10000,"description":"\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570"}};
-`, sha256: "1abcedbc5f33fa479cbba2362d11cc5428844f6906b217a3a2b2a255f2ec207c" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "play-assist", name: "\u51FA\u724C\u8F85\u52A9", version: "0.2.6", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.13", description: "\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002", icon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] }, priority: 12e3, categories: ["game"] }, code: `var SGSPlugin = (() => {
+return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","version":"0.1.62","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8865\u5145\u53F8\u5951\u3001\u52BC\u529B\u5C55\u793A\u724C\u5806\u4FE1\u606F\u7684\u8BB0\u5F55\uFF0C\u8C03\u6574\u724C\u5806\u987A\u5E8F\u63D0\u793A\uFF1B\u5355\u9A91\u5546\u5E97\u6253\u5F00\u65F6\u6536\u8D77\u76F8\u5173\u60AC\u6D6E\u4FE1\u606F\uFF0C\u51CF\u5C11\u906E\u6321\u3002","minCoreVersion":"0.6.37","categories":["game"],"icon":{"paths":["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z","M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"]},"priority":10000,"description":"\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570"}};
+`, sha256: "2dace0ba531e64648999028a7943e60594a75193389d6146b2ce1a89c3a0c460" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "play-assist", name: "\u51FA\u724C\u8F85\u52A9", version: "0.2.12", apiVersion: 1, contractVersion: 1, releaseNotes: "\u957F\u6309\u6280\u80FD\u8F85\u52A9\u9ED8\u8BA4\u5F00\u542F\uFF0C\u4FDD\u7559\u5DF2\u6709\u8BBE\u7F6E\uFF1B\u53F3\u952E\u957F\u6309\u53EF\u8BB0\u4F4F\u6280\u80FD\uFF0C\u79FB\u52A8\u7AEF\u7EE7\u7EED\u957F\u6309\u4E5F\u53EF\u8BB0\u4F4F\uFF0C\u70B9\u6309\u53D6\u6D88\u3002\u79FB\u9664\u7EDF\u4E00\u8DE8\u5C40\u8BB0\u5FC6\u5F00\u5173\uFF0C\u6539\u4E3A\u9010\u6280\u80FD\u8BB0\u5FC6\uFF0C\u5E76\u4FEE\u6B63\u90E8\u5206\u8BE2\u95EE\u5904\u7406\u3002", minCoreVersion: "0.6.37", description: "\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002", icon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] }, priority: 12e3, categories: ["game"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -10515,125 +10756,6 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
     default: () => index_default,
     manifest: () => manifest
   });
-
-  // src/ui/plugin-icons.js
-  var icon = (...paths) => Object.freeze({ paths: Object.freeze(paths) });
-  var PLUGIN_ICONS = Object.freeze({
-    cards: icon(
-      "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
-      "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"
-    ),
-    shanhetu: icon(
-      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
-      "M6 12 10 7l4 5 3-3 2 3",
-      "M6 16c3-3 7 3 12-1"
-    ),
-    "daily-rewards": icon(
-      "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
-      "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"
-    ),
-    seckill: icon(
-      "M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2",
-      "M13 10 9 15h3l-1 4 5-6h-4Z"
-    ),
-    gaizhu: icon(
-      "M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0",
-      "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3",
-      "M2 21h6"
-    ),
-    effects: icon(
-      "M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2",
-      "M3 3 21 21M19 3v4M17 5h4"
-    ),
-    skins: icon(
-      "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
-      "M8 3l8 9M16 3l-6 7M8 16h8"
-    ),
-    "wish-progress": icon(
-      "M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z",
-      "M4 21h9M16 21h4"
-    ),
-    themes: icon(
-      "M12 21 2 8a16 16 0 0 1 20 0Z",
-      "M12 21 7 5.3M12 21V4.5M12 21 17 5.3",
-      "M10 19a3 3 0 0 1 4 0"
-    ),
-    baisheng: icon(
-      "M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4",
-      "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"
-    ),
-    appearances: icon(
-      "M9 21H3V3h18v9",
-      "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1",
-      "M12 21 16 17l3 2 3-5M19 14h3v3"
-    ),
-    ledger: icon(
-      "M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18",
-      "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"
-    )
-  });
-  var TOOLBOX_ICON = icon(
-    "M3 7h18v13H3ZM8 7V4h8v3M3 12h6M15 12h6",
-    "M12 9l3 3-3 3-3-3Z"
-  );
-
-  // src/ui/icons.js
-  var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
-    toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
-    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
-    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
-    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
-    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
-    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
-    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
-    close: '<path d="m6 6 12 12M6 18 18 6"/>',
-    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
-    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
-    collapse: '<path d="M5 12h14"/>',
-    chevron: '<path d="m6 9 6 6 6-6"/>',
-    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
-    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
-    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
-    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
-    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
-    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
-    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
-    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
-  });
-  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
-  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-
-  // src/ui/controls.js
-  var CONTROL_STYLES = \`
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-\`;
-  function styleSwitch(input) {
-    input.classList.add("sgs-switch");
-    input.setAttribute("role", "switch");
-    return input;
-  }
 
   // src/plugins/play-assist/strategies.js
   var EXTRA_SKILLS = Object.freeze({
@@ -10966,6 +11088,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 
   // src/plugins/play-assist/runtime.js
   var SKILL_IDS = Object.freeze([62, 769, 726, 3295, 3310, 792, 3750, 3753, 295, 250, 784, 445, 49, 716, 101, 3269, 273, 97, 3260, 102, 891, ...EXTRA_IDS]);
+  var isWuxie = (ui) => Number(ui?.Card?.FirstSkillId ?? ui?.Card?.FirstSkill?.ID) === 13;
   var QIANFU_IDS = [3750, 3753];
   var CONDITIONAL_SKILL_IDS = Object.freeze([48, 719, 79, 883]);
   function supported(item) {
@@ -10998,8 +11121,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function createRuntime(ctx, getSettings, onChange = () => {
   }) {
     const quandao = createQuandaoDisplay();
-    let state = null, disposed = false, proxy = null, proxyCleanup = [], ended = false, currentSeat = null, phase = null, sourceCard = null, wuxie = null, judgementFlower = null, lastRemember = Boolean(getSettings().remember);
-    let locks = new Set(lastRemember ? list2(ctx.settings.get("lockedSkillIds", [])).map(Number) : []);
+    let state = null, disposed = false, proxy = null, proxyCleanup = [], ended = false, currentSeat = null, phase = null, sourceCard = null, wuxie = null, judgementFlower = null;
+    const remembered = new Set(list2(ctx.settings.get("rememberedSkillIds", [])).map(Number));
+    let locks = new Set(remembered);
     const releases = [], tracked = (fn) => {
       const release = ctx.scope.add(fn);
       releases.push(release);
@@ -11007,7 +11131,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     };
     const extended = createExtended(ctx, { button, choice, locked: (id2) => locks.has(id2), hasKind: (kind) => EXTRA_IDS.some((id2) => locks.has(id2) && skillKind(id2) === kind) });
     function persist() {
-      ctx.settings.set("lockedSkillIds", getSettings().remember ? [...locks] : []);
+      ctx.settings.set("rememberedSkillIds", [...remembered]);
     }
     function gameContext() {
       return read(() => ctx.game.getClass("GameContext"));
@@ -11021,10 +11145,16 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function notify() {
       onChange();
     }
-    function toggle(id2) {
+    function toggle(id2, remember = false) {
       id2 = Number(id2);
       if (!alive() || !getSettings().skillLock || !list2(state.self.skillItems).some((x) => supported(x) && Number(x.Skill?.SkillId) === id2)) return false;
-      locks.has(id2) ? locks.delete(id2) : locks.add(id2);
+      if (remember) {
+        locks.add(id2);
+        remembered.add(id2);
+      } else if (locks.has(id2)) {
+        locks.delete(id2);
+        remembered.delete(id2);
+      } else locks.add(id2);
       persist();
       paint();
       schedule(state);
@@ -11032,10 +11162,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return true;
     }
     function getSkills() {
-      return list2(state?.self.skillItems).filter(supported).map((item) => ({ id: Number(item.Skill.SkillId), name: String(item.Skill.Name || item.Skill.SkillId), locked: locks.has(Number(item.Skill.SkillId)) }));
+      return list2(state?.self.skillItems).filter(supported).map((item) => ({ id: Number(item.Skill.SkillId), name: String(item.Skill.Name || item.Skill.SkillId), locked: locks.has(Number(item.Skill.SkillId)), remembered: remembered.has(Number(item.Skill.SkillId)) }));
     }
     function paint() {
       for (const [item, binding] of state?.bindings || []) if (binding.label && !binding.label.destroyed) {
+        binding.label.text = remembered.has(Number(item.Skill?.SkillId)) ? "\\u8BB0\\n\\u4F4F" : "\\u81EA\\n\\u52A8";
         binding.label.visible = getSettings().skillLock && locks.has(Number(item.Skill?.SkillId));
         binding.label.color = ctx.ui.nativeTheme?.palette?.accent || "#c8ab6a";
         binding.label.bgColor = ctx.ui.nativeTheme?.palette?.bg || "#171b1d";
@@ -11061,30 +11192,42 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       const clean = [], id2 = Number(item.Skill.SkillId), owner = {}, handlers = list2(Array.isArray(events) ? events : [events]);
       const handler = handlers.find((h) => h?.caller === item && typeof h.method === "function" && h.method !== item.onClick && h.method !== item.onMouse);
       const original = handler?.method, originalArgs = handler?.args;
-      let timer = null, suppress = false, label = null;
+      let timer = null, memoryTimer = null, suppress = false, label = null;
       const cancel2 = () => {
         timer?.();
-        timer = null;
+        memoryTimer?.();
+        timer = memoryTimer = null;
       };
-      const down = () => {
+      const down = (event = {}, right = false) => {
         cancel2();
         suppress = false;
         if (!alive(s) || !getSettings().skillLock) return;
-        if (locks.has(id2)) {
+        const mobile = Boolean(event.nativeEvent?.touches || event.touches || ctx.window.Laya?.Browser?.onMobile);
+        if (!right && locks.has(id2)) {
           suppress = true;
           toggle(id2);
           return;
         }
         const gc = gameContext();
         const shanhe = Boolean(gc?.IsRoguelike1v1 || gc?.IsRogueLike || /Rogue/.test(String(s.scene.SceneName)));
+        const valid = () => alive(s) && Number(item.Skill?.SkillId) === id2 && getSettings().skillLock;
         const handle = setTimeout(() => {
-          cancel2();
-          if (alive(s) && Number(item.Skill?.SkillId) === id2 && toggle(id2)) {
-            suppress = true;
-            ctx.notify?.(\`\\u5DF2\\u542F\\u7528 \${item.Skill.Name} \\u6280\\u80FD\\u8F85\\u52A9\\uFF0C\\u518D\\u70B9\\u4E00\\u6B21\\u89E3\\u9664\`);
-          }
+          if (!valid()) return;
+          if (right) toggle(id2, true);
+          else if (!locks.has(id2)) toggle(id2);
+          suppress = true;
+          ctx.notify?.(right ? \`\\u5DF2\\u8BB0\\u4F4F \${item.Skill.Name} \\u6280\\u80FD\\u8F85\\u52A9\\uFF0C\\u5DE6\\u952E\\u70B9\\u4E00\\u4E0B\\u53D6\\u6D88\` : \`\\u5DF2\\u542F\\u7528 \${item.Skill.Name} \\u6280\\u80FD\\u8F85\\u52A9\` + (mobile ? "\\uFF0C\\u7EE7\\u7EED\\u6309\\u4F4F\\u53EF\\u8BB0\\u4F4F" : "\\uFF0C\\u70B9\\u4E00\\u4E0B\\u53D6\\u6D88"));
         }, shanhe ? 500 : 2e3);
         timer = ctx.scope.add(() => clearTimeout(handle));
+        if (mobile && !right) {
+          const memoryHandle = setTimeout(() => {
+            if (!valid()) return;
+            toggle(id2, true);
+            suppress = true;
+            ctx.notify?.(\`\\u5DF2\\u8BB0\\u4F4F \${item.Skill.Name} \\u6280\\u80FD\\u8F85\\u52A9\\uFF0C\\u70B9\\u4E00\\u4E0B\\u53D6\\u6D88\`);
+          }, shanhe ? 3e3 : 5e3);
+          memoryTimer = ctx.scope.add(() => clearTimeout(memoryHandle));
+        }
       };
       const wrapped = function(...args) {
         if (suppress && !s.automatic) {
@@ -11104,6 +11247,19 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           if (!item.destroyed) item.on("click", item, original, originalArgs);
         });
         for (const [event, fn] of [["mousedown", down], ["mouseup", cancel2], ["mouseout", cancel2]]) {
+          item.on(event, owner, fn);
+          clean.push(() => item.off(event, owner, fn));
+        }
+      }
+      const rightDown = (event) => down(event, true);
+      const dispatcher = ctx.window.Laya?.EventDispatcher?.prototype;
+      const rightTarget = item.eventDispatcher && dispatcher ? dispatcher : item;
+      const raw = rightTarget !== item;
+      for (const [event, fn] of [["rightmousedown", rightDown], ["rightmouseup", cancel2], ["mouseout", cancel2]]) {
+        if (raw) {
+          rightTarget.on.call(item, event, owner, fn);
+          clean.push(() => rightTarget.off.call(item, event, owner, fn));
+        } else if (typeof item.on === "function" && typeof item.off === "function") {
           item.on(event, owner, fn);
           clean.push(() => item.off(event, owner, fn));
         }
@@ -11169,7 +11325,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       state.barClean?.forEach((fn) => fn());
       state.clean.reverse().forEach((fn) => fn());
       state = null;
-      if (!getSettings().remember) locks.clear();
+      locks = new Set(remembered);
       notify();
     }
     function resetRound() {
@@ -11232,10 +11388,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function cancel(s) {
       return s.self.spellSelector?.visible ? choice(s, (d) => Number(d.sendData) === 255 || Number(d.sendData) === 0 && !d.callBack) : button(s, "btnCancel");
     }
-    function chooseCard(s, predicate = () => true) {
+    function chooseCard(s, predicate = () => true, preferWuxie = false) {
       const cards = list2(s.self.cardContainer?.cardUis), selected2 = cards.find((c) => c.selected && predicate(c));
       if (selected2) return true;
-      const card = cards.find((c) => c.activated && !c.destroyed && predicate(c));
+      const pool = cards.filter((c) => c.activated && !c.destroyed && predicate(c));
+      const card = preferWuxie && pool.find(isWuxie) || pool[0];
       if (!card || typeof card.setSelected !== "function") return false;
       card.setSelected(true);
       return true;
@@ -11289,28 +11446,32 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         }
         return false;
       }
+      const targets = s.scene.seatContainer?.selectContext;
+      const targetSkill = Number(targets?.Skill?.SkillId);
       const id2 = Number(context?.Skill?.SkillId);
+      const removalPrompt = /\u8BF7\u9009\u62E9\u4E00\u540D\u89D2\u8272[\uFF0C,]\u4EE4\u5176\u4E0D\u6210\u4E3A\u4E07\u7BAD\u9F50\u53D1\u7684\u76EE\u6807/.test(message.replace(/\\s/g, ""));
+      const removalSkill = [id2, targetSkill].some((skill) => [102, 891].includes(skill) && locks.has(skill));
+      if (removalSkill && /\u53D6\u6D88/.test(message) && /\u76EE\u6807/.test(message) || removalPrompt && [102, 891].some((skill) => locks.has(skill))) {
+        const selected2 = list2(s.scene.seatContainer?.seatUIs).filter((x) => x.seat?.Selected).length;
+        if (selected2 < Math.max(1, Number(targets?.SelectCountMin || 0))) return true;
+        button(s, "btnOK");
+        return true;
+      }
       if (locks.has(id2)) {
         if (QIANFU_IDS.includes(id2)) {
           if (!/\u8BF7\u9009\u62E9\u4E00\u5F20(?:\u9ED1|\u7EA2)\u8272\u724C\uFF0C\u5F53(?:\u8FC7\u6CB3\u62C6\u6865|\u706B\u653B)\u4F7F\u7528/.test(message)) return false;
           if (cards.filter((c) => c.selected).length > 1) return false;
-          return chooseCard(s) && button(s, "btnOK");
+          return chooseCard(s, () => true, true) && button(s, "btnOK");
         }
         if ([102, 891].includes(id2)) {
           const selected2 = cards.filter((c) => c.selected), suit2 = selected2[0]?.Card?.FlowerOnSeat;
           if (selected2.length > 2 || selected2.some((c) => c.Card?.FlowerOnSeat !== suit2)) return false;
-          const pool = cards.filter((c) => c.activated && Number(c.Card?.FlowerOnSeat) > 0);
+          const pool = cards.filter((c) => c.activated && Number(c.Card?.FlowerOnSeat) > 0).sort((a, b) => Number(isWuxie(b)) - Number(isWuxie(a)));
           const flower = suit2 ?? pool.find((c) => pool.filter((x) => x.Card.FlowerOnSeat === c.Card.FlowerOnSeat).length >= 2)?.Card.FlowerOnSeat;
           for (const c of pool) if (cards.filter((x) => x.selected).length < 2 && !c.selected && c.Card.FlowerOnSeat === flower) c.setSelected(true);
           return cards.filter((c) => c.selected && c.Card?.FlowerOnSeat === flower).length === 2 && button(s, "btnOK");
         }
-        if ([101, 3269, 97, 3260].includes(id2)) {
-          if (s.prepared !== s.bar) {
-            s.prepared = s.bar;
-            self.cardContainer.AllSelectHandCards?.();
-          }
-          return button(s, "btnOK");
-        }
+        if ([101, 3269, 97, 3260].includes(id2)) return chooseCard(s, () => true, true) && button(s, "btnOK");
         if ([49, 445].includes(id2)) {
           if (message === "\\u8BF7\\u9009\\u62E9\\u4E00\\u5F20\\u8981\\u5C55\\u793A\\u7684\\u624B\\u724C") return chooseCard(s) && button(s, "btnOK");
           if (message.includes("(\\u60A8)")) return button(s, "btnCancel");
@@ -11494,7 +11655,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       bind2("ClientLoginRep", () => {
         clear();
         resetRound();
-        locks.clear();
+        locks = new Set(remembered);
         ended = true;
         notify();
       });
@@ -11503,10 +11664,6 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       if (disposed || ctx.scope.signal.aborted) return;
       try {
         observe();
-        if (lastRemember !== Boolean(getSettings().remember)) {
-          lastRemember = Boolean(getSettings().remember);
-          persist();
-        }
         const scene = ctx.game.getScene(), self = scene?.SelfSeatUi;
         if (state && (state.scene !== scene || state.self !== self || state.seat !== self?.seat)) {
           clear();
@@ -11555,8 +11712,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 
   // src/plugins/play-assist/index.js
   var OPTIONS = [
-    ["skillLock", "\\u957F\\u6309\\u6280\\u80FD\\u8F85\\u52A9", "\\u5C71\\u6CB3\\u957F\\u6309 0.5 \\u79D2\\uFF0C\\u5176\\u4ED6 2 \\u79D2\\uFF1B\\u70B9\\u6309\\u89E3\\u9664"],
-    ["remember", "\\u8DE8\\u5C40\\u8BB0\\u5FC6", ""],
+    ["skillLock", "\\u957F\\u6309\\u6280\\u80FD\\u8F85\\u52A9", "\\u957F\\u6309\\u5F00\\u542F\\uFF1A\\u5C71\\u6CB3 0.5 \\u79D2\\uFF0F\\u5176\\u4ED6 2 \\u79D2\\uFF1B\\u53F3\\u952E\\u957F\\u6309\\u8BB0\\u4F4F\\uFF1B\\u79FB\\u52A8\\u7AEF\\u7EE7\\u7EED\\u6309\\u5230 3 \\u79D2\\uFF0F5 \\u79D2\\u8BB0\\u4F4F\\uFF1B\\u70B9\\u4E00\\u4E0B\\u53D6\\u6D88"],
     ["autoConfirm", "\\u9009\\u597D\\u540E\\u81EA\\u52A8\\u786E\\u5B9A", ""],
     ["fireAttack", "\\u81EA\\u52A8\\u706B\\u653B", "\\u5C55\\u793A\\u3001\\u5F03\\u724C"],
     ["skipWuxie", "\\u8DF3\\u8FC7\\u65E0\\u61C8", "\\u4EC5\\u5C71\\u6CB3\\u6A21\\u5F0F\\u7684\\u9650\\u5B9A\\u8BE2\\u95EE"],
@@ -11568,10 +11724,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var manifest = {
     id: "play-assist",
     name: "\\u51FA\\u724C\\u8F85\\u52A9",
-    version: "0.2.6",
+    version: "0.2.12",
     apiVersion: 1,
     contractVersion: 1,
-    minCoreVersion: "0.5.13",
+    releaseNotes: "\\u957F\\u6309\\u6280\\u80FD\\u8F85\\u52A9\\u9ED8\\u8BA4\\u5F00\\u542F\\uFF0C\\u4FDD\\u7559\\u5DF2\\u6709\\u8BBE\\u7F6E\\uFF1B\\u53F3\\u952E\\u957F\\u6309\\u53EF\\u8BB0\\u4F4F\\u6280\\u80FD\\uFF0C\\u79FB\\u52A8\\u7AEF\\u7EE7\\u7EED\\u957F\\u6309\\u4E5F\\u53EF\\u8BB0\\u4F4F\\uFF0C\\u70B9\\u6309\\u53D6\\u6D88\\u3002\\u79FB\\u9664\\u7EDF\\u4E00\\u8DE8\\u5C40\\u8BB0\\u5FC6\\u5F00\\u5173\\uFF0C\\u6539\\u4E3A\\u9010\\u6280\\u80FD\\u8BB0\\u5FC6\\uFF0C\\u5E76\\u4FEE\\u6B63\\u90E8\\u5206\\u8BE2\\u95EE\\u5904\\u7406\\u3002",
+    minCoreVersion: "0.6.37",
     description: "\\u957F\\u6309\\u6280\\u80FD\\u8F85\\u52A9\\u3001\\u81EA\\u52A8\\u786E\\u5B9A\\u4E0E\\u8BE2\\u95EE\\u8DF3\\u8FC7\\u3002",
     icon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] },
     priority: 12e3,
@@ -11579,7 +11736,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   };
   var index_default = { manifest, activate(ctx) {
     const listeners = /* @__PURE__ */ new Set();
-    const settings = () => Object.fromEntries(OPTIONS.map(([key]) => [key, ctx.settings.get(key, false) === true]));
+    const settings = () => Object.fromEntries(OPTIONS.map(([key]) => [key, ctx.settings.get(key, key === "skillLock") === true]));
     const emit = () => listeners.forEach((fn) => fn());
     const runtime = createRuntime(ctx, settings, emit);
     ctx.ui.registerPanel({ id: "main", category: "game", gameView: "battle", render(container) {
@@ -11593,7 +11750,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       const root = el("section");
       root.dataset.playAssist = "";
       const style = el("style");
-      style.textContent = \`\${CONTROL_STYLES}
+      style.textContent = \`
       [data-play-assist]{font:12px/1.5 var(--sgs-font);color:var(--sgs-text);min-width:0}
       [data-play-assist] *{box-sizing:border-box}[data-play-assist] .pa-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent);cursor:pointer}
       [data-play-assist] .pa-copy{min-width:0;flex:1}[data-play-assist] small{display:block;font-size:10px;color:var(--sgs-muted);margin-top:2px;overflow-wrap:anywhere}
@@ -11613,8 +11770,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       for (const [key, name, hint] of OPTIONS) {
         const row = el("label", null, "pa-row"), copy = el("span", null, "pa-copy");
         copy.append(el("span", name));
-        if (hint) copy.append(el("small", hint));
-        const input = styleSwitch(el("input"));
+        if (hint) copy.append(ctx.ui.helpTip(hint, \`\${name}\\u8BF4\\u660E\`));
+        const input = ctx.ui.styleSwitch(el("input"));
         input.type = "checkbox";
         input.setAttribute("aria-label", name);
         inputs.set(key, input);
@@ -11657,7 +11814,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         inputs.forEach((input, key) => {
           input.checked = config[key];
         });
-        const list3 = runtime.getSkills().map(({ id: id2, name, locked }) => ({ id: id2, name, locked })), next = JSON.stringify([list3, config.skillLock]);
+        const list3 = runtime.getSkills().map(({ id: id2, name, locked, remembered }) => ({ id: id2, name, locked, remembered })), next = JSON.stringify([list3, config.skillLock]);
         if (signature === next) return;
         signature = next;
         skills.replaceChildren();
@@ -11670,7 +11827,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           button.disabled = !config.skillLock;
           button.title = skill.name;
           button.setAttribute("aria-pressed", String(skill.locked));
-          button.append(el("span", skill.name), el("small", skill.locked ? "\\u5DF2\\u5F00\\u542F" : "\\u672A\\u5F00\\u542F"));
+          button.append(el("span", skill.name), el("small", skill.remembered ? "\\u5DF2\\u8BB0\\u4F4F \\xB7 \\u70B9\\u4E00\\u4E0B\\u53D6\\u6D88" : skill.locked ? "\\u672C\\u5C40\\u5F00\\u542F" : "\\u672A\\u5F00\\u542F"));
           skills.append(button);
         }
       }
@@ -11691,8 +11848,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\u8F85\u52A9","version":"0.2.6","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.13","description":"\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002","icon":{"paths":["M4 5h10v14H4zM7 8h4M7 11h3","m17 3-3 8h5l-3 10 7-13h-5l2-5"]},"priority":12000,"categories":["game"]}};
-`, sha256: "bcb1c892f1a6dbfbdc565d144ac40743bd32eb6362f6080f3f53c86d8457a805" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "daily-rewards", name: "\u65E5\u5E38\u9886\u5956", version: "0.7.18", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.6.3", categories: ["automation"], icon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, priority: 2e4, description: "\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\u8F85\u52A9","version":"0.2.12","apiVersion":1,"contractVersion":1,"releaseNotes":"\u957F\u6309\u6280\u80FD\u8F85\u52A9\u9ED8\u8BA4\u5F00\u542F\uFF0C\u4FDD\u7559\u5DF2\u6709\u8BBE\u7F6E\uFF1B\u53F3\u952E\u957F\u6309\u53EF\u8BB0\u4F4F\u6280\u80FD\uFF0C\u79FB\u52A8\u7AEF\u7EE7\u7EED\u957F\u6309\u4E5F\u53EF\u8BB0\u4F4F\uFF0C\u70B9\u6309\u53D6\u6D88\u3002\u79FB\u9664\u7EDF\u4E00\u8DE8\u5C40\u8BB0\u5FC6\u5F00\u5173\uFF0C\u6539\u4E3A\u9010\u6280\u80FD\u8BB0\u5FC6\uFF0C\u5E76\u4FEE\u6B63\u90E8\u5206\u8BE2\u95EE\u5904\u7406\u3002","minCoreVersion":"0.6.37","description":"\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002","icon":{"paths":["M4 5h10v14H4zM7 8h4M7 11h3","m17 3-3 8h5l-3 10 7-13h-5l2-5"]},"priority":12000,"categories":["game"]}};
+`, sha256: "31e156875a0ff0f21a0fc47ee577fdd8580ecc047035d0ff57bcc0fbd2c7a3a1" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "daily-rewards", name: "\u65E5\u5E38\u9886\u5956", version: "0.7.26", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8865\u5168\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u8FDE\u80DC\u5956\u52B1\u9886\u53D6\uFF0C\u907F\u514D\u540C\u4E00\u5B9D\u7BB1\u91CD\u590D\u8BF7\u6C42\uFF1B\u4F18\u5316\u5956\u52B1\u8BF4\u660E\u548C\u72B6\u6001\u663E\u793A\u3002\u81EA\u52A8\u9886\u53D6\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF0C\u5171\u4EAB\u5151\u6362\u7801\u4ECD\u9700\u5355\u72EC\u5F00\u542F\u4E14\u53EA\u4E0A\u4F20\u6E38\u620F\u660E\u786E\u6210\u529F\u7684\u7801\u53CA\u8D26\u53F7\u6458\u8981\u3002", minCoreVersion: "0.6.38", categories: ["automation"], icon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, priority: 2e4, description: "\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -11777,87 +11934,6 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     "M3 7h18v13H3ZM8 7V4h8v3M3 12h6M15 12h6",
     "M12 9l3 3-3 3-3-3Z"
   );
-
-  // src/ui/icons.js
-  var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
-    toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
-    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
-    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
-    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
-    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
-    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
-    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
-    close: '<path d="m6 6 12 12M6 18 18 6"/>',
-    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
-    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
-    collapse: '<path d="M5 12h14"/>',
-    chevron: '<path d="m6 9 6 6 6-6"/>',
-    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
-    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
-    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
-    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
-    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
-    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
-    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
-    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
-  });
-  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
-  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-  function isIconSpec(value) {
-    if (typeof value === "string") return Object.hasOwn(markup, value) || Object.hasOwn(aliases, value);
-    return value !== null && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.paths) && value.paths.length >= 1 && value.paths.length <= 8 && value.paths.every((path) => typeof path === "string" && path.length <= 1024 && /^[Mm][\\s\\d.,+\\-eEMmLlHhVvCcSsQqTtAaZz]+$/.test(path) && /\\d/.test(path));
-  }
-  function createIcon(doc, value = "package", className = "sgs-line-icon") {
-    const spec = isIconSpec(value) ? value : "package", icon2 = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon2.setAttribute("viewBox", "0 0 24 24");
-    icon2.setAttribute("class", className);
-    icon2.setAttribute("aria-hidden", "true");
-    icon2.setAttribute("focusable", "false");
-    icon2.setAttribute("fill", "none");
-    icon2.setAttribute("stroke", "currentColor");
-    icon2.setAttribute("stroke-width", "1.5");
-    icon2.setAttribute("stroke-linecap", "round");
-    icon2.setAttribute("stroke-linejoin", "round");
-    icon2.dataset.icon = typeof spec === "string" ? spec : "custom";
-    const shape = typeof spec === "string" ? markup[aliases[spec] || spec] : spec;
-    if (typeof shape === "string") icon2.innerHTML = shape;
-    else for (const d of shape.paths) {
-      const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", d);
-      icon2.append(path);
-    }
-    return icon2;
-  }
-
-  // src/ui/controls.js
-  var CONTROL_STYLES = \`
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-\`;
-  function controlIcon(doc, name) {
-    return createIcon(doc, name);
-  }
 
   // src/plugins/daily-rewards/welfare.js
   var read = (fn) => {
@@ -12248,6 +12324,34 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var positive3 = (value) => Number.isSafeInteger(Number(value)) && Number(value) > 0;
   var has2 = (list3, id) => Array.isArray(list3) && list3.some((value) => Number(value) === Number(id));
   var method = (object, name) => typeof read3(() => object[name]) === "function";
+  function ddzStreakState(manager, reward) {
+    const native = manager.DDZ2023WinAwardGetState(Number(reward.Id));
+    if (native === 2) return 2;
+    const data = manager.DdzData;
+    if (manager.IsDDZ2023HisWeekWinCtnReceived === true && Array.isArray(data?.ddz2023WeeklyWinAward)) {
+      if (has2(data.ddz2023WeeklyWinAward, reward.Id)) return 2;
+      const count = manager.DDZ2023HisWeekWinCtn;
+      if (Number.isSafeInteger(count) && count >= Number(reward.RequireSuccess)) return 1;
+    }
+    return native;
+  }
+  function streakClaimed(manager, id) {
+    return has2(manager.DdzData?.ddz2023WeeklyWinAward, id) || has2(manager.Roguelike1v1Data?.rogue1v1WeeklyWinAward, id);
+  }
+  function rogueStreakState(manager, reward) {
+    const data = manager.Roguelike1v1Data;
+    if (!data || !Array.isArray(data.rogue1v1WeeklyWinAward)) return 0;
+    if (streakClaimed(manager, reward.Id)) return 2;
+    const count = manager.rogue1v1HisWeekWinCtn;
+    return Number.isSafeInteger(count) && count >= Number(reward.RequireSuccess) ? 1 : 0;
+  }
+  function streakRoute(manager, reward) {
+    if (streakClaimed(manager, reward.Id)) return null;
+    const ddz = manager.IsDDZ2023HisWeekWinCtnReceived === true && Array.isArray(manager.DdzData?.ddz2023WeeklyWinAward) ? Number.isSafeInteger(manager.DDZ2023HisWeekWinCtn) && manager.DDZ2023HisWeekWinCtn >= Number(reward.RequireSuccess) : !manager.Roguelike1v1Data && method(manager, "DDZ2023WinAwardGetState") && ddzStreakState(manager, reward) === 1;
+    if (ddz && method(manager, "SendDDZ2023StreakWinAwardReq")) return "ddz";
+    if (rogueStreakState(manager, reward) === 1 && method(manager, "Sendrogue1v1StreakWinAwardReq")) return "rogue";
+    return null;
+  }
   var tavernTaskIds = Object.freeze([161114, 161115, 161116]);
   var tavernSlots = [
     ["NewDayQuestId1", "NewDayQuestReward1", "\\u5BF9\\u5C4030\\u5206\\u949F"],
@@ -12356,7 +12460,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     GameGeneralManager: { events: ["ClientUserDataCounterNtf", "decodeClientGeneralAtlasResp", "decodeClientGeneralAtlasLightResp", 195002, 195006], guard: (value) => method(value, "LampRewardReq") || method(value, "CanFreeOpenGeneral") },
     TianTiManager: { events: ["ClientTTLevelAwardRep", "ClientTTSeasonAwardRep"], guard: (value) => method(value, "RequestLevelAward") },
     TaskManager: { events: ["decodeClientGetJdCalcQuestAwardRep", "decodeClientJdCalcQuestAwardInfoNtf", 170036, 170037], guard: (value) => method(value, "HasRewardQuest") && method(value, "SendGetJdCalcQuestRewardReq") },
-    ActivityGameDataManager: { events: ["ClientGetWeekFreeBeanRep", "decodeClientGetWeekFreeBeanRep", 23934, 200084], guard: (value) => method(value, "SendClientGetWeekFreeBeanReq") }
+    ActivityGameDataManager: { events: ["ClientGetWeekFreeBeanRep", "decodeClientGetWeekFreeBeanRep", "ClientDDZ2023StreakWinAwardRep", "decodeUser1v1RogueStreakRewardRep", 190007, 29260, 23934, 200084], guard: (value) => method(value, "SendClientGetWeekFreeBeanReq") || method(value, "SendDDZ2023StreakWinAwardReq") || method(value, "Sendrogue1v1StreakWinAwardReq") }
   };
   async function prepareOfficer(adapter) {
     const manager = adapter.manager("OfficerManager"), proxy = adapter.proxy?.();
@@ -12390,6 +12494,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     if (method(adapter.manager("OfficerManager"), "CanGetOfficerWeekReward") && !adapter.config("h5_officer.sgs")) loads.push("h5_officer");
     if (method(general, "LampRewardReq") && !adapter.config("cha_dbs_general_series.sgs")) loads.push("cha_dbs_general_series");
     if (!selected.excludeRecruit && method(general, "SendClientUseGeneralDrawCardReq") && !adapter.config("ff_general_chest_info_config.sgs")) loads.push("ff_general_chest_info_config");
+    if ((method(adapter.manager("ActivityGameDataManager"), "SendDDZ2023StreakWinAwardReq") || method(adapter.manager("ActivityGameDataManager"), "Sendrogue1v1StreakWinAwardReq")) && !adapter.config("hd_fight_lord_config.sgs")) loads.push("hd_fight_lord_config");
     const activity = adapter.manager("ActivityManager");
     if ((method(task, "SendGetJdCalcQuestRewardReq") || method(activity, "SendGetJDRewardReq") || method(activity, "SendGetNewJDRewardReq") || method(activity, "SendDDZTLLAwardReq")) && !adapter.config("ff_task_daily.sgs")) loads.push("ff_task_daily");
     if (positive3(latestHistory(ranked)) && !seasonRewards(adapter, ranked, latestHistory(ranked)) && !adapter.config("mod_new_ttrank_config.sgs")) loads.push("mod_new_ttrank_config");
@@ -12700,6 +12805,39 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             const p = protocol(event);
             return p?.result === 0 && Number(p.id) === id && Number(activity.InviteLoginCfg?.roundId) === round;
           } }]
+        });
+      }
+    });
+    group("\\u6597\\u5730\\u4E3B\\u8FDE\\u80DC\\u5956\\u52B1", () => {
+      const manager = adapter.manager("ActivityGameDataManager"), proxy = adapter.proxy?.();
+      if (!method(manager, "SendDDZ2023StreakWinAwardReq") && !method(manager, "Sendrogue1v1StreakWinAwardReq")) return;
+      const config = () => adapter.config("hd_fight_lord_config.sgs");
+      if (!config()) return note("\\u6597\\u5730\\u4E3B\\u8FDE\\u80DC\\u5956\\u52B1\\u914D\\u7F6E\\u5C1A\\u672A\\u5C31\\u7EEA\\uFF0C\\u8BF7\\u7A0D\\u540E\\u91CD\\u8BD5");
+      const rewards2 = () => rows((config()?.root || config())?.WinningStreak);
+      for (const reward of rewards2()) {
+        const id = Number(reward?.Id);
+        if (!positive3(id) || !positive3(reward.RequireSuccess)) continue;
+        const current = () => rewards2().find((item2) => Number(item2?.Id) === id);
+        const same = () => adapter.manager("ActivityGameDataManager") === manager && current() === reward;
+        const reply = (event) => {
+          const p = event?.Protocol;
+          return p && !p.errCode && p.rewardId === id ? p : null;
+        };
+        const route = streakRoute(manager, reward);
+        if (!route) continue;
+        const ready2 = () => same() && streakRoute(manager, reward) === route;
+        add({
+          key: \`ddz-streak:\${id}\`,
+          label: \`\${route === "rogue" ? "\\u5355\\u9A91\\u65E0\\u53CC" : "\\u6597\\u5730\\u4E3B"} \${reward.RequireSuccess} \\u8FDE\\u80DC\\u5956\\u52B1\`,
+          manager,
+          rewards: () => current()?.goodslist,
+          eligible: ready2,
+          done: () => same() && (streakClaimed(manager, id) || method(manager, "DDZ2023WinAwardGetState") && manager.DDZ2023WinAwardGetState(id) === 2),
+          send: () => ready2() ? route === "ddz" ? manager.SendDDZ2023StreakWinAwardReq(id) : manager.Sendrogue1v1StreakWinAwardReq({ id }) : false,
+          // Single-rider UI emits an update even without a proven success code.
+          // Confirm this route only from the synchronized claimed-ID state.
+          confirmations: proxy && route === "ddz" ? [{ manager: proxy, event: "ClientDDZ2023StreakWinAwardRep", accept: (event) => same() && reply(event)?.result === 1 }] : [],
+          rejections: proxy && route === "ddz" ? [{ manager: proxy, event: "ClientDDZ2023StreakWinAwardRep", accept: (event) => same() && [2, 3, 4].includes(reply(event)?.result), text: (event) => \`\\u6597\\u5730\\u4E3B\\u8FDE\\u80DC\\u5956\\u52B1\\u9886\\u53D6\\u5931\\u8D25\\uFF08\\u6E38\\u620F\\u9519\\u8BEF\\u7801 \${reply(event).result}\\uFF09\\uFF0C\\u8BF7\\u5728\\u6E38\\u620F\\u5185\\u6838\\u5BF9\` }] : []
         });
       }
     });
@@ -13550,8 +13688,263 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     };
   }
 
-  // src/plugins/daily-rewards/native.js
+  // src/plugins/daily-rewards/exchange.js
+  var LANDLORD_BEAN = 9030201;
+  var EXCHANGE_DELAY = 5e3;
+  var natural = (n) => Number.isSafeInteger(n) && n >= 0;
+  var exchangeEligible = (row) => !!row && Number.isSafeInteger(row.id) && row.id > 0 && [1, 2, 3].includes(row.period) && natural(row.limit) && row.limit > 0 && natural(row.price) && row.price > 0 && natural(row.bought) && row.bought < row.limit && row.owned === false && row.unlocked === true;
+  function createExchangeController({ adapter, settings, now = () => Date.now(), enabled = () => true }) {
+    let owner = "", day = "", data = {}, countdown = null, status = "\\u5728\\u5546\\u5E97\\u5546\\u54C1\\u53F3\\u4E0A\\u89D2\\u9009\\u62E9\\u81EA\\u52A8\\u5151\\u6362", stopped = false;
+    const key = () => \`account:\${owner}:shop-exchange\`;
+    const save = () => settings.set(key(), data);
+    function sync() {
+      const next = adapter.account(), nextDay = adapter.day();
+      if (owner !== next) {
+        owner = next;
+        data = owner ? settings.get(key(), {}) : {};
+        data = { selected: [], wait: {}, journal: {}, ...data };
+        countdown = null;
+        day = "";
+        adapter.invalidate();
+      }
+      if (day !== nextDay) {
+        day = nextDay;
+        countdown = null;
+        adapter.invalidate();
+      }
+      return !!owner && !!day;
+    }
+    function selected(id) {
+      return sync() && data.selected.includes(id);
+    }
+    function toggle(id, value) {
+      if (!sync()) return;
+      data.selected = data.selected.filter((item2) => item2 !== id);
+      if (value) data.selected.push(id);
+      delete data.wait[id];
+      save();
+      countdown = null;
+      adapter.invalidate();
+      tick();
+    }
+    function tick() {
+      if (stopped || !sync()) {
+        countdown = null;
+        return;
+      }
+      if (!enabled()) {
+        countdown = null;
+        status = "\\u81EA\\u52A8\\u9886\\u53D6\\u5DF2\\u5173\\u95ED\\uFF0C\\u81EA\\u52A8\\u5151\\u6362\\u5DF2\\u6682\\u505C";
+        return;
+      }
+      if (!data.selected.length) {
+        countdown = null;
+        status = "\\u5728\\u5546\\u5E97\\u5546\\u54C1\\u53F3\\u4E0A\\u89D2\\u9009\\u62E9\\u81EA\\u52A8\\u5151\\u6362";
+        return;
+      }
+      const snapshot = adapter.snapshot();
+      if (!snapshot?.ready || snapshot.currency !== LANDLORD_BEAN || !natural(snapshot.balance)) {
+        countdown = null;
+        status = "\\u7B49\\u5F85\\u5730\\u4E3B\\u8C46\\u5546\\u5E97\\u53CA\\u9650\\u8D2D\\u6570\\u636E";
+        return;
+      }
+      const { balance, rows: rows4 } = snapshot;
+      for (const [id, attempt2] of Object.entries(data.journal)) {
+        const row = rows4.find((item2) => String(item2.id) === id);
+        if (row && row.bought >= attempt2.bought + attempt2.count && balance !== attempt2.balance) {
+          delete data.journal[id];
+          save();
+        } else if (attempt2.day !== day) {
+          delete data.journal[id];
+          save();
+        } else {
+          countdown = null;
+          status = "\\u7B49\\u5F85\\u5151\\u6362\\u7ED3\\u679C\\u4E0E\\u4F59\\u989D\\u540C\\u6B65\\uFF0C\\u6682\\u4E0D\\u91CD\\u590D\\u8D2D\\u4E70";
+          return;
+        }
+      }
+      let candidate;
+      for (const id of data.selected) {
+        const row = rows4.find((item2) => item2.id === id);
+        if (!exchangeEligible(row)) continue;
+        const wait = data.wait[id];
+        if (wait && wait.balance === balance) continue;
+        if (wait) {
+          delete data.wait[id];
+          save();
+        }
+        const count = Math.min(row.limit - row.bought, Math.floor(balance / row.price));
+        if (!count) {
+          data.wait[id] = { balance };
+          save();
+          continue;
+        }
+        candidate = { ...row, count, balance, day };
+        break;
+      }
+      if (!candidate) {
+        countdown = null;
+        status = "\\u5DF2\\u5151\\u6362\\u81F3\\u9650\\u8D2D\\u4E0A\\u9650\\uFF0C\\u6216\\u7B49\\u5F85\\u5730\\u4E3B\\u8C46\\u4F59\\u989D\\u53D8\\u5316";
+        return;
+      }
+      const fingerprint = (row) => JSON.stringify([row.id, row.price, row.bought, row.limit, row.period, row.count, row.balance, row.day]);
+      if (!countdown || fingerprint(countdown) !== fingerprint(candidate)) {
+        countdown = { ...candidate, until: now() + EXCHANGE_DELAY };
+      }
+      const seconds = Math.max(0, Math.ceil((countdown.until - now()) / 1e3));
+      status = \`\${candidate.name || "\\u6240\\u9009\\u5546\\u54C1"} \\xD7\${candidate.count} \\xB7 \${seconds} \\u79D2\\u540E\\u5151\\u6362\\uFF08\\u6D88\\u8017 \${candidate.count * candidate.price} \\u5730\\u4E3B\\u8C46\\uFF09\`;
+      if (seconds) return;
+      const attempt = { ...candidate };
+      countdown = null;
+      data.journal[attempt.id] = attempt;
+      save();
+      try {
+        adapter.buy(attempt);
+        status = "\\u5DF2\\u63D0\\u4EA4\\u5151\\u6362\\uFF0C\\u7B49\\u5F85\\u6E38\\u620F\\u786E\\u8BA4";
+      } catch {
+        status = "\\u5151\\u6362\\u672A\\u786E\\u8BA4\\uFF0C\\u7B49\\u5F85\\u5546\\u5E97\\u91CD\\u65B0\\u540C\\u6B65";
+      }
+    }
+    function reply(id, result) {
+      if (!sync() || !Number.isInteger(result) || !data.journal[id]) return;
+      if (result !== 0) {
+        const balance = adapter.snapshot()?.balance;
+        data.wait[id] = { balance: natural(balance) ? balance : data.journal[id].balance };
+        delete data.journal[id];
+        save();
+        status = "\\u5151\\u6362\\u5931\\u8D25\\uFF0C\\u7B49\\u5F85\\u5730\\u4E3B\\u8C46\\u4F59\\u989D\\u53D8\\u5316";
+      }
+      tick();
+    }
+    return {
+      tick,
+      toggle,
+      selected,
+      reply,
+      view() {
+        sync();
+        return { status, countdown: countdown ? { ...countdown, seconds: Math.max(0, Math.ceil((countdown.until - now()) / 1e3)) } : null };
+      },
+      stop() {
+        stopped = true;
+        countdown = null;
+      }
+    };
+  }
+
+  // src/plugins/daily-rewards/exchange-native.js
   var read12 = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return void 0;
+    }
+  };
+  var managerSpecs7 = {
+    ActivityGameDataManager: {
+      events: ["ClientFightLordGoodsLimitInfoRep", "ClientExchangeFightLordGoodsRep"],
+      guard: (value) => typeof value.ReqDdzShopListGeneralPoolList === "function" && typeof value.GetDdzHasBuyCountByItemID === "function"
+    },
+    GameGoodsManager: { events: ["ClientUserDataCounterNtf", "DbsCcMovegoodsRep"], guard: (value) => typeof value.GetGoodsNumByFourID === "function" }
+  };
+  function createExchangeAdapter(ctx, native) {
+    let readyDay = "", requested = "", boundManager, releases = [], notify = () => {
+    };
+    let configLoading = false, configAttempt = 0;
+    const manager = () => native.manager("ActivityGameDataManager");
+    const currency = () => {
+      const config = native.config("hd_fight_lord_config.sgs")?.Root?.par?.[0];
+      return Number(config?.VicBean) === 1 ? Number(config.BeanChange) : 0;
+    };
+    function snapshot() {
+      const m = manager(), goods = native.manager("GameGoodsManager"), date = read12(() => native.manager("TimerManager").ServerDate);
+      return {
+        ready: readyDay === native.day() && !!m?.IsDdzShopListGeneralPoolListReady && !!date && !(date.getDay() === 1 && date.getHours() === 0 && date.getMinutes() < 10),
+        currency: currency(),
+        balance: read12(() => goods.GetGoodsNumByFourID(Math.floor(LANDLORD_BEAN / 100))),
+        rows: (Array.isArray(m?.DdzShopSortList) ? m.DdzShopSortList : []).slice(0, 1024).map((row) => {
+          const meta = native.goods?.(row.ItemID), owned = read12(() => m.isGoodsOwned(row));
+          const permanentBackground = Number(meta?.TypeID) === 172 && Number(meta?.period) === 31536e4;
+          const backgroundOwned = permanentBackground ? read12(() => goods.HasForeverGoods(row.ItemID)) : false;
+          return {
+            id: row.ItemID,
+            price: row.Price,
+            limit: row.MaxBuyCount,
+            period: row.MaxBuyType,
+            bought: read12(() => m.GetDdzHasBuyCountByItemID(row.ItemID)),
+            name: meta?.name || meta?.Name || row.name || row.Name || \`\\u5546\\u54C1 \${row.ItemID}\`,
+            owned: !meta || typeof owned !== "boolean" || typeof backgroundOwned !== "boolean" ? void 0 : owned || backgroundOwned,
+            unlocked: Number.isFinite(m.DdzZgsWinCtn) && m.DdzZgsWinCtn >= row.winCount
+          };
+        })
+      };
+    }
+    function bind(callback) {
+      notify = callback;
+      const m = manager(), proxy = ctx.game.getServerProxy?.(), account = native.account();
+      if (boundManager?.m === m && boundManager?.proxy === proxy && boundManager?.account === account) return;
+      releases.splice(0).forEach((fn) => fn());
+      boundManager = { m, proxy, account };
+      readyDay = "";
+      requested = "";
+      if (!proxy?.on || !proxy?.off) return;
+      const caller = {};
+      for (const event of ["ClientFightLordGoodsLimitInfoRep", "ClientExchangeFightLordGoodsRep"]) {
+        const handler = (message) => {
+          if (ctx.scope.signal.aborted || native.account() !== account) return;
+          const p = message?.Protocol || message;
+          if (event === "ClientFightLordGoodsLimitInfoRep" && p?.Type === 0) readyDay = native.day();
+          ctx.scope.timeout(() => {
+            if (native.account() === account) notify(event === "ClientExchangeFightLordGoodsRep" ? { id: p?.ItemID, result: p?.Result } : null);
+          }, 0);
+        };
+        proxy.on(event, caller, handler);
+        releases.push(() => proxy.off(event, caller, handler));
+      }
+    }
+    ctx.scope.add(() => releases.splice(0).forEach((fn) => fn()));
+    return {
+      account: native.account,
+      day: native.day,
+      snapshot,
+      bind,
+      invalidate() {
+        readyDay = "";
+        requested = "";
+      },
+      refresh() {
+        if ((!native.config("hd_fight_lord_config.sgs") || !native.config("sys_gs_dbs_fs_goodsbaseinfo.sgs")) && !configLoading && Date.now() - configAttempt > 15e3) {
+          configLoading = true;
+          configAttempt = Date.now();
+          Promise.allSettled(["hd_fight_lord_config", "sys_gs_dbs_fs_goodsbaseinfo"].map((name) => Promise.resolve().then(() => ctx.game.loadConfigData?.(name)))).finally(() => {
+            configLoading = false;
+          });
+        }
+        const token = \`\${native.account()}:\${native.day()}\`;
+        if (requested === token || !native.account() || !native.day() || !manager()) return;
+        requested = token;
+        manager().ReqDdzShopListGeneralPoolList();
+      },
+      buy(attempt) {
+        const current = snapshot(), row = current.rows.find((item2) => item2.id === attempt.id);
+        if (!current.ready || current.currency !== LANDLORD_BEAN || !exchangeEligible(row) || row.price !== attempt.price || row.bought !== attempt.bought || row.limit !== attempt.limit || current.balance !== attempt.balance || native.day() !== attempt.day || attempt.count !== Math.min(row.limit - row.bought, Math.floor(current.balance / row.price))) throw new Error("\\u5151\\u6362\\u6761\\u4EF6\\u5DF2\\u53D8\\u5316");
+        manager().DdzExchange(attempt.id, attempt.price, attempt.count);
+      }
+    };
+  }
+  function findExchangeViews(stage) {
+    const queue = stage ? [stage] : [], found = [];
+    for (let i = 0; i < queue.length && i < 4e3; i++) {
+      const node = queue[i];
+      if (!node || node.destroyed || node.visible === false) continue;
+      if ("ddzShopList" in node && Array.isArray(node.itemList) && typeof node.updateList === "function" && node.itemList.some((item2) => item2?.limitInfo && item2?.goodsinfo)) found.push(node);
+      if (Array.isArray(node._children)) queue.push(...node._children);
+    }
+    return found;
+  }
+
+  // src/plugins/daily-rewards/native.js
+  var read13 = (fn) => {
     try {
       return fn();
     } catch {
@@ -13572,30 +13965,30 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     MailManager: (value) => Array.isArray(value.systemMailList),
     TaskManager: (value) => typeof value.GetServerTaskDataByTaskID === "function",
     GiftManager: (value) => typeof value.SendMySingleGift === "function",
-    TimerManager: (value) => read12(() => value.ServerDate) instanceof Date,
+    TimerManager: (value) => read13(() => value.ServerDate) instanceof Date,
     TianTiManager: (value) => typeof value.reqDailyReward === "function"
   };
-  for (const specs of [managerSpecs, managerSpecs2, managerSpecs3, managerSpecs4, managerSpecs5, managerSpecs6]) for (const [name, spec] of Object.entries(specs)) {
+  for (const specs of [managerSpecs, managerSpecs2, managerSpecs3, managerSpecs4, managerSpecs5, managerSpecs6, managerSpecs7]) for (const [name, spec] of Object.entries(specs)) {
     events[name] = [.../* @__PURE__ */ new Set([...events[name] || [], ...spec.events || []])];
     const previous = guards[name];
-    guards[name] = (value) => Boolean(read12(() => previous?.(value)) || read12(() => spec.guard(value)));
+    guards[name] = (value) => Boolean(read13(() => previous?.(value)) || read13(() => spec.guard(value)));
   }
   function rows3(value, limit = 2048) {
     if (Array.isArray(value)) return value.slice(0, limit);
     const found = [];
-    const map = read12(() => value._maps);
+    const map = read13(() => value._maps);
     if (map && typeof map === "object") found.push(...Object.keys(map).slice(0, limit).flatMap((key) => Array.isArray(map[key]) ? map[key].slice(0, limit) : [map[key]]));
     for (const key of ["datum", "_objDatum"]) {
-      const list3 = read12(() => value[key]);
+      const list3 = read13(() => value[key]);
       if (Array.isArray(list3)) found.push(...list3.slice(0, limit));
     }
     return [...new Set(found)].filter((item2) => item2 !== void 0 && item2 !== null).slice(0, limit);
   }
   function nativeMethod(object, name, signatures = []) {
-    if (typeof read12(() => object[name]) === "function") return (...args) => object[name](...args);
+    if (typeof read13(() => object[name]) === "function") return (...args) => object[name](...args);
     if (!object || !signatures.length) return null;
     const found = [];
-    for (const owner of [object, read12(() => Object.getPrototypeOf(object))]) {
+    for (const owner of [object, read13(() => Object.getPrototypeOf(object))]) {
       if (!owner) continue;
       for (const key of Object.getOwnPropertyNames(owner).slice(0, 512)) {
         if (key === "constructor") continue;
@@ -13610,49 +14003,49 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function createNativeAdapter(ctx) {
     let goodsRoot, goodsIndex = /* @__PURE__ */ new Map();
     function manager(name) {
-      const validate = (value) => live(value) && typeof value === "object" && read12(() => guards[name](value));
-      const type = read12(() => ctx.game.getClass(name));
+      const validate = (value) => live(value) && typeof value === "object" && read13(() => guards[name](value));
+      const type = read13(() => ctx.game.getClass(name));
       if (validate(type)) return type;
       for (const key of ["instance", "_instance", "s_instance", "Instance"]) {
         const d = type && Object.getOwnPropertyDescriptor(type, key);
         if (d && "value" in d && validate(d.value)) return d.value;
       }
-      const proxy = read12(() => ctx.game.getServerProxy());
+      const proxy = read13(() => ctx.game.getServerProxy());
       for (const event of events[name] || []) {
-        const entry = read12(() => proxy._events[event]);
-        for (const handler of Array.isArray(entry) ? entry.slice(0, 32) : [entry]) if (validate(read12(() => handler.caller))) return handler.caller;
+        const entry = read13(() => proxy._events[event]);
+        for (const handler of Array.isArray(entry) ? entry.slice(0, 32) : [entry]) if (validate(read13(() => handler.caller))) return handler.caller;
       }
       return null;
     }
     function account() {
       const login = manager("LoginManager");
-      if (read12(() => login.IsAccountLoggingOut) || read12(() => login.IsOnLine) === false) return "";
-      const self = read12(() => ctx.game.getSelf?.()) || read12(() => ctx.game.getClass("UserData").Self);
-      const value = read12(() => self.ClientId) || read12(() => login.LoginUserName);
+      if (read13(() => login.IsAccountLoggingOut) || read13(() => login.IsOnLine) === false) return "";
+      const self = read13(() => ctx.game.getSelf?.()) || read13(() => ctx.game.getClass("UserData").Self);
+      const value = read13(() => self.ClientId) || read13(() => login.LoginUserName);
       return typeof value === "number" || typeof value === "string" ? String(value).slice(0, 128) : "";
     }
     function day() {
-      const date = read12(() => manager("TimerManager").ServerDate);
+      const date = read13(() => manager("TimerManager").ServerDate);
       if (!(date instanceof Date) || !Number.isFinite(date.getTime())) return "";
       return \`\${date.getFullYear()}-\${String(date.getMonth() + 1).padStart(2, "0")}-\${String(date.getDate()).padStart(2, "0")}\`;
     }
     function config(file) {
-      const shared = read12(() => ctx.game.getConfigData?.(file.replace(/\\.sgs$/, "")));
+      const shared = read13(() => ctx.game.getConfigData?.(file.replace(/\\.sgs$/, "")));
       if (shared) return shared;
       for (const owner of [ctx.window.CtrUtil, ctx.window.SystemContext]) for (const key of ["AllDatas", "allDatas"]) {
-        const value = read12(() => owner[key][file]);
+        const value = read13(() => owner[key][file]);
         if (value) return value;
       }
       return null;
     }
     function signRows() {
-      const direct = read12(() => config("gn_zonghe.sgs").root.bigprize);
+      const direct = read13(() => config("gn_zonghe.sgs").root.bigprize);
       if (Array.isArray(direct) && direct.length) return direct.slice(0, 400);
-      const login = manager("LoginManager"), SignView = read12(() => ctx.game.getClass("DailySignNewView"));
+      const login = manager("LoginManager"), SignView = read13(() => ctx.game.getClass("DailySignNewView"));
       for (const key of ["GET_LOGIN_REWARD", "GET_LOGIN_REWARD_NEW", "LOGIN_SIGN_DATA_UPDATE"]) {
-        const handlers = read12(() => login._events[key]);
+        const handlers = read13(() => login._events[key]);
         for (const entry of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) {
-          const view = read12(() => entry.caller);
+          const view = read13(() => entry.caller);
           if (live(view) && typeof SignView === "function" && view instanceof SignView && Array.isArray(view.rewardList)) return view.rewardList.slice(0, 40);
         }
       }
@@ -13668,12 +14061,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       sendMilitaryQuietly,
       confirmedAttempt: (actionKey) => {
         const task = /^task:(\\d+)$/.exec(actionKey);
-        return task ? read12(() => manager("TaskManager").GetServerTaskDataByTaskID(Number(task[1])).HasAward) === true : confirmedMailAttempt(adapter, actionKey);
+        return task ? read13(() => manager("TaskManager").GetServerTaskDataByTaskID(Number(task[1])).HasAward) === true : confirmedMailAttempt(adapter, actionKey);
       },
       describeAttempt(actionKey) {
         const match = /^task:(\\d+)$/.exec(actionKey);
         if (!match) return null;
-        const task = read12(() => manager("TaskManager").GetServerTaskDataByTaskID(Number(match[1])));
+        const task = read13(() => manager("TaskManager").GetServerTaskDataByTaskID(Number(match[1])));
         return { label: taskLabel(task, match[1]), reason: task ? taskSkipReason(task) : "" };
       },
       goods(id) {
@@ -13689,11 +14082,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         }
         return goodsIndex.get(id) || null;
       },
-      class: (name) => read12(() => ctx.game.getClass(name)),
-      proxy: () => read12(() => ctx.game.getServerProxy()),
+      class: (name) => read13(() => ctx.game.getClass(name)),
+      proxy: () => read13(() => ctx.game.getServerProxy()),
       signal: ctx.scope?.signal,
       loadConfig: (name) => ctx.game.loadConfigData?.(name.replace(/\\.sgs$/, "")),
-      self: () => read12(() => ctx.game.getSelf?.()) || read12(() => ctx.game.getClass("UserData").Self),
+      self: () => read13(() => ctx.game.getSelf?.()) || read13(() => ctx.game.getClass("UserData").Self),
       async prepare(selected, context = {}) {
         const preparation = { ...adapter, signal: context.signal || adapter.signal, valid: context.valid || (() => !adapter.signal?.aborted) };
         const results = await Promise.allSettled([
@@ -13802,7 +14195,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             if (initial.CanAward === true && initial.HasAward !== true) note("tasks", \`\${taskLabel(initial, id)}\\uFF1A\${reason}\`);
             continue;
           }
-          const proxy = read12(() => manager.proxy) || adapter.proxy?.();
+          const proxy = read13(() => manager.proxy) || adapter.proxy?.();
           const failure = (event) => {
             const p = event?.Protocol;
             return Number(p?.TaskID) === id && Number.isInteger(p?.ErrorCode) ? p : null;
@@ -13861,7 +14254,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       if (!exclusionsEnabled || action.category === "codes" || action.exclusionMode === "free-draw") return true;
       if (action.key === "free-general-pack") return !selected.excludeRecruit;
       if ((action.key.startsWith("free-beans:") || action.key.startsWith("activity:ddz-tll:") || action.key === "officer:day") && selected.excludeBeans) return false;
-      const rewards2 = read12(() => typeof action.rewards === "function" ? action.rewards() : action.rewards);
+      const rewards2 = read13(() => typeof action.rewards === "function" ? action.rewards() : action.rewards);
       const reason = rewards2 == null ? "\\u5956\\u52B1\\u660E\\u7EC6\\u672A\\u5C31\\u7EEA" : excludedReward(adapter, selected, rewards2);
       if (reason) note(action.category, \`\${action.label}\\uFF1A\\u5DF2\\u8DF3\\u8FC7\\uFF08\${reason}\\uFF09\`);
       return !reason;
@@ -13874,7 +14267,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
 
   // src/plugins/daily-rewards/choice-rewards.js
-  var read13 = (fn) => {
+  var read14 = (fn) => {
     try {
       return fn();
     } catch {
@@ -13885,39 +14278,39 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var ownershipTypes = /* @__PURE__ */ new Set([25, 36, 11, 12, 13, 14, 124, 172]);
   function planChoiceRewards(adapter, { rows: rows4, nativeMethod: nativeMethod2, taskSkipReason: taskSkipReason2 }) {
     const result = [], seen = /* @__PURE__ */ new Set();
-    const ordinary = read13(() => adapter.manager("TaskManager"));
+    const ordinary = read14(() => adapter.manager("TaskManager"));
     for (const kind of ["ActivityQuestManager", "TaskManager"]) {
-      const manager = read13(() => adapter.manager(kind));
+      const manager = read14(() => adapter.manager(kind));
       if (!manager) continue;
       const modern = kind === "ActivityQuestManager";
       const owner = ordinary || manager;
       const request = nativeMethod2(owner, "RequestTaskAward", ordinary ? ["TaskRewardSelectWindow"] : ["quest_id:", "reward_idx:", "CLIENT_QUEST_OP_REQ"]);
       for (const task of rows4(manager.allTasks)) {
-        if (task?.IsNewQusetType === true && read13(() => task.baseVo.HaveSelectReward) === false) continue;
-        const id = Number(read13(() => task.id ?? task._id)), before = Number(read13(() => task.completeTimes ?? 0));
+        if (task?.IsNewQusetType === true && read14(() => task.baseVo.HaveSelectReward) === false) continue;
+        const id = Number(read14(() => task.id ?? task._id)), before = Number(read14(() => task.completeTimes ?? 0));
         if (!positive6(id) || seen.has(id) || !Number.isSafeInteger(before) || before < 0) continue;
-        const current = () => read13(() => manager.GetServerTaskDataByTaskID(id));
+        const current = () => read14(() => manager.GetServerTaskDataByTaskID(id));
         const options = () => {
-          const list3 = read13(() => current().baseVo.TaskSelectReward);
+          const list3 = read14(() => current().baseVo.TaskSelectReward);
           if (!Array.isArray(list3) || !list3.length || list3.length > 64) return [];
           const ids = /* @__PURE__ */ new Set();
           const values = list3.map((v) => ({ id: Number(v.Id), item: Number(v.ItemID), count: Number(v.ItemNum) }));
           if (values.some((v) => !positive6(v.id) || !positive6(v.item) || !positive6(v.count) || ids.has(v.id) || !ids.add(v.id))) return [];
           return values;
         };
-        if (read13(() => task.CanAward) !== true || read13(() => task.HasAward) === true || !options().length) continue;
+        if (read14(() => task.CanAward) !== true || read14(() => task.HasAward) === true || !options().length) continue;
         seen.add(id);
         const base = task.baseVo;
         const fingerprint = JSON.stringify([id, before, options()]);
         const key = modern ? \`quest:\${id}:\${before}\` : \`task:\${id}\`;
-        const safe = () => read13(() => {
+        const safe = () => read14(() => {
           const value = current();
           if (!request || adapter.manager(kind) !== manager || manager.destroyed || ordinary && adapter.manager("TaskManager") !== ordinary || owner.destroyed || !value || modern && value.HasServerData !== true || value.IsFromServer === false || Number(value.completeTimes ?? 0) !== before || taskSkipReason2(value, { allowSelection: true })) return false;
           const prev = Number(value.baseVo.prevTask);
           return (!prev || manager.GetServerTaskDataByTaskID(prev)?.HasAward === true || ordinary?.GetServerTaskDataByTaskID(prev)?.HasAward === true) && JSON.stringify([id, before, options()]) === fingerprint;
         }) === true;
         const describe = (v) => {
-          const goods = read13(() => adapter.goods(v.item));
+          const goods = read14(() => adapter.goods(v.item));
           const type = Number(goods?.TypeID ?? goods?.type);
           let reason = !goods || !Number.isInteger(type) ? "\\u7269\\u54C1\\u8D44\\u6599\\u672A\\u5C31\\u7EEA\\uFF0C\\u8BF7\\u5237\\u65B0\\u5217\\u8868" : "";
           if (!reason && ownershipTypes.has(type)) reason = "\\u9700\\u5728\\u6E38\\u620F\\u539F\\u751F\\u9009\\u5956\\u7A97\\u53E3\\u6838\\u5BF9\\u62E5\\u6709\\u72B6\\u6001";
@@ -13950,7 +14343,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
               manager,
               workflowGroup: modern ? \`quest:\${id}\` : key,
               eligible,
-              done: () => adapter.manager(kind) === manager && read13(() => current()?.HasAward === true || Number(current()?.completeTimes) > before) === true,
+              done: () => adapter.manager(kind) === manager && read14(() => current()?.HasAward === true || Number(current()?.completeTimes) > before) === true,
               send: () => eligible() ? request(id, optionId, 0) : false,
               confirmations: modern && proxy ? [{ manager: proxy, event: "decodeUserQuestOpRep", accept: (e) => matches(e) && packet(e)?.result === 0 }] : [],
               rejections: proxy ? [{
@@ -14157,7 +14550,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
 
   // src/plugins/daily-rewards/controller.js
-  var defaults = { automatic: false, sign: true, mail: true, tasks: true, welfare: true, activities: true, autoFlip: false, codes: true, serverCodes: true, clipboardCodes: false, shareCodes: false, ...Object.fromEntries(rewardExclusions.map(([key]) => [key, false])) };
+  var defaults = { automatic: false, sign: true, mail: true, tasks: true, welfare: true, activities: true, autoFlip: false, codes: true, serverCodes: true, clipboardCodes: false, shareCodes: false, ...Object.fromEntries(rewardExclusions.map(([key]) => [key, key !== "excludeBeans"])) };
   var names = { sign: "\\u7B7E\\u5230", mail: "\\u90AE\\u4EF6", tasks: "\\u4EFB\\u52A1", welfare: "\\u798F\\u5229", activities: "\\u6D3B\\u52A8", codes: "\\u5151\\u6362\\u7801" };
   var safely = (fn) => {
     try {
@@ -14731,15 +15124,111 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     } };
   }
 
+  // src/plugins/daily-rewards/exchange-ui.js
+  function createExchangeUI(ctx, controller, adapter) {
+    const doc = ctx.document, controls = /* @__PURE__ */ new Map(), owners = /* @__PURE__ */ new Map(), root2 = doc.createElement("div");
+    root2.dataset.shopAutoExchange = "";
+    const style = doc.createElement("style");
+    style.textContent = \`[data-shop-auto-exchange]{position:fixed;inset:0;pointer-events:none;z-index:10020}
+    [data-shop-auto-exchange] button{position:absolute;pointer-events:auto;box-sizing:border-box;height:24px;min-width:62px;padding:0 8px;display:flex;align-items:center;justify-content:center;gap:5px;border:1px solid #63583e;border-radius:12px;background:linear-gradient(#302c24,#191a1b);box-shadow:0 2px 5px #0007,inset 0 1px #ffffff0a;color:#bcb5a5;font:11px/22px 'Microsoft YaHei',sans-serif;cursor:pointer;white-space:nowrap}
+    [data-shop-auto-exchange] button[aria-checked=true]{border-color:#b99b5d;color:#f1d797;background:linear-gradient(#4a3e25,#29251e)}
+    [data-shop-auto-exchange] button:focus-visible{outline:2px solid #f1d797;outline-offset:2px}
+    [data-shop-auto-exchange] button:disabled{cursor:default;opacity:.55}
+    [data-shop-auto-exchange] .exchange-mark{font-size:12px;width:12px;text-align:center}
+    [data-shop-auto-exchange] button:hover:not(:disabled){border-color:#e1c382}\`;
+    root2.append(style);
+    doc.body.append(root2);
+    function refresh2() {
+      const L = ctx.window.Laya ?? ctx.window.laya, stage = L?.stage;
+      const canvas = L?.Render?.canvas || doc.querySelector("canvas"), rect = canvas?.getBoundingClientRect?.();
+      const snapshot = adapter.snapshot(), view = controller.view(), seen = /* @__PURE__ */ new Set();
+      if (rect?.width && stage?.width) for (const shop of findExchangeViews(stage)) for (const item2 of shop.itemList) {
+        const id = item2?.limitInfo?.ItemID;
+        if (!item2.goodsinfo || item2.visible === false || item2.destroyed || !snapshot.rows.some((row) => row.id === id)) continue;
+        const point = shop.localToGlobal?.(new L.Point(item2.x + item2.width - 52, item2.y + 3));
+        if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
+        seen.add(item2);
+        let button = controls.get(item2);
+        if (!button) {
+          button = doc.createElement("button");
+          button.type = "button";
+          button.setAttribute("role", "checkbox");
+          button.innerHTML = '<span class="exchange-mark" aria-hidden="true"></span><span class="exchange-label"></span>';
+          button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const current = item2.limitInfo?.ItemID;
+            controller.toggle(current, !controller.selected(current));
+            refresh2();
+          });
+          for (const event of ["pointerdown", "mousedown", "dblclick"]) button.addEventListener(event, (e) => e.stopPropagation());
+          root2.append(button);
+          controls.set(item2, button);
+          owners.set(item2, shop);
+        }
+        const selected = controller.selected(id), period = { 1: "\\u6BCF\\u65E5", 2: "\\u6BCF\\u5468", 3: "\\u6BCF\\u6708" }[item2.limitInfo.MaxBuyType];
+        button.disabled = !adapter.account() || !period || !(item2.limitInfo.MaxBuyCount > 0);
+        button.setAttribute("aria-checked", String(selected));
+        button.setAttribute("aria-label", \`\${item2.goodsinfo.name || "\\u5546\\u54C1"}\\u81EA\\u52A8\\u5151\\u6362\`);
+        button.title = period ? \`\${period}\\u5151\\u6362\\u81F3\\u9650\\u8D2D\\u4E0A\\u9650\\uFF0C\\u6D88\\u8017\\u5730\\u4E3B\\u8C46\\uFF1B\\u6309\\u8D26\\u53F7\\u4FDD\\u5B58\\u3002\\u9009\\u4E2D\\u540E\\u7B49\\u5F855\\u79D2\\uFF0C\\u53D6\\u6D88\\u9009\\u62E9\\u53EF\\u505C\\u6B62\\u5C1A\\u672A\\u53D1\\u9001\\u7684\\u8D2D\\u4E70\\u3002\\u4F59\\u989D\\u4E0D\\u8DB3\\u65F6\\u4EC5\\u5151\\u6362\\u53EF\\u8D1F\\u62C5\\u6570\\u91CF\\uFF0C\\u7B49\\u5F85\\u5730\\u4E3B\\u8C46\\u4F59\\u989D\\u53D8\\u5316\\u3002\` : "\\u65E0\\u5468\\u671F\\u9650\\u8D2D\\uFF0C\\u4E0D\\u652F\\u6301\\u81EA\\u52A8\\u5151\\u6362";
+        button.querySelector(".exchange-mark").textContent = selected ? "\\u2713" : "+";
+        button.querySelector(".exchange-label").textContent = view.countdown?.id === id ? \`\${view.countdown.seconds}\\u79D2\` : selected ? "\\u5DF2\\u9009" : "\\u81EA\\u52A8";
+        button.style.left = \`\${rect.left + point.x * rect.width / stage.width}px\`;
+        button.style.top = \`\${rect.top + point.y * rect.height / stage.height}px\`;
+      }
+      for (const [item2, button] of controls) if (!seen.has(item2)) {
+        button.remove();
+        controls.delete(item2);
+        owners.delete(item2);
+      }
+    }
+    let frame;
+    const requestFrame = typeof ctx.window.requestAnimationFrame === "function" ? (callback) => ctx.window.requestAnimationFrame(callback) : (callback) => setTimeout(callback, 16);
+    const cancelFrame = typeof ctx.window.cancelAnimationFrame === "function" ? (id) => ctx.window.cancelAnimationFrame(id) : (id) => clearTimeout(id);
+    const followWindow = () => {
+      const L = ctx.window.Laya ?? ctx.window.laya, stage = L?.stage;
+      const canvas = L?.Render?.canvas || doc.querySelector("canvas"), rect = canvas?.getBoundingClientRect?.();
+      for (const [item2, button] of controls) {
+        const shop = owners.get(item2);
+        let connected = false, hidden = item2.destroyed || item2.visible === false;
+        for (let node = shop, depth = 0; node && depth++ < 64; node = node.parent) {
+          if (node.destroyed || node.visible === false || node.alpha < 0.99) hidden = true;
+          if (node === stage) {
+            connected = true;
+            break;
+          }
+        }
+        button.hidden = hidden || !connected;
+        button.style.display = button.hidden ? "none" : "flex";
+        if (!button.hidden && rect?.width && stage?.width) {
+          const point = shop.localToGlobal?.(new L.Point(item2.x + item2.width - 52, item2.y + 3));
+          if (point) {
+            button.style.left = \`\${rect.left + point.x * rect.width / stage.width}px\`;
+            button.style.top = \`\${rect.top + point.y * rect.height / stage.height}px\`;
+          }
+        }
+      }
+      frame = requestFrame(followWindow);
+    };
+    frame = requestFrame(followWindow);
+    ctx.scope.add(() => {
+      cancelFrame(frame);
+      controls.clear();
+      owners.clear();
+      root2.remove();
+    });
+    return { refresh: refresh2 };
+  }
+
   // src/plugins/daily-rewards/index.js
   var index_default = {
     manifest: {
       id: "daily-rewards",
       name: "\\u65E5\\u5E38\\u9886\\u5956",
-      version: "0.7.18",
+      version: "0.7.26",
       apiVersion: 1,
       contractVersion: 1,
-      minCoreVersion: "0.6.3",
+      releaseNotes: "\\u8865\\u5168\\u6597\\u5730\\u4E3B\\u4E0E\\u5355\\u9A91\\u8FDE\\u80DC\\u5956\\u52B1\\u9886\\u53D6\\uFF0C\\u907F\\u514D\\u540C\\u4E00\\u5B9D\\u7BB1\\u91CD\\u590D\\u8BF7\\u6C42\\uFF1B\\u4F18\\u5316\\u5956\\u52B1\\u8BF4\\u660E\\u548C\\u72B6\\u6001\\u663E\\u793A\\u3002\\u81EA\\u52A8\\u9886\\u53D6\\u4ECD\\u9ED8\\u8BA4\\u5173\\u95ED\\uFF0C\\u5151\\u6362\\u53EF\\u80FD\\u6D88\\u8017\\u6B22\\u4E50\\u8C46\\uFF0C\\u5171\\u4EAB\\u5151\\u6362\\u7801\\u4ECD\\u9700\\u5355\\u72EC\\u5F00\\u542F\\u4E14\\u53EA\\u4E0A\\u4F20\\u6E38\\u620F\\u660E\\u786E\\u6210\\u529F\\u7684\\u7801\\u53CA\\u8D26\\u53F7\\u6458\\u8981\\u3002",
+      minCoreVersion: "0.6.38",
       categories: ["automation"],
       icon: PLUGIN_ICONS["daily-rewards"],
       priority: 2e4,
@@ -14747,7 +15236,22 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     },
     activate(ctx) {
       const debug = ctx.window.__SGS_TOOLBOX_DEMO__?.onlyPlugin === "daily-rewards";
-      const controller = createRewardsController({ adapter: createNativeAdapter(ctx), settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window, { core: ctx.core }), debug });
+      const native = createNativeAdapter(ctx);
+      const controller = createRewardsController({ adapter: native, settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window, { core: ctx.core }), debug });
+      const exchangeAdapter = createExchangeAdapter(ctx, native);
+      const exchange = createExchangeController({ adapter: exchangeAdapter, settings: ctx.settings, enabled: () => controller.snapshot().config.automatic });
+      const exchangeUI = createExchangeUI(ctx, exchange, exchangeAdapter);
+      const exchangeTick = () => {
+        exchangeAdapter.bind((reply) => {
+          if (reply) exchange.reply(reply.id, reply.result);
+          else exchange.tick();
+        });
+        exchange.tick();
+        if (exchangeAdapter.account() && ctx.settings.get(\`account:\${exchangeAdapter.account()}:shop-exchange\`, {}).selected?.length) exchangeAdapter.refresh();
+        exchangeUI.refresh();
+      };
+      ctx.scope.interval(exchangeTick, 250);
+      ctx.scope.add(() => exchange.stop());
       ctx.ui.registerPanel({ id: "main", title: "\\u65E5\\u5E38\\u9886\\u5956", category: "automation", priority: 32768, render(container) {
         const doc = ctx.document;
         const el = (tag, text, className) => {
@@ -14787,7 +15291,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         [data-daily-rewards] .reward-status{font-size:11px;line-height:1.5;margin:7px 0 0;overflow-wrap:anywhere}
         [data-daily-rewards] details{font-size:12px;margin-top:8px}
         [data-daily-rewards] [data-rewards-log]{max-height:120px;overflow:auto}
-        \${CONTROL_STYLES}
+        
         [data-daily-rewards] .reward-heading{padding-bottom:6px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 45%,transparent);margin-bottom:6px}[data-daily-rewards] .reward-heading h3{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--sgs-accent)}
         [data-daily-rewards] .reward-rail{width:30px;height:18px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg) 80%,#000),var(--sgs-surface));box-shadow:inset 0 1px 3px #0006;border-color:color-mix(in srgb,var(--sgs-border) 65%,transparent)}[data-daily-rewards] .reward-rail:after{top:3px;left:3px;width:10px;height:10px;background:linear-gradient(color-mix(in srgb,var(--sgs-muted) 85%,var(--sgs-text)),color-mix(in srgb,var(--sgs-muted) 65%,var(--sgs-bg)));box-shadow:0 1px 2px #0008}[data-daily-rewards] [aria-checked=true] .reward-rail{background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 35%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 17%,var(--sgs-surface)));border-color:color-mix(in srgb,var(--sgs-accent) 65%,transparent)}[data-daily-rewards] [aria-checked=true] .reward-rail:after{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 45%,var(--sgs-text)),var(--sgs-accent))}
         [data-daily-rewards] .reward-card{position:relative;border:1px solid color-mix(in srgb,var(--sgs-border) 40%,transparent);border-radius:8px;padding:6px 8px;min-height:34px;background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-accent) 7%,transparent),color-mix(in srgb,var(--sgs-surface) 20%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 4%,transparent)}[data-daily-rewards] .reward-card:before{content:'';position:absolute;left:0;top:10px;bottom:10px;width:2px;border-radius:2px;background:var(--sgs-accent);opacity:.7}[data-daily-rewards] .reward-card .reward-name{font-size:11px;white-space:nowrap}[data-daily-rewards] .reward-card .reward-mark{font-size:9px;font-weight:400;white-space:nowrap}[data-daily-rewards] .reward-card.is-excluded{filter:none;background:#0002;border-color:color-mix(in srgb,var(--sgs-border) 25%,transparent)}[data-daily-rewards] .reward-card.is-excluded:before{background:var(--sgs-muted);opacity:.25}[data-daily-rewards] .reward-card.is-excluded .reward-name{opacity:.65}
@@ -14807,7 +15311,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             rail.setAttribute("aria-hidden", "true");
             button.append(rail);
           }
-          if (["codes", "clipboardCodes", "shareCodes"].includes(key)) button.append(controlIcon(doc, { codes: "gift", clipboardCodes: "clipboard", shareCodes: "share" }[key]));
+          if (["codes", "clipboardCodes", "shareCodes"].includes(key)) button.append(ctx.ui.icon({ codes: "gift", clipboardCodes: "clipboard", shareCodes: "share" }[key]));
           const name = el("span", label, "reward-name");
           button.append(name);
           if (exclusion) {
@@ -14821,7 +15325,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         };
         const heading = el("div", void 0, "reward-heading");
         heading.append(el("h3", "\\u81EA\\u52A8\\u9886\\u53D6"), option("automatic", "\\u5DF2\\u5173\\u95ED", { switchRail: true, accessibleLabel: "\\u81EA\\u52A8\\u9886\\u53D6" }));
-        heading.querySelector("h3").prepend(controlIcon(doc, PLUGIN_ICONS["daily-rewards"]));
+        heading.querySelector("h3").prepend(ctx.ui.icon(PLUGIN_ICONS["daily-rewards"]));
         const excluded = el("div");
         excluded.dataset.rewardExclusions = "";
         excluded.setAttribute("role", "group");
@@ -14879,7 +15383,15 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         controller.refresh();
         render(controller.snapshot());
         const off = controller.subscribe(render);
+        const exchangeStatus = el("p", "", "muted reward-status");
+        root2.append(exchangeStatus);
+        const updateExchange = () => {
+          exchangeStatus.textContent = exchange.view().status;
+        };
+        updateExchange();
+        const timer = ctx.window.setInterval(updateExchange, 250);
         return () => {
+          ctx.window.clearInterval(timer);
           off();
           root2.remove();
         };
@@ -14889,8 +15401,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E38\u9886\u5956","version":"0.7.18","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.6.3","categories":["automation"],"icon":{"paths":["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13","M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"]},"priority":20000,"description":"\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55"}};
-`, sha256: "201333ed802b057b85791b9b6dfffe0f945b532e43985efb94aa8e8a1a31c2e4" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "seckill", name: "\u81EA\u52A8\u79D2\u6740", version: "0.1.1", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.13", description: "\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4", icon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E38\u9886\u5956","version":"0.7.26","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8865\u5168\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u8FDE\u80DC\u5956\u52B1\u9886\u53D6\uFF0C\u907F\u514D\u540C\u4E00\u5B9D\u7BB1\u91CD\u590D\u8BF7\u6C42\uFF1B\u4F18\u5316\u5956\u52B1\u8BF4\u660E\u548C\u72B6\u6001\u663E\u793A\u3002\u81EA\u52A8\u9886\u53D6\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF0C\u5171\u4EAB\u5151\u6362\u7801\u4ECD\u9700\u5355\u72EC\u5F00\u542F\u4E14\u53EA\u4E0A\u4F20\u6E38\u620F\u660E\u786E\u6210\u529F\u7684\u7801\u53CA\u8D26\u53F7\u6458\u8981\u3002","minCoreVersion":"0.6.38","categories":["automation"],"icon":{"paths":["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13","M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"]},"priority":20000,"description":"\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55"}};
+`, sha256: "6f59de9834013c80aed60953b4f4471d2471ee4e8496ea0495ca2c4b24ca1cfa" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "seckill", name: "\u81EA\u52A8\u79D2\u6740", version: "0.1.3", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u81EA\u52A8\u8D2D\u4E70\u754C\u9762\uFF0C\u7EDF\u4E00\u5546\u54C1\u9009\u62E9\u4E0E\u5F00\u5173\u5916\u89C2\uFF1B\u81EA\u52A8\u8D2D\u4E70\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5F00\u542F\u540E\u4F1A\u6D88\u8017\u5BF9\u5E94\u6E38\u620F\u8D27\u5E01\uFF0C\u7ED3\u679C\u672A\u786E\u8BA4\u65F6\u4ECD\u4FDD\u7559\u6838\u5BF9\u72B6\u6001\u3002", minCoreVersion: "0.6.37", description: "\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4", icon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -14976,92 +15488,6 @@ return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E3
     "M12 9l3 3-3 3-3-3Z"
   );
 
-  // src/ui/icons.js
-  var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
-    toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
-    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
-    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
-    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
-    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
-    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
-    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
-    close: '<path d="m6 6 12 12M6 18 18 6"/>',
-    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
-    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
-    collapse: '<path d="M5 12h14"/>',
-    chevron: '<path d="m6 9 6 6 6-6"/>',
-    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
-    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
-    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
-    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
-    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
-    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
-    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
-    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
-  });
-  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
-  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-  function isIconSpec(value) {
-    if (typeof value === "string") return Object.hasOwn(markup, value) || Object.hasOwn(aliases, value);
-    return value !== null && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.paths) && value.paths.length >= 1 && value.paths.length <= 8 && value.paths.every((path) => typeof path === "string" && path.length <= 1024 && /^[Mm][\\s\\d.,+\\-eEMmLlHhVvCcSsQqTtAaZz]+$/.test(path) && /\\d/.test(path));
-  }
-  function createIcon(doc, value = "package", className = "sgs-line-icon") {
-    const spec = isIconSpec(value) ? value : "package", icon2 = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon2.setAttribute("viewBox", "0 0 24 24");
-    icon2.setAttribute("class", className);
-    icon2.setAttribute("aria-hidden", "true");
-    icon2.setAttribute("focusable", "false");
-    icon2.setAttribute("fill", "none");
-    icon2.setAttribute("stroke", "currentColor");
-    icon2.setAttribute("stroke-width", "1.5");
-    icon2.setAttribute("stroke-linecap", "round");
-    icon2.setAttribute("stroke-linejoin", "round");
-    icon2.dataset.icon = typeof spec === "string" ? spec : "custom";
-    const shape = typeof spec === "string" ? markup[aliases[spec] || spec] : spec;
-    if (typeof shape === "string") icon2.innerHTML = shape;
-    else for (const d of shape.paths) {
-      const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", d);
-      icon2.append(path);
-    }
-    return icon2;
-  }
-
-  // src/ui/controls.js
-  var CONTROL_STYLES = \`
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-\`;
-  function controlIcon(doc, name) {
-    return createIcon(doc, name);
-  }
-  function styleSwitch(input) {
-    input.classList.add("sgs-switch");
-    input.setAttribute("role", "switch");
-    return input;
-  }
-
   // src/plugins/seckill/model.js
   var ITEMS = [
     ["huijuanmaobi", "\\u7ED8\\u5377\\u6BDB\\u7B14", "\\u6BDB\\u7B14", "\\u4EC5 3 \\u652F\\u88C5"],
@@ -15077,7 +15503,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function cleanConfig(value = {}) {
     return {
       enabled: value.enabled === true,
-      items: Object.fromEntries(ITEMS.map(([id]) => [id, value.items?.[id] === true])),
+      items: Object.fromEntries(ITEMS.map(([id]) => [id, (value.items?.[id] ?? ["gongxun", "pifubao"].includes(id)) === true])),
       custom: [...new Map((Array.isArray(value.custom) ? value.custom : []).filter((s) => typeof s === "string").map((s) => s.trim().slice(0, 24)).filter(Boolean).map((s) => [normalize(s), s])).values()].slice(0, 20)
     };
   }
@@ -15590,10 +16016,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     manifest: {
       id: "seckill",
       name: "\\u81EA\\u52A8\\u79D2\\u6740",
-      version: "0.1.1",
+      version: "0.1.3",
       apiVersion: 1,
       contractVersion: 1,
-      minCoreVersion: "0.5.13",
+      releaseNotes: "\\u7CBE\\u7B80\\u81EA\\u52A8\\u8D2D\\u4E70\\u754C\\u9762\\uFF0C\\u7EDF\\u4E00\\u5546\\u54C1\\u9009\\u62E9\\u4E0E\\u5F00\\u5173\\u5916\\u89C2\\uFF1B\\u81EA\\u52A8\\u8D2D\\u4E70\\u4ECD\\u9ED8\\u8BA4\\u5173\\u95ED\\uFF0C\\u5F00\\u542F\\u540E\\u4F1A\\u6D88\\u8017\\u5BF9\\u5E94\\u6E38\\u620F\\u8D27\\u5E01\\uFF0C\\u7ED3\\u679C\\u672A\\u786E\\u8BA4\\u65F6\\u4ECD\\u4FDD\\u7559\\u6838\\u5BF9\\u72B6\\u6001\\u3002",
+      minCoreVersion: "0.6.37",
       description: "\\u6309\\u6240\\u9009\\u7269\\u54C1\\u4E0E\\u5173\\u952E\\u8BCD\\u81EA\\u52A8\\u62A2\\u8D2D\\u79D2\\u6740\\u5546\\u54C1\\uFF0C\\u652F\\u6301\\u8DE8\\u573A\\u6B21\\u6392\\u961F\\u4E0E\\u8D2D\\u4E70\\u786E\\u8BA4",
       icon: PLUGIN_ICONS["seckill"],
       priority: 21e3,
@@ -15612,7 +16039,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         const root = el("section");
         root.dataset.seckill = "";
         const style = el("style");
-        style.textContent = \`\${CONTROL_STYLES}
+        style.textContent = \`
         [data-seckill]{color:var(--sgs-text);font:12px/1.6 var(--sgs-font);min-width:0}
         [data-seckill] *{box-sizing:border-box}[data-seckill] button{font:inherit;cursor:pointer}
         [data-seckill] button:disabled{opacity:.45;cursor:not-allowed}[data-seckill] button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:2px}
@@ -15635,13 +16062,13 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           b.type = "button";
           b.title = name;
           b.setAttribute("aria-label", name);
-          b.append(controlIcon(doc, icon2));
+          b.append(ctx.ui.icon(icon2));
           listen(b, "click", fn);
           return b;
         };
         const heading = el("div", void 0, "sk-heading"), title = el("h3", "\\u81EA\\u52A8\\u8D2D\\u4E70");
-        title.prepend(controlIcon(doc, PLUGIN_ICONS.seckill));
-        const power = el("label", void 0, "sk-power"), powerText = el("span"), toggle = styleSwitch(el("input"));
+        title.prepend(ctx.ui.icon(PLUGIN_ICONS.seckill));
+        const power = el("label", void 0, "sk-power"), powerText = el("span"), toggle = ctx.ui.styleSwitch(el("input"));
         toggle.type = "checkbox";
         toggle.setAttribute("aria-label", "\\u81EA\\u52A8\\u8D2D\\u4E70\\u6240\\u9009\\u79D2\\u6740\\u7269\\u54C1");
         power.append(powerText, toggle);
@@ -15725,7 +16152,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
               remove.type = "button";
               remove.title = \`\\u5220\\u9664\\u5173\\u952E\\u8BCD \${kw}\`;
               remove.setAttribute("aria-label", remove.title);
-              remove.append(controlIcon(doc, "close"));
+              remove.append(ctx.ui.icon("close"));
               remove.dataset.keyword = kw;
               tag.append(el("span", kw), remove);
               tags.append(tag);
@@ -15768,8 +16195,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D2\u6740","version":"0.1.1","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.13","description":"\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4","icon":{"paths":["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2","M13 10 9 15h3l-1 4 5-6h-4Z"]},"priority":21000,"categories":["automation"]}};
-`, sha256: "2b78f390601bb9e30f8c7bdf9293bfc580a60b7830ec0f2e1bb734635d6105f0" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "gaizhu", name: "\u76D6\u4E3B\u901F\u5237", version: "0.1.11", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.62", dependencies: ["baisheng"], description: "\u9EC4\u76D6\u623F\u4E3B\u82E6\u8089\u901F\u5237\uFF0C\u53CD\u8D3C\u81EA\u52A8\u9009\u5C06\u3001\u51C6\u5907\u4E0E\u6258\u7BA1\uFF0C\u652F\u6301\u767E\u80DC\u8F6E\u6362\u548C\u5EF6\u65F6\u6536\u5C3E\u3002", icon: { paths: ["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0", "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3", "M2 21h6"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D2\u6740","version":"0.1.3","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7CBE\u7B80\u81EA\u52A8\u8D2D\u4E70\u754C\u9762\uFF0C\u7EDF\u4E00\u5546\u54C1\u9009\u62E9\u4E0E\u5F00\u5173\u5916\u89C2\uFF1B\u81EA\u52A8\u8D2D\u4E70\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5F00\u542F\u540E\u4F1A\u6D88\u8017\u5BF9\u5E94\u6E38\u620F\u8D27\u5E01\uFF0C\u7ED3\u679C\u672A\u786E\u8BA4\u65F6\u4ECD\u4FDD\u7559\u6838\u5BF9\u72B6\u6001\u3002","minCoreVersion":"0.6.37","description":"\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4","icon":{"paths":["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2","M13 10 9 15h3l-1 4 5-6h-4Z"]},"priority":21000,"categories":["automation"]}};
+`, sha256: "d1b63c66d392854b0636f4a9179798654418d82329560fbd2da4597fbeae5057" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "gaizhu", name: "\u76D6\u4E3B\u901F\u5237", version: "0.1.12", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7EDF\u4E00\u901F\u5237\u5F00\u5173\u4E0E\u64CD\u4F5C\u63D0\u793A\u5916\u89C2\uFF0C\u4FDD\u7559\u624B\u52A8\u5F00\u59CB\u548C\u505C\u6B62\u65B9\u5F0F\u3002\u70B9\u5C06\u53EF\u80FD\u6D88\u8017\u6E38\u620F\u9053\u5177\u3002", minCoreVersion: "0.6.37", dependencies: ["baisheng"], description: "\u9EC4\u76D6\u623F\u4E3B\u82E6\u8089\u901F\u5237\uFF0C\u53CD\u8D3C\u81EA\u52A8\u9009\u5C06\u3001\u51C6\u5907\u4E0E\u6258\u7BA1\uFF0C\u652F\u6301\u767E\u80DC\u8F6E\u6362\u548C\u5EF6\u65F6\u6536\u5C3E\u3002", icon: { paths: ["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0", "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3", "M2 21h6"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -15856,92 +16283,6 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     "M3 7h18v13H3ZM8 7V4h8v3M3 12h6M15 12h6",
     "M12 9l3 3-3 3-3-3Z"
   );
-
-  // src/ui/icons.js
-  var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
-    toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
-    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
-    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
-    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
-    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
-    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
-    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
-    close: '<path d="m6 6 12 12M6 18 18 6"/>',
-    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
-    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
-    collapse: '<path d="M5 12h14"/>',
-    chevron: '<path d="m6 9 6 6 6-6"/>',
-    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
-    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
-    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
-    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
-    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
-    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
-    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
-    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
-  });
-  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
-  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-  function isIconSpec(value) {
-    if (typeof value === "string") return Object.hasOwn(markup, value) || Object.hasOwn(aliases, value);
-    return value !== null && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.paths) && value.paths.length >= 1 && value.paths.length <= 8 && value.paths.every((path) => typeof path === "string" && path.length <= 1024 && /^[Mm][\\s\\d.,+\\-eEMmLlHhVvCcSsQqTtAaZz]+$/.test(path) && /\\d/.test(path));
-  }
-  function createIcon(doc, value = "package", className = "sgs-line-icon") {
-    const spec = isIconSpec(value) ? value : "package", icon2 = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon2.setAttribute("viewBox", "0 0 24 24");
-    icon2.setAttribute("class", className);
-    icon2.setAttribute("aria-hidden", "true");
-    icon2.setAttribute("focusable", "false");
-    icon2.setAttribute("fill", "none");
-    icon2.setAttribute("stroke", "currentColor");
-    icon2.setAttribute("stroke-width", "1.5");
-    icon2.setAttribute("stroke-linecap", "round");
-    icon2.setAttribute("stroke-linejoin", "round");
-    icon2.dataset.icon = typeof spec === "string" ? spec : "custom";
-    const shape = typeof spec === "string" ? markup[aliases[spec] || spec] : spec;
-    if (typeof shape === "string") icon2.innerHTML = shape;
-    else for (const d of shape.paths) {
-      const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", d);
-      icon2.append(path);
-    }
-    return icon2;
-  }
-
-  // src/ui/controls.js
-  var CONTROL_STYLES = \`
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-\`;
-  function controlIcon(doc, name) {
-    return createIcon(doc, name);
-  }
-  function styleSwitch(input) {
-    input.classList.add("sgs-switch");
-    input.setAttribute("role", "switch");
-    return input;
-  }
 
   // src/shared/info-runtime.js
   var read = (fn) => {
@@ -17243,10 +17584,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var manifest = {
     id: "gaizhu",
     name: "\\u76D6\\u4E3B\\u901F\\u5237",
-    version: "0.1.11",
+    version: "0.1.12",
     apiVersion: 1,
     contractVersion: 1,
-    minCoreVersion: "0.5.62",
+    releaseNotes: "\\u7EDF\\u4E00\\u901F\\u5237\\u5F00\\u5173\\u4E0E\\u64CD\\u4F5C\\u63D0\\u793A\\u5916\\u89C2\\uFF0C\\u4FDD\\u7559\\u624B\\u52A8\\u5F00\\u59CB\\u548C\\u505C\\u6B62\\u65B9\\u5F0F\\u3002\\u70B9\\u5C06\\u53EF\\u80FD\\u6D88\\u8017\\u6E38\\u620F\\u9053\\u5177\\u3002",
+    minCoreVersion: "0.6.37",
     dependencies: ["baisheng"],
     description: "\\u9EC4\\u76D6\\u623F\\u4E3B\\u82E6\\u8089\\u901F\\u5237\\uFF0C\\u53CD\\u8D3C\\u81EA\\u52A8\\u9009\\u5C06\\u3001\\u51C6\\u5907\\u4E0E\\u6258\\u7BA1\\uFF0C\\u652F\\u6301\\u767E\\u80DC\\u8F6E\\u6362\\u548C\\u5EF6\\u65F6\\u6536\\u5C3E\\u3002",
     icon: PLUGIN_ICONS["gaizhu"],
@@ -17266,7 +17608,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     const root = el("section");
     root.dataset.gaizhu = "";
     const style = el("style");
-    style.textContent = \`\${CONTROL_STYLES}
+    style.textContent = \`
     [data-gaizhu]{min-width:0;color:var(--sgs-text);font:12px/1.6 var(--sgs-font,sans-serif)}
     [data-gaizhu] *,[data-gaizhu] *::before,[data-gaizhu] *::after{box-sizing:border-box}
     [data-gaizhu] [hidden]{display:none!important}
@@ -17338,7 +17680,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     pickField.append(pickTitle, pickGroup);
     const waitRow = el("label", void 0, "gz-wait"), waitCopy = el("span", void 0, "gz-wait-copy");
     waitCopy.append(el("span", "\\u7B491\\u5206\\u949F"), el("small", "\\u524D45\\u79D2\\u70E7\\u6761\\uFF0C\\u52693\\u79D2\\u82E6\\u8089\\uFF1B\\u4E4B\\u540E\\u7ACB\\u5373\\u6536\\u5C3E\\u3002"));
-    const waitState = el("span", void 0, "gz-wait-state"), waitInput = styleSwitch(el("input"));
+    const waitState = el("span", void 0, "gz-wait-state"), waitInput = ctx.ui.styleSwitch(el("input"));
     waitInput.type = "checkbox";
     waitInput.setAttribute("aria-label", "\\u7B491\\u5206\\u949F");
     waitRow.append(waitCopy, waitState, waitInput);
@@ -17406,7 +17748,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       action.title = running ? "\\u505C\\u6B62\\u672C\\u7AEF\\u81EA\\u52A8\\u64CD\\u4F5C" : \`\\u5F00\\u59CB\${draftRole === "host" ? "\\u76D6\\u4E3B\\u5C0F\\u53F7" : "\\u53CD\\u8D3C\\u5927\\u53F7"}\\u901F\\u5237\`;
       if (previousRunning !== running) {
         previousRunning = running;
-        actionIcon.replaceChildren(controlIcon(doc, running ? "pause" : "play"));
+        actionIcon.replaceChildren(ctx.ui.icon(running ? "pause" : "play"));
       }
       status.textContent = s.status || (s.account ? "\\u5DF2\\u505C\\u6B62\\uFF0C\\u70B9\\u51FB\\u5F00\\u59CB\\u540E\\u8FD0\\u884C\\u3002" : "\\u7B49\\u5F85\\u767B\\u5F55\\u8D26\\u53F7\\u3002");
       status.classList.toggle("is-error", Boolean(s.error));
@@ -17441,8 +17783,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F\u5237","version":"0.1.11","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.62","dependencies":["baisheng"],"description":"\u9EC4\u76D6\u623F\u4E3B\u82E6\u8089\u901F\u5237\uFF0C\u53CD\u8D3C\u81EA\u52A8\u9009\u5C06\u3001\u51C6\u5907\u4E0E\u6258\u7BA1\uFF0C\u652F\u6301\u767E\u80DC\u8F6E\u6362\u548C\u5EF6\u65F6\u6536\u5C3E\u3002","icon":{"paths":["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0","M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3","M2 21h6"]},"priority":21000,"categories":["automation"]}};
-`, sha256: "c780e6f6570313eb17eb207a506bedbdf8f18493031cdda9388ea1dcdd0b4e9a" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "effects", name: "\u7279\u6548\u5C4F\u853D", version: "0.5.9", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.0", categories: ["tools"], icon: { paths: ["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2", "M3 3 21 21M19 3v4M17 5h4"] }, priority: 2e4, description: "\u6309\u9700\u5C4F\u853D\u5BF9\u5C40\u7279\u6548\u4E0E\u754C\u9762\u63D0\u9192\uFF0C\u8BA9\u753B\u9762\u66F4\u6E05\u723D" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F\u5237","version":"0.1.12","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7EDF\u4E00\u901F\u5237\u5F00\u5173\u4E0E\u64CD\u4F5C\u63D0\u793A\u5916\u89C2\uFF0C\u4FDD\u7559\u624B\u52A8\u5F00\u59CB\u548C\u505C\u6B62\u65B9\u5F0F\u3002\u70B9\u5C06\u53EF\u80FD\u6D88\u8017\u6E38\u620F\u9053\u5177\u3002","minCoreVersion":"0.6.37","dependencies":["baisheng"],"description":"\u9EC4\u76D6\u623F\u4E3B\u82E6\u8089\u901F\u5237\uFF0C\u53CD\u8D3C\u81EA\u52A8\u9009\u5C06\u3001\u51C6\u5907\u4E0E\u6258\u7BA1\uFF0C\u652F\u6301\u767E\u80DC\u8F6E\u6362\u548C\u5EF6\u65F6\u6536\u5C3E\u3002","icon":{"paths":["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0","M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3","M2 21h6"]},"priority":21000,"categories":["automation"]}};
+`, sha256: "9c2e608ea3087aa3d0239957dd5388e4f441ec63afffebf376dc4c886ada3a91" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "effects", name: "\u7279\u6548\u5C4F\u853D", version: "0.5.10", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7EDF\u4E00\u7279\u6548\u8BBE\u7F6E\u7684\u5237\u65B0\u3001\u6062\u590D\u53CA\u5E2E\u52A9\u63D0\u793A\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u5C4F\u853D\u9009\u62E9\u3002", minCoreVersion: "0.6.37", categories: ["tools"], icon: { paths: ["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2", "M3 3 21 21M19 3v4M17 5h4"] }, priority: 2e4, description: "\u6309\u9700\u5C4F\u853D\u5BF9\u5C40\u7279\u6548\u4E0E\u754C\u9762\u63D0\u9192\uFF0C\u8BA9\u753B\u9762\u66F4\u6E05\u723D" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -17529,87 +17871,6 @@ return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F
     "M3 7h18v13H3ZM8 7V4h8v3M3 12h6M15 12h6",
     "M12 9l3 3-3 3-3-3Z"
   );
-
-  // src/ui/icons.js
-  var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
-    toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
-    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
-    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
-    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
-    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
-    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
-    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
-    close: '<path d="m6 6 12 12M6 18 18 6"/>',
-    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
-    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
-    collapse: '<path d="M5 12h14"/>',
-    chevron: '<path d="m6 9 6 6 6-6"/>',
-    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
-    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
-    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
-    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
-    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
-    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
-    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
-    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
-  });
-  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
-  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-  function isIconSpec(value) {
-    if (typeof value === "string") return Object.hasOwn(markup, value) || Object.hasOwn(aliases, value);
-    return value !== null && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.paths) && value.paths.length >= 1 && value.paths.length <= 8 && value.paths.every((path) => typeof path === "string" && path.length <= 1024 && /^[Mm][\\s\\d.,+\\-eEMmLlHhVvCcSsQqTtAaZz]+$/.test(path) && /\\d/.test(path));
-  }
-  function createIcon(doc, value = "package", className = "sgs-line-icon") {
-    const spec = isIconSpec(value) ? value : "package", icon2 = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon2.setAttribute("viewBox", "0 0 24 24");
-    icon2.setAttribute("class", className);
-    icon2.setAttribute("aria-hidden", "true");
-    icon2.setAttribute("focusable", "false");
-    icon2.setAttribute("fill", "none");
-    icon2.setAttribute("stroke", "currentColor");
-    icon2.setAttribute("stroke-width", "1.5");
-    icon2.setAttribute("stroke-linecap", "round");
-    icon2.setAttribute("stroke-linejoin", "round");
-    icon2.dataset.icon = typeof spec === "string" ? spec : "custom";
-    const shape = typeof spec === "string" ? markup[aliases[spec] || spec] : spec;
-    if (typeof shape === "string") icon2.innerHTML = shape;
-    else for (const d of shape.paths) {
-      const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", d);
-      icon2.append(path);
-    }
-    return icon2;
-  }
-
-  // src/ui/controls.js
-  var CONTROL_STYLES = \`
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-\`;
-  function controlIcon(doc, name) {
-    return createIcon(doc, name);
-  }
 
   // src/plugins/effects/extended.js
   var SLOGANS = /* @__PURE__ */ new Set([
@@ -18573,10 +18834,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var manifest = {
     id: "effects",
     name: "\\u7279\\u6548\\u5C4F\\u853D",
-    version: "0.5.9",
+    version: "0.5.10",
     apiVersion: 1,
     contractVersion: 1,
-    minCoreVersion: "0.5.0",
+    releaseNotes: "\\u7EDF\\u4E00\\u7279\\u6548\\u8BBE\\u7F6E\\u7684\\u5237\\u65B0\\u3001\\u6062\\u590D\\u53CA\\u5E2E\\u52A9\\u63D0\\u793A\\u5916\\u89C2\\uFF0C\\u4FDD\\u7559\\u5DF2\\u6709\\u5C4F\\u853D\\u9009\\u62E9\\u3002",
+    minCoreVersion: "0.6.37",
     categories: ["tools"],
     icon: PLUGIN_ICONS["effects"],
     priority: 2e4,
@@ -18613,7 +18875,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       .sgs-effects .effects-endpoints{display:flex;justify-content:space-between;font-size:10px;color:var(--sgs-muted);margin-bottom:2px}
       .sgs-effects .effects-detail-grid{margin-top:5px}
       .sgs-effects input:focus-visible,.sgs-effects button:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
-      \${CONTROL_STYLES}
+      
       .sgs-effects .effects-header{padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 45%,transparent)}.sgs-effects .effects-actions button{display:grid;place-items:center;width:28px;height:28px;padding:5px;border:0;background:transparent;box-shadow:none;border-radius:6px}.sgs-effects .effects-actions button:hover{color:var(--sgs-accent);background:color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.sgs-effects .effects-grid{gap:4px}.sgs-effects .effects-level-row{margin-bottom:9px}.sgs-effects .effects-level-row>button{border:0;background:transparent;padding:0 3px;box-shadow:none;font-size:10px;color:var(--sgs-muted)}.sgs-effects .effects-level-row output{color:var(--sgs-accent)}.sgs-effects .effects-slider::-webkit-slider-runnable-track{height:5px;box-shadow:inset 0 1px 2px #0005}.sgs-effects .effects-slider::-webkit-slider-thumb{width:12px;height:12px;margin-top:-4px;background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 45%,var(--sgs-text)),var(--sgs-accent));box-shadow:0 1px 3px #0008,0 0 0 3px color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.sgs-effects .effects-endpoints{margin:3px 0 12px}.sgs-effects legend{padding-top:7px;margin-bottom:7px}.sgs-effects [role=status]{margin:10px 0;padding:7px 9px;background:color-mix(in srgb,var(--sgs-accent) 6%,transparent);border-left:2px solid var(--sgs-accent);border-radius:0 5px 5px 0;font-size:10px}
       .sgs-effects .effects-option{position:relative;box-sizing:border-box;display:flex;align-items:center;justify-content:center;min-width:0;border:1px solid color-mix(in srgb,var(--sgs-border) 28%,transparent);border-radius:7px;color:var(--sgs-muted);font-size:11px;cursor:pointer;transition:background .15s,border-color .15s,color .15s;flex-direction:column;gap:3px;min-height:48px;padding:5px 2px;line-height:16px;background:color-mix(in srgb,var(--sgs-bg) 55%,var(--sgs-raised))}
       .sgs-effects .effects-option-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sgs-text)}
@@ -18638,13 +18900,13 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       actions.className = "effects-actions";
       const refresh = doc.createElement("button");
       refresh.type = "button";
-      refresh.append(controlIcon(doc, "refresh"));
+      refresh.append(ctx.ui.icon("refresh"));
       refresh.title = "\\u91CD\\u65B0\\u68C0\\u6D4B";
       refresh.setAttribute("aria-label", "\\u91CD\\u65B0\\u68C0\\u6D4B");
       refresh.onclick = () => controller.refresh();
       const reset = doc.createElement("button");
       reset.type = "button";
-      reset.append(controlIcon(doc, "reset"));
+      reset.append(ctx.ui.icon("reset"));
       reset.title = "\\u6062\\u590D\\u5168\\u90E8\\u663E\\u793A";
       reset.setAttribute("aria-label", "\\u5168\\u90E8\\u6062\\u590D");
       reset.onclick = () => controller.setMany(Object.fromEntries(OPTIONS.map(([key]) => [key, false])));
@@ -18770,8 +19032,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4F\u853D","version":"0.5.9","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.0","categories":["tools"],"icon":{"paths":["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2","M3 3 21 21M19 3v4M17 5h4"]},"priority":20000,"description":"\u6309\u9700\u5C4F\u853D\u5BF9\u5C40\u7279\u6548\u4E0E\u754C\u9762\u63D0\u9192\uFF0C\u8BA9\u753B\u9762\u66F4\u6E05\u723D"}};
-`, sha256: "0ce88f8ee888c4810b1829855db890d7903f374413696278016ca711e4d799ff" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "skins", name: "\u76AE\u80A4\u6536\u96C6", version: "0.4.8", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.101", categories: [], icon: { paths: ["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z", "M8 3l8 9M16 3l-6 7M8 16h8"] }, priority: 3e4, description: "\u7B5B\u9009\u3001\u67E5\u627E\u76AE\u80A4\uFF0C\u67E5\u770B\u6536\u85CF\u4E0E\u52A8\u6001\u72B6\u6001" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4F\u853D","version":"0.5.10","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7EDF\u4E00\u7279\u6548\u8BBE\u7F6E\u7684\u5237\u65B0\u3001\u6062\u590D\u53CA\u5E2E\u52A9\u63D0\u793A\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u5C4F\u853D\u9009\u62E9\u3002","minCoreVersion":"0.6.37","categories":["tools"],"icon":{"paths":["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2","M3 3 21 21M19 3v4M17 5h4"]},"priority":20000,"description":"\u6309\u9700\u5C4F\u853D\u5BF9\u5C40\u7279\u6548\u4E0E\u754C\u9762\u63D0\u9192\uFF0C\u8BA9\u753B\u9762\u66F4\u6E05\u723D"}};
+`, sha256: "bc1e15da0996029e6fe4c6435c6c40a22050b0102dd3e55cc4b6037ddad02b8f" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "skins", name: "\u76AE\u80A4\u6536\u96C6", version: "0.4.9", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u76AE\u80A4\u539F\u753B\u4E0B\u8F7D\u6309\u94AE\u7684\u6837\u5F0F\u52A0\u8F7D\uFF0C\u539F\u6709\u7B5B\u9009\u548C\u9759\u6001\u539F\u753B\u4E0B\u8F7D\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002", minCoreVersion: "0.5.101", categories: [], icon: { paths: ["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z", "M8 3l8 9M16 3l-6 7M8 16h8"] }, priority: 3e4, description: "\u7B5B\u9009\u3001\u67E5\u627E\u76AE\u80A4\uFF0C\u67E5\u770B\u6536\u85CF\u4E0E\u52A8\u6001\u72B6\u6001" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -18889,59 +19151,6 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     return null;
   }
 
-  // src/ui/icons.js
-  var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
-    toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
-    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
-    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
-    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
-    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
-    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
-    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
-    close: '<path d="m6 6 12 12M6 18 18 6"/>',
-    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
-    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
-    collapse: '<path d="M5 12h14"/>',
-    chevron: '<path d="m6 9 6 6 6-6"/>',
-    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
-    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
-    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
-    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
-    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
-    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
-    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
-    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
-  });
-  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
-  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-
-  // src/ui/controls.js
-  var CONTROL_STYLES = \`
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-\`;
-
   // src/plugins/skins/download.js
   function createSkinDownload(ctx) {
     const doc = ctx.document, win = ctx.window;
@@ -18949,7 +19158,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     root.dataset.sgsSkinDownload = "";
     root.hidden = true;
     const style = doc.createElement("style");
-    style.textContent = CONTROL_STYLES + '[data-sgs-skin-download]{position:fixed;z-index:2147483000;filter:drop-shadow(0 3px 8px #0008)}[data-sgs-skin-download] button{appearance:none;box-sizing:border-box;min-height:52px;padding:12px 20px;border:1px solid var(--sgs-border);border-radius:10px;background:var(--sgs-surface);color:var(--sgs-text);font:600 18px/1.4 "Microsoft YaHei",sans-serif;cursor:pointer;white-space:nowrap}[data-sgs-skin-download] button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}[data-sgs-skin-download] button:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}[data-sgs-skin-download] button:disabled{opacity:.5;cursor:wait}';
+    style.textContent = '[data-sgs-skin-download]{position:fixed;z-index:2147483000;filter:drop-shadow(0 3px 8px #0008)}[data-sgs-skin-download] button{appearance:none;box-sizing:border-box;min-height:52px;padding:12px 20px;border:1px solid var(--sgs-border);border-radius:10px;background:var(--sgs-surface);color:var(--sgs-text);font:600 18px/1.4 "Microsoft YaHei",sans-serif;cursor:pointer;white-space:nowrap}[data-sgs-skin-download] button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}[data-sgs-skin-download] button:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}[data-sgs-skin-download] button:disabled{opacity:.5;cursor:wait}';
     const button = doc.createElement("button");
     button.type = "button";
     button.textContent = "\\u4E0B\\u8F7D\\u76AE\\u80A4\\u539F\\u56FE";
@@ -19139,8 +19348,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     const root = config.root || config, rows = read(() => root.goodslist.goods), fields = read(() => root.abbreviation.field);
     const result = { ready: false, skinIds: /* @__PURE__ */ new Set() };
     if (!Array.isArray(rows) || !rows.length || rows.length > 2e5) return result;
-    const aliases2 = new Map(Array.isArray(fields) ? fields.map((field2) => [field2.Long, field2.Short]) : []);
-    const field = (row, key) => read(() => row[key]) ?? read(() => row[aliases2.get(key)]);
+    const aliases = new Map(Array.isArray(fields) ? fields.map((field2) => [field2.Long, field2.Short]) : []);
+    const field = (row, key) => read(() => row[key]) ?? read(() => row[aliases.get(key)]);
     result.ready = true;
     for (const row of rows) {
       if (Number(field(row, "TypeID") ?? read(() => row.typeID)) !== 124) continue;
@@ -20459,7 +20668,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 
   // src/plugins/skins/index.js
   var index_default = {
-    manifest: { id: "skins", name: "\\u76AE\\u80A4\\u6536\\u96C6", version: "0.4.8", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.101", categories: [], icon: PLUGIN_ICONS["skins"], priority: 3e4, description: "\\u7B5B\\u9009\\u3001\\u67E5\\u627E\\u76AE\\u80A4\\uFF0C\\u67E5\\u770B\\u6536\\u85CF\\u4E0E\\u52A8\\u6001\\u72B6\\u6001" },
+    manifest: { id: "skins", name: "\\u76AE\\u80A4\\u6536\\u96C6", version: "0.4.9", apiVersion: 1, contractVersion: 1, releaseNotes: "\\u7CBE\\u7B80\\u76AE\\u80A4\\u539F\\u753B\\u4E0B\\u8F7D\\u6309\\u94AE\\u7684\\u6837\\u5F0F\\u52A0\\u8F7D\\uFF0C\\u539F\\u6709\\u7B5B\\u9009\\u548C\\u9759\\u6001\\u539F\\u753B\\u4E0B\\u8F7D\\u65B9\\u5F0F\\u4FDD\\u6301\\u4E0D\\u53D8\\u3002", minCoreVersion: "0.5.101", categories: [], icon: PLUGIN_ICONS["skins"], priority: 3e4, description: "\\u7B5B\\u9009\\u3001\\u67E5\\u627E\\u76AE\\u80A4\\uFF0C\\u67E5\\u770B\\u6536\\u85CF\\u4E0E\\u52A8\\u6001\\u72B6\\u6001" },
     activate(ctx) {
       createNativeSkins(ctx);
       createSkinDownload(ctx);
@@ -20468,8 +20677,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"skins","name":"\u76AE\u80A4\u6536\u96C6","version":"0.4.8","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.101","categories":[],"icon":{"paths":["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z","M8 3l8 9M16 3l-6 7M8 16h8"]},"priority":30000,"description":"\u7B5B\u9009\u3001\u67E5\u627E\u76AE\u80A4\uFF0C\u67E5\u770B\u6536\u85CF\u4E0E\u52A8\u6001\u72B6\u6001"}};
-`, sha256: "db9ee5d0364a26725bb17f4ec187d4d1b7a92b60a12ecbe34b4d750bfedee3eb" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "wish-progress", name: "\u5FC3\u613F\u8FDB\u5EA6", version: "0.1.1", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.0", description: "\u6E38\u620F\u5FC3\u613F\u7A97\u53E3\u663E\u793A\u6B66\u5C06\u683C\u6570\u3001\u76AE\u80A4\u767E\u5206\u6BD4\u4E0E\u6700\u8FD1\u4E00\u6B21\u62BD\u53D6\u51C0\u53D8\u5316", icon: { paths: ["M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z", "M4 21h9M16 21h4"] }, priority: 30100, categories: [] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"skins","name":"\u76AE\u80A4\u6536\u96C6","version":"0.4.9","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7CBE\u7B80\u76AE\u80A4\u539F\u753B\u4E0B\u8F7D\u6309\u94AE\u7684\u6837\u5F0F\u52A0\u8F7D\uFF0C\u539F\u6709\u7B5B\u9009\u548C\u9759\u6001\u539F\u753B\u4E0B\u8F7D\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002","minCoreVersion":"0.5.101","categories":[],"icon":{"paths":["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z","M8 3l8 9M16 3l-6 7M8 16h8"]},"priority":30000,"description":"\u7B5B\u9009\u3001\u67E5\u627E\u76AE\u80A4\uFF0C\u67E5\u770B\u6536\u85CF\u4E0E\u52A8\u6001\u72B6\u6001"}};
+`, sha256: "9da7d9716fc8637e399ed6c9fd662b7c86a19c229a7ebd36a51d8ac6b55269e6" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "wish-progress", name: "\u5FC3\u613F\u8FDB\u5EA6", version: "0.1.1", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.0", description: "\u6E38\u620F\u5FC3\u613F\u7A97\u53E3\u663E\u793A\u6B66\u5C06\u683C\u6570\u3001\u76AE\u80A4\u767E\u5206\u6BD4\u4E0E\u6700\u8FD1\u4E00\u6B21\u62BD\u53D6\u51C0\u53D8\u5316", icon: { paths: ["M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z", "M4 21h9M16 21h4"] }, priority: 30100, categories: [] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -21336,7 +21545,7 @@ return {...SGSPlugin.default, manifest:{"id":"wish-progress","name":"\u5FC3\u613
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"themes","name":"\u96C5\u8272\u4E3B\u9898\u5305","version":"0.1.4","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.15","categories":[],"icon":{"paths":["M12 21 2 8a16 16 0 0 1 20 0Z","M12 21 7 5.3M12 21V4.5M12 21 17 5.3","M10 19a3 3 0 0 1 4 0"]},"priority":50000,"description":"\u63D0\u4F9B\u4E94\u5957\u6DF1\u8272\u4E0E\u5BA3\u7EB8\u3001\u6674\u5C9A\u3001\u6843\u592D\u4E09\u5957\u6D45\u8272\u914D\u8272\uFF0C\u5728\u8BBE\u7F6E\u7684\u4E3B\u9898\u5DE5\u574A\u4E2D\u9009\u7528"}};
-`, sha256: "eae835ca2fca5e48d607b4186e011992bb4eab88456b6543d1768d8891b0d8d2" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "baisheng", name: "\u767E\u80DC\u6218\u529F", version: "0.1.3", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.13", categories: ["info"], icon: { paths: ["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4", "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"] }, priority: 31e3, description: "\u67E5\u770B\u5F53\u524D\u8D26\u53F7\u767E\u80DC\u8FDB\u5EA6\u3001\u5B8C\u6210\u65E5\u671F\u4E0E\u6280\u80FD\u6218\u529F\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A" }, code: `var SGSPlugin = (() => {
+`, sha256: "eae835ca2fca5e48d607b4186e011992bb4eab88456b6543d1768d8891b0d8d2" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "baisheng", name: "\u767E\u80DC\u6218\u529F", version: "0.1.7", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4F18\u5316\u6218\u529F\u8FDB\u5EA6\u5C55\u793A\u3001\u767B\u5F55\u7B49\u5F85\u63D0\u793A\u4E0E\u7B5B\u9009\u64CD\u4F5C\uFF0C\u4FDD\u7559\u5F53\u524D\u8D26\u53F7\u8BB0\u5F55\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4", "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"] }, priority: 31e3, description: "\u67E5\u770B\u5F53\u524D\u8D26\u53F7\u767E\u80DC\u8FDB\u5EA6\u3001\u5B8C\u6210\u65E5\u671F\u4E0E\u6280\u80FD\u6218\u529F\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -21551,165 +21760,6 @@ return {...SGSPlugin.default, manifest:{"id":"themes","name":"\u96C5\u8272\u4E3B
     ctx.scope.timeout(release, 1e3);
   }
 
-  // src/ui/icons.js
-  var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
-    toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
-    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
-    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
-    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
-    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
-    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
-    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
-    close: '<path d="m6 6 12 12M6 18 18 6"/>',
-    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
-    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
-    collapse: '<path d="M5 12h14"/>',
-    chevron: '<path d="m6 9 6 6 6-6"/>',
-    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
-    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
-    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
-    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
-    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
-    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
-    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
-    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
-  });
-  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
-  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-  function isIconSpec(value) {
-    if (typeof value === "string") return Object.hasOwn(markup, value) || Object.hasOwn(aliases, value);
-    return value !== null && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.paths) && value.paths.length >= 1 && value.paths.length <= 8 && value.paths.every((path) => typeof path === "string" && path.length <= 1024 && /^[Mm][\\s\\d.,+\\-eEMmLlHhVvCcSsQqTtAaZz]+$/.test(path) && /\\d/.test(path));
-  }
-  function createIcon(doc, value = "package", className = "sgs-line-icon") {
-    const spec = isIconSpec(value) ? value : "package", icon2 = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon2.setAttribute("viewBox", "0 0 24 24");
-    icon2.setAttribute("class", className);
-    icon2.setAttribute("aria-hidden", "true");
-    icon2.setAttribute("focusable", "false");
-    icon2.setAttribute("fill", "none");
-    icon2.setAttribute("stroke", "currentColor");
-    icon2.setAttribute("stroke-width", "1.5");
-    icon2.setAttribute("stroke-linecap", "round");
-    icon2.setAttribute("stroke-linejoin", "round");
-    icon2.dataset.icon = typeof spec === "string" ? spec : "custom";
-    const shape = typeof spec === "string" ? markup[aliases[spec] || spec] : spec;
-    if (typeof shape === "string") icon2.innerHTML = shape;
-    else for (const d of shape.paths) {
-      const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", d);
-      icon2.append(path);
-    }
-    return icon2;
-  }
-
-  // src/ui/controls.js
-  var CONTROL_STYLES = \`
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-\`;
-  function controlIcon(doc, name) {
-    return createIcon(doc, name);
-  }
-
-  // src/shared/info-ui.js
-  var INFO_STYLES = \`\${CONTROL_STYLES}
-.sgs-info{min-width:0;color:var(--sgs-text);font:12px/1.65 var(--sgs-font,sans-serif)}
-.sgs-info *{box-sizing:border-box}.sgs-info [hidden]{display:none!important}
-.sgs-info p{margin:0 0 10px;overflow-wrap:anywhere}.sgs-info .muted{color:var(--sgs-muted);font-size:11px}
-.sgs-info .bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:9px 0}.sgs-info .bar>*{min-width:0}
-.sgs-info button{min-height:30px;border:1px solid color-mix(in srgb,var(--sgs-border) 65%,transparent);border-radius:7px;background:linear-gradient(var(--sgs-raised),var(--sgs-surface));color:var(--sgs-text);padding:4px 9px;font:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px}
-.sgs-info button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}.sgs-info button:focus-visible,.sgs-info summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
-.sgs-info button:disabled{opacity:.45;cursor:not-allowed}.sgs-info .primary{color:var(--sgs-accent)}.sgs-info .danger{color:var(--sgs-danger)}
-.sgs-info .sgs-segments{margin:8px 0}.sgs-info .sgs-segments>button{border:0;background:transparent;padding:4px;font-size:11px}.sgs-info .sgs-segments>button[aria-pressed=true]{background:color-mix(in srgb,var(--sgs-accent) 12%,transparent)}
-.sgs-info input.sgs-input{width:100%}.sgs-info .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sgs-info .filters label{color:var(--sgs-muted);font-size:11px;min-width:0}
-.sgs-info .filters label:has(input[type=datetime-local]){grid-column:1/-1}
-.sgs-info .stat{display:flex;align-items:baseline;gap:6px;margin:10px 0;font-variant-numeric:tabular-nums}.sgs-info .stat strong{font-size:25px;font-weight:600;color:var(--sgs-accent)}
-.sgs-info .list{max-height:430px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}.sgs-info .row{padding:10px 0;border-top:1px solid color-mix(in srgb,var(--sgs-border) 60%,transparent)}
-.sgs-info .row-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px}.sgs-info .name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sgs-info .number{font-variant-numeric:tabular-nums;flex:none;font-size:11px}
-.sgs-info .progress{height:3px;border-radius:2px;background:var(--sgs-raised);margin:7px 0}.sgs-info .progress>i{display:block;height:100%;background:var(--sgs-accent);border-radius:2px}
-.sgs-info details{font-size:11px;color:var(--sgs-muted)}.sgs-info summary{cursor:pointer}.sgs-info details p{white-space:pre-wrap;margin:6px 0;overflow-wrap:anywhere}
-.sgs-info .error{color:var(--sgs-danger);white-space:pre-wrap;overflow-wrap:anywhere}.sgs-info .empty{padding:20px 4px;text-align:center;color:var(--sgs-muted)}
-.sgs-info .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin-top:6px;color:var(--sgs-muted);font-size:10px}.sgs-info .metrics b{display:block;font-size:14px;color:var(--sgs-text);font-variant-numeric:tabular-nums;font-weight:500}
-\`;
-  function panelUI(ctx, container) {
-    const doc = ctx.document, cleanups = [], root = doc.createElement("section");
-    root.className = "sgs-info";
-    const el = (tag, cls, text) => {
-      const n = doc.createElement(tag);
-      if (cls) n.className = cls;
-      if (text !== void 0) n.textContent = text;
-      return n;
-    };
-    const style = el("style");
-    style.textContent = INFO_STYLES;
-    root.append(style);
-    container.append(root);
-    const scheme = (current) => {
-      const hex = current?.tokens?.bg || "";
-      const match = /^#([\\da-f]{6})$/i.exec(hex);
-      if (match) {
-        const rgb = [0, 2, 4].map((i) => parseInt(match[1].slice(i, i + 2), 16));
-        root.style.colorScheme = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 140 ? "light" : "dark";
-      }
-    };
-    scheme(ctx.themes?.current);
-    if (ctx.themes?.subscribe) cleanups.push(ctx.themes.subscribe(scheme));
-    const listen = (node, type, fn) => {
-      cleanups.push(ctx.scope.listen(node, type, fn));
-    };
-    const button = (text, icon2, fn) => {
-      const n = el("button", "", text);
-      n.type = "button";
-      if (icon2) n.prepend(controlIcon(doc, icon2));
-      listen(n, "click", fn);
-      return n;
-    };
-    const segments = (items, selected, change) => {
-      const group = el("div", "sgs-segments");
-      for (const [value, label] of items) {
-        const n = button(label, null, () => {
-          for (const b of group.children) b.setAttribute("aria-pressed", String(b === n));
-          change(value);
-        });
-        n.setAttribute("aria-pressed", String(value === selected));
-        group.append(n);
-      }
-      return group;
-    };
-    const input = (label, type = "search") => {
-      const n = el("input", "sgs-input");
-      n.type = type;
-      n.setAttribute("aria-label", label);
-      n.placeholder = label;
-      return n;
-    };
-    return { root, el, listen, button, segments, input, dispose: ctx.scope.add(() => {
-      for (const off of cleanups) off();
-      root.remove();
-    }) };
-  }
-
   // src/plugins/baisheng/model.js
   var list = (value) => Array.isArray(value) ? value : value ? [value] : [];
   var num = (value) => value === null || value === void 0 || value === "" ? NaN : Number(value);
@@ -21831,10 +21881,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var manifest = {
     id: "baisheng",
     name: "\\u767E\\u80DC\\u6218\\u529F",
-    version: "0.1.3",
+    version: "0.1.7",
     apiVersion: 1,
     contractVersion: 1,
-    minCoreVersion: "0.5.13",
+    releaseNotes: "\\u4F18\\u5316\\u6218\\u529F\\u8FDB\\u5EA6\\u5C55\\u793A\\u3001\\u767B\\u5F55\\u7B49\\u5F85\\u63D0\\u793A\\u4E0E\\u7B5B\\u9009\\u64CD\\u4F5C\\uFF0C\\u4FDD\\u7559\\u5F53\\u524D\\u8D26\\u53F7\\u8BB0\\u5F55\\u3002",
+    minCoreVersion: "0.6.37",
     categories: ["info"],
     icon: PLUGIN_ICONS["baisheng"],
     priority: 31e3,
@@ -21844,6 +21895,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let who = { id: "", nickname: "" }, snapshot = null, defs = [], names = {}, error = "", loading = false, request = null;
     let configError = "";
     const listeners = /* @__PURE__ */ new Set();
+    let generation = 0, initialized = false, autoAttempts = 0, nextAutoAt = 0;
     const notify = () => {
       ctx.reportError?.(error || configError);
       for (const fn of [...listeners]) fn();
@@ -21864,6 +21916,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       who = next;
       error = "";
       snapshot = null;
+      generation++;
+      initialized = false;
+      autoAttempts = 0;
+      nextAutoAt = 0;
       if (who.id) {
         const stored = ctx.storage.get(\`account:\${who.id}:snapshot-v1\`, null);
         if (stored?.schema === 1 && stored.snapshot?.nickname === who.nickname && validSnapshot(stored.snapshot)) snapshot = stored.snapshot;
@@ -21885,6 +21941,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       if (type === "ClientDbsGetuserachinfoRep") {
         if (!who.nickname || data.nickname !== who.nickname) return;
         snapshot = data;
+        initialized = defs.some((d) => d.flags === 2048);
         cancel();
         error = "";
         persist();
@@ -21910,14 +21967,16 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     async function refresh() {
       sync();
-      if (loading || !who.id) return;
-      const expected = { ...who };
+      if (ctx.scope.signal.aborted || loading || !who.id) return;
+      const expected = { ...who }, currentGeneration = generation;
+      autoAttempts++;
+      nextAutoAt = Date.now() + 3e4;
       loading = true;
       error = "";
       notify();
       try {
         const [ach, chars] = await Promise.all([ctx.game.loadConfigData("gn_gs_ahievement"), ctx.game.loadConfigData("character")]);
-        if (ctx.scope.signal.aborted || account(ctx).id !== expected.id || account(ctx).nickname !== expected.nickname) return;
+        if (ctx.scope.signal.aborted || generation !== currentGeneration || account(ctx).id !== expected.id || account(ctx).nickname !== expected.nickname) return;
         defs = definitions(ach, chars);
         names = generalNames(chars);
         configError = "";
@@ -21934,12 +21993,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         }, 12e3);
         mgr.sendGetAchInfo(who.nickname, 0);
       } catch (e) {
-        if (!ctx.scope.signal.aborted && account(ctx).id === expected.id) {
+        if (!ctx.scope.signal.aborted && generation === currentGeneration && account(ctx).id === expected.id) {
           cancel();
           fail(e);
         }
       } finally {
-        if (!ctx.scope.signal.aborted) {
+        if (!ctx.scope.signal.aborted && generation === currentGeneration) {
           if (!request && account(ctx).id === expected.id) loading = false;
           notify();
         }
@@ -21960,8 +22019,15 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         notify();
       }
     );
-    ctx.scope.interval(sync, 500);
+    const initialize = () => {
+      sync();
+      if (!who.id || !who.nickname || initialized || loading || autoAttempts >= 3 || Date.now() < nextAutoAt) return;
+      if (manager(ctx, "AchievementManager", "ClientDbsGetuserachinfoRep", (m) => typeof m.sendGetAchInfo === "function")) void refresh();
+    };
+    ctx.scope.timeout(initialize, 0);
+    ctx.scope.interval(initialize, 500);
     ctx.scope.add(() => {
+      generation++;
       cancel();
       listeners.clear();
     });
@@ -21988,7 +22054,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function activate(ctx) {
     const controller = createController(ctx);
     ctx.ui.registerPanel({ id: "main", category: "info", render(container) {
-      const ui = panelUI(ctx, container), { root, el, listen, input, button, segments } = ui;
+      const ui = ctx.ui.panel(container), { root, el, listen, input, button, segments } = ui;
       let status = "all", owned = "owned", search = "", alive = true;
       const note = el("p", "muted", "\\u5B98\\u65B9\\u6218\\u529F\\u8FDB\\u5EA6 \\xB7 \\u672C\\u673A\\u5FEB\\u7167"), summary2 = el("div", "stat"), bar = el("div", "bar");
       const refresh = button("\\u5237\\u65B0\\u6218\\u529F", "refresh", () => controller.refresh());
@@ -22022,7 +22088,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         refresh.disabled = !v.who.id || v.loading;
         refresh.lastChild.textContent = v.loading ? "\\u67E5\\u8BE2\\u4E2D\\u2026" : "\\u5237\\u65B0\\u6218\\u529F";
         exportButton.disabled = !snapshot;
-        note.textContent = v.who.id ? \`\${v.who.nickname || "\\u5F53\\u524D\\u8D26\\u53F7"} \\xB7 \${v.who.id}\` : "\\u7B49\\u5F85\\u767B\\u5F55\\u5F53\\u524D\\u8D26\\u53F7";
+        note.hidden = Boolean(v.who.id);
+        note.textContent = "\\u7B49\\u5F85\\u767B\\u5F55\\u5F53\\u524D\\u8D26\\u53F7";
         const ownedUnknown = v.rows.some((row) => row.owned === null);
         let rows = v.rows.filter((row) => owned !== "owned" || row.owned !== false);
         const total = rows.length, complete = snapshot ? rows.filter((row) => row.completed).length : null;
@@ -22036,9 +22103,13 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           const node = el("article", "row"), head = el("div", "row-head"), name = el("span", "name", row.name);
           name.title = [row.name, row.desc].filter(Boolean).join("\\n");
           head.append(name, el("span", "number", row.completed ? "\\u5DF2\\u5B8C\\u6210" : row.value === null ? "\\u8FDB\\u5EA6\\u672A\\u77E5" : \`\${row.value} / \${row.required || "\\u672A\\u77E5"}\`));
-          const progress = el("div", "progress"), fill = el("i");
-          fill.style.width = row.completed ? "100%" : row.value === null || !row.required ? "0%" : \`\${Math.min(100, row.value * 100 / row.required)}%\`;
-          progress.append(fill);
+          const progress = el("progress", "progress");
+          progress.max = 100;
+          progress.value = row.completed ? 100 : row.value === null || !row.required ? 0 : Math.min(100, row.value * 100 / row.required);
+          progress.setAttribute("aria-label", \`\${row.name}\\u6218\\u529F\\u8FDB\\u5EA6\`);
+          if (!row.completed && (row.value === null || !row.required)) {
+            progress.hidden = true;
+          }
           node.append(head, progress);
           if (row.finishTime) node.append(el("div", "muted", \`\\u767E\\u80DC\\u5B8C\\u6210\\u4E8E \${new Date(row.finishTime * 1e3).toLocaleDateString()}\`));
           const skill = row.skill ? !snapshot ? "\\u672A\\u67E5\\u8BE2" : row.skill.completed ? "\\u5DF2\\u5B8C\\u6210" : "\\u672A\\u5B8C\\u6210" : "\\u65E0\\u5BF9\\u5E94\\u5B9A\\u4E49";
@@ -22066,8 +22137,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u6218\u529F","version":"0.1.3","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.13","categories":["info"],"icon":{"paths":["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4","M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"]},"priority":31000,"description":"\u67E5\u770B\u5F53\u524D\u8D26\u53F7\u767E\u80DC\u8FDB\u5EA6\u3001\u5B8C\u6210\u65E5\u671F\u4E0E\u6280\u80FD\u6218\u529F\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A"}};
-`, sha256: "c0c5737eb6c21df228b59bc2ac80f3721bba2fd746a65042516ac4fb2e84ae30" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "appearances", name: "\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1", version: "0.4.6", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.13", categories: ["info"], icon: { paths: ["M9 21H3V3h18v9", "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1", "M12 21 16 17l3 2 3-5M19 14h3v3"] }, priority: 32e3, description: "\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u6218\u529F","version":"0.1.7","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4F18\u5316\u6218\u529F\u8FDB\u5EA6\u5C55\u793A\u3001\u767B\u5F55\u7B49\u5F85\u63D0\u793A\u4E0E\u7B5B\u9009\u64CD\u4F5C\uFF0C\u4FDD\u7559\u5F53\u524D\u8D26\u53F7\u8BB0\u5F55\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4","M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"]},"priority":31000,"description":"\u67E5\u770B\u5F53\u524D\u8D26\u53F7\u767E\u80DC\u8FDB\u5EA6\u3001\u5B8C\u6210\u65E5\u671F\u4E0E\u6280\u80FD\u6218\u529F\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A"}};
+`, sha256: "5b336ee55f25706ef864e2667e0f855a855981805b6b25383dece16a930b0802" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "appearances", name: "\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1", version: "0.4.18", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u72EC\u7ACB\u8BE6\u60C5\u7A97\u53E3\u53CA\u66F4\u6E05\u6670\u7684\u7B5B\u9009\u6392\u5E8F\uFF0C\u6309\u6A21\u5F0F\u548C\u8EAB\u4EFD\u7EDF\u8BA1\u80DC\u7387\uFF1B\u4FEE\u6B63\u6B63\u5F0F\u6A21\u5F0F\u4E0E\u4EBA\u673A\u8BC6\u522B\uFF0C\u7F3A\u5C11\u8EAB\u4EFD\u6216\u5148\u540E\u624B\u7684\u65E7\u8BB0\u5F55\u4F1A\u88AB\u5254\u9664\u3002\u4EC5\u91C7\u96C6\u542F\u7528\u671F\u95F4\u7684\u672C\u673A\u8BB0\u5F55\uFF0C\u4E0D\u4E0A\u4F20\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M9 21H3V3h18v9", "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1", "M12 21 16 17l3 2 3-5M19 14h3v3"] }, priority: 32e3, description: "\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -23245,6 +23316,10 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
   }
 
   // src/plugins/appearances/battle.js
+  function rankedPosition(selfSeat, firstSeat, seats) {
+    if (!Array.isArray(seats) || seats.length !== 4 || new Set(seats).size !== 4 || ![0, 1, 2, 3].every((id) => seats.includes(id)) || !seats.includes(selfSeat) || !seats.includes(firstSeat)) return null;
+    return (selfSeat - firstSeat + 4) % 4 + 1;
+  }
   function nativeSide(ctx, selfSeat) {
     if (!Number.isInteger(selfSeat) || selfSeat < 0) return { position: null, figure: null };
     const context = read(() => ctx.game.getClass("GameContext"));
@@ -23354,11 +23429,11 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
       matches: matches.map((r) => normalize(r, framesById.get(r.id))).filter(Boolean)
     };
   }
-  function groupedStatistics(frames, battles, names) {
+  function groupedStatistics(frames, battles, names, { combineSides = false } = {}) {
     ({ records: frames, matches: battles } = knownSides(frames, battles));
     const matches = new Map(battles.map((r) => [r.id, r])), groups = /* @__PURE__ */ new Map();
     for (const [kind, rows] of [["frames", frames], ["battles", battles]]) for (const row of rows) {
-      const side = sideOf(row, matches.get(row.id)), key = \`\${row.mode}:\${side}\`;
+      const side = combineSides ? "all" : sideOf(row, matches.get(row.id)), key = \`\${row.mode}:\${side}\`;
       if (!groups.has(key)) groups.set(key, { mode: row.mode, side, frames: [], battles: [] });
       groups.get(key)[kind].push(row);
     }
@@ -23370,7 +23445,7 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
         mode: group.mode,
         side: group.side,
         frameCount: group.frames.length,
-        groupLabel: \`\${MODES[group.mode]} \\xB7 \${sideName(group.mode, group.side)}\`
+        groupLabel: \`\${MODES[group.mode]} \\xB7 \${group.side === "all" ? "\\u5408\\u8BA1" : sideName(group.mode, group.side)}\`
       }));
     });
   }
@@ -23382,10 +23457,13 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
     let who = { id: "" }, records = [], matches = [], startedAt = null, gaps = 0, draft = null, active = null;
     let error = "", names = {}, loading = false, storageBlocked = false, saveFailed = false, reviewing = false, reviewFailed = false, epoch = 0;
     let discardedBaisheng = 0, tableEvidence = null, inTraining = false, restoring = false, pending = null, lastSaved = null;
+    let joinedSeat = null, firstSeat = null;
+    let namesError = "";
     const listeners = /* @__PURE__ */ new Set(), notify = () => {
-      ctx.reportError?.(error);
+      ctx.reportError?.(error || namesError);
       for (const fn of [...listeners]) fn();
     };
+    let namesReady = false, nameAttempts = 0, nextNamesAt = 0;
     const fail = (e) => {
       error = String(e?.stack || e);
       notify();
@@ -23408,8 +23486,13 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
       tableEvidence = null;
       inTraining = false;
       epoch++;
+      joinedSeat = firstSeat = null;
       error = "";
       loading = storageBlocked = saveFailed = reviewing = reviewFailed = restoring = false;
+      namesReady = false;
+      nameAttempts = 0;
+      nextNamesAt = 0;
+      namesError = "";
       records = [];
       matches = [];
       startedAt = null;
@@ -23476,12 +23559,21 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
     const mode = () => {
       const evidence = nativeModeEvidence(read(() => ctx.game.getClass("GameContext")));
       const room = manager(ctx, "RoomControler", "ClientTrainingRep", (v) => "isTrainingGame" in v);
-      return { ...evidence, mode: read(() => room.isTrainingGame) === true ? 0 : eligibleMode(evidence.rawMode, evidence.rawGroup) };
+      const training = read(() => room.isTrainingGame) === true;
+      return { ...evidence, training, mode: training ? 0 : eligibleMode(evidence.rawMode, evidence.rawGroup) };
     };
+    const canObserve = (evidence) => !evidence.training && (evidence.mode || evidence.rawMode == null && evidence.rawGroup == null);
     const viewer = () => read(() => ctx.game.getClass("GameContext").IsViewerOrReplay()) === true || read(() => ctx.game.getSnapshot().isReplay) === true || read(() => ctx.game.getScene().IsViewer) === true;
     const seatId = () => {
       const v = read(() => ctx.game.getSnapshot().selfSeatId);
       return Number.isSafeInteger(v) && v >= 0 && v < 8 ? v : null;
+    };
+    const validSeat = (value) => Number.isInteger(value) && value >= 0 && value < 8 ? value : null;
+    const observedSeat = (data) => joinedSeat ?? data.selfSeat;
+    const observedSide = (data, selfSeat, gameMode) => {
+      if (gameMode === 44 && firstSeat !== null && selfSeat !== null)
+        return { ...data.side, position: firstSeat === selfSeat ? 1 : 2 };
+      return data.selfSeat === selfSeat ? data.side : nativeSide(ctx, selfSeat);
     };
     const reset = () => {
       draft = active = null;
@@ -23489,6 +23581,7 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
     function gap() {
       sync();
       reset();
+      firstSeat = null;
       gaps++;
       error = "\\u6D88\\u606F\\u8BB0\\u5F55\\u6709\\u7F3A\\u53E3\\uFF0C\\u5DF2\\u820D\\u5F03\\u5F53\\u524D\\u672A\\u5B8C\\u6210\\u5BF9\\u5C40\\uFF1B\\u5386\\u53F2\\u8BB0\\u5F55\\u4FDD\\u7559\\u3002";
       if (who.id) save();
@@ -23509,10 +23602,6 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
         return;
       }
       const record = { ...draft, id: active?.id || \`\${draft.time}-\${ctx.window.crypto?.randomUUID?.() || records.length}\`, source: "toolbox" };
-      if (record.mode === 44 && record.isAiMatch === true) {
-        draft = null;
-        return;
-      }
       if (save([...records, record])) {
         records = [...records, record];
         startedAt ||= record.time;
@@ -23525,28 +23614,47 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
     function settle(data) {
       if (!active || storageBlocked || viewer()) {
         reset();
+        firstSeat = null;
         return;
       }
-      const game = active, unsaved = draft;
+      const game = { ...active };
+      let unsaved = draft;
+      if (!game.mode) {
+        game.mode = eligibleMode(data.rawMode, data.rawGroup);
+        game.rawMode = data.rawMode;
+        game.rawGroup = data.rawGroup;
+        game.modeEvidence = "native-settlement";
+        if (game.mode === 44 && firstSeat !== null && game.selfSeat !== null) game.position = firstSeat === game.selfSeat ? 1 : 2;
+        if (unsaved) unsaved = {
+          ...unsaved,
+          mode: game.mode,
+          rawMode: game.rawMode,
+          rawGroup: game.rawGroup,
+          modeEvidence: game.modeEvidence,
+          position: game.position ?? null
+        };
+      }
+      if (game.mode === 26 && game.position == null) {
+        game.position = rankedPosition(game.selfSeat, firstSeat, game.rankSeats);
+        if (unsaved) unsaved = { ...unsaved, position: game.position };
+      }
       reset();
+      firstSeat = null;
       lastSaved = null;
-      if (data.selfSeat !== game.selfSeat || data.selfSeat === null) return;
+      if (!game.mode) return;
+      const selfSeat = observedSeat(data);
+      if (selfSeat !== game.selfSeat || selfSeat === null) return;
       if (data.rawMode != null && data.rawMode !== game.rawMode) return;
       if (data.rawGroup != null && data.rawGroup !== game.rawGroup) return;
-      if (data.gameModel != null && data.gameModel !== { 26: 14, 35: 33, 44: 37 }[game.mode]) return;
-      const own = data.own;
+      if (data.gameModel != null && !{ 26: [7, 14], 35: [33], 44: [37] }[game.mode]?.includes(data.gameModel)) return;
+      const ownRows = data.players.filter((p) => p.seat === selfSeat);
+      const own = ownRows.length === 1 ? ownRows[0] : null;
       if (own?.userId != null && String(own.userId) !== who.id) return;
       const ai = data.players.length >= 2 ? robotStatus(data.players.map((p) => ({ isRobot: p.isRobot, isProjectRobot: p.isProjectRobot }))) : null;
       const isAiMatch = game.isAiMatch === true || ai === true ? true : ai ?? game.isAiMatch;
-      const sourceRecords = unsaved && records.length < RECORD_LIMIT && !(game.mode === 44 && isAiMatch === true) ? [...records, { ...unsaved, id: game.id, source: "toolbox" }] : records;
+      const sourceRecords = unsaved && records.length < RECORD_LIMIT ? [...records, { ...unsaved, id: game.id, source: "toolbox" }] : records;
       const frameId = game.frameId || (unsaved ? game.id : null);
-      const nextRecords = sourceRecords.filter((r) => !(game.mode === 44 && isAiMatch === true && r.id === frameId)).map((r) => r.id === frameId ? { ...r, isAiMatch, seat: game.selfSeat, position: game.position ?? null, figure: own?.figure ?? game.figure ?? null } : r).filter((r) => sideOf(r) !== "unknown");
-      if (game.mode === 44 && isAiMatch === true) {
-        if (save(nextRecords)) records = nextRecords;
-        else pending = { records: nextRecords, matches };
-        notify();
-        return;
-      }
+      const nextRecords = sourceRecords.map((r) => r.id === frameId ? { ...r, isAiMatch, seat: game.selfSeat, position: game.position ?? null, figure: own?.figure ?? game.figure ?? null } : r).filter((r) => sideOf(r) !== "unknown");
       if (!game.selected?.length) return;
       if (matches.length >= RECORD_LIMIT) {
         error = "\\u672C\\u673A\\u6218\\u7EE9\\u5DF2\\u8FBE10000\\u6761\\uFF0C\\u5DF2\\u6682\\u505C\\u8FFD\\u52A0\\uFF0C\\u8BF7\\u5148\\u5BFC\\u51FA\\u5907\\u4EFD\\u3002";
@@ -23583,6 +23691,7 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
       if (type === "ClientEnterpageRep") {
         reset();
         tableEvidence = null;
+        joinedSeat = firstSeat = null;
         inTraining = false;
         lastSaved = null;
         return;
@@ -23591,6 +23700,7 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
         if (data.result === 1) {
           reset();
           tableEvidence = null;
+          joinedSeat = firstSeat = null;
           inTraining = true;
         }
         return;
@@ -23599,12 +23709,15 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
         if (data.result === 1) {
           reset();
           inTraining = data.viewer === true;
+          joinedSeat = data.viewer === true ? null : validSeat(data.seat);
+          firstSeat = null;
           tableEvidence = { mode: eligibleMode(data.rawMode, data.rawGroup), rawMode: data.rawMode, rawGroup: data.rawGroup, modeEvidence: "native-table-join" };
         }
         return;
       }
       if (viewer() || data.viewer) {
         reset();
+        firstSeat = null;
         return;
       }
       if (type === "MsgGameOver") {
@@ -23614,23 +23727,24 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
       if (["ClientLeavetableRep", "MsgReconnectGame", "ClientLoginRep"].includes(type)) {
         reset();
         tableEvidence = null;
+        joinedSeat = firstSeat = null;
         inTraining = false;
         lastSaved = null;
         return;
       }
       if (saveFailed || storageBlocked || restoring) return;
       if (type === "MsgGameDealCharacter" || type === "MsgGameDealCharacterPaiwei") {
-        if (data.type === 1 || data.type === 9 && data.mode.mode === 26) {
-          const evidence = tableEvidence || data.mode;
+        const evidence = tableEvidence || data.mode;
+        if (data.type === 1 || data.type === 9 && evidence.mode === 26) {
           reset();
-          if (!inTraining && evidence.mode && !(evidence.mode === 44 && data.isAiMatch === true)) {
-            active = { ...evidence, id: \`\${data.time}-\${ctx.window.crypto?.randomUUID?.() || records.length}\`, time: data.time, selfSeat: data.selfSeat, selected: null, isAiMatch: data.isAiMatch };
+          if (!inTraining && canObserve(evidence)) {
+            active = { ...evidence, id: \`\${data.time}-\${ctx.window.crypto?.randomUUID?.() || records.length}\`, time: data.time, selfSeat: observedSeat(data), selected: null, isAiMatch: data.isAiMatch };
             draft = { ...capture(null, { type: "frame", mode: evidence.mode, general: data.general, time: data.time }), ...evidence, isAiMatch: data.isAiMatch };
           }
         } else if (data.type === 3 && draft) draft = capture(draft, { type: "change", general: data.general });
         notify();
       } else if (type === "SmsgGameSetCharacter") {
-        const selfSeat = data.selfSeat;
+        const selfSeat = observedSeat(data);
         if (selfSeat === null) {
           if (draft) error = "\\u65E0\\u6CD5\\u786E\\u8BA4\\u81EA\\u5DF1\\u7684\\u5EA7\\u4F4D\\uFF0C\\u5DF2\\u820D\\u5F03\\u5F53\\u524D\\u51FA\\u6846\\u4E0E\\u6218\\u7EE9\\u3002";
           reset();
@@ -23640,12 +23754,15 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
         const selected = data.infos.filter((r) => r.seat === selfSeat).map((r) => r.id);
         if (!selected.length) return;
         const evidence = tableEvidence || data.mode;
-        if (!active && !inTraining && evidence.mode && !(evidence.mode === 44 && data.isAiMatch === true)) active = { ...evidence, id: \`\${data.time}-\${ctx.window.crypto?.randomUUID?.() || matches.length}\`, time: data.time, selfSeat, isAiMatch: data.isAiMatch };
+        if (!active && !inTraining && canObserve(evidence)) active = { ...evidence, id: \`\${data.time}-\${ctx.window.crypto?.randomUUID?.() || matches.length}\`, time: data.time, selfSeat, isAiMatch: data.isAiMatch };
         if (!active) return;
+        const rankSeats = data.infos.map((r) => r.seat);
+        if (rankedPosition(selfSeat, selfSeat, rankSeats) !== null) active.rankSeats = rankSeats;
         active.selected = ids(selected);
         active.selfSeat = selfSeat;
-        active.position = data.side?.position ?? active.position ?? null;
-        active.figure = data.side?.figure ?? active.figure ?? null;
+        const side = observedSide(data, selfSeat, active.mode);
+        active.position = side?.position ?? active.position ?? null;
+        active.figure = side?.figure ?? active.figure ?? null;
         if (draft) draft = { ...draft, seat: selfSeat, position: active.position, figure: active.figure };
         if (draft) {
           draft = capture(draft, { type: "select", selected });
@@ -23658,9 +23775,11 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
           commit();
         }
       } else if (type === "MsgEnterGameStageNtf" || type === "GsCFirstPhaseRole") {
-        if (active && data.selfSeat === active.selfSeat) {
-          active.position = data.side?.position ?? active.position ?? null;
-          active.figure = data.side?.figure ?? active.figure ?? null;
+        if (type === "GsCFirstPhaseRole") firstSeat = validSeat(data.firstSeat);
+        const selfSeat = observedSeat(data), side = observedSide(data, selfSeat, active?.mode);
+        if (active && selfSeat === active.selfSeat) {
+          active.position = side?.position ?? active.position ?? null;
+          active.figure = side?.figure ?? active.figure ?? null;
           if (draft) draft = { ...draft, seat: active.selfSeat, position: active.position, figure: active.figure };
           else if (active.frameId) {
             const next = records.map((r) => r.id === active.frameId ? { ...r, position: active.position, figure: active.figure } : r);
@@ -23676,18 +23795,18 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
     observeNative(ctx, {
       ClientEnterpageRep: () => ({}),
       ClientTrainingRep: (p) => ({ result: field(p, "Result") }),
-      ClientSitdownRep: (p) => ({ result: field(p, "Result"), rawMode: field(p, "TypeID"), rawGroup: field(p, "GroupID"), viewer: field(p, "IsViewer") }),
+      ClientSitdownRep: (p) => ({ result: field(p, "Result"), rawMode: field(p, "TypeID"), rawGroup: field(p, "GroupID"), viewer: field(p, "IsViewer"), seat: field(p, "SeatID") }),
       MsgGameDealCharacter: (p) => {
         const type = Number(field(p, "Type"));
-        return type === 1 || type === 3 || type === 9 && mode().mode === 26 ? { type, general: ids(field(p, "Datas")), time: Date.now(), mode: mode(), selfSeat: seatId(), isAiMatch: nativeRobots(ctx), viewer: viewer() } : null;
+        return [1, 3, 9].includes(type) ? { type, general: ids(field(p, "Datas")), time: Date.now(), mode: mode(), selfSeat: seatId(), isAiMatch: nativeRobots(ctx), viewer: viewer() } : null;
       },
       MsgGameDealCharacterPaiwei: (p) => {
         const selfSeat = seatId(), candidates = read(() => field(p, "randomHt").get(selfSeat));
         return { type: 1, general: ids(read(() => candidates.Datas)), time: Date.now(), mode: mode(), selfSeat, isAiMatch: nativeRobots(ctx), viewer: viewer() };
       },
-      GsCFirstPhaseRole: () => {
+      GsCFirstPhaseRole: (p) => {
         const selfSeat = seatId();
-        return { selfSeat, side: nativeSide(ctx, selfSeat) };
+        return { selfSeat, firstSeat: field(p, "SeatID"), side: nativeSide(ctx, selfSeat) };
       },
       SmsgGameSetCharacter: (p) => {
         const infos = field(p, "Infos");
@@ -23704,7 +23823,41 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
       MsgReconnectGame: () => ({}),
       ClientLoginRep: () => ({})
     }, accept, gap);
-    ctx.scope.interval(sync, 500);
+    async function refreshNames() {
+      sync();
+      if (!who.id || loading || ctx.scope.signal.aborted) return;
+      const expected = who.id, generation = epoch;
+      nameAttempts++;
+      nextNamesAt = Date.now() + 3e4;
+      loading = true;
+      notify();
+      try {
+        const config = await ctx.game.loadConfigData("character");
+        if (!ctx.scope.signal.aborted && account(ctx).id === expected && epoch === generation) {
+          const next = generalNames(config);
+          if (!Object.keys(next).length) throw new Error("\\u6B66\\u5C06\\u540D\\u79F0\\u914D\\u7F6E\\u4E3A\\u7A7A");
+          names = next;
+          namesReady = true;
+          namesError = "";
+        }
+      } catch (e) {
+        if (!ctx.scope.signal.aborted && account(ctx).id === expected && epoch === generation) {
+          namesError = String(e?.stack || e);
+          notify();
+        }
+      } finally {
+        if (!ctx.scope.signal.aborted && account(ctx).id === expected && epoch === generation) {
+          loading = false;
+          notify();
+        }
+      }
+    }
+    const initialize = () => {
+      sync();
+      if (who.id && !namesReady && !loading && nameAttempts < 3 && Date.now() >= nextNamesAt) void refreshNames();
+    };
+    ctx.scope.timeout(initialize, 0);
+    ctx.scope.interval(initialize, 500);
     ctx.scope.add(() => {
       listeners.clear();
       reset();
@@ -23714,33 +23867,13 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
     return {
       view() {
         sync();
-        return { who, records, matches, startedAt, gaps, draft, error, names, loading, storageBlocked, discardedBaisheng, reviewing: reviewing || reviewFailed, restoring };
+        return { who, records, matches, startedAt, gaps, draft, error: error || namesError, names, loading, storageBlocked, discardedBaisheng, reviewing: reviewing || reviewFailed, restoring };
       },
       subscribe(fn) {
         listeners.add(fn);
         return () => listeners.delete(fn);
       },
-      async refreshNames() {
-        sync();
-        if (!who.id || loading) return;
-        const expected = who.id;
-        loading = true;
-        notify();
-        try {
-          const config = await ctx.game.loadConfigData("character");
-          if (!ctx.scope.signal.aborted && account(ctx).id === expected) {
-            names = generalNames(config);
-            if (!Object.keys(names).length) throw new Error("\\u6B66\\u5C06\\u540D\\u79F0\\u914D\\u7F6E\\u4E3A\\u7A7A");
-          }
-        } catch (e) {
-          if (!ctx.scope.signal.aborted && account(ctx).id === expected) fail(e);
-        } finally {
-          if (!ctx.scope.signal.aborted && account(ctx).id === expected) {
-            loading = false;
-            notify();
-          }
-        }
-      },
+      refreshNames,
       async restore(file) {
         sync();
         if (!who.id || restoring || reviewing || storageBlocked) return;
@@ -23858,31 +23991,6 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
   });
   var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
   var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-  function isIconSpec(value) {
-    if (typeof value === "string") return Object.hasOwn(markup, value) || Object.hasOwn(aliases, value);
-    return value !== null && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.paths) && value.paths.length >= 1 && value.paths.length <= 8 && value.paths.every((path) => typeof path === "string" && path.length <= 1024 && /^[Mm][\\s\\d.,+\\-eEMmLlHhVvCcSsQqTtAaZz]+$/.test(path) && /\\d/.test(path));
-  }
-  function createIcon(doc, value = "package", className = "sgs-line-icon") {
-    const spec = isIconSpec(value) ? value : "package", icon2 = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon2.setAttribute("viewBox", "0 0 24 24");
-    icon2.setAttribute("class", className);
-    icon2.setAttribute("aria-hidden", "true");
-    icon2.setAttribute("focusable", "false");
-    icon2.setAttribute("fill", "none");
-    icon2.setAttribute("stroke", "currentColor");
-    icon2.setAttribute("stroke-width", "1.5");
-    icon2.setAttribute("stroke-linecap", "round");
-    icon2.setAttribute("stroke-linejoin", "round");
-    icon2.dataset.icon = typeof spec === "string" ? spec : "custom";
-    const shape = typeof spec === "string" ? markup[aliases[spec] || spec] : spec;
-    if (typeof shape === "string") icon2.innerHTML = shape;
-    else for (const d of shape.paths) {
-      const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", d);
-      icon2.append(path);
-    }
-    return icon2;
-  }
 
   // src/ui/controls.js
   var CONTROL_STYLES = \`
@@ -23900,12 +24008,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
 @media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
 \`;
-  function controlIcon(doc, name) {
-    return createIcon(doc, name);
-  }
 
   // src/shared/info-ui.js
-  var INFO_STYLES = \`\${CONTROL_STYLES}
+  var INFO_STYLES = \`
 .sgs-info{min-width:0;color:var(--sgs-text);font:12px/1.65 var(--sgs-font,sans-serif)}
 .sgs-info *{box-sizing:border-box}.sgs-info [hidden]{display:none!important}
 .sgs-info p{margin:0 0 10px;overflow-wrap:anywhere}.sgs-info .muted{color:var(--sgs-muted);font-size:11px}
@@ -23919,79 +24024,29 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .sgs-info .stat{display:flex;align-items:baseline;gap:6px;margin:10px 0;font-variant-numeric:tabular-nums}.sgs-info .stat strong{font-size:25px;font-weight:600;color:var(--sgs-accent)}
 .sgs-info .list{max-height:430px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}.sgs-info .row{padding:10px 0;border-top:1px solid color-mix(in srgb,var(--sgs-border) 60%,transparent)}
 .sgs-info .row-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px}.sgs-info .name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sgs-info .number{font-variant-numeric:tabular-nums;flex:none;font-size:11px}
-.sgs-info .progress{height:3px;border-radius:2px;background:var(--sgs-raised);margin:7px 0}.sgs-info .progress>i{display:block;height:100%;background:var(--sgs-accent);border-radius:2px}
+.sgs-info progress.progress{appearance:none;display:block;width:100%;height:3px;border:0;border-radius:2px;background:var(--sgs-raised);margin:7px 0;overflow:hidden}.sgs-info progress::-webkit-progress-bar{background:var(--sgs-raised)}.sgs-info progress::-webkit-progress-value{background:var(--sgs-accent)}.sgs-info progress::-moz-progress-bar{background:var(--sgs-accent)}
 .sgs-info details{font-size:11px;color:var(--sgs-muted)}.sgs-info summary{cursor:pointer}.sgs-info details p{white-space:pre-wrap;margin:6px 0;overflow-wrap:anywhere}
 .sgs-info .error{color:var(--sgs-danger);white-space:pre-wrap;overflow-wrap:anywhere}.sgs-info .empty{padding:20px 4px;text-align:center;color:var(--sgs-muted)}
 .sgs-info .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin-top:6px;color:var(--sgs-muted);font-size:10px}.sgs-info .metrics b{display:block;font-size:14px;color:var(--sgs-text);font-variant-numeric:tabular-nums;font-weight:500}
 \`;
-  function panelUI(ctx, container) {
-    const doc = ctx.document, cleanups = [], root = doc.createElement("section");
-    root.className = "sgs-info";
-    const el = (tag, cls, text) => {
-      const n = doc.createElement(tag);
-      if (cls) n.className = cls;
-      if (text !== void 0) n.textContent = text;
-      return n;
-    };
-    const style = el("style");
-    style.textContent = INFO_STYLES;
-    root.append(style);
-    container.append(root);
-    const scheme = (current) => {
-      const hex = current?.tokens?.bg || "";
-      const match = /^#([\\da-f]{6})$/i.exec(hex);
-      if (match) {
-        const rgb = [0, 2, 4].map((i) => parseInt(match[1].slice(i, i + 2), 16));
-        root.style.colorScheme = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 140 ? "light" : "dark";
-      }
-    };
-    scheme(ctx.themes?.current);
-    if (ctx.themes?.subscribe) cleanups.push(ctx.themes.subscribe(scheme));
-    const listen = (node, type, fn) => {
-      cleanups.push(ctx.scope.listen(node, type, fn));
-    };
-    const button = (text, icon2, fn) => {
-      const n = el("button", "", text);
-      n.type = "button";
-      if (icon2) n.prepend(controlIcon(doc, icon2));
-      listen(n, "click", fn);
-      return n;
-    };
-    const segments = (items, selected, change) => {
-      const group = el("div", "sgs-segments");
-      for (const [value, label] of items) {
-        const n = button(label, null, () => {
-          for (const b of group.children) b.setAttribute("aria-pressed", String(b === n));
-          change(value);
-        });
-        n.setAttribute("aria-pressed", String(value === selected));
-        group.append(n);
-      }
-      return group;
-    };
-    const input = (label, type = "search") => {
-      const n = el("input", "sgs-input");
-      n.type = type;
-      n.setAttribute("aria-label", label);
-      n.placeholder = label;
-      return n;
-    };
-    return { root, el, listen, button, segments, input, dispose: ctx.scope.add(() => {
-      for (const off of cleanups) off();
-      root.remove();
-    }) };
-  }
 
   // src/plugins/appearances/panel.js
   var percent = (value) => value == null ? "\\u672A\\u77E5" : \`\${(value * 100).toFixed(1)}%\`;
+  function compareStats(a, b, key, direction = "desc") {
+    if (a[key] == null && b[key] != null) return 1;
+    if (b[key] == null && a[key] != null) return -1;
+    return (direction === "asc" ? 1 : -1) * ((a[key] ?? 0) - (b[key] ?? 0)) || b.appear - a.appear || a.id - b.id;
+  }
   function activate(ctx) {
     const controller = createController(ctx);
-    ctx.ui.registerPanel({ id: "main", category: "info", render(container) {
-      const ui = panelUI(ctx, container), { root, el, listen, input, button, segments } = ui;
-      let tab = "stats", mode = 0, search = "", sort = "appear", min = 0, start = 0, end = 0, role = "all", count = 50, alive = true, confirmAccount = null;
+    const render = (container, { detailed = false, initial = {} } = {}) => {
+      const ui = ctx.ui.panel(container), { root, el, listen, input, button, segments } = ui;
+      let { tab = "stats", mode = 26, search = "", sort = "appear", min = 0, start = 0, end = 0, role = "all", direction = "desc" } = initial;
+      let count = 50, alive = true, confirmAccount = null;
       const note = el("p", "muted"), summary = el("div", "stat"), totals = el("p", "muted"), state = el("p", "muted"), bar = el("div", "bar");
-      const refresh = button("\\u6B66\\u5C06\\u540D\\u79F0", "refresh", () => controller.refreshNames());
-      refresh.title = "\\u6309\\u9700\\u52A0\\u8F7D\\u5B98\\u65B9\\u516C\\u5171\\u6B66\\u5C06\\u540D\\u79F0";
+      bar.style.cssText = "display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:6px";
+      const refresh = button("\\u5237\\u65B0", "refresh", () => controller.refreshNames());
+      refresh.title = "\\u5237\\u65B0\\u6B66\\u5C06\\u540D\\u79F0\\uFF1B\\u767B\\u5F55\\u6E38\\u620F\\u540E\\u81EA\\u52A8\\u52A0\\u8F7D";
       const exportButton = button("\\u5BFC\\u51FA", "download", () => {
         const v = controller.view();
         downloadJSON(ctx, \`\\u51FA\\u6846\\u4E0E\\u80DC\\u7387\\u7EDF\\u8BA1-\${v.who.id}.json\`, {
@@ -24004,18 +24059,27 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         });
       });
       bar.append(refresh, exportButton);
+      if (!detailed) {
+        const detailButton = button("\\u72EC\\u7ACB\\u7A97\\u53E3\\u67E5\\u770B\\u8BE6\\u60C5", "info", () => openDetails({ tab, mode, search, sort, min, start, end, role, direction }));
+        detailButton.style.gridColumn = "1 / -1";
+        bar.append(detailButton);
+      } else {
+        root.dataset.appearanceDetails = "";
+        root.prepend(el("h1", "", "\\u51FA\\u6846\\u4E0E\\u80DC\\u7387\\u7EDF\\u8BA1"));
+      }
       const tabs = segments([["stats", "\\u7EDF\\u8BA1\\u603B\\u89C8"], ["history", "\\u5BF9\\u5C40\\u5386\\u53F2"]], tab, (v) => {
         tab = v;
         count = 50;
         draw();
       });
-      const modes = segments([[0, "\\u5168\\u90E8"], [26, "\\u6392\\u4F4D"], [35, "\\u6597\\u5730\\u4E3B"], [44, "\\u5355\\u9A91"]], mode, (v) => {
+      const modes = segments([[26, "\\u6392\\u4F4D"], [35, "\\u6597\\u5730\\u4E3B"], [44, "\\u5355\\u9A91"]], mode, (v) => {
         mode = v;
         role = "all";
         count = 50;
         draw();
       });
       const find = input("\\u641C\\u7D22\\u6B66\\u5C06");
+      find.value = search;
       listen(find, "input", () => {
         search = find.value.trim();
         count = 50;
@@ -24024,8 +24088,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       const filters = el("details", "sgs-fold"), fields = el("div", "filters");
       const minimum = input("\\u6700\\u5C11\\u51FA\\u6846\\u6216\\u51FA\\u573A\\u6B21\\u6570", "number");
       minimum.min = "0";
-      minimum.value = "0";
+      minimum.value = String(min);
       const from = input("\\u5F00\\u59CB\\u65F6\\u95F4", "datetime-local"), to = input("\\u7ED3\\u675F\\u65F6\\u95F4", "datetime-local");
+      const localDate = (time) => time ? new Date(time - new Date(time).getTimezoneOffset() * 6e4).toISOString().slice(0, 16) : "";
+      from.value = localDate(start);
+      to.value = localDate(end);
       for (const [label, node] of [["\\u6700\\u5C11\\u6B21\\u6570", minimum], ["\\u5F00\\u59CB\\u65F6\\u95F4", from], ["\\u7ED3\\u675F\\u65F6\\u95F4", to]]) {
         const n = el("label", "", label);
         n.append(node);
@@ -24058,12 +24125,18 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       const sideHelp = el("p", "muted");
       roles.append(sideHelp);
-      const sorts = segments([["appear", "\\u51FA\\u6846"], ["played", "\\u51FA\\u573A"], ["rate", "\\u80DC\\u7387"], ["name", "\\u540D\\u79F0"]], sort, (v) => {
+      const sorts = segments([["rate", "\\u80DC\\u7387"], ["wins", "\\u80DC\\u573A\\u6570"], ["played", "\\u51FA\\u573A\\u6570"], ["appear", "\\u51FA\\u6846\\u6570"]], sort, (v) => {
         sort = v;
         count = 50;
         draw();
       });
-      filters.append(el("summary", "", "\\u7B5B\\u9009\\u4E0E\\u6392\\u5E8F"), fields, sorts);
+      sorts.setAttribute("aria-label", "\\u6392\\u5E8F\\u65B9\\u5F0F");
+      const order = segments([["desc", "\\u4ECE\\u9AD8\\u5230\\u4F4E"], ["asc", "\\u4ECE\\u4F4E\\u5230\\u9AD8"]], direction, (value) => {
+        direction = value;
+        draw();
+      });
+      filters.append(el("summary", "", "\\u7B5B\\u9009\\u4E0E\\u6392\\u5E8F"), fields, sorts, order);
+      if (detailed) filters.open = true;
       const error = el("details", "error"), errText = el("p"), retry = button("\\u91CD\\u8BD5\\u4FDD\\u5B58", "save", () => controller.retry());
       error.append(el("summary", "", "\\u8BB0\\u5F55\\u5F02\\u5E38 \\xB7 \\u67E5\\u770B\\u8BE6\\u60C5"), errText, retry);
       const list = el("div", "list");
@@ -24073,7 +24146,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         draw();
       });
       const help = el("details", "sgs-fold");
-      help.append(el("summary", "", "\\u7EDF\\u8BA1\\u53E3\\u5F84\\u4E0E\\u6570\\u636E\\u8BB0\\u5F55"), el("p", "", "\\u4EC5\\u7EDF\\u8BA1\\u6B63\\u5F0F\\u6392\\u4F4D\\u3001\\u6597\\u5730\\u4E3B\\u57FA\\u7840/\\u9AD8\\u7EA7\\u573A\\u548C\\u5355\\u9A91\\u65E0\\u53CC\\uFF1B\\u81EA\\u7531\\u6B22\\u4E5022\\u3001\\u6392\\u4F4D\\u6F14\\u6B66\\u3001\\u516C\\u4F1A\\u621822\\u3001\\u8D5B\\u4E8B\\u53CA\\u6251\\u514B\\u724C\\u6597\\u5730\\u4E3B\\u4E0D\\u91C7\\u96C6\\u3002\\u5355\\u9A91\\u4F9D\\u636E\\u5BA2\\u6237\\u7AEF\\u660E\\u786E\\u4EBA\\u673A\\u6807\\u8BB0\\u5254\\u9664\\uFF1B\\u672A\\u6807\\u8BB0\\u7684\\u663E\\u793A\\u8EAB\\u4EFD\\u672A\\u77E5\\uFF0C\\u4E0D\\u6309\\u6635\\u79F0\\u731C\\u6D4B\\u3002\\n\\u51FA\\u6846\\u7387\\uFF1D\\u51FA\\u73B0\\u5C40\\u6570/\\u5DF2\\u91C7\\u96C6\\u5019\\u9009\\u7684\\u5C40\\u6570\\uFF1B\\u9009\\u53D6\\u7387\\uFF1D\\u9009\\u4E2D\\u6B21\\u6570/\\u9009\\u53D6\\u7ED3\\u679C\\u5DF2\\u77E5\\u7684\\u51FA\\u6846\\u6B21\\u6570\\u3002\\u80DC\\u7387\\uFF1D\\u80DC\\u573A/(\\u80DC\\u573A+\\u8D25\\u573A)\\uFF0C\\u5E73\\u5C40\\u53CA\\u7ED3\\u679C\\u672A\\u77E5\\u4E0D\\u8BA1\\u5206\\u6BCD\\u3002\\u76F8\\u540C\\u6B66\\u5C06\\u6BCF\\u5C40\\u53EA\\u7B97\\u4E00\\u6B21\\u3002\\n\\u7ED3\\u7B97\\u53EA\\u8BA4\\u81EA\\u5DF1\\u5EA7\\u4F4D\\u7684\\u7ED3\\u679C\\u3002\\u6597\\u5730\\u4E3B\\u6309\\u5730\\u4E3B/\\u519C\\u6C11\\u5206\\u5F00\\uFF1B\\u6392\\u4F4D1\\u30014\\u53F7\\u4F4D\\u4E3A\\u5148\\u624B\\uFF0C2\\u30013\\u53F7\\u4F4D\\u4E3A\\u540E\\u624B\\uFF1B\\u5355\\u9A91\\u6309\\u5148\\u624B/\\u540E\\u624B\\u5206\\u5F00\\u3002\\u5EA7\\u6B21\\u8BFB\\u53D6\\u5BA2\\u6237\\u7AEF\\u5DF2\\u786E\\u5B9A\\u7684\\u4E00\\u57FA\\u884C\\u52A8\\u987A\\u5E8F\\uFF0C\\u4E0D\\u628A\\u534F\\u8BAE\\u5EA7\\u4F4DID\\u5F53\\u6210\\u53F7\\u4F4D\\u3002\\u7F3A\\u5C11\\u8EAB\\u4EFD\\u6216\\u5148\\u540E\\u624B\\u4F9D\\u636E\\u7684\\u6570\\u636E\\u4E0D\\u4FDD\\u5B58\\u3001\\u4E0D\\u7EDF\\u8BA1\\uFF1B\\u65E7\\u6570\\u636E\\u53CA\\u6062\\u590D\\u5907\\u4EFD\\u4E2D\\u7684\\u6B64\\u7C7B\\u8BB0\\u5F55\\u4F1A\\u5254\\u9664\\u3002\\u6BCF\\u4E2A\\u6A21\\u5F0F\\u4E0E\\u8EAB\\u4EFD\\u7EC4\\u72EC\\u7ACB\\u8BA1\\u7B97\\u51FA\\u6846\\u7387\\u3001\\u9009\\u53D6\\u7387\\u3001\\u80DC\\u7387\\uFF0C\\u51FA\\u6846\\u7387\\u5206\\u6BCD\\u4EC5\\u4E3A\\u540C\\u7EC4\\u5019\\u9009\\u5C40\\u6570\\u3002\\u5386\\u53F2\\u51FA\\u6846\\u6CA1\\u6709\\u80DC\\u8D1F\\u4FE1\\u606F\\uFF0C\\u4E0D\\u8865\\u9020\\u80DC\\u7387\\uFF1B\\u672A\\u91C7\\u5230\\u5019\\u9009\\u7684\\u5DF2\\u5B8C\\u6210\\u5BF9\\u5C40\\u53EF\\u53EA\\u8BA1\\u6218\\u7EE9\\u3002\\u5E73\\u5747\\u65F6\\u957F\\u6765\\u81EA\\u5B98\\u65B9\\u7ED3\\u7B97\\u3002\\n\\u53EA\\u5728\\u542F\\u7528\\u671F\\u95F4\\u91C7\\u96C6\\uFF1B\\u65AD\\u7EBF\\u3001\\u91CD\\u8FDE\\u3001\\u6D88\\u606F\\u7F3A\\u53E3\\u4E0D\\u8865\\u8BB0\\uFF0C\\u5DF2\\u6709\\u51FA\\u6846\\u4FDD\\u7559\\u3002\\u51FA\\u6846\\u548C\\u6218\\u7EE9\\u5404\\u6700\\u591A10000\\u6761\\uFF0C\\u6EE1\\u540E\\u6682\\u505C\\u5BF9\\u5E94\\u8FFD\\u52A0\\u3002\\u4EC5\\u5B58\\u672C\\u673A\\u3001\\u6309\\u8D26\\u53F7\\u9694\\u79BB\\uFF0C\\u65E0\\u4E0A\\u4F20\\u6216\\u4E91\\u540C\\u6B65\\u3002"));
+      help.append(el("summary", "", "\\u7EDF\\u8BA1\\u53E3\\u5F84\\u4E0E\\u6570\\u636E\\u8BB0\\u5F55"), el("p", "", "\\u4EC5\\u7EDF\\u8BA1\\u6B63\\u5F0F\\u6392\\u4F4D\\u3001\\u6597\\u5730\\u4E3B\\u57FA\\u7840/\\u9AD8\\u7EA7\\u573A\\u548C\\u5355\\u9A91\\u65E0\\u53CC\\uFF1B\\u81EA\\u7531\\u6B22\\u4E5022\\u3001\\u6392\\u4F4D\\u6F14\\u6B66\\u3001\\u516C\\u4F1A\\u621822\\u3001\\u8D5B\\u4E8B\\u53CA\\u6251\\u514B\\u724C\\u6597\\u5730\\u4E3B\\u4E0D\\u91C7\\u96C6\\u3002\\u5355\\u9A91\\u6B63\\u5F0F\\u5339\\u914D\\u5305\\u542B\\u4EBA\\u673A\\u5BF9\\u5C40\\uFF1B\\u8BAD\\u7EC3\\u5C40\\u4ECD\\u4E0D\\u91C7\\u96C6\\u3002\\u4EBA\\u673A\\u6807\\u8BB0\\u4EC5\\u4F5C\\u8BB0\\u5F55\\uFF0C\\u4E0D\\u5F71\\u54CD\\u7EDF\\u8BA1\\u3002\\n\\u51FA\\u6846\\u7387\\uFF1D\\u51FA\\u73B0\\u5C40\\u6570/\\u5DF2\\u91C7\\u96C6\\u5019\\u9009\\u7684\\u5C40\\u6570\\uFF1B\\u9009\\u53D6\\u7387\\uFF1D\\u9009\\u4E2D\\u6B21\\u6570/\\u9009\\u53D6\\u7ED3\\u679C\\u5DF2\\u77E5\\u7684\\u51FA\\u6846\\u6B21\\u6570\\u3002\\u80DC\\u7387\\uFF1D\\u80DC\\u573A/(\\u80DC\\u573A+\\u8D25\\u573A)\\uFF0C\\u5E73\\u5C40\\u53CA\\u7ED3\\u679C\\u672A\\u77E5\\u4E0D\\u8BA1\\u5206\\u6BCD\\u3002\\u76F8\\u540C\\u6B66\\u5C06\\u6BCF\\u5C40\\u53EA\\u7B97\\u4E00\\u6B21\\u3002\\n\\u7ED3\\u7B97\\u53EA\\u8BA4\\u81EA\\u5DF1\\u5EA7\\u4F4D\\u7684\\u7ED3\\u679C\\u3002\\u6597\\u5730\\u4E3B\\u6309\\u5730\\u4E3B/\\u519C\\u6C11\\u5206\\u5F00\\uFF1B\\u6392\\u4F4D1\\u30014\\u53F7\\u4F4D\\u4E3A\\u5148\\u624B\\uFF0C2\\u30013\\u53F7\\u4F4D\\u4E3A\\u540E\\u624B\\uFF1B\\u5355\\u9A91\\u6309\\u5148\\u624B/\\u540E\\u624B\\u5206\\u5F00\\u3002\\u5EA7\\u6B21\\u8BFB\\u53D6\\u5BA2\\u6237\\u7AEF\\u5DF2\\u786E\\u5B9A\\u7684\\u4E00\\u57FA\\u884C\\u52A8\\u987A\\u5E8F\\uFF0C\\u4E0D\\u628A\\u534F\\u8BAE\\u5EA7\\u4F4DID\\u5F53\\u6210\\u53F7\\u4F4D\\u3002\\u7F3A\\u5C11\\u8EAB\\u4EFD\\u6216\\u5148\\u540E\\u624B\\u4F9D\\u636E\\u7684\\u6570\\u636E\\u4E0D\\u4FDD\\u5B58\\u3001\\u4E0D\\u7EDF\\u8BA1\\uFF1B\\u65E7\\u6570\\u636E\\u53CA\\u6062\\u590D\\u5907\\u4EFD\\u4E2D\\u7684\\u6B64\\u7C7B\\u8BB0\\u5F55\\u4F1A\\u5254\\u9664\\u3002\\u4E0D\\u9650\\u65F6\\u5408\\u5E76\\u540C\\u6A21\\u5F0F\\u7684\\u5148\\u540E\\u624B\\u6216\\u5730\\u4E3B/\\u519C\\u6C11\\uFF0C\\u6309\\u5408\\u8BA1\\u80DC\\u8D25\\u573A\\u8BA1\\u7B97\\u80DC\\u7387\\uFF1B\\u9009\\u62E9\\u5177\\u4F53\\u5148\\u540E\\u624B\\u6216\\u8EAB\\u4EFD\\u65F6\\u4EC5\\u7EDF\\u8BA1\\u5BF9\\u5E94\\u8BB0\\u5F55\\u3002\\u4E0D\\u540C\\u6A21\\u5F0F\\u5206\\u522B\\u663E\\u793A\\uFF0C\\u51FA\\u6846\\u7387\\u5206\\u6BCD\\u4E3A\\u540C\\u6A21\\u5F0F\\u5F53\\u524D\\u7B5B\\u9009\\u5019\\u9009\\u5C40\\u6570\\u3002\\u5386\\u53F2\\u51FA\\u6846\\u6CA1\\u6709\\u80DC\\u8D1F\\u4FE1\\u606F\\uFF0C\\u4E0D\\u8865\\u9020\\u80DC\\u7387\\uFF1B\\u672A\\u91C7\\u5230\\u5019\\u9009\\u7684\\u5DF2\\u5B8C\\u6210\\u5BF9\\u5C40\\u53EF\\u53EA\\u8BA1\\u6218\\u7EE9\\u3002\\u5E73\\u5747\\u65F6\\u957F\\u6765\\u81EA\\u5B98\\u65B9\\u7ED3\\u7B97\\u3002\\n\\u53EA\\u5728\\u542F\\u7528\\u671F\\u95F4\\u91C7\\u96C6\\uFF1B\\u65AD\\u7EBF\\u3001\\u91CD\\u8FDE\\u3001\\u6D88\\u606F\\u7F3A\\u53E3\\u4E0D\\u8865\\u8BB0\\uFF0C\\u5DF2\\u6709\\u51FA\\u6846\\u4FDD\\u7559\\u3002\\u51FA\\u6846\\u548C\\u6218\\u7EE9\\u5404\\u6700\\u591A10000\\u6761\\uFF0C\\u6EE1\\u540E\\u6682\\u505C\\u5BF9\\u5E94\\u8FFD\\u52A0\\u3002\\u4EC5\\u5B58\\u672C\\u673A\\u3001\\u6309\\u8D26\\u53F7\\u9694\\u79BB\\uFF0C\\u65E0\\u4E0A\\u4F20\\u6216\\u4E91\\u540C\\u6B65\\u3002"));
       const restoreInput = input("\\u6062\\u590D\\u5DE5\\u5177\\u7BB1\\u5907\\u4EFD", "file");
       restoreInput.accept = ".json,application/json";
       restoreInput.hidden = true;
@@ -24119,9 +24192,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           confirmation.hidden = true;
           confirmAccount = null;
         }
-        note.textContent = v.who.id ? \`\\u8D26\\u53F7 \${v.who.id} \\xB7 \\u672C\\u673A\\u8BB0\\u5F55\` : "\\u7B49\\u5F85\\u767B\\u5F55\\u5F53\\u524D\\u8D26\\u53F7";
+        note.hidden = Boolean(v.who.id);
+        note.textContent = "\\u7B49\\u5F85\\u767B\\u5F55\\u5F53\\u524D\\u8D26\\u53F7";
         refresh.disabled = !v.who.id || v.loading;
         exportButton.disabled = !v.who.id || busy;
+        if (detailed) {
+          restore.hidden = true;
+          clear.hidden = true;
+        }
         clear.disabled = !v.who.id || busy || !v.records.length && !v.matches.length && !v.storageBlocked;
         restore.disabled = !v.who.id || busy || v.storageBlocked;
         roles.hidden = !mode;
@@ -24132,9 +24210,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         sideHelp.hidden = mode !== 26;
         sideHelp.textContent = "\\u5148\\u624B\\uFF1A1\\u30014\\u53F7\\u4F4D \\xB7 \\u540E\\u624B\\uFF1A2\\u30013\\u53F7\\u4F4D";
         const matchesById = new Map(v.matches.map((m) => [m.id, m]));
-        const scoped = (rows) => filterRecords(rows.filter((r) => retainedScope(r) && sideOf(r, matchesById.get(r.id)) !== "unknown" && (r.mode !== 44 || r.isAiMatch !== true)), { mode, start, end }, v.names).filter((r) => !mode || role === "all" || sideOf(r, matchesById.get(r.id)) === role);
+        const scoped = (rows) => filterRecords(rows.filter((r) => retainedScope(r) && sideOf(r, matchesById.get(r.id)) !== "unknown"), { mode, start, end }, v.names).filter((r) => !mode || role === "all" || sideOf(r, matchesById.get(r.id)) === role);
         const frames = scoped(v.records), battles = scoped(v.matches), overall = winSummary(battles);
-        const stats = groupedStatistics(frames, battles, v.names).filter((r) => Math.max(r.appear, r.played) >= min && (!search || r.name.includes(search))).sort((a, b) => sort === "name" ? a.name.localeCompare(b.name, "zh") : (b[sort] ?? -1) - (a[sort] ?? -1) || b.appear - a.appear || a.id - b.id);
+        const stats = groupedStatistics(frames, battles, v.names, { combineSides: !mode || role === "all" }).filter((r) => Math.max(r.appear, r.played) >= min && (!search || r.name.includes(search))).sort((a, b) => compareStats(a, b, sort, direction));
         summary.replaceChildren(el("strong", "", busy ? "\\u2014" : percent(overall.rate)), el("span", "muted", busy ? "\\u6838\\u5BF9\\u672C\\u673A\\u6570\\u636E\\u4E2D" : "\\u5F53\\u524D\\u7B5B\\u9009\\u5408\\u8BA1\\u80DC\\u7387"));
         totals.textContent = busy ? "\\u6B63\\u5728\\u5904\\u7406\\u672C\\u673A\\u8BB0\\u5F55\\u2026" : \`\${frames.length} \\u5C40\\u51FA\\u6846 \\xB7 \${battles.length} \\u5C40\\u6218\\u7EE9 \\xB7 \${overall.wins}\\u80DC \${overall.losses}\\u8D1F\${overall.draws ? \` \${overall.draws}\\u5E73\` : ""}\${overall.unknown ? \` \\xB7 \${overall.unknown}\\u5C40\\u7ED3\\u679C\\u672A\\u77E5\` : ""}\`;
         const unknownCount = new Set([...frames, ...battles].filter((r) => r.mode === 44 && r.isAiMatch == null).map((r) => r.id)).size;
@@ -24180,17 +24258,57 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         off();
         ui.dispose();
       });
-    } });
+    };
+    function openDetails(initial) {
+      const screen = ctx.window.screen;
+      const availableWidth = screen?.availWidth || 1280, availableHeight = screen?.availHeight || 900;
+      const width = Math.min(1100, Math.max(640, Math.round(availableWidth * 0.72)), availableWidth);
+      const height = Math.min(850, Math.max(480, availableHeight - 120), availableHeight);
+      const left = (screen?.availLeft || 0) + Math.max(0, availableWidth - width - 24);
+      const top = (screen?.availTop || 0) + Math.max(0, Math.min(80, availableHeight - height));
+      const target = ctx.window.open("about:blank", "_blank", \`popup=yes,width=\${width},height=\${height},left=\${left},top=\${top},resizable=yes,scrollbars=yes\`);
+      if (!target) {
+        ctx.reportError?.("\\u8BE6\\u60C5\\u7A97\\u53E3\\u88AB\\u6D4F\\u89C8\\u5668\\u62E6\\u622A\\uFF0C\\u8BF7\\u5141\\u8BB8\\u6B64\\u7AD9\\u70B9\\u6253\\u5F00\\u5F39\\u51FA\\u7A97\\u53E3\\u540E\\u91CD\\u8BD5\\u3002");
+        return;
+      }
+      target.opener = null;
+      const doc = target.document;
+      doc.title = "\\u51FA\\u6846\\u4E0E\\u80DC\\u7387\\u7EDF\\u8BA1 \\xB7 \\u8BE6\\u7EC6\\u4FE1\\u606F";
+      const style = doc.createElement("style");
+      style.textContent = INFO_STYLES + CONTROL_STYLES + \`body{margin:0;padding:24px;background:var(--sgs-bg);color:var(--sgs-text)}main{max-width:1200px;margin:auto}.sgs-info{font-size:14px}.sgs-info .list{max-height:none;overflow:visible;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.sgs-info .row{padding:16px;background:var(--sgs-surface);border-radius:10px;border:1px solid var(--sgs-border)}.sgs-info .filters{max-width:700px}.sgs-info .sgs-segments{max-width:700px}.sgs-info h1{font-size:24px}@media(max-width:500px){body{padding:12px}.sgs-info .list{grid-template-columns:1fr}}\`;
+      doc.head.append(style);
+      const main = doc.createElement("main");
+      doc.body.append(main);
+      const theme = (current) => {
+        for (const [key, value] of Object.entries(current?.tokens || {})) doc.documentElement.style.setProperty("--sgs-" + key, value);
+      };
+      theme(ctx.themes?.current);
+      const offTheme = ctx.themes?.subscribe(theme) || (() => {
+      });
+      const dispose = render(main, { detailed: true, initial });
+      let offSource = () => {
+      };
+      const release = ctx.scope.add(() => {
+        offSource();
+        dispose();
+        offTheme();
+        target.close();
+      });
+      offSource = ctx.scope.listen(ctx.window, "pagehide", release);
+      target.addEventListener("pagehide", release, { once: true });
+    }
+    ctx.ui.registerPanel({ id: "main", category: "info", render: (container) => render(container) });
   }
 
   // src/plugins/appearances/index.js
   var manifest = {
     id: "appearances",
     name: "\\u51FA\\u6846\\u4E0E\\u80DC\\u7387\\u7EDF\\u8BA1",
-    version: "0.4.6",
+    version: "0.4.18",
     apiVersion: 1,
     contractVersion: 1,
-    minCoreVersion: "0.5.13",
+    releaseNotes: "\\u65B0\\u589E\\u72EC\\u7ACB\\u8BE6\\u60C5\\u7A97\\u53E3\\u53CA\\u66F4\\u6E05\\u6670\\u7684\\u7B5B\\u9009\\u6392\\u5E8F\\uFF0C\\u6309\\u6A21\\u5F0F\\u548C\\u8EAB\\u4EFD\\u7EDF\\u8BA1\\u80DC\\u7387\\uFF1B\\u4FEE\\u6B63\\u6B63\\u5F0F\\u6A21\\u5F0F\\u4E0E\\u4EBA\\u673A\\u8BC6\\u522B\\uFF0C\\u7F3A\\u5C11\\u8EAB\\u4EFD\\u6216\\u5148\\u540E\\u624B\\u7684\\u65E7\\u8BB0\\u5F55\\u4F1A\\u88AB\\u5254\\u9664\\u3002\\u4EC5\\u91C7\\u96C6\\u542F\\u7528\\u671F\\u95F4\\u7684\\u672C\\u673A\\u8BB0\\u5F55\\uFF0C\\u4E0D\\u4E0A\\u4F20\\u3002",
+    minCoreVersion: "0.6.37",
     categories: ["info"],
     icon: PLUGIN_ICONS["appearances"],
     priority: 32e3,
@@ -24200,8 +24318,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1","version":"0.4.6","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.13","categories":["info"],"icon":{"paths":["M9 21H3V3h18v9","M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1","M12 21 16 17l3 2 3-5M19 14h3v3"]},"priority":32000,"description":"\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2"}};
-`, sha256: "e3b39b402049721a80db9176bcd84c787da7b17301d6d0c9bca29b6d625daa36" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "ledger", name: "\u8D26\u672C", version: "0.3.2", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.142", categories: ["info"], icon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, priority: 3e4, description: "\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1","version":"0.4.18","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u72EC\u7ACB\u8BE6\u60C5\u7A97\u53E3\u53CA\u66F4\u6E05\u6670\u7684\u7B5B\u9009\u6392\u5E8F\uFF0C\u6309\u6A21\u5F0F\u548C\u8EAB\u4EFD\u7EDF\u8BA1\u80DC\u7387\uFF1B\u4FEE\u6B63\u6B63\u5F0F\u6A21\u5F0F\u4E0E\u4EBA\u673A\u8BC6\u522B\uFF0C\u7F3A\u5C11\u8EAB\u4EFD\u6216\u5148\u540E\u624B\u7684\u65E7\u8BB0\u5F55\u4F1A\u88AB\u5254\u9664\u3002\u4EC5\u91C7\u96C6\u542F\u7528\u671F\u95F4\u7684\u672C\u673A\u8BB0\u5F55\uFF0C\u4E0D\u4E0A\u4F20\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M9 21H3V3h18v9","M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1","M12 21 16 17l3 2 3-5M19 14h3v3"]},"priority":32000,"description":"\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2"}};
+`, sha256: "79932ced7d24c81c931bbe07e0d2a7a6554a1ac3b7a9bb7b639e5d3f9def4122" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "ledger", name: "\u8D26\u672C", version: "0.3.5", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8D26\u672C\u8BE6\u60C5\u6539\u4E3A\u7D27\u90BB\u5DE5\u5177\u7BB1\u7684\u4FA7\u8FB9\u9762\u677F\uFF0C\u652F\u6301\u5173\u95ED\u548C Escape\uFF1B\u6539\u5584\u7269\u54C1\u5361\u7247\u3001\u6D41\u6C34\u548C\u7B5B\u9009\u663E\u793A\uFF0C\u4FDD\u7559\u672C\u673A\u8D26\u53F7\u6570\u636E\u4E0E\u5BFC\u51FA\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, priority: 3e4, description: "\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -24970,166 +25088,8 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     };
   }
 
-  // src/ui/icons.js
-  var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
-    toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
-    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
-    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
-    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
-    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
-    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
-    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
-    close: '<path d="m6 6 12 12M6 18 18 6"/>',
-    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
-    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
-    collapse: '<path d="M5 12h14"/>',
-    chevron: '<path d="m6 9 6 6 6-6"/>',
-    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
-    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
-    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
-    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
-    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
-    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
-    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
-    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
-  });
-  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
-  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-  function isIconSpec(value) {
-    if (typeof value === "string") return Object.hasOwn(markup, value) || Object.hasOwn(aliases, value);
-    return value !== null && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.paths) && value.paths.length >= 1 && value.paths.length <= 8 && value.paths.every((path) => typeof path === "string" && path.length <= 1024 && /^[Mm][\\s\\d.,+\\-eEMmLlHhVvCcSsQqTtAaZz]+$/.test(path) && /\\d/.test(path));
-  }
-  function createIcon(doc, value = "package", className = "sgs-line-icon") {
-    const spec = isIconSpec(value) ? value : "package", icon2 = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-    icon2.setAttribute("viewBox", "0 0 24 24");
-    icon2.setAttribute("class", className);
-    icon2.setAttribute("aria-hidden", "true");
-    icon2.setAttribute("focusable", "false");
-    icon2.setAttribute("fill", "none");
-    icon2.setAttribute("stroke", "currentColor");
-    icon2.setAttribute("stroke-width", "1.5");
-    icon2.setAttribute("stroke-linecap", "round");
-    icon2.setAttribute("stroke-linejoin", "round");
-    icon2.dataset.icon = typeof spec === "string" ? spec : "custom";
-    const shape = typeof spec === "string" ? markup[aliases[spec] || spec] : spec;
-    if (typeof shape === "string") icon2.innerHTML = shape;
-    else for (const d of shape.paths) {
-      const path = doc.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", d);
-      icon2.append(path);
-    }
-    return icon2;
-  }
-
-  // src/ui/controls.js
-  var CONTROL_STYLES = \`
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-\`;
-  function controlIcon(doc, name) {
-    return createIcon(doc, name);
-  }
-
-  // src/shared/info-ui.js
-  var INFO_STYLES = \`\${CONTROL_STYLES}
-.sgs-info{min-width:0;color:var(--sgs-text);font:12px/1.65 var(--sgs-font,sans-serif)}
-.sgs-info *{box-sizing:border-box}.sgs-info [hidden]{display:none!important}
-.sgs-info p{margin:0 0 10px;overflow-wrap:anywhere}.sgs-info .muted{color:var(--sgs-muted);font-size:11px}
-.sgs-info .bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:9px 0}.sgs-info .bar>*{min-width:0}
-.sgs-info button{min-height:30px;border:1px solid color-mix(in srgb,var(--sgs-border) 65%,transparent);border-radius:7px;background:linear-gradient(var(--sgs-raised),var(--sgs-surface));color:var(--sgs-text);padding:4px 9px;font:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px}
-.sgs-info button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}.sgs-info button:focus-visible,.sgs-info summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
-.sgs-info button:disabled{opacity:.45;cursor:not-allowed}.sgs-info .primary{color:var(--sgs-accent)}.sgs-info .danger{color:var(--sgs-danger)}
-.sgs-info .sgs-segments{margin:8px 0}.sgs-info .sgs-segments>button{border:0;background:transparent;padding:4px;font-size:11px}.sgs-info .sgs-segments>button[aria-pressed=true]{background:color-mix(in srgb,var(--sgs-accent) 12%,transparent)}
-.sgs-info input.sgs-input{width:100%}.sgs-info .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sgs-info .filters label{color:var(--sgs-muted);font-size:11px;min-width:0}
-.sgs-info .filters label:has(input[type=datetime-local]){grid-column:1/-1}
-.sgs-info .stat{display:flex;align-items:baseline;gap:6px;margin:10px 0;font-variant-numeric:tabular-nums}.sgs-info .stat strong{font-size:25px;font-weight:600;color:var(--sgs-accent)}
-.sgs-info .list{max-height:430px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}.sgs-info .row{padding:10px 0;border-top:1px solid color-mix(in srgb,var(--sgs-border) 60%,transparent)}
-.sgs-info .row-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px}.sgs-info .name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sgs-info .number{font-variant-numeric:tabular-nums;flex:none;font-size:11px}
-.sgs-info .progress{height:3px;border-radius:2px;background:var(--sgs-raised);margin:7px 0}.sgs-info .progress>i{display:block;height:100%;background:var(--sgs-accent);border-radius:2px}
-.sgs-info details{font-size:11px;color:var(--sgs-muted)}.sgs-info summary{cursor:pointer}.sgs-info details p{white-space:pre-wrap;margin:6px 0;overflow-wrap:anywhere}
-.sgs-info .error{color:var(--sgs-danger);white-space:pre-wrap;overflow-wrap:anywhere}.sgs-info .empty{padding:20px 4px;text-align:center;color:var(--sgs-muted)}
-.sgs-info .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin-top:6px;color:var(--sgs-muted);font-size:10px}.sgs-info .metrics b{display:block;font-size:14px;color:var(--sgs-text);font-variant-numeric:tabular-nums;font-weight:500}
-\`;
-  function panelUI(ctx, container) {
-    const doc = ctx.document, cleanups = [], root = doc.createElement("section");
-    root.className = "sgs-info";
-    const el = (tag, cls, text) => {
-      const n = doc.createElement(tag);
-      if (cls) n.className = cls;
-      if (text !== void 0) n.textContent = text;
-      return n;
-    };
-    const style = el("style");
-    style.textContent = INFO_STYLES;
-    root.append(style);
-    container.append(root);
-    const scheme = (current) => {
-      const hex2 = current?.tokens?.bg || "";
-      const match = /^#([\\da-f]{6})$/i.exec(hex2);
-      if (match) {
-        const rgb = [0, 2, 4].map((i) => parseInt(match[1].slice(i, i + 2), 16));
-        root.style.colorScheme = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 140 ? "light" : "dark";
-      }
-    };
-    scheme(ctx.themes?.current);
-    if (ctx.themes?.subscribe) cleanups.push(ctx.themes.subscribe(scheme));
-    const listen = (node, type, fn) => {
-      cleanups.push(ctx.scope.listen(node, type, fn));
-    };
-    const button = (text, icon2, fn) => {
-      const n = el("button", "", text);
-      n.type = "button";
-      if (icon2) n.prepend(controlIcon(doc, icon2));
-      listen(n, "click", fn);
-      return n;
-    };
-    const segments = (items, selected, change) => {
-      const group = el("div", "sgs-segments");
-      for (const [value, label] of items) {
-        const n = button(label, null, () => {
-          for (const b of group.children) b.setAttribute("aria-pressed", String(b === n));
-          change(value);
-        });
-        n.setAttribute("aria-pressed", String(value === selected));
-        group.append(n);
-      }
-      return group;
-    };
-    const input = (label, type = "search") => {
-      const n = el("input", "sgs-input");
-      n.type = type;
-      n.setAttribute("aria-label", label);
-      n.placeholder = label;
-      return n;
-    };
-    return { root, el, listen, button, segments, input, dispose: ctx.scope.add(() => {
-      for (const off of cleanups) off();
-      root.remove();
-    }) };
-  }
-
   // src/plugins/ledger/ui.js
+  var detailPanels = /* @__PURE__ */ new WeakMap();
   var STYLES = \`
 .sgs-ledger .alert-settings{margin:8px 0}.sgs-ledger .alert-settings summary{color:var(--sgs-accent);padding:5px 0}.sgs-ledger .threshold{display:grid;grid-template-columns:minmax(0,1fr) 108px;align-items:center;gap:8px;font-size:10px;color:var(--sgs-muted);margin-top:6px}.sgs-ledger .threshold input{width:100%;min-width:0;padding:5px 32px 5px 9px;text-align:right;appearance:textfield;-moz-appearance:textfield;font-variant-numeric:tabular-nums}.sgs-ledger .threshold input::-webkit-inner-spin-button,.sgs-ledger .threshold input::-webkit-outer-spin-button{appearance:none;margin:0}
 .sgs-ledger .threshold-field{position:relative;min-width:0}.sgs-ledger .threshold-unit{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;pointer-events:none;color:var(--sgs-muted)}
@@ -25144,12 +25104,15 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .sgs-ledger .income{color:var(--sgs-accent)}.sgs-ledger .expense{color:var(--sgs-text)}
 .sgs-ledger .asset-id{font-size:9px;color:var(--sgs-muted);margin-left:auto;font-variant-numeric:tabular-nums;flex:none}.sgs-ledger h3{font:600 12px var(--sgs-font);margin:16px 0 8px}
 .sgs-ledger .reward-list{font-size:11px;overflow-wrap:anywhere}.sgs-ledger .warning{border-left:2px solid var(--sgs-accent);padding-left:8px;color:var(--sgs-muted)}
-.sgs-ledger-detail{max-width:1080px;margin:0 auto;padding:24px;background:var(--sgs-bg);min-height:100vh}
-.sgs-ledger-detail h1{font-size:23px;font-weight:500;margin:0 0 8px}.sgs-ledger-detail .list{max-height:none;overflow:visible}
-.sgs-ledger-detail .filters{grid-template-columns:repeat(2,minmax(0,1fr))}.sgs-ledger-detail .filters label:has(input[type=datetime-local]){grid-column:auto}
-.sgs-ledger-detail .filters input{display:block;min-width:0;margin-top:4px}.sgs-ledger-detail .summary-items{display:flex;gap:6px 18px;flex-wrap:wrap;padding:8px 0}
-.sgs-ledger-detail .row-head{align-items:flex-start;flex-wrap:wrap}.sgs-ledger-detail .row p{margin:5px 0}.sgs-ledger-detail .log-items{display:flex;flex-wrap:wrap;gap:4px 18px}
-@media(max-width:520px){.sgs-ledger-detail{padding:16px}.sgs-ledger-detail .filters{grid-template-columns:1fr}}
+.sgs-ledger-detail{box-sizing:border-box;margin:0;position:fixed;z-index:2147483646;width:min(620px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:18px;background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:12px;box-shadow:0 12px 40px #0006}
+.sgs-ledger-detail .detail-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}.sgs-ledger-detail h1{font-size:19px;font-weight:600;margin:0}.sgs-ledger-detail .detail-heading button{width:30px;padding:5px}.sgs-ledger-detail .detail-heading button span{display:none}
+.sgs-ledger-detail .list{max-height:none;overflow:visible}.sgs-ledger-detail .warning{font-size:11px;line-height:1.7}
+.sgs-ledger-detail .filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.sgs-ledger-detail .filters label:has(input[type=search]){grid-column:1/-1}.sgs-ledger-detail .filters label:has(input[type=datetime-local]){grid-column:auto}
+.sgs-ledger-detail .filters input{display:block;min-width:0;margin-top:4px}.sgs-ledger-detail .summary-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0 16px;max-height:220px;overflow:auto;scrollbar-width:thin}
+.sgs-ledger-detail .total-item{padding:8px 10px;background:var(--sgs-surface);border-radius:6px;min-width:0}.sgs-ledger-detail .total-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;margin-bottom:3px}.sgs-ledger-detail .total-flow{display:flex;flex-wrap:wrap;gap:3px 9px;font-size:11px;font-variant-numeric:tabular-nums}
+.sgs-ledger-detail .row-head{align-items:baseline;flex-wrap:wrap}.sgs-ledger-detail .row p{margin:5px 0}.sgs-ledger-detail .log-items{display:flex;flex-wrap:wrap;gap:4px 14px;margin:6px 0;font-variant-numeric:tabular-nums}.sgs-ledger-detail .row details{margin-top:7px}.sgs-ledger-detail .row details p{padding:8px;background:var(--sgs-surface);border-radius:6px}.sgs-ledger-detail .bar:last-child{justify-content:center}
+@media(max-width:600px){.sgs-ledger-detail{padding:12px}.sgs-ledger-detail .summary-items{grid-template-columns:repeat(2,minmax(0,1fr))}} 
+
 \`;
   var time = (at) => new Date(at).toLocaleString("zh-CN", { hour12: false });
   var format = (n) => n === null ? "\\u672A\\u77E5" : n.toLocaleString("zh-CN");
@@ -25157,7 +25120,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var sourceNames = { DbsCcUserGoodshintNtf: "\\u7269\\u54C1\\u5230\\u8D26\\u901A\\u77E5", DbsCcUpdategoodsAttribNtf: "\\u80CC\\u5305\\u6570\\u91CF\\u53D8\\u5316", DbsCcUserDelgoodsNtf: "\\u80CC\\u5305\\u7269\\u54C1\\u79FB\\u9664", DbsCUpdatauserYaunbaoNtf: "\\u5143\\u5B9D\\u6536\\u652F\\u901A\\u77E5", 120004: "\\u7948\\u613F\\u53F0\\u6210\\u529F\\u786E\\u8BA4", ClientLoginRep: "\\u767B\\u5F55\\u786E\\u8BA4" };
   var reasonNames = { 1: "\\u8D60\\u9001", 2: "\\u8D2D\\u4E70", 3: "\\u7CFB\\u7EDF\\u8D60\\u9001", 5: "\\u793C\\u5305", 8: "\\u4EFB\\u52A1\\u5956\\u52B1", 9: "\\u6392\\u4F4D\\u5956\\u52B1", 15: "\\u7B7E\\u5230\\u5956\\u52B1", 26: "\\u5408\\u6210", 27: "\\u5206\\u89E3", 58: "\\u7948\\u798F", 2010: "\\u7948\\u613F\\u53F0\\u5956\\u52B1" };
   function setup(ctx, container) {
-    const ui = panelUI(ctx, container);
+    const ui = ctx.ui.panel(container);
     ui.root.classList.add("sgs-ledger");
     const style = ui.el("style");
     style.textContent = STYLES;
@@ -25188,7 +25151,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       const v = controller.view();
       refreshButton.disabled = v.loadingConfig;
       refreshButton.lastChild.textContent = v.loadingConfig ? "\\u8BFB\\u53D6\\u4E2D\\u2026" : "\\u5237\\u65B0\\u914D\\u7F6E";
-      account2.textContent = v.who.id ? \`\${v.who.nickname || "\\u5F53\\u524D\\u8D26\\u53F7"} \\xB7 \${v.who.id}\` : "\\u7B49\\u5F85\\u767B\\u5F55";
+      account2.hidden = Boolean(v.who.id);
+      account2.textContent = "\\u7B49\\u5F85\\u767B\\u5F55";
       note.textContent = v.session ? "\\u672C\\u6B21\\u767B\\u5F55 \\xB7 " + (v.session.incomplete ? "\\u8BB0\\u5F55\\u66FE\\u4E2D\\u65AD" : "\\u4EC5\\u542B\\u5DF2\\u89C2\\u5BDF\\u6536\\u652F") : "\\u767B\\u5F55\\u540E\\u5F00\\u59CB\\u89C2\\u5BDF";
       note.title = v.session ? "\\u89C2\\u5BDF\\u8D77\\u4E8E " + time(v.session.at) : "";
       const enabled = v.items.filter((row) => canAlert(row.ID, row.name) && row.threshold > 0).length;
@@ -25267,22 +25231,19 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     });
   }
   function openDetails(ctx, controller) {
-    const win = ctx.window.open("about:blank", "_blank");
-    if (!win) {
-      ctx.notify("\\u8D26\\u672C\\u9875\\u9762\\u88AB\\u6D4F\\u89C8\\u5668\\u62E6\\u622A\\uFF0C\\u8BF7\\u5141\\u8BB8\\u6B64\\u7AD9\\u70B9\\u6253\\u5F00\\u65B0\\u9875\\u9762\\u540E\\u91CD\\u8BD5\\u3002");
-      return;
+    const existing = detailPanels.get(controller);
+    if (existing) {
+      existing.root.focus();
+      return existing;
     }
-    const doc = win.document;
-    doc.title = "\\u8D26\\u672C \\xB7 \\u4E09\\u56FD\\u6740OL\\u5DE5\\u5177\\u7BB1";
-    doc.documentElement.lang = "zh-CN";
-    doc.body.replaceChildren();
-    doc.body.style.margin = "0";
-    const child = { ...ctx, window: win, document: doc }, ui = setup(child, doc.body), { el, root } = ui;
+    const win = ctx.window, doc = ctx.document, child = ctx;
+    const ui = setup(ctx, doc.body), { el, root } = ui;
     root.classList.add("sgs-ledger-detail");
+    root.tabIndex = -1;
+    root.setAttribute("role", "region");
+    root.setAttribute("aria-label", "\\u8BE6\\u7EC6\\u8D26\\u672C");
     function theme(current) {
       for (const [key, value] of Object.entries(current?.tokens || {})) root.style.setProperty(\`--sgs-\${key}\`, value);
-      doc.body.style.background = current?.tokens?.bg || "";
-      doc.body.style.color = current?.tokens?.text || "";
     }
     theme(ctx.themes.current);
     const offTheme = ctx.themes.subscribe(theme);
@@ -25327,7 +25288,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         draw();
       })
     );
-    root.append(title, who, status, filters, periodControl, kindControl, bar, error.node, count, summary, logs, nav);
+    const heading = el("div", "detail-heading"), close = ui.button("\\u5173\\u95ED\\u8D26\\u672C", "close", () => cleanup());
+    close.replaceChildren(close.querySelector("svg"));
+    close.title = "\\u5173\\u95ED\\u8D26\\u672C";
+    close.setAttribute("aria-label", "\\u5173\\u95ED\\u8D26\\u672C");
+    heading.append(title, close);
+    root.append(heading, who, status, filters, periodControl, kindControl, bar, error.node, count, summary, logs, nav);
     function selected() {
       const v = controller.view();
       return filterRecords(v.records, {
@@ -25351,7 +25317,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       pageText.textContent = \`\${page + 1} / \${pages} \\u9875\`;
       summary.replaceChildren();
       const names = new Map(rows.flatMap((r) => r.items.map((i) => [i.id, i.name])));
-      for (const [id, total] of totals(rows)) summary.append(el("span", "muted", \`\${names.get(id)}\\uFF1A\\u6536\\u5165 +\${format(total.income)} / \\u6D88\\u8017 \\u2212\${format(total.expense)}\`));
+      for (const [id, total] of totals(rows)) {
+        const card = el("div", "total-item"), name = el("strong", "total-name", names.get(id) || String(id));
+        name.title = \`\${names.get(id)} \\xB7 ID \${id}\`;
+        const flow = el("div", "total-flow");
+        flow.append(el("span", "income", \`\\u6536\\u5165 +\${format(total.income)}\`), el("span", "expense", \`\\u6D88\\u8017 \\u2212\${format(total.expense)}\`));
+        card.append(name, flow);
+        summary.append(card);
+      }
       logs.replaceChildren();
       for (const row of rows.slice(page * 100, (page + 1) * 100)) {
         const article = el("article", "row"), head = el("div", "row-head");
@@ -25368,7 +25341,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         if (row.prayer) article.append(el("p", "reward-list", row.prayer.matched ? \`\\u83B7\\u5F97\\uFF1A\${rewardsText(row.rewards)}\` : "\\u5956\\u52B1\\u901A\\u77E5\\u672A\\u5173\\u8054\\uFF0C\\u5F85\\u6838\\u5BF9"));
         if (row.note) article.append(el("p", "", row.note));
         const reason = row.type == null ? "" : row.source === "DbsCcUserGoodshintNtf" ? reasonNames[row.type] || \`\\u539F\\u56E0\\u7C7B\\u578B \${row.type}\` : \`\\u539F\\u56E0\\u4EE3\\u7801 \${row.type}\`;
-        article.append(el("p", "muted", \`\${sourceNames[row.source] || row.source}\${reason ? \` \\xB7 \${reason}\` : ""}\${row.giver ? \` \\xB7 \\u8D60\\u9001\\u8005 \${row.giver}\` : ""}\${row.reconciled ? " \\xB7 \\u5DF2\\u4E0E\\u5230\\u8D26\\u901A\\u77E5\\u53BB\\u91CD" : ""}\${row.linkedPrayer ? " \\xB7 \\u5DF2\\u5173\\u8054\\u7948\\u613F\\u53F0\\u6210\\u529F\\u56DE\\u5305" : ""}\`));
+        article.append(el("p", "muted", \`\${sourceNames[row.source] || "\\u5176\\u4ED6\\u8BB0\\u5F55"}\${reason ? \` \\xB7 \${reason}\` : ""}\${row.giver ? \` \\xB7 \\u8D60\\u9001\\u8005 \${row.giver}\` : ""}\${row.reconciled ? " \\xB7 \\u5DF2\\u4E0E\\u5230\\u8D26\\u901A\\u77E5\\u53BB\\u91CD" : ""}\${row.linkedPrayer ? " \\xB7 \\u5DF2\\u5173\\u8054\\u7948\\u613F\\u53F0\\u6210\\u529F\\u56DE\\u5305" : ""}\`));
         const details = el("details"), raw = el("p");
         raw.textContent = JSON.stringify(row, null, 2);
         details.append(el("summary", "", "\\u5177\\u4F53\\u65E5\\u5FD7 \\xB7 \\u7269\\u54C1 ID \\u4E0E\\u8BB0\\u5F55\\u8BE6\\u60C5"), raw);
@@ -25377,21 +25350,42 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       if (!rows.length) logs.append(el("p", "empty", "\\u6CA1\\u6709\\u7B26\\u5408\\u7B5B\\u9009\\u6761\\u4EF6\\u7684\\u65E5\\u5FD7"));
     }
-    const off = controller.subscribe(draw);
+    const anchor = doc.querySelector('[data-sgs-toolbox="core"]');
+    const position = () => {
+      const r = anchor?.getBoundingClientRect(), width = root.getBoundingClientRect().width, vw = win.innerWidth;
+      const left = r && r.left >= width + 20 ? r.left - width - 8 : r && vw - r.right >= width + 20 ? r.right + 8 : Math.max(12, vw - width - 12);
+      root.style.left = \`\${left}px\`;
+      root.style.top = \`\${Math.max(12, Math.min(r?.top || 12, win.innerHeight - 160))}px\`;
+      root.style.maxHeight = \`\${Math.max(100, win.innerHeight - parseFloat(root.style.top) - 12)}px\`;
+    };
+    const off = controller.subscribe(draw), offResize = ctx.scope.listen(win, "resize", position);
+    const observer = anchor ? new win.MutationObserver(position) : null;
+    observer?.observe(anchor, { attributes: true, attributeFilter: ["style", "hidden"] });
+    const trigger = doc.activeElement;
     const cleanup = ctx.scope.add(() => {
       if (!alive) return;
       alive = false;
       off();
       offTheme();
+      offResize();
+      observer?.disconnect();
+      detailPanels.delete(controller);
       ui.dispose();
+      if (trigger?.isConnected) trigger.focus();
     });
-    const offHide = ctx.scope.listen(win, "pagehide", () => {
-      cleanup();
-      offHide();
-    }, { once: true });
+    ui.listen(root, "keydown", (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        cleanup();
+      }
+    });
+    const handle = { root, dispose: cleanup };
+    detailPanels.set(controller, handle);
     draw();
+    position();
+    root.focus();
     controller.load();
-    return { window: win, dispose: cleanup };
+    return handle;
   }
   function renderAlerts(ctx, controller) {
     const ui = setup(ctx, ctx.document.body);
@@ -26087,10 +26081,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var manifest = {
     id: "ledger",
     name: "\\u8D26\\u672C",
-    version: "0.3.2",
+    version: "0.3.5",
     apiVersion: 1,
     contractVersion: 1,
-    minCoreVersion: "0.5.142",
+    releaseNotes: "\\u8D26\\u672C\\u8BE6\\u60C5\\u6539\\u4E3A\\u7D27\\u90BB\\u5DE5\\u5177\\u7BB1\\u7684\\u4FA7\\u8FB9\\u9762\\u677F\\uFF0C\\u652F\\u6301\\u5173\\u95ED\\u548C Escape\\uFF1B\\u6539\\u5584\\u7269\\u54C1\\u5361\\u7247\\u3001\\u6D41\\u6C34\\u548C\\u7B5B\\u9009\\u663E\\u793A\\uFF0C\\u4FDD\\u7559\\u672C\\u673A\\u8D26\\u53F7\\u6570\\u636E\\u4E0E\\u5BFC\\u51FA\\u3002",
+    minCoreVersion: "0.6.37",
     categories: ["info"],
     icon: PLUGIN_ICONS["ledger"],
     priority: 3e4,
@@ -26107,8 +26102,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"ledger","name":"\u8D26\u672C","version":"0.3.2","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.142","categories":["info"],"icon":{"paths":["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18","M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"]},"priority":30000,"description":"\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807"}};
-`, sha256: "43ea981f26eb499464401fb79aacf98f66fdb93ebd86b99ab247e0dff670e48c" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "recharge", name: "95\u6298\u5145\u503C\u4E0E\u65E7\u5361", version: "0.1.5", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.13", categories: ["tools"], priority: 45e3, icon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] }, description: "\u5B98\u670D\u5FAE\u4FE1\uFF0F\u652F\u4ED8\u5B9D\u5145\u503C\u53CA\u65E7\u5468\u6708\u5361\u539F\u751F\u76F4\u8D2D\u5165\u53E3\uFF0C\u64CD\u4F5C\u524D\u8BF7\u9605\u8BFB\u98CE\u9669" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"ledger","name":"\u8D26\u672C","version":"0.3.5","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8D26\u672C\u8BE6\u60C5\u6539\u4E3A\u7D27\u90BB\u5DE5\u5177\u7BB1\u7684\u4FA7\u8FB9\u9762\u677F\uFF0C\u652F\u6301\u5173\u95ED\u548C Escape\uFF1B\u6539\u5584\u7269\u54C1\u5361\u7247\u3001\u6D41\u6C34\u548C\u7B5B\u9009\u663E\u793A\uFF0C\u4FDD\u7559\u672C\u673A\u8D26\u53F7\u6570\u636E\u4E0E\u5BFC\u51FA\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18","M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"]},"priority":30000,"description":"\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807"}};
+`, sha256: "f05df4a84dfc8c991e389b7d0be26ca229453bea1be7fd511ac8d2c558783e1a" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "recharge", name: "95\u6298\u5145\u503C\u4E0E\u65E7\u5361", version: "0.1.6", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7EDF\u4E00\u5145\u503C\u4E0E\u65E7\u5361\u754C\u9762\u7684\u63D0\u793A\u548C\u64CD\u4F5C\u5916\u89C2\uFF0C\u4FDD\u7559\u6BCF\u6B21\u8BA2\u5355\u7684\u8D26\u53F7\u6838\u5BF9\u4E0E\u98CE\u9669\u786E\u8BA4\u3002\u4ED8\u6B3E\u4ECD\u987B\u4EBA\u5DE5\u64CD\u4F5C\uFF0C\u4E0D\u4FDD\u8BC1\u6298\u6263\u3001\u5230\u8D26\u6216\u65E7\u5361\u6FC0\u6D3B\u3002", minCoreVersion: "0.6.37", categories: ["tools"], priority: 45e3, icon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] }, description: "\u5B98\u670D\u5FAE\u4FE1\uFF0F\u652F\u4ED8\u5B9D\u5145\u503C\u53CA\u65E7\u5468\u6708\u5361\u539F\u751F\u76F4\u8D2D\u5165\u53E3\uFF0C\u64CD\u4F5C\u524D\u8BF7\u9605\u8BFB\u98CE\u9669" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -26134,120 +26129,6 @@ return {...SGSPlugin.default, manifest:{"id":"ledger","name":"\u8D26\u672C","ver
     default: () => index_default,
     manifest: () => manifest
   });
-
-  // src/ui/plugin-icons.js
-  var icon = (...paths) => Object.freeze({ paths: Object.freeze(paths) });
-  var PLUGIN_ICONS = Object.freeze({
-    cards: icon(
-      "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
-      "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"
-    ),
-    shanhetu: icon(
-      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
-      "M6 12 10 7l4 5 3-3 2 3",
-      "M6 16c3-3 7 3 12-1"
-    ),
-    "daily-rewards": icon(
-      "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
-      "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"
-    ),
-    seckill: icon(
-      "M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2",
-      "M13 10 9 15h3l-1 4 5-6h-4Z"
-    ),
-    gaizhu: icon(
-      "M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0",
-      "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3",
-      "M2 21h6"
-    ),
-    effects: icon(
-      "M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2",
-      "M3 3 21 21M19 3v4M17 5h4"
-    ),
-    skins: icon(
-      "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
-      "M8 3l8 9M16 3l-6 7M8 16h8"
-    ),
-    "wish-progress": icon(
-      "M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z",
-      "M4 21h9M16 21h4"
-    ),
-    themes: icon(
-      "M12 21 2 8a16 16 0 0 1 20 0Z",
-      "M12 21 7 5.3M12 21V4.5M12 21 17 5.3",
-      "M10 19a3 3 0 0 1 4 0"
-    ),
-    baisheng: icon(
-      "M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4",
-      "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"
-    ),
-    appearances: icon(
-      "M9 21H3V3h18v9",
-      "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1",
-      "M12 21 16 17l3 2 3-5M19 14h3v3"
-    ),
-    ledger: icon(
-      "M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18",
-      "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"
-    )
-  });
-  var TOOLBOX_ICON = icon(
-    "M3 7h18v13H3ZM8 7V4h8v3M3 12h6M15 12h6",
-    "M12 9l3 3-3 3-3-3Z"
-  );
-
-  // src/ui/icons.js
-  var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
-    toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
-    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
-    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
-    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
-    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
-    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
-    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
-    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
-    close: '<path d="m6 6 12 12M6 18 18 6"/>',
-    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
-    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
-    collapse: '<path d="M5 12h14"/>',
-    chevron: '<path d="m6 9 6 6 6-6"/>',
-    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
-    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
-    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
-    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
-    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
-    play: '<path d="m8 5 11 7-11 7z"/>',
-    pause: '<path d="M8 5v14M16 5v14"/>',
-    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
-    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
-    check: '<path d="m5 12 4 4L19 6"/>',
-    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
-  });
-  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
-  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
-
-  // src/ui/controls.js
-  var CONTROL_STYLES = \`
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-\`;
 
   // src/plugins/recharge/encoding.js
   function utf8Bytes(str) {
@@ -27119,10 +27000,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var manifest = {
     id: "recharge",
     name: "95\\u6298\\u5145\\u503C\\u4E0E\\u65E7\\u5361",
-    version: "0.1.5",
+    version: "0.1.6",
     apiVersion: 1,
     contractVersion: 1,
-    minCoreVersion: "0.5.13",
+    releaseNotes: "\\u7EDF\\u4E00\\u5145\\u503C\\u4E0E\\u65E7\\u5361\\u754C\\u9762\\u7684\\u63D0\\u793A\\u548C\\u64CD\\u4F5C\\u5916\\u89C2\\uFF0C\\u4FDD\\u7559\\u6BCF\\u6B21\\u8BA2\\u5355\\u7684\\u8D26\\u53F7\\u6838\\u5BF9\\u4E0E\\u98CE\\u9669\\u786E\\u8BA4\\u3002\\u4ED8\\u6B3E\\u4ECD\\u987B\\u4EBA\\u5DE5\\u64CD\\u4F5C\\uFF0C\\u4E0D\\u4FDD\\u8BC1\\u6298\\u6263\\u3001\\u5230\\u8D26\\u6216\\u65E7\\u5361\\u6FC0\\u6D3B\\u3002",
+    minCoreVersion: "0.6.37",
     categories: ["tools"],
     priority: 45e3,
     icon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] },
@@ -27195,7 +27077,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       const doc = ctx.document, root = doc.createElement("div");
       root.dataset.sgsRecharge = "";
       const style = doc.createElement("style");
-      style.textContent = CONTROL_STYLES + \`
+      style.textContent = \`
       [data-sgs-recharge]{font:12px/1.65 var(--sgs-font,sans-serif);color:var(--sgs-text);overflow-wrap:anywhere}
       [data-sgs-recharge] *{box-sizing:border-box}
       [data-sgs-recharge] p{margin:6px 0 10px}
@@ -27591,8 +27473,8 @@ SOFTWARE.
 
 */
 
-return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u503C\u4E0E\u65E7\u5361","version":"0.1.5","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.13","categories":["tools"],"priority":45000,"icon":{"paths":["M3 6h18v14H3Z","M3 10h18","M15 15h3","M6 3h12"]},"description":"\u5B98\u670D\u5FAE\u4FE1\uFF0F\u652F\u4ED8\u5B9D\u5145\u503C\u53CA\u65E7\u5468\u6708\u5361\u539F\u751F\u76F4\u8D2D\u5165\u53E3\uFF0C\u64CD\u4F5C\u524D\u8BF7\u9605\u8BFB\u98CE\u9669"}};
-`, sha256: "6b216a07879353c9c433073ec6b36529886057b81eecb1ea7ae7762c63294643" }];
+return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u503C\u4E0E\u65E7\u5361","version":"0.1.6","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7EDF\u4E00\u5145\u503C\u4E0E\u65E7\u5361\u754C\u9762\u7684\u63D0\u793A\u548C\u64CD\u4F5C\u5916\u89C2\uFF0C\u4FDD\u7559\u6BCF\u6B21\u8BA2\u5355\u7684\u8D26\u53F7\u6838\u5BF9\u4E0E\u98CE\u9669\u786E\u8BA4\u3002\u4ED8\u6B3E\u4ECD\u987B\u4EBA\u5DE5\u64CD\u4F5C\uFF0C\u4E0D\u4FDD\u8BC1\u6298\u6263\u3001\u5230\u8D26\u6216\u65E7\u5361\u6FC0\u6D3B\u3002","minCoreVersion":"0.6.37","categories":["tools"],"priority":45000,"icon":{"paths":["M3 6h18v14H3Z","M3 10h18","M15 15h3","M6 3h12"]},"description":"\u5B98\u670D\u5FAE\u4FE1\uFF0F\u652F\u4ED8\u5B9D\u5145\u503C\u53CA\u65E7\u5468\u6708\u5361\u539F\u751F\u76F4\u8D2D\u5165\u53E3\uFF0C\u64CD\u4F5C\u524D\u8BF7\u9605\u8BFB\u98CE\u9669"}};
+`, sha256: "58c35b342f0f1e4624b6208a779088a3afde59b5daeace49c060cc56b8a43022" }];
 
   // src/core/resources.js
   var ResourceScope = class {
@@ -28616,7 +28498,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.31", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.45", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
@@ -29159,6 +29041,133 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
     return icon2;
   }
 
+  // src/ui/controls.js
+  var CONTROL_STYLES = `
+input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
+input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
+input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
+input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
+input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
+select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
+select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
+select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
+select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
+.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
+.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
+.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
+`;
+  function controlIcon(doc, name) {
+    return createIcon(doc, name);
+  }
+  function styleSwitch(input) {
+    return input.classList.add("sgs-switch"), input.setAttribute("role", "switch"), input;
+  }
+  function helpTip(doc, text2, label = "\u8BF4\u660E") {
+    let wrap = doc.createElement("span"), button = doc.createElement("button"), tip = doc.createElement("span");
+    wrap.style.cssText = "display:inline-flex;vertical-align:middle;margin:2px 0", button.dataset.helpTip = "", button.type = "button", button.setAttribute("aria-label", label), button.title = text2, button.style.cssText = "display:inline-grid;place-items:center;width:24px;height:24px;min-width:24px;padding:3px;border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);cursor:help;border-radius:50%", button.append(controlIcon(doc, "info")), tip.textContent = text2, tip.setAttribute("popover", "manual"), tip.setAttribute("role", "tooltip"), tip.style.cssText = "position:fixed;inset:auto;margin:0;padding:10px 12px;max-width:min(300px,calc(100vw - 24px));width:max-content;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--sgs-font,sans-serif);color:var(--sgs-text);background:var(--sgs-raised);border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 6px 24px #0004";
+    let hide = () => {
+      tip.matches(":popover-open") && tip.hidePopover();
+    }, show = () => {
+      if (!tip.showPopover) return;
+      tip.showPopover();
+      let box = button.getBoundingClientRect(), bounds = tip.getBoundingClientRect(), win = doc.defaultView;
+      tip.style.left = Math.max(12, Math.min(box.left, win.innerWidth - bounds.width - 12)) + "px", tip.style.top = Math.max(12, box.bottom + bounds.height + 8 < win.innerHeight ? box.bottom + 6 : box.top - bounds.height - 6) + "px";
+    };
+    return button.addEventListener("mouseenter", show), wrap.addEventListener("mouseleave", hide), button.addEventListener("focus", show), button.addEventListener("blur", hide), button.addEventListener("click", show), button.addEventListener("keydown", (event) => {
+      event.key === "Escape" && (hide(), event.stopPropagation());
+    }), wrap.append(button, tip), wrap;
+  }
+
+  // src/shared/info-ui.js
+  var INFO_STYLES = `
+.sgs-info{min-width:0;color:var(--sgs-text);font:12px/1.65 var(--sgs-font,sans-serif)}
+.sgs-info *{box-sizing:border-box}.sgs-info [hidden]{display:none!important}
+.sgs-info p{margin:0 0 10px;overflow-wrap:anywhere}.sgs-info .muted{color:var(--sgs-muted);font-size:11px}
+.sgs-info .bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:9px 0}.sgs-info .bar>*{min-width:0}
+.sgs-info button{min-height:30px;border:1px solid color-mix(in srgb,var(--sgs-border) 65%,transparent);border-radius:7px;background:linear-gradient(var(--sgs-raised),var(--sgs-surface));color:var(--sgs-text);padding:4px 9px;font:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.sgs-info button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}.sgs-info button:focus-visible,.sgs-info summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
+.sgs-info button:disabled{opacity:.45;cursor:not-allowed}.sgs-info .primary{color:var(--sgs-accent)}.sgs-info .danger{color:var(--sgs-danger)}
+.sgs-info .sgs-segments{margin:8px 0}.sgs-info .sgs-segments>button{border:0;background:transparent;padding:4px;font-size:11px}.sgs-info .sgs-segments>button[aria-pressed=true]{background:color-mix(in srgb,var(--sgs-accent) 12%,transparent)}
+.sgs-info input.sgs-input{width:100%}.sgs-info .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sgs-info .filters label{color:var(--sgs-muted);font-size:11px;min-width:0}
+.sgs-info .filters label:has(input[type=datetime-local]){grid-column:1/-1}
+.sgs-info .stat{display:flex;align-items:baseline;gap:6px;margin:10px 0;font-variant-numeric:tabular-nums}.sgs-info .stat strong{font-size:25px;font-weight:600;color:var(--sgs-accent)}
+.sgs-info .list{max-height:430px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}.sgs-info .row{padding:10px 0;border-top:1px solid color-mix(in srgb,var(--sgs-border) 60%,transparent)}
+.sgs-info .row-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px}.sgs-info .name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sgs-info .number{font-variant-numeric:tabular-nums;flex:none;font-size:11px}
+.sgs-info progress.progress{appearance:none;display:block;width:100%;height:3px;border:0;border-radius:2px;background:var(--sgs-raised);margin:7px 0;overflow:hidden}.sgs-info progress::-webkit-progress-bar{background:var(--sgs-raised)}.sgs-info progress::-webkit-progress-value{background:var(--sgs-accent)}.sgs-info progress::-moz-progress-bar{background:var(--sgs-accent)}
+.sgs-info details{font-size:11px;color:var(--sgs-muted)}.sgs-info summary{cursor:pointer}.sgs-info details p{white-space:pre-wrap;margin:6px 0;overflow-wrap:anywhere}
+.sgs-info .error{color:var(--sgs-danger);white-space:pre-wrap;overflow-wrap:anywhere}.sgs-info .empty{padding:20px 4px;text-align:center;color:var(--sgs-muted)}
+.sgs-info .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin-top:6px;color:var(--sgs-muted);font-size:10px}.sgs-info .metrics b{display:block;font-size:14px;color:var(--sgs-text);font-variant-numeric:tabular-nums;font-weight:500}
+`;
+  function panelUI(ctx, container) {
+    let doc = ctx.document, cleanups = [], root = doc.createElement("section");
+    root.className = "sgs-info";
+    let el = (tag, cls, text2) => {
+      let n = doc.createElement(tag);
+      return cls && (n.className = cls), text2 !== void 0 && (n.textContent = text2), n;
+    };
+    container.append(root);
+    let scheme = (current) => {
+      let hex2 = current?.tokens?.bg || "", match = /^#([\da-f]{6})$/i.exec(hex2);
+      if (match) {
+        let rgb = [0, 2, 4].map((i) => parseInt(match[1].slice(i, i + 2), 16));
+        root.style.colorScheme = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 140 ? "light" : "dark";
+      }
+    };
+    scheme(ctx.themes?.current), ctx.themes?.subscribe && cleanups.push(ctx.themes.subscribe(scheme));
+    let listen = (node, type, fn) => {
+      cleanups.push(ctx.scope.listen(node, type, fn));
+    }, button = (text2, icon2, fn) => {
+      let n = el("button", "", text2);
+      return n.type = "button", icon2 && n.prepend(controlIcon(doc, icon2)), listen(n, "click", fn), n;
+    };
+    return { root, el, listen, button, segments: (items, selected, change) => {
+      let group = el("div", "sgs-segments");
+      for (let [value, label] of items) {
+        let n = button(label, null, () => {
+          for (let b of group.children) b.setAttribute("aria-pressed", String(b === n));
+          change(value);
+        });
+        n.setAttribute("aria-pressed", String(value === selected)), group.append(n);
+      }
+      return group;
+    }, input: (label, type = "search") => {
+      let n = el("input", "sgs-input");
+      return n.type = type, n.setAttribute("aria-label", label), n.placeholder = label, n;
+    }, dispose: ctx.scope.add(() => {
+      for (let off of cleanups) off();
+      root.remove();
+    }) };
+  }
+
+  // src/ui/plugin-ui.js
+  var sheets = /* @__PURE__ */ new WeakMap();
+  function acquirePluginStyles(root, doc) {
+    let entry = sheets.get(root);
+    if (!entry) {
+      let style2 = doc.createElement("style");
+      style2.dataset.sgsPluginControls = "", style2.textContent = CONTROL_STYLES + INFO_STYLES, root.append(style2), sheets.set(root, entry = { style: style2, users: 0 });
+    }
+    entry.users++;
+    let released = !1;
+    return () => {
+      released || (released = !0, --entry.users === 0 && (entry.style.remove(), sheets.delete(root)));
+    };
+  }
+  function mountPluginUI(context, getContext) {
+    let { document: doc, scope } = context;
+    return doc?.createElement && scope.add(acquirePluginStyles(doc.head || doc.documentElement, doc)), {
+      icon: (spec) => createIcon(doc, spec),
+      styleSwitch,
+      helpTip: (text2, label) => helpTip(doc, text2, label),
+      panel: (container) => panelUI(getContext(), container),
+      mountStyles: (root) => scope.add(acquirePluginStyles(root, doc))
+    };
+  }
+
+  // src/shared/plugin-release-notes.js
+  var validReleaseNotes = (value) => value === void 0 || typeof value == "string" && value.trim().length > 0 && value.length <= 2e3 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value);
+
   // src/core/plugin-contract.js
   var DEFAULT_PLUGIN_PRIORITY = 32768, PANEL_CATEGORIES = Object.freeze(["game", "automation", "tools", "manage", "info", "appearance"]), localId = /^[a-z][a-z0-9.-]{0,63}$/, stableVersion = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/, validPriority = (value) => Number.isInteger(value) && value >= 0 && value <= 65535;
   function requirePriority(value) {
@@ -29181,6 +29190,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
     let strict = m.contractVersion === 1;
     if (strict && !text(m.name, 48)) throw new Error("\u63D2\u4EF6\u540D\u79F0\u5FC5\u987B\u662F 1\u201348 \u5B57\u7684\u5355\u884C\u6587\u5B57\u3002");
     if ((strict || m.description !== void 0) && !text(m.description, 160)) throw new Error("\u63D2\u4EF6\u7B80\u4ECB\u5FC5\u987B\u662F 1\u2013160 \u5B57\u7684\u5355\u884C\u6587\u5B57\u3002");
+    if (!validReleaseNotes(m.releaseNotes)) throw new Error("\u63D2\u4EF6\u66F4\u65B0\u5185\u5BB9\u987B\u4E3A 1\u20132000 \u5B57\u7684\u975E\u7A7A\u7EAF\u6587\u672C\uFF0C\u53EF\u5206\u884C\u3002");
     if ((strict || m.icon !== void 0) && !isIconSpec(m.icon)) throw new Error("\u63D2\u4EF6\u56FE\u6807\u5FC5\u987B\u662F\u516C\u5171\u56FE\u6807\u540D\u6216\u5408\u6CD5\u7684 24\xD724 \u5355\u8272\u8DEF\u5F84\u3002");
     if ((strict || m.priority !== void 0) && requirePriority(m.priority), strict || m.minCoreVersion !== void 0) {
       if (typeof m.minCoreVersion != "string" || m.minCoreVersion.length > 48 || !stableVersion.test(m.minCoreVersion)) throw new Error("minCoreVersion \u5FC5\u987B\u662F x.y.z \u683C\u5F0F\u7684\u7A33\u5B9A\u6838\u5FC3\u7248\u672C\u3002");
@@ -29600,16 +29610,35 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
           slot.error && (slot.error = "", this.onChange());
         },
         ui: {
+          ...mountPluginUI({ ...this.context, scope }, () => ctx),
           nativeTheme: createNativeTheme({ ...this.context, scope }),
-          icon: (spec) => createIcon(this.context.document, spec),
           registerCompactSummary: () => {
             let id2 = slot.module.manifest.id;
             return scope.add(() => this.context.ui.setCompactSummary?.(id2, [])), (items) => {
               scope.closed || this.context.ui.setCompactSummary?.(id2, items);
             };
           },
-          registerPanel: (spec) => scope.closed ? () => {
-          } : scope.add(this.context.ui.registerPanel(normalizePanel(spec, slot.module.manifest)))
+          registerPanel: (spec) => {
+            if (scope.closed) return () => {
+            };
+            let panel = normalizePanel(spec, slot.module.manifest), render = panel.render;
+            return panel.render = (container) => {
+              let root = container.getRootNode?.(), release = root?.host ? acquirePluginStyles(root, this.context.document) : () => {
+              };
+              try {
+                let cleanup = render(container);
+                return () => {
+                  try {
+                    cleanup?.();
+                  } finally {
+                    release();
+                  }
+                };
+              } catch (error) {
+                throw release(), error;
+              }
+            }, scope.add(this.context.ui.registerPanel(panel));
+          }
         },
         backgrounds: {
           isInstalled: () => !scope.closed && this.slots.has("backgrounds"),
@@ -29888,6 +29917,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
   var ALLOWED = /* @__PURE__ */ new Set(["gn_zonghe", "cha_gs_dbs_fs_skininfo", "ff_jubaopen", "ff_dbs_pay_gift", "sys_gs_dbs_fs_goodsbaseinfo", "cha_dbs_general_series", "ff_task_daily", "mod_new_ttrank_config", "ff_general_chest_info_config", "gn_dbs_giftbag", "hd_roguelike", "cha_spell", "sys_playcard", "character", "gn_gs_ahievement", "ff_qifu_new", "ff_tiangong", "h5_officer"]);
   ALLOWED.add("sys_h5_shop");
   ALLOWED.add("gn_dbs_coupon_cfg");
+  ALLOWED.add("hd_fight_lord_config");
   var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read = (fn) => {
     try {
       return fn();
@@ -30555,8 +30585,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
   }
 
   // src/market/client.js
-  var PACKAGE_FORMAT2 = "sgs-toolbox-plugin-v1", ID = /^[a-z][a-z0-9._-]{0,95}$/, VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/, DIGEST = /^[0-9a-f]{64}$/i;
-  var MarketError = class extends Error {
+  var PACKAGE_FORMAT2 = "sgs-toolbox-plugin-v1", ID = /^[a-z][a-z0-9._-]{0,95}$/, VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/, DIGEST = /^[0-9a-f]{64}$/i, DEFAULT_MAX_BYTES = 8 * 1024 * 1024, MarketError = class extends Error {
     constructor(code, message, details = {}) {
       super(message, details.cause ? { cause: details.cause } : void 0), this.name = "MarketError", this.code = code, details.status !== void 0 && (this.status = details.status);
     }
@@ -30568,14 +30597,14 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
     return isObject(value) && typeof value.id == "string" && ID.test(value.id) && typeof value.version == "string" && value.version.length <= 80 && VERSION.test(value.version);
   }
   function validEntry(entry) {
-    return validIdentity(entry) && typeof entry.name == "string" && entry.name.trim().length > 0 && typeof entry.description == "string" && typeof entry.packageUrl == "string" && typeof entry.sha256 == "string" && DIGEST.test(entry.sha256);
+    return validIdentity(entry) && typeof entry.name == "string" && entry.name.trim().length > 0 && typeof entry.description == "string" && typeof entry.packageUrl == "string" && validReleaseNotes(entry.releaseNotes) && typeof entry.sha256 == "string" && DIGEST.test(entry.sha256);
   }
   var MarketClient = class {
     constructor({
       baseUrl = "http://127.0.0.1:17321",
       fetchImpl = globalThis.fetch,
       timeoutMs = 1e4,
-      maxBytes = 8388608
+      maxBytes = DEFAULT_MAX_BYTES
     } = {}) {
       let parsed;
       try {
@@ -30667,12 +30696,14 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
     async getPackage(entry) {
       if (!validEntry(entry)) throw new MarketError("BAD_SCHEMA", "\u63D2\u4EF6\u76EE\u5F55\u6761\u76EE\u65E0\u6548\u3002");
       let pkg = await this.requestJson(this.resolvePackageUrl(entry.packageUrl));
-      if (!isObject(pkg) || pkg.format !== PACKAGE_FORMAT2 || !validIdentity(pkg.manifest) || typeof pkg.manifest.name != "string" || !pkg.manifest.name.trim() || !Number.isInteger(pkg.manifest.apiVersion) || pkg.manifest.apiVersion < 1 || !Array.isArray(pkg.manifest.categories) || pkg.manifest.categories.some((v) => typeof v != "string") || typeof pkg.code != "string" || !pkg.code.trim() || typeof pkg.sha256 != "string" || !DIGEST.test(pkg.sha256))
+      if (!isObject(pkg) || pkg.format !== PACKAGE_FORMAT2 || !validIdentity(pkg.manifest) || typeof pkg.manifest.name != "string" || !pkg.manifest.name.trim() || !validReleaseNotes(pkg.manifest.releaseNotes) || !Number.isInteger(pkg.manifest.apiVersion) || pkg.manifest.apiVersion < 1 || !Array.isArray(pkg.manifest.categories) || pkg.manifest.categories.some((v) => typeof v != "string") || typeof pkg.code != "string" || !pkg.code.trim() || typeof pkg.sha256 != "string" || !DIGEST.test(pkg.sha256))
         throw new MarketError("BAD_SCHEMA", "\u63D2\u4EF6\u5305\u683C\u5F0F\u65E0\u6548\u3002");
       if (pkg.manifest.id !== entry.id || pkg.manifest.version !== entry.version)
         throw new MarketError("PACKAGE_ID_MISMATCH", "\u63D2\u4EF6\u5305\u8EAB\u4EFD\u6216\u7248\u672C\u4E0E\u76EE\u5F55\u4E0D\u4E00\u81F4\u3002");
       if (pkg.sha256.toLowerCase() !== entry.sha256.toLowerCase())
         throw new MarketError("CATALOG_DIGEST_MISMATCH", "\u63D2\u4EF6\u5305\u6458\u8981\u4E0E\u76EE\u5F55\u4E0D\u4E00\u81F4\uFF0C\u8BF7\u5237\u65B0\u5E02\u573A\u76EE\u5F55\u540E\u91CD\u8BD5\u3002");
+      if (entry.releaseNotes !== void 0 && entry.releaseNotes !== pkg.manifest.releaseNotes)
+        throw new MarketError("RELEASE_NOTES_MISMATCH", "\u63D2\u4EF6\u66F4\u65B0\u5185\u5BB9\u4E0E\u76EE\u5F55\u4E0D\u4E00\u81F4\uFF0C\u8BF7\u5237\u65B0\u5E02\u573A\u76EE\u5F55\u540E\u91CD\u8BD5\u3002");
       return pkg;
     }
   };
@@ -31046,9 +31077,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
       settings.set("cardStyleExpanded", expanded), apply(expanded);
     }, heading.append(toggle), details.append(heading, body), container.append(details);
     let render = () => {
-      body.replaceChildren();
-      let intro = doc.createElement("p");
-      intro.className = "muted", intro.textContent = "\u5361\u9762\u4E0E\u5361\u80CC\u72EC\u7ACB\u9009\u62E9\u3002\u5B8C\u6574\u5361\u9762\u6309\u724C\u540D\u5339\u914D\uFF0C\u7F3A\u5931\u5361\u56FE\u4FDD\u7559\u6E38\u620F\u539F\u751F\u663E\u793A\uFF1B\u82B1\u8272\u70B9\u6570\u6CBF\u7528\u6E38\u620F\u3002", body.append(intro);
+      body.replaceChildren(), body.append(helpTip(doc, "\u5361\u9762\u4E0E\u5361\u80CC\u72EC\u7ACB\u9009\u62E9\u3002\u5B8C\u6574\u5361\u9762\u6309\u724C\u540D\u5339\u914D\uFF0C\u7F3A\u5931\u5361\u56FE\u4FDD\u7559\u6E38\u620F\u539F\u751F\u663E\u793A\uFF1B\u82B1\u8272\u70B9\u6570\u6CBF\u7528\u6E38\u620F\u3002"));
       let scopeLabel = doc.createElement("p");
       scopeLabel.textContent = "\u5E94\u7528\u8303\u56F4", body.append(scopeLabel);
       let scopes = doc.createElement("div");
@@ -31110,29 +31139,6 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
     };
   }
 
-  // src/ui/controls.js
-  var CONTROL_STYLES = `
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-`;
-  function controlIcon(doc, name) {
-    return createIcon(doc, name);
-  }
-  function styleSwitch(input) {
-    return input.classList.add("sgs-switch"), input.setAttribute("role", "switch"), input;
-  }
-
   // src/ui/theme-workshop.js
   var STYLES = `
 .sgs-themes{font:12px/1.5 var(--sgs-font,sans-serif);color:var(--sgs-text);min-width:0}
@@ -31172,11 +31178,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     style2.textContent = STYLES;
     let heading = el("div", "theme-heading"), count = el("span", "theme-count");
     heading.append(el("h4", "", "\u9009\u62E9\u914D\u8272"), count);
-    let intro = el("p", "theme-intro", "\u9009\u62E9\u4E00\u5957\u914D\u8272\uFF0C\u5373\u523B\u6362\u88C5\u3002"), grid = el("div", "theme-grid");
+    let intro = helpTip(doc, "\u9009\u62E9\u4E00\u5957\u914D\u8272\uFF0C\u5373\u523B\u6362\u88C5\u3002"), grid = el("div", "theme-grid");
     grid.setAttribute("role", "group"), grid.setAttribute("aria-label", "\u5DE5\u5177\u7BB1\u4E3B\u9898");
     let status = el("p", "theme-status");
     status.dataset.themeStatus = "", status.setAttribute("role", "status"), status.setAttribute("aria-live", "polite");
-    let footnote = el("p", "theme-footnote", "\u914D\u8272\u81EA\u52A8\u4FDD\u5B58\u3002\u4E3B\u9898\u5305\u505C\u7528\u540E\u6682\u56DE\u7384\u91D1\uFF0C\u91CD\u65B0\u542F\u7528\u540E\u6062\u590D\u9009\u62E9\u3002");
+    let footnote = helpTip(doc, "\u914D\u8272\u81EA\u52A8\u4FDD\u5B58\u3002\u4E3B\u9898\u5305\u505C\u7528\u540E\u6682\u56DE\u7384\u91D1\uFF0C\u91CD\u65B0\u542F\u7528\u540E\u6062\u590D\u9009\u62E9\u3002");
     root.append(style2, heading, intro, grid, status, footnote), container.append(root);
     let signature, cards = /* @__PURE__ */ new Map(), cardScope, update = () => {
       if (scope.closed) return;
@@ -31213,7 +31219,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), () => scope.dispose();
   }
 
-  // ../../node_modules/html-to-image/es/util.js
+  // node_modules/html-to-image/es/util.js
   function resolveUrl(url, baseUrl) {
     if (url.match(/^[a-z]+:\/\//i))
       return url;
@@ -31294,7 +31300,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return nodePrototype === null ? !1 : nodePrototype.constructor.name === instance.name || isInstanceOfElement(nodePrototype, instance);
   };
 
-  // ../../node_modules/html-to-image/es/clone-pseudos.js
+  // node_modules/html-to-image/es/clone-pseudos.js
   function formatCSSText(style2) {
     let content = style2.getPropertyValue("content");
     return `${style2.cssText} content: '${content.replace(/'|"/g, "")}';`;
@@ -31326,7 +31332,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     clonePseudoElement(nativeNode, clonedNode, ":before", options), clonePseudoElement(nativeNode, clonedNode, ":after", options);
   }
 
-  // ../../node_modules/html-to-image/es/mimes.js
+  // node_modules/html-to-image/es/mimes.js
   var WOFF = "application/font-woff", JPEG = "image/jpeg", mimes = {
     woff: WOFF,
     woff2: WOFF,
@@ -31349,7 +31355,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return mimes[extension] || "";
   }
 
-  // ../../node_modules/html-to-image/es/dataurl.js
+  // node_modules/html-to-image/es/dataurl.js
   function getContentFromDataUrl(dataURL) {
     return dataURL.split(/,/)[1];
   }
@@ -31397,7 +31403,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return cache[cacheKey] = dataURL, dataURL;
   }
 
-  // ../../node_modules/html-to-image/es/clone-node.js
+  // node_modules/html-to-image/es/clone-node.js
   async function cloneCanvasElement(canvas) {
     let dataURL = canvas.toDataURL();
     return dataURL === "data:," ? canvas.cloneNode(!1) : createImage(dataURL);
@@ -31484,7 +31490,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return !isRoot && options.filter && !options.filter(node) ? null : Promise.resolve(node).then((clonedNode) => cloneSingleNode(clonedNode, options)).then((clonedNode) => cloneChildren(node, clonedNode, options)).then((clonedNode) => decorate(node, clonedNode, options)).then((clonedNode) => ensureSVGSymbols(clonedNode, options));
   }
 
-  // ../../node_modules/html-to-image/es/embed-resources.js
+  // node_modules/html-to-image/es/embed-resources.js
   var URL_REGEX = /url\((['"]?)([^'"]+?)\1\)/g, URL_WITH_FORMAT_REGEX = /url\([^)]+\)\s*format\((["']?)([^"']+)\1\)/g, FONT_SRC_REGEX = /src:\s*(?:url\([^)]+\)\s*format\([^)]+\)[,;]\s*)+/g;
   function toRegex(url) {
     let escaped = url.replace(/([.*+?^${}()|\[\]\/\\])/g, "\\$1");
@@ -31528,7 +31534,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return parseURLs(filteredCSSText).reduce((deferred, url) => deferred.then((css) => embed(css, url, baseUrl, options)), Promise.resolve(filteredCSSText));
   }
 
-  // ../../node_modules/html-to-image/es/embed-images.js
+  // node_modules/html-to-image/es/embed-images.js
   async function embedProp(propName, node, options) {
     var _a;
     let propValue = (_a = node.style) === null || _a === void 0 ? void 0 : _a.getPropertyValue(propName);
@@ -31566,7 +31572,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     isInstanceOfElement(clonedNode, Element) && (await embedBackground(clonedNode, options), await embedImageNode(clonedNode, options), await embedChildren(clonedNode, options));
   }
 
-  // ../../node_modules/html-to-image/es/apply-style.js
+  // node_modules/html-to-image/es/apply-style.js
   function applyStyle(node, options) {
     let { style: style2 } = node;
     options.backgroundColor && (style2.backgroundColor = options.backgroundColor), options.width && (style2.width = `${options.width}px`), options.height && (style2.height = `${options.height}px`);
@@ -31576,7 +31582,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), node;
   }
 
-  // ../../node_modules/html-to-image/es/embed-webfonts.js
+  // node_modules/html-to-image/es/embed-webfonts.js
   var cssFetchCache = {};
   async function fetchCSS(url) {
     let cache2 = cssFetchCache[url];
@@ -31696,7 +31702,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
   }
 
-  // ../../node_modules/html-to-image/es/index.js
+  // node_modules/html-to-image/es/index.js
   async function toSvg(node, options = {}) {
     let { width, height } = getImageSize(node, options), clonedNode = await cloneNode(node, options, !0);
     return await embedWebFonts(clonedNode, options), await embedImages(clonedNode, options), applyStyle(clonedNode, options), await nodeToDataURL(clonedNode, width, height);
@@ -31895,6 +31901,17 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 
   // src/ui/shell.js
   var categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], style = `
+/* A moving perimeter marker keeps the folded HUD easy to locate without covering controls. */
+.hud-locator{display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible;color:var(--sgs-accent)}
+.hud-locator rect{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;x:1px;y:1px;width:calc(100% - 2px);height:calc(100% - 2px);rx:10px;stroke-dasharray:18 8 3 71;animation:hud-locator-flow 3.6s linear infinite,hud-locator-breathe 2.4s ease-in-out infinite}
+:host([data-collapsed]:not([data-edge-hidden])) .hud-locator{display:block}
+:host([data-edge-hidden])::after{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;pointer-events:none;background:linear-gradient(180deg,transparent,var(--sgs-accent),var(--sgs-text),var(--sgs-accent),transparent);background-size:100% 220%;animation:hud-edge-flow 3.6s linear infinite}
+@keyframes hud-locator-flow{to{stroke-dashoffset:-100}}
+@keyframes hud-locator-breathe{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes hud-edge-flow{from{background-position:0 220%}to{background-position:0 -220%}}
+@media(prefers-reduced-motion:reduce){.hud-locator rect{animation:none;stroke-dasharray:none;opacity:.8}:host([data-edge-hidden])::after{animation:none;background:var(--sgs-accent)}}
+
+.plugin-release-notes{margin:8px 0 0;min-width:0;color:var(--sgs-muted);font-size:11px}.plugin-release-notes summary{cursor:pointer;min-height:30px;padding:6px 2px;color:var(--sgs-text);overflow-wrap:anywhere}.plugin-release-notes summary:focus-visible,.plugin-release-notes-text:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px;border-radius:4px}.plugin-release-notes-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;padding:2px 6px 4px 8px;border-left:2px solid var(--sgs-border);max-height:160px;overflow:auto;scrollbar-width:thin}.plugin-update .plugin-release-notes summary{color:var(--sgs-accent)}
 .appearance-page .plugin-heading{margin:0}
 .management-tabs{position:sticky;top:-12px;z-index:8;background:var(--sgs-bg)!important;box-shadow:0 5px 8px var(--sgs-bg)!important}
 .card-style-workshop summary{cursor:pointer;color:var(--sgs-accent);padding:8px 0;font-size:12px;min-height:34px}.card-style-workshop summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}.card-style-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-style-choices button{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;font-size:11px}.card-style-choices button[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 3px 0 var(--sgs-accent);background:color-mix(in srgb,var(--sgs-accent) 12%,var(--sgs-surface))}.card-style-preview{display:flex;gap:4px;width:100%;justify-content:center}.card-style-preview canvas,.card-style-preview img{width:43%;max-width:64px;height:auto;aspect-ratio:93/130;border-radius:3px}.card-style-workshop p{margin:8px 0}
@@ -31927,16 +31944,28 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
   function createShell({ window: win, document: doc, settings, scope }) {
+    let microUpdate = null, microUpdateBusy = !1, microUpdateError = "";
+    async function runMicroUpdate(action) {
+      microUpdateBusy = !0, microUpdateError = "", render();
+      try {
+        if (typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ != "function") throw new Error("\u5F53\u524D\u5FAE\u7AEF\u63A5\u5165\u5C42\u5C1A\u4E0D\u652F\u6301\u811A\u672C\u66F4\u65B0\uFF0C\u8BF7\u5148\u5347\u7EA7\u63A5\u5165\u5C42\u4E00\u6B21\u3002");
+        microUpdate = await win.__SGS_TOOLBOX_SCRIPT_UPDATE__(action), action === "check" && microUpdate.current && compareVersions2(microUpdate.current, CORE_VERSION) > 0 && (microUpdate = { ...microUpdate, version: microUpdate.current, pending: !0 }), microUpdate.pending && notify("\u811A\u672C\u5DF2\u4FDD\u5B58\uFF0C\u4E0B\u6B21\u6253\u5F00\u6E38\u620F\u65F6\u751F\u6548\uFF1B\u5F53\u524D\u724C\u5C40\u4E0D\u53D7\u5F71\u54CD\u3002");
+      } catch (error) {
+        microUpdateError = error.message;
+      } finally {
+        microUpdateBusy = !1, render();
+      }
+    }
     let pendingCoreUpgrade = settings.get("pendingCoreUpgrade", "");
     pendingCoreUpgrade && compareVersions2(CORE_VERSION, pendingCoreUpgrade) >= 0 && (pendingCoreUpgrade = "", settings.set("pendingCoreUpgrade", ""));
     let gameView = "battle", renderedKey = "", viewScroll = /* @__PURE__ */ new Map(), host = doc.createElement("div");
     host.dataset.sgsToolbox = "core";
     let shadow = host.attachShadow({ mode: "open" });
-    shadow.innerHTML = `<style>${style}</style><section class="shell"><div class="compact" data-count-state="unknown"><span class="slash" title="\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528\uFF1B\u53CC\u51FB\u5C55\u5F00\uFF0C\u6309\u4F4F\u62D6\u52A8"><span class="slash-seal" aria-hidden="true">\u6740</span><span class="slash-reading"><span class="slash-label">\u5269\u4F59</span><b data-slash aria-label="\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528">\u2014</b></span></span><div class="compact-actions"><button data-screenshot title="\u622A\u56FE\u5E76\u590D\u5236" aria-label="\u622A\u56FE\u5E76\u590D\u5236"></button><button data-expand title="\u653E\u5927\u9762\u677F" aria-label="\u653E\u5927\u9762\u677F"></button></div></div><div class="compact-summary" aria-label="\u5173\u6CE8\u5361\u724C\u672A\u89C1\u5F20\u6570"></div><header class="brand"><div class="mark" aria-hidden="true"></div><div><strong>\u4E09\u56FD\u6740 OL \u5DE5\u5177\u7BB1</strong><small>${EDITION.toUpperCase()} \xB7 ${CORE_VERSION}</small></div><button title="\u6298\u53E0\u9762\u677F" aria-label="\u6298\u53E0\u9762\u677F"></button></header><div class="status"><i class="dot"></i><span>\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6</span></div><nav class="nav" role="tablist">${categories.map(([id, title]) => `<button data-category="${id}" role="tab" aria-label="${title}" aria-selected="false"><span>${title}</span></button>`).join("")}</nav><main class="content" role="tabpanel"></main><footer class="footer"><span>${EDITION === "dev" ? "\u5F00\u53D1\u7248" : EDITION === "lite" ? "\u8F7B\u91CF\u7248" : "\u5B8C\u6574\u7248"} ${CORE_VERSION}</span><button data-open-market title="\u6253\u5F00\u63D2\u4EF6\u5E02\u573A" aria-label="\u6253\u5F00\u63D2\u4EF6\u5E02\u573A">\u63D2\u4EF6\u5E02\u573A</button></footer></section>`;
+    shadow.innerHTML = `<style>${style}</style><section class="shell"><svg class="hud-locator" aria-hidden="true" focusable="false"><rect pathLength="100"/></svg><div class="compact" data-count-state="unknown"><span class="slash" title="\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528\uFF1B\u53CC\u51FB\u5C55\u5F00\uFF0C\u6309\u4F4F\u62D6\u52A8"><span class="slash-seal" aria-hidden="true">\u6740</span><span class="slash-reading"><span class="slash-label">\u5269\u4F59</span><b data-slash aria-label="\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528">\u2014</b></span></span><div class="compact-actions"><button data-screenshot title="\u622A\u56FE\u5E76\u590D\u5236" aria-label="\u622A\u56FE\u5E76\u590D\u5236"></button><button data-expand title="\u653E\u5927\u9762\u677F" aria-label="\u653E\u5927\u9762\u677F"></button></div></div><div class="compact-summary" aria-label="\u5173\u6CE8\u5361\u724C\u672A\u89C1\u5F20\u6570"></div><header class="brand"><div class="mark" aria-hidden="true"></div><div><strong>\u4E09\u56FD\u6740 OL \u5DE5\u5177\u7BB1</strong><small>${EDITION.toUpperCase()} \xB7 ${CORE_VERSION}</small></div><button title="\u6298\u53E0\u9762\u677F" aria-label="\u6298\u53E0\u9762\u677F"></button></header><div class="status"><i class="dot"></i><span>\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6</span></div><nav class="nav" role="tablist">${categories.map(([id, title]) => `<button data-category="${id}" role="tab" aria-label="${title}" aria-selected="false"><span>${title}</span></button>`).join("")}</nav><main class="content" role="tabpanel"></main><footer class="footer"><span>${EDITION === "dev" ? "\u5F00\u53D1\u7248" : EDITION === "lite" ? "\u8F7B\u91CF\u7248" : "\u5B8C\u6574\u7248"} ${CORE_VERSION}</span><button data-open-market title="\u6253\u5F00\u63D2\u4EF6\u5E02\u573A" aria-label="\u6253\u5F00\u63D2\u4EF6\u5E02\u573A">\u63D2\u4EF6\u5E02\u573A</button></footer></section>`;
     for (let [selector, name] of [[".mark", "toolbox"], ["[data-screenshot]", "camera"], ["[data-expand]", "expand"], [".brand button", "collapse"], ["[data-open-market]", "package"]])
       shadow.querySelector(selector).append(createIcon(doc, name));
     for (let [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
-    let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, pluginSearch = "", onlyUninstalled = settings.get("marketOnlyUninstalled", !1) === !0, marketState = {}, marketRequest = 0, installing = /* @__PURE__ */ new Set(), dependencyPrompts = /* @__PURE__ */ new Map();
+    let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, pluginSearch = "", onlyUninstalled = settings.get("marketOnlyUninstalled", !0) === !0, marketState = {}, marketRequest = 0, installing = /* @__PURE__ */ new Set(), dependencyPrompts = /* @__PURE__ */ new Map();
     function currentMarketState() {
       let client = handlers.market?.();
       return marketState.client !== client && (marketRequest++, marketState = { client }), marketState;
@@ -31981,14 +32010,15 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       }
     }
     function showLegacyWarning() {
+      if (!1) return;
       shadow.querySelector("[data-legacy-warning]")?.remove();
       let panel = el("section", void 0, "card");
       panel.dataset.legacyWarning = "", panel.setAttribute("role", "status"), panel.style.cssText = "position:fixed;top:16px;right:0;width:min(320px,90vw);max-height:80vh;overflow:auto;z-index:10;box-shadow:0 8px 28px #0005", panel.append(el("strong", "\u65E7\u5C0F\u6284\u505C\u7528\u63D0\u9192"), el("p", "\u5EFA\u8BAE\u5728\u7BE1\u6539\u7334\u7BA1\u7406\u9762\u677F\u4E2D\u5173\u95ED\u65E7\u5C0F\u6284\uFF0C\u518D\u5237\u65B0\u6E38\u620F\u3002\u5DE5\u5177\u7BB1\u9ED8\u8BA4\u4E0D\u9000\u51FA\u6216\u9690\u85CF\u65E7\u811A\u672C\uFF0C\u53EF\u5173\u95ED\u63D0\u9192\u7EE7\u7EED\u4F7F\u7528\u3002"));
       let steps = el("ol");
       for (let text2 of ["\u70B9\u51FB\u6D4F\u89C8\u5668\u53F3\u4E0A\u89D2\u7684\u6269\u5C55\u56FE\u6807\uFF0C\u627E\u5230\u7BE1\u6539\u7334\uFF08Tampermonkey\uFF09\u3002", "\u70B9\u51FB\u7BE1\u6539\u7334\u56FE\u6807\uFF0C\u9009\u62E9\u201C\u7BA1\u7406\u9762\u677F / Dashboard\u201D\u3002", "\u5173\u95ED\u65E7\u5C0F\u6284\u811A\u672C\u7684\u5F00\u5173\uFF0C\u518D\u8FD4\u56DE\u6E38\u620F\u5237\u65B0\u9875\u9762\u3002"]) steps.append(el("li", text2));
-      steps.style.paddingLeft = "20px", panel.append(steps), panel.append(el("p", "\u65E0\u9700\u67E5\u627E\u6269\u5C55 ID\u3002\u82E5\u5DE5\u5177\u680F\u672A\u663E\u793A\u7BE1\u6539\u7334\uFF0C\u53EF\u5148\u5728\u6269\u5C55\u83DC\u5355\u4E2D\u5C06\u5176\u56FA\u5B9A\u3002", "muted"));
+      steps.style.paddingLeft = "20px", panel.append(steps), panel.append(helpTip(doc, "\u65E0\u9700\u67E5\u627E\u6269\u5C55 ID\u3002\u82E5\u5DE5\u5177\u680F\u672A\u663E\u793A\u7BE1\u6539\u7334\uFF0C\u53EF\u5148\u5728\u6269\u5C55\u83DC\u5355\u4E2D\u5C06\u5176\u56FA\u5B9A\u3002"));
       let details = el("details");
-      details.append(el("summary", "\u4FDD\u5B58\u672C\u673A\u7BA1\u7406\u5730\u5740\uFF08\u53EF\u9009\uFF09")), details.append(el("p", "\u6253\u5F00\u7BA1\u7406\u9762\u677F\u540E\uFF0C\u590D\u5236\u5176\u5730\u5740\u7C98\u8D34\u5230\u8FD9\u91CC\u3002\u4EE5\u540E\u53EF\u4E00\u952E\u590D\u5236\uFF0C\u5728\u5730\u5740\u680F\u6253\u5F00\uFF1B\u7F51\u9875\u4E0D\u80FD\u76F4\u63A5\u8DF3\u8F6C\u5230\u6269\u5C55\u5185\u90E8\u9875\u9762\u3002", "muted"));
+      details.append(el("summary", "\u4FDD\u5B58\u672C\u673A\u7BA1\u7406\u5730\u5740\uFF08\u53EF\u9009\uFF09")), details.append(helpTip(doc, "\u6253\u5F00\u7BA1\u7406\u9762\u677F\u540E\uFF0C\u590D\u5236\u5176\u5730\u5740\u7C98\u8D34\u5230\u8FD9\u91CC\u3002\u4EE5\u540E\u53EF\u4E00\u952E\u590D\u5236\uFF0C\u5728\u5730\u5740\u680F\u6253\u5F00\uFF1B\u7F51\u9875\u4E0D\u80FD\u76F4\u63A5\u8DF3\u8F6C\u5230\u6269\u5C55\u5185\u90E8\u9875\u9762\u3002"));
       let input = el("input", void 0, "sgs-input");
       input.value = settings.get("userscriptDashboardAddress", ""), input.placeholder = "\u7C98\u8D34\u672C\u673A\u7BE1\u6539\u7334\u7BA1\u7406\u9762\u677F\u5730\u5740", input.setAttribute("aria-label", "\u672C\u673A\u7BE1\u6539\u7334\u7BA1\u7406\u9762\u677F\u5730\u5740"), input.style.width = "100%";
       let hint = el("p", "", "muted");
@@ -32053,13 +32083,13 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
           });
           choice.dataset.edgeBehavior = value, choice.setAttribute("aria-pressed", String(edgeBehavior() === value)), choices.append(choice);
         }
-        content.append(choices, el("div", "\u62D6\u5230\u53F3\u8FB9\u7F18\u65F6\uFF1A\u65E0\u64CD\u4F5C\u4FDD\u6301\u60AC\u6D6E\uFF1B\u6536\u8D77\u5728\u9F20\u6807\u79FB\u5F00\u540E\u9690\u85CF\uFF1B\u56FA\u5B9A\u4E3A\u4FA7\u680F\u5E76\u4E3A\u6E38\u620F\u753B\u5E03\u7559\u51FA\u7A7A\u95F4\u3002", "muted"));
+        content.append(choices, helpTip(doc, "\u62D6\u5230\u53F3\u8FB9\u7F18\u65F6\uFF1A\u65E0\u64CD\u4F5C\u4FDD\u6301\u60AC\u6D6E\uFF1B\u6536\u8D77\u5728\u9F20\u6807\u79FB\u5F00\u540E\u9690\u85CF\uFF1B\u56FA\u5B9A\u4E3A\u4FA7\u680F\u5E76\u4E3A\u6E38\u620F\u753B\u5E03\u7559\u51FA\u7A7A\u95F4\u3002"));
       }
       content.append(el("h3", "\u622A\u56FE"));
       let cleanRow = el("label", void 0, "row");
       cleanRow.append(el("span", "\u622A\u56FE\u65F6\u9690\u85CF\u5DE5\u5177\u7BB1 UI"));
       let clean2 = el("input");
-      clean2.type = "checkbox", styleSwitch(clean2), clean2.checked = settings.get("screenshotHideUI", !0), clean2.dataset.setting = "screenshotHideUI", clean2.onchange = () => settings.set("screenshotHideUI", clean2.checked), cleanRow.append(clean2), content.append(cleanRow), content.append(el("div", "\u5BF9\u5C40\u5185\u9690\u85CF HUD\u3001\u660E\u724C\u4E0E\u7406\u724C\u7B49\u53E0\u52A0\uFF1B\u5927\u5385\u4EC5\u9690\u85CF HUD\u3002", "muted"));
+      clean2.type = "checkbox", styleSwitch(clean2), clean2.checked = settings.get("screenshotHideUI", !0), clean2.dataset.setting = "screenshotHideUI", clean2.onchange = () => settings.set("screenshotHideUI", clean2.checked), cleanRow.append(clean2), content.append(cleanRow), content.append(helpTip(doc, "\u5BF9\u5C40\u5185\u9690\u85CF HUD\u3001\u660E\u724C\u4E0E\u7406\u724C\u7B49\u53E0\u52A0\uFF1B\u5927\u5385\u4EC5\u9690\u85CF HUD\u3002"));
       let shortcutRow = el("label", void 0, "row");
       shortcutRow.append(el("span", "\u622A\u56FE\u5FEB\u6377\u952E"));
       let shortcut = el("input", void 0, "sgs-input");
@@ -32079,32 +32109,35 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         binding && (settings.set("screenshotShortcut", binding), showShortcut(), shortcut.blur());
       }, shortcutRow.append(shortcut), content.append(shortcutRow);
       let shotActions = el("div", void 0, "actions");
-      shotActions.append(iconButton("\u6E05\u9664\u5FEB\u6377\u952E", "trash", () => {
+      if (shotActions.append(iconButton("\u6E05\u9664\u5FEB\u6377\u952E", "trash", () => {
         settings.set("screenshotShortcut", null), showShortcut();
       }, "icon-action"), iconButton("\u6062\u590D\u9ED8\u8BA4\u5FEB\u6377\u952E", "rollback", () => {
         settings.set("screenshotShortcut", DEFAULT_SCREENSHOT_SHORTCUT), showShortcut();
-      }, "icon-action"), button("\u622A\u56FE\u5E76\u590D\u5236", () => handlers.screenshot?.())), content.append(shotActions), content.append(el("div", "\u70B9\u51FB\u5F55\u5165\u5FEB\u6377\u952E\uFF0CEsc \u53D6\u6D88\u3002\u622A\u56FE\u81EA\u52A8\u590D\u5236\u5230\u526A\u8D34\u677F\u3002", "muted")), content.append(el("h3", "\u65E7\u811A\u672C\u517C\u5BB9")), content.append(button("\u524D\u5F80\u7BE1\u6539\u7334\u7BA1\u7406", showLegacyWarning));
-      let enabled = el("label", void 0, "row");
-      enabled.append(el("span", "\u63A5\u7BA1\u65E7\u5C0F\u6284\u754C\u9762"));
-      let check = doc.createElement("input");
-      check.type = "checkbox", styleSwitch(check), check.checked = settings.get("compatEnabled", !1), check.onchange = () => {
-        settings.set("compatEnabled", check.checked), handlers.compat?.setEnabled(check.checked);
-      }, enabled.append(check), content.append(enabled);
-      let policy = el("select", void 0, "sgs-select");
-      policy.setAttribute("aria-label", "\u65E7\u811A\u672C\u63A5\u7BA1\u65B9\u5F0F");
-      for (let [value, label] of [["exit-known", "\u9000\u51FA\u5DF2\u77E5\u7248\u672C\u5E76\u9690\u85CF"], ["hide", "\u4EC5\u9690\u85CF\u754C\u9762"]]) {
-        let option = el("option", label);
-        option.value = value, policy.append(option);
+      }, "icon-action"), button("\u622A\u56FE\u5E76\u590D\u5236", () => handlers.screenshot?.())), content.append(shotActions), content.append(helpTip(doc, "\u70B9\u51FB\u5F55\u5165\u5FEB\u6377\u952E\uFF0CEsc \u53D6\u6D88\u3002\u622A\u56FE\u81EA\u52A8\u590D\u5236\u5230\u526A\u8D34\u677F\u3002")), !!1) {
+        content.append(el("h3", "\u65E7\u811A\u672C\u517C\u5BB9")), content.append(button("\u524D\u5F80\u7BE1\u6539\u7334\u7BA1\u7406", showLegacyWarning));
+        let enabled = el("label", void 0, "row");
+        enabled.append(el("span", "\u63A5\u7BA1\u65E7\u5C0F\u6284\u754C\u9762"));
+        let check = doc.createElement("input");
+        check.type = "checkbox", styleSwitch(check), check.checked = settings.get("compatEnabled", !1), check.onchange = () => {
+          settings.set("compatEnabled", check.checked), handlers.compat?.setEnabled(check.checked);
+        }, enabled.append(check), content.append(enabled);
+        let policy = el("select", void 0, "sgs-select");
+        policy.setAttribute("aria-label", "\u65E7\u811A\u672C\u63A5\u7BA1\u65B9\u5F0F");
+        for (let [value, label] of [["exit-known", "\u9000\u51FA\u5DF2\u77E5\u7248\u672C\u5E76\u9690\u85CF"], ["hide", "\u4EC5\u9690\u85CF\u754C\u9762"]]) {
+          let option = el("option", label);
+          option.value = value, policy.append(option);
+        }
+        policy.value = settings.get("compatPolicy", "hide"), policy.onchange = () => {
+          settings.set("compatPolicy", policy.value), handlers.compat?.setTakeoverPolicy?.(policy.value), handlers.compat?.scan(), render();
+        }, content.append(policy);
+        let compatStatus = handlers.compat?.getStatus();
+        content.append(el("div", formatCompat(compatStatus), "notice"));
+        let actions = el("div", void 0, "actions");
+        actions.append(iconButton("\u91CD\u65B0\u68C0\u6D4B", "reload", () => {
+          handlers.compat?.scan(), render();
+        }, "icon-action"), button("\u70B9\u9009\u9690\u85CF\u65E7\u9762\u677F", () => startPicker())), content.append(actions), content.append(helpTip(doc, "\u9690\u85CF UI \u4E0D\u4EE3\u8868\u540E\u53F0\u903B\u8F91\u5DF2\u505C\u6B62\u3002\u65E0\u6CD5\u9000\u51FA\u7684\u811A\u672C\u4ECD\u9700\u5728 Tampermonkey \u4E2D\u505C\u7528\uFF1B\u5DF2\u9000\u51FA\u811A\u672C\u9700\u5237\u65B0\u9875\u9762\u624D\u80FD\u6062\u590D\u3002"));
       }
-      policy.value = settings.get("compatPolicy", "hide"), policy.onchange = () => {
-        settings.set("compatPolicy", policy.value), handlers.compat?.setTakeoverPolicy?.(policy.value), handlers.compat?.scan(), render();
-      }, content.append(policy);
-      let compatStatus = handlers.compat?.getStatus();
-      content.append(el("div", formatCompat(compatStatus), "notice"));
-      let actions = el("div", void 0, "actions");
-      if (actions.append(iconButton("\u91CD\u65B0\u68C0\u6D4B", "reload", () => {
-        handlers.compat?.scan(), render();
-      }, "icon-action"), button("\u70B9\u9009\u9690\u85CF\u65E7\u9762\u677F", () => startPicker())), content.append(actions), content.append(el("div", "\u9690\u85CF UI \u4E0D\u4EE3\u8868\u540E\u53F0\u903B\u8F91\u5DF2\u505C\u6B62\u3002\u65E0\u6CD5\u9000\u51FA\u7684\u811A\u672C\u4ECD\u9700\u5728 Tampermonkey \u4E2D\u505C\u7528\uFF1B\u5DF2\u9000\u51FA\u811A\u672C\u9700\u5237\u65B0\u9875\u9762\u624D\u80FD\u6062\u590D\u3002", "muted")), !1) {
+      if (!1) {
         content.append(el("h3", "\u63D2\u4EF6\u5E02\u573A\u76EE\u5F55\u5730\u5740"));
         let input = el("input", void 0, "address sgs-input");
         input.value = settings.get("marketUrl", LOCAL_MARKET_URL), input.setAttribute("aria-label", "\u5E02\u573A\u5730\u5740");
@@ -32123,9 +32156,9 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         }
         input.disabled = selected === "\u79BB\u7EBF", content.append(sources, input, button("\u4FDD\u5B58\u5730\u5740", () => {
           handlers.setMarketUrl(input.value), render(), notify("\u5E02\u573A\u5730\u5740\u5DF2\u4FDD\u5B58");
-        }), el("div", "\u5E02\u573A\u8FDE\u63A5\u53EF\u9009\uFF1B\u4EC5\u624B\u52A8\u8FDE\u63A5\u6216\u68C0\u6D4B\u66F4\u65B0\u65F6\u8054\u7F51\uFF0C\u79BB\u7EBF\u4ECD\u53EF\u5BFC\u5165\u63D2\u4EF6\u5305\u3002", "muted"));
+        }), helpTip(doc, "\u5E02\u573A\u8FDE\u63A5\u53EF\u9009\uFF1B\u4EC5\u624B\u52A8\u8FDE\u63A5\u6216\u68C0\u6D4B\u66F4\u65B0\u65F6\u8054\u7F51\uFF0C\u79BB\u7EBF\u4ECD\u53EF\u5BFC\u5165\u63D2\u4EF6\u5305\u3002"));
       }
-      content.append(el("h3", "\u8BB0\u724C\u8BCA\u65AD"), el("div", "\u5BFC\u51FA\u672C\u5C40\u6700\u8FD1\u7684\u5361\u724C\u8BB0\u5F55\u4E0E\u6D88\u606F\u7C7B\u578B\uFF0C\u7528\u4E8E\u6392\u67E5\u660E\u724C\u9057\u6F0F\u3002\u6587\u4EF6\u4E0D\u542B\u8D26\u53F7\u3001\u6635\u79F0\u6216\u5B8C\u6574\u767B\u5F55\u6570\u636E\uFF0C\u53EA\u4FDD\u5B58\u5230\u672C\u673A\u3002", "muted"), button("\u5BFC\u51FA\u8BB0\u724C\u8BCA\u65AD", exportDiagnostics));
+      content.append(el("h3", "\u8BB0\u724C\u8BCA\u65AD"), helpTip(doc, "\u5BFC\u51FA\u672C\u5C40\u6700\u8FD1\u7684\u5361\u724C\u8BB0\u5F55\u4E0E\u6D88\u606F\u7C7B\u578B\uFF0C\u7528\u4E8E\u6392\u67E5\u660E\u724C\u9057\u6F0F\u3002\u6587\u4EF6\u4E0D\u542B\u8D26\u53F7\u3001\u6635\u79F0\u6216\u5B8C\u6574\u767B\u5F55\u6570\u636E\uFF0C\u53EA\u4FDD\u5B58\u5230\u672C\u673A\u3002"), button("\u5BFC\u51FA\u8BB0\u724C\u8BCA\u65AD", exportDiagnostics));
       let group;
       for (let node of [...content.children].slice(first))
         node.tagName === "H3" && (group = el("section", void 0, "settings-group"), content.append(group)), group.append(node);
@@ -32163,13 +32196,20 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       let n = button("", fn);
       return n.title = label, n.setAttribute("aria-label", label), n.className = cls, n.append(svgIcon(icon2), el("span", label, "sr-only")), n;
     };
+    function releaseNotesBlock(item, expanded = !1) {
+      if (!1) return [];
+      let details = el("details", void 0, "plugin-release-notes");
+      details.open = expanded;
+      let text2 = el("div", item.releaseNotes || "\u4F5C\u8005\u672A\u63D0\u4F9B\u6B64\u7248\u672C\u7684\u66F4\u65B0\u5185\u5BB9\u3002", "plugin-release-notes-text");
+      return text2.tabIndex = 0, text2.setAttribute("role", "region"), text2.setAttribute("aria-label", `${item.version} \u66F4\u65B0\u5185\u5BB9`), details.append(el("summary", `\u6700\u8FD1\u66F4\u65B0 \xB7 ${item.version}`), text2), [details];
+    }
     function pluginIdentity(card, item, fallbackDescription) {
       let heading = el("div", void 0, "plugin-heading"), symbol = el("div", void 0, "plugin-symbol");
       symbol.append(svgIcon(item.icon || "package"));
       let name = el("strong", item.name, "plugin-name");
       name.title = item.name, heading.append(symbol, name, el("span", item.version, "plugin-version"));
       let description = el("div", item.description || fallbackDescription || "\u6B64\u63D2\u4EF6\u6682\u672A\u63D0\u4F9B\u7B80\u4ECB", "plugin-description");
-      if (description.title = description.textContent, card.append(heading, description), item.dependencies?.length) {
+      if (description.title = description.textContent, heading.append(helpTip(doc, description.textContent, `${item.name}\u7B80\u4ECB`)), card.append(heading, description), item.dependencies?.length) {
         let installed = handlers.manager?.list() || [], label = "\u524D\u7F6E\uFF1A" + item.dependencies.map((id) => installed.find((p) => p.id === id)?.name || currentMarketState().catalog?.plugins.find((p) => p.id === id)?.name || id).join("\u3001"), dependency = el("div", label, "plugin-prerequisites");
         dependency.title = label, card.append(dependency);
       }
@@ -32195,8 +32235,8 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
           let notice = el("div", void 0, "plugin-update"), info = el("div", void 0, "plugin-update-info");
           info.append(svgIcon("update"), el("span", `\u53D1\u73B0\u66F4\u65B0\uFF1A${item.version} \u2192 ${update.entry.version}`));
           let upgrade = button(`\u66F4\u65B0\u81F3 ${update.entry.version}`, () => installEntry(update.entry, !0));
-          upgrade.prepend(svgIcon("update")), upgrade.disabled = installing.has(item.id) || !!maintenance, notice.append(info, upgrade), card.append(notice);
-        }
+          upgrade.prepend(svgIcon("update")), upgrade.disabled = installing.has(item.id) || !!maintenance, notice.append(info, ...releaseNotesBlock(update.entry, !0), upgrade), card.append(notice);
+        } else card.append(...releaseNotesBlock(item));
         renderDependencyPrompt(card, update?.entry || item), markSearchable(card, item), content.append(card);
       }
     }
@@ -32328,7 +32368,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         let bottom = el("div", void 0, "plugin-bottom"), status = el("span", current ? `\u5DF2\u5B89\u88C5${same ? "\u6B64\u7248\u672C" : " " + current.version}` : "\u672A\u5B89\u88C5", "plugin-status");
         status.title = status.textContent, status.style.whiteSpace = "normal", bottom.append(status);
         let busy = installing.has(entry.id), install2 = button(busy ? "\u6B63\u5728\u5B89\u88C5\u2026" : same ? "\u5DF2\u5B89\u88C5" : current ? "\u66FF\u6362\u6B64\u7248\u672C" : "\u5B89\u88C5\u6B64\u7248\u672C", () => installEntry(entry));
-        install2.disabled = busy || same, install2.style.marginLeft = "auto", install2.style.flexShrink = "0", busy && card.setAttribute("aria-busy", "true"), bottom.append(install2), card.append(bottom), renderDependencyPrompt(card, entry), markSearchable(card, entry), container.append(card);
+        install2.disabled = busy || same, install2.style.marginLeft = "auto", install2.style.flexShrink = "0", busy && card.setAttribute("aria-busy", "true"), bottom.append(install2), card.append(bottom, ...releaseNotesBlock(entry)), renderDependencyPrompt(card, entry), markSearchable(card, entry), container.append(card);
       }
     }
     function coreUpdateStatus() {
@@ -32336,6 +32376,23 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       return typeof version == "string" && /^\d+\.\d+\.\d+$/.test(version) ? { version, order: compareVersions2(version, CORE_VERSION) } : null;
     }
     function renderCoreUpgrade() {
+      if (!1) {
+        let card2 = el("section", void 0, "card plugin-card" + (microUpdate?.newer ? " has-update" : ""));
+        card2.dataset.coreUpgrade = "", pluginIdentity(card2, { name: "\u5DE5\u5177\u7BB1\u6838\u5FC3", version: CORE_VERSION, icon: "toolbox", description: "\u76F4\u63A5\u66F4\u65B0\u5DE5\u5177\u7BB1\u811A\u672C\uFF0C\u4FDD\u7559\u63D2\u4EF6\u4E0E\u8BBE\u7F6E\uFF0C\u4E0B\u6B21\u6253\u5F00\u6E38\u620F\u751F\u6548\u3002" });
+        let message = microUpdateBusy ? "\u6B63\u5728\u8FDE\u63A5\u811A\u672C\u66F4\u65B0\u670D\u52A1\u2026" : microUpdateError || (microUpdate?.pending ? "\u5DF2\u4FDD\u5B58\u811A\u672C " + microUpdate.version + "\uFF0C\u4E0B\u6B21\u6253\u5F00\u6E38\u620F\u751F\u6548\u3002" : microUpdate?.newer ? "\u53D1\u73B0\u811A\u672C\u66F4\u65B0\uFF1A" + CORE_VERSION + " \u2192 " + microUpdate.version : microUpdate ? "\u811A\u672C\u5DF2\u662F\u6700\u65B0\u7248\u672C" : "\u70B9\u51FB\u68C0\u67E5\u811A\u672C\u66F4\u65B0"), status2 = el("div", message, microUpdateError ? "error" : "notice");
+        status2.setAttribute("role", microUpdateError ? "alert" : "status"), card2.append(status2);
+        let actions2 = el("div", void 0, "core-upgrade-actions"), check = button("\u68C0\u67E5\u811A\u672C\u66F4\u65B0", () => runMicroUpdate("check"));
+        if (check.disabled = microUpdateBusy, actions2.append(check), microUpdate?.newer && !microUpdate.pending) {
+          let install2 = button("\u66F4\u65B0\u811A\u672C", () => runMicroUpdate("install"));
+          install2.disabled = microUpdateBusy, install2.prepend(svgIcon("update")), actions2.append(install2);
+        }
+        if (microUpdate?.rollback) {
+          let rollback = button("\u56DE\u9000\u811A\u672C", () => runMicroUpdate("rollback"));
+          rollback.disabled = microUpdateBusy, actions2.append(rollback);
+        }
+        card2.append(actions2), content.append(card2);
+        return;
+      }
       let state = currentMarketState(), latest = coreUpdateStatus(), card = el("section", void 0, "card plugin-card" + (latest?.order > 0 ? " has-update" : ""));
       card.dataset.coreUpgrade = "", pluginIdentity(card, { name: "\u5DE5\u5177\u7BB1\u6838\u5FC3", version: CORE_VERSION, icon: "toolbox", description: "\u901A\u8FC7\u7528\u6237\u811A\u672C\u5B89\u88C5\u9875\u5347\u7EA7\uFF0C\u5B89\u88C5\u5B8C\u6210\u540E\u5237\u65B0\u6E38\u620F\u3002" });
       let status = state.client ? state.loading ? "\u6B63\u5728\u68C0\u6D4B\u6838\u5FC3\u7248\u672C\u2026" : state.error ? "\u6838\u5FC3\u7248\u672C\u68C0\u6D4B\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5" : latest ? latest.order > 0 ? "\u53D1\u73B0\u6838\u5FC3\u66F4\u65B0\uFF1A" + CORE_VERSION + " \u2192 " + latest.version : latest.order < 0 ? "\u5F53\u524D\u6838\u5FC3\u9AD8\u4E8E\u5E02\u573A\u6B63\u5F0F\u7248 " + latest.version : "\u6838\u5FC3\u5DF2\u662F\u5E02\u573A\u6700\u65B0\u6B63\u5F0F\u7248" : "\u5C1A\u672A\u83B7\u53D6\u6838\u5FC3\u6B63\u5F0F\u7248\u4FE1\u606F" : "\u79BB\u7EBF \xB7 \u672A\u68C0\u6D4B\u6838\u5FC3\u7248\u672C";
@@ -32587,8 +32644,10 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     return startOwnedRuntime(win, EDITION, (api) => initialize(win, api));
   }
   async function initialize(win, api) {
-    if (installRefreshReentry(win)) return api;
-    let scope = api.scope, onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
+    if (!!1 && installRefreshReentry(win)) return api;
+    let scope = api.scope;
+    !1;
+    let onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
     Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
     let shell = createShell({ window: win, document: win.document, settings, scope }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), game = createGameAdapter(win, scope), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope });
     scope.add(game.onSceneChange((scene) => shell.setGameView(gameViewForScene(scene)))), shell.setGameView(gameViewForScene(game.getScene()));
@@ -32603,7 +32662,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       journal,
       store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : "sgs-ol-toolbox"),
       settings,
-      context: { core: Object.freeze({ version: CORE_VERSION, distribution: EDITION }), window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds, notify: shell.notify },
+      context: { core: Object.freeze({ version: CORE_VERSION, distribution: EDITION, platform: "browser" }), window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds, notify: shell.notify },
       onChange: () => shell.render()
     });
     scope.add(() => manager.dispose());
@@ -32636,7 +32695,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     return scope.interval(() => {
       shell.setRemainingSlash(game.getRemainingSlash());
       let ready = !!(game.getScene() || win.Laya?.stage || win.__SGS_TOOLBOX_DEMO__);
-      shell.host.style.display = ready ? "" : "none", ready && !legacyWarned && compat.getStatus().sources.length && (legacyWarned = !0, shell.showLegacyWarning()), ready && !mounted && (mounted = !0, snapshots.request());
+      shell.host.style.display = ready ? "" : "none", !!1 && ready && !legacyWarned && compat.getStatus().sources.length && (legacyWarned = !0, shell.showLegacyWarning()), ready && !mounted && (mounted = !0, snapshots.request());
       let capture = bridge.getStatus();
       shell.setStatus(bridge.error || (ready ? capture.received ? `\u5DF2\u6536 ${capture.received} \u6761\u6D88\u606F \xB7 ${journal.incomplete ? "\u7F3A\u5C11\u5F00\u5C40\u8BB0\u5F55" : "\u672C\u5C40\u8BB0\u5F55\u4E2D"}` : capture.targets.length ? "\u6D88\u606F\u5165\u53E3\u5DF2\u8FDE\u63A5 \xB7 \u7B49\u5F85\u6536\u5305" : "\u672A\u63A5\u5165\u6E38\u620F\u6D88\u606F \xB7 \u4EC5\u539F\u751F\u663E\u793A\u53EF\u7528" : "\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6"));
     }, 500), !win.__SGS_TOOLBOX_DEMO__ && !win.Laya?.stage && (shell.host.style.display = "none"), await manager.init(), scope.closed ? null : (Object.assign(api, { manager, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager.errors.length && shell.notify(manager.errors.join("\uFF1B")), api);

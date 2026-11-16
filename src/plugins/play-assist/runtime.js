@@ -5,6 +5,7 @@ import { createExtended, redShaOwnTurn } from './extended.js';
 
 // Static baseline: 小抄 1.6.75 uO/uE. Conditional judgement skills need 洛神 / 界洛神.
 export const SKILL_IDS = Object.freeze([62,769,726,3295,3310,792,3750,3753,295,250,784,445,49,716,101,3269,273,97,3260,102,891,...EXTRA_IDS]);
+const isWuxie = ui => Number(ui?.Card?.FirstSkillId ?? ui?.Card?.FirstSkill?.ID) === 13;
 const QIANFU_IDS = [3750,3753];
 export const CONDITIONAL_SKILL_IDS = Object.freeze([48,719,79,883]);
 export function supported(item) {
@@ -32,11 +33,12 @@ function nativeClick(node, type = 'click') {
 
 export function createRuntime(ctx, getSettings, onChange = () => {}) {
   const quandao = createQuandaoDisplay();
-  let state = null, disposed = false, proxy = null, proxyCleanup = [], ended = false, currentSeat = null, phase = null, sourceCard = null, wuxie = null, judgementFlower = null, lastRemember = Boolean(getSettings().remember);
-  let locks = new Set(lastRemember ? list(ctx.settings.get('lockedSkillIds', [])).map(Number) : []);
+  let state = null, disposed = false, proxy = null, proxyCleanup = [], ended = false, currentSeat = null, phase = null, sourceCard = null, wuxie = null, judgementFlower = null;
+  const remembered = new Set(list(ctx.settings.get('rememberedSkillIds', [])).map(Number));
+  let locks = new Set(remembered);
   const releases = [], tracked = fn => { const release = ctx.scope.add(fn); releases.push(release); return release; };
   const extended = createExtended(ctx, {button,choice,locked:id=>locks.has(id),hasKind:kind=>EXTRA_IDS.some(id=>locks.has(id) && skillKind(id)===kind)});
-  function persist() { ctx.settings.set('lockedSkillIds', getSettings().remember ? [...locks] : []); }
+  function persist() { ctx.settings.set('rememberedSkillIds', [...remembered]); }
   function gameContext() { return read(() => ctx.game.getClass('GameContext')); }
   function alive(s = state) {
     const gc = gameContext(), snap = read(() => ctx.game.getSnapshot());
@@ -48,16 +50,20 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       read(() => gc.IsViewerOrReplay()) !== true && read(() => gc.CanOperationInGame()) !== false;
   }
   function notify() { onChange(); }
-  function toggle(id) {
+  function toggle(id, remember = false) {
     id = Number(id);
     if (!alive() || !getSettings().skillLock || !list(state.self.skillItems).some(x => supported(x) && Number(x.Skill?.SkillId) === id)) return false;
-    locks.has(id) ? locks.delete(id) : locks.add(id); persist(); paint(); schedule(state); notify(); return true;
+    if (remember) { locks.add(id); remembered.add(id); }
+    else if (locks.has(id)) { locks.delete(id); remembered.delete(id); }
+    else locks.add(id);
+    persist(); paint(); schedule(state); notify(); return true;
   }
   function getSkills() {
-    return list(state?.self.skillItems).filter(supported).map(item => ({id:Number(item.Skill.SkillId), name:String(item.Skill.Name || item.Skill.SkillId), locked:locks.has(Number(item.Skill.SkillId))}));
+    return list(state?.self.skillItems).filter(supported).map(item => ({id:Number(item.Skill.SkillId), name:String(item.Skill.Name || item.Skill.SkillId), locked:locks.has(Number(item.Skill.SkillId)), remembered:remembered.has(Number(item.Skill.SkillId))}));
   }
   function paint() {
     for (const [item, binding] of state?.bindings || []) if (binding.label && !binding.label.destroyed) {
+      binding.label.text = remembered.has(Number(item.Skill?.SkillId)) ? '记\n住' : '自\n动';
       binding.label.visible = getSettings().skillLock && locks.has(Number(item.Skill?.SkillId));
       binding.label.color = ctx.ui.nativeTheme?.palette?.accent || '#c8ab6a';
       binding.label.bgColor = ctx.ui.nativeTheme?.palette?.bg || '#171b1d';
@@ -78,18 +84,32 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     const handler = handlers.find(h => h?.caller === item && typeof h.method === 'function' && h.method !== item.onClick && h.method !== item.onMouse);
     // Laya.off recovers pooled Handler objects and clears their fields.
     const original = handler?.method, originalArgs = handler?.args;
-    let timer = null, suppress = false, label = null;
-    const cancel = () => { timer?.(); timer = null; };
-    const down = () => {
+    let timer = null, memoryTimer = null, suppress = false, label = null;
+    const cancel = () => { timer?.(); memoryTimer?.(); timer = memoryTimer = null; };
+    const down = (event = {}, right = false) => {
       cancel(); suppress = false;
       if (!alive(s) || !getSettings().skillLock) return;
-      if (locks.has(id)) { suppress = true; toggle(id); return; }
+      const mobile = Boolean(event.nativeEvent?.touches || event.touches || ctx.window.Laya?.Browser?.onMobile);
+      if (!right && locks.has(id)) { suppress = true; toggle(id); return; }
       const gc = gameContext();
       const shanhe = Boolean(gc?.IsRoguelike1v1 || gc?.IsRogueLike || /Rogue/.test(String(s.scene.SceneName)));
-      const handle = setTimeout(() => { cancel(); if (alive(s) && Number(item.Skill?.SkillId) === id && toggle(id)) {
-        suppress = true; ctx.notify?.(`已启用 ${item.Skill.Name} 技能辅助，再点一次解除`);
-      } }, shanhe ? 500 : 2000);
+      const valid = () => alive(s) && Number(item.Skill?.SkillId) === id && getSettings().skillLock;
+      const handle = setTimeout(() => {
+        if (!valid()) return;
+        if (right) toggle(id, true); else if (!locks.has(id)) toggle(id);
+        suppress = true;
+        ctx.notify?.(right ? `已记住 ${item.Skill.Name} 技能辅助，左键点一下取消` :
+          `已启用 ${item.Skill.Name} 技能辅助` + (mobile ? '，继续按住可记住' : '，点一下取消'));
+      }, shanhe ? 500 : 2000);
       timer = ctx.scope.add(() => clearTimeout(handle));
+      if (mobile && !right) {
+        const memoryHandle = setTimeout(() => {
+          if (!valid()) return;
+          toggle(id, true); suppress = true;
+          ctx.notify?.(`已记住 ${item.Skill.Name} 技能辅助，点一下取消`);
+        }, shanhe ? 3000 : 5000);
+        memoryTimer = ctx.scope.add(() => clearTimeout(memoryHandle));
+      }
     };
     const wrapped = function(...args) { if (suppress && !s.automatic) { suppress = false; return; } rapid(); const result = original.apply(this, args); rapid(); return result; };
     if (handler && typeof item.on === 'function' && typeof item.off === 'function') {
@@ -97,6 +117,20 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       clean.push(() => { item.off('click', item, wrapped); if (!item.destroyed) item.on('click', item, original, originalArgs); });
       for (const [event, fn] of [['mousedown',down],['mouseup',cancel],['mouseout',cancel]]) {
         item.on(event, owner, fn); clean.push(() => item.off(event, owner, fn));
+      }
+    }
+    // SkillItem.on redirects to a private dispatcher; right-button events
+    // must also be registered on the Sprite that receives Laya mouse input.
+    const rightDown = event => down(event, true);
+    const dispatcher = ctx.window.Laya?.EventDispatcher?.prototype;
+    const rightTarget = item.eventDispatcher && dispatcher ? dispatcher : item;
+    const raw = rightTarget !== item;
+    for (const [event, fn] of [['rightmousedown',rightDown],['rightmouseup',cancel],['mouseout',cancel]]) {
+      if (raw) {
+        rightTarget.on.call(item,event,owner,fn);
+        clean.push(() => rightTarget.off.call(item,event,owner,fn));
+      } else if (typeof item.on === 'function' && typeof item.off === 'function') {
+        item.on(event,owner,fn); clean.push(() => item.off(event,owner,fn));
       }
     }
     const Laya = ctx.window.Laya;
@@ -129,7 +163,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     for (const b of state.bindings.values()) b.dispose();
     state.barClean?.forEach(fn => fn());
     state.clean.reverse().forEach(fn => fn()); state = null;
-    if (!getSettings().remember) locks.clear();
+    locks = new Set(remembered);
     notify();
   }
   function resetRound() { currentSeat = null; phase = null; sourceCard = null; wuxie = null; judgementFlower = null; }
@@ -167,10 +201,11 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     s.submittedSelector = s.selector; selector.btnClick(btn); return true;
   }
   function cancel(s) { return s.self.spellSelector?.visible ? choice(s,d => Number(d.sendData) === 255 || Number(d.sendData) === 0 && !d.callBack) : button(s,'btnCancel'); }
-  function chooseCard(s, predicate = () => true) {
+  function chooseCard(s, predicate = () => true, preferWuxie = false) {
     const cards = list(s.self.cardContainer?.cardUis), selected = cards.find(c => c.selected && predicate(c));
     if (selected) return true;
-    const card = cards.find(c => c.activated && !c.destroyed && predicate(c));
+    const pool = cards.filter(c => c.activated && !c.destroyed && predicate(c));
+    const card = (preferWuxie && pool.find(isWuxie)) || pool[0];
     if (!card || typeof card.setSelected !== 'function') return false;
     card.setSelected(true); return true;
   }
@@ -220,7 +255,20 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       }
       return false;
     }
+    const targets = s.scene.seatContainer?.selectContext;
+    const targetSkill = Number(targets?.Skill?.SkillId);
     const id = Number(context?.Skill?.SkillId);
+    // Target removal is a separate step from selecting the conversion cards.
+    // Require an explicit user target selection, even if native OK allows zero.
+    const removalPrompt = /请选择一名角色[，,]令其不成为万箭齐发的目标/.test(message.replace(/\s/g,''));
+    const removalSkill = [id, targetSkill].some(skill => [102,891].includes(skill) && locks.has(skill));
+    if ((removalSkill && /取消/.test(message) && /目标/.test(message)) ||
+        (removalPrompt && [102,891].some(skill => locks.has(skill)))) {
+      const selected = list(s.scene.seatContainer?.seatUIs).filter(x => x.seat?.Selected).length;
+      if (selected < Math.max(1, Number(targets?.SelectCountMin || 0))) return true;
+      button(s,'btnOK');
+      return true;
+    }
     if (locks.has(id)) {
       if (QIANFU_IDS.includes(id)) {
         // The native selector filters by current yin/yang state, card colour,
@@ -228,17 +276,17 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
         // keep target choice manual, and confirm only when native OK is enabled.
         if (!/请选择一张(?:黑|红)色牌，当(?:过河拆桥|火攻)使用/.test(message)) return false;
         if (cards.filter(c => c.selected).length > 1) return false;
-        return chooseCard(s) && button(s,'btnOK');
+        return chooseCard(s, () => true, true) && button(s,'btnOK');
       }
       if ([102,891].includes(id)) {
         const selected = cards.filter(c => c.selected), suit = selected[0]?.Card?.FlowerOnSeat;
         if (selected.length > 2 || selected.some(c => c.Card?.FlowerOnSeat !== suit)) return false;
-        const pool = cards.filter(c => c.activated && Number(c.Card?.FlowerOnSeat) > 0);
+        const pool = cards.filter(c => c.activated && Number(c.Card?.FlowerOnSeat) > 0).sort((a,b) => Number(isWuxie(b))-Number(isWuxie(a)));
         const flower = suit ?? pool.find(c => pool.filter(x => x.Card.FlowerOnSeat === c.Card.FlowerOnSeat).length >= 2)?.Card.FlowerOnSeat;
         for (const c of pool) if (cards.filter(x => x.selected).length < 2 && !c.selected && c.Card.FlowerOnSeat === flower) c.setSelected(true);
         return cards.filter(c => c.selected && c.Card?.FlowerOnSeat === flower).length === 2 && button(s,'btnOK');
       }
-      if ([101,3269,97,3260].includes(id)) { if (s.prepared !== s.bar) { s.prepared = s.bar; self.cardContainer.AllSelectHandCards?.(); } return button(s,'btnOK'); }
+      if ([101,3269,97,3260].includes(id)) return chooseCard(s, () => true, true) && button(s,'btnOK');
       if ([49,445].includes(id)) {
         if (message === '请选择一张要展示的手牌') return chooseCard(s) && button(s,'btnOK');
         if (message.includes('(您)')) return button(s,'btnCancel');
@@ -369,13 +417,12 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       const meta = Array.isArray(ids) && ids.length === 1 ? read(() => ctx.game.getCardMeta(Number(ids[0]))) : null;
       const flower = Number(meta?.suit); judgementFlower = [1,2,3,4].includes(flower) ? flower : null;
     });
-    bind('ClientLoginRep',() => { clear(); resetRound(); locks.clear(); ended = true; notify(); });
+    bind('ClientLoginRep',() => { clear(); resetRound(); locks = new Set(remembered); ended = true; notify(); });
   }
   function tick() {
     if (disposed || ctx.scope.signal.aborted) return;
     try {
       observe();
-      if (lastRemember !== Boolean(getSettings().remember)) { lastRemember = Boolean(getSettings().remember); persist(); }
       const scene = ctx.game.getScene(), self = scene?.SelfSeatUi;
       if (state && (state.scene !== scene || state.self !== self || state.seat !== self?.seat)) { clear(); ended = false; resetRound(); }
       if (!self?.seat || !self.cardContainer) { clear(); resetRound(); return; }

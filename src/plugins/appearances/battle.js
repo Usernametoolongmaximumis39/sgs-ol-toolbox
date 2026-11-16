@@ -1,6 +1,14 @@
 import { nativeSeat, nativeSeatId } from '../../core/seat.js';
 import { read, field } from '../../shared/info-runtime.js';
 
+// Native UpdateSeatFixedViewID walks seat indices from firstSeat, wrapping at
+// SEAT_ID_MAX. Only the complete standard four-seat opening roster is accepted.
+export function rankedPosition(selfSeat, firstSeat, seats) {
+  if (!Array.isArray(seats) || seats.length !== 4 || new Set(seats).size !== 4
+    || ![0, 1, 2, 3].every(id => seats.includes(id)) || !seats.includes(selfSeat) || !seats.includes(firstSeat)) return null;
+  return (selfSeat - firstSeat + 4) % 4 + 1;
+}
+
 export function nativeSide(ctx, selfSeat) {
   if (!Number.isInteger(selfSeat) || selfSeat<0) return {position:null,figure:null};
   const context=read(()=>ctx.game.getClass('GameContext'));

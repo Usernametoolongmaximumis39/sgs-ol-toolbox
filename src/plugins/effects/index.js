@@ -1,9 +1,8 @@
 import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
-import { CONTROL_STYLES, controlIcon } from '../../ui/controls.js';
 import { OPTIONS, OTHER_OPTIONS, OPTION_GROUPS, EFFECT_LEVELS, createEffectController } from './native.js';
 
-export const manifest = { id: 'effects', name: '特效屏蔽', version: '0.5.9', apiVersion: 1, contractVersion: 1,
-    minCoreVersion: '0.5.0', categories: ['tools'], icon: PLUGIN_ICONS['effects'], priority: 20000,
+export const manifest = { id: 'effects', name: '特效屏蔽', version: '0.5.10', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "统一特效设置的刷新、恢复及帮助提示外观，保留已有屏蔽选择。", minCoreVersion: '0.6.37', categories: ['tools'], icon: PLUGIN_ICONS['effects'], priority: 20000,
     description: '按需屏蔽对局特效与界面提醒，让画面更清爽' };
 export function activate(ctx) {
   const panels = new Set();
@@ -32,7 +31,7 @@ export function activate(ctx) {
       .sgs-effects .effects-endpoints{display:flex;justify-content:space-between;font-size:10px;color:var(--sgs-muted);margin-bottom:2px}
       .sgs-effects .effects-detail-grid{margin-top:5px}
       .sgs-effects input:focus-visible,.sgs-effects button:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
-      ${CONTROL_STYLES}
+      
       .sgs-effects .effects-header{padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 45%,transparent)}.sgs-effects .effects-actions button{display:grid;place-items:center;width:28px;height:28px;padding:5px;border:0;background:transparent;box-shadow:none;border-radius:6px}.sgs-effects .effects-actions button:hover{color:var(--sgs-accent);background:color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.sgs-effects .effects-grid{gap:4px}.sgs-effects .effects-level-row{margin-bottom:9px}.sgs-effects .effects-level-row>button{border:0;background:transparent;padding:0 3px;box-shadow:none;font-size:10px;color:var(--sgs-muted)}.sgs-effects .effects-level-row output{color:var(--sgs-accent)}.sgs-effects .effects-slider::-webkit-slider-runnable-track{height:5px;box-shadow:inset 0 1px 2px #0005}.sgs-effects .effects-slider::-webkit-slider-thumb{width:12px;height:12px;margin-top:-4px;background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 45%,var(--sgs-text)),var(--sgs-accent));box-shadow:0 1px 3px #0008,0 0 0 3px color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.sgs-effects .effects-endpoints{margin:3px 0 12px}.sgs-effects legend{padding-top:7px;margin-bottom:7px}.sgs-effects [role=status]{margin:10px 0;padding:7px 9px;background:color-mix(in srgb,var(--sgs-accent) 6%,transparent);border-left:2px solid var(--sgs-accent);border-radius:0 5px 5px 0;font-size:10px}
       .sgs-effects .effects-option{position:relative;box-sizing:border-box;display:flex;align-items:center;justify-content:center;min-width:0;border:1px solid color-mix(in srgb,var(--sgs-border) 28%,transparent);border-radius:7px;color:var(--sgs-muted);font-size:11px;cursor:pointer;transition:background .15s,border-color .15s,color .15s;flex-direction:column;gap:3px;min-height:48px;padding:5px 2px;line-height:16px;background:color-mix(in srgb,var(--sgs-bg) 55%,var(--sgs-raised))}
       .sgs-effects .effects-option-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sgs-text)}
@@ -52,8 +51,8 @@ export function activate(ctx) {
     const header = doc.createElement('div'); header.className = 'effects-header';
     const title = doc.createElement('h3'); title.textContent = '屏蔽设置';
     const actions = doc.createElement('div'); actions.className = 'effects-actions';
-    const refresh = doc.createElement('button'); refresh.type = 'button'; refresh.append(controlIcon(doc, 'refresh')); refresh.title = '重新检测'; refresh.setAttribute('aria-label', '重新检测'); refresh.onclick = () => controller.refresh();
-    const reset = doc.createElement('button'); reset.type = 'button'; reset.append(controlIcon(doc, 'reset')); reset.title = '恢复全部显示'; reset.setAttribute('aria-label', '全部恢复'); reset.onclick = () => controller.setMany(Object.fromEntries(OPTIONS.map(([key]) => [key, false])));
+    const refresh = doc.createElement('button'); refresh.type = 'button'; refresh.append(ctx.ui.icon('refresh')); refresh.title = '重新检测'; refresh.setAttribute('aria-label', '重新检测'); refresh.onclick = () => controller.refresh();
+    const reset = doc.createElement('button'); reset.type = 'button'; reset.append(ctx.ui.icon('reset')); reset.title = '恢复全部显示'; reset.setAttribute('aria-label', '全部恢复'); reset.onclick = () => controller.setMany(Object.fromEntries(OPTIONS.map(([key]) => [key, false])));
     actions.append(refresh, reset); header.append(title, actions); root.append(style, header);
     const fields = new Map();
     let slider, levelText;

@@ -22,7 +22,16 @@ function linkName(raw, html='', offset=0) {
 // The old extension appended a link for 5–6 digits. The user explicitly wants
 // short room numbers too. Match complete numeric runs, never part of a UID.
 export function roomNumbers(text) {
-  return [...new Set([...String(text || '').matchAll(/(?:^|[^\d])(\d{1,5})(?!\d)/g)]
+  const raw = decodeHTML(String(text || ''));
+  // Native shares/invitations are MsgType 1 too. SPLITE_SP separates their
+  // action from opaque parameters (general, skin, player IDs, etc.), not rooms.
+  // Face payloads use a separate native delimiter and are opaque as well.
+  if (raw.includes('*&.!**.%#') || raw.includes('*&.!.%#')) return [];
+  const plain = raw
+    .replace(/<(a|font)\b[^>]*\bhref\s*=\s*(['"])[\s\S]*?\2[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/(?:[a-z][a-z\d+.-]*:\/\/|www\.)[^\s<>"'，。！？；、]+/gi, ' ');
+  return [...new Set([...plain.matchAll(/(?:^|[^\d])(\d{1,5})(?!\d)/g)]
     .map(match => match[1]).filter(value => Number(value) > 0))].slice(0, 8);
 }
 export function roomTableId(room, mode, group) {

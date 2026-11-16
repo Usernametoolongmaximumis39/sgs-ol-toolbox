@@ -4,7 +4,7 @@ import { DEFAULT_CODE_SERVER, codeServerUrl, mergeCodeText } from './code-source
 import { rewardExclusions } from './exclusions.js';
 import { shareableCode, reportableCode, parseCodes, parseClipboardCodes, codeAttemptLabel, CLIPBOARD_PARSER_VERSION } from './codes.js';
 
-const defaults = { automatic: false, sign: true, mail: true, tasks: true, welfare: true, activities: true, autoFlip: false, codes: true, serverCodes: true, clipboardCodes: false, shareCodes: false, ...Object.fromEntries(rewardExclusions.map(([key]) => [key, false])) };
+const defaults = { automatic: false, sign: true, mail: true, tasks: true, welfare: true, activities: true, autoFlip: false, codes: true, serverCodes: true, clipboardCodes: false, shareCodes: false, ...Object.fromEntries(rewardExclusions.map(([key]) => [key, key !== 'excludeBeans'])) };
 const names = { sign: '签到', mail: '邮件', tasks: '任务', welfare: '福利', activities: '活动', codes: '兑换码' };
 const safely = fn => { try { return fn(); } catch { return undefined; } };
 const uncertainStatuses = new Set(['pending', 'unconfirmed', 'interrupted']);

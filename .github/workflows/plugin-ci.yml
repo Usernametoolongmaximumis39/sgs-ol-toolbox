@@ -1,0 +1,26 @@
+name: plugin-ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts-and-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - run: npm run check:plugins
+      - run: npm run check:plugin-lifecycle
+      - run: npm test
+      - name: Build public editions
+        run: node tools/build-public.mjs

@@ -1,5 +1,5 @@
 import { createIcon } from './icons.js';
-// Shared presentation only. Bundled into each plugin; no plugin-to-plugin dependency.
+// Core presentation shared through ctx.ui; plugins need not bundle these helpers.
 export const CONTROL_STYLES = `
 input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
 input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
@@ -17,3 +17,25 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 `;
 export function controlIcon(doc, name) { return createIcon(doc, name); }
 export function styleSwitch(input) { input.classList.add('sgs-switch'); input.setAttribute('role', 'switch'); return input; }
+
+// Explicit opt-in: only explanatory copy belongs here; statuses and errors stay visible.
+export function helpTip(doc, text, label = '说明') {
+  const wrap = doc.createElement('span'), button = doc.createElement('button'), tip = doc.createElement('span');
+  wrap.style.cssText = 'display:inline-flex;vertical-align:middle;margin:2px 0';
+  button.dataset.helpTip = ''; button.type = 'button'; button.setAttribute('aria-label', label); button.title = text;
+  button.style.cssText = 'display:inline-grid;place-items:center;width:24px;height:24px;min-width:24px;padding:3px;border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);cursor:help;border-radius:50%';
+  button.append(controlIcon(doc, 'info'));
+  tip.textContent = text; tip.setAttribute('popover', 'manual'); tip.setAttribute('role', 'tooltip');
+  tip.style.cssText = 'position:fixed;inset:auto;margin:0;padding:10px 12px;max-width:min(300px,calc(100vw - 24px));width:max-content;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--sgs-font,sans-serif);color:var(--sgs-text);background:var(--sgs-raised);border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 6px 24px #0004';
+  const hide = () => { if (tip.matches(':popover-open')) tip.hidePopover(); };
+  const show = () => {
+    if (!tip.showPopover) return;
+    tip.showPopover(); const box = button.getBoundingClientRect(), bounds = tip.getBoundingClientRect(), win = doc.defaultView;
+    tip.style.left = Math.max(12, Math.min(box.left, win.innerWidth - bounds.width - 12)) + 'px';
+    tip.style.top = Math.max(12, box.bottom + bounds.height + 8 < win.innerHeight ? box.bottom + 6 : box.top - bounds.height - 6) + 'px';
+  };
+  button.addEventListener('mouseenter', show); wrap.addEventListener('mouseleave', hide);
+  button.addEventListener('focus', show); button.addEventListener('blur', hide);
+  button.addEventListener('click', show); button.addEventListener('keydown', event => { if (event.key === 'Escape') { hide(); event.stopPropagation(); } });
+  wrap.append(button, tip); return wrap;
+}

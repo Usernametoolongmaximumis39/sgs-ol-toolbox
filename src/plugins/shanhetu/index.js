@@ -1,5 +1,4 @@
 import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
-import { CONTROL_STYLES, controlIcon, styleSwitch } from '../../ui/controls.js';
 import { CONFIG_FILES, MAP_SCENES, buildConfig, buildView, itemTypes, num } from './model.js';
 import { createNativeAdapter, createMapLabels } from './native.js';
 import { statTokens, nodeCaption, optionTokens } from './presentation.js';
@@ -12,7 +11,7 @@ import { createBackgroundPreference } from './background.js';
 import { createShopButtonReveal } from './shop-button.js';
 import { createGeneralPreview } from './general-preview.js';
 
-const CSS = `${CONTROL_STYLES}
+const CSS = `
 .sh-root .sh-warning{color:var(--sgs-danger,#db8175);font-weight:600;font-size:11px;line-height:1.6;overflow-wrap:anywhere}
 .sh-coin{display:inline-flex;align-items:center;gap:3px;white-space:nowrap;vertical-align:middle}.sh-coin img{width:17px;height:17px;object-fit:contain;flex:none}
 .sh-coin.sh-wrap{display:inline;white-space:normal;overflow-wrap:anywhere}.sh-coin.sh-wrap img{display:inline-block;vertical-align:-3px;margin-right:3px}.sh-stats .sh-coin,.sh-enemy-stats .sh-coin{margin-right:3px}
@@ -157,13 +156,14 @@ export function activate(ctx) {
     function appendOptions() {
       const options = details('options', 'sh-options'); options.append(el('summary', '', '显示设置'));
       for (const [key, label] of [['labels', '地图标注'], ['enemies', '敌军标注'], ['events', '问号与事件标注'], ['keepBattleBackground', '保留自选战斗背景']]) {
-        const row = el('label'), input = styleSwitch(el('input')); input.type = 'checkbox';
-        input.checked = ctx.settings.get(key, key !== 'keepBattleBackground'); input.dataset.key = key; input.setAttribute('aria-label', label);
+        const row = el('label'), input = ctx.ui.styleSwitch(el('input')); input.type = 'checkbox';
+        input.checked = ctx.settings.get(key, true); input.dataset.key = key; input.setAttribute('aria-label', label);
         input.onchange = () => { ctx.settings.set(key, input.checked); background.refresh(); publish(true); };
-        row.append(el('span', '', label), input); options.append(row);
+        const copy = el('span', '', label);
+        if (key === 'keepBattleBackground') copy.append(ctx.ui.helpTip('进入山河对局后，通过官方背景选择入口重新应用当前选择；每局自动触发。', '战斗背景说明'));
+        row.append(copy, input); options.append(row);
       }
-      options.append(muted('进入山河对局后，通过官方背景选择入口重新应用当前选择；每局自动触发。'));
-      if (ctx.settings.get('keepBattleBackground', false)) {
+      if (ctx.settings.get('keepBattleBackground', true)) {
         const status = muted(background.status); status.dataset.backgroundStatus = 'true'; options.append(status);
       }
       root.append(options);
@@ -173,7 +173,7 @@ export function activate(ctx) {
       for (const node of root.querySelectorAll('details[data-key]')) expanded.set(node.dataset.key, node.open);
       root.replaceChildren();
       const head = el('header', 'sh-head'), title = el('div'); title.append(el('h3', 'sr-only', '山河图'), el('div', 'sh-chapter', view?.chapter || '山河行记'));
-      const refresh = el('button'); refresh.type = 'button'; refresh.dataset.key = 'refresh'; refresh.title = '重新同步山河数据'; refresh.setAttribute('aria-label', refresh.title); refresh.append(controlIcon(doc, 'refresh')); refresh.disabled = !!pending || !active || !manager || blockedAccount;
+      const refresh = el('button'); refresh.type = 'button'; refresh.dataset.key = 'refresh'; refresh.title = '重新同步山河数据'; refresh.setAttribute('aria-label', refresh.title); refresh.append(ctx.ui.icon('refresh')); refresh.disabled = !!pending || !active || !manager || blockedAccount;
       refresh.onclick = () => { void loadConfig(true); try { query(false, true); } catch (e) { error = e.message; publish(true); } }; head.append(title, refresh); root.append(head);
       if (error) root.append(el('div', 'sh-error', error));
       if (pending) root.append(muted('正在同步山河数据…'));
@@ -220,7 +220,7 @@ export function activate(ctx) {
           for (const option of node.options) { const choice = el('div', 'sh-choice'); choice.append(el('b', '', optionParts(option, node.options.indexOf(option)))); battle(choice, option.battle); body.append(choice); }
           if (node.type === 'unknown') body.append(muted('当前未取得可解析的事件内容。')); fold.append(body); root.append(fold);
         }
-        root.append(el('p', 'sh-hint', '敌军数值依当前难度、月份与章节配置推算；随机奖励保留随机。'));
+        root.append(ctx.ui.helpTip('敌军数值依当前难度、月份与章节配置推算；随机奖励保留随机。'));
       } else if (tab === 'shop') {
         const line = el('div', 'sh-shop-head'), shop = view.shop;
         line.append(muted(shop?.open === true ? '入口已开放 · 交易以游戏回执为准' : shop?.open === false ? '提前预览 · 地图入口未显示' : '开放状态待同步'));
@@ -234,7 +234,7 @@ export function activate(ctx) {
           name.append(el('strong', '', good.name), el('small', '', categoryIcon ? [{icon:categoryIcon,text:quality,fallback:`${category} · ${quality}`,atomic:false}] : `${category} · ${quality}`));
           summary.append(name, el('span', 'sh-price', good.price !== null ? `${good.price} 铜钱` : good.money !== null ? `基础 ${good.money}` : '价格待同步')); fold.append(summary, muted(good.desc || '说明待同步')); root.append(fold);
         }
-        root.append(el('p', 'sh-hint', '提前打开沿用原生商店；购买、刷新由游戏处理，预览不改变开放条件。'));
+        root.append(ctx.ui.helpTip('提前打开沿用原生商店；购买、刷新由游戏处理，预览不改变开放条件。'));
       } else {
         const player = snapshot.gameData?.myGeneral, grid = el('div', 'sh-grid');
         for (const [label, value, icon, qualifier] of [['初始体力', player?.uInitHp, 'stat_hp', '初始'], ['体力上限', player?.uMaxHp, 'stat_hp', '上限'], ['初始牌', player?.uInitCardNum, 'stat_card', '初始'], ['摸牌', player?.uDrawNum, 'stat_draw', ''], ['护甲', player?.uArmor, 'stat_armor', ''], ['出杀次数', num(player?.uExUseShaNum) === null ? null : player.uExUseShaNum + 1, 'stat_sha', ''], ['累计伤害', snapshot.gameData?.accDamage], ['最高伤害', snapshot.gameData?.maxDamage]]) {
@@ -254,8 +254,8 @@ export function activate(ctx) {
   ctx.scope.add(() => { offManager?.(); offScene?.(); cancelPending(); listeners.clear(); });
   return () => { offPanel(); labels.clear(); };
 }
-export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.25', apiVersion: 1, contractVersion: 1,
-    minCoreVersion: '0.5.82', categories: ['game'], icon: PLUGIN_ICONS['shanhetu'], priority: 11000,
+export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.29', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "保留自选战斗背景改为默认开启，已有明确设置保持不变；精简地图设置和帮助说明。", minCoreVersion: '0.6.37', categories: ['game'], icon: PLUGIN_ICONS['shanhetu'], priority: 11000,
     description: '敌军、问号与商店预览，换将卡预判与跨模式战法计数' }, initialState, reduce, activate };
 
 

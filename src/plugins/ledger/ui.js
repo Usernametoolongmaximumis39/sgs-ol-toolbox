@@ -1,6 +1,6 @@
-import { panelUI } from '../../shared/info-ui.js';
 import { downloadJSON } from '../../shared/info-runtime.js';
 import { filterRecords, totals, canAlert } from './model.js';
+const detailPanels = new WeakMap();
 const STYLES = `
 .sgs-ledger .alert-settings{margin:8px 0}.sgs-ledger .alert-settings summary{color:var(--sgs-accent);padding:5px 0}.sgs-ledger .threshold{display:grid;grid-template-columns:minmax(0,1fr) 108px;align-items:center;gap:8px;font-size:10px;color:var(--sgs-muted);margin-top:6px}.sgs-ledger .threshold input{width:100%;min-width:0;padding:5px 32px 5px 9px;text-align:right;appearance:textfield;-moz-appearance:textfield;font-variant-numeric:tabular-nums}.sgs-ledger .threshold input::-webkit-inner-spin-button,.sgs-ledger .threshold input::-webkit-outer-spin-button{appearance:none;margin:0}
 .sgs-ledger .threshold-field{position:relative;min-width:0}.sgs-ledger .threshold-unit{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;pointer-events:none;color:var(--sgs-muted)}
@@ -15,12 +15,15 @@ const STYLES = `
 .sgs-ledger .income{color:var(--sgs-accent)}.sgs-ledger .expense{color:var(--sgs-text)}
 .sgs-ledger .asset-id{font-size:9px;color:var(--sgs-muted);margin-left:auto;font-variant-numeric:tabular-nums;flex:none}.sgs-ledger h3{font:600 12px var(--sgs-font);margin:16px 0 8px}
 .sgs-ledger .reward-list{font-size:11px;overflow-wrap:anywhere}.sgs-ledger .warning{border-left:2px solid var(--sgs-accent);padding-left:8px;color:var(--sgs-muted)}
-.sgs-ledger-detail{max-width:1080px;margin:0 auto;padding:24px;background:var(--sgs-bg);min-height:100vh}
-.sgs-ledger-detail h1{font-size:23px;font-weight:500;margin:0 0 8px}.sgs-ledger-detail .list{max-height:none;overflow:visible}
-.sgs-ledger-detail .filters{grid-template-columns:repeat(2,minmax(0,1fr))}.sgs-ledger-detail .filters label:has(input[type=datetime-local]){grid-column:auto}
-.sgs-ledger-detail .filters input{display:block;min-width:0;margin-top:4px}.sgs-ledger-detail .summary-items{display:flex;gap:6px 18px;flex-wrap:wrap;padding:8px 0}
-.sgs-ledger-detail .row-head{align-items:flex-start;flex-wrap:wrap}.sgs-ledger-detail .row p{margin:5px 0}.sgs-ledger-detail .log-items{display:flex;flex-wrap:wrap;gap:4px 18px}
-@media(max-width:520px){.sgs-ledger-detail{padding:16px}.sgs-ledger-detail .filters{grid-template-columns:1fr}}
+.sgs-ledger-detail{box-sizing:border-box;margin:0;position:fixed;z-index:2147483646;width:min(620px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:18px;background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:12px;box-shadow:0 12px 40px #0006}
+.sgs-ledger-detail .detail-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}.sgs-ledger-detail h1{font-size:19px;font-weight:600;margin:0}.sgs-ledger-detail .detail-heading button{width:30px;padding:5px}.sgs-ledger-detail .detail-heading button span{display:none}
+.sgs-ledger-detail .list{max-height:none;overflow:visible}.sgs-ledger-detail .warning{font-size:11px;line-height:1.7}
+.sgs-ledger-detail .filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.sgs-ledger-detail .filters label:has(input[type=search]){grid-column:1/-1}.sgs-ledger-detail .filters label:has(input[type=datetime-local]){grid-column:auto}
+.sgs-ledger-detail .filters input{display:block;min-width:0;margin-top:4px}.sgs-ledger-detail .summary-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0 16px;max-height:220px;overflow:auto;scrollbar-width:thin}
+.sgs-ledger-detail .total-item{padding:8px 10px;background:var(--sgs-surface);border-radius:6px;min-width:0}.sgs-ledger-detail .total-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;margin-bottom:3px}.sgs-ledger-detail .total-flow{display:flex;flex-wrap:wrap;gap:3px 9px;font-size:11px;font-variant-numeric:tabular-nums}
+.sgs-ledger-detail .row-head{align-items:baseline;flex-wrap:wrap}.sgs-ledger-detail .row p{margin:5px 0}.sgs-ledger-detail .log-items{display:flex;flex-wrap:wrap;gap:4px 14px;margin:6px 0;font-variant-numeric:tabular-nums}.sgs-ledger-detail .row details{margin-top:7px}.sgs-ledger-detail .row details p{padding:8px;background:var(--sgs-surface);border-radius:6px}.sgs-ledger-detail .bar:last-child{justify-content:center}
+@media(max-width:600px){.sgs-ledger-detail{padding:12px}.sgs-ledger-detail .summary-items{grid-template-columns:repeat(2,minmax(0,1fr))}} 
+
 `;
 const time = at => new Date(at).toLocaleString('zh-CN', { hour12: false });
 const format = n => n === null ? '未知' : n.toLocaleString('zh-CN');
@@ -28,7 +31,7 @@ const rewardsText = items => items.map(i => `${i.name} × ${format(i.delta)}`).j
 const sourceNames = { DbsCcUserGoodshintNtf: '物品到账通知', DbsCcUpdategoodsAttribNtf: '背包数量变化', DbsCcUserDelgoodsNtf: '背包物品移除', DbsCUpdatauserYaunbaoNtf: '元宝收支通知', 120004: '祈愿台成功确认', ClientLoginRep: '登录确认' };
 const reasonNames = { 1: '赠送', 2: '购买', 3: '系统赠送', 5: '礼包', 8: '任务奖励', 9: '排位奖励', 15: '签到奖励', 26: '合成', 27: '分解', 58: '祈福', 2010: '祈愿台奖励' };
 function setup(ctx, container) {
-  const ui = panelUI(ctx, container); ui.root.classList.add('sgs-ledger');
+  const ui = ctx.ui.panel(container); ui.root.classList.add('sgs-ledger');
   const style = ui.el('style'); style.textContent = STYLES; ui.root.append(style); return ui;
 }
 function errorBlock(ui) {
@@ -50,7 +53,8 @@ export function renderPanel(ctx, container, controller) {
   function draw() {
     const v = controller.view();
     refreshButton.disabled = v.loadingConfig; refreshButton.lastChild.textContent = v.loadingConfig ? '读取中…' : '刷新配置';
-    account.textContent = v.who.id ? `${v.who.nickname || '当前账号'} · ${v.who.id}` : '等待登录';
+    account.hidden = Boolean(v.who.id);
+    account.textContent = '等待登录';
     note.textContent = v.session ? '本次登录 · ' + (v.session.incomplete ? '记录曾中断' : '仅含已观察收支') : '登录后开始观察';
     note.title = v.session ? '观察起于 ' + time(v.session.at) : '';
     const enabled = v.items.filter(row => canAlert(row.ID, row.name) && row.threshold > 0).length;
@@ -95,13 +99,15 @@ export function renderPanel(ctx, container, controller) {
   return ctx.scope.add(() => { off(); ui.dispose(); });
 }
 export function openDetails(ctx, controller) {
-  const win = ctx.window.open('about:blank', '_blank');
-  if (!win) { ctx.notify('账本页面被浏览器拦截，请允许此站点打开新页面后重试。'); return; }
-  const doc = win.document; doc.title = '账本 · 三国杀OL工具箱'; doc.documentElement.lang = 'zh-CN'; doc.body.replaceChildren(); doc.body.style.margin = '0';
-  const child = { ...ctx, window: win, document: doc }, ui = setup(child, doc.body), { el, root } = ui; root.classList.add('sgs-ledger-detail');
+  const existing = detailPanels.get(controller);
+  if (existing) { existing.root.focus(); return existing; }
+  const win = ctx.window, doc = ctx.document, child = ctx;
+  const ui = setup(ctx, doc.body), { el, root } = ui;
+  root.classList.add('sgs-ledger-detail'); root.tabIndex = -1;
+  root.setAttribute('role', 'region'); root.setAttribute('aria-label', '详细账本');
   function theme(current) {
     for (const [key, value] of Object.entries(current?.tokens || {})) root.style.setProperty(`--sgs-${key}`, value);
-    doc.body.style.background = current?.tokens?.bg || ''; doc.body.style.color = current?.tokens?.text || '';
+
   }
   theme(ctx.themes.current); const offTheme = ctx.themes.subscribe(theme);
   let period = 'all', kind = 'all', page = 0, alive = true;
@@ -118,7 +124,9 @@ export function openDetails(ctx, controller) {
       for (const group of [periodControl, kindControl]) [...group.children].forEach((button, index) => button.setAttribute('aria-pressed', String(index === 0)));
       draw();
     }));
-  root.append(title, who, status, filters, periodControl, kindControl, bar, error.node, count, summary, logs, nav);
+  const heading = el('div', 'detail-heading'), close = ui.button('关闭账本', 'close', () => cleanup());
+  close.replaceChildren(close.querySelector('svg')); close.title = '关闭账本'; close.setAttribute('aria-label', '关闭账本'); heading.append(title, close);
+  root.append(heading, who, status, filters, periodControl, kindControl, bar, error.node, count, summary, logs, nav);
   function selected() {
     const v = controller.view();
     return filterRecords(v.records, { from: from.value ? new Date(from.value).getTime() : 0, to: to.value ? new Date(to.value).getTime() : Infinity,
@@ -132,7 +140,10 @@ export function openDetails(ctx, controller) {
     error.update(v.error); count.textContent = `${v.loading ? '正在读取本机历史… · ' : ''}筛选结果 ${rows.length} 条 · 收入与消耗分别统计`;
     prev.disabled = page === 0; next.disabled = page + 1 >= pages; pageText.textContent = `${page + 1} / ${pages} 页`; summary.replaceChildren();
     const names = new Map(rows.flatMap(r => r.items.map(i => [i.id, i.name])));
-    for (const [id, total] of totals(rows)) summary.append(el('span', 'muted', `${names.get(id)}：收入 +${format(total.income)} / 消耗 −${format(total.expense)}`));
+    for (const [id, total] of totals(rows)) {
+      const card = el('div', 'total-item'), name = el('strong', 'total-name', names.get(id) || String(id)); name.title = `${names.get(id)} · ID ${id}`;
+      const flow = el('div', 'total-flow'); flow.append(el('span', 'income', `收入 +${format(total.income)}`), el('span', 'expense', `消耗 −${format(total.expense)}`)); card.append(name, flow); summary.append(card);
+    }
     logs.replaceChildren();
     for (const row of rows.slice(page * 100, (page + 1) * 100)) {
       const article = el('article', 'row'), head = el('div', 'row-head');
@@ -144,15 +155,26 @@ export function openDetails(ctx, controller) {
       if (row.prayer) article.append(el('p', 'reward-list', row.prayer.matched ? `获得：${rewardsText(row.rewards)}` : '奖励通知未关联，待核对'));
       if (row.note) article.append(el('p', '', row.note));
       const reason = row.type == null ? '' : row.source === 'DbsCcUserGoodshintNtf' ? reasonNames[row.type] || `原因类型 ${row.type}` : `原因代码 ${row.type}`;
-      article.append(el('p', 'muted', `${sourceNames[row.source] || row.source}${reason ? ` · ${reason}` : ''}${row.giver ? ` · 赠送者 ${row.giver}` : ''}${row.reconciled ? ' · 已与到账通知去重' : ''}${row.linkedPrayer ? ' · 已关联祈愿台成功回包' : ''}`));
+      article.append(el('p', 'muted', `${sourceNames[row.source] || '其他记录'}${reason ? ` · ${reason}` : ''}${row.giver ? ` · 赠送者 ${row.giver}` : ''}${row.reconciled ? ' · 已与到账通知去重' : ''}${row.linkedPrayer ? ' · 已关联祈愿台成功回包' : ''}`));
       const details = el('details'), raw = el('p'); raw.textContent = JSON.stringify(row, null, 2); details.append(el('summary', '', '具体日志 · 物品 ID 与记录详情'), raw); article.append(details); logs.append(article);
     }
     if (!rows.length) logs.append(el('p', 'empty', '没有符合筛选条件的日志'));
   }
-  const off = controller.subscribe(draw);
-  const cleanup = ctx.scope.add(() => { if (!alive) return; alive = false; off(); offTheme(); ui.dispose(); });
-  const offHide = ctx.scope.listen(win, 'pagehide', () => { cleanup(); offHide(); }, { once: true });
-  draw(); controller.load(); return { window: win, dispose: cleanup };
+  const anchor = doc.querySelector('[data-sgs-toolbox="core"]');
+  const position = () => {
+    const r = anchor?.getBoundingClientRect(), width = root.getBoundingClientRect().width, vw = win.innerWidth;
+    const left = r && r.left >= width + 20 ? r.left - width - 8 : r && vw - r.right >= width + 20 ? r.right + 8 : Math.max(12, vw - width - 12);
+    root.style.left = `${left}px`; root.style.top = `${Math.max(12, Math.min(r?.top || 12, win.innerHeight - 160))}px`;
+    root.style.maxHeight = `${Math.max(100, win.innerHeight - parseFloat(root.style.top) - 12)}px`;
+  };
+  const off = controller.subscribe(draw), offResize = ctx.scope.listen(win, 'resize', position);
+  const observer = anchor ? new win.MutationObserver(position) : null;
+  observer?.observe(anchor, { attributes: true, attributeFilter: ['style', 'hidden'] });
+  const trigger = doc.activeElement;
+  const cleanup = ctx.scope.add(() => { if (!alive) return; alive = false; off(); offTheme(); offResize(); observer?.disconnect(); detailPanels.delete(controller); ui.dispose(); if (trigger?.isConnected) trigger.focus(); });
+  ui.listen(root, 'keydown', event => { if (event.key === 'Escape') { event.stopPropagation(); cleanup(); } });
+  const handle = { root, dispose: cleanup }; detailPanels.set(controller, handle);
+  draw(); position(); root.focus(); controller.load(); return handle;
 }
 
 export function renderAlerts(ctx, controller) {

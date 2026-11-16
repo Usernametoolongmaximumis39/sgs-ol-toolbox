@@ -30,11 +30,11 @@ export function knownSides(records, matches) {
   return {records:records.map(r=>normalize(r,matchesById.get(r.id))).filter(Boolean),
     matches:matches.map(r=>normalize(r,framesById.get(r.id))).filter(Boolean)};
 }
-export function groupedStatistics(frames, battles, names) {
+export function groupedStatistics(frames, battles, names, { combineSides = false } = {}) {
   ({records:frames,matches:battles}=knownSides(frames,battles));
   const matches=new Map(battles.map(r=>[r.id,r])),groups=new Map();
   for(const [kind,rows] of [['frames',frames],['battles',battles]])for(const row of rows){
-    const side=sideOf(row,matches.get(row.id)),key=`${row.mode}:${side}`;
+    const side=combineSides?'all':sideOf(row,matches.get(row.id)),key=`${row.mode}:${side}`;
     if(!groups.has(key))groups.set(key,{mode:row.mode,side,frames:[],battles:[]});
     groups.get(key)[kind].push(row);
   }
@@ -42,6 +42,6 @@ export function groupedStatistics(frames, battles, names) {
     const merged=new Map(statistics(group.frames,names).map(r=>[r.id,{...r,selectionRate:r.rate,rate:null,played:0,wins:0,losses:0,draws:0,unknown:0}]));
     for(const row of winStatistics(group.battles,names))merged.set(row.id,{appear:0,selected:0,known:0,selectionRate:null,...merged.get(row.id),...row});
     return [...merged.values()].map(row=>({...row,mode:group.mode,side:group.side,frameCount:group.frames.length,
-      groupLabel:`${MODES[group.mode]} · ${sideName(group.mode,group.side)}`}));
+      groupLabel:`${MODES[group.mode]} · ${group.side==='all'?'合计':sideName(group.mode,group.side)}`}));
   });
 }

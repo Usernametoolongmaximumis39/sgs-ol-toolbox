@@ -1,5 +1,6 @@
 import { CORE_VERSION } from './version.js';
 import { isIconSpec } from '../ui/icons.js';
+import { validReleaseNotes } from '../shared/plugin-release-notes.js';
 
 export const DEFAULT_PLUGIN_PRIORITY = 32768;
 export const PANEL_CATEGORIES = Object.freeze(['game', 'automation', 'tools', 'manage', 'info', 'appearance']);
@@ -24,6 +25,7 @@ export function validatePluginPresentation(manifest, { requireContract = false, 
   const strict = m.contractVersion === 1;
   if (strict && !text(m.name, 48)) throw new Error('插件名称必须是 1–48 字的单行文字。');
   if ((strict || m.description !== undefined) && !text(m.description, 160)) throw new Error('插件简介必须是 1–160 字的单行文字。');
+  if (!validReleaseNotes(m.releaseNotes)) throw new Error('插件更新内容须为 1–2000 字的非空纯文本，可分行。');
   if ((strict || m.icon !== undefined) && !isIconSpec(m.icon)) throw new Error('插件图标必须是公共图标名或合法的 24×24 单色路径。');
   if (strict || m.priority !== undefined) requirePriority(m.priority);
   if (strict || m.minCoreVersion !== undefined) {

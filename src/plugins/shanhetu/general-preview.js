@@ -1,11 +1,10 @@
 import { ResourceScope } from '../../core/resources.js';
-import { CONTROL_STYLES, controlIcon } from '../../ui/controls.js';
 import { getNativeTheme } from '../../ui/native-theme.js';
 import { generalNames, read } from '../../shared/info-runtime.js';
 import { isShanhe } from './model.js';
 
 const WINDOW = 'RogueSelectGeneralWindow';
-const CSS = `${CONTROL_STYLES}
+const CSS = `
 :host{position:fixed;inset:22px 16px auto;z-index:2147483646;display:flex;justify-content:center;pointer-events:none;font:12px/1.7 var(--sgs-font,system-ui);color:var(--sgs-text)}
 .preview{box-sizing:border-box;position:relative;width:520px;max-width:100%;padding:12px 44px 13px 16px;border:1px solid var(--sgs-border);border-radius:10px;background:var(--sgs-surface);box-shadow:0 6px 24px #0003;pointer-events:auto}
 strong{display:block;margin-bottom:4px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em;font-weight:600}
@@ -54,7 +53,7 @@ export function createGeneralPreview(ctx, native) {
     const panel = ctx.document.createElement('section'); panel.className = 'preview'; panel.setAttribute('role', 'status'); panel.setAttribute('aria-live', 'polite');
     const title = ctx.document.createElement('strong'); title.textContent = '换将卡预判';
     const text = ctx.document.createElement('p'), close = ctx.document.createElement('button'); close.type = 'button';
-    close.title = '关闭换将卡预判'; close.setAttribute('aria-label', close.title); close.append(controlIcon(ctx.document, 'close'));
+    close.title = '关闭换将卡预判'; close.setAttribute('aria-label', close.title); close.append(ctx.ui.icon('close'));
     panel.append(title, text, close); shadow.append(style, panel); ctx.document.body.append(host);
     notice = { scope, host, text, ids }; paintNames();
     scope.add(() => host.remove()); scope.listen(close, 'click', clear);

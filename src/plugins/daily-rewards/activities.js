@@ -5,6 +5,43 @@ const read = fn => { try { return fn(); } catch { return undefined; } };
 const positive = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
 const has = (list, id) => Array.isArray(list) && list.some(value => Number(value) === Number(id));
 const method = (object, name) => typeof read(() => object[name]) === 'function';
+// The native getter selects a streak counter by the CURRENT game mode. In the
+// hall it can select the single-rider counter even with an earned DDZ chest.
+// Use only an initialized DDZ snapshot with an explicit claimed-ID list; keep
+// the native route for other modes and incomplete snapshots.
+function ddzStreakState(manager, reward) {
+  const native = manager.DDZ2023WinAwardGetState(Number(reward.Id));
+  if (native === 2) return 2;
+  const data = manager.DdzData;
+  if (manager.IsDDZ2023HisWeekWinCtnReceived === true && Array.isArray(data?.ddz2023WeeklyWinAward)) {
+    if (has(data.ddz2023WeeklyWinAward, reward.Id)) return 2;
+    const count = manager.DDZ2023HisWeekWinCtn;
+    if (Number.isSafeInteger(count) && count >= Number(reward.RequireSuccess)) return 1;
+  }
+  return native;
+}
+// Shared chests retain one attempt key, but entitlement and send route differ.
+function streakClaimed(manager, id) {
+  return has(manager.DdzData?.ddz2023WeeklyWinAward, id) || has(manager.Roguelike1v1Data?.rogue1v1WeeklyWinAward, id);
+}
+function rogueStreakState(manager, reward) {
+  const data = manager.Roguelike1v1Data;
+  if (!data || !Array.isArray(data.rogue1v1WeeklyWinAward)) return 0;
+  if (streakClaimed(manager, reward.Id)) return 2;
+  const count = manager.rogue1v1HisWeekWinCtn;
+  return Number.isSafeInteger(count) && count >= Number(reward.RequireSuccess) ? 1 : 0;
+}
+function streakRoute(manager, reward) {
+  if (streakClaimed(manager, reward.Id)) return null;
+  // Explicit DDZ snapshot takes precedence; never infer its entitlement from
+  // a mode-dependent getter when a single-rider snapshot is present.
+  const ddz = manager.IsDDZ2023HisWeekWinCtnReceived === true && Array.isArray(manager.DdzData?.ddz2023WeeklyWinAward)
+    ? Number.isSafeInteger(manager.DDZ2023HisWeekWinCtn) && manager.DDZ2023HisWeekWinCtn >= Number(reward.RequireSuccess)
+    : !manager.Roguelike1v1Data && method(manager, 'DDZ2023WinAwardGetState') && ddzStreakState(manager, reward) === 1;
+  if (ddz && method(manager, 'SendDDZ2023StreakWinAwardReq')) return 'ddz';
+  if (rogueStreakState(manager, reward) === 1 && method(manager, 'Sendrogue1v1StreakWinAwardReq')) return 'rogue';
+  return null;
+}
 const tavernTaskIds = Object.freeze([161114, 161115, 161116]);
 const tavernSlots = [
   ['NewDayQuestId1', 'NewDayQuestReward1', '对局30分钟'],
@@ -107,7 +144,7 @@ export const managerSpecs = {
   GameGeneralManager: { events: ['ClientUserDataCounterNtf', 'decodeClientGeneralAtlasResp', 'decodeClientGeneralAtlasLightResp', 195002, 195006], guard: value => method(value, 'LampRewardReq') || method(value, 'CanFreeOpenGeneral') },
   TianTiManager: { events: ['ClientTTLevelAwardRep', 'ClientTTSeasonAwardRep'], guard: value => method(value, 'RequestLevelAward') },
   TaskManager: { events: ['decodeClientGetJdCalcQuestAwardRep', 'decodeClientJdCalcQuestAwardInfoNtf', 170036, 170037], guard: value => method(value, 'HasRewardQuest') && method(value, 'SendGetJdCalcQuestRewardReq') },
-  ActivityGameDataManager: { events: ['ClientGetWeekFreeBeanRep', 'decodeClientGetWeekFreeBeanRep', 23934, 200084], guard: value => method(value, 'SendClientGetWeekFreeBeanReq') },
+  ActivityGameDataManager: { events: ['ClientGetWeekFreeBeanRep', 'decodeClientGetWeekFreeBeanRep', 'ClientDDZ2023StreakWinAwardRep', 'decodeUser1v1RogueStreakRewardRep', 190007, 29260, 23934, 200084], guard: value => method(value, 'SendClientGetWeekFreeBeanReq') || method(value, 'SendDDZ2023StreakWinAwardReq') || method(value, 'Sendrogue1v1StreakWinAwardReq') },
 };
 
 async function prepareOfficer(adapter) {
@@ -138,6 +175,7 @@ export async function prepareActivities(adapter, selected = {}) {
   if (method(adapter.manager('OfficerManager'), 'CanGetOfficerWeekReward') && !adapter.config('h5_officer.sgs')) loads.push('h5_officer');
   if (method(general, 'LampRewardReq') && !adapter.config('cha_dbs_general_series.sgs')) loads.push('cha_dbs_general_series');
   if (!selected.excludeRecruit && method(general, 'SendClientUseGeneralDrawCardReq') && !adapter.config('ff_general_chest_info_config.sgs')) loads.push('ff_general_chest_info_config');
+  if ((method(adapter.manager('ActivityGameDataManager'), 'SendDDZ2023StreakWinAwardReq') || method(adapter.manager('ActivityGameDataManager'), 'Sendrogue1v1StreakWinAwardReq')) && !adapter.config('hd_fight_lord_config.sgs')) loads.push('hd_fight_lord_config');
   const activity = adapter.manager('ActivityManager');
   if ((method(task, 'SendGetJdCalcQuestRewardReq') || method(activity, 'SendGetJDRewardReq') || method(activity, 'SendGetNewJDRewardReq') || method(activity, 'SendDDZTLLAwardReq')) && !adapter.config('ff_task_daily.sgs')) loads.push('ff_task_daily');
   if (positive(latestHistory(ranked)) && !seasonRewards(adapter, ranked, latestHistory(ranked)) && !adapter.config('mod_new_ttrank_config.sgs')) loads.push('mod_new_ttrank_config');
@@ -395,6 +433,34 @@ export function planActivities(adapter, selected = {}) {
         done: () => false, // Native UI emits success-looking events even when result != 0.
         send: () => activity.SendReqInviteLoginGetCoin(id, round),
         confirmations: [{ manager: adapter.proxy(), event: 'decodeClientInviteLoginGetCoinRep', accept: event => { const p = protocol(event); return p?.result === 0 && Number(p.id) === id && Number(activity.InviteLoginCfg?.roundId) === round; } }],
+      });
+    }
+  });
+
+  group('斗地主连胜奖励', () => {
+    const manager = adapter.manager('ActivityGameDataManager'), proxy = adapter.proxy?.();
+    if (!method(manager, 'SendDDZ2023StreakWinAwardReq') && !method(manager, 'Sendrogue1v1StreakWinAwardReq')) return;
+    const config = () => adapter.config('hd_fight_lord_config.sgs');
+    if (!config()) return note('斗地主连胜奖励配置尚未就绪，请稍后重试');
+    const rewards = () => rows((config()?.root || config())?.WinningStreak);
+    for (const reward of rewards()) {
+      const id = Number(reward?.Id);
+      if (!positive(id) || !positive(reward.RequireSuccess)) continue;
+      const current = () => rewards().find(item => Number(item?.Id) === id);
+      const same = () => adapter.manager('ActivityGameDataManager') === manager && current() === reward;
+      const reply = event => { const p = event?.Protocol; return p && !p.errCode && p.rewardId === id ? p : null; };
+      const route = streakRoute(manager, reward);
+      if (!route) continue;
+      const ready = () => same() && streakRoute(manager, reward) === route;
+      add({ key: `ddz-streak:${id}`, label: `${route === 'rogue' ? '单骑无双' : '斗地主'} ${reward.RequireSuccess} 连胜奖励`, manager,
+        rewards: () => current()?.goodslist,
+        eligible: ready,
+        done: () => same() && (streakClaimed(manager, id) || (method(manager, 'DDZ2023WinAwardGetState') && manager.DDZ2023WinAwardGetState(id) === 2)),
+        send: () => ready() ? (route === 'ddz' ? manager.SendDDZ2023StreakWinAwardReq(id) : manager.Sendrogue1v1StreakWinAwardReq({ id })) : false,
+        // Single-rider UI emits an update even without a proven success code.
+        // Confirm this route only from the synchronized claimed-ID state.
+        confirmations: proxy && route === 'ddz' ? [{ manager: proxy, event: 'ClientDDZ2023StreakWinAwardRep', accept: event => same() && reply(event)?.result === 1 }] : [],
+        rejections: proxy && route === 'ddz' ? [{ manager: proxy, event: 'ClientDDZ2023StreakWinAwardRep', accept: event => same() && [2, 3, 4].includes(reply(event)?.result), text: event => `斗地主连胜奖励领取失败（游戏错误码 ${reply(event).result}），请在游戏内核对` }] : [],
       });
     }
   });

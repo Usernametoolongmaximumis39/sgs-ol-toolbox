@@ -1,11 +1,10 @@
 import { findSkinDetail, watchSkinDetail } from '../../shared/skin-detail.js';
-import { CONTROL_STYLES } from '../../ui/controls.js';
 
 export function createSkinDownload(ctx) {
   const doc = ctx.document, win = ctx.window;
   const root = doc.createElement('div'); root.dataset.sgsSkinDownload = ''; root.hidden = true;
   const style = doc.createElement('style');
-  style.textContent = CONTROL_STYLES + '[data-sgs-skin-download]{position:fixed;z-index:2147483000;filter:drop-shadow(0 3px 8px #0008)}[data-sgs-skin-download] button{appearance:none;box-sizing:border-box;min-height:52px;padding:12px 20px;border:1px solid var(--sgs-border);border-radius:10px;background:var(--sgs-surface);color:var(--sgs-text);font:600 18px/1.4 "Microsoft YaHei",sans-serif;cursor:pointer;white-space:nowrap}[data-sgs-skin-download] button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}[data-sgs-skin-download] button:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}[data-sgs-skin-download] button:disabled{opacity:.5;cursor:wait}';
+  style.textContent = '[data-sgs-skin-download]{position:fixed;z-index:2147483000;filter:drop-shadow(0 3px 8px #0008)}[data-sgs-skin-download] button{appearance:none;box-sizing:border-box;min-height:52px;padding:12px 20px;border:1px solid var(--sgs-border);border-radius:10px;background:var(--sgs-surface);color:var(--sgs-text);font:600 18px/1.4 "Microsoft YaHei",sans-serif;cursor:pointer;white-space:nowrap}[data-sgs-skin-download] button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}[data-sgs-skin-download] button:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}[data-sgs-skin-download] button:disabled{opacity:.5;cursor:wait}';
   const button = doc.createElement('button'); button.type = 'button'; button.textContent = '下载皮肤原图'; button.title = '保存当前皮肤的官方原画文件';
   root.append(button); (doc.head || doc.documentElement).append(style); (doc.body || doc.documentElement).append(root);
   ctx.scope.add(() => { root.remove(); style.remove(); });

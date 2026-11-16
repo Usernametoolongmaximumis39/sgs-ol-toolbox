@@ -1,4 +1,4 @@
-import { controlIcon } from './controls.js';
+import { controlIcon, helpTip } from './controls.js';
 import { BLACK_GOLD } from '../core/themes.js';
 import { ResourceScope } from '../core/resources.js';
 
@@ -39,10 +39,10 @@ export function mountThemeWorkshop(container, { document: doc, themes, notify })
   const style = el('style'); style.textContent = STYLES;
   const heading = el('div', 'theme-heading'), count = el('span', 'theme-count');
   heading.append(el('h4', '', '选择配色'), count);
-  const intro = el('p', 'theme-intro', '选择一套配色，即刻换装。');
+  const intro = helpTip(doc, '选择一套配色，即刻换装。');
   const grid = el('div', 'theme-grid'); grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', '工具箱主题');
   const status = el('p', 'theme-status'); status.dataset.themeStatus = ''; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-  const footnote = el('p', 'theme-footnote', '配色自动保存。主题包停用后暂回玄金，重新启用后恢复选择。');
+  const footnote = helpTip(doc, '配色自动保存。主题包停用后暂回玄金，重新启用后恢复选择。');
   root.append(style, heading, intro, grid, status, footnote); container.append(root);
   let signature, cards = new Map(), cardScope;
   const update = () => {

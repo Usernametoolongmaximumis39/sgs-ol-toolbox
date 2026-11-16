@@ -1,0 +1,515 @@
+[
+  {
+    "type": "MsgGamePlayCardNtf",
+    "seq": 264,
+    "payload": {
+      "CardList": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        129,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        149,
+        150,
+        151,
+        152,
+        153,
+        154,
+        155,
+        156,
+        157,
+        158,
+        159,
+        160,
+        161
+      ],
+      "isSend": 0,
+      "IsResume": false
+    }
+  },
+  {
+    "type": "PubGsCMoveCard",
+    "seq": 265,
+    "payload": {
+      "CardIDs": [],
+      "CardCount": 161,
+      "FromID": 255,
+      "ToID": 255,
+      "FromZone": 2,
+      "ToZone": 9,
+      "FromPosition": 65280,
+      "ToPosition": 65280,
+      "FromZoneParam": 0,
+      "ToZoneParam": 0,
+      "MoveType": 255,
+      "SpellID": 0,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "CGsRoleSpellOptRep",
+    "seq": 267,
+    "payload": {
+      "SpellID": 0,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "SmsgGameSetCharacter",
+    "seq": 268,
+    "payload": {
+      "isSend": 0,
+      "Infos": [
+        {
+          "SeatID": 1,
+          "CharacterID": 631
+        }
+      ]
+    }
+  },
+  {
+    "type": "CGsRoleSpellOptRep",
+    "seq": 269,
+    "payload": {
+      "SpellID": 0,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "SmsgGameSetCharacter",
+    "seq": 270,
+    "payload": {
+      "isSend": 0,
+      "Infos": [
+        {
+          "SeatID": 2,
+          "CharacterID": 36
+        }
+      ]
+    }
+  },
+  {
+    "type": "CGsRoleSpellOptRep",
+    "seq": 271,
+    "payload": {
+      "SpellID": 0,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "GsCRoleOptTargetNtf",
+    "seq": 272,
+    "payload": {
+      "SeatID": 2,
+      "SpellID": 0,
+      "SrcSeatID": 255,
+      "TargetSeatID": 255,
+      "Type": 76,
+      "Param": 0,
+      "Params": [],
+      "isSend": 0
+    }
+  },
+  {
+    "type": "GsCRoleOptTargetNtf",
+    "seq": 273,
+    "payload": {
+      "SeatID": 3,
+      "SpellID": 0,
+      "SrcSeatID": 255,
+      "TargetSeatID": 255,
+      "Type": 76,
+      "Param": 0,
+      "Params": [],
+      "isSend": 0
+    }
+  },
+  {
+    "type": "SmsgGameSetCharacter",
+    "seq": 275,
+    "payload": {
+      "isSend": 0,
+      "Infos": [
+        {
+          "SeatID": 2,
+          "CharacterID": 36
+        },
+        {
+          "SeatID": 3,
+          "CharacterID": 302
+        }
+      ]
+    }
+  },
+  {
+    "type": "PubGsCMoveCard",
+    "seq": 277,
+    "payload": {
+      "CardIDs": [],
+      "CardCount": 4,
+      "FromID": 255,
+      "ToID": 1,
+      "FromZone": 1,
+      "ToZone": 5,
+      "FromPosition": 65280,
+      "ToPosition": 65280,
+      "FromZoneParam": 0,
+      "ToZoneParam": 0,
+      "MoveType": 1,
+      "SpellID": 0,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "PubGsCMoveCard",
+    "seq": 278,
+    "payload": {
+      "CardIDs": [
+        24,
+        75,
+        113,
+        22
+      ],
+      "CardCount": 4,
+      "FromID": 255,
+      "ToID": 2,
+      "FromZone": 1,
+      "ToZone": 5,
+      "FromPosition": 65280,
+      "ToPosition": 65280,
+      "FromZoneParam": 0,
+      "ToZoneParam": 0,
+      "MoveType": 1,
+      "SpellID": 0,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "PubGsCMoveCard",
+    "seq": 279,
+    "payload": {
+      "CardIDs": [],
+      "CardCount": 4,
+      "FromID": 255,
+      "ToID": 3,
+      "FromZone": 1,
+      "ToZone": 5,
+      "FromPosition": 65280,
+      "ToPosition": 65280,
+      "FromZoneParam": 0,
+      "ToZoneParam": 0,
+      "MoveType": 1,
+      "SpellID": 0,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "GsCGamephaseNtf",
+    "seq": 280,
+    "payload": {
+      "SeatID": 1,
+      "Round": 0,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "MsgGameTurnNtf",
+    "seq": 281,
+    "payload": {
+      "TurnCnt": 1,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "CGsRoleSpellOptRep",
+    "seq": 282,
+    "payload": {
+      "SpellID": 0,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "CGsRoleSpellOptRep",
+    "seq": 283,
+    "payload": {
+      "SpellID": 0,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "GsCGamephaseNtf",
+    "seq": 284,
+    "payload": {
+      "SeatID": 1,
+      "Round": 1,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "GsCGamephaseNtf",
+    "seq": 285,
+    "payload": {
+      "SeatID": 1,
+      "Round": 2,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "GsCGamephaseNtf",
+    "seq": 286,
+    "payload": {
+      "SeatID": 1,
+      "Round": 3,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "PubGsCMoveCard",
+    "seq": 287,
+    "payload": {
+      "CardIDs": [],
+      "CardCount": 2,
+      "FromID": 255,
+      "ToID": 1,
+      "FromZone": 1,
+      "ToZone": 5,
+      "FromPosition": 65280,
+      "ToPosition": 65280,
+      "FromZoneParam": 0,
+      "ToZoneParam": 0,
+      "MoveType": 1,
+      "SpellID": 0,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "GsCGamephaseNtf",
+    "seq": 288,
+    "payload": {
+      "SeatID": 1,
+      "Round": 4,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "PubGsCUseSpell",
+    "seq": 289,
+    "payload": {
+      "CardIDs": [],
+      "CardCount": 0,
+      "SeatID": 1,
+      "SpellID": 3488,
+      "SrcSeatID": 1,
+      "DestSeatIDs": [
+        2,
+        3
+      ],
+      "EffectIndex": 0,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "PubGsCMoveCard",
+    "seq": 290,
+    "payload": {
+      "CardIDs": [
+        113
+      ],
+      "CardCount": 1,
+      "FromID": 2,
+      "ToID": 2,
+      "FromZone": 5,
+      "ToZone": 5,
+      "FromPosition": 65280,
+      "ToPosition": 65280,
+      "FromZoneParam": 0,
+      "ToZoneParam": 0,
+      "MoveType": 21,
+      "SpellID": 3488,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "PubGsCMoveCard",
+    "seq": 291,
+    "payload": {
+      "CardIDs": [
+        54
+      ],
+      "CardCount": 1,
+      "FromID": 3,
+      "ToID": 3,
+      "FromZone": 5,
+      "ToZone": 5,
+      "FromPosition": 65280,
+      "ToPosition": 65280,
+      "FromZoneParam": 0,
+      "ToZoneParam": 0,
+      "MoveType": 21,
+      "SpellID": 3488,
+      "isSend": 0
+    }
+  },
+  {
+    "type": "GsCRoleOptTargetNtf",
+    "seq": 292,
+    "payload": {
+      "SeatID": 1,
+      "SpellID": 3488,
+      "SrcSeatID": 1,
+      "TargetSeatID": 1,
+      "Type": 28,
+      "Param": 0,
+      "Params": [
+        3,
+        54,
+        2,
+        113
+      ],
+      "isSend": 0
+    }
+  }
+]

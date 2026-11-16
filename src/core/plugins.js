@@ -1,8 +1,8 @@
+import { acquirePluginStyles, mountPluginUI } from '../ui/plugin-ui.js';
 import { ResourceScope } from './resources.js';
 import { compilePackage, verifyPackage, validateManifest } from './packages.js';
 import { createNativeTheme } from '../ui/native-theme.js';
 import { normalizePanel, comparePluginOrder } from './plugin-contract.js';
-import { createIcon } from '../ui/icons.js';
 
 export class PluginManager {
   constructor({ journal, store, settings, context, onChange = () => {} }) {
@@ -98,13 +98,19 @@ export class PluginManager {
       reportError: value => { if (scope.closed) return; const message = value == null ? '' : String(value?.stack || value); slot.reportedError = message;
         if (message) { if (slot.active) this.runtimeError(slot, value); return; }
         if (slot.error) { slot.error = ''; this.onChange(); } },
-      ui: { nativeTheme: createNativeTheme({ ...this.context, scope }), icon: spec => createIcon(this.context.document, spec),
+      ui: { ...mountPluginUI({ ...this.context, scope }, () => ctx), nativeTheme: createNativeTheme({ ...this.context, scope }),
         registerCompactSummary: () => {
           const id = slot.module.manifest.id;
           scope.add(() => this.context.ui.setCompactSummary?.(id, []));
           return items => { if (!scope.closed) this.context.ui.setCompactSummary?.(id, items); };
         },
-        registerPanel: spec => { if (scope.closed) return () => {}; return scope.add(this.context.ui.registerPanel(normalizePanel(spec, slot.module.manifest))); } },
+        registerPanel: spec => { if (scope.closed) return () => {}; const panel = normalizePanel(spec, slot.module.manifest), render = panel.render;
+          panel.render = container => {
+            const root = container.getRootNode?.(), release = root?.host ? acquirePluginStyles(root, this.context.document) : () => {};
+            try { const cleanup = render(container); return () => { try { cleanup?.(); } finally { release(); } }; }
+            catch (error) { release(); throw error; }
+          };
+          return scope.add(this.context.ui.registerPanel(panel)); } },
       backgrounds: {
         isInstalled: () => !scope.closed && this.slots.has('backgrounds'),
         register: () => scope.closed ? () => {} : scope.add(this.context.backgrounds.register(id)),

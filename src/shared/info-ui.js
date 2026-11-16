@@ -1,5 +1,5 @@
-import { CONTROL_STYLES, controlIcon } from '../ui/controls.js';
-export const INFO_STYLES = `${CONTROL_STYLES}
+import { controlIcon } from '../ui/controls.js';
+export const INFO_STYLES = `
 .sgs-info{min-width:0;color:var(--sgs-text);font:12px/1.65 var(--sgs-font,sans-serif)}
 .sgs-info *{box-sizing:border-box}.sgs-info [hidden]{display:none!important}
 .sgs-info p{margin:0 0 10px;overflow-wrap:anywhere}.sgs-info .muted{color:var(--sgs-muted);font-size:11px}
@@ -13,7 +13,7 @@ export const INFO_STYLES = `${CONTROL_STYLES}
 .sgs-info .stat{display:flex;align-items:baseline;gap:6px;margin:10px 0;font-variant-numeric:tabular-nums}.sgs-info .stat strong{font-size:25px;font-weight:600;color:var(--sgs-accent)}
 .sgs-info .list{max-height:430px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}.sgs-info .row{padding:10px 0;border-top:1px solid color-mix(in srgb,var(--sgs-border) 60%,transparent)}
 .sgs-info .row-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px}.sgs-info .name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sgs-info .number{font-variant-numeric:tabular-nums;flex:none;font-size:11px}
-.sgs-info .progress{height:3px;border-radius:2px;background:var(--sgs-raised);margin:7px 0}.sgs-info .progress>i{display:block;height:100%;background:var(--sgs-accent);border-radius:2px}
+.sgs-info progress.progress{appearance:none;display:block;width:100%;height:3px;border:0;border-radius:2px;background:var(--sgs-raised);margin:7px 0;overflow:hidden}.sgs-info progress::-webkit-progress-bar{background:var(--sgs-raised)}.sgs-info progress::-webkit-progress-value{background:var(--sgs-accent)}.sgs-info progress::-moz-progress-bar{background:var(--sgs-accent)}
 .sgs-info details{font-size:11px;color:var(--sgs-muted)}.sgs-info summary{cursor:pointer}.sgs-info details p{white-space:pre-wrap;margin:6px 0;overflow-wrap:anywhere}
 .sgs-info .error{color:var(--sgs-danger);white-space:pre-wrap;overflow-wrap:anywhere}.sgs-info .empty{padding:20px 4px;text-align:center;color:var(--sgs-muted)}
 .sgs-info .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin-top:6px;color:var(--sgs-muted);font-size:10px}.sgs-info .metrics b{display:block;font-size:14px;color:var(--sgs-text);font-variant-numeric:tabular-nums;font-weight:500}
@@ -21,7 +21,7 @@ export const INFO_STYLES = `${CONTROL_STYLES}
 export function panelUI(ctx, container) {
   const doc = ctx.document, cleanups = [], root = doc.createElement('section'); root.className = 'sgs-info';
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
-  const style = el('style'); style.textContent = INFO_STYLES; root.append(style); container.append(root);
+  container.append(root);
   const scheme = current => { const hex = current?.tokens?.bg || ''; const match = /^#([\da-f]{6})$/i.exec(hex);
     if (match) { const rgb = [0, 2, 4].map(i => parseInt(match[1].slice(i, i + 2), 16)); root.style.colorScheme = rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722 > 140 ? 'light' : 'dark'; } };
   scheme(ctx.themes?.current); if (ctx.themes?.subscribe) cleanups.push(ctx.themes.subscribe(scheme));

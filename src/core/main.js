@@ -1,5 +1,6 @@
 import { installRefreshReentry } from './refresh-reentry.js';
-import { DEVELOPMENT, EDITION } from './distribution.js';
+import { DEVELOPMENT, EDITION, MICROCLIENT } from './distribution.js';
+import { installMicroCompatibility } from './micro-compatibility.js';
 import { bundledPackages } from './bundled-plugins.js';
 import { startOwnedRuntime } from './runtime-owner.js';
 import { Settings, PackageStore } from './storage.js';
@@ -23,8 +24,9 @@ export function boot(win = window) {
   return startOwnedRuntime(win, EDITION, api => initialize(win, api));
 }
 async function initialize(win, api) {
-  if (installRefreshReentry(win)) return api;
+  if (!MICROCLIENT && installRefreshReentry(win)) return api;
   const scope = api.scope;
+  if (MICROCLIENT) installMicroCompatibility(win, scope);
   const onlyPlugin = DEVELOPMENT && ['daily-rewards', 'effects', 'skins', 'wish-progress', 'shanhetu', 'themes', 'baisheng', 'appearances', 'seckill', 'gaizhu', 'ledger', 'recharge'].includes(win.__SGS_TOOLBOX_DEMO__?.onlyPlugin)
     && win.location?.hostname === '127.0.0.1' ? win.__SGS_TOOLBOX_DEMO__.onlyPlugin : null;
   const settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : 'sgstoolbox:'), journal = new SessionJournal();
@@ -42,12 +44,14 @@ async function initialize(win, api) {
     getTargets: game.getMessageTargets, observeType: diagnostics.observeType,
   });
   let compat, mounted = false, legacyWarned = false;
+  if (!MICROCLIENT) {
   compat = createCompatibility({ window: win, document: win.document, takeover: settings.get('compatPolicy', 'hide'), onStatus: () => { bridge.check(); } });
   if (!settings.get('compatPassiveDefaultV1', false)) { settings.set('compatEnabled', false); settings.set('compatPassiveDefaultV1', true); }
   compat.setEnabled(settings.get('compatEnabled', false)); compat.start(); scope.add(() => compat.stop());
+  }
   const marketConnection = createMarketConnection(settings, win.fetch.bind(win), shell.notify);
   const manager = new PluginManager({ journal, store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : 'sgs-ol-toolbox'), settings,
-    context: { core: Object.freeze({ version: CORE_VERSION, distribution: EDITION }), window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds, notify: shell.notify }, onChange: () => shell.render() });
+    context: { core: Object.freeze({ version: CORE_VERSION, distribution: EDITION, platform: MICROCLIENT ? 'microclient' : 'browser' }), window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds, notify: shell.notify }, onChange: () => shell.render() });
   scope.add(() => manager.dispose());
   const replacements = { cards: REPLACED_CARD_PACKAGES, backgrounds: REPLACED_BACKGROUND_PACKAGES,
     'daily-rewards': REPLACED_REWARD_PACKAGES, effects: REPLACED_EFFECT_PACKAGES, skins: REPLACED_SKIN_PACKAGES,
@@ -72,7 +76,7 @@ async function initialize(win, api) {
     shell.setRemainingSlash(game.getRemainingSlash());
     const ready = !!(game.getScene() || win.Laya?.stage || win.__SGS_TOOLBOX_DEMO__);
     shell.host.style.display = ready ? '' : 'none';
-    if (ready && !legacyWarned && compat.getStatus().sources.length) { legacyWarned = true; shell.showLegacyWarning(); }
+    if (!MICROCLIENT && ready && !legacyWarned && compat.getStatus().sources.length) { legacyWarned = true; shell.showLegacyWarning(); }
     if (ready && !mounted) { mounted = true; snapshots.request(); }
     const capture = bridge.getStatus();
     shell.setStatus(bridge.error || (ready ? (DEVELOPMENT && win.__SGS_TOOLBOX_DEMO__ ? '开发演练 · 模拟游戏事件' : capture.received

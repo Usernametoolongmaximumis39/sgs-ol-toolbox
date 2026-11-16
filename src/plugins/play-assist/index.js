@@ -1,10 +1,8 @@
-import { CONTROL_STYLES, styleSwitch } from '../../ui/controls.js';
 import { EXTRA_SKILLS } from './strategies.js';
 import { createRuntime } from './runtime.js';
 
 export const OPTIONS = [
-  ['skillLock', '长按技能辅助', '山河长按 0.5 秒，其他 2 秒；点按解除'],
-  ['remember', '跨局记忆', ''],
+  ['skillLock', '长按技能辅助', '长按开启：山河 0.5 秒／其他 2 秒；右键长按记住；移动端继续按到 3 秒／5 秒记住；点一下取消'],
   ['autoConfirm', '选好后自动确定', ''],
   ['fireAttack', '自动火攻', '展示、弃牌'],
   ['skipWuxie', '跳过无懈', '仅山河模式的限定询问'],
@@ -13,20 +11,20 @@ export const OPTIONS = [
   ['quandaoCount', '权道数量', ''],
   ['rapid', '技能连按', '取消连按间隔'],
 ];
-export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.6', apiVersion: 1, contractVersion: 1,
-  minCoreVersion: '0.5.13', description: '长按技能辅助、自动确定与询问跳过。',
+export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.12', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "长按技能辅助默认开启，保留已有设置；右键长按可记住技能，移动端继续长按也可记住，点按取消。移除统一跨局记忆开关，改为逐技能记忆，并修正部分询问处理。", minCoreVersion: '0.6.37', description: '长按技能辅助、自动确定与询问跳过。',
   icon: { paths: ['M4 5h10v14H4zM7 8h4M7 11h3', 'm17 3-3 8h5l-3 10 7-13h-5l2-5'] }, priority: 12000, categories: ['game'] };
 
 export default { manifest, activate(ctx) {
   const listeners = new Set();
-  const settings = () => Object.fromEntries(OPTIONS.map(([key]) => [key, ctx.settings.get(key, false) === true]));
+  const settings = () => Object.fromEntries(OPTIONS.map(([key]) => [key, ctx.settings.get(key, key === 'skillLock') === true]));
   const emit = () => listeners.forEach(fn => fn());
   const runtime = createRuntime(ctx, settings, emit);
   ctx.ui.registerPanel({ id: 'main', category: 'game', gameView: 'battle', render(container) {
     const doc = ctx.document, cleanups = [];
     const el = (tag, text, cls) => { const n = doc.createElement(tag); if (text != null) n.textContent = text; if (cls) n.className = cls; return n; };
     const root = el('section'); root.dataset.playAssist = '';
-    const style = el('style'); style.textContent = `${CONTROL_STYLES}
+    const style = el('style'); style.textContent = `
       [data-play-assist]{font:12px/1.5 var(--sgs-font);color:var(--sgs-text);min-width:0}
       [data-play-assist] *{box-sizing:border-box}[data-play-assist] .pa-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent);cursor:pointer}
       [data-play-assist] .pa-copy{min-width:0;flex:1}[data-play-assist] small{display:block;font-size:10px;color:var(--sgs-muted);margin-top:2px;overflow-wrap:anywhere}
@@ -44,8 +42,8 @@ export default { manifest, activate(ctx) {
     `;
     const inputs = new Map();
     for (const [key, name, hint] of OPTIONS) {
-      const row = el('label', null, 'pa-row'), copy = el('span', null, 'pa-copy'); copy.append(el('span', name)); if (hint) copy.append(el('small', hint));
-      const input = styleSwitch(el('input')); input.type = 'checkbox'; input.setAttribute('aria-label', name); inputs.set(key, input);
+      const row = el('label', null, 'pa-row'), copy = el('span', null, 'pa-copy'); copy.append(el('span', name)); if (hint) copy.append(ctx.ui.helpTip(hint, `${name}说明`));
+      const input = ctx.ui.styleSwitch(el('input')); input.type = 'checkbox'; input.setAttribute('aria-label', name); inputs.set(key, input);
       cleanups.push(ctx.scope.listen(input, 'change', () => { ctx.settings.set(key, input.checked); runtime.tick?.(); emit(); })); row.append(copy, input); root.append(row);
       if (key === 'skillLock') {
         const support = el('details', null, 'pa-support sgs-fold');
@@ -67,11 +65,11 @@ export default { manifest, activate(ctx) {
     let signature = '';
     function paint() {
       const config = settings(); inputs.forEach((input, key) => { input.checked = config[key]; });
-      const list = runtime.getSkills().map(({id,name,locked}) => ({id,name,locked})), next = JSON.stringify([list, config.skillLock]);
+      const list = runtime.getSkills().map(({id,name,locked,remembered}) => ({id,name,locked,remembered})), next = JSON.stringify([list, config.skillLock]);
       if (signature === next) return; signature = next; skills.replaceChildren();
       count.textContent = `${list.filter(s => s.locked).length} / ${list.length}`;
       if (!list.length) skills.append(el('p', '暂无可辅助技能', 'pa-empty'));
-      for (const skill of list) { const button = el('button'); button.type = 'button'; button.dataset.id = skill.id; button.disabled = !config.skillLock; button.title = skill.name; button.setAttribute('aria-pressed', String(skill.locked)); button.append(el('span', skill.name), el('small', skill.locked ? '已开启' : '未开启')); skills.append(button); }
+      for (const skill of list) { const button = el('button'); button.type = 'button'; button.dataset.id = skill.id; button.disabled = !config.skillLock; button.title = skill.name; button.setAttribute('aria-pressed', String(skill.locked)); button.append(el('span', skill.name), el('small', skill.remembered ? '已记住 · 点一下取消' : skill.locked ? '本局开启' : '未开启')); skills.append(button); }
     }
     listeners.add(paint); paint();
     return () => { listeners.delete(paint); cleanups.splice(0).forEach(fn => fn()); root.remove(); style.remove(); };

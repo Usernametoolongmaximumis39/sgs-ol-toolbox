@@ -1,15 +1,15 @@
 import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
 import { account, read, manager, observeNative, field, generalNames, downloadJSON } from '../../shared/info-runtime.js';
-import { panelUI } from '../../shared/info-ui.js';
 import { definitions, projectAchievements, evaluate, validSnapshot } from './model.js';
 import { achievementExport } from './export.js';
-export const manifest = { id: 'baisheng', name: '百胜战功', version: '0.1.3', apiVersion: 1, contractVersion: 1,
-  minCoreVersion: '0.5.13', categories: ['info'], icon: PLUGIN_ICONS['baisheng'], priority: 31000,
+export const manifest = { id: 'baisheng', name: '百胜战功', version: '0.1.7', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "优化战功进度展示、登录等待提示与筛选操作，保留当前账号记录。", minCoreVersion: '0.6.37', categories: ['info'], icon: PLUGIN_ICONS['baisheng'], priority: 31000,
   description: '查看当前账号百胜进度、完成日期与技能战功，仅保存在本机' };
 
 export function createController(ctx) {
   let who = { id: '', nickname: '' }, snapshot = null, defs = [], names = {}, error = '', loading = false, request = null;
   let configError = ''; const listeners = new Set();
+  let generation = 0, initialized = false, autoAttempts = 0, nextAutoAt = 0;
   const notify = () => { ctx.reportError?.(error || configError); for (const fn of [...listeners]) fn(); };
   const cancel = () => { request?.cancel(); request = null; loading = false; };
   const fail = e => { error = String(e?.stack || e); notify(); };
@@ -17,6 +17,7 @@ export function createController(ctx) {
     const next = account(ctx);
     if (next.id === who.id && next.nickname === who.nickname) return;
     cancel(); who = next; error = ''; snapshot = null;
+    generation++; initialized = false; autoAttempts = 0; nextAutoAt = 0;
     if (who.id) {
       const stored = ctx.storage.get(`account:${who.id}:snapshot-v1`, null);
       if (stored?.schema === 1 && stored.snapshot?.nickname === who.nickname && validSnapshot(stored.snapshot)) snapshot = stored.snapshot;
@@ -32,7 +33,7 @@ export function createController(ctx) {
     sync(); if (!who.id || sender.id !== who.id) return;
     if (type === 'ClientDbsGetuserachinfoRep') {
       if (!who.nickname || data.nickname !== who.nickname) return;
-      snapshot = data; cancel(); error = ''; persist(); notify();
+      snapshot = data; initialized = defs.some(d => d.flags === 2048); cancel(); error = ''; persist(); notify();
     } else if (type === 'GsClientAchievementProgressUpdate' && snapshot) {
       if (!(data.id > 0) || !Number.isSafeInteger(data.value) || data.value < 0) return;
       snapshot = { ...snapshot, progress: { ...snapshot.progress, [data.id]: Math.max(snapshot.progress[data.id] || 0, data.value) }, at: Date.now() };
@@ -46,11 +47,13 @@ export function createController(ctx) {
     } catch (e) { configError = String(e?.message || e); }
   }
   async function refresh() {
-    sync(); if (loading || !who.id) return;
-    const expected = { ...who }; loading = true; error = ''; notify();
+    sync(); if (ctx.scope.signal.aborted || loading || !who.id) return;
+    const expected = { ...who }, currentGeneration = generation;
+    autoAttempts++; nextAutoAt = Date.now() + 30000;
+    loading = true; error = ''; notify();
     try {
       const [ach, chars] = await Promise.all([ctx.game.loadConfigData('gn_gs_ahievement'), ctx.game.loadConfigData('character')]);
-      if (ctx.scope.signal.aborted || account(ctx).id !== expected.id || account(ctx).nickname !== expected.nickname) return;
+      if (ctx.scope.signal.aborted || generation !== currentGeneration || account(ctx).id !== expected.id || account(ctx).nickname !== expected.nickname) return;
       defs = definitions(ach, chars); names = generalNames(chars); configError = '';
       if (!defs.some(d => d.flags === 2048)) throw new Error('官方配置未找到百胜战功定义');
       const mgr = manager(ctx, 'AchievementManager', 'ClientDbsGetuserachinfoRep', m => typeof m.sendGetAchInfo === 'function');
@@ -61,16 +64,22 @@ export function createController(ctx) {
       timer = ctx.window.setTimeout(() => { cancel(); error = '战功查询超时。保留上次本机快照，请稍后重试。'; notify(); }, 12000);
       mgr.sendGetAchInfo(who.nickname, 0);
     } catch (e) {
-      if (!ctx.scope.signal.aborted && account(ctx).id === expected.id) { cancel(); fail(e); }
+      if (!ctx.scope.signal.aborted && generation === currentGeneration && account(ctx).id === expected.id) { cancel(); fail(e); }
     } finally {
-      if (!ctx.scope.signal.aborted) { if (!request && account(ctx).id === expected.id) loading = false; notify(); }
+      if (!ctx.scope.signal.aborted && generation === currentGeneration) { if (!request && account(ctx).id === expected.id) loading = false; notify(); }
     }
   }
   configs(); sync();
   observeNative(ctx, { ClientDbsGetuserachinfoRep: projectAchievements,
     GsClientAchievementProgressUpdate: packet => ({ id: Number(field(packet, 'CriteriaID')), value: Number(field(packet, 'Conut')) }) }, accept,
   () => { cancel(); error = '战功消息有缺口，请刷新官方进度；当前显示为上次快照。'; notify(); });
-  ctx.scope.interval(sync, 500); ctx.scope.add(() => { cancel(); listeners.clear(); });
+  const initialize = () => {
+    sync();
+    if (!who.id || !who.nickname || initialized || loading || autoAttempts >= 3 || Date.now() < nextAutoAt) return;
+    if (manager(ctx, 'AchievementManager', 'ClientDbsGetuserachinfoRep', m => typeof m.sendGetAchInfo === 'function')) void refresh();
+  };
+  ctx.scope.timeout(initialize, 0); ctx.scope.interval(initialize, 500);
+  ctx.scope.add(() => { generation++; cancel(); listeners.clear(); });
   return { refresh, view() { sync(); configs(); const gm = manager(ctx, 'GameGeneralManager', 'ClientGeneralFromRep', m => typeof m.HasGeneral === 'function');
     return { who, snapshot, error: error || configError, loading,
       rows: evaluate(defs, snapshot, names, id => gm ? read(() => gm.HasGeneral(id)) ?? null : null) }; },
@@ -80,7 +89,7 @@ export function createController(ctx) {
 export function activate(ctx) {
   const controller = createController(ctx);
   ctx.ui.registerPanel({ id: 'main', category: 'info', render(container) {
-    const ui = panelUI(ctx, container), { root, el, listen, input, button, segments } = ui;
+    const ui = ctx.ui.panel(container), { root, el, listen, input, button, segments } = ui;
     let status = 'all', owned = 'owned', search = '', alive = true;
     const note = el('p', 'muted', '官方战功进度 · 本机快照'), summary = el('div', 'stat'), bar = el('div', 'bar');
     const refresh = button('刷新战功', 'refresh', () => controller.refresh()); refresh.className = 'primary';
@@ -96,7 +105,8 @@ export function activate(ctx) {
       if (!alive || ctx.scope.signal.aborted) return;
       const v = controller.view(), snapshot = v.snapshot;
       refresh.disabled = !v.who.id || v.loading; refresh.lastChild.textContent = v.loading ? '查询中…' : '刷新战功'; exportButton.disabled = !snapshot;
-      note.textContent = v.who.id ? `${v.who.nickname || '当前账号'} · ${v.who.id}` : '等待登录当前账号';
+      note.hidden = Boolean(v.who.id);
+      note.textContent = '等待登录当前账号';
       const ownedUnknown = v.rows.some(row => row.owned === null);
       let rows = v.rows.filter(row => owned !== 'owned' || row.owned !== false);
       const total = rows.length, complete = snapshot ? rows.filter(row => row.completed).length : null;
@@ -108,7 +118,10 @@ export function activate(ctx) {
       for (const row of rows) {
         const node = el('article', 'row'), head = el('div', 'row-head'), name = el('span', 'name', row.name); name.title = [row.name, row.desc].filter(Boolean).join('\n');
         head.append(name, el('span', 'number', row.completed ? '已完成' : row.value === null ? '进度未知' : `${row.value} / ${row.required || '未知'}`));
-        const progress = el('div', 'progress'), fill = el('i'); fill.style.width = row.completed ? '100%' : row.value === null || !row.required ? '0%' : `${Math.min(100, row.value * 100 / row.required)}%`; progress.append(fill);
+        const progress = el('progress', 'progress'); progress.max = 100;
+        progress.value = row.completed ? 100 : row.value === null || !row.required ? 0 : Math.min(100, row.value * 100 / row.required);
+        progress.setAttribute('aria-label', `${row.name}战功进度`);
+        if (!row.completed && (row.value === null || !row.required)) { progress.hidden = true; }
         node.append(head, progress);
         if (row.finishTime) node.append(el('div', 'muted', `百胜完成于 ${new Date(row.finishTime * 1000).toLocaleDateString()}`));
         const skill = row.skill ? !snapshot ? '未查询' : row.skill.completed ? '已完成' : '未完成' : '无对应定义';

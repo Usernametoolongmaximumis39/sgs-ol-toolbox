@@ -1,7 +1,7 @@
 import { account, read, field, observeNative, generalNames, manager } from '../../shared/info-runtime.js';
 import { modeId, ids, capture } from './model.js';
 import { nativeModeEvidence, needsModeReview, reviewModeEvidence } from './mode-evidence.js';
-import { eligibleMode, nativeRobots, nativeSide, projectSettlement, robotStatus } from './battle.js';
+import { eligibleMode, nativeRobots, nativeSide, projectSettlement, robotStatus, rankedPosition } from './battle.js';
 import { sideOf, knownSides } from './groups.js';
 export const RECORD_LIMIT = 10000;
 export const BACKUP_FORMAT = 'sgs-toolbox-appearances-v1';
@@ -9,7 +9,10 @@ export function createController(ctx) {
   let who = { id: '' }, records = [], matches = [], startedAt = null, gaps = 0, draft = null, active = null;
   let error = '', names = {}, loading = false, storageBlocked = false, saveFailed = false, reviewing = false, reviewFailed = false, epoch = 0;
   let discardedBaisheng = 0, tableEvidence = null, inTraining = false, restoring = false, pending = null, lastSaved = null;
-  const listeners = new Set(), notify = () => { ctx.reportError?.(error); for (const fn of [...listeners]) fn(); };
+  let joinedSeat = null, firstSeat = null;
+  let namesError = '';
+  const listeners = new Set(), notify = () => { ctx.reportError?.(error || namesError); for (const fn of [...listeners]) fn(); };
+  let namesReady = false, nameAttempts = 0, nextNamesAt = 0;
   const fail = e => { error = String(e?.stack || e); notify(); };
   function validateRows(rows, battle = false) {
     if (!Array.isArray(rows) || rows.length > RECORD_LIMIT) throw new Error('本机记录格式或数量不支持，未覆盖原数据');
@@ -24,7 +27,9 @@ export function createController(ctx) {
   function sync() {
     const next = account(ctx); if (next.id === who.id) return;
     who = next; draft = active = pending = lastSaved = null; tableEvidence = null; inTraining = false; epoch++;
+    joinedSeat = firstSeat = null;
     error = ''; loading = storageBlocked = saveFailed = reviewing = reviewFailed = restoring = false;
+    namesReady = false; nameAttempts = 0; nextNamesAt = 0; namesError = '';
     records = []; matches = []; startedAt = null; gaps = discardedBaisheng = 0;
     const stored = who.id ? ctx.storage.get(`account:${who.id}:records-v1`, null) : null;
     if (stored) try {
@@ -57,13 +62,24 @@ export function createController(ctx) {
   const mode = () => {
     const evidence = nativeModeEvidence(read(() => ctx.game.getClass('GameContext')));
     const room = manager(ctx, 'RoomControler', 'ClientTrainingRep', v => 'isTrainingGame' in v);
-    return { ...evidence, mode: read(() => room.isTrainingGame) === true ? 0 : eligibleMode(evidence.rawMode, evidence.rawGroup) };
+    const training = read(() => room.isTrainingGame) === true;
+    return { ...evidence, training, mode: training ? 0 : eligibleMode(evidence.rawMode, evidence.rawGroup) };
   };
+  const canObserve = evidence => !evidence.training && (evidence.mode || evidence.rawMode == null && evidence.rawGroup == null);
   const viewer = () => read(() => ctx.game.getClass('GameContext').IsViewerOrReplay()) === true
     || read(() => ctx.game.getSnapshot().isReplay) === true || read(() => ctx.game.getScene().IsViewer) === true;
   const seatId = () => { const v = read(() => ctx.game.getSnapshot().selfSeatId); return Number.isSafeInteger(v) && v >= 0 && v < 8 ? v : null; };
+  const validSeat = value => Number.isInteger(value) && value >= 0 && value < 8 ? value : null;
+  const observedSeat = data => joinedSeat ?? data.selfSeat;
+  const observedSide = (data, selfSeat, gameMode) => {
+    // The native first-role packet identifies the starting seat. In a two-seat
+    // single-rider game the other participant is second; never add one to SeatID.
+    if (gameMode === 44 && firstSeat !== null && selfSeat !== null)
+      return { ...data.side, position: firstSeat === selfSeat ? 1 : 2 };
+    return data.selfSeat === selfSeat ? data.side : nativeSide(ctx, selfSeat);
+  };
   const reset = () => { draft = active = null; };
-  function gap() { sync(); reset(); gaps++; error = '消息记录有缺口，已舍弃当前未完成对局；历史记录保留。'; if (who.id) save(); notify(); }
+  function gap() { sync(); reset(); firstSeat = null; gaps++; error = '消息记录有缺口，已舍弃当前未完成对局；历史记录保留。'; if (who.id) save(); notify(); }
   function commit() {
     if (!draft?.mode || !draft.general.length || storageBlocked || !who.id) return;
     if (sideOf(draft)==='unknown') return;
@@ -71,27 +87,40 @@ export function createController(ctx) {
     const fingerprint = JSON.stringify([draft.mode, draft.general, draft.selected, draft.position, draft.figure]);
     if (lastSaved?.fingerprint === fingerprint && draft.time - lastSaved.time < 15000) { if (active) active.frameId = lastSaved.id; draft = null; return; }
     const record = { ...draft, id: active?.id || `${draft.time}-${ctx.window.crypto?.randomUUID?.() || records.length}`, source: 'toolbox' };
-    if (record.mode === 44 && record.isAiMatch === true) { draft = null; return; }
     if (save([...records, record])) { records = [...records, record]; startedAt ||= record.time; lastSaved = { fingerprint, time: record.time, id: record.id }; if (active) active.frameId = record.id; draft = null; notify(); }
   }
   function settle(data) {
-    if (!active || storageBlocked || viewer()) { reset(); return; }
-    const game = active, unsaved = draft; reset(); lastSaved = null;
-    if (data.selfSeat !== game.selfSeat || data.selfSeat === null) return;
+    if (!active || storageBlocked || viewer()) { reset(); firstSeat = null; return; }
+    const game = { ...active }; let unsaved = draft;
+    if (!game.mode) {
+      game.mode = eligibleMode(data.rawMode, data.rawGroup);
+      game.rawMode = data.rawMode; game.rawGroup = data.rawGroup; game.modeEvidence = 'native-settlement';
+      if (game.mode === 44 && firstSeat !== null && game.selfSeat !== null) game.position = firstSeat === game.selfSeat ? 1 : 2;
+      if (unsaved) unsaved = { ...unsaved, mode: game.mode, rawMode: game.rawMode, rawGroup: game.rawGroup,
+        modeEvidence: game.modeEvidence, position: game.position ?? null };
+    }
+    if (game.mode === 26 && game.position == null) {
+      game.position = rankedPosition(game.selfSeat, firstSeat, game.rankSeats);
+      if (unsaved) unsaved = { ...unsaved, position: game.position };
+    }
+    reset(); firstSeat = null; lastSaved = null;
+    if (!game.mode) return;
+    const selfSeat = observedSeat(data);
+    if (selfSeat !== game.selfSeat || selfSeat === null) return;
     if (data.rawMode != null && data.rawMode !== game.rawMode) return;
     if (data.rawGroup != null && data.rawGroup !== game.rawGroup) return;
-    if (data.gameModel != null && data.gameModel !== ({ 26: 14, 35: 33, 44: 37 })[game.mode]) return;
-    const own = data.own;
+    if (data.gameModel != null && !({ 26: [7, 14], 35: [33], 44: [37] })[game.mode]?.includes(data.gameModel)) return;
+    const ownRows = data.players.filter(p => p.seat === selfSeat);
+    const own = ownRows.length === 1 ? ownRows[0] : null;
     if (own?.userId != null && String(own.userId) !== who.id) return;
     const ai = data.players.length >= 2 ? robotStatus(data.players.map(p => ({ isRobot: p.isRobot, isProjectRobot: p.isProjectRobot }))) : null;
     const isAiMatch = game.isAiMatch === true || ai === true ? true : ai ?? game.isAiMatch;
-    const sourceRecords = unsaved && records.length < RECORD_LIMIT && !(game.mode === 44 && isAiMatch === true)
+    const sourceRecords = unsaved && records.length < RECORD_LIMIT
       ? [...records, { ...unsaved, id: game.id, source: 'toolbox' }] : records;
     const frameId = game.frameId || (unsaved ? game.id : null);
-    const nextRecords = sourceRecords.filter(r => !(game.mode === 44 && isAiMatch === true && r.id === frameId))
+    const nextRecords = sourceRecords
       .map(r => r.id === frameId ? { ...r, isAiMatch, seat:game.selfSeat, position:game.position ?? null, figure: own?.figure ?? game.figure ?? null } : r)
       .filter(r=>sideOf(r)!=='unknown');
-    if (game.mode === 44 && isAiMatch === true) { if (save(nextRecords)) records = nextRecords; else pending = { records: nextRecords, matches }; notify(); return; }
     if (!game.selected?.length) return;
     if (matches.length >= RECORD_LIMIT) { error = '本机战绩已达10000条，已暂停追加，请先导出备份。'; notify(); return; }
     const result = [0, 1, 255].includes(own?.result) ? own.result : null;
@@ -105,37 +134,44 @@ export function createController(ctx) {
   }
   function accept(type, data) {
     sync(); if (!who.id) return;
-    if (type === 'ClientEnterpageRep') { reset(); tableEvidence = null; inTraining = false; lastSaved = null; return; }
-    if (type === 'ClientTrainingRep') { if (data.result === 1) { reset(); tableEvidence = null; inTraining = true; } return; }
+    if (type === 'ClientEnterpageRep') { reset(); tableEvidence = null; joinedSeat = firstSeat = null; inTraining = false; lastSaved = null; return; }
+    if (type === 'ClientTrainingRep') { if (data.result === 1) { reset(); tableEvidence = null; joinedSeat = firstSeat = null; inTraining = true; } return; }
     if (type === 'ClientSitdownRep') { if (data.result === 1) { reset(); inTraining = data.viewer === true;
+      joinedSeat = data.viewer === true ? null : validSeat(data.seat); firstSeat = null;
       tableEvidence = { mode: eligibleMode(data.rawMode, data.rawGroup), rawMode: data.rawMode, rawGroup: data.rawGroup, modeEvidence: 'native-table-join' }; } return; }
-    if (viewer() || data.viewer) { reset(); return; }
+    if (viewer() || data.viewer) { reset(); firstSeat = null; return; }
     if (type === 'MsgGameOver') { settle(data); return; }
-    if (['ClientLeavetableRep', 'MsgReconnectGame', 'ClientLoginRep'].includes(type)) { reset(); tableEvidence = null; inTraining = false; lastSaved = null; return; }
+    if (['ClientLeavetableRep', 'MsgReconnectGame', 'ClientLoginRep'].includes(type)) { reset(); tableEvidence = null; joinedSeat = firstSeat = null; inTraining = false; lastSaved = null; return; }
     if (saveFailed || storageBlocked || restoring) return;
     if (type === 'MsgGameDealCharacter' || type === 'MsgGameDealCharacterPaiwei') {
-      if (data.type === 1 || data.type === 9 && data.mode.mode === 26) {
-        const evidence = tableEvidence || data.mode; reset();
-        if (!inTraining && evidence.mode && !(evidence.mode === 44 && data.isAiMatch === true)) {
-          active = { ...evidence, id: `${data.time}-${ctx.window.crypto?.randomUUID?.() || records.length}`, time: data.time, selfSeat: data.selfSeat, selected: null, isAiMatch: data.isAiMatch };
+      const evidence = tableEvidence || data.mode;
+      if (data.type === 1 || data.type === 9 && evidence.mode === 26) {
+        reset();
+        if (!inTraining && canObserve(evidence)) {
+          active = { ...evidence, id: `${data.time}-${ctx.window.crypto?.randomUUID?.() || records.length}`, time: data.time, selfSeat: observedSeat(data), selected: null, isAiMatch: data.isAiMatch };
           draft = { ...capture(null, { type: 'frame', mode: evidence.mode, general: data.general, time: data.time }), ...evidence, isAiMatch: data.isAiMatch };
         }
       } else if (data.type === 3 && draft) draft = capture(draft, { type: 'change', general: data.general });
       notify();
     } else if (type === 'SmsgGameSetCharacter') {
-      const selfSeat = data.selfSeat;
+      const selfSeat = observedSeat(data);
       if (selfSeat === null) { if (draft) error = '无法确认自己的座位，已舍弃当前出框与战绩。'; reset(); notify(); return; }
       const selected = data.infos.filter(r => r.seat === selfSeat).map(r => r.id); if (!selected.length) return;
       const evidence = tableEvidence || data.mode;
-      if (!active && !inTraining && evidence.mode && !(evidence.mode === 44 && data.isAiMatch === true)) active = { ...evidence, id: `${data.time}-${ctx.window.crypto?.randomUUID?.() || matches.length}`, time: data.time, selfSeat, isAiMatch: data.isAiMatch };
+      if (!active && !inTraining && canObserve(evidence)) active = { ...evidence, id: `${data.time}-${ctx.window.crypto?.randomUUID?.() || matches.length}`, time: data.time, selfSeat, isAiMatch: data.isAiMatch };
       if (!active) return;
+      const rankSeats = data.infos.map(r => r.seat);
+      if (rankedPosition(selfSeat, selfSeat, rankSeats) !== null) active.rankSeats = rankSeats;
       active.selected = ids(selected); active.selfSeat = selfSeat;
-      active.position=data.side?.position ?? active.position ?? null;active.figure=data.side?.figure ?? active.figure ?? null;
+      const side = observedSide(data, selfSeat, active.mode);
+      active.position=side?.position ?? active.position ?? null;active.figure=side?.figure ?? active.figure ?? null;
       if(draft)draft={...draft,seat:selfSeat,position:active.position,figure:active.figure};
       if (draft) { draft = capture(draft, { type: 'select', selected }); if (!draft) { error = '选中武将不在候选中，已舍弃当前对局。'; active = null; notify(); return; } commit(); }
     } else if (type === 'MsgEnterGameStageNtf' || type === 'GsCFirstPhaseRole') {
-      if(active && data.selfSeat===active.selfSeat){
-        active.position = data.side?.position ?? active.position ?? null;active.figure = data.side?.figure ?? active.figure ?? null;
+      if (type === 'GsCFirstPhaseRole') firstSeat = validSeat(data.firstSeat);
+      const selfSeat = observedSeat(data), side = observedSide(data, selfSeat, active?.mode);
+      if(active && selfSeat===active.selfSeat){
+        active.position = side?.position ?? active.position ?? null;active.figure = side?.figure ?? active.figure ?? null;
         if(draft)draft={...draft,seat:active.selfSeat,position:active.position,figure:active.figure};
         else if(active.frameId){
           const next=records.map(r=>r.id===active.frameId?{...r,position:active.position,figure:active.figure}:r);
@@ -148,26 +184,42 @@ export function createController(ctx) {
   sync(); names = generalNames(read(() => ctx.game.getConfigData('character')));
   observeNative(ctx, {
     ClientEnterpageRep: () => ({}), ClientTrainingRep: p => ({ result: field(p, 'Result') }),
-    ClientSitdownRep: p => ({ result: field(p, 'Result'), rawMode: field(p, 'TypeID'), rawGroup: field(p, 'GroupID'), viewer: field(p, 'IsViewer') }),
-    MsgGameDealCharacter: p => { const type = Number(field(p, 'Type')); return type === 1 || type === 3 || type === 9 && mode().mode === 26 ? { type, general: ids(field(p, 'Datas')), time: Date.now(), mode: mode(), selfSeat: seatId(), isAiMatch: nativeRobots(ctx), viewer: viewer() } : null; },
+    ClientSitdownRep: p => ({ result: field(p, 'Result'), rawMode: field(p, 'TypeID'), rawGroup: field(p, 'GroupID'), viewer: field(p, 'IsViewer'), seat: field(p, 'SeatID') }),
+    MsgGameDealCharacter: p => { const type = Number(field(p, 'Type')); return [1, 3, 9].includes(type) ? { type, general: ids(field(p, 'Datas')), time: Date.now(), mode: mode(), selfSeat: seatId(), isAiMatch: nativeRobots(ctx), viewer: viewer() } : null; },
     MsgGameDealCharacterPaiwei: p => {
       const selfSeat = seatId(), candidates = read(() => field(p, 'randomHt').get(selfSeat));
       return { type: 1, general: ids(read(() => candidates.Datas)), time: Date.now(), mode: mode(), selfSeat, isAiMatch: nativeRobots(ctx), viewer: viewer() };
     },
-    GsCFirstPhaseRole: () => { const selfSeat = seatId(); return { selfSeat, side: nativeSide(ctx, selfSeat) }; },
+    GsCFirstPhaseRole: p => { const selfSeat = seatId(); return { selfSeat, firstSeat: field(p, 'SeatID'), side: nativeSide(ctx, selfSeat) }; },
     SmsgGameSetCharacter: p => { const infos = field(p, 'Infos'); if (!Array.isArray(infos) || infos.length > 32) throw new Error('选将确认格式无效');
       const selfSeat=seatId();return { selfSeat, side:nativeSide(ctx,selfSeat), infos: infos.map(r => ({ seat: r.SeatID, id: r.CharacterID })), mode: mode(), time: Date.now(), isAiMatch: nativeRobots(ctx), viewer: viewer() }; },
     MsgEnterGameStageNtf: () => {const selfSeat=seatId();return {selfSeat,side:nativeSide(ctx,selfSeat)};}, MsgGameOver: p => ({ ...projectSettlement(p, seatId()), viewer: viewer() }),
     ClientLeavetableRep: () => ({}), MsgReconnectGame: () => ({}), ClientLoginRep: () => ({}),
   }, accept, gap);
-  ctx.scope.interval(sync, 500); ctx.scope.add(() => { listeners.clear(); reset(); pending = null; epoch++; });
+  async function refreshNames() {
+    sync(); if (!who.id || loading || ctx.scope.signal.aborted) return;
+    const expected = who.id, generation = epoch;
+    nameAttempts++; nextNamesAt = Date.now() + 30000; loading = true; notify();
+    try {
+      const config = await ctx.game.loadConfigData('character');
+      if (!ctx.scope.signal.aborted && account(ctx).id === expected && epoch === generation) {
+        const next = generalNames(config);
+        if (!Object.keys(next).length) throw new Error('武将名称配置为空');
+        names = next; namesReady = true; namesError = '';
+      }
+    } catch (e) { if (!ctx.scope.signal.aborted && account(ctx).id === expected && epoch === generation) { namesError = String(e?.stack || e); notify(); } }
+    finally { if (!ctx.scope.signal.aborted && account(ctx).id === expected && epoch === generation) { loading = false; notify(); } }
+  }
+  const initialize = () => {
+    sync();
+    if (who.id && !namesReady && !loading && nameAttempts < 3 && Date.now() >= nextNamesAt) void refreshNames();
+  };
+  ctx.scope.timeout(initialize, 0); ctx.scope.interval(initialize, 500);
+  ctx.scope.add(() => { listeners.clear(); reset(); pending = null; epoch++; });
   return {
-    view() { sync(); return { who, records, matches, startedAt, gaps, draft, error, names, loading, storageBlocked, discardedBaisheng, reviewing: reviewing || reviewFailed, restoring }; },
+    view() { sync(); return { who, records, matches, startedAt, gaps, draft, error: error || namesError, names, loading, storageBlocked, discardedBaisheng, reviewing: reviewing || reviewFailed, restoring }; },
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-    async refreshNames() { sync(); if (!who.id || loading) return; const expected = who.id; loading = true; notify();
-      try { const config = await ctx.game.loadConfigData('character'); if (!ctx.scope.signal.aborted && account(ctx).id === expected) { names = generalNames(config); if (!Object.keys(names).length) throw new Error('武将名称配置为空'); } }
-      catch (e) { if (!ctx.scope.signal.aborted && account(ctx).id === expected) fail(e); }
-      finally { if (!ctx.scope.signal.aborted && account(ctx).id === expected) { loading = false; notify(); } } },
+    refreshNames,
     async restore(file) { sync(); if (!who.id || restoring || reviewing || storageBlocked) return; const expected = who.id; restoring = true; notify();
       try {
         if (file.size > 32 * 1024 * 1024) throw new Error('备份超过32MiB上限');

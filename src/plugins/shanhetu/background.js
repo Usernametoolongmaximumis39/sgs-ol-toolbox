@@ -5,7 +5,7 @@ import { ResourceScope } from '../../core/resources.js';
 export function createBackgroundPreference(ctx) {
   let entry = null, status = '已关闭';
   const listeners = new Set();
-  const enabled = () => ctx.settings.get('keepBattleBackground', false) === true;
+  const enabled = () => ctx.settings.get('keepBattleBackground', true) === true;
   const scene = () => ctx.game.getScene?.();
   const account = () => ctx.game.getSelf?.()?.ClientId ?? null;
   const name = current => current && (current.SceneName || current.sceneName || current.name);

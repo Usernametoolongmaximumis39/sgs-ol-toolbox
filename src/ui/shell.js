@@ -1,9 +1,9 @@
 import { createGameViewport } from './game-viewport.js';
 import { LOCAL_MARKET_URL, OSS_MARKET_URL, GITHUB_MARKET_URL } from '../core/market-connection.js';
-import { DEVELOPMENT, EDITION } from '../core/distribution.js';
+import { DEVELOPMENT, EDITION, MICROCLIENT } from '../core/distribution.js';
 import { mountCardStyleWorkshop } from './card-style-workshop.js';
 import { mountThemeWorkshop } from './theme-workshop.js';
-import { CONTROL_STYLES, controlIcon, styleSwitch } from './controls.js';
+import { CONTROL_STYLES, controlIcon, styleSwitch, helpTip } from './controls.js';
 import { CORE_VERSION } from '../core/version.js';
 import { DEFAULT_SCREENSHOT_SHORTCUT, shortcutFromEvent, shortcutLabel } from '../core/screenshot.js';
 import { planDependencies } from '../market/dependencies.js';
@@ -13,6 +13,17 @@ import { comparePanelOrder, comparePluginOrder } from '../core/plugin-contract.j
 import { createIcon } from './icons.js';
 const categories = [['game', '牌局'], ['automation', '自动'], ['tools', '工具'], ['manage', '管理'], ['info', '信息']];
 const style = `
+/* A moving perimeter marker keeps the folded HUD easy to locate without covering controls. */
+.hud-locator{display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible;color:var(--sgs-accent)}
+.hud-locator rect{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;x:1px;y:1px;width:calc(100% - 2px);height:calc(100% - 2px);rx:10px;stroke-dasharray:18 8 3 71;animation:hud-locator-flow 3.6s linear infinite,hud-locator-breathe 2.4s ease-in-out infinite}
+:host([data-collapsed]:not([data-edge-hidden])) .hud-locator{display:block}
+:host([data-edge-hidden])::after{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;pointer-events:none;background:linear-gradient(180deg,transparent,var(--sgs-accent),var(--sgs-text),var(--sgs-accent),transparent);background-size:100% 220%;animation:hud-edge-flow 3.6s linear infinite}
+@keyframes hud-locator-flow{to{stroke-dashoffset:-100}}
+@keyframes hud-locator-breathe{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes hud-edge-flow{from{background-position:0 220%}to{background-position:0 -220%}}
+@media(prefers-reduced-motion:reduce){.hud-locator rect{animation:none;stroke-dasharray:none;opacity:.8}:host([data-edge-hidden])::after{animation:none;background:var(--sgs-accent)}}
+
+.plugin-release-notes{margin:8px 0 0;min-width:0;color:var(--sgs-muted);font-size:11px}.plugin-release-notes summary{cursor:pointer;min-height:30px;padding:6px 2px;color:var(--sgs-text);overflow-wrap:anywhere}.plugin-release-notes summary:focus-visible,.plugin-release-notes-text:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px;border-radius:4px}.plugin-release-notes-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;padding:2px 6px 4px 8px;border-left:2px solid var(--sgs-border);max-height:160px;overflow:auto;scrollbar-width:thin}.plugin-update .plugin-release-notes summary{color:var(--sgs-accent)}
 .appearance-page .plugin-heading{margin:0}
 .management-tabs{position:sticky;top:-12px;z-index:8;background:var(--sgs-bg)!important;box-shadow:0 5px 8px var(--sgs-bg)!important}
 .card-style-workshop summary{cursor:pointer;color:var(--sgs-accent);padding:8px 0;font-size:12px;min-height:34px}.card-style-workshop summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}.card-style-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-style-choices button{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;font-size:11px}.card-style-choices button[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 3px 0 var(--sgs-accent);background:color-mix(in srgb,var(--sgs-accent) 12%,var(--sgs-surface))}.card-style-preview{display:flex;gap:4px;width:100%;justify-content:center}.card-style-preview canvas,.card-style-preview img{width:43%;max-width:64px;height:auto;aspect-ratio:93/130;border-radius:3px}.card-style-workshop p{margin:8px 0}
@@ -45,19 +56,30 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
 export function createShell({ window: win, document: doc, settings, scope }) {
+  let microUpdate = null, microUpdateBusy = false, microUpdateError = '';
+  async function runMicroUpdate(action) {
+    microUpdateBusy = true; microUpdateError = ''; render();
+    try {
+      if (typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ !== 'function') throw new Error('当前微端接入层尚不支持脚本更新，请先升级接入层一次。');
+      microUpdate = await win.__SGS_TOOLBOX_SCRIPT_UPDATE__(action);
+      if (action === 'check' && microUpdate.current && compareVersions(microUpdate.current, CORE_VERSION) > 0) microUpdate = { ...microUpdate, version: microUpdate.current, pending: true };
+      if (microUpdate.pending) notify('脚本已保存，下次打开游戏时生效；当前牌局不受影响。');
+    } catch (error) { microUpdateError = error.message; }
+    finally { microUpdateBusy = false; render(); }
+  }
   let pendingCoreUpgrade = settings.get('pendingCoreUpgrade', '');
   if (pendingCoreUpgrade && compareVersions(CORE_VERSION, pendingCoreUpgrade) >= 0) { pendingCoreUpgrade = ''; settings.set('pendingCoreUpgrade', ''); }
   let gameView = 'battle', renderedKey = '', viewScroll = new Map();
   const host = doc.createElement('div'); host.dataset.sgsToolbox = 'core';
   const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = `<style>${style}</style><section class="shell"><div class="compact" data-count-state="unknown"><span class="slash" title="剩余出杀次数暂不可用；双击展开，按住拖动"><span class="slash-seal" aria-hidden="true">杀</span><span class="slash-reading"><span class="slash-label">剩余</span><b data-slash aria-label="剩余出杀次数暂不可用">—</b></span></span><div class="compact-actions"><button data-screenshot title="截图并复制" aria-label="截图并复制"></button><button data-expand title="放大面板" aria-label="放大面板"></button></div></div><div class="compact-summary" aria-label="关注卡牌未见张数"></div><header class="brand"><div class="mark" aria-hidden="true"></div><div><strong>三国杀 OL 工具箱</strong><small>${EDITION.toUpperCase()} · ${CORE_VERSION}</small></div><button title="折叠面板" aria-label="折叠面板"></button></header><div class="status"><i class="dot"></i><span>等待游戏运行时</span></div><nav class="nav" role="tablist">${categories.map(([id, title]) => `<button data-category="${id}" role="tab" aria-label="${title}" aria-selected="false"><span>${title}</span></button>`).join('')}</nav><main class="content" role="tabpanel"></main><footer class="footer"><span>${EDITION === 'dev' ? '开发版' : EDITION === 'lite' ? '轻量版' : '完整版'} ${CORE_VERSION}</span><button data-open-market title="打开插件市场" aria-label="打开插件市场">插件市场</button></footer></section>`;
+  shadow.innerHTML = `<style>${style}</style><section class="shell"><svg class="hud-locator" aria-hidden="true" focusable="false"><rect pathLength="100"/></svg><div class="compact" data-count-state="unknown"><span class="slash" title="剩余出杀次数暂不可用；双击展开，按住拖动"><span class="slash-seal" aria-hidden="true">杀</span><span class="slash-reading"><span class="slash-label">剩余</span><b data-slash aria-label="剩余出杀次数暂不可用">—</b></span></span><div class="compact-actions"><button data-screenshot title="截图并复制" aria-label="截图并复制"></button><button data-expand title="放大面板" aria-label="放大面板"></button></div></div><div class="compact-summary" aria-label="关注卡牌未见张数"></div><header class="brand"><div class="mark" aria-hidden="true"></div><div><strong>三国杀 OL 工具箱</strong><small>${EDITION.toUpperCase()} · ${CORE_VERSION}</small></div><button title="折叠面板" aria-label="折叠面板"></button></header><div class="status"><i class="dot"></i><span>等待游戏运行时</span></div><nav class="nav" role="tablist">${categories.map(([id, title]) => `<button data-category="${id}" role="tab" aria-label="${title}" aria-selected="false"><span>${title}</span></button>`).join('')}</nav><main class="content" role="tabpanel"></main><footer class="footer"><span>${EDITION === 'dev' ? '开发版' : EDITION === 'lite' ? '轻量版' : '完整版'} ${CORE_VERSION}</span><button data-open-market title="打开插件市场" aria-label="打开插件市场">插件市场</button></footer></section>`;
   for (const [selector, name] of [['.mark', 'toolbox'], ['[data-screenshot]', 'camera'], ['[data-expand]', 'expand'], ['.brand button', 'collapse'], ['[data-open-market]', 'package']]) {
     shadow.querySelector(selector).append(createIcon(doc, name));
   }
   for (const [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
   const content = shadow.querySelector('.content'); let active = settings.get('category', 'game'); let management = 'market'; let renderedCleanup; let handlers = {}; const panels = new Map(); let toastTimer;
   let pluginSearch = '';
-  let onlyUninstalled = settings.get('marketOnlyUninstalled', false) === true;
+  let onlyUninstalled = settings.get('marketOnlyUninstalled', true) === true;
   let marketState = {}; let marketRequest = 0; const installing = new Set(); const dependencyPrompts = new Map();
   function currentMarketState() {
     const client = handlers.market?.();
@@ -83,6 +105,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     finally { link.remove(); scope.timeout(release, 1000); }
   }
   function showLegacyWarning() {
+    if (MICROCLIENT) return;
     shadow.querySelector('[data-legacy-warning]')?.remove();
     const panel = el('section', undefined, 'card'); panel.dataset.legacyWarning = ''; panel.setAttribute('role', 'status');
     panel.style.cssText = 'position:fixed;top:16px;right:0;width:min(320px,90vw);max-height:80vh;overflow:auto;z-index:10;box-shadow:0 8px 28px #0005';
@@ -90,9 +113,9 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     const steps = el('ol');
     for (const text of ['点击浏览器右上角的扩展图标，找到篡改猴（Tampermonkey）。', '点击篡改猴图标，选择“管理面板 / Dashboard”。', '关闭旧小抄脚本的开关，再返回游戏刷新页面。']) steps.append(el('li', text));
     steps.style.paddingLeft = '20px'; panel.append(steps);
-    panel.append(el('p', '无需查找扩展 ID。若工具栏未显示篡改猴，可先在扩展菜单中将其固定。', 'muted'));
+    panel.append(helpTip(doc, '无需查找扩展 ID。若工具栏未显示篡改猴，可先在扩展菜单中将其固定。'));
     const details = el('details'); details.append(el('summary', '保存本机管理地址（可选）'));
-    details.append(el('p', '打开管理面板后，复制其地址粘贴到这里。以后可一键复制，在地址栏打开；网页不能直接跳转到扩展内部页面。', 'muted'));
+    details.append(helpTip(doc, '打开管理面板后，复制其地址粘贴到这里。以后可一键复制，在地址栏打开；网页不能直接跳转到扩展内部页面。'));
     const input = el('input', undefined, 'sgs-input'); input.value = settings.get('userscriptDashboardAddress', ''); input.placeholder = '粘贴本机篡改猴管理面板地址'; input.setAttribute('aria-label', '本机篡改猴管理面板地址'); input.style.width = '100%';
     const hint = el('p', '', 'muted'); hint.setAttribute('role', 'status');
     const normalize = value => {
@@ -145,13 +168,13 @@ export function createShell({ window: win, document: doc, settings, scope }) {
         });
         choice.dataset.edgeBehavior = value; choice.setAttribute('aria-pressed', String(edgeBehavior() === value)); choices.append(choice);
       }
-      content.append(choices, el('div', '拖到右边缘时：无操作保持悬浮；收起在鼠标移开后隐藏；固定为侧栏并为游戏画布留出空间。', 'muted'));
+      content.append(choices, helpTip(doc, '拖到右边缘时：无操作保持悬浮；收起在鼠标移开后隐藏；固定为侧栏并为游戏画布留出空间。'));
     }
     content.append(el('h3', '截图'));
     const cleanRow = el('label', undefined, 'row'); cleanRow.append(el('span', '截图时隐藏工具箱 UI'));
     const clean = el('input'); clean.type = 'checkbox'; styleSwitch(clean); clean.checked = settings.get('screenshotHideUI', true); clean.dataset.setting = 'screenshotHideUI';
     clean.onchange = () => settings.set('screenshotHideUI', clean.checked); cleanRow.append(clean); content.append(cleanRow);
-    content.append(el('div', '对局内隐藏 HUD、明牌与理牌等叠加；大厅仅隐藏 HUD。', 'muted'));
+    content.append(helpTip(doc, '对局内隐藏 HUD、明牌与理牌等叠加；大厅仅隐藏 HUD。'));
     const shortcutRow = el('label', undefined, 'row'); shortcutRow.append(el('span', '截图快捷键'));
     const shortcut = el('input', undefined, 'sgs-input'); shortcut.readOnly = true; shortcut.style.width = '150px'; shortcut.setAttribute('aria-label', '截图快捷键');
     const showShortcut = () => { shortcut.value = shortcutLabel(settings.get('screenshotShortcut', DEFAULT_SCREENSHOT_SHORTCUT)); };
@@ -166,14 +189,16 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     shortcutRow.append(shortcut); content.append(shortcutRow);
     const shotActions = el('div', undefined, 'actions');
     shotActions.append(iconButton('清除快捷键', 'trash', () => { settings.set('screenshotShortcut', null); showShortcut(); }, 'icon-action'), iconButton('恢复默认快捷键', 'rollback', () => { settings.set('screenshotShortcut', DEFAULT_SCREENSHOT_SHORTCUT); showShortcut(); }, 'icon-action'), button('截图并复制', () => handlers.screenshot?.())); content.append(shotActions);
-    content.append(el('div', '点击录入快捷键，Esc 取消。截图自动复制到剪贴板。', 'muted'));
+    content.append(helpTip(doc, '点击录入快捷键，Esc 取消。截图自动复制到剪贴板。'));
+    if (!MICROCLIENT) {
     content.append(el('h3', '旧脚本兼容'));
     content.append(button('前往篡改猴管理', showLegacyWarning));
     const enabled = el('label', undefined, 'row'); enabled.append(el('span', '接管旧小抄界面')); const check = doc.createElement('input'); check.type = 'checkbox'; styleSwitch(check); check.checked = settings.get('compatEnabled', false); check.onchange = () => { settings.set('compatEnabled', check.checked); handlers.compat?.setEnabled(check.checked); }; enabled.append(check); content.append(enabled);
     const policy = el('select', undefined, 'sgs-select'); policy.setAttribute('aria-label', '旧脚本接管方式'); for (const [value, label] of [['exit-known', '退出已知版本并隐藏'], ['hide', '仅隐藏界面']]) { const option = el('option', label); option.value = value; policy.append(option); } policy.value = settings.get('compatPolicy', 'hide'); policy.onchange = () => { settings.set('compatPolicy', policy.value); handlers.compat?.setTakeoverPolicy?.(policy.value); handlers.compat?.scan(); render(); }; content.append(policy);
     const compatStatus = handlers.compat?.getStatus(); content.append(el('div', formatCompat(compatStatus), 'notice'));
     const actions = el('div', undefined, 'actions'); actions.append(iconButton('重新检测', 'reload', () => { handlers.compat?.scan(); render(); }, 'icon-action'), button('点选隐藏旧面板', () => startPicker())); content.append(actions);
-    content.append(el('div', '隐藏 UI 不代表后台逻辑已停止。无法退出的脚本仍需在 Tampermonkey 中停用；已退出脚本需刷新页面才能恢复。', 'muted'));
+    content.append(helpTip(doc, '隐藏 UI 不代表后台逻辑已停止。无法退出的脚本仍需在 Tampermonkey 中停用；已退出脚本需刷新页面才能恢复。'));
+    }
     if (DEVELOPMENT) {
     content.append(el('h3', '插件市场目录地址'));
     const input = el('input', undefined, 'address sgs-input'); input.value = settings.get('marketUrl', LOCAL_MARKET_URL); input.setAttribute('aria-label', '市场地址');
@@ -188,9 +213,9 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       choice.setAttribute('aria-pressed', String(label === selected)); sources.append(choice);
     }
     input.disabled = selected === '离线';
-    content.append(sources, input, button('保存地址', () => { handlers.setMarketUrl(input.value); render(); notify('市场地址已保存'); }), el('div', '市场连接可选；仅手动连接或检测更新时联网，离线仍可导入插件包。', 'muted'));
+    content.append(sources, input, button('保存地址', () => { handlers.setMarketUrl(input.value); render(); notify('市场地址已保存'); }), helpTip(doc, '市场连接可选；仅手动连接或检测更新时联网，离线仍可导入插件包。'));
     }
-    content.append(el('h3', '记牌诊断'), el('div', '导出本局最近的卡牌记录与消息类型，用于排查明牌遗漏。文件不含账号、昵称或完整登录数据，只保存到本机。', 'muted'), button('导出记牌诊断', exportDiagnostics));
+    content.append(el('h3', '记牌诊断'), helpTip(doc, '导出本局最近的卡牌记录与消息类型，用于排查明牌遗漏。文件不含账号、昵称或完整登录数据，只保存到本机。'), button('导出记牌诊断', exportDiagnostics));
     let group;
     for (const node of [...content.children].slice(first)) {
       if (node.tagName === 'H3') { group = el('section', undefined, 'settings-group'); content.append(group); }
@@ -223,13 +248,22 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   }
   const svgIcon = name => createIcon(doc, name, 'ui-icon');
   const iconButton = (label, icon, fn, cls = '') => { const n = button('', fn); n.title = label; n.setAttribute('aria-label', label); n.className = cls; n.append(svgIcon(icon), el('span', label, 'sr-only')); return n; };
+  function releaseNotesBlock(item, expanded = false) {
+    if (DEVELOPMENT) return [];
+    const details = el('details', undefined, 'plugin-release-notes');
+    details.open = expanded;
+    const text = el('div', item.releaseNotes || '作者未提供此版本的更新内容。', 'plugin-release-notes-text');
+    text.tabIndex = 0; text.setAttribute('role', 'region'); text.setAttribute('aria-label', `${item.version} 更新内容`);
+    details.append(el('summary', `最近更新 · ${item.version}`), text);
+    return [details];
+  }
   function pluginIdentity(card, item, fallbackDescription) {
     const heading = el('div', undefined, 'plugin-heading'), symbol = el('div', undefined, 'plugin-symbol');
     symbol.append(svgIcon(item.icon || 'package'));
     const name = el('strong', item.name, 'plugin-name'); name.title = item.name;
     heading.append(symbol, name, el('span', item.version, 'plugin-version'));
     const description = el('div', item.description || fallbackDescription || '此插件暂未提供简介', 'plugin-description'); description.title = description.textContent;
-    card.append(heading, description);
+    heading.append(helpTip(doc, description.textContent, `${item.name}简介`)); card.append(heading, description);
     if (item.dependencies?.length) {
       const installed = handlers.manager?.list() || [];
       const label = '前置：' + item.dependencies.map(id => installed.find(p => p.id === id)?.name || currentMarketState().catalog?.plugins.find(p => p.id === id)?.name || id).join('、');
@@ -272,8 +306,9 @@ export function createShell({ window: win, document: doc, settings, scope }) {
         const notice = el('div', undefined, 'plugin-update'), info = el('div', undefined, 'plugin-update-info');
         info.append(svgIcon('update'), el('span', `发现更新：${item.version} → ${update.entry.version}`));
         const upgrade = button(`更新至 ${update.entry.version}`, () => installEntry(update.entry, true)); upgrade.prepend(svgIcon('update')); upgrade.disabled = installing.has(item.id) || !!maintenance;
-        notice.append(info, upgrade); card.append(notice);
+        notice.append(info, ...releaseNotesBlock(update.entry, true), upgrade); card.append(notice);
       }
+      else card.append(...releaseNotesBlock(item));
       renderDependencyPrompt(card, update?.entry || item); markSearchable(card, item); content.append(card);
     }
   }
@@ -396,7 +431,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       const install = button(busy ? '正在安装…' : same ? '已安装' : current ? '替换此版本' : '安装此版本', () => installEntry(entry));
       install.disabled = busy || same; install.style.marginLeft = 'auto'; install.style.flexShrink = '0';
       if (busy) card.setAttribute('aria-busy', 'true');
-      bottom.append(install); card.append(bottom); renderDependencyPrompt(card, entry); markSearchable(card, entry); container.append(card);
+      bottom.append(install); card.append(bottom, ...releaseNotesBlock(entry)); renderDependencyPrompt(card, entry); markSearchable(card, entry); container.append(card);
     }
   }
   function coreUpdateStatus() {
@@ -404,6 +439,18 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     return typeof version === 'string' && /^\d+\.\d+\.\d+$/.test(version) ? { version, order: compareVersions(version, CORE_VERSION) } : null;
   }
   function renderCoreUpgrade() {
+    if (MICROCLIENT) {
+      const card = el('section', undefined, 'card plugin-card' + (microUpdate?.newer ? ' has-update' : ''));
+      card.dataset.coreUpgrade = '';
+      pluginIdentity(card, { name: '工具箱核心', version: CORE_VERSION, icon: 'toolbox', description: '直接更新工具箱脚本，保留插件与设置，下次打开游戏生效。' });
+      const message = microUpdateBusy ? '正在连接脚本更新服务…' : microUpdateError || (microUpdate?.pending ? '已保存脚本 ' + microUpdate.version + '，下次打开游戏生效。' : microUpdate?.newer ? '发现脚本更新：' + CORE_VERSION + ' → ' + microUpdate.version : microUpdate ? '脚本已是最新版本' : '点击检查脚本更新');
+      const status = el('div', message, microUpdateError ? 'error' : 'notice'); status.setAttribute('role', microUpdateError ? 'alert' : 'status'); card.append(status);
+      const actions = el('div', undefined, 'core-upgrade-actions');
+      const check = button('检查脚本更新', () => runMicroUpdate('check')); check.disabled = microUpdateBusy; actions.append(check);
+      if (microUpdate?.newer && !microUpdate.pending) { const install = button('更新脚本', () => runMicroUpdate('install')); install.disabled = microUpdateBusy; install.prepend(svgIcon('update')); actions.append(install); }
+      if (microUpdate?.rollback) { const rollback = button('回退脚本', () => runMicroUpdate('rollback')); rollback.disabled = microUpdateBusy; actions.append(rollback); }
+      card.append(actions); content.append(card); return;
+    }
     const state = currentMarketState(), latest = coreUpdateStatus();
     const card = el('section', undefined, 'card plugin-card' + (latest?.order > 0 ? ' has-update' : ''));
     card.dataset.coreUpgrade = '';

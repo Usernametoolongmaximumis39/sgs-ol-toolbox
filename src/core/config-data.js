@@ -3,6 +3,7 @@
 const ALLOWED = new Set(['gn_zonghe', 'cha_gs_dbs_fs_skininfo', 'ff_jubaopen', 'ff_dbs_pay_gift', 'sys_gs_dbs_fs_goodsbaseinfo', 'cha_dbs_general_series', 'ff_task_daily', 'mod_new_ttrank_config', 'ff_general_chest_info_config', 'gn_dbs_giftbag', 'hd_roguelike', 'cha_spell', 'sys_playcard', 'character', 'gn_gs_ahievement', 'ff_qifu_new', 'ff_tiangong', 'h5_officer']);
 ALLOWED.add('sys_h5_shop');
 ALLOWED.add('gn_dbs_coupon_cfg');
+ALLOWED.add('hd_fight_lord_config');
 const ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024;
 const read = fn => { try { return fn(); } catch { return undefined; } };
 const normalize = name => String(name).replace(/\.sgs$/, '');

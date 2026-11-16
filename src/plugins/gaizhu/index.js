@@ -1,10 +1,9 @@
 import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
-import { CONTROL_STYLES, controlIcon, styleSwitch } from '../../ui/controls.js';
 import { createGaiZhu } from './runtime.js';
 
 export const manifest = {
-  id: 'gaizhu', name: '盖主速刷', version: '0.1.11', apiVersion: 1, contractVersion: 1,
-  minCoreVersion: '0.5.62', dependencies: ['baisheng'], description: '黄盖房主苦肉速刷，反贼自动选将、准备与托管，支持百胜轮换和延时收尾。',
+  id: 'gaizhu', name: '盖主速刷', version: '0.1.12', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "统一速刷开关与操作提示外观，保留手动开始和停止方式。点将可能消耗游戏道具。", minCoreVersion: '0.6.37', dependencies: ['baisheng'], description: '黄盖房主苦肉速刷，反贼自动选将、准备与托管，支持百胜轮换和延时收尾。',
   icon: PLUGIN_ICONS['gaizhu'], priority: 21000, categories: ['automation'],
 };
 
@@ -19,7 +18,7 @@ export function renderPanel(ctx, controller, container) {
   };
   const listen = (target, type, fn) => releases.push(ctx.scope.listen(target, type, fn));
   const root = el('section'); root.dataset.gaizhu = '';
-  const style = el('style'); style.textContent = `${CONTROL_STYLES}
+  const style = el('style'); style.textContent = `
     [data-gaizhu]{min-width:0;color:var(--sgs-text);font:12px/1.6 var(--sgs-font,sans-serif)}
     [data-gaizhu] *,[data-gaizhu] *::before,[data-gaizhu] *::after{box-sizing:border-box}
     [data-gaizhu] [hidden]{display:none!important}
@@ -75,7 +74,7 @@ export function renderPanel(ctx, controller, container) {
   pickField.append(pickTitle, pickGroup);
   const waitRow = el('label', undefined, 'gz-wait'), waitCopy = el('span', undefined, 'gz-wait-copy');
   waitCopy.append(el('span', '等1分钟'), el('small', '前45秒烧条，剩3秒苦肉；之后立即收尾。'));
-  const waitState = el('span', undefined, 'gz-wait-state'), waitInput = styleSwitch(el('input')); waitInput.type = 'checkbox'; waitInput.setAttribute('aria-label', '等1分钟');
+  const waitState = el('span', undefined, 'gz-wait-state'), waitInput = ctx.ui.styleSwitch(el('input')); waitInput.type = 'checkbox'; waitInput.setAttribute('aria-label', '等1分钟');
   waitRow.append(waitCopy, waitState, waitInput); listen(waitInput, 'change', () => controller.setOptions({ wait: waitInput.checked }));
   const caution = el('p', undefined, 'gz-caution');
   const action = el('button', undefined, 'gz-action'); action.type = 'button';
@@ -111,7 +110,7 @@ export function renderPanel(ctx, controller, container) {
     caution.textContent = draftRole === 'host' ? '开始后自动补普通小杀、点将黄盖并苦肉求死。房间点将可能消耗点将资源。' : s.pick === 'off' ? '开始后自动准备、选将并托管。先拒绝手气卡，再进入托管。' : '开始后自动点将、准备与托管；点将可能消耗游戏点将卡等资源。';
     action.disabled = !s.account && !running; action.classList.toggle('is-running', running);
     actionText.textContent = running ? '停止速刷' : '开始速刷'; action.setAttribute('aria-label', actionText.textContent); action.title = running ? '停止本端自动操作' : `开始${draftRole === 'host' ? '盖主小号' : '反贼大号'}速刷`;
-    if (previousRunning !== running) { previousRunning = running; actionIcon.replaceChildren(controlIcon(doc, running ? 'pause' : 'play')); }
+    if (previousRunning !== running) { previousRunning = running; actionIcon.replaceChildren(ctx.ui.icon(running ? 'pause' : 'play')); }
     status.textContent = s.status || (s.account ? '已停止，点击开始后运行。' : '等待登录账号。'); status.classList.toggle('is-error', Boolean(s.error));
     passwordRow.hidden = !s.roomPassword; copyPassword.disabled = !s.account || !s.roomPassword;
     passwordText.textContent = s.roomPassword ? '房间已设置密码 · ' + s.roomPassword : '';

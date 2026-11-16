@@ -1,0 +1,185 @@
+{
+  "abbreviation": [
+    {
+      "Long": "id",
+      "Short": "a"
+    },
+    {
+      "Long": "name",
+      "Short": "b"
+    },
+    {},
+    {
+      "Long": "type",
+      "Short": "c"
+    },
+    {
+      "Long": "subType",
+      "Short": "d"
+    },
+    {
+      "Long": "exType",
+      "Short": "e"
+    },
+    {
+      "Long": "number",
+      "Short": "f"
+    },
+    {
+      "Long": "color",
+      "Short": "g"
+    },
+    {
+      "Long": "attRange",
+      "Short": "h"
+    },
+    {
+      "Long": "attDistance",
+      "Short": "i"
+    },
+    {
+      "Long": "defDistance",
+      "Short": "j"
+    },
+    {
+      "Long": "enhanceCond",
+      "Short": "k"
+    },
+    {
+      "Long": "enhanceEffect",
+      "Short": "l"
+    },
+    {
+      "Long": "spellId",
+      "Short": "m"
+    },
+    {
+      "Long": "imageId",
+      "Short": "n"
+    },
+    {
+      "Long": "cardClass",
+      "Short": "o"
+    },
+    {
+      "Long": "res",
+      "Short": "p"
+    },
+    {
+      "Long": "Grade1",
+      "Short": "q"
+    },
+    {
+      "Long": "Grade2",
+      "Short": "r"
+    },
+    {
+      "Long": "Grade3",
+      "Short": "s"
+    },
+    {
+      "Long": "Grade4",
+      "Short": "t"
+    },
+    {
+      "Long": "Specials",
+      "Short": "u"
+    },
+    {
+      "Long": "recycle",
+      "Short": "v"
+    },
+    {
+      "Long": "CanLianHeng",
+      "Short": "w"
+    },
+    {
+      "Long": "union",
+      "Short": "x"
+    }
+  ],
+  "GamePlayCards": {
+    "card": [
+      {
+        "a": 6,
+        "b": "杀",
+        "c": 1,
+        "d": 0,
+        "e": 43,
+        "f": 6,
+        "g": 2,
+        "h": 0,
+        "i": 0,
+        "j": 0,
+        "m": 1,
+        "n": 1,
+        "p": "Sha",
+        "q": "23,25",
+        "r": "8,12",
+        "s": "4,7",
+        "t": "1,3",
+        "u": "22,6_3,7_105,5_39,5_26,5_6,5_107,5_153,5_158,5_152,5_23,5_19,5_5,3_13,8_54,6"
+      },
+      {
+        "a": 112,
+        "b": "杀",
+        "c": 1,
+        "d": 6,
+        "e": 3,
+        "f": 4,
+        "g": 1,
+        "h": 0,
+        "i": 0,
+        "j": 0,
+        "m": 1,
+        "o": "HuoShaNCard",
+        "p": "HuoSha",
+        "q": "23,25",
+        "r": "8,12",
+        "s": "4,7",
+        "t": "1,3",
+        "u": "22,6,5,7_105,5_39,5_26,5_6,2_107,5_153,5_158,5_152,5_23,5_19,5_5,3_30,5_33,7_154,7_54,6"
+      },
+      {
+        "a": 138,
+        "b": "杀",
+        "c": 1,
+        "d": 7,
+        "e": 3,
+        "f": 4,
+        "g": 3,
+        "h": 0,
+        "i": 0,
+        "j": 0,
+        "m": 1,
+        "o": "LeiShaNCard",
+        "p": "LeiSha",
+        "q": "23,25",
+        "r": "8,12",
+        "s": "4,7",
+        "t": "1,3",
+        "u": "3,7_105,5_39,5_26,5_6,5_107,5_153,5_158,5_152,5_23,5_19,5_5,3_21,5_9,7_30,5_32,5_45,7_42,6"
+      },
+      {
+        "a": 1279,
+        "b": "杀",
+        "c": 1,
+        "d": 11,
+        "e": 48,
+        "f": 8,
+        "g": 3,
+        "h": 0,
+        "i": 0,
+        "j": 0,
+        "m": 1,
+        "n": 1,
+        "o": "BingShaNCard",
+        "p": "BingSha",
+        "q": "23,25",
+        "r": "8,12",
+        "s": "4,7",
+        "t": "1,3"
+      }
+    ]
+  }
+}
