@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "version": "0.6.45",
+    "edition": "full",
+    "toolboxSha256": "30525299076806b33373b856567347c40a75eef55b9859432786758a9e29e5b4",
+    "hostSha256": "4735ad67112f5ee35f59502cf7059c67f6ff20ab22c9760ef2a4675d06b6dce0",
+    "preloadSha256": "9f00cec3ae9e783c8c67219b1347545d789afc333c266f02e36e6ba5932c6c42"
+  },
+  {
+    "version": "0.6.45",
+    "edition": "lite",
+    "toolboxSha256": "e1b8aeb2306977edda5fbbc102071bbeeb33053f12790c90417b3a2537a3f2d5",
+    "hostSha256": "4735ad67112f5ee35f59502cf7059c67f6ff20ab22c9760ef2a4675d06b6dce0",
+    "preloadSha256": "9f00cec3ae9e783c8c67219b1347545d789afc333c266f02e36e6ba5932c6c42"
+  }
+]
