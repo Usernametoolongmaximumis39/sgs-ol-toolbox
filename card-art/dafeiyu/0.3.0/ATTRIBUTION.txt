@@ -5,4 +5,3 @@
 角色及既有设计权利归原权利人；本套新增编排按 CC BY-NC-SA 4.0 非商业共享。
 https://creativecommons.org/licenses/by-nc-sa/4.0/
 角色来源说明：https://aigengtu.com/zh/whale-chan
-本轮提示词保存在 assets/dafeiyu/revisions/polish-2026-11-15/ 和 general-special-2026-11-15/prompts*.json。

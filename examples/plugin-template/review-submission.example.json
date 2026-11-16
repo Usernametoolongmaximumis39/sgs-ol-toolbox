@@ -1,0 +1,13 @@
+{
+  "pluginId": "example.local-info",
+  "authorName": "你的作者显示名",
+  "providerConsent": ["bigmodel"],
+  "allowLimitedModeration": false,
+  "riskDisclosure": {
+    "dataRead": "说明读取的数据；没有则填无。",
+    "network": "说明联网域名及发送字段；没有则填无。",
+    "automation": "说明自动执行的游戏操作及触发条件；没有则填无。",
+    "resourceUse": "说明可能消耗的道具或货币及条件；没有则填无。",
+    "license": "说明代码许可证与素材来源、授权。"
+  }
+}
