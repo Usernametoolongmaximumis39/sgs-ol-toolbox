@@ -19,5 +19,19 @@
     "toolboxSha256": "d1917893f00cd84a224a2853cc5eccea88261cdba19d14587a4dab509710881c",
     "hostSha256": "0b8e863d262a2dd51f4ef4ac1ce90c9515192bf42b34bf5b907487132e804e8e",
     "preloadSha256": "9f00cec3ae9e783c8c67219b1347545d789afc333c266f02e36e6ba5932c6c42"
+  },
+  {
+    "version": "0.6.51",
+    "edition": "full",
+    "toolboxSha256": "62d2ec1f709106f5c49bbac6d58bf49c9459924450ea9e35b462548a13add17b",
+    "hostSha256": "0b8e863d262a2dd51f4ef4ac1ce90c9515192bf42b34bf5b907487132e804e8e",
+    "preloadSha256": "9f00cec3ae9e783c8c67219b1347545d789afc333c266f02e36e6ba5932c6c42"
+  },
+  {
+    "version": "0.6.51",
+    "edition": "lite",
+    "toolboxSha256": "31d409d127b55e3e4ce16f67958d5ee6e26388fc3e18842f8393a4ac1aff6f2b",
+    "hostSha256": "0b8e863d262a2dd51f4ef4ac1ce90c9515192bf42b34bf5b907487132e804e8e",
+    "preloadSha256": "9f00cec3ae9e783c8c67219b1347545d789afc333c266f02e36e6ba5932c6c42"
   }
 ]
