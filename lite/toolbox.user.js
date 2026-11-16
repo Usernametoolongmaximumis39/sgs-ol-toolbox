@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.45
+// @version      0.6.51
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  轻量版：独立核心，按需安装插件并沿用已保存的插件
@@ -148,8 +148,9 @@
       if (!root || !record || !host.isConnected) return;
       let computed = win.getComputedStyle(host), css = [...root.querySelectorAll("style")].filter((el) => el !== record.style).map((el) => el.textContent).join(`
 `), output = legacyMicroCSS(css, (name) => computed.getPropertyValue(name).trim(), pixel) + `
-[popover]:not([data-micro-popover-open]){display:none!important}[popover][data-micro-popover-open]{display:block;z-index:2147483647}`;
-      record.style.textContent !== output && (record.style.textContent = output);
+[popover]:not([data-micro-popover-open]){display:none!important}[popover][data-micro-popover-open]{display:block;z-index:2147483647}
+*::-webkit-scrollbar{width:7px;height:7px}*::-webkit-scrollbar-track{background:var(--sgs-bg)}*::-webkit-scrollbar-thumb{background:var(--sgs-border);border:2px solid var(--sgs-bg);border-radius:6px}*::-webkit-scrollbar-thumb:hover{background:var(--sgs-muted)}*::-webkit-scrollbar-corner{background:var(--sgs-bg)}`;
+      record.style.textContent !== output && (record.style.textContent = output), root.lastChild !== record.style && root.append(record.style);
     }, discover = () => {
       for (let [host, record] of watched) host.isConnected || (record.observer.disconnect(), record.style.remove(), watched.delete(host));
       for (let host of doc.querySelectorAll("[data-sgs-toolbox]")) {
@@ -881,8 +882,8 @@
       if (!this.textures.has(key)) {
         let canvas = this.atlasCanvas(style2, name);
         if (!canvas) return null;
-        let bitmap = new this.win.Laya.Texture2D(canvas.width, canvas.height);
-        bitmap.loadImageSource(canvas);
+        let bitmap = new this.win.Laya.Texture2D(canvas.width, canvas.height, this.win.Laya.TextureFormat?.R8G8B8A8 ?? 1, !1);
+        bitmap.loadImageSource(canvas, !0);
         let texture = new this.win.Laya.Texture(bitmap);
         texture.width = texture.sourceWidth = width, texture.height = texture.sourceHeight = height, this.textures.set(key, texture);
       }
@@ -943,8 +944,8 @@
         }, image.src = style2.atlas.backImage), !image.complete || image.naturalWidth !== 405 || image.naturalHeight !== 570) return null;
         let key2 = style2.id + ":back";
         if (!this.textures.has(key2)) {
-          let bitmap = new this.win.Laya.Texture2D(405, 570);
-          bitmap.loadImageSource(image);
+          let bitmap = new this.win.Laya.Texture2D(405, 570, this.win.Laya.TextureFormat?.R8G8B8A8 ?? 1, !1);
+          bitmap.loadImageSource(image, !0);
           let texture = new this.win.Laya.Texture(bitmap);
           texture.width = texture.sourceWidth = 93, texture.height = texture.sourceHeight = 130, this.textures.set(key2, texture);
         }
@@ -953,8 +954,8 @@
       if (style2.native) return this.nativeTexture(style2.native[back ? "back" : "face"], immediate);
       let key = style2.id + ":" + back;
       if (!this.textures.has(key)) {
-        let canvas = drawCardStyle(this.doc, back ? style2.back : style2.face, back), bitmap = new this.win.Laya.Texture2D(canvas.width, canvas.height);
-        bitmap.loadImageSource(canvas);
+        let canvas = drawCardStyle(this.doc, back ? style2.back : style2.face, back), bitmap = new this.win.Laya.Texture2D(canvas.width, canvas.height, this.win.Laya.TextureFormat?.R8G8B8A8 ?? 1, !1);
+        bitmap.loadImageSource(canvas, !0);
         let texture = new this.win.Laya.Texture(bitmap);
         texture.width = 93, texture.height = 130, this.textures.set(key, texture);
       }
@@ -1196,7 +1197,7 @@
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.45", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.51", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
@@ -1871,7 +1872,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function requirePriority(value) {
     if (!validPriority(value)) throw new Error("\u6392\u5E8F\u4F18\u5148\u7EA7\u5FC5\u987B\u662F 0\u201365535 \u7684\u6574\u6570\u3002");
   }
-  var text = (value, max) => typeof value == "string" && value.trim().length > 0 && value.length <= max && !/[\r\n\u0000-\u001f]/.test(value);
+  var text = (value, max2) => typeof value == "string" && value.trim().length > 0 && value.length <= max2 && !/[\r\n\u0000-\u001f]/.test(value);
   function compareVersions(left, right) {
     let a = left.split(".").map(BigInt), b = right.split(".").map(BigInt);
     for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] > b[i] ? 1 : -1;
@@ -2611,7 +2612,328 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
   };
 
+  // node_modules/fflate/esm/browser.js
+  var u8 = Uint8Array, u16 = Uint16Array, i32 = Int32Array, fleb = new u8([
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    4,
+    4,
+    4,
+    4,
+    5,
+    5,
+    5,
+    5,
+    0,
+    /* unused */
+    0,
+    0,
+    /* impossible */
+    0
+  ]), fdeb = new u8([
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    2,
+    2,
+    3,
+    3,
+    4,
+    4,
+    5,
+    5,
+    6,
+    6,
+    7,
+    7,
+    8,
+    8,
+    9,
+    9,
+    10,
+    10,
+    11,
+    11,
+    12,
+    12,
+    13,
+    13,
+    /* unused */
+    0,
+    0
+  ]), clim = new u8([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]), freb = function(eb, start) {
+    for (var b = new u16(31), i = 0; i < 31; ++i)
+      b[i] = start += 1 << eb[i - 1];
+    for (var r = new i32(b[30]), i = 1; i < 30; ++i)
+      for (var j = b[i]; j < b[i + 1]; ++j)
+        r[j] = j - b[i] << 5 | i;
+    return { b, r };
+  }, _a = freb(fleb, 2), fl = _a.b, revfl = _a.r;
+  fl[28] = 258, revfl[258] = 28;
+  var _b = freb(fdeb, 0), fd = _b.b, revfd = _b.r, rev = new u16(32768);
+  for (i = 0; i < 32768; ++i)
+    x = (i & 43690) >> 1 | (i & 21845) << 1, x = (x & 52428) >> 2 | (x & 13107) << 2, x = (x & 61680) >> 4 | (x & 3855) << 4, rev[i] = ((x & 65280) >> 8 | (x & 255) << 8) >> 1;
+  var x, i, hMap = (function(cd, mb, r) {
+    for (var s = cd.length, i = 0, l = new u16(mb); i < s; ++i)
+      cd[i] && ++l[cd[i] - 1];
+    var le = new u16(mb);
+    for (i = 1; i < mb; ++i)
+      le[i] = le[i - 1] + l[i - 1] << 1;
+    var co;
+    if (r) {
+      co = new u16(1 << mb);
+      var rvb = 15 - mb;
+      for (i = 0; i < s; ++i)
+        if (cd[i])
+          for (var sv = i << 4 | cd[i], r_1 = mb - cd[i], v = le[cd[i] - 1]++ << r_1, m = v | (1 << r_1) - 1; v <= m; ++v)
+            co[rev[v] >> rvb] = sv;
+    } else
+      for (co = new u16(s), i = 0; i < s; ++i)
+        cd[i] && (co[i] = rev[le[cd[i] - 1]++] >> 15 - cd[i]);
+    return co;
+  }), flt = new u8(288);
+  for (i = 0; i < 144; ++i)
+    flt[i] = 8;
+  var i;
+  for (i = 144; i < 256; ++i)
+    flt[i] = 9;
+  var i;
+  for (i = 256; i < 280; ++i)
+    flt[i] = 7;
+  var i;
+  for (i = 280; i < 288; ++i)
+    flt[i] = 8;
+  var i, fdt = new u8(32);
+  for (i = 0; i < 32; ++i)
+    fdt[i] = 5;
+  var i;
+  var flrm = /* @__PURE__ */ hMap(flt, 9, 1);
+  var fdrm = /* @__PURE__ */ hMap(fdt, 5, 1), max = function(a) {
+    for (var m = a[0], i = 1; i < a.length; ++i)
+      a[i] > m && (m = a[i]);
+    return m;
+  }, bits = function(d, p, m) {
+    var o = p / 8 | 0;
+    return (d[o] | d[o + 1] << 8) >> (p & 7) & m;
+  }, bits16 = function(d, p) {
+    var o = p / 8 | 0;
+    return (d[o] | d[o + 1] << 8 | d[o + 2] << 16) >> (p & 7);
+  }, shft = function(p) {
+    return (p + 7) / 8 | 0;
+  }, slc = function(v, s, e) {
+    return (s == null || s < 0) && (s = 0), (e == null || e > v.length) && (e = v.length), new u8(v.subarray(s, e));
+  };
+  var ec = [
+    "unexpected EOF",
+    "invalid block type",
+    "invalid length/literal",
+    "invalid distance",
+    "stream finished",
+    "no stream handler",
+    ,
+    "no callback",
+    "invalid UTF-8 data",
+    "extra field too long",
+    "date not in range 1980-2099",
+    "filename too long",
+    "stream finishing",
+    "invalid zip data"
+    // determined by unknown compression method
+  ], err = function(ind, msg, nt) {
+    var e = new Error(msg || ec[ind]);
+    if (e.code = ind, Error.captureStackTrace && Error.captureStackTrace(e, err), !nt)
+      throw e;
+    return e;
+  }, inflt = function(dat, st, buf, dict) {
+    var sl = dat.length, dl = dict ? dict.length : 0;
+    if (!sl || st.f && !st.l)
+      return buf || new u8(0);
+    var noBuf = !buf, resize = noBuf || st.i != 2, noSt = st.i;
+    noBuf && (buf = new u8(sl * 3));
+    var cbuf = function(l2) {
+      var bl = buf.length;
+      if (l2 > bl) {
+        var nbuf = new u8(Math.max(bl * 2, l2));
+        nbuf.set(buf), buf = nbuf;
+      }
+    }, final = st.f || 0, pos = st.p || 0, bt = st.b || 0, lm = st.l, dm = st.d, lbt = st.m, dbt = st.n, tbts = sl * 8;
+    do {
+      if (!lm) {
+        final = bits(dat, pos, 1);
+        var type = bits(dat, pos + 1, 3);
+        if (pos += 3, type)
+          if (type == 1)
+            lm = flrm, dm = fdrm, lbt = 9, dbt = 5;
+          else if (type == 2) {
+            var hLit = bits(dat, pos, 31) + 257, hcLen = bits(dat, pos + 10, 15) + 4, tl = hLit + bits(dat, pos + 5, 31) + 1;
+            pos += 14;
+            for (var ldt = new u8(tl), clt = new u8(19), i = 0; i < hcLen; ++i)
+              clt[clim[i]] = bits(dat, pos + i * 3, 7);
+            pos += hcLen * 3;
+            for (var clb = max(clt), clbmsk = (1 << clb) - 1, clm = hMap(clt, clb, 1), i = 0; i < tl; ) {
+              var r = clm[bits(dat, pos, clbmsk)];
+              pos += r & 15;
+              var s = r >> 4;
+              if (s < 16)
+                ldt[i++] = s;
+              else {
+                var c = 0, n = 0;
+                for (s == 16 ? (n = 3 + bits(dat, pos, 3), pos += 2, c = ldt[i - 1]) : s == 17 ? (n = 3 + bits(dat, pos, 7), pos += 3) : s == 18 && (n = 11 + bits(dat, pos, 127), pos += 7); n--; )
+                  ldt[i++] = c;
+              }
+            }
+            var lt = ldt.subarray(0, hLit), dt = ldt.subarray(hLit);
+            lbt = max(lt), dbt = max(dt), lm = hMap(lt, lbt, 1), dm = hMap(dt, dbt, 1);
+          } else
+            err(1);
+        else {
+          var s = shft(pos) + 4, l = dat[s - 4] | dat[s - 3] << 8, t = s + l;
+          if (t > sl) {
+            noSt && err(0);
+            break;
+          }
+          resize && cbuf(bt + l), buf.set(dat.subarray(s, t), bt), st.b = bt += l, st.p = pos = t * 8, st.f = final;
+          continue;
+        }
+        if (pos > tbts) {
+          noSt && err(0);
+          break;
+        }
+      }
+      resize && cbuf(bt + 131072);
+      for (var lms = (1 << lbt) - 1, dms = (1 << dbt) - 1, lpos = pos; ; lpos = pos) {
+        var c = lm[bits16(dat, pos) & lms], sym = c >> 4;
+        if (pos += c & 15, pos > tbts) {
+          noSt && err(0);
+          break;
+        }
+        if (c || err(2), sym < 256)
+          buf[bt++] = sym;
+        else if (sym == 256) {
+          lpos = pos, lm = null;
+          break;
+        } else {
+          var add = sym - 254;
+          if (sym > 264) {
+            var i = sym - 257, b = fleb[i];
+            add = bits(dat, pos, (1 << b) - 1) + fl[i], pos += b;
+          }
+          var d = dm[bits16(dat, pos) & dms], dsym = d >> 4;
+          d || err(3), pos += d & 15;
+          var dt = fd[dsym];
+          if (dsym > 3) {
+            var b = fdeb[dsym];
+            dt += bits16(dat, pos) & (1 << b) - 1, pos += b;
+          }
+          if (pos > tbts) {
+            noSt && err(0);
+            break;
+          }
+          resize && cbuf(bt + 131072);
+          var end = bt + add;
+          if (bt < dt) {
+            var shift = dl - dt, dend = Math.min(dt, end);
+            for (shift + bt < 0 && err(3); bt < dend; ++bt)
+              buf[bt] = dict[shift + bt];
+          }
+          for (; bt < end; ++bt)
+            buf[bt] = buf[bt - dt];
+        }
+      }
+      st.l = lm, st.p = lpos, st.b = bt, st.f = final, lm && (final = 1, st.m = lbt, st.d = dm, st.n = dbt);
+    } while (!final);
+    return bt != buf.length && noBuf ? slc(buf, 0, bt) : buf.subarray(0, bt);
+  };
+  var et = /* @__PURE__ */ new u8(0);
+  var gzs = function(d) {
+    (d[0] != 31 || d[1] != 139 || d[2] != 8) && err(6, "invalid gzip data");
+    var flg = d[3], st = 10;
+    flg & 4 && (st += (d[10] | d[11] << 8) + 2);
+    for (var zs = (flg >> 3 & 1) + (flg >> 4 & 1); zs > 0; zs -= !d[st++])
+      ;
+    return st + (flg & 2);
+  };
+  var Inflate = /* @__PURE__ */ (function() {
+    function Inflate2(opts, cb) {
+      typeof opts == "function" && (cb = opts, opts = {}), this.ondata = cb;
+      var dict = opts && opts.dictionary && opts.dictionary.subarray(-32768);
+      this.s = { i: 0, b: dict ? dict.length : 0 }, this.o = new u8(32768), this.p = new u8(0), dict && this.o.set(dict);
+    }
+    return Inflate2.prototype.e = function(c) {
+      if (this.ondata || err(5), this.d && err(4), !this.p.length)
+        this.p = c;
+      else if (c.length) {
+        var n = new u8(this.p.length + c.length);
+        n.set(this.p), n.set(c, this.p.length), this.p = n;
+      }
+    }, Inflate2.prototype.c = function(final) {
+      this.s.i = +(this.d = final || !1);
+      var bts = this.s.b, dt = inflt(this.p, this.s, this.o);
+      this.ondata(slc(dt, bts, this.s.b), this.d), this.o = slc(dt, this.s.b - 32768), this.s.b = this.o.length, this.p = slc(this.p, this.s.p / 8 | 0), this.s.p &= 7;
+    }, Inflate2.prototype.push = function(chunk, final) {
+      this.e(chunk), this.c(final);
+    }, Inflate2;
+  })();
+  var Gunzip = /* @__PURE__ */ (function() {
+    function Gunzip2(opts, cb) {
+      this.v = 1, this.r = 0, Inflate.call(this, opts, cb);
+    }
+    return Gunzip2.prototype.push = function(chunk, final) {
+      if (Inflate.prototype.e.call(this, chunk), this.r += chunk.length, this.v) {
+        var p = this.p.subarray(this.v - 1), s = p.length > 3 ? gzs(p) : 4;
+        if (s > p.length) {
+          if (!final)
+            return;
+        } else this.v > 1 && this.onmember && this.onmember(this.r - p.length);
+        this.p = p.subarray(s), this.v = 0;
+      }
+      Inflate.prototype.c.call(this, final), this.s.f && !this.s.l && !final && (this.v = shft(this.s.p) + 9, this.s = { i: 0 }, this.o = new u8(0), this.push(new u8(0), final));
+    }, Gunzip2;
+  })();
+  var td = typeof TextDecoder < "u" && /* @__PURE__ */ new TextDecoder(), tds = 0;
+  try {
+    td.decode(et, { stream: !0 }), tds = 1;
+  } catch {
+  }
+
   // src/core/config-data.js
+  /*! fflate 0.8.2, Copyright (c) 2023 Arjun Barrett. MIT License.
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE. */
   var ALLOWED = /* @__PURE__ */ new Set(["gn_zonghe", "cha_gs_dbs_fs_skininfo", "ff_jubaopen", "ff_dbs_pay_gift", "sys_gs_dbs_fs_goodsbaseinfo", "cha_dbs_general_series", "ff_task_daily", "mod_new_ttrank_config", "ff_general_chest_info_config", "gn_dbs_giftbag", "hd_roguelike", "cha_spell", "sys_playcard", "character", "gn_gs_ahievement", "ff_qifu_new", "ff_tiangong", "h5_officer"]);
   ALLOWED.add("sys_h5_shop");
   ALLOWED.add("gn_dbs_coupon_cfg");
@@ -2644,10 +2966,25 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return bytes;
   }
   async function inflate(bytes, format, win) {
-    let Decompressor = win.DecompressionStream || globalThis.DecompressionStream;
-    if (!Decompressor) throw new Error("\u6D4F\u89C8\u5668\u7F3A\u5C11\u914D\u7F6E\u89E3\u538B\u652F\u6301");
+    let Decompressor = "DecompressionStream" in win ? win.DecompressionStream : globalThis.DecompressionStream, stream;
+    try {
+      Decompressor && (stream = new Decompressor(format));
+    } catch {
+    }
+    if (!stream) {
+      let chunks = [], length = 0, decoder = new (format === "gzip" ? Gunzip : Inflate)((chunk) => {
+        if (length += chunk.length, length > ENTRY_LIMIT) throw new Error("\u914D\u7F6E\u6587\u4EF6\u8D85\u8FC7\u8BFB\u53D6\u4E0A\u9650");
+        chunks.push(chunk.slice());
+      });
+      for (let offset2 = 0; offset2 < bytes.length; offset2 += 1024) decoder.push(bytes.subarray(offset2, offset2 + 1024), offset2 + 1024 >= bytes.length);
+      bytes.length || decoder.push(bytes, !0);
+      let output = new Uint8Array(length), offset = 0;
+      for (let chunk of chunks)
+        output.set(chunk, offset), offset += chunk.length;
+      return output;
+    }
     let BlobType = win.Blob || globalThis.Blob;
-    return boundedStream(new BlobType([bytes]).stream().pipeThrough(new Decompressor(format)), ENTRY_LIMIT);
+    return boundedStream(new BlobType([bytes]).stream().pipeThrough(stream), ENTRY_LIMIT);
   }
   async function readZipEntry(bytes, filename, win = globalThis) {
     let view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), end = -1;
@@ -3573,7 +3910,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       } catch {
         return;
       }
-  }, number2 = (value) => typeof value == "number" && Number.isFinite(value) ? value : void 0, atom = (value) => typeof value == "boolean" ? value : number2(value) ?? (typeof value == "string" && /^-?\d{1,16}$/.test(value) ? value : void 0), validType = (type) => typeof type == "string" && type.length <= 96 && EVENT_NAME.test(type), limit = (value, fallback, max) => Number.isInteger(value) ? Math.min(max, Math.max(1, value)) : fallback;
+  }, number2 = (value) => typeof value == "number" && Number.isFinite(value) ? value : void 0, atom = (value) => typeof value == "boolean" ? value : number2(value) ?? (typeof value == "string" && /^-?\d{1,16}$/.test(value) ? value : void 0), validType = (type) => typeof type == "string" && type.length <= 96 && EVENT_NAME.test(type), limit = (value, fallback, max2) => Number.isInteger(value) ? Math.min(max2, Math.max(1, value)) : fallback;
   function array(value, key, truncated) {
     if (!Array.isArray(value)) return;
     let length = own2(value, "length");
@@ -4117,9 +4454,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return createImage(dataURL);
   }
   async function cloneIFrameElement(iframe, options) {
-    var _a;
+    var _a2;
     try {
-      if (!((_a = iframe?.contentDocument) === null || _a === void 0) && _a.body)
+      if (!((_a2 = iframe?.contentDocument) === null || _a2 === void 0) && _a2.body)
         return await cloneNode(iframe.contentDocument.body, options, !0);
     } catch {
     }
@@ -4130,11 +4467,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
   var isSlotElement = (node) => node.tagName != null && node.tagName.toUpperCase() === "SLOT", isSVGElement = (node) => node.tagName != null && node.tagName.toUpperCase() === "SVG";
   async function cloneChildren(nativeNode, clonedNode, options) {
-    var _a, _b;
+    var _a2, _b2;
     if (isSVGElement(clonedNode))
       return clonedNode;
     let children2 = [];
-    return isSlotElement(nativeNode) && nativeNode.assignedNodes ? children2 = toArray(nativeNode.assignedNodes()) : isInstanceOfElement(nativeNode, HTMLIFrameElement) && (!((_a = nativeNode.contentDocument) === null || _a === void 0) && _a.body) ? children2 = toArray(nativeNode.contentDocument.body.childNodes) : children2 = toArray(((_b = nativeNode.shadowRoot) !== null && _b !== void 0 ? _b : nativeNode).childNodes), children2.length === 0 || isInstanceOfElement(nativeNode, HTMLVideoElement) || await children2.reduce((deferred, child) => deferred.then(() => cloneNode(child, options)).then((clonedChild) => {
+    return isSlotElement(nativeNode) && nativeNode.assignedNodes ? children2 = toArray(nativeNode.assignedNodes()) : isInstanceOfElement(nativeNode, HTMLIFrameElement) && (!((_a2 = nativeNode.contentDocument) === null || _a2 === void 0) && _a2.body) ? children2 = toArray(nativeNode.contentDocument.body.childNodes) : children2 = toArray(((_b2 = nativeNode.shadowRoot) !== null && _b2 !== void 0 ? _b2 : nativeNode).childNodes), children2.length === 0 || isInstanceOfElement(nativeNode, HTMLVideoElement) || await children2.reduce((deferred, child) => deferred.then(() => cloneNode(child, options)).then((clonedChild) => {
       clonedChild && clonedNode.appendChild(clonedChild);
     }), Promise.resolve()), clonedNode;
   }
@@ -4234,8 +4571,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 
   // node_modules/html-to-image/es/embed-images.js
   async function embedProp(propName, node, options) {
-    var _a;
-    let propValue = (_a = node.style) === null || _a === void 0 ? void 0 : _a.getPropertyValue(propName);
+    var _a2;
+    let propValue = (_a2 = node.style) === null || _a2 === void 0 ? void 0 : _a2.getPropertyValue(propName);
     if (propValue) {
       let cssString = await embedResources(propValue, null, options);
       return node.style.setProperty(propName, cssString, node.style.getPropertyPriority(propName)), !0;
@@ -4346,8 +4683,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           let inline = styleSheets.find((a) => a.href == null) || document.styleSheets[0];
           sheet.href != null && deferreds.push(fetchCSS(sheet.href).then((metadata) => embedFonts(metadata, options)).then((cssText) => parseCSS(cssText).forEach((rule) => {
             inline.insertRule(rule, inline.cssRules.length);
-          })).catch((err) => {
-            console.error("Error loading remote stylesheet", err);
+          })).catch((err2) => {
+            console.error("Error loading remote stylesheet", err2);
           })), console.error("Error inlining remote css file", e);
         }
     }), Promise.all(deferreds).then(() => (styleSheets.forEach((sheet) => {
@@ -4512,7 +4849,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           if (!win.ClipboardItem || !win.navigator.clipboard?.write) throw new Error("\u6D4F\u89C8\u5668\u4E0D\u652F\u6301\u56FE\u7247\u526A\u8D34\u677F\uFF0C\u8BF7\u4F7F\u7528 HTTPS \u9875\u9762\u548C\u65B0\u7248 Chrome / Edge");
           let image = captureGameImage(win, game, { hideUI: settings.get("screenshotHideUI", !0) });
           image.catch(() => {
-          }), await win.navigator.clipboard.write([new win.ClipboardItem({ "image/png": image })]), scope.closed || notify("\u6E38\u620F\u622A\u56FE\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F");
+          });
+          let png = image;
+          await win.navigator.clipboard.write([new win.ClipboardItem({ "image/png": png })]), scope.closed || notify("\u6E38\u620F\u622A\u56FE\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F");
         } catch (error) {
           scope.closed || notify(error?.name === "NotAllowedError" ? "\u65E0\u6CD5\u590D\u5236\u622A\u56FE\uFF1A\u8BF7\u5141\u8BB8\u6B64\u9875\u9762\u8BBF\u95EE\u526A\u8D34\u677F\uFF0C\u518D\u70B9\u51FB\u622A\u56FE\u91CD\u8BD5" : `\u622A\u56FE\u5931\u8D25\uFF1A${error?.message || error}`);
         } finally {
@@ -4638,7 +4977,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 :host([data-theme-scheme=light][data-collapsed]) .shell{background:linear-gradient(165deg,var(--sgs-surface),var(--sgs-bg) 65%);box-shadow:0 3px 8px #0002,0 8px 20px #0001,inset 0 1px #fff8}
 ${CONTROL_STYLES}
 button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%,var(--sgs-surface)),var(--sgs-surface));border-color:color-mix(in srgb,var(--sgs-border) 60%,transparent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 4%,transparent);transition:background 140ms,border-color 140ms,color 140ms}button:active:not(:disabled){background:var(--sgs-bg)}button:disabled{cursor:not-allowed}.nav button,.footer button{box-shadow:none}.tabs{gap:2px;padding:3px;border-radius:8px;background:var(--sgs-surface);box-shadow:inset 0 1px 3px #0004}.tabs button{border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);padding:6px 2px}.tabs button.active{background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 17%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent);color:var(--sgs-accent)}
-.settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{flex:1;min-width:0}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:90px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
+.settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 0 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
   function createShell({ window: win, document: doc, settings, scope }) {
@@ -4770,7 +5109,8 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     function renderSettings(cleanups) {
       let first = content.children.length;
       if (!mobileDevice()) {
-        content.append(el("h3", "HUD \u9760\u8FB9\u884C\u4E3A"));
+        let edgeHeading = el("h3", "HUD \u9760\u8FB9\u884C\u4E3A");
+        content.append(edgeHeading);
         let choices = el("div", void 0, "sgs-segments");
         choices.setAttribute("role", "group"), choices.setAttribute("aria-label", "HUD \u9760\u8FB9\u884C\u4E3A");
         for (let [value, label] of [["none", "\u65E0\u64CD\u4F5C"], ["hide", "\u6536\u8D77"], ["fixed", "\u56FA\u5B9A"]]) {
@@ -4779,15 +5119,15 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
             let atEdge = host.hasAttribute("data-edge-docked") || host.getBoundingClientRect().right >= win.innerWidth - 12;
             setEdgeDocked(atEdge), render();
           });
-          choice.dataset.edgeBehavior = value, choice.setAttribute("aria-pressed", String(edgeBehavior() === value)), choices.append(choice);
+          choice.dataset.edgeBehavior = value, choice.setAttribute("aria-pressed", String(edgeBehavior() === value)), choices.append(choice), !1;
         }
-        content.append(choices, helpTip(doc, "\u62D6\u5230\u53F3\u8FB9\u7F18\u65F6\uFF1A\u65E0\u64CD\u4F5C\u4FDD\u6301\u60AC\u6D6E\uFF1B\u6536\u8D77\u5728\u9F20\u6807\u79FB\u5F00\u540E\u9690\u85CF\uFF1B\u56FA\u5B9A\u4E3A\u4FA7\u680F\u5E76\u4E3A\u6E38\u620F\u753B\u5E03\u7559\u51FA\u7A7A\u95F4\u3002"));
+        content.append(choices), edgeHeading.append(helpTip(doc, "\u62D6\u5230\u53F3\u8FB9\u7F18\u65F6\uFF1A\u65E0\u64CD\u4F5C\u4FDD\u6301\u60AC\u6D6E\uFF1B\u6536\u8D77\u5728\u9F20\u6807\u79FB\u5F00\u540E\u9690\u85CF\uFF1B\u56FA\u5B9A\u4E3A\u4FA7\u680F\u5E76\u4E3A\u6E38\u620F\u753B\u5E03\u7559\u51FA\u7A7A\u95F4\u3002"));
       }
       content.append(el("h3", "\u622A\u56FE"));
       let cleanRow = el("label", void 0, "row");
       cleanRow.append(el("span", "\u622A\u56FE\u65F6\u9690\u85CF\u5DE5\u5177\u7BB1 UI"));
       let clean2 = el("input");
-      clean2.type = "checkbox", styleSwitch(clean2), clean2.checked = settings.get("screenshotHideUI", !0), clean2.dataset.setting = "screenshotHideUI", clean2.onchange = () => settings.set("screenshotHideUI", clean2.checked), cleanRow.append(clean2), content.append(cleanRow), content.append(helpTip(doc, "\u5BF9\u5C40\u5185\u9690\u85CF HUD\u3001\u660E\u724C\u4E0E\u7406\u724C\u7B49\u53E0\u52A0\uFF1B\u5927\u5385\u4EC5\u9690\u85CF HUD\u3002"));
+      clean2.type = "checkbox", styleSwitch(clean2), clean2.checked = settings.get("screenshotHideUI", !0), clean2.dataset.setting = "screenshotHideUI", clean2.onchange = () => settings.set("screenshotHideUI", clean2.checked), cleanRow.append(clean2), content.append(cleanRow), cleanRow.firstChild.append(helpTip(doc, "\u5BF9\u5C40\u5185\u9690\u85CF HUD\u3001\u660E\u724C\u4E0E\u7406\u724C\u7B49\u53E0\u52A0\uFF1B\u5927\u5385\u4EC5\u9690\u85CF HUD\u3002"));
       let shortcutRow = el("label", void 0, "row");
       shortcutRow.append(el("span", "\u622A\u56FE\u5FEB\u6377\u952E"));
       let shortcut = el("input", void 0, "sgs-input");
@@ -4811,7 +5151,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         settings.set("screenshotShortcut", null), showShortcut();
       }, "icon-action"), iconButton("\u6062\u590D\u9ED8\u8BA4\u5FEB\u6377\u952E", "rollback", () => {
         settings.set("screenshotShortcut", DEFAULT_SCREENSHOT_SHORTCUT), showShortcut();
-      }, "icon-action"), button("\u622A\u56FE\u5E76\u590D\u5236", () => handlers.screenshot?.())), content.append(shotActions), content.append(helpTip(doc, "\u70B9\u51FB\u5F55\u5165\u5FEB\u6377\u952E\uFF0CEsc \u53D6\u6D88\u3002\u622A\u56FE\u81EA\u52A8\u590D\u5236\u5230\u526A\u8D34\u677F\u3002")), !!1) {
+      }, "icon-action"), button("\u622A\u56FE\u5E76\u590D\u5236", () => handlers.screenshot?.())), content.append(shotActions), shortcutRow.firstChild.append(helpTip(doc, "\u70B9\u51FB\u5F55\u5165\u5FEB\u6377\u952E\uFF0CEsc \u53D6\u6D88\u3002\u622A\u56FE\u81EA\u52A8\u590D\u5236\u5230\u526A\u8D34\u677F\u3002")), !!1) {
         content.append(el("h3", "\u65E7\u811A\u672C\u517C\u5BB9")), content.append(button("\u524D\u5F80\u7BE1\u6539\u7334\u7BA1\u7406", showLegacyWarning));
         let enabled = el("label", void 0, "row");
         enabled.append(el("span", "\u63A5\u7BA1\u65E7\u5C0F\u6284\u754C\u9762"));
@@ -4856,7 +5196,8 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
           handlers.setMarketUrl(input.value), render(), notify("\u5E02\u573A\u5730\u5740\u5DF2\u4FDD\u5B58");
         }), helpTip(doc, "\u5E02\u573A\u8FDE\u63A5\u53EF\u9009\uFF1B\u4EC5\u624B\u52A8\u8FDE\u63A5\u6216\u68C0\u6D4B\u66F4\u65B0\u65F6\u8054\u7F51\uFF0C\u79BB\u7EBF\u4ECD\u53EF\u5BFC\u5165\u63D2\u4EF6\u5305\u3002"));
       }
-      content.append(el("h3", "\u8BB0\u724C\u8BCA\u65AD"), helpTip(doc, "\u5BFC\u51FA\u672C\u5C40\u6700\u8FD1\u7684\u5361\u724C\u8BB0\u5F55\u4E0E\u6D88\u606F\u7C7B\u578B\uFF0C\u7528\u4E8E\u6392\u67E5\u660E\u724C\u9057\u6F0F\u3002\u6587\u4EF6\u4E0D\u542B\u8D26\u53F7\u3001\u6635\u79F0\u6216\u5B8C\u6574\u767B\u5F55\u6570\u636E\uFF0C\u53EA\u4FDD\u5B58\u5230\u672C\u673A\u3002"), button("\u5BFC\u51FA\u8BB0\u724C\u8BCA\u65AD", exportDiagnostics));
+      let diagnosticHeading = el("h3", "\u8BB0\u724C\u8BCA\u65AD");
+      diagnosticHeading.append(helpTip(doc, "\u5BFC\u51FA\u672C\u5C40\u6700\u8FD1\u7684\u5361\u724C\u8BB0\u5F55\u4E0E\u6D88\u606F\u7C7B\u578B\uFF0C\u7528\u4E8E\u6392\u67E5\u660E\u724C\u9057\u6F0F\u3002\u6587\u4EF6\u4E0D\u542B\u8D26\u53F7\u3001\u6635\u79F0\u6216\u5B8C\u6574\u767B\u5F55\u6570\u636E\uFF0C\u53EA\u4FDD\u5B58\u5230\u672C\u673A\u3002")), content.append(diagnosticHeading, button("\u5BFC\u51FA\u8BB0\u724C\u8BCA\u65AD", exportDiagnostics));
       let group;
       for (let node of [...content.children].slice(first))
         node.tagName === "H3" && (group = el("section", void 0, "settings-group"), content.append(group)), group.append(node);
@@ -5232,7 +5573,9 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     scope.listen(shadow.querySelector("[data-expand]"), "click", expandHUD), scope.listen(shadow.querySelector(".compact"), "dblclick", (event) => {
       event.target.closest("button") || (event.preventDefault(), expandHUD());
     }), scope.listen(shadow.querySelector("[data-screenshot]"), "click", () => handlers.screenshot?.());
-    let mobileDevice = () => !!win.navigator.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(win.navigator.userAgent || "") || win.navigator.platform === "MacIntel" && win.navigator.maxTouchPoints > 1 || !!win.matchMedia?.("(pointer: coarse)").matches, edgeBehavior = () => {
+    let mobileDevice = () => !!1 && (!!win.navigator.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(win.navigator.userAgent || "") || win.navigator.platform === "MacIntel" && win.navigator.maxTouchPoints > 1 || !!win.matchMedia?.("(pointer: coarse)").matches);
+    !1;
+    let edgeBehavior = () => {
       let value = settings.get("hudEdgeBehavior", "fixed");
       return mobileDevice() ? "none" : ["none", "hide", "fixed"].includes(value) ? value : "fixed";
     }, gameViewport = createGameViewport({ window: win, document: doc, scope }), syncGameViewport = () => gameViewport.reserve(host.hasAttribute("data-edge-fixed") ? host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280 : 0), edgeHideTimer, draggingHUD = !1, revealEdge = () => {
@@ -5245,7 +5588,9 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       let behavior = edgeBehavior(), docked = !!value && behavior !== "none";
       revealEdge(), host.toggleAttribute("data-edge-docked", docked), host.toggleAttribute("data-edge-fixed", docked && behavior === "fixed"), host.toggleAttribute("data-edge-hidden", docked && behavior === "hide" && hidden), docked ? (setCollapsed(!1), host.tabIndex = 0, host.setAttribute("aria-label", behavior === "fixed" ? "\u5DE5\u5177\u7BB1\u56FA\u5B9A\u4FA7\u680F" : "\u5DE5\u5177\u7BB1\u81EA\u52A8\u9690\u85CF\u4FA7\u680F")) : (host.removeAttribute("tabindex"), host.removeAttribute("aria-label")), settings.set("edgeDocked", docked), syncGameViewport();
     }, edgeResizer = doc.createElement("div");
-    edgeResizer.className = "edge-resizer", edgeResizer.tabIndex = 0, edgeResizer.setAttribute("role", "separator"), edgeResizer.setAttribute("aria-orientation", "vertical"), edgeResizer.setAttribute("aria-label", "\u8C03\u6574\u4FA7\u680F\u5BBD\u5EA6"), edgeResizer.title = "\u5411\u5DE6\u62D6\u52A8\u52A0\u5BBD\uFF0C\u5411\u53F3\u62D6\u52A8\u53D8\u7A84\uFF1B\u65B9\u5411\u952E\u8C03\u6574", edgeResizer.setAttribute("aria-valuemin", "248"), edgeResizer.setAttribute("aria-valuemax", "420");
+    edgeResizer.className = "edge-resizer", edgeResizer.tabIndex = 0;
+    let snapHint = doc.createElement("div");
+    snapHint.textContent = "\u677E\u5F00\u5438\u9644", snapHint.hidden = !0, snapHint.setAttribute("aria-hidden", "true"), snapHint.style.cssText = "position:fixed;right:8px;top:45%;padding:8px 12px;border:1px solid var(--sgs-accent);border-radius:7px;background:var(--sgs-bg);color:var(--sgs-accent);box-shadow:0 4px 16px #0005;pointer-events:none;z-index:20;font-size:12px", shadow.append(snapHint), edgeResizer.setAttribute("role", "separator"), edgeResizer.setAttribute("aria-orientation", "vertical"), edgeResizer.setAttribute("aria-label", "\u8C03\u6574\u4FA7\u680F\u5BBD\u5EA6"), edgeResizer.title = "\u5411\u5DE6\u62D6\u52A8\u52A0\u5BBD\uFF0C\u5411\u53F3\u62D6\u52A8\u53D8\u7A84\uFF1B\u65B9\u5411\u952E\u8C03\u6574", edgeResizer.setAttribute("aria-valuemin", "248"), edgeResizer.setAttribute("aria-valuemax", "420");
     let grip = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
     grip.setAttribute("viewBox", "0 0 24 24"), grip.setAttribute("aria-hidden", "true");
     let gripPath = doc.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -5280,16 +5625,34 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       });
     }
     for (let handle of shadow.querySelectorAll(".brand,.compact")) scope.listen(handle, "pointerdown", (e) => {
-      if (e.button !== 0 || e.target.closest("button")) return;
-      let moved = !1, rect = host.getBoundingClientRect();
+      if (e.button !== 0 || e.target.closest("button") || draggingHUD) return;
+      e.preventDefault(), e.stopPropagation();
+      let moved = !1, finished = !1, snapReady = !1, rect = host.getBoundingClientRect();
       !host.hasAttribute("data-edge-docked") && rect.right < win.innerWidth - 12 && settings.set("hudFloatingPosition", { x: rect.left, y: rect.top }), draggingHUD = !0, setEdgeDocked(!1), host.style.left = rect.left + "px", host.style.right = "auto";
-      let dx = e.clientX - rect.left, dy = e.clientY - rect.top, move = (event) => {
+      let dx = e.clientX - rect.left, dy = e.clientY - rect.top, cleanup = () => {
+        snapHint.hidden = !0, win.removeEventListener("pointermove", move, !0), win.removeEventListener("pointerup", up, !0), win.removeEventListener("pointercancel", up, !0), win.removeEventListener("blur", up), handle.removeEventListener("lostpointercapture", up), handle.hasPointerCapture?.(e.pointerId) && handle.releasePointerCapture(e.pointerId);
+      }, up = (event) => {
+        finished || event?.pointerId !== void 0 && event.pointerId !== e.pointerId || (event?.type === "pointerup" && updatePosition(event), finished = !0, cleanup(), draggingHUD = !1, !scope.closed && (settings.set("position", { x: host.offsetLeft, y: host.offsetTop }), moved && event?.type !== "pointercancel" && edgeBehavior() !== "none" && snapReady && (setEdgeDocked(!0), host.matches(":hover") || hideEdge())));
+      }, updatePosition = (event) => {
         moved ||= Math.abs(event.clientX - e.clientX) > 3 || Math.abs(event.clientY - e.clientY) > 3, host.style.left = Math.max(0, Math.min(win.innerWidth - rect.width, event.clientX - dx)) + "px", host.style.top = Math.max(0, Math.min(win.innerHeight - 45, event.clientY - dy)) + "px", host.style.right = "auto";
-      }, up = () => {
-        win.removeEventListener("pointermove", move), win.removeEventListener("pointerup", up), draggingHUD = !1, settings.set("position", { x: host.offsetLeft, y: host.offsetTop }), moved && !mobileDevice() && host.getBoundingClientRect().right >= win.innerWidth - 12 && (setEdgeDocked(!0), host.matches(":hover") || hideEdge());
+        let gap = win.innerWidth - Math.max(event.clientX, event.clientX - dx + rect.width);
+        snapReady = moved && edgeBehavior() !== "none" && gap <= (snapReady ? 72 : 48), snapHint.hidden = !snapReady;
+      }, move = (event) => {
+        if (event.pointerId === e.pointerId) {
+          if (event.buttons === 0) {
+            up(event);
+            return;
+          }
+          event.preventDefault(), updatePosition(event);
+        }
       };
-      win.addEventListener("pointermove", move), win.addEventListener("pointerup", up), scope.add(() => {
-        win.removeEventListener("pointermove", move), win.removeEventListener("pointerup", up);
+      win.addEventListener("pointermove", move, !0), win.addEventListener("pointerup", up, !0), win.addEventListener("pointercancel", up, !0), win.addEventListener("blur", up), handle.addEventListener("lostpointercapture", up);
+      try {
+        handle.setPointerCapture(e.pointerId);
+      } catch {
+      }
+      scope.add(() => {
+        finished = !0, cleanup(), draggingHUD = !1;
       });
     });
     let mount = () => {

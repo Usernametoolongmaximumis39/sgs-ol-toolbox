@@ -1,4 +1,5 @@
 import { toCanvas } from 'html-to-image';
+import { MICROCLIENT } from './distribution.js';
 
 export const DEFAULT_SCREENSHOT_SHORTCUT = { code: 'KeyS', ctrl: true, shift: true, alt: false, meta: false };
 export function shortcutFromEvent(event) {
@@ -112,7 +113,10 @@ export function createScreenshotController({ window: win, game, settings, scope,
       // Start clipboard write within the click/key gesture, before rendering awaits.
       const image = captureGameImage(win, game, { hideUI: settings.get('screenshotHideUI', true) });
       image.catch(() => {});
-      await win.navigator.clipboard.write([new win.ClipboardItem({ 'image/png': image })]);
+      // Chromium 85 accepts Blob values only; promise-valued ClipboardItem
+      // entries were added in later Chromium versions.
+      const png = MICROCLIENT ? await image : image;
+      await win.navigator.clipboard.write([new win.ClipboardItem({ 'image/png': png })]);
       if (!scope.closed) notify('游戏截图已复制到剪贴板');
     } catch (error) {
       if (!scope.closed) notify(error?.name === 'NotAllowedError' ? '无法复制截图：请允许此页面访问剪贴板，再点击截图重试' : `截图失败：${error?.message || error}`);

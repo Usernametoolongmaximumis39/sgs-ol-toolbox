@@ -174,7 +174,7 @@ export class CardStyleRegistry {
     const key = style.id + ':card:' + frame + ':' + width + 'x' + height;
     if (!this.textures.has(key)) {
       const canvas = this.atlasCanvas(style, name); if (!canvas) return null;
-      const bitmap = new this.win.Laya.Texture2D(canvas.width, canvas.height); bitmap.loadImageSource(canvas);
+      const bitmap = new this.win.Laya.Texture2D(canvas.width, canvas.height, this.win.Laya.TextureFormat?.R8G8B8A8 ?? 1, false); bitmap.loadImageSource(canvas, true);
       const texture = new this.win.Laya.Texture(bitmap);
       // Keep every source pixel on the GPU while preserving the native UI's
       // logical dimensions, including Graphics.drawTexture's size ratios.
@@ -237,7 +237,7 @@ export class CardStyleRegistry {
       if (!image.complete || image.naturalWidth !== 405 || image.naturalHeight !== 570) return null;
       const key = style.id + ':back';
       if (!this.textures.has(key)) {
-        const bitmap = new this.win.Laya.Texture2D(405, 570); bitmap.loadImageSource(image);
+        const bitmap = new this.win.Laya.Texture2D(405, 570, this.win.Laya.TextureFormat?.R8G8B8A8 ?? 1, false); bitmap.loadImageSource(image, true);
         const texture = new this.win.Laya.Texture(bitmap);
         texture.width = texture.sourceWidth = 93; texture.height = texture.sourceHeight = 130;
         this.textures.set(key, texture);
@@ -248,8 +248,10 @@ export class CardStyleRegistry {
     const key = style.id + ':' + back;
     if (!this.textures.has(key)) {
       const canvas = drawCardStyle(this.doc, back ? style.back : style.face, back);
-      const bitmap = new this.win.Laya.Texture2D(canvas.width, canvas.height);
-      bitmap.loadImageSource(canvas);
+      // Non-power-of-two cards must not allocate a mip chain on Chromium 85's
+      // WebGL path. Disabling it after allocation leaves an incomplete texture.
+      const bitmap = new this.win.Laya.Texture2D(canvas.width, canvas.height, this.win.Laya.TextureFormat?.R8G8B8A8 ?? 1, false);
+      bitmap.loadImageSource(canvas, true);
       const texture = new this.win.Laya.Texture(bitmap); texture.width = 93; texture.height = 130;
       this.textures.set(key, texture);
     }

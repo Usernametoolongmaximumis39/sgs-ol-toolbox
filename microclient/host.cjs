@@ -1,5 +1,15 @@
 'use strict';
-const { app, ipcMain } = require('electron');
+const { app, ipcMain, screen } = require('electron');
+// The official shell creates its main window first. Resize it once only;
+// payment/login popups and subsequent user resizing retain their own sizes.
+app.once('browser-window-created', function (_, window) {
+  const display = screen.getDisplayMatching(window.getBounds());
+  const scale = display.scaleFactor || 1;
+  const width = Math.round(Math.max(1400, display.size.width * scale / 2) / scale);
+  const height = Math.round(Math.max(820, display.size.height * scale / 2) / scale);
+  window.setSize(width, height);
+  window.center();
+});
 const fs = require('fs');
 const path = require('path');
 const code = fs.readFileSync(path.join(__dirname, 'toolbox.js'), 'utf8');

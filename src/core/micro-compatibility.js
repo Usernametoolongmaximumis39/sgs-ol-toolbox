@@ -83,8 +83,14 @@ export function installMicroCompatibility(win, scope) {
     const computed = win.getComputedStyle(host);
     const css = [...root.querySelectorAll('style')].filter(el => el !== record.style).map(el => el.textContent).join('\n');
     const output = legacyMicroCSS(css, name => computed.getPropertyValue(name).trim(), pixel)
-      + '\n[popover]:not([data-micro-popover-open]){display:none!important}[popover][data-micro-popover-open]{display:block;z-index:2147483647}';
+      + '\n[popover]:not([data-micro-popover-open]){display:none!important}[popover][data-micro-popover-open]{display:block;z-index:2147483647}'
+      // Chromium 85 ignores scrollbar-width and does not theme native scrollbars.
+      + '\n*::-webkit-scrollbar{width:7px;height:7px}*::-webkit-scrollbar-track{background:var(--sgs-bg)}*::-webkit-scrollbar-thumb{background:var(--sgs-border);border:2px solid var(--sgs-bg);border-radius:6px}*::-webkit-scrollbar-thumb:hover{background:var(--sgs-muted)}*::-webkit-scrollbar-corner{background:var(--sgs-bg)}';
     if (record.style.textContent !== output) record.style.textContent = output;
+    // Plugins mount styles after startup and on every panel rebuild. Keep the
+    // translated declarations after them: var() lets unsupported color-mix()
+    // survive parsing, then reset the property at computed-value time.
+    if (root.lastChild !== record.style) root.append(record.style);
   };
   const discover = () => {
     for (const [host, record] of watched) if (!host.isConnected) { record.observer.disconnect(); record.style.remove(); watched.delete(host); }

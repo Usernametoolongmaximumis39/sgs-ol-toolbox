@@ -1,3 +1,20 @@
+import { Inflate, Gunzip } from 'fflate';
+/*! fflate 0.8.2, Copyright (c) 2023 Arjun Barrett. MIT License.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE. */
 // Public game configuration only. No account requests, singleton construction,
 // upstream-script globals, or recursive inspection of native packets.
 const ALLOWED = new Set(['gn_zonghe', 'cha_gs_dbs_fs_skininfo', 'ff_jubaopen', 'ff_dbs_pay_gift', 'sys_gs_dbs_fs_goodsbaseinfo', 'cha_dbs_general_series', 'ff_task_daily', 'mod_new_ttrank_config', 'ff_general_chest_info_config', 'gn_dbs_giftbag', 'hd_roguelike', 'cha_spell', 'sys_playcard', 'character', 'gn_gs_ahievement', 'ff_qifu_new', 'ff_tiangong', 'h5_officer']);
@@ -26,10 +43,27 @@ async function boundedStream(stream, limit) {
 }
 
 async function inflate(bytes, format, win) {
-  const Decompressor = win.DecompressionStream || globalThis.DecompressionStream;
-  if (!Decompressor) throw new Error('浏览器缺少配置解压支持');
+  const Decompressor = 'DecompressionStream' in win ? win.DecompressionStream : globalThis.DecompressionStream;
+  // Older engines may expose gzip streams but reject ZIP deflate-raw. Bundle the decoder
+  // with the core so existing microclient installations need no preload update.
+  let stream;
+  try { if (Decompressor) stream = new Decompressor(format); } catch { /* unsupported format */ }
+  if (!stream) {
+    const chunks = []; let length = 0;
+    const decoder = new (format === 'gzip' ? Gunzip : Inflate)(chunk => {
+      length += chunk.length;
+      if (length > ENTRY_LIMIT) throw new Error('配置文件超过读取上限');
+      chunks.push(chunk.slice());
+    });
+    // Bound each decoder push as well as retained output, including zip bombs.
+    for (let offset = 0; offset < bytes.length; offset += 1024) decoder.push(bytes.subarray(offset, offset + 1024), offset + 1024 >= bytes.length);
+    if (!bytes.length) decoder.push(bytes, true);
+    const output = new Uint8Array(length); let offset = 0;
+    for (const chunk of chunks) { output.set(chunk, offset); offset += chunk.length; }
+    return output;
+  }
   const BlobType = win.Blob || globalThis.Blob;
-  return boundedStream(new BlobType([bytes]).stream().pipeThrough(new Decompressor(format)), ENTRY_LIMIT);
+  return boundedStream(new BlobType([bytes]).stream().pipeThrough(stream), ENTRY_LIMIT);
 }
 
 export async function readZipEntry(bytes, filename, win = globalThis) {

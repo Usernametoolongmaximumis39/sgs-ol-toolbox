@@ -29,7 +29,7 @@ function fixture(existingDirectory) {
     return req;
   } };
   vm.runInNewContext(host, { URL, Buffer, __dirname: dir, require(id) {
-    if (id === 'electron') return { app: { on: (name, fn) => { if (name === 'web-contents-created') created = fn; }, getPath: () => dir }, ipcMain: { on: (n, f) => handlers[n] = f, handle: (n, f) => handlers[n] = f } };
+    if (id === 'electron') return { app: { once() {}, on: (name, fn) => { if (name === 'web-contents-created') created = fn; }, getPath: () => dir }, ipcMain: { on: (n, f) => handlers[n] = f, handle: (n, f) => handlers[n] = f } };
     return ({ fs: disk, path, crypto, https, vm })[id];
   } });
   const event = (url = 'https://web.sanguosha.com/220/h5_2/index.php', parent = null) => ({ senderFrame: { url, parent } });

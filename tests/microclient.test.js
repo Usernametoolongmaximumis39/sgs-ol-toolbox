@@ -59,7 +59,7 @@ test('old Chromium color mixing preserves weights, transparency, focus and inset
 test('microclient preload and source IPC accept only top-level official OL game pages', async () => {
   const handlers = {}, host = await readFile(join(root, 'microclient/host.cjs'), 'utf8'), preload = await readFile(join(root, 'microclient/preload.cjs'), 'utf8');
   vm.runInNewContext(host, { URL, __dirname: '/payload', require(id) {
-    if (id === 'electron') return { app: { on() {} }, ipcMain: { handle() {}, on: (name, fn) => handlers[name] = fn } };
+    if (id === 'electron') return { app: { once() {}, on() {} }, ipcMain: { handle() {}, on: (name, fn) => handlers[name] = fn } };
     if (id === 'fs') return { readFileSync: () => 'TOOLBOX' }; if (id === 'path') return { join: (...parts) => parts.join('/') }; if (['crypto', 'https'].includes(id)) return {}; throw Error(id);
   } });
   for (const [url, frameId, expected] of [['https://web.sanguosha.com/220/h5_2/index_110074.php', 0, 'TOOLBOX'], ['https://web.sanguosha.com/login/index.html', 0, ''], ['https://evil.example/220/h5_2/index.php', 0, ''], ['https://web.sanguosha.com/220/h5_2/index.php', 2, '']]) {

@@ -1,4 +1,4 @@
-// 三国杀OL工具箱 · 微端 LITE · 0.6.45
+// 三国杀OL工具箱 · 微端 LITE · 0.6.51
 (() => {
   function installRefreshReentry() {
     return !1;
@@ -10,8 +10,8 @@
       this.append(...nodes);
     } });
     if (win.Object.hasOwn || Object.defineProperty(win.Object, "hasOwn", { value: (o, k) => win.Object.prototype.hasOwnProperty.call(o, k), configurable: !0, writable: !0 }), win.Array.prototype.at || Object.defineProperty(win.Array.prototype, "at", { value(index) {
-      let n = Math.trunc(Number(index) || 0), i = n < 0 ? this.length + n : n;
-      return i < 0 || i >= this.length ? void 0 : this[i];
+      let n = Math.trunc(Number(index) || 0), i2 = n < 0 ? this.length + n : n;
+      return i2 < 0 || i2 >= this.length ? void 0 : this[i2];
     }, configurable: !0, writable: !0 }), win.structuredClone || (win.structuredClone = (value) => {
       let seen = new win.Map(), clone = (v) => {
         if (typeof v == "function" || typeof v == "symbol" || v instanceof win.Node) throw new win.DOMException("Value cannot be cloned", "DataCloneError");
@@ -37,8 +37,8 @@
   }
   function splitArguments(text2) {
     let parts = [], depth = 0, start = 0;
-    for (let i = 0; i < text2.length; i++)
-      text2[i] === "(" ? depth++ : text2[i] === ")" ? depth-- : text2[i] === "," && !depth && (parts.push(text2.slice(start, i).trim()), start = i + 1);
+    for (let i2 = 0; i2 < text2.length; i2++)
+      text2[i2] === "(" ? depth++ : text2[i2] === ")" ? depth-- : text2[i2] === "," && !depth && (parts.push(text2.slice(start, i2).trim()), start = i2 + 1);
     return parts.push(text2.slice(start).trim()), parts;
   }
   function replaceFunction(text2, name, replace) {
@@ -64,16 +64,16 @@
       let parse2 = (text2) => {
         let match = text2.match(/\s+([\d.]+)%$/);
         return { rgba: color2(match ? text2.slice(0, match.index) : text2), weight: match ? Number(match[1]) / 100 : null };
-      }, x = parse2(a), y = parse2(b), p = x.weight ?? (y.weight === null ? 0.5 : 1 - y.weight), q = y.weight ?? 1 - p, alpha = x.rgba[3] / 255 * p + y.rgba[3] / 255 * q;
-      return `rgba(${[0, 1, 2].map((i) => alpha ? Math.round((x.rgba[i] * x.rgba[3] / 255 * p + y.rgba[i] * y.rgba[3] / 255 * q) / alpha) : 0).join(",")},${alpha})`;
+      }, x2 = parse2(a), y = parse2(b), p = x2.weight ?? (y.weight === null ? 0.5 : 1 - y.weight), q = y.weight ?? 1 - p, alpha = x2.rgba[3] / 255 * p + y.rgba[3] / 255 * q;
+      return `rgba(${[0, 1, 2].map((i2) => alpha ? Math.round((x2.rgba[i2] * x2.rgba[3] / 255 * p + y.rgba[i2] * y.rgba[3] / 255 * q) / alpha) : 0).join(",")},${alpha})`;
     }), css.replace(/:focus-visible/g, ":focus").replace(/overflow:\s*clip/g, "overflow:hidden").replace(/\binset:\s*([^;}]+)/g, (_, value) => {
       let v = value.trim().split(/\s+/);
       return `top:${v[0]};right:${v[1] || v[0]};bottom:${v[2] || v[0]};left:${v[3] || v[1] || v[0]}`;
     });
   }
   function installMicroCompatibility(win, scope) {
-    var _a;
-    if (installMicroAPIs(win), (_a = win.CSS) != null && _a.supports("color", "color-mix(in srgb,black,white)")) return;
+    var _a2;
+    if (installMicroAPIs(win), (_a2 = win.CSS) != null && _a2.supports("color", "color-mix(in srgb,black,white)")) return;
     let doc = win.document, watched = /* @__PURE__ */ new Map(), canvas = doc.createElement("canvas");
     canvas.width = canvas.height = 1;
     let context = canvas.getContext("2d"), pixel = (value) => (context.clearRect(0, 0, 1, 1), context.fillStyle = "transparent", context.fillStyle = value, context.fillRect(0, 0, 1, 1), context.getImageData(0, 0, 1, 1).data), update = (host) => {
@@ -81,8 +81,9 @@
       if (!root || !record || !host.isConnected) return;
       let computed = win.getComputedStyle(host), css = [...root.querySelectorAll("style")].filter((el) => el !== record.style).map((el) => el.textContent).join(`
 `), output = legacyMicroCSS(css, (name) => computed.getPropertyValue(name).trim(), pixel) + `
-[popover]:not([data-micro-popover-open]){display:none!important}[popover][data-micro-popover-open]{display:block;z-index:2147483647}`;
-      record.style.textContent !== output && (record.style.textContent = output);
+[popover]:not([data-micro-popover-open]){display:none!important}[popover][data-micro-popover-open]{display:block;z-index:2147483647}
+*::-webkit-scrollbar{width:7px;height:7px}*::-webkit-scrollbar-track{background:var(--sgs-bg)}*::-webkit-scrollbar-thumb{background:var(--sgs-border);border:2px solid var(--sgs-bg);border-radius:6px}*::-webkit-scrollbar-thumb:hover{background:var(--sgs-muted)}*::-webkit-scrollbar-corner{background:var(--sgs-bg)}`;
+      record.style.textContent !== output && (record.style.textContent = output), root.lastChild !== record.style && root.append(record.style);
     }, discover = () => {
       for (let [host, record] of watched) host.isConnected || (record.observer.disconnect(), record.style.remove(), watched.delete(host));
       for (let host of doc.querySelectorAll("[data-sgs-toolbox]")) {
@@ -157,10 +158,10 @@
     }
   }, KEY = Symbol.for("sgs.ol.toolbox.core");
   function startOwnedRuntime(win, edition, start) {
-    var _a;
+    var _a2;
     let previous = win[KEY];
     if (previous && (previous.distribution === "dev" || edition !== "dev")) return previous.ready || Promise.resolve(previous);
-    (_a = previous == null ? void 0 : previous.dispose) == null || _a.call(previous);
+    (_a2 = previous == null ? void 0 : previous.dispose) == null || _a2.call(previous);
     let scope = new ResourceScope(), api = { distribution: edition, scope, dispose() {
       scope.dispose(), win[KEY] === api && delete win[KEY];
     } };
@@ -182,17 +183,17 @@
       this.storage = storage, this.prefix = prefix;
     }
     get(key, fallback) {
-      var _a;
+      var _a2;
       try {
-        let raw = (_a = this.storage) == null ? void 0 : _a.getItem(this.prefix + key);
+        let raw = (_a2 = this.storage) == null ? void 0 : _a2.getItem(this.prefix + key);
         return raw == null ? fallback : JSON.parse(raw);
       } catch {
         return fallback;
       }
     }
     set(key, value) {
-      var _a;
-      return (_a = this.storage) == null || _a.setItem(this.prefix + key, JSON.stringify(value)), value;
+      var _a2;
+      return (_a2 = this.storage) == null || _a2.setItem(this.prefix + key, JSON.stringify(value)), value;
     }
     namespace(id) {
       return new _Settings(this.storage, this.prefix + id + ":");
@@ -295,8 +296,8 @@
     let length = get(value, "length"), cap = key === "Infos" || key === "GeneralData" || key === "DestSeatIDs" ? 32 : 2048;
     if (!Number.isInteger(length) || length < 0 || length > cap) throw new Error(`${key} \u957F\u5EA6\u8D85\u9650\u6216\u65E0\u6548`);
     let result = [];
-    for (let i = 0; i < length; i++) {
-      let item = get(value, i);
+    for (let i2 = 0; i2 < length; i2++) {
+      let item = get(value, i2);
       if (item && typeof item == "object") {
         let fields = key === "Infos" ? ["SeatID", "CharacterID"] : key === "GeneralData" ? ["index", "cardID"] : ["CardId", "CardID", "cardId", "cardID", "id"], record = {};
         for (let field of fields) {
@@ -317,8 +318,8 @@
     let fields = schemas[type];
     if (!fields.length) return {};
     let result = {}, sources = [], queue = [payload], seen = /* @__PURE__ */ new Set();
-    for (let i = 0; i < queue.length && i < 12; i++) {
-      let source = queue[i];
+    for (let i2 = 0; i2 < queue.length && i2 < 12; i2++) {
+      let source = queue[i2];
       if (!(!source || typeof source != "object" || seen.has(source))) {
         seen.add(source), sources.push(source);
         for (let key of wrappers) {
@@ -349,8 +350,8 @@
   var WRAPPERS = /* @__PURE__ */ new Set(["Protocol", "protocol", "ProtoObj", "protoObj", "Data", "data", "msg", "Msg"]);
   function packetBody(payload) {
     let queue = [payload], seen = /* @__PURE__ */ new Set(), body = {};
-    for (let i = 0; i < queue.length && i < 32; i++) {
-      let source = queue[i];
+    for (let i2 = 0; i2 < queue.length && i2 < 32; i2++) {
+      let source = queue[i2];
       if (!(!source || typeof source != "object" || seen.has(source))) {
         seen.add(source);
         for (let [key, value] of Object.entries(source))
@@ -458,9 +459,9 @@
         try {
           if (outer)
             try {
-              let prefix = args.filter((x) => typeof x == "string").join(" ");
-              if (!/\bsend\b|发送/i.test(prefix)) for (let i = args.length - 1; i >= 0; i--) {
-                let data = args[i], type = (data == null ? void 0 : data.ClassName) || (data == null ? void 0 : data.className);
+              let prefix = args.filter((x2) => typeof x2 == "string").join(" ");
+              if (!/\bsend\b|发送/i.test(prefix)) for (let i2 = args.length - 1; i2 >= 0; i2--) {
+                let data = args[i2], type = (data == null ? void 0 : data.ClassName) || (data == null ? void 0 : data.className);
                 if (typeof type == "string" && (receive(type, data, "console"), isObservedMessage(type)))
                   break;
               }
@@ -489,7 +490,7 @@
       }
     };
     function installNative() {
-      var _a, _b;
+      var _a2, _b2;
       if (scope.closed) return;
       nativeErrors = [];
       let targets;
@@ -500,7 +501,7 @@
       }
       let live = /* @__PURE__ */ new Set();
       for (let { name, target } of targets)
-        if (!(!target || typeof target.event != "function" || live.has(target)) && (live.add(target), ((_a = native.get(target)) == null ? void 0 : _a.wrapper) !== target.event))
+        if (!(!target || typeof target.event != "function" || live.has(target)) && (live.add(target), ((_a2 = native.get(target)) == null ? void 0 : _a2.wrapper) !== target.event))
           try {
             let descriptor = Object.getOwnPropertyDescriptor(target, "event"), original = target.event, entry = { name, wrapper: null, active: !0 }, wrapper = function(...args) {
               if (!scope.closed && entry.active) try {
@@ -511,7 +512,7 @@
               return Reflect.apply(original, this, args);
             };
             if (!descriptor || descriptor.configurable ? Object.defineProperty(target, "event", { value: wrapper, writable: !0, configurable: !0, enumerable: (descriptor == null ? void 0 : descriptor.enumerable) ?? !0 }) : "value" in descriptor && descriptor.writable && (target.event = wrapper), target.event !== wrapper) throw new Error("\u4E8B\u4EF6\u5165\u53E3\u4E0D\u53EF\u5199");
-            entry.wrapper = wrapper, (_b = native.get(target)) == null || _b.release();
+            entry.wrapper = wrapper, (_b2 = native.get(target)) == null || _b2.release();
             let release = () => {
               entry.active = !1, target.event === wrapper && (descriptor ? Object.defineProperty(target, "event", descriptor) : delete target.event);
             };
@@ -574,10 +575,10 @@
     return typeof name == "string" && /^[A-Za-z][A-Za-z0-9_]{0,95}$/.test(name) ? name + "_png.png" : null;
   }
   function parseCardFrames(index, pages, descriptor) {
-    var _a, _b;
+    var _a2, _b2;
     if (!(index != null && index.frames) || typeof index.frames != "object" || Object.keys(index.frames).length > 2048) throw new Error("\u5361\u56FE\u7D22\u5F15\u65E0\u6548\u6216\u8D85\u9650");
-    let names = (_b = (_a = index.meta) == null ? void 0 : _a.image) == null ? void 0 : _b.split(",");
-    if (!names || names.length !== pages.length || names.some((name, i) => name !== new URL(descriptor.pages[i].url).pathname.split("/").at(-1))) throw new Error("\u5361\u56FE\u56FE\u7247\u6E05\u5355\u4E0D\u5339\u914D");
+    let names = (_b2 = (_a2 = index.meta) == null ? void 0 : _a2.image) == null ? void 0 : _b2.split(",");
+    if (!names || names.length !== pages.length || names.some((name, i2) => name !== new URL(descriptor.pages[i2].url).pathname.split("/").at(-1))) throw new Error("\u5361\u56FE\u56FE\u7247\u6E05\u5355\u4E0D\u5339\u914D");
     let result = /* @__PURE__ */ new Map(), ratio = descriptor.pixelRatio ?? 1, width = 135 * ratio, height = 190 * ratio;
     for (let [key, item] of Object.entries(index.frames)) {
       if (!/^[A-Za-z][A-Za-z0-9_]{0,95}_png\.png$/.test(key) || item.rotated || item.trimmed) continue;
@@ -649,13 +650,13 @@
     }
   }
   var COLOR = /^#[0-9a-f]{6}$/i, own = (node, key) => {
-    var _a;
-    return node && ((_a = Object.getOwnPropertyDescriptor(node, key)) == null ? void 0 : _a.value);
+    var _a2;
+    return node && ((_a2 = Object.getOwnPropertyDescriptor(node, key)) == null ? void 0 : _a2.value);
   }, CARD_LISTS = ["_children", "cardUis", "cardUIs", "cardUiList", "cardUIList", "virtualCardUis", "tempHandCardUis", "additionalCardUis", "muniuCardUis", "stateCardUis", "pileCardUis", "seatUIs"], CARD_NODES = ["cardContainer", "seatContainer", "SelfSeatUi", "selfSeatUI", "desktopCardContainer", "discardCardContainer", "cardUi", "cardUI"], isCardUI = (node) => node && !node.destroyed && node.bmpFace && typeof node.SetCardFace == "function" && typeof node.getCardFaceBaseTexture == "function" && typeof node.updateNewCardFace == "function";
   function findNativeCardTexture(L, name) {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a2, _b2, _c, _d, _e, _f, _g, _h;
     if (!/^card(?:Face|Back)_\d{1,5}$/.test(name)) return null;
-    let valid = (t) => (t == null ? void 0 : t.bitmap) && !t.destroyed && !t.bitmap.destroyed && t.width > 0 && t.height > 0, direct = (_b = (_a = L == null ? void 0 : L.loader) == null ? void 0 : _a.getRes) == null ? void 0 : _b.call(_a, name);
+    let valid = (t) => (t == null ? void 0 : t.bitmap) && !t.destroyed && !t.bitmap.destroyed && t.width > 0 && t.height > 0, direct = (_b2 = (_a2 = L == null ? void 0 : L.loader) == null ? void 0 : _a2.getRes) == null ? void 0 : _b2.call(_a2, name);
     if (valid(direct)) return direct;
     for (let cache2 of [(_c = L == null ? void 0 : L.Loader) == null ? void 0 : _c.textureMap, (_d = L == null ? void 0 : L.Loader) == null ? void 0 : _d.loadedMap, (_e = L == null ? void 0 : L.Loader) == null ? void 0 : _e._loadedMap])
       for (let key of Object.keys(cache2 || {}).slice(0, 6e4)) {
@@ -671,13 +672,13 @@
     let c = canvas.getContext("2d"), gradient = c.createLinearGradient(0, 0, 186, 260);
     if (gradient.addColorStop(0, palette.light), gradient.addColorStop(0.48, palette.base), gradient.addColorStop(1, palette.light), c.fillStyle = gradient, c.fillRect(0, 0, 186, 260), c.strokeStyle = palette.edge, c.lineWidth = 3, c.strokeRect(3, 3, 180, 254), c.lineWidth = 1, c.strokeRect(9, 9, 168, 242), back) {
       c.fillStyle = palette.ink, c.fillRect(15, 15, 156, 230), c.strokeStyle = palette.base, c.globalAlpha = 0.25;
-      for (let x = -230; x < 190; x += 16)
-        c.beginPath(), c.moveTo(Math.max(16, x), Math.max(16, 16 - x)), c.lineTo(Math.min(170, x + 230), Math.min(244, 244 + x)), c.stroke();
+      for (let x2 = -230; x2 < 190; x2 += 16)
+        c.beginPath(), c.moveTo(Math.max(16, x2), Math.max(16, 16 - x2)), c.lineTo(Math.min(170, x2 + 230), Math.min(244, 244 + x2)), c.stroke();
       c.globalAlpha = 1, c.lineWidth = 2, c.beginPath(), c.moveTo(93, 60), c.lineTo(145, 130), c.lineTo(93, 200), c.lineTo(41, 130), c.closePath(), c.fill(), c.stroke(), c.beginPath(), c.arc(93, 130, 32, 0, Math.PI * 2), c.stroke(), c.fillStyle = palette.light, c.font = "bold 35px serif", c.textAlign = "center", c.textBaseline = "middle", c.fillText("\u6740", 93, 131);
     } else {
       c.fillStyle = palette.light, c.globalAlpha = 0.65, c.fillRect(13, 13, 160, 234), c.globalAlpha = 1;
-      for (let [x, y, dx, dy] of [[15, 15, 1, 1], [171, 15, -1, 1], [15, 245, 1, -1], [171, 245, -1, -1]])
-        c.beginPath(), c.moveTo(x, y + dy * 16), c.lineTo(x, y), c.lineTo(x + dx * 16, y), c.stroke();
+      for (let [x2, y, dx, dy] of [[15, 15, 1, 1], [171, 15, -1, 1], [15, 245, 1, -1], [171, 245, -1, -1]])
+        c.beginPath(), c.moveTo(x2, y + dy * 16), c.lineTo(x2, y), c.lineTo(x2 + dx * 16, y), c.stroke();
     }
     return canvas;
   }
@@ -688,10 +689,10 @@
       });
     }
     register(style2, owner) {
-      var _a, _b;
+      var _a2, _b2;
       if (this.closed) return () => {
       };
-      if (!((_a = style2 == null ? void 0 : style2.id) != null && _a.startsWith(owner + ".")) || !/^[a-z][a-z0-9.-]{0,63}$/.test(style2.id) || this.styles.has(style2.id)) throw new Error("\u5361\u724C\u6837\u5F0F ID \u65E0\u6548\u6216\u5DF2\u6CE8\u518C");
+      if (!((_a2 = style2 == null ? void 0 : style2.id) != null && _a2.startsWith(owner + ".")) || !/^[a-z][a-z0-9.-]{0,63}$/.test(style2.id) || this.styles.has(style2.id)) throw new Error("\u5361\u724C\u6837\u5F0F ID \u65E0\u6548\u6216\u5DF2\u6CE8\u518C");
       if (typeof style2.name != "string" || !style2.name.trim() || style2.name.length > 48) throw new Error("\u5361\u724C\u6837\u5F0F\u540D\u79F0\u65E0\u6548");
       if (style2.backName !== void 0 && (typeof style2.backName != "string" || !style2.backName.trim() || style2.backName.length > 48 || /[\r\n]/.test(style2.backName))) throw new Error("\u5361\u80CC\u540D\u79F0\u65E0\u6548");
       let cleaned = { id: style2.id, name: style2.name, ...style2.backName === void 0 ? {} : { backName: style2.backName } };
@@ -704,7 +705,7 @@
       } else for (let side of ["face", "back"]) {
         cleaned[side] = {};
         for (let key of ["base", "light", "edge", "ink"]) {
-          if (!COLOR.test((_b = style2[side]) == null ? void 0 : _b[key])) throw new Error("\u5361\u724C\u6837\u5F0F\u989C\u8272\u987B\u4E3A\u516D\u4F4D\u5341\u516D\u8FDB\u5236\u503C");
+          if (!COLOR.test((_b2 = style2[side]) == null ? void 0 : _b2[key])) throw new Error("\u5361\u724C\u6837\u5F0F\u989C\u8272\u987B\u4E3A\u516D\u4F4D\u5341\u516D\u8FDB\u5236\u503C");
           cleaned[side][key] = style2[side][key];
         }
         Object.freeze(cleaned[side]);
@@ -725,10 +726,10 @@
       return { face: this.settings.get("cardFaceStyle", this.current), back: this.settings.get("cardBackStyle", this.current), scope: this.settings.get("cardStyleScope", "all") };
     }
     selectSide(side, id) {
-      var _a;
+      var _a2;
       if (!["face", "back"].includes(side)) throw new Error("\u65E0\u6548\u5361\u724C\u9762");
       if (id && !this.styles.has(id)) throw new Error("\u5361\u724C\u6837\u5F0F\u5C1A\u672A\u542F\u7528");
-      if (side === "back" && (_a = this.styles.get(id)) != null && _a.atlas && !this.styles.get(id).atlas.backImage) throw new Error("\u6B64\u5957\u88C5\u4EC5\u63D0\u4F9B\u5361\u9762");
+      if (side === "back" && (_a2 = this.styles.get(id)) != null && _a2.atlas && !this.styles.get(id).atlas.backImage) throw new Error("\u6B64\u5957\u88C5\u4EC5\u63D0\u4F9B\u5361\u9762");
       this.settings.set(side === "face" ? "cardFaceStyle" : "cardBackStyle", id), this.restore(), this.refreshNative(), this.emit();
     }
     selectScope(value) {
@@ -745,14 +746,14 @@
       Number.isInteger(id) && id > 0 && this.selfIds.add(id);
     }
     isSelfCard(ui) {
-      var _a, _b, _c, _d, _e, _f;
+      var _a2, _b2, _c, _d, _e, _f;
       let card = ui.theCard;
-      return ((_b = (_a = this.selfHand) == null ? void 0 : _a.cardUis) != null && _b.includes(ui) || (_d = (_c = this.selfHand) == null ? void 0 : _c.cardUIs) != null && _d.includes(ui) || (_f = (_e = this.selfHand) == null ? void 0 : _e.cardUiList) != null && _f.includes(ui)) && this.rememberSelf(card), this.selfModels.has(card) || this.selfIds.has(this.cardId(card));
+      return ((_b2 = (_a2 = this.selfHand) == null ? void 0 : _a2.cardUis) != null && _b2.includes(ui) || (_d = (_c = this.selfHand) == null ? void 0 : _c.cardUIs) != null && _d.includes(ui) || (_f = (_e = this.selfHand) == null ? void 0 : _e.cardUiList) != null && _f.includes(ui)) && this.rememberSelf(card), this.selfModels.has(card) || this.selfIds.has(this.cardId(card));
     }
     select(id) {
-      var _a;
+      var _a2;
       if (id && !this.styles.has(id)) throw new Error("\u5361\u724C\u6837\u5F0F\u5C1A\u672A\u542F\u7528");
-      this.settings.set("cardStyle", id), this.settings.set("cardFaceStyle", id), (!((_a = this.styles.get(id)) != null && _a.atlas) || this.styles.get(id).atlas.backImage) && this.settings.set("cardBackStyle", id), this.restore(), this.refreshNative(), this.emit();
+      this.settings.set("cardStyle", id), this.settings.set("cardFaceStyle", id), (!((_a2 = this.styles.get(id)) != null && _a2.atlas) || this.styles.get(id).atlas.backImage) && this.settings.set("cardBackStyle", id), this.restore(), this.refreshNative(), this.emit();
     }
     subscribe(fn) {
       return this.listeners.add(fn), () => this.listeners.delete(fn);
@@ -769,9 +770,9 @@
       this.status !== value && (this.status = value, this.emit());
     }
     clearTextures(id) {
-      var _a;
+      var _a2;
       for (let [key, image] of this.backImages) (!id || key === id) && (image.onload = image.onerror = null, image.src = "", this.backImages.delete(key));
-      for (let [key, entry] of this.atlases) (!id || key === id) && (entry.controller.abort(), (_a = entry.data) == null || _a.dispose(), this.atlases.delete(key));
+      for (let [key, entry] of this.atlases) (!id || key === id) && (entry.controller.abort(), (_a2 = entry.data) == null || _a2.dispose(), this.atlases.delete(key));
       for (let [key, texture] of this.textures) (!id || key.startsWith(id + ":")) && (texture.destroy(!0), this.textures.delete(key));
     }
     ensureAtlas(style2) {
@@ -792,37 +793,37 @@
       }), entry;
     }
     retry() {
-      var _a;
+      var _a2;
       let id = this.selection.face;
-      (_a = this.atlases.get(id)) != null && _a.error && (this.clearTextures(id), this.refreshNative(), this.emit());
+      (_a2 = this.atlases.get(id)) != null && _a2.error && (this.clearTextures(id), this.refreshNative(), this.emit());
     }
     atlasCanvas(style2, name) {
-      var _a;
-      let data = (_a = this.atlases.get(style2.id)) == null ? void 0 : _a.data, frame = data == null ? void 0 : data.frames.get(cardFrameName(name));
+      var _a2;
+      let data = (_a2 = this.atlases.get(style2.id)) == null ? void 0 : _a2.data, frame = data == null ? void 0 : data.frames.get(cardFrameName(name));
       if (!frame) return null;
       let canvas = this.doc.createElement("canvas");
       return canvas.width = frame.w, canvas.height = frame.h, canvas.getContext("2d").drawImage(data.pages[frame.idx], frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h), canvas;
     }
     atlasTexture(style2, ui, size) {
-      var _a;
+      var _a2, _b2;
       if (ui.isNewCardUI !== !0 && ui.IsYiCard) return null;
-      let name = (_a = ui.theCard) == null ? void 0 : _a.ResName, frame = cardFrameName(name);
+      let name = (_a2 = ui.theCard) == null ? void 0 : _a2.ResName, frame = cardFrameName(name);
       if (!frame || style2.atlas.replaceCards && !style2.atlas.replaceCards.includes(name)) return null;
       let width = (size == null ? void 0 : size.width) || 93, height = (size == null ? void 0 : size.height) || 130, key = style2.id + ":card:" + frame + ":" + width + "x" + height;
       if (!this.textures.has(key)) {
         let canvas = this.atlasCanvas(style2, name);
         if (!canvas) return null;
-        let bitmap = new this.win.Laya.Texture2D(canvas.width, canvas.height);
-        bitmap.loadImageSource(canvas);
+        let bitmap = new this.win.Laya.Texture2D(canvas.width, canvas.height, ((_b2 = this.win.Laya.TextureFormat) == null ? void 0 : _b2.R8G8B8A8) ?? 1, !1);
+        bitmap.loadImageSource(canvas, !0);
         let texture = new this.win.Laya.Texture(bitmap);
         texture.width = texture.sourceWidth = width, texture.height = texture.sourceHeight = height, this.textures.set(key, texture);
       }
       return this.textures.get(key);
     }
     nativeTexture(name, immediate = !1) {
-      var _a;
+      var _a2;
       let cached = this.nativeResources.get(name);
-      if (cached && !cached.destroyed && !((_a = cached.bitmap) != null && _a.destroyed)) return cached;
+      if (cached && !cached.destroyed && !((_a2 = cached.bitmap) != null && _a2.destroyed)) return cached;
       if (this.nativeResources.delete(name), !immediate && Date.now() - (this.nativeAttempts.get(name) || 0) < 1e3) return null;
       this.nativeAttempts.set(name, Date.now());
       let texture;
@@ -867,6 +868,7 @@
       }
     }
     texture(style2, back, immediate = !1) {
+      var _a2, _b2;
       if (style2.atlas) {
         if (!back || !style2.atlas.backImage) return null;
         let image = this.backImages.get(style2.id);
@@ -875,8 +877,8 @@
         }, image.src = style2.atlas.backImage), !image.complete || image.naturalWidth !== 405 || image.naturalHeight !== 570) return null;
         let key2 = style2.id + ":back";
         if (!this.textures.has(key2)) {
-          let bitmap = new this.win.Laya.Texture2D(405, 570);
-          bitmap.loadImageSource(image);
+          let bitmap = new this.win.Laya.Texture2D(405, 570, ((_a2 = this.win.Laya.TextureFormat) == null ? void 0 : _a2.R8G8B8A8) ?? 1, !1);
+          bitmap.loadImageSource(image, !0);
           let texture = new this.win.Laya.Texture(bitmap);
           texture.width = texture.sourceWidth = 93, texture.height = texture.sourceHeight = 130, this.textures.set(key2, texture);
         }
@@ -885,8 +887,8 @@
       if (style2.native) return this.nativeTexture(style2.native[back ? "back" : "face"], immediate);
       let key = style2.id + ":" + back;
       if (!this.textures.has(key)) {
-        let canvas = drawCardStyle(this.doc, back ? style2.back : style2.face, back), bitmap = new this.win.Laya.Texture2D(canvas.width, canvas.height);
-        bitmap.loadImageSource(canvas);
+        let canvas = drawCardStyle(this.doc, back ? style2.back : style2.face, back), bitmap = new this.win.Laya.Texture2D(canvas.width, canvas.height, ((_b2 = this.win.Laya.TextureFormat) == null ? void 0 : _b2.R8G8B8A8) ?? 1, !1);
+        bitmap.loadImageSource(canvas, !0);
         let texture = new this.win.Laya.Texture(bitmap);
         texture.width = 93, texture.height = 130, this.textures.set(key, texture);
       }
@@ -908,12 +910,12 @@
             for (let [node, visible] of binding.layers) !node.destroyed && node.visible === !1 && (node.visible = visible, flush(node));
             binding.layers.clear();
           }, binding.apply = (force) => {
-            var _a, _b, _c, _d, _e;
+            var _a2, _b2, _c, _d, _e;
             let card = ui.theCard, style2 = this.styles.get(this.selection[card != null && card.IsEmpty ? "back" : "face"]), eligible = style2 && card && (this.selection.scope === "all" || this.isSelfCard(ui)) && !ui.isPokerCardFace && !ui.dontUpdateCard && (card.IsEmpty || ui.isNewCardUI === !0 || style2.atlas);
             ui.bmpFace.texture !== binding.applied && (binding.original = ui.bmpFace.texture);
             let dimension = (...values) => values.find((value) => Number.isFinite(value) && value > 0 && value <= 4096), size = {
-              width: dimension(ui.width, (_a = binding.original) == null ? void 0 : _a.width, ui.bmpFace.width),
-              height: dimension(ui.height, (_b = binding.original) == null ? void 0 : _b.height, ui.bmpFace.height)
+              width: dimension(ui.width, (_a2 = binding.original) == null ? void 0 : _a2.width, ui.bmpFace.width),
+              height: dimension(ui.height, (_b2 = binding.original) == null ? void 0 : _b2.height, ui.bmpFace.height)
             }, texture = eligible && !binding.special ? style2.atlas && !card.IsEmpty ? this.atlasTexture(style2, ui, size) : this.texture(style2, !!card.IsEmpty, force) : null;
             if (binding.reason = style2 ? eligible ? binding.special ? "\u539F\u751F\u6307\u5B9A\u7279\u6B8A\u5361\u56FE" : texture ? "" : ui.isNewCardUI !== !0 && ui.IsYiCard ? "\u5F02\u724C\u4E13\u7528\u5361\u56FE" : (_c = style2.atlas) != null && _c.replaceCards && !style2.atlas.replaceCards.includes(card == null ? void 0 : card.ResName) && (_e = (_d = this.atlases.get(style2.id)) == null ? void 0 : _d.data) != null && _e.frames.has(cardFrameName(card == null ? void 0 : card.ResName)) ? "\u4E0E\u9ED8\u8BA4\u5361\u9762\u76F8\u540C\uFF0C\u4FDD\u7559\u539F\u751F" : style2.atlas ? `\u65E0\u540C\u540D\u5361\u56FE\uFF1A${String((card == null ? void 0 : card.ResName) || "\u7A7A\u8D44\u6E90\u540D").slice(0, 96)}` : "\u8D44\u6E90\u672A\u5C31\u7EEA" : "\u8303\u56F4\u6216\u539F\u751F\u663E\u793A\u9650\u5236" : "\u8DDF\u968F\u6E38\u620F", !texture) {
               ui.bmpFace.texture === binding.applied && (ui.bmpFace.texture = binding.original), binding.applied = null, binding.restoreLayers();
@@ -937,11 +939,11 @@
             let get2 = function() {
               return descriptor.get.call(this);
             }, set = function(value) {
-              var _a;
+              var _a2;
               let ordinary = value === binding.original || value === binding.applied;
               if (!ordinary && !binding.inNative && !binding.inApply && !binding.special && !registry.closed)
                 try {
-                  ordinary = value === ui.getCardFaceBaseTexture(((_a = ui.theCard) == null ? void 0 : _a.Seat) || null);
+                  ordinary = value === ui.getCardFaceBaseTexture(((_a2 = ui.theCard) == null ? void 0 : _a2.Seat) || null);
                 } catch {
                 }
               if (descriptor.set.call(this, value), !(binding.inNative || binding.inApply || binding.special || registry.closed)) {
@@ -953,8 +955,8 @@
               }
             };
             Object.defineProperty(bitmap, "texture", { configurable: !0, enumerable: descriptor.enumerable, get: get2, set }), local.add(() => {
-              var _a;
-              ((_a = Object.getOwnPropertyDescriptor(bitmap, "texture")) == null ? void 0 : _a.set) === set && (ownTexture ? Object.defineProperty(bitmap, "texture", ownTexture) : delete bitmap.texture);
+              var _a2;
+              ((_a2 = Object.getOwnPropertyDescriptor(bitmap, "texture")) == null ? void 0 : _a2.set) === set && (ownTexture ? Object.defineProperty(bitmap, "texture", ownTexture) : delete bitmap.texture);
             });
           }
           local.patch(ui, "SetCardFace", (original) => function(...args) {
@@ -982,8 +984,8 @@
             return binding.original = this.bmpFace.texture, result;
           });
           binding.release = () => {
-            var _a;
-            local.dispose(), binding.restoreLayers(), !ui.destroyed && ((_a = ui.bmpFace) == null ? void 0 : _a.texture) === binding.applied && (ui.bmpFace.texture = binding.original);
+            var _a2;
+            local.dispose(), binding.restoreLayers(), !ui.destroyed && ((_a2 = ui.bmpFace) == null ? void 0 : _a2.texture) === binding.applied && (ui.bmpFace.texture = binding.original);
           }, this.bindings.set(ui, binding);
           let type = ui.constructor;
           for (let key of ["pool", "flatPool"]) {
@@ -1015,8 +1017,8 @@
       this.pools.set(pool, local), local.patch(pool, "BorrowObject", (original) => function(...args) {
         return registry.captureCard(original.apply(this, args));
       }), typeof pool.returnObject == "function" && local.patch(pool, "returnObject", (original) => function(card, ...args) {
-        var _a;
-        return (_a = registry.bindings.get(card)) == null || _a.release(), registry.bindings.delete(card), original.call(this, card, ...args);
+        var _a2;
+        return (_a2 = registry.bindings.get(card)) == null || _a2.release(), registry.bindings.delete(card), original.call(this, card, ...args);
       });
     }
     hookFactory(owner) {
@@ -1034,8 +1036,8 @@
     }
     captureBranch(root) {
       let queue = [root], seen = /* @__PURE__ */ new Set();
-      for (let i = 0; i < queue.length && i < 6e3; i++) {
-        let node = queue[i];
+      for (let i2 = 0; i2 < queue.length && i2 < 6e3; i2++) {
+        let node = queue[i2];
         if (!(!node || typeof node != "object" || seen.has(node) || node.destroyed)) {
           seen.add(node), this.hookFactory(node), isCardUI(node) && this.captureCard(node);
           for (let key of CARD_LISTS) {
@@ -1050,8 +1052,8 @@
       }
     }
     watchInsertions() {
-      var _a, _b, _c, _d;
-      let roots = /* @__PURE__ */ new Set([(_a = this.win.Laya) == null ? void 0 : _a.stage, (_c = (_b = this.game).getScene) == null ? void 0 : _c.call(_b)]), level = [(_d = this.win.Laya) == null ? void 0 : _d.stage];
+      var _a2, _b2, _c, _d;
+      let roots = /* @__PURE__ */ new Set([(_a2 = this.win.Laya) == null ? void 0 : _a2.stage, (_c = (_b2 = this.game).getScene) == null ? void 0 : _c.call(_b2)]), level = [(_d = this.win.Laya) == null ? void 0 : _d.stage];
       for (let depth = 0; depth < 2; depth++) {
         let next = [];
         for (let parent of level) {
@@ -1076,10 +1078,10 @@
       }
     }
     discover() {
-      var _a, _b, _c, _d, _e;
-      let queue = [(_a = this.win.Laya) == null ? void 0 : _a.stage, (_c = (_b = this.game).getScene) == null ? void 0 : _c.call(_b), (_e = (_d = this.game).getSelfSeatUI) == null ? void 0 : _e.call(_d)], seen = /* @__PURE__ */ new Set(), found = /* @__PURE__ */ new Set();
-      for (let i = 0; i < queue.length && i < 6e3; i++) {
-        let node = queue[i];
+      var _a2, _b2, _c, _d, _e;
+      let queue = [(_a2 = this.win.Laya) == null ? void 0 : _a2.stage, (_c = (_b2 = this.game).getScene) == null ? void 0 : _c.call(_b2), (_e = (_d = this.game).getSelfSeatUI) == null ? void 0 : _e.call(_d)], seen = /* @__PURE__ */ new Set(), found = /* @__PURE__ */ new Set();
+      for (let i2 = 0; i2 < queue.length && i2 < 6e3; i2++) {
+        let node = queue[i2];
         if (!(!node || typeof node != "object" || seen.has(node) || node.destroyed)) {
           seen.add(node), this.hookFactory(node), isCardUI(node) && found.add(node);
           for (let key of CARD_LISTS) {
@@ -1096,7 +1098,7 @@
       return found;
     }
     refreshNative() {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+      var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j;
       if (this.closed) return;
       for (let id of this.backImages.keys()) id !== this.selection.back && this.clearTextures(id);
       let selectedAtlas = this.styles.get(this.selection.face);
@@ -1105,9 +1107,9 @@
         let before = [...this.nativeResources.values()];
         for (let item of this.styles.values()) if (item.native) for (let name of Object.values(item.native)) this.nativeTexture(name);
         let after = [...this.nativeResources.values()];
-        (before.length !== after.length || after.some((t, i) => t !== before[i])) && this.emit();
+        (before.length !== after.length || after.some((t, i2) => t !== before[i2])) && this.emit();
       }
-      let scene = (_b = (_a = this.game).getScene) == null ? void 0 : _b.call(_a);
+      let scene = (_b2 = (_a2 = this.game).getScene) == null ? void 0 : _b2.call(_a2);
       scene !== this.scene && (this.scene = scene, this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds.clear()), this.selfHand = (_e = (_d = (_c = this.game).getSelfSeatUI) == null ? void 0 : _d.call(_c)) == null ? void 0 : _e.cardContainer;
       for (let ui of ((_f = this.selfHand) == null ? void 0 : _f.cardUis) || ((_g = this.selfHand) == null ? void 0 : _g.cardUIs) || ((_h = this.selfHand) == null ? void 0 : _h.cardUiList) || []) this.rememberSelf(ui.theCard);
       if (!["face", "back"].some((side) => this.styles.has(this.selection[side]))) {
@@ -1128,15 +1130,15 @@
           let selected = this.styles.get(this.selection[side]);
           return (selected == null ? void 0 : selected.native) && !this.texture(selected, side === "back");
         }), atlas = this.atlases.get(selectedAtlas == null ? void 0 : selectedAtlas.id), prefix = atlas != null && atlas.error ? "\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25\uFF0C\u5DF2\u4FDD\u7559\u6E38\u620F\u5916\u89C2\uFF1A" + atlas.error : atlas != null && atlas.loading ? "\u6B63\u5728\u52A0\u8F7D\u5B8C\u6574\u5361\u9762\uFF0C\u5F53\u524D\u4FDD\u7559\u6E38\u620F\u5916\u89C2" : null, faces = atlas != null && atlas.data ? [...this.bindings].filter(([ui]) => {
-          var _a2;
-          return !((_a2 = ui.theCard) != null && _a2.IsEmpty);
+          var _a3;
+          return !((_a3 = ui.theCard) != null && _a3.IsEmpty);
         }) : [], applied = faces.filter(([ui, b]) => b.applied && !b.reason && !b.error && ui.bmpFace.texture === b.applied).length, fallback = [...new Set(faces.filter(([, b]) => b.reason).map(([, b]) => b.reason))], detail = atlas != null && atlas.data ? ` \xB7 \u5B8C\u6574\u5361\u9762 R3 \u5DF2\u66FF\u6362 ${applied}/${faces.length}${fallback.length ? " \xB7 \u56DE\u9000\uFF1A" + fallback.join("\uFF1B") : ""}` : "";
         this.setStatus(prefix || (waiting ? "\u7B49\u5F85\u5B98\u65B9\u5361\u9762\uFF0F\u5361\u80CC\u8D44\u6E90\u52A0\u8F7D\uFF0C\u5DF2\u5C31\u7EEA\u7684\u9762\u72EC\u7ACB\u5E94\u7528" : found.size ? `\u5DF2\u63A5\u5165 ${found.size} \u5F20\u539F\u751F\u5361\u724C \xB7 \u4EC5\u672C\u673A\u663E\u793A${detail}` : "\u5957\u88C5\u5DF2\u5C31\u7EEA\uFF0C\u7B49\u5F85\u539F\u751F\u5361\u724C\u51FA\u73B0"));
       } catch (error) {
         this.restore(), this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
       }
     }
-  }, CORE_VERSION = "0.6.45", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
+  }, CORE_VERSION = "0.6.51", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
     "43a4cbff657c319e8b7b1bf2ec7689e0a557fc9bb17a9090d24a2163d1857dda",
@@ -1189,7 +1191,7 @@
     "ac6fc676e2d1d319dba12c6364ba85740d33e37e0c34d0f8e7ade180d8e0d029"
   ]), REPLACED_SKIN_PACKAGES = Object.freeze(["b990b29b6a9eafbe50ea3f820c2dd9753187de6a95aed91191786532cafd1b27", "d8065ccacfd2da8c39e1cf1eded8f743a85de717d6589833f679153ada9d89fa", "36a6458a5cc9c58ece0cedad1df6315e82aafb21ebe4a057e10db17c703a5827", "a9890597c627c6c703bcef0a79339fc6b8472d71f37e05b522117dcf6ac2481d", "d268def49f6f9fbd4b989545594e336886d1a86053d63b1bbdf3f638d1acf002", "5edda81bdbd06ad5ab60b8e564f554e10b1f9d13fa13d983f60ae734867d343c", "a257743d4091e677520f307b6df5a7f2938af7261183b2d57609dc4df41cdd8a", "bfcff0007de23af7439cfc60adbc0cf660bc84a094df360c6bf6f0a5fc812672", "b1b4516b854575ccb02219bd8cdf89332845263e8cced8f9c8738b6e7259eb1b"]), REPLACED_SHANHETU_PACKAGES = Object.freeze(["27d9af46ff339493cbb5bcc0b9e49e648661d9ed7becaf5704a75d0a3b83beae", "437a1ffb64a930e87264e69bcf91a856a1e82c066d732408c884182b4ce6e450", "523473559db6aa12043bb0bd0b22e0a232045d9defede4a2a6a9f3d562ad2133", "5577c02f3922100a434db7c45af19dc3db115866a1a841fc7218083f396b0acf", "ea751303a3e7ecd030d2c5a12a13dd125612f6b64ab41c641116fb763579b421", "55340baa7b51c8d97bdfbedc17209be719c2f05105501390b4028c47554cceeb", "980c908196ff62ac529ab2bfbdade42bef76930f43f534b1b075ead306c10fe2", "9017d32206a5b0e4e2eeede12e390767620579836ed7037e1e223f7ab0c52483", "dfc56a7a02dc4ab17e2f34e3e76862f615f5bf344c534921e8424498fd27b11b", "4d8aaf1df389a0420dfc65c4d5762757c2fe454cc0fbb127fe269b88c5a19af5", "e9f7b5ee0383a29799057f19f16e68e34d57fb7310066dc5d3af45456c7f0445", "997bcf58c5567e0e99829798b855c411d5e51ccad7b5f80e81c9ae84add2656d", "f304bd28030950096503a45d96013c3d7a9e2297ca6143b639b83dcb2d3e197a", "f2739ea490ecf8bee75b1dd6ae0050cc0ad0bc558515c30dbb3c6260e80eaa2f", "332272cc92d11796d8dd7d304560129277acd353726feed7cd1e5a5b6578937a", "bf4207ca6d84501c75f6ec24d094aca952224ce60367196482d6bd6815ca3423", "23d6e6f7bae844ee58a9239bb739fb0ab8d2e64b7766629bca492421bd07f400", "f226d8a8d247ce48c0664ba057ad9f961e7c953291ab7f805714979b7ea35825", "56d82efb93d6eaa0b24c0d5deb8693030f49a0b2fb5af0da49ef6f008943ee65", "674efd3ed6e5719ef9cdabea702b4d6d4394560b18aa5f1ad189486f7467910e", "8de4a53accd1548f58266d9854642462b4fdb089a9a0afcc0561ca725930966d", "95c5bf19558e19c3ef192f2f2022aff19908350e882885cf7855cfe9051801c0", "71fc7d79a3b8014d5f80edda50ea7f7dbba80589ec9c7a8f77bd080056d45175", "151c6e9a3651f5a2c6b7b52321a09c294220400a40385e248d47cb6bb46976c2", "6907320aa5d5e23403c5324926cabf8f48ad23df23afd9925ff5b63e96e87cc6", "4f23cce4d4372a13895716d47d9141acd4c9f13c2be199afff5599148e8349ae", "67362c2dee033a700472210cafc14cc1df351e9a5413273d04e3ff2ce566ce66", "fa6474a1c5170c9ba285f9487031e4b205245d527c97b5ba5f26d68f9bf889ff", "a1f400ad8c8d60f2e4c0b0f981acc8c2be2ab61d1fd6a45ef10b7a3621b05918", "a7595aeaee8cd16ad03b5871310fd7375ea73be7b3d6a1466e8770f9d052fc24", "b6be2108829186604d4a11fb00d63d08e081a1f13f950a715441146c07d26a47", "23077a7742fabceb968d15a85b20c292c37e7a4d6099cf5b9f40a43e59c5fb8a", "2f7654ffde27bed353412a69eb9c5f449270a5e94ff492531e61189825ec560d", "e58c1543240d60a88d2fa92a58ff06ffd30bb4f0d2e75a4a18ba5efad4316d20", "742b76de181ca851dfd0df036a282a3bdee634c61012e687574b7e50216e62e6", "16d2e6a72fbb2258cb1dd69359c34b6753eca73c061b1610d7764ec00068c571", "a78a544feab74eb6d9ddbe6af6662d012a43cd85b698698f4cbadec9dada824d", "d5ad4b8005751bfdfe8301c060e8ab460a2ebd3eb2196112c534e8c44647ba6f", "31ad175296a119402b4a4e90bec5a16cad8a85e9eca2f79e3ee3edf745f27fba", "15366eddcf79bd76dd0f11fa2fb1f393faec512502f0ca01bb9ab13d54238490", "438b0292399649be12f2c42723242d73915a381f8a9c42713b25815c29e57e8b", "44ba81e10e40db62f039946b7e0e18ae162d98e95a350b6ed7eedc2cf8df37ba", "2ff778bd021f4d83971551126ea532ea215ad30e9b0b3dfc0450a88a0de9781c", "6ebf9ca6499f5fbf9b46f4e918990924369359c1191fb62b9026519724ac88cc", "20dac8ad2d3873f7779e2add9d89eb19927b5db6c553563edb69a72afe593624"]), REPLACED_THEME_PACKAGES = Object.freeze(["fabfb9cfc1c6f4c9eeeb69fcc4c9bc319f17d5c964624a616bd15b863c18c5aa", "db376fc6d5b9b878a2dd9bb6642f5d7a24dd5b226c658801aeead6249bc98094", "3589cd781d192c53790071a1775924d4a8ccab648272961a991e6e3bf6034abd"]), REPLACED_BACKGROUND_PACKAGES = Object.freeze(["488b63b7fb2c1d88ddee7bc4a858a09f1a5a7f1271be6f012d612936431cbebc", "7aa96fde03bf1a9d1f5d287c63d86f1c11365bf5fb980bfd9d812b76f9543dd5", "1ebfbcaa2a4e5a2b3112f37aa0d48ce66b355d4a0934b1ff5310916427555b60", "f52fec744b48f472e3db4aa9cbf9e03864d996ba299aed70925d721477fdb2aa"]);
   function nativeEffect(layer, spine) {
-    var _a;
+    var _a2;
     let method = spine ? layer.SetBgLiveEffect : layer.wt;
     if (typeof method != "function") throw new Error("\u6E38\u620F\u52A8\u753B\u52A0\u8F7D\u5668\u5C1A\u672A\u5C31\u7EEA");
     let effect, init, play, host = {
@@ -1211,12 +1213,12 @@
     } catch (error) {
       throw effect == null || effect.destroy(), error;
     } finally {
-      effect && (effect.InitEffect = init, effect.playEffect = play, (_a = effect.off) == null || _a.call(effect, "start", host, spine ? host.beforeLiveStart : host.beforeStart));
+      effect && (effect.InitEffect = init, effect.playEffect = play, (_a2 = effect.off) == null || _a2.call(effect, "start", host, spine ? host.beforeLiveStart : host.beforeStart));
     }
     return effect;
   }
   function createBackgroundMotion({ window: window2, layer, spec, size, scope, ready, fail }) {
-    var _a, _b;
+    var _a2, _b2;
     let laya = window2.Laya, root = new laya.Sprite(), players = [], loaded = !1, failed = !1, visible = !1, playing = null;
     root.name = "sgs-background-motion", root.mouseEnabled = root.mouseChildren = !1, root.zOrder = layer.bgSprite.zOrder || 0, root.size(size.width, size.height), root.scrollRect = new laya.Rectangle(0, 0, size.width, size.height), root.visible = !1, scope.add(() => root.destroy(!0)), layer.addChildAt(root, Math.max(0, layer.getChildIndex(layer.bgSprite)) + 1);
     let error = (value) => {
@@ -1255,8 +1257,8 @@
         let pool = laya.VideoTexture._videoTexturePool, index = pool == null ? void 0 : pool.indexOf(bitmap);
         index >= 0 && pool.splice(index, 1);
       }), scope.listen(video, "error", () => {
-        var _a2, _b2;
-        return error("\u89C6\u9891\u52A0\u8F7D\u5931\u8D25\uFF1A" + (((_a2 = video.error) == null ? void 0 : _a2.message) || ((_b2 = video.error) == null ? void 0 : _b2.code) || "\u672A\u77E5\u9519\u8BEF"));
+        var _a3, _b3;
+        return error("\u89C6\u9891\u52A0\u8F7D\u5931\u8D25\uFF1A" + (((_a3 = video.error) == null ? void 0 : _a3.message) || ((_b3 = video.error) == null ? void 0 : _b3.code) || "\u672A\u77E5\u9519\u8BEF"));
       }), scope.listen(video, "loadeddata", () => {
         scope.closed || failed || (bitmap._width = video.videoWidth, bitmap._height = video.videoHeight, texture.setTo(bitmap, void 0, video.videoWidth, video.videoHeight), root.graphics.clear(), root.graphics.drawTexture(texture, 0, 0, size.width, size.height), complete(), result.show(visible));
       }), players.push({ pause() {
@@ -1283,7 +1285,7 @@
         let onStart = () => {
           ++count === parts.length && (complete(), result.show(visible));
         };
-        effect.once(((_a = laya.Event) == null ? void 0 : _a.START) || "start", effect, onStart), effect.once(((_b = laya.Event) == null ? void 0 : _b.ERROR) || "error", effect, error);
+        effect.once(((_a2 = laya.Event) == null ? void 0 : _a2.START) || "start", effect, onStart), effect.once(((_b2 = laya.Event) == null ? void 0 : _b2.ERROR) || "error", effect, error);
         let animation = spec.modern && part !== "beijing" ? "DaiJi" : spec.modern ? 0 : "play";
         effect.InitEffect(`${spec.url}/${part}.${spec.kind === "spine" ? "json" : "sk"}`, animation, !0, !1), effect.playEffect(), players.push({ pause() {
           effect.stop();
@@ -1301,8 +1303,8 @@
   }
   function findBackgroundLayer(stage) {
     let queue = stage ? [stage] : [];
-    for (let i = 0; i < queue.length && i < 4e3; i++) {
-      let node = queue[i];
+    for (let i2 = 0; i2 < queue.length && i2 < 4e3; i2++) {
+      let node = queue[i2];
       if (!(!node || node.destroyed)) {
         if (node.bgSprite && typeof node.updateBgSize == "function" && typeof node.bgLoadComplete == "function" && typeof node.O == "function") return node;
         Array.isArray(node._children) && queue.push(...node._children);
@@ -1360,9 +1362,9 @@
       };
     }
     select(owner, spec) {
-      var _a;
+      var _a2;
       if (!this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
-      this.yieldedScene = (_a = this.binding) != null && _a.yielded ? this.binding.scene : this.yieldedScene, this.settings.set("battleBackground", spec ? { ...backgroundSpec(spec), owner } : null), this.ticket++, this.ready = this.loading = this.failed = null, this.retryAt = 0, this.loadAttempts = 0, this.detach(!0), this.refresh(), this.emit();
+      this.yieldedScene = (_a2 = this.binding) != null && _a2.yielded ? this.binding.scene : this.yieldedScene, this.settings.set("battleBackground", spec ? { ...backgroundSpec(spec), owner } : null), this.ticket++, this.ready = this.loading = this.failed = null, this.retryAt = 0, this.loadAttempts = 0, this.detach(!0), this.refresh(), this.emit();
     }
     detach(restore) {
       let b = this.binding;
@@ -1385,7 +1387,7 @@
       this.ticket++, this.loading = null, this.failed = url, this.loadAttempts = (this.loadAttempts || 0) + 1, this.retryAt = Date.now() + Math.min(3e4, 2e3 * 2 ** (this.loadAttempts - 1)), this.state(message + "\uFF1B\u7A0D\u540E\u81EA\u52A8\u91CD\u8BD5");
     }
     refreshReady() {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
+      var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j, _k;
       let choice = this.current;
       if (!choice || !this.providers.has(choice.owner)) {
         this.ticket++, this.ready = this.loading = null, this.detach(!0), this.state(choice ? "\u80CC\u666F\u63D2\u4EF6\u5DF2\u505C\u7528\uFF0C\u8DDF\u968F\u6E38\u620F\u80CC\u666F" : "\u8DDF\u968F\u6E38\u620F\u80CC\u666F");
@@ -1398,7 +1400,7 @@
         return;
       }
       let scene = this.game.getScene();
-      if (((_a = this.binding) == null ? void 0 : _a.scene) !== scene && this.detach(!1), this.binding && (this.binding.layer.destroyed || this.binding.stage !== ((_b = this.window.Laya) == null ? void 0 : _b.stage)) && this.detach(!1), !this.game.isInGame() || !["SetWallPaperById", "SetWallPaperByUrl", "OnNormalWallPaperChange", "onWallPaperChange"].every((k) => typeof (scene == null ? void 0 : scene[k]) == "function")) {
+      if (((_a2 = this.binding) == null ? void 0 : _a2.scene) !== scene && this.detach(!1), this.binding && (this.binding.layer.destroyed || this.binding.stage !== ((_b2 = this.window.Laya) == null ? void 0 : _b2.stage)) && this.detach(!1), !this.game.isInGame() || !["SetWallPaperById", "SetWallPaperByUrl", "OnNormalWallPaperChange", "onWallPaperChange"].every((k) => typeof (scene == null ? void 0 : scene[k]) == "function")) {
         this.detach(!1), this.state("\u5DF2\u4FDD\u5B58\uFF0C\u7B49\u5F85\u8FDB\u5165\u724C\u5C40");
         return;
       }
@@ -1438,22 +1440,22 @@
         this.binding = b2;
         let registry = this, originalById = scene.SetWallPaperById, eligible = () => !scene.currentWeatherWallPaper && !b2.yielded;
         if (b2.syncMotion = () => {
-          var _a2, _b2;
-          let visible = eligible() && ((_a2 = layer.bg) == null ? void 0 : _a2.skin) === choice.url;
-          (_b2 = b2.motion) == null || _b2.show(visible);
+          var _a3, _b3;
+          let visible = eligible() && ((_a3 = layer.bg) == null ? void 0 : _a3.skin) === choice.url;
+          (_b3 = b2.motion) == null || _b3.show(visible);
         }, layer) {
           let fill = new laya.Sprite();
           local.add(() => fill.destroy(!0)), fill.name = "sgs-background-edge-fill", fill.mouseEnabled = !1, fill.mouseChildren = !1, fill.zOrder = (layer.bgSprite.zOrder || 0) - 1, layer.addChildAt(fill, Math.max(0, layer.getChildIndex(layer.bgSprite)));
           let soften = new laya.Sprite();
           soften.mouseEnabled = !1, fill.addChild(soften), laya.BlurFilter && (soften.filters = [new laya.BlurFilter(18)]), b2.hideFill = () => {
-            var _a2;
-            fill.visible = !1, (_a2 = b2.motion) == null || _a2.show(!1);
+            var _a3;
+            fill.visible = !1, (_a3 = b2.motion) == null || _a3.show(!1);
           };
           let fillKey = "";
           local.patch(layer, "updateBgSize", (original) => function(...args) {
-            var _a2;
+            var _a3;
             let result = Reflect.apply(original, this, args);
-            if (fill.visible = eligible() && ((_a2 = this.bg) == null ? void 0 : _a2.skin) === choice.url, b2.syncMotion(), !fill.visible) return result;
+            if (fill.visible = eligible() && ((_a3 = this.bg) == null ? void 0 : _a3.skin) === choice.url, b2.syncMotion(), !fill.visible) return result;
             let size = registry.imageSize, context2 = registry.window.SystemContext, fit = containBackground(size == null ? void 0 : size.width, size == null ? void 0 : size.height, context2 == null ? void 0 : context2.gameWidth, context2 == null ? void 0 : context2.gameHeight);
             if (!fit)
               return fill.visible = !1, result;
@@ -1467,8 +1469,8 @@
           });
         }
         typeof scene.OnWeatherWallPaperChange == "function" && local.patch(scene, "OnWeatherWallPaperChange", (original) => function(...args) {
-          var _a2;
-          return (_a2 = b2.hideFill) == null || _a2.call(b2), Reflect.apply(original, this, args);
+          var _a3;
+          return (_a3 = b2.hideFill) == null || _a3.call(b2), Reflect.apply(original, this, args);
         });
         let apply = () => {
           b2.writing = !0;
@@ -1479,12 +1481,12 @@
           }
         };
         local.patch(scene, "SetWallPaperByUrl", (original) => function(...args) {
-          var _a2;
-          return b2.writing || (b2.yielded = !0, registry.yieldedScene = scene, (_a2 = b2.hideFill) == null || _a2.call(b2), registry.state("\u6280\u80FD\u80CC\u666F\u4F18\u5148")), Reflect.apply(original, this, args);
+          var _a3;
+          return b2.writing || (b2.yielded = !0, registry.yieldedScene = scene, (_a3 = b2.hideFill) == null || _a3.call(b2), registry.state("\u6280\u80FD\u80CC\u666F\u4F18\u5148")), Reflect.apply(original, this, args);
         }), local.patch(scene, "SetWallPaperById", (original) => function(...args) {
-          var _a2;
+          var _a3;
           if (args[1])
-            return b2.yielded = !0, registry.yieldedScene = scene, (_a2 = b2.hideFill) == null || _a2.call(b2), Reflect.apply(original, this, args);
+            return b2.yielded = !0, registry.yieldedScene = scene, (_a3 = b2.hideFill) == null || _a3.call(b2), Reflect.apply(original, this, args);
           if (eligible()) {
             apply();
             return;
@@ -1735,7 +1737,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .sgs-info .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin-top:6px;color:var(--sgs-muted);font-size:10px}.sgs-info .metrics b{display:block;font-size:14px;color:var(--sgs-text);font-variant-numeric:tabular-nums;font-weight:500}
 `;
   function panelUI(ctx, container) {
-    var _a, _b;
+    var _a2, _b2;
     let doc = ctx.document, cleanups = [], root = doc.createElement("section");
     root.className = "sgs-info";
     let el = (tag, cls, text2) => {
@@ -1744,14 +1746,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     };
     container.append(root);
     let scheme = (current) => {
-      var _a2;
-      let hex2 = ((_a2 = current == null ? void 0 : current.tokens) == null ? void 0 : _a2.bg) || "", match = /^#([\da-f]{6})$/i.exec(hex2);
+      var _a3;
+      let hex2 = ((_a3 = current == null ? void 0 : current.tokens) == null ? void 0 : _a3.bg) || "", match = /^#([\da-f]{6})$/i.exec(hex2);
       if (match) {
-        let rgb = [0, 2, 4].map((i) => parseInt(match[1].slice(i, i + 2), 16));
+        let rgb = [0, 2, 4].map((i2) => parseInt(match[1].slice(i2, i2 + 2), 16));
         root.style.colorScheme = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 140 ? "light" : "dark";
       }
     };
-    scheme((_a = ctx.themes) == null ? void 0 : _a.current), (_b = ctx.themes) != null && _b.subscribe && cleanups.push(ctx.themes.subscribe(scheme));
+    scheme((_a2 = ctx.themes) == null ? void 0 : _a2.current), (_b2 = ctx.themes) != null && _b2.subscribe && cleanups.push(ctx.themes.subscribe(scheme));
     let listen = (node, type, fn) => {
       cleanups.push(ctx.scope.listen(node, type, fn));
     }, button = (text2, icon2, fn) => {
@@ -1803,21 +1805,21 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function requirePriority(value) {
     if (!validPriority(value)) throw new Error("\u6392\u5E8F\u4F18\u5148\u7EA7\u5FC5\u987B\u662F 0\u201365535 \u7684\u6574\u6570\u3002");
   }
-  var text = (value, max) => typeof value == "string" && value.trim().length > 0 && value.length <= max && !/[\r\n\u0000-\u001f]/.test(value);
+  var text = (value, max2) => typeof value == "string" && value.trim().length > 0 && value.length <= max2 && !/[\r\n\u0000-\u001f]/.test(value);
   function compareVersions(left, right) {
     let a = left.split(".").map(BigInt), b = right.split(".").map(BigInt);
-    for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] > b[i] ? 1 : -1;
+    for (let i2 = 0; i2 < 3; i2++) if (a[i2] !== b[i2]) return a[i2] > b[i2] ? 1 : -1;
     return 0;
   }
   function validatePluginPresentation(manifest, { requireContract = !1, checkCompatibility = !0 } = {}) {
-    var _a;
+    var _a2;
     let m = manifest;
     if (!m || typeof m != "object" || Array.isArray(m)) throw new Error("\u63D2\u4EF6\u6E05\u5355\u65E0\u6548\u3002");
     if (requireContract && m.contractVersion !== 1) throw new Error("\u65B0\u63D2\u4EF6\u5FC5\u987B\u58F0\u660E contractVersion: 1 \u5E76\u9075\u5B88\u63D2\u4EF6\u5F00\u53D1\u89C4\u8303\u3002");
     if (m.contractVersion !== void 0 && m.contractVersion !== 1) throw new Error("\u4E0D\u652F\u6301\u6B64\u63D2\u4EF6\u5F00\u53D1\u7EA6\u5B9A\u7248\u672C\u3002");
     if (!Array.isArray(m.categories) || m.categories.some((c) => !PANEL_CATEGORIES.includes(c)) || new Set(m.categories).size !== m.categories.length) throw new Error("\u63D2\u4EF6\u5206\u7C7B\u65E0\u6548\u6216\u91CD\u590D\u3002");
     if (m.dependencies !== void 0 && (!Array.isArray(m.dependencies) || m.dependencies.length > 64 || m.dependencies.some((id) => typeof id != "string" || !localId.test(id) || id === m.id) || new Set(m.dependencies).size !== m.dependencies.length)) throw new Error("\u524D\u7F6E\u63D2\u4EF6\u5FC5\u987B\u662F\u4E0D\u91CD\u590D\u7684\u63D2\u4EF6 ID \u6570\u7EC4\uFF0C\u4E14\u4E0D\u80FD\u4F9D\u8D56\u81EA\u8EAB\u3002");
-    if ((_a = m.dependencies) != null && _a.length && (!stableVersion.test(m.minCoreVersion || "") || compareVersions(m.minCoreVersion, "0.5.62") < 0)) throw new Error("\u524D\u7F6E\u63D2\u4EF6\u529F\u80FD\u8981\u6C42 minCoreVersion \u81F3\u5C11\u4E3A 0.5.62\u3002");
+    if ((_a2 = m.dependencies) != null && _a2.length && (!stableVersion.test(m.minCoreVersion || "") || compareVersions(m.minCoreVersion, "0.5.62") < 0)) throw new Error("\u524D\u7F6E\u63D2\u4EF6\u529F\u80FD\u8981\u6C42 minCoreVersion \u81F3\u5C11\u4E3A 0.5.62\u3002");
     let strict = m.contractVersion === 1;
     if (strict && !text(m.name, 48)) throw new Error("\u63D2\u4EF6\u540D\u79F0\u5FC5\u987B\u662F 1\u201348 \u5B57\u7684\u5355\u884C\u6587\u5B57\u3002");
     if ((strict || m.description !== void 0) && !text(m.description, 160)) throw new Error("\u63D2\u4EF6\u7B80\u4ECB\u5FC5\u987B\u662F 1\u2013160 \u5B57\u7684\u5355\u884C\u6587\u5B57\u3002");
@@ -1889,7 +1891,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function parseHex(value) {
     if (!/^#[\da-f]{3}(?:[\da-f]|[\da-f]{3}|[\da-f]{5})?$/i.test(value)) return null;
     let raw = value.slice(1);
-    return raw.length <= 4 && (raw = [...raw].map((n) => n + n).join("")), [0, 2, 4].map((i) => parseInt(raw.slice(i, i + 2), 16)).concat(raw.length === 8 ? parseInt(raw.slice(6), 16) / 255 : 1);
+    return raw.length <= 4 && (raw = [...raw].map((n) => n + n).join("")), [0, 2, 4].map((i2) => parseInt(raw.slice(i2, i2 + 2), 16)).concat(raw.length === 8 ? parseInt(raw.slice(6), 16) / 255 : 1);
   }
   function color(value, fallback, document2, background = "#000000") {
     let rgba = typeof value == "string" && parseHex(value.trim());
@@ -1913,13 +1915,13 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     rgba ||= parseHex(fallback);
     let base = parseHex(background);
-    return hex(rgba.slice(0, 3).map((v, i) => v * rgba[3] + base[i] * (1 - rgba[3])));
+    return hex(rgba.slice(0, 3).map((v, i2) => v * rgba[3] + base[i2] * (1 - rgba[3])));
   }
   function mixNativeColors(a, b, amount = 0.5) {
     if (!Number.isFinite(amount)) throw new Error("\u539F\u751F\u4E3B\u9898\u6DF7\u8272\u6BD4\u4F8B\u5FC5\u987B\u662F\u6709\u9650\u6570\u503C");
     let left = parseHex(a), right = parseHex(b), ratio = Math.max(0, Math.min(1, amount));
     if (!left || !right) throw new Error("\u539F\u751F\u4E3B\u9898\u6DF7\u8272\u9700\u8981\u5341\u516D\u8FDB\u5236\u989C\u8272");
-    return hex(left.slice(0, 3).map((v, i) => v * (1 - ratio) + right[i] * ratio));
+    return hex(left.slice(0, 3).map((v, i2) => v * (1 - ratio) + right[i2] * ratio));
   }
   function resolveNativePalette(tokens = {}, document2) {
     let p = {};
@@ -1967,10 +1969,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return cache2 || textureCaches.set(laya, cache2 = /* @__PURE__ */ new Map()), cache2;
   }
   function prune(cache2, laya) {
-    var _a, _b;
+    var _a2, _b2;
     for (let [key, entry] of cache2) {
       if (cache2.size <= 128) break;
-      entry.pending || entry.refs || (cache2.delete(key), (_b = (_a = laya.loader).clearRes) == null || _b.call(_a, entry.uri));
+      entry.pending || entry.refs || (cache2.delete(key), (_b2 = (_a2 = laya.loader).clearRes) == null || _b2.call(_a2, entry.uri));
     }
   }
   function surfaceSVG(p, width, height, { kind, selected, hover, disabled }) {
@@ -1980,12 +1982,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function createNativeTheme({ themes, scope, window: window2 = {}, document: document2 = window2.document } = {}) {
     let states = /* @__PURE__ */ new WeakMap(), lastSignature, palette = DEFAULT_NATIVE_PALETTE;
     function current() {
-      var _a;
-      let tokens = ((_a = themes == null ? void 0 : themes.current) == null ? void 0 : _a.tokens) || {}, signature = JSON.stringify([...colorKeys, "scheme"].map((key) => tokens[key]));
+      var _a2;
+      let tokens = ((_a2 = themes == null ? void 0 : themes.current) == null ? void 0 : _a2.tokens) || {}, signature = JSON.stringify([...colorKeys, "scheme"].map((key) => tokens[key]));
       return lastSignature !== signature && (lastSignature = signature, palette = resolveNativePalette(tokens, document2)), palette;
     }
     function watch(fn, { target } = {}) {
-      var _a;
+      var _a2;
       if (scope.closed || target != null && target.destroyed) return () => {
       };
       let off = () => {
@@ -2002,7 +2004,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         }
       };
       try {
-        off = ((_a = themes == null ? void 0 : themes.subscribe) == null ? void 0 : _a.call(themes, update)) || (() => {
+        off = ((_a2 = themes == null ? void 0 : themes.subscribe) == null ? void 0 : _a2.call(themes, update)) || (() => {
         }), offDestroy = onDestroy(target, release), update();
       } catch (error) {
         throw release(), error;
@@ -2010,14 +2012,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return release;
     }
     function bind(target, properties) {
-      var _a;
+      var _a2;
       if (!target || scope.closed || target.destroyed) return () => {
       };
       let saved = /* @__PURE__ */ new Map(), applied = /* @__PURE__ */ new Map(), disposed = !1;
       for (let key of Object.keys(properties)) {
         let own3 = Object.getOwnPropertyDescriptor(target, key), inherited;
         for (let parent = Object.getPrototypeOf(target); parent && !inherited; parent = Object.getPrototypeOf(parent)) inherited = Object.getOwnPropertyDescriptor(parent, key);
-        saved.set(key, { own: own3, setter: !!((_a = own3 || inherited) != null && _a.set), value: target[key] });
+        saved.set(key, { own: own3, setter: !!((_a2 = own3 || inherited) != null && _a2.set), value: target[key] });
       }
       let restoreFields = () => {
         if (!target.destroyed)
@@ -2050,7 +2052,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return !scope.closed && !target.destroyed && (offDestroy = onDestroy(target, release)), release;
     }
     function surface(node, options = {}) {
-      var _a, _b, _c;
+      var _a2, _b2, _c;
       if (scope.closed || node != null && node.destroyed || !(node != null && node.graphics)) return;
       let p = current(), width = Number(options.width ?? node.width), height = Number(options.height ?? node.height);
       if (!Number.isFinite(width) || !Number.isFinite(height) || width < 4 || height < 4 || width > 4096 || height > 4096) return;
@@ -2065,7 +2067,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         });
         offDestroy = onDestroy(node, release);
       }
-      if (state.cancel(), node.graphics.clear(), state.entry && state.entry.refs--, state.entry = null, state.key = uri, node._sgsNativeSurfaceKey = uri, node._sgsNativeSurfaceAppliedKey = "", ["option", "tab", "segment"].includes(config.kind) || node.graphics.drawRect(1, 1, width - 2, height - 2, p.surface), !((_a = laya == null ? void 0 : laya.loader) != null && _a.load) || !((_b = laya == null ? void 0 : laya.Handler) != null && _b.create)) return;
+      if (state.cancel(), node.graphics.clear(), state.entry && state.entry.refs--, state.entry = null, state.key = uri, node._sgsNativeSurfaceKey = uri, node._sgsNativeSurfaceAppliedKey = "", ["option", "tab", "segment"].includes(config.kind) || node.graphics.drawRect(1, 1, width - 2, height - 2, p.surface), !((_a2 = laya == null ? void 0 : laya.loader) != null && _a2.load) || !((_b2 = laya == null ? void 0 : laya.Handler) != null && _b2.create)) return;
       let cache2 = cacheFor(laya), entry = cache2.get(uri);
       entry ? (cache2.delete(uri), cache2.set(uri, entry)) : (entry = { uri, refs: 0, pending: !0, texture: null, waiters: /* @__PURE__ */ new Set() }, cache2.set(uri, entry)), state.entry = entry, entry.refs++;
       let draw = (texture) => {
@@ -2095,8 +2097,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       watch,
       bind,
       surface,
-      chevron(node, x, y, open, ink = current().accent) {
-        scope.closed || node != null && node.destroyed || (node.graphics.clear(), node.graphics.drawLines(x, y, open ? [0, 3, 3, 0, 6, 3] : [0, 0, 3, 3, 6, 0], ink, 1.2));
+      chevron(node, x2, y, open, ink = current().accent) {
+        scope.closed || node != null && node.destroyed || (node.graphics.clear(), node.graphics.drawLines(x2, y, open ? [0, 3, 3, 0, 6, 3] : [0, 0, 3, 3, 6, 0], ink, 1.2));
       },
       get cacheStats() {
         let laya = window2.Laya ?? window2.laya, entries = laya ? [...cacheFor(laya).values()] : [];
@@ -2134,40 +2136,40 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       await verifyPackage(pkg), this.registerBuiltin({ ...compilePackage(pkg), bundledPackage: pkg, replacesPackageDigests });
     }
     makeSlot(module, record) {
-      var _a;
-      let slot = { module, record, state: ((_a = module.initialState) == null ? void 0 : _a.call(module)) ?? {}, listeners: /* @__PURE__ */ new Set(), scope: null, active: !1, sessionId: null, cursor: 0, error: "" };
+      var _a2;
+      let slot = { module, record, state: ((_a2 = module.initialState) == null ? void 0 : _a2.call(module)) ?? {}, listeners: /* @__PURE__ */ new Set(), scope: null, active: !1, sessionId: null, cursor: 0, error: "" };
       for (let event of this.journal.events) this.reduce(slot, event);
       return slot;
     }
     reduce(slot, event) {
-      var _a, _b;
-      event.seq <= slot.cursor || (slot.sessionId !== event.sessionId && (slot.state = ((_b = (_a = slot.module).initialState) == null ? void 0 : _b.call(_a)) ?? {}, slot.sessionId = event.sessionId), slot.module.reduce && (slot.state = slot.module.reduce(slot.state, event)), slot.cursor = event.seq);
+      var _a2, _b2;
+      event.seq <= slot.cursor || (slot.sessionId !== event.sessionId && (slot.state = ((_b2 = (_a2 = slot.module).initialState) == null ? void 0 : _b2.call(_a2)) ?? {}, slot.sessionId = event.sessionId), slot.module.reduce && (slot.state = slot.module.reduce(slot.state, event)), slot.cursor = event.seq);
     }
     dependencyError(message) {
       return Object.assign(new Error(message), { dependency: !0 });
     }
     assertGraph(module, path = []) {
-      var _a;
+      var _a2;
       let id = module.manifest.id;
       if (path.includes(id)) throw this.dependencyError("\u524D\u7F6E\u63D2\u4EF6\u5FAA\u73AF\u4F9D\u8D56\uFF1A" + [...path, id].join(" \u2192 "));
       for (let dep of module.manifest.dependencies || []) {
-        let target = (_a = this.slots.get(dep)) == null ? void 0 : _a.module;
+        let target = (_a2 = this.slots.get(dep)) == null ? void 0 : _a2.module;
         target && this.assertGraph(target, [...path, id]);
       }
     }
     assertUnused(id) {
       let users = [...this.slots.values()].filter((s) => {
-        var _a;
-        return s.record.enabled && ((_a = s.module.manifest.dependencies) == null ? void 0 : _a.includes(id));
+        var _a2;
+        return s.record.enabled && ((_a2 = s.module.manifest.dependencies) == null ? void 0 : _a2.includes(id));
       });
       if (users.length) throw this.dependencyError("\u8BF7\u5148\u505C\u7528\u4F9D\u8D56\u6B64\u63D2\u4EF6\u7684\uFF1A" + users.map((s) => s.module.manifest.name).join("\u3001"));
     }
     enabledDependents(id) {
       let seen = /* @__PURE__ */ new Set([id]), stoppedFirst = [], visit = (target) => {
-        var _a;
+        var _a2;
         for (let slot of this.slots.values()) {
           let next = slot.module.manifest.id;
-          seen.has(next) || !((_a = slot.module.manifest.dependencies) != null && _a.includes(target)) || (seen.add(next), visit(next), slot.record.enabled && stoppedFirst.push(slot));
+          seen.has(next) || !((_a2 = slot.module.manifest.dependencies) != null && _a2.includes(target)) || (seen.add(next), visit(next), slot.record.enabled && stoppedFirst.push(slot));
         }
       };
       return visit(id), stoppedFirst.reverse();
@@ -2182,7 +2184,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       slot.restartUsed = !0, slot.recovering = !0;
       let scope = slot.scope;
       this.serial(async () => {
-        var _a, _b;
+        var _a2, _b2;
         if (this.slots.get(slot.module.manifest.id) !== slot || slot.scope !== scope || !slot.record.enabled) {
           slot.recovering = !1;
           return;
@@ -2195,7 +2197,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           slot.error = `\u81EA\u52A8\u91CD\u542F\u5931\u8D25\uFF1A${String((e == null ? void 0 : e.stack) || e)}
 \u9996\u6B21\u9519\u8BEF\uFF1A${message}`;
         }
-        slot.recovering = !1, slot.error && ((_b = (_a = this.context).notify) == null || _b.call(_a, `\u63D2\u4EF6 ${slot.module.manifest.name} \u81EA\u52A8\u91CD\u542F\u540E\u4ECD\u6709\u9519\u8BEF\uFF0C\u8BF7\u67E5\u770B\u8BE6\u60C5\u3002`)), this.onChange();
+        slot.recovering = !1, slot.error && ((_b2 = (_a2 = this.context).notify) == null || _b2.call(_a2, `\u63D2\u4EF6 ${slot.module.manifest.name} \u81EA\u52A8\u91CD\u542F\u540E\u4ECD\u6709\u9519\u8BEF\uFF0C\u8BF7\u67E5\u770B\u8BE6\u60C5\u3002`)), this.onChange();
       }).catch(() => {
       }).finally(() => {
         slot.recovering = !1;
@@ -2210,13 +2212,13 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
     }
     async activateOnce(slot, path = []) {
-      var _a;
+      var _a2;
       if (this.closed) throw new Error("\u63D2\u4EF6\u7BA1\u7406\u5668\u5DF2\u505C\u6B62");
       if (slot.active) return;
       let pluginId = slot.module.manifest.id;
       if (path.includes(pluginId)) throw this.dependencyError("\u524D\u7F6E\u63D2\u4EF6\u5FAA\u73AF\u4F9D\u8D56\uFF1A" + [...path, pluginId].join(" \u2192 "));
       for (let id2 of slot.module.manifest.dependencies || []) {
-        let dep = this.slots.get(id2), name = (dep == null ? void 0 : dep.module.manifest.name) || ((_a = this.builtins.get(id2)) == null ? void 0 : _a.manifest.name) || id2;
+        let dep = this.slots.get(id2), name = (dep == null ? void 0 : dep.module.manifest.name) || ((_a2 = this.builtins.get(id2)) == null ? void 0 : _a2.manifest.name) || id2;
         if (!dep) throw this.dependencyError("\u524D\u7F6E\u63D2\u4EF6\u300C" + name + "\u300D\u672A\u5B89\u88C5\uFF0C\u8BF7\u5148\u5B89\u88C5\u5E76\u542F\u7528\u3002");
         if (!dep.record.enabled) throw this.dependencyError("\u524D\u7F6E\u63D2\u4EF6\u300C" + name + "\u300D\u5DF2\u505C\u7528\uFF0C\u8BF7\u5148\u542F\u7528\u3002");
         try {
@@ -2254,11 +2256,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           registerCompactSummary: () => {
             let id2 = slot.module.manifest.id;
             return scope.add(() => {
-              var _a2, _b;
-              return (_b = (_a2 = this.context.ui).setCompactSummary) == null ? void 0 : _b.call(_a2, id2, []);
+              var _a3, _b2;
+              return (_b2 = (_a3 = this.context.ui).setCompactSummary) == null ? void 0 : _b2.call(_a3, id2, []);
             }), (items) => {
-              var _a2, _b;
-              scope.closed || (_b = (_a2 = this.context.ui).setCompactSummary) == null || _b.call(_a2, id2, items);
+              var _a3, _b2;
+              scope.closed || (_b2 = (_a3 = this.context.ui).setCompactSummary) == null || _b2.call(_a3, id2, items);
             };
           },
           registerPanel: (spec) => {
@@ -2266,8 +2268,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             };
             let panel = normalizePanel(spec, slot.module.manifest), render = panel.render;
             return panel.render = (container) => {
-              var _a2;
-              let root = (_a2 = container.getRootNode) == null ? void 0 : _a2.call(container), release = root != null && root.host ? acquirePluginStyles(root, this.context.document) : () => {
+              var _a3;
+              let root = (_a3 = container.getRootNode) == null ? void 0 : _a3.call(container), release = root != null && root.host ? acquirePluginStyles(root, this.context.document) : () => {
               };
               try {
                 let cleanup = render(container);
@@ -2346,11 +2348,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
     }
     deactivate(slot) {
-      var _a;
-      (_a = slot.scope) == null || _a.dispose(), slot.scope = null, slot.active = !1, slot.listeners.clear();
+      var _a2;
+      (_a2 = slot.scope) == null || _a2.dispose(), slot.scope = null, slot.active = !1, slot.listeners.clear();
     }
     async init() {
-      var _a, _b, _c, _d, _e, _f;
+      var _a2, _b2, _c, _d, _e, _f;
       let stored = [];
       try {
         stored = await this.store.list();
@@ -2380,7 +2382,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             }
           }
         let builtin = this.builtins.get(id);
-        if (record.active && (_a = builtin == null ? void 0 : builtin.replacesPackageDigests) != null && _a.includes(record.active.sha256) && !((_b = record.appliedBuiltinMigrations) != null && _b.includes(record.active.sha256))) {
+        if (record.active && (_a2 = builtin == null ? void 0 : builtin.replacesPackageDigests) != null && _a2.includes(record.active.sha256) && !((_b2 = record.appliedBuiltinMigrations) != null && _b2.includes(record.active.sha256))) {
           let upgraded = { ...record, active: null, previous: record.active, appliedBuiltinMigrations: [...record.appliedBuiltinMigrations || [], record.active.sha256] };
           try {
             await this.store.put(upgraded), record = upgraded, module = builtin, (_d = (_c = this.context).notify) == null || _d.call(_c, `${builtin.manifest.name}\u5DF2\u66F4\u65B0\u81F3\u968F\u6838\u5FC3\u63D0\u4F9B\u7684 ${builtin.manifest.version}`);
@@ -2436,7 +2438,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return this.serial(async () => (await verifyPackage(pkg), this.swap(pkg.manifest.id, compilePackage(pkg), pkg, void 0, { restartDependents: !0 })));
     }
     async swap(id, module, pkg, previousOverride, { restartDependents = !1 } = {}) {
-      var _a, _b, _c;
+      var _a2, _b2, _c;
       let old = this.slots.get(id);
       old && !restartDependents && this.assertUnused(id), this.slots.set(id, { module });
       try {
@@ -2469,14 +2471,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         updateError = error;
       } finally {
         let failed = /* @__PURE__ */ new Set();
-        (_a = this.slots.get(id)) != null && _a.active || failed.add(id);
+        (_a2 = this.slots.get(id)) != null && _a2.active || failed.add(id);
         for (let slot of dependents) {
           let dependentId = slot.module.manifest.id;
           if (this.closed) break;
           if (!(this.slots.get(dependentId) !== slot || !slot.record.enabled)) {
             slot.maintenance = "restarting";
             try {
-              let blocked = (_b = slot.module.manifest.dependencies) == null ? void 0 : _b.find((dep) => failed.has(dep));
+              let blocked = (_b2 = slot.module.manifest.dependencies) == null ? void 0 : _b2.find((dep) => failed.has(dep));
               if (blocked) throw this.dependencyError("\u524D\u7F6E\u63D2\u4EF6\u300C" + (((_c = this.slots.get(blocked)) == null ? void 0 : _c.module.manifest.name) || blocked) + "\u300D\u672A\u80FD\u6062\u590D\u8FD0\u884C");
               slot.restartUsed = !1, this.onChange(), await this.activate(slot);
             } catch (error) {
@@ -2558,7 +2560,318 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       this.closed = !0, this.unsubscribe();
       for (let slot of [...this.slots.values()].reverse()) this.deactivate(slot);
     }
-  }, ALLOWED = /* @__PURE__ */ new Set(["gn_zonghe", "cha_gs_dbs_fs_skininfo", "ff_jubaopen", "ff_dbs_pay_gift", "sys_gs_dbs_fs_goodsbaseinfo", "cha_dbs_general_series", "ff_task_daily", "mod_new_ttrank_config", "ff_general_chest_info_config", "gn_dbs_giftbag", "hd_roguelike", "cha_spell", "sys_playcard", "character", "gn_gs_ahievement", "ff_qifu_new", "ff_tiangong", "h5_officer"]);
+  }, u8 = Uint8Array, u16 = Uint16Array, i32 = Int32Array, fleb = new u8([
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    4,
+    4,
+    4,
+    4,
+    5,
+    5,
+    5,
+    5,
+    0,
+    /* unused */
+    0,
+    0,
+    /* impossible */
+    0
+  ]), fdeb = new u8([
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    2,
+    2,
+    3,
+    3,
+    4,
+    4,
+    5,
+    5,
+    6,
+    6,
+    7,
+    7,
+    8,
+    8,
+    9,
+    9,
+    10,
+    10,
+    11,
+    11,
+    12,
+    12,
+    13,
+    13,
+    /* unused */
+    0,
+    0
+  ]), clim = new u8([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]), freb = function(eb, start) {
+    for (var b = new u16(31), i2 = 0; i2 < 31; ++i2)
+      b[i2] = start += 1 << eb[i2 - 1];
+    for (var r = new i32(b[30]), i2 = 1; i2 < 30; ++i2)
+      for (var j = b[i2]; j < b[i2 + 1]; ++j)
+        r[j] = j - b[i2] << 5 | i2;
+    return { b, r };
+  }, _a = freb(fleb, 2), fl = _a.b, revfl = _a.r;
+  fl[28] = 258, revfl[258] = 28;
+  var _b = freb(fdeb, 0), fd = _b.b, revfd = _b.r, rev = new u16(32768);
+  for (i = 0; i < 32768; ++i)
+    x = (i & 43690) >> 1 | (i & 21845) << 1, x = (x & 52428) >> 2 | (x & 13107) << 2, x = (x & 61680) >> 4 | (x & 3855) << 4, rev[i] = ((x & 65280) >> 8 | (x & 255) << 8) >> 1;
+  var x, i, hMap = (function(cd, mb, r) {
+    for (var s = cd.length, i2 = 0, l = new u16(mb); i2 < s; ++i2)
+      cd[i2] && ++l[cd[i2] - 1];
+    var le = new u16(mb);
+    for (i2 = 1; i2 < mb; ++i2)
+      le[i2] = le[i2 - 1] + l[i2 - 1] << 1;
+    var co;
+    if (r) {
+      co = new u16(1 << mb);
+      var rvb = 15 - mb;
+      for (i2 = 0; i2 < s; ++i2)
+        if (cd[i2])
+          for (var sv = i2 << 4 | cd[i2], r_1 = mb - cd[i2], v = le[cd[i2] - 1]++ << r_1, m = v | (1 << r_1) - 1; v <= m; ++v)
+            co[rev[v] >> rvb] = sv;
+    } else
+      for (co = new u16(s), i2 = 0; i2 < s; ++i2)
+        cd[i2] && (co[i2] = rev[le[cd[i2] - 1]++] >> 15 - cd[i2]);
+    return co;
+  }), flt = new u8(288);
+  for (i = 0; i < 144; ++i)
+    flt[i] = 8;
+  var i;
+  for (i = 144; i < 256; ++i)
+    flt[i] = 9;
+  var i;
+  for (i = 256; i < 280; ++i)
+    flt[i] = 7;
+  var i;
+  for (i = 280; i < 288; ++i)
+    flt[i] = 8;
+  var i, fdt = new u8(32);
+  for (i = 0; i < 32; ++i)
+    fdt[i] = 5;
+  var i, flrm = /* @__PURE__ */ hMap(flt, 9, 1), fdrm = /* @__PURE__ */ hMap(fdt, 5, 1), max = function(a) {
+    for (var m = a[0], i2 = 1; i2 < a.length; ++i2)
+      a[i2] > m && (m = a[i2]);
+    return m;
+  }, bits = function(d, p, m) {
+    var o = p / 8 | 0;
+    return (d[o] | d[o + 1] << 8) >> (p & 7) & m;
+  }, bits16 = function(d, p) {
+    var o = p / 8 | 0;
+    return (d[o] | d[o + 1] << 8 | d[o + 2] << 16) >> (p & 7);
+  }, shft = function(p) {
+    return (p + 7) / 8 | 0;
+  }, slc = function(v, s, e) {
+    return (s == null || s < 0) && (s = 0), (e == null || e > v.length) && (e = v.length), new u8(v.subarray(s, e));
+  }, ec = [
+    "unexpected EOF",
+    "invalid block type",
+    "invalid length/literal",
+    "invalid distance",
+    "stream finished",
+    "no stream handler",
+    ,
+    "no callback",
+    "invalid UTF-8 data",
+    "extra field too long",
+    "date not in range 1980-2099",
+    "filename too long",
+    "stream finishing",
+    "invalid zip data"
+    // determined by unknown compression method
+  ], err = function(ind, msg, nt) {
+    var e = new Error(msg || ec[ind]);
+    if (e.code = ind, Error.captureStackTrace && Error.captureStackTrace(e, err), !nt)
+      throw e;
+    return e;
+  }, inflt = function(dat, st, buf, dict) {
+    var sl = dat.length, dl = dict ? dict.length : 0;
+    if (!sl || st.f && !st.l)
+      return buf || new u8(0);
+    var noBuf = !buf, resize = noBuf || st.i != 2, noSt = st.i;
+    noBuf && (buf = new u8(sl * 3));
+    var cbuf = function(l2) {
+      var bl = buf.length;
+      if (l2 > bl) {
+        var nbuf = new u8(Math.max(bl * 2, l2));
+        nbuf.set(buf), buf = nbuf;
+      }
+    }, final = st.f || 0, pos = st.p || 0, bt = st.b || 0, lm = st.l, dm = st.d, lbt = st.m, dbt = st.n, tbts = sl * 8;
+    do {
+      if (!lm) {
+        final = bits(dat, pos, 1);
+        var type = bits(dat, pos + 1, 3);
+        if (pos += 3, type)
+          if (type == 1)
+            lm = flrm, dm = fdrm, lbt = 9, dbt = 5;
+          else if (type == 2) {
+            var hLit = bits(dat, pos, 31) + 257, hcLen = bits(dat, pos + 10, 15) + 4, tl = hLit + bits(dat, pos + 5, 31) + 1;
+            pos += 14;
+            for (var ldt = new u8(tl), clt = new u8(19), i2 = 0; i2 < hcLen; ++i2)
+              clt[clim[i2]] = bits(dat, pos + i2 * 3, 7);
+            pos += hcLen * 3;
+            for (var clb = max(clt), clbmsk = (1 << clb) - 1, clm = hMap(clt, clb, 1), i2 = 0; i2 < tl; ) {
+              var r = clm[bits(dat, pos, clbmsk)];
+              pos += r & 15;
+              var s = r >> 4;
+              if (s < 16)
+                ldt[i2++] = s;
+              else {
+                var c = 0, n = 0;
+                for (s == 16 ? (n = 3 + bits(dat, pos, 3), pos += 2, c = ldt[i2 - 1]) : s == 17 ? (n = 3 + bits(dat, pos, 7), pos += 3) : s == 18 && (n = 11 + bits(dat, pos, 127), pos += 7); n--; )
+                  ldt[i2++] = c;
+              }
+            }
+            var lt = ldt.subarray(0, hLit), dt = ldt.subarray(hLit);
+            lbt = max(lt), dbt = max(dt), lm = hMap(lt, lbt, 1), dm = hMap(dt, dbt, 1);
+          } else
+            err(1);
+        else {
+          var s = shft(pos) + 4, l = dat[s - 4] | dat[s - 3] << 8, t = s + l;
+          if (t > sl) {
+            noSt && err(0);
+            break;
+          }
+          resize && cbuf(bt + l), buf.set(dat.subarray(s, t), bt), st.b = bt += l, st.p = pos = t * 8, st.f = final;
+          continue;
+        }
+        if (pos > tbts) {
+          noSt && err(0);
+          break;
+        }
+      }
+      resize && cbuf(bt + 131072);
+      for (var lms = (1 << lbt) - 1, dms = (1 << dbt) - 1, lpos = pos; ; lpos = pos) {
+        var c = lm[bits16(dat, pos) & lms], sym = c >> 4;
+        if (pos += c & 15, pos > tbts) {
+          noSt && err(0);
+          break;
+        }
+        if (c || err(2), sym < 256)
+          buf[bt++] = sym;
+        else if (sym == 256) {
+          lpos = pos, lm = null;
+          break;
+        } else {
+          var add = sym - 254;
+          if (sym > 264) {
+            var i2 = sym - 257, b = fleb[i2];
+            add = bits(dat, pos, (1 << b) - 1) + fl[i2], pos += b;
+          }
+          var d = dm[bits16(dat, pos) & dms], dsym = d >> 4;
+          d || err(3), pos += d & 15;
+          var dt = fd[dsym];
+          if (dsym > 3) {
+            var b = fdeb[dsym];
+            dt += bits16(dat, pos) & (1 << b) - 1, pos += b;
+          }
+          if (pos > tbts) {
+            noSt && err(0);
+            break;
+          }
+          resize && cbuf(bt + 131072);
+          var end = bt + add;
+          if (bt < dt) {
+            var shift = dl - dt, dend = Math.min(dt, end);
+            for (shift + bt < 0 && err(3); bt < dend; ++bt)
+              buf[bt] = dict[shift + bt];
+          }
+          for (; bt < end; ++bt)
+            buf[bt] = buf[bt - dt];
+        }
+      }
+      st.l = lm, st.p = lpos, st.b = bt, st.f = final, lm && (final = 1, st.m = lbt, st.d = dm, st.n = dbt);
+    } while (!final);
+    return bt != buf.length && noBuf ? slc(buf, 0, bt) : buf.subarray(0, bt);
+  }, et = /* @__PURE__ */ new u8(0), gzs = function(d) {
+    (d[0] != 31 || d[1] != 139 || d[2] != 8) && err(6, "invalid gzip data");
+    var flg = d[3], st = 10;
+    flg & 4 && (st += (d[10] | d[11] << 8) + 2);
+    for (var zs = (flg >> 3 & 1) + (flg >> 4 & 1); zs > 0; zs -= !d[st++])
+      ;
+    return st + (flg & 2);
+  }, Inflate = /* @__PURE__ */ (function() {
+    function Inflate2(opts, cb) {
+      typeof opts == "function" && (cb = opts, opts = {}), this.ondata = cb;
+      var dict = opts && opts.dictionary && opts.dictionary.subarray(-32768);
+      this.s = { i: 0, b: dict ? dict.length : 0 }, this.o = new u8(32768), this.p = new u8(0), dict && this.o.set(dict);
+    }
+    return Inflate2.prototype.e = function(c) {
+      if (this.ondata || err(5), this.d && err(4), !this.p.length)
+        this.p = c;
+      else if (c.length) {
+        var n = new u8(this.p.length + c.length);
+        n.set(this.p), n.set(c, this.p.length), this.p = n;
+      }
+    }, Inflate2.prototype.c = function(final) {
+      this.s.i = +(this.d = final || !1);
+      var bts = this.s.b, dt = inflt(this.p, this.s, this.o);
+      this.ondata(slc(dt, bts, this.s.b), this.d), this.o = slc(dt, this.s.b - 32768), this.s.b = this.o.length, this.p = slc(this.p, this.s.p / 8 | 0), this.s.p &= 7;
+    }, Inflate2.prototype.push = function(chunk, final) {
+      this.e(chunk), this.c(final);
+    }, Inflate2;
+  })(), Gunzip = /* @__PURE__ */ (function() {
+    function Gunzip2(opts, cb) {
+      this.v = 1, this.r = 0, Inflate.call(this, opts, cb);
+    }
+    return Gunzip2.prototype.push = function(chunk, final) {
+      if (Inflate.prototype.e.call(this, chunk), this.r += chunk.length, this.v) {
+        var p = this.p.subarray(this.v - 1), s = p.length > 3 ? gzs(p) : 4;
+        if (s > p.length) {
+          if (!final)
+            return;
+        } else this.v > 1 && this.onmember && this.onmember(this.r - p.length);
+        this.p = p.subarray(s), this.v = 0;
+      }
+      Inflate.prototype.c.call(this, final), this.s.f && !this.s.l && !final && (this.v = shft(this.s.p) + 9, this.s = { i: 0 }, this.o = new u8(0), this.push(new u8(0), final));
+    }, Gunzip2;
+  })(), td = typeof TextDecoder < "u" && /* @__PURE__ */ new TextDecoder(), tds = 0;
+  try {
+    td.decode(et, { stream: !0 }), tds = 1;
+  } catch {
+  }
+  /*! fflate 0.8.2, Copyright (c) 2023 Arjun Barrett. MIT License.
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE. */
+  var ALLOWED = /* @__PURE__ */ new Set(["gn_zonghe", "cha_gs_dbs_fs_skininfo", "ff_jubaopen", "ff_dbs_pay_gift", "sys_gs_dbs_fs_goodsbaseinfo", "cha_dbs_general_series", "ff_task_daily", "mod_new_ttrank_config", "ff_general_chest_info_config", "gn_dbs_giftbag", "hd_roguelike", "cha_spell", "sys_playcard", "character", "gn_gs_ahievement", "ff_qifu_new", "ff_tiangong", "h5_officer"]);
   ALLOWED.add("sys_h5_shop"), ALLOWED.add("gn_dbs_coupon_cfg"), ALLOWED.add("hd_fight_lord_config");
   var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read = (fn) => {
     try {
@@ -2588,22 +2901,37 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return bytes;
   }
   async function inflate(bytes, format, win) {
-    let Decompressor = win.DecompressionStream || globalThis.DecompressionStream;
-    if (!Decompressor) throw new Error("\u6D4F\u89C8\u5668\u7F3A\u5C11\u914D\u7F6E\u89E3\u538B\u652F\u6301");
+    let Decompressor = "DecompressionStream" in win ? win.DecompressionStream : globalThis.DecompressionStream, stream;
+    try {
+      Decompressor && (stream = new Decompressor(format));
+    } catch {
+    }
+    if (!stream) {
+      let chunks = [], length = 0, decoder = new (format === "gzip" ? Gunzip : Inflate)((chunk) => {
+        if (length += chunk.length, length > ENTRY_LIMIT) throw new Error("\u914D\u7F6E\u6587\u4EF6\u8D85\u8FC7\u8BFB\u53D6\u4E0A\u9650");
+        chunks.push(chunk.slice());
+      });
+      for (let offset2 = 0; offset2 < bytes.length; offset2 += 1024) decoder.push(bytes.subarray(offset2, offset2 + 1024), offset2 + 1024 >= bytes.length);
+      bytes.length || decoder.push(bytes, !0);
+      let output = new Uint8Array(length), offset = 0;
+      for (let chunk of chunks)
+        output.set(chunk, offset), offset += chunk.length;
+      return output;
+    }
     let BlobType = win.Blob || globalThis.Blob;
-    return boundedStream(new BlobType([bytes]).stream().pipeThrough(new Decompressor(format)), ENTRY_LIMIT);
+    return boundedStream(new BlobType([bytes]).stream().pipeThrough(stream), ENTRY_LIMIT);
   }
   async function readZipEntry(bytes, filename, win = globalThis) {
     let view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), end = -1;
-    for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--)
-      if (view.getUint32(i, !0) === 101010256 && i + 22 + view.getUint16(i + 20, !0) === bytes.length) {
-        end = i;
+    for (let i2 = bytes.length - 22; i2 >= Math.max(0, bytes.length - 65557); i2--)
+      if (view.getUint32(i2, !0) === 101010256 && i2 + 22 + view.getUint16(i2 + 20, !0) === bytes.length) {
+        end = i2;
         break;
       }
     if (end < 0 || view.getUint16(end + 4, !0) || view.getUint16(end + 6, !0)) throw new Error("\u5B98\u65B9\u914D\u7F6E\u5305 ZIP \u683C\u5F0F\u4E0D\u652F\u6301");
     let count = view.getUint16(end + 10, !0), directorySize = view.getUint32(end + 12, !0), cursor = view.getUint32(end + 16, !0), directoryEnd = cursor + directorySize;
     if (count > 4096 || directoryEnd > end) throw new Error("\u5B98\u65B9\u914D\u7F6E\u5305\u76EE\u5F55\u65E0\u6548");
-    for (let i = 0; i < count; i++) {
+    for (let i2 = 0; i2 < count; i2++) {
       if (cursor + 46 > directoryEnd || view.getUint32(cursor, !0) !== 33639248) throw new Error("\u5B98\u65B9\u914D\u7F6E\u5305\u76EE\u5F55\u635F\u574F");
       let flags = view.getUint16(cursor + 8, !0), method = view.getUint16(cursor + 10, !0), packed = view.getUint32(cursor + 20, !0), unpacked = view.getUint32(cursor + 24, !0), nameSize = view.getUint16(cursor + 28, !0), extraSize = view.getUint16(cursor + 30, !0), commentSize = view.getUint16(cursor + 32, !0), next = cursor + 46 + nameSize + extraSize + commentSize;
       if (next > directoryEnd) throw new Error("\u5B98\u65B9\u914D\u7F6E\u5305\u76EE\u5F55\u8D8A\u754C");
@@ -2754,8 +3082,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       let length = read3(() => values.length);
       if (!Number.isInteger(length) || length < 0) continue;
       let target = key.endsWith("IDs") ? cached : shown;
-      for (let i = 0; i < length && i < 2048; i++) {
-        let value = read3(() => values[i]), card = object(read3(() => value.Card)) || object(read3(() => value.card)) || object(read3(() => value.cardInfo)) || value, id = cardId(card);
+      for (let i2 = 0; i2 < length && i2 < 2048; i2++) {
+        let value = read3(() => values[i2]), card = object(read3(() => value.Card)) || object(read3(() => value.card)) || object(read3(() => value.cardInfo)) || value, id = cardId(card);
         !Number.isInteger(id) || id <= 0 || (read3(() => value.IsHide) === !0 || read3(() => value.isHide) === !0 || read3(() => card.IsHide) === !0 || read3(() => card.isHide) === !0 ? hidden.add(id) : target.push(id));
       }
     }
@@ -2771,8 +3099,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let configs = scope ? createConfigData(win, scope) : null, selfClass = null, selfSearchAt = -1 / 0, current = null, stage = null, dispatcher = null, dispatcherOwner = null, providers = /* @__PURE__ */ new Set(), definitionTables = /* @__PURE__ */ new WeakMap(), listeners = /* @__PURE__ */ new Set();
     function walk(predicate, root = read3(() => win.Laya.stage)) {
       let queue = root ? [root] : [], seen = /* @__PURE__ */ new Set();
-      for (let i = 0; i < queue.length && i < 4e3; i++) {
-        let item = queue[i];
+      for (let i2 = 0; i2 < queue.length && i2 < 4e3; i2++) {
+        let item = queue[i2];
         if (!(!alive(item) || seen.has(item))) {
           if (seen.add(item), read3(() => predicate(item))) return item;
           queue.push(...children(item));
@@ -2865,7 +3193,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     function registerProviders(card) {
       let proto = object(card), seen = /* @__PURE__ */ new Set();
-      for (let i = 0; proto && i < 8 && !seen.has(proto); i++) {
+      for (let i2 = 0; proto && i2 < 8 && !seen.has(proto); i2++) {
         seen.add(proto);
         let ctor = read3(() => proto.constructor);
         typeof ctor == "function" && typeof read3(() => ctor.GetInstance) == "function" && providers.add(ctor), proto = read3(() => Object.getPrototypeOf(proto));
@@ -3075,7 +3403,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           reject(error), controller.abort(error);
         }, this.timeoutMs);
       }), request = (async () => {
-        var _a;
+        var _a2;
         let response;
         try {
           response = await this.fetchImpl(url, {
@@ -3095,7 +3423,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         if (!response.ok) throw new MarketError("HTTP_ERROR", `\u63D2\u4EF6\u5E02\u573A\u8BF7\u6C42\u5931\u8D25\uFF08HTTP ${response.status}\uFF09\u3002`, { status: response.status });
         if (response.url && response.url !== url)
           throw new MarketError("ORIGIN_MISMATCH", "\u63D2\u4EF6\u5E02\u573A\u54CD\u5E94\u6765\u81EA\u5176\u4ED6\u5730\u5740\uFF0C\u5DF2\u505C\u6B62\u8BFB\u53D6\u3002");
-        if (Number((_a = response.headers) == null ? void 0 : _a.get("content-length")) > this.maxBytes) throw new MarketError("RESPONSE_TOO_LARGE", "\u63D2\u4EF6\u5E02\u573A\u54CD\u5E94\u8D85\u8FC7\u5927\u5C0F\u9650\u5236\u3002");
+        if (Number((_a2 = response.headers) == null ? void 0 : _a2.get("content-length")) > this.maxBytes) throw new MarketError("RESPONSE_TOO_LARGE", "\u63D2\u4EF6\u5E02\u573A\u54CD\u5E94\u8D85\u8FC7\u5927\u5C0F\u9650\u5236\u3002");
         let raw;
         try {
           raw = await response.text();
@@ -3307,7 +3635,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       } catch {
         return;
       }
-  }, number2 = (value) => typeof value == "number" && Number.isFinite(value) ? value : void 0, atom = (value) => typeof value == "boolean" ? value : number2(value) ?? (typeof value == "string" && /^-?\d{1,16}$/.test(value) ? value : void 0), validType = (type) => typeof type == "string" && type.length <= 96 && EVENT_NAME.test(type), limit = (value, fallback, max) => Number.isInteger(value) ? Math.min(max, Math.max(1, value)) : fallback;
+  }, number2 = (value) => typeof value == "number" && Number.isFinite(value) ? value : void 0, atom = (value) => typeof value == "boolean" ? value : number2(value) ?? (typeof value == "string" && /^-?\d{1,16}$/.test(value) ? value : void 0), validType = (type) => typeof type == "string" && type.length <= 96 && EVENT_NAME.test(type), limit = (value, fallback, max2) => Number.isInteger(value) ? Math.min(max2, Math.max(1, value)) : fallback;
   function array(value, key, truncated) {
     if (!Array.isArray(value)) return;
     let length = own2(value, "length");
@@ -3315,8 +3643,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let cap = key === "Infos" || key === "GeneralData" ? 32 : 256;
     length > cap && (truncated[key] = { originalLength: length, retainedLength: cap });
     let result = [];
-    for (let i = 0; i < Math.min(length, cap); i++) {
-      let item = own2(value, String(i)), scalar2 = atom(item);
+    for (let i2 = 0; i2 < Math.min(length, cap); i2++) {
+      let item = own2(value, String(i2)), scalar2 = atom(item);
       if (scalar2 !== void 0) {
         result.push(scalar2);
         continue;
@@ -3358,8 +3686,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           let value = atom(own2(payload, key));
           value !== void 0 && (projected[key] = value);
         }
-        if (projected.seats = [], Array.isArray(seats)) for (let i = 0; i < Math.min(32, seats.length); i++) {
-          let seat = own2(seats, String(i)), result = {};
+        if (projected.seats = [], Array.isArray(seats)) for (let i2 = 0; i2 < Math.min(32, seats.length); i2++) {
+          let seat = own2(seats, String(i2)), result = {};
           for (let key of ["seatId", "position", "viewId", "handCount", "dead"]) {
             let value = atom(own2(seat, key));
             value !== void 0 && (result[key] = value);
@@ -3367,7 +3695,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           projected.seats.push(result);
         }
         let empty = own2(payload, "emptySeatIds");
-        Array.isArray(empty) && (projected.emptySeatIds = Array.from({ length: Math.min(32, empty.length) }, (_, i) => number2(own2(empty, String(i)))).filter((value) => value !== void 0)), seatSnapshot = projected;
+        Array.isArray(empty) && (projected.emptySeatIds = Array.from({ length: Math.min(32, empty.length) }, (_, i2) => number2(own2(empty, String(i2)))).filter((value) => value !== void 0)), seatSnapshot = projected;
         return;
       }
       if (SKIP.has(type) || !(validType(type) || type === "toolbox:gap")) return;
@@ -3438,12 +3766,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function createGameViewport({ window: win, document: doc, scope }) {
     let reserved = 0, stage, original, wrapper, descriptor, appliedWidth = 0, appliedHeight = 0, browser, widthDescriptor, widthGetter, styles = /* @__PURE__ */ new Map();
     function releaseBrowser() {
-      var _a;
-      browser && ((_a = Object.getOwnPropertyDescriptor(browser, "clientWidth")) == null ? void 0 : _a.get) === widthGetter && (widthDescriptor ? Object.defineProperty(browser, "clientWidth", widthDescriptor) : delete browser.clientWidth), browser = widthDescriptor = widthGetter = void 0;
+      var _a2;
+      browser && ((_a2 = Object.getOwnPropertyDescriptor(browser, "clientWidth")) == null ? void 0 : _a2.get) === widthGetter && (widthDescriptor ? Object.defineProperty(browser, "clientWidth", widthDescriptor) : delete browser.clientWidth), browser = widthDescriptor = widthGetter = void 0;
     }
     function syncBrowser() {
-      var _a;
-      let next = reserved ? (_a = win.Laya) == null ? void 0 : _a.Browser : void 0;
+      var _a2;
+      let next = reserved ? (_a2 = win.Laya) == null ? void 0 : _a2.Browser : void 0;
       if (browser === next || (releaseBrowser(), !next)) return;
       let own3 = Object.getOwnPropertyDescriptor(next, "clientWidth");
       if (own3 && !own3.configurable) return;
@@ -3457,23 +3785,23 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       styles.clear();
     }
     function resize(target) {
-      var _a, _b;
+      var _a2, _b2;
       if (typeof (target == null ? void 0 : target.setScreenSize) != "function") return;
-      let ratio = Number((_b = (_a = win.Laya) == null ? void 0 : _a.Browser) == null ? void 0 : _b.pixelRatio) || win.devicePixelRatio || 1;
+      let ratio = Number((_b2 = (_a2 = win.Laya) == null ? void 0 : _a2.Browser) == null ? void 0 : _b2.pixelRatio) || win.devicePixelRatio || 1;
       target.setScreenSize(win.innerWidth * ratio, win.innerHeight * ratio);
     }
     function releaseStage() {
       stage && stage.setScreenSize === wrapper && (descriptor ? Object.defineProperty(stage, "setScreenSize", descriptor) : delete stage.setScreenSize), resize(stage), stage = original = wrapper = void 0;
     }
     function sync() {
-      var _a, _b, _c, _d;
-      let next = reserved ? (_a = win.Laya) == null ? void 0 : _a.stage : void 0, width = reserved ? Math.max(1, win.innerWidth - reserved) : 0;
+      var _a2, _b2, _c, _d;
+      let next = reserved ? (_a2 = win.Laya) == null ? void 0 : _a2.stage : void 0, width = reserved ? Math.max(1, win.innerWidth - reserved) : 0;
       if (syncBrowser(), reserved || restoreStyles(), stage !== next && (releaseStage(), typeof (next == null ? void 0 : next.setScreenSize) == "function")) {
         stage = next, original = stage.setScreenSize, descriptor = Object.getOwnPropertyDescriptor(stage, "setScreenSize");
         let nativeResize = original;
         wrapper = function(screenWidth, screenHeight, ...args) {
-          var _a2, _b2;
-          let ratio = Number((_b2 = (_a2 = win.Laya) == null ? void 0 : _a2.Browser) == null ? void 0 : _b2.pixelRatio) || win.devicePixelRatio || 1, limit2 = Math.max(1, win.innerWidth - reserved) * ratio;
+          var _a3, _b3;
+          let ratio = Number((_b3 = (_a3 = win.Laya) == null ? void 0 : _a3.Browser) == null ? void 0 : _b3.pixelRatio) || win.devicePixelRatio || 1, limit2 = Math.max(1, win.innerWidth - reserved) * ratio;
           return Reflect.apply(nativeResize, this, [Math.min(screenWidth, limit2), screenHeight, ...args]);
         }, stage.setScreenSize = wrapper, appliedWidth = -1;
       }
@@ -3483,7 +3811,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       for (let node of doc.querySelectorAll("#bgDiv,#layaContainer,#laya_container,#GameDiv"))
         styles.has(node) || styles.set(node, { value: node.style.getPropertyValue("width"), priority: node.style.getPropertyPriority("width") }), node.style.setProperty("width", width + "px", "important"), styles.get(node).applied = width + "px";
-      (width !== appliedWidth || win.innerHeight !== appliedHeight) && (resize(stage), typeof ((_b = win.SystemContext) == null ? void 0 : _b.UpdateGameSize) == "function" && win.SystemContext.UpdateGameSize(width, ((_d = (_c = win.Laya) == null ? void 0 : _c.Browser) == null ? void 0 : _d.clientHeight) || win.innerHeight), appliedWidth = width, appliedHeight = win.innerHeight);
+      (width !== appliedWidth || win.innerHeight !== appliedHeight) && (resize(stage), typeof ((_b2 = win.SystemContext) == null ? void 0 : _b2.UpdateGameSize) == "function" && win.SystemContext.UpdateGameSize(width, ((_d = (_c = win.Laya) == null ? void 0 : _c.Browser) == null ? void 0 : _d.clientHeight) || win.innerHeight), appliedWidth = width, appliedHeight = win.innerHeight);
     }
     return scope.listen(win, "resize", sync), scope.interval(sync, 500), scope.add(() => {
       reserved = 0, restoreStyles(), releaseBrowser(), releaseStage();
@@ -3510,7 +3838,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       settings.set("cardStyleExpanded", expanded), apply(expanded);
     }, heading.append(toggle), details.append(heading, body), container.append(details);
     let render = () => {
-      var _a, _b;
+      var _a2, _b2;
       body.replaceChildren(), body.append(helpTip(doc, "\u5361\u9762\u4E0E\u5361\u80CC\u72EC\u7ACB\u9009\u62E9\u3002\u5B8C\u6574\u5361\u9762\u6309\u724C\u540D\u5339\u914D\uFF0C\u7F3A\u5931\u5361\u56FE\u4FDD\u7559\u6E38\u620F\u539F\u751F\u663E\u793A\uFF1B\u82B1\u8272\u70B9\u6570\u6CBF\u7528\u6E38\u620F\u3002"));
       let scopeLabel = doc.createElement("p");
       scopeLabel.textContent = "\u5E94\u7528\u8303\u56F4", body.append(scopeLabel);
@@ -3518,7 +3846,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       scopes.className = "sgs-segments", body.append(scopes);
       for (let [value, name] of [["self", "\u4EC5\u81EA\u5DF1\u7684\u624B\u724C"], ["all", "\u6240\u6709\u4EBA"]]) {
         let button = doc.createElement("button");
-        button.type = "button", button.textContent = name, button.setAttribute("aria-pressed", String(((_a = cardStyles == null ? void 0 : cardStyles.selection) == null ? void 0 : _a.scope) === value || !(cardStyles != null && cardStyles.selection) && value === "all")), button.onclick = () => cardStyles == null ? void 0 : cardStyles.selectScope(value), scopes.append(button);
+        button.type = "button", button.textContent = name, button.setAttribute("aria-pressed", String(((_a2 = cardStyles == null ? void 0 : cardStyles.selection) == null ? void 0 : _a2.scope) === value || !(cardStyles != null && cardStyles.selection) && value === "all")), button.onclick = () => cardStyles == null ? void 0 : cardStyles.selectScope(value), scopes.append(button);
       }
       let help = doc.createElement("p");
       help.className = "muted", help.textContent = "\u4EC5\u81EA\u5DF1\uFF1A\u81EA\u5DF1\u7684\u624B\u724C\u53CA\u5176\u4F7F\u7528\u3001\u6253\u51FA\u3001\u88AB\u987A\u8D70\u65F6\u6CBF\u7528\u6240\u9009\u5916\u89C2\uFF1B\u4ED6\u4EBA\u7684\u724C\u4FDD\u6301\u6E38\u620F\u5916\u89C2\u3002", body.append(help);
@@ -3528,12 +3856,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         let choices = doc.createElement("div");
         choices.className = "card-style-choices", body.append(choices);
         let option = (id, name, style2) => {
-          var _a2;
+          var _a3;
           let b = doc.createElement("button");
           if (b.type = "button", b.dataset.cardStyle = id, b.dataset.cardSide = side, b.setAttribute("aria-pressed", String((cardStyles != null && cardStyles.list().some((item) => {
-            var _a3;
-            return item.id === (((_a3 = cardStyles.selection) == null ? void 0 : _a3[side]) ?? cardStyles.current);
-          }) ? ((_a2 = cardStyles.selection) == null ? void 0 : _a2[side]) ?? cardStyles.current : "") === id)), style2) {
+            var _a4;
+            return item.id === (((_a4 = cardStyles.selection) == null ? void 0 : _a4[side]) ?? cardStyles.current);
+          }) ? ((_a3 = cardStyles.selection) == null ? void 0 : _a3[side]) ?? cardStyles.current : "") === id)), style2) {
             let previews = doc.createElement("span");
             previews.className = "card-style-preview";
             for (let back of [side === "back"]) {
@@ -3554,8 +3882,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         for (let style2 of (cardStyles == null ? void 0 : cardStyles.list()) || []) (side !== "back" || !style2.atlas || style2.atlas.backImage) && option(style2.id, style2.name, style2);
         if (side === "face") {
           let selected = cardStyles == null ? void 0 : cardStyles.list().find((style2) => {
-            var _a2;
-            return style2.id === ((_a2 = cardStyles.selection) == null ? void 0 : _a2.face);
+            var _a3;
+            return style2.id === ((_a3 = cardStyles.selection) == null ? void 0 : _a3.face);
           });
           if (selected != null && selected.atlas) {
             let source = doc.createElement("p");
@@ -3563,7 +3891,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             let link = doc.createElement("a");
             link.href = selected.atlas.index.url, link.target = "_blank", link.rel = "noopener noreferrer", link.textContent = "\u67E5\u770B\u56FE\u96C6\u6765\u6E90", body.append(link);
             let note = doc.createElement("p");
-            if (note.className = "muted", note.textContent = "\u9996\u6B21\u9009\u62E9\u8054\u7F51\u52A0\u8F7D\u6574\u5957\u8D44\u6E90\u3002\u56FD\u6218\u3001\u9650\u65F6\u53CA\u6D3B\u52A8\u724C\u4EC5\u7CBE\u786E\u5339\u914D\u540C\u540D\u5361\u56FE\uFF1B\u7F3A\u5931\u3001\u7279\u6B8A\u6E32\u67D3\u6216\u4E0B\u8F7D\u5931\u8D25\u5747\u56DE\u9000\u6E38\u620F\u5916\u89C2\u3002", body.append(note), (_b = cardStyles.status) != null && _b.includes("\u52A0\u8F7D\u5931\u8D25")) {
+            if (note.className = "muted", note.textContent = "\u9996\u6B21\u9009\u62E9\u8054\u7F51\u52A0\u8F7D\u6574\u5957\u8D44\u6E90\u3002\u56FD\u6218\u3001\u9650\u65F6\u53CA\u6D3B\u52A8\u724C\u4EC5\u7CBE\u786E\u5339\u914D\u540C\u540D\u5361\u56FE\uFF1B\u7F3A\u5931\u3001\u7279\u6B8A\u6E32\u67D3\u6216\u4E0B\u8F7D\u5931\u8D25\u5747\u56DE\u9000\u6E38\u620F\u5916\u89C2\u3002", body.append(note), (_b2 = cardStyles.status) != null && _b2.includes("\u52A0\u8F7D\u5931\u8D25")) {
               let retry = doc.createElement("button");
               retry.type = "button", retry.textContent = "\u91CD\u65B0\u52A0\u8F7D\u5361\u9762", retry.onclick = () => cardStyles.retry(), body.append(retry);
             }
@@ -3676,8 +4004,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   })();
   function toArray(arrayLike) {
     let arr = [];
-    for (let i = 0, l = arrayLike.length; i < l; i++)
-      arr.push(arrayLike[i]);
+    for (let i2 = 0, l = arrayLike.length; i2 < l; i2++)
+      arr.push(arrayLike[i2]);
     return arr;
   }
   var styleProps = null;
@@ -3848,9 +4176,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return createImage(dataURL);
   }
   async function cloneIFrameElement(iframe, options) {
-    var _a;
+    var _a2;
     try {
-      if (!((_a = iframe == null ? void 0 : iframe.contentDocument) === null || _a === void 0) && _a.body)
+      if (!((_a2 = iframe == null ? void 0 : iframe.contentDocument) === null || _a2 === void 0) && _a2.body)
         return await cloneNode(iframe.contentDocument.body, options, !0);
     } catch {
     }
@@ -3861,11 +4189,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
   var isSlotElement = (node) => node.tagName != null && node.tagName.toUpperCase() === "SLOT", isSVGElement = (node) => node.tagName != null && node.tagName.toUpperCase() === "SVG";
   async function cloneChildren(nativeNode, clonedNode, options) {
-    var _a, _b;
+    var _a2, _b2;
     if (isSVGElement(clonedNode))
       return clonedNode;
     let children2 = [];
-    return isSlotElement(nativeNode) && nativeNode.assignedNodes ? children2 = toArray(nativeNode.assignedNodes()) : isInstanceOfElement(nativeNode, HTMLIFrameElement) && !((_a = nativeNode.contentDocument) === null || _a === void 0) && _a.body ? children2 = toArray(nativeNode.contentDocument.body.childNodes) : children2 = toArray(((_b = nativeNode.shadowRoot) !== null && _b !== void 0 ? _b : nativeNode).childNodes), children2.length === 0 || isInstanceOfElement(nativeNode, HTMLVideoElement) || await children2.reduce((deferred, child) => deferred.then(() => cloneNode(child, options)).then((clonedChild) => {
+    return isSlotElement(nativeNode) && nativeNode.assignedNodes ? children2 = toArray(nativeNode.assignedNodes()) : isInstanceOfElement(nativeNode, HTMLIFrameElement) && !((_a2 = nativeNode.contentDocument) === null || _a2 === void 0) && _a2.body ? children2 = toArray(nativeNode.contentDocument.body.childNodes) : children2 = toArray(((_b2 = nativeNode.shadowRoot) !== null && _b2 !== void 0 ? _b2 : nativeNode).childNodes), children2.length === 0 || isInstanceOfElement(nativeNode, HTMLVideoElement) || await children2.reduce((deferred, child) => deferred.then(() => cloneNode(child, options)).then((clonedChild) => {
       clonedChild && clonedNode.appendChild(clonedChild);
     }), Promise.resolve()), clonedNode;
   }
@@ -3896,8 +4224,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     if (uses.length === 0)
       return clone;
     let processedDefs = {};
-    for (let i = 0; i < uses.length; i++) {
-      let id = uses[i].getAttribute("xlink:href");
+    for (let i2 = 0; i2 < uses.length; i2++) {
+      let id = uses[i2].getAttribute("xlink:href");
       if (id) {
         let exist = clone.querySelector(id), definition = document.querySelector(id);
         !exist && definition && !processedDefs[id] && (processedDefs[id] = await cloneNode(definition, options, !0));
@@ -3909,8 +4237,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       svg.setAttribute("xmlns", ns), svg.style.position = "absolute", svg.style.width = "0", svg.style.height = "0", svg.style.overflow = "hidden", svg.style.display = "none";
       let defs = document.createElementNS(ns, "defs");
       svg.appendChild(defs);
-      for (let i = 0; i < nodes.length; i++)
-        defs.appendChild(nodes[i]);
+      for (let i2 = 0; i2 < nodes.length; i2++)
+        defs.appendChild(nodes[i2]);
       clone.appendChild(svg);
     }
     return clone;
@@ -3961,8 +4289,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return parseURLs(filteredCSSText).reduce((deferred, url) => deferred.then((css) => embed(css, url, baseUrl, options)), Promise.resolve(filteredCSSText));
   }
   async function embedProp(propName, node, options) {
-    var _a;
-    let propValue = (_a = node.style) === null || _a === void 0 ? void 0 : _a.getPropertyValue(propName);
+    var _a2;
+    let propValue = (_a2 = node.style) === null || _a2 === void 0 ? void 0 : _a2.getPropertyValue(propName);
     if (propValue) {
       let cssString = await embedResources(propValue, null, options);
       return node.style.setProperty(propName, cssString, node.style.getPropertyPriority(propName)), !0;
@@ -4069,8 +4397,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           let inline = styleSheets.find((a) => a.href == null) || document.styleSheets[0];
           sheet.href != null && deferreds.push(fetchCSS(sheet.href).then((metadata) => embedFonts(metadata, options)).then((cssText) => parseCSS(cssText).forEach((rule) => {
             inline.insertRule(rule, inline.cssRules.length);
-          })).catch((err) => {
-            console.error("Error loading remote stylesheet", err);
+          })).catch((err2) => {
+            console.error("Error loading remote stylesheet", err2);
           })), console.error("Error inlining remote css file", e);
         }
     }), Promise.all(deferreds).then(() => (styleSheets.forEach((sheet) => {
@@ -4144,8 +4472,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return event.composedPath().some((node) => (node == null ? void 0 : node.isContentEditable) || /^(INPUT|TEXTAREA|SELECT)$/.test(node == null ? void 0 : node.tagName));
   }
   function gameCanvas(win) {
-    var _a, _b;
-    let rendered = (_b = (_a = win.Laya) == null ? void 0 : _a.Render) == null ? void 0 : _b.canvas, source = (rendered == null ? void 0 : rendered.source) ?? rendered, canvas = source != null && source.getBoundingClientRect ? source : win.document.getElementById("layaCanvas");
+    var _a2, _b2;
+    let rendered = (_b2 = (_a2 = win.Laya) == null ? void 0 : _a2.Render) == null ? void 0 : _b2.canvas, source = (rendered == null ? void 0 : rendered.source) ?? rendered, canvas = source != null && source.getBoundingClientRect ? source : win.document.getElementById("layaCanvas");
     if (!canvas || !canvas.width || !canvas.height) throw new Error("\u5C1A\u672A\u627E\u5230\u6E38\u620F\u6709\u6548\u753B\u9762");
     let rect = canvas.getBoundingClientRect();
     if (!(rect.width > 0 && rect.height > 0)) throw new Error("\u6E38\u620F\u753B\u9762\u5C1A\u672A\u663E\u793A");
@@ -4153,8 +4481,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
   function hideNativeOverlays(stage) {
     let saved = [], queue = stage ? [stage] : [], seen = /* @__PURE__ */ new Set();
-    for (let i = 0; i < queue.length; i++) {
-      let node = queue[i];
+    for (let i2 = 0; i2 < queue.length; i2++) {
+      let node = queue[i2];
       !node || node.destroyed || seen.has(node) || (seen.add(node), ["sgs-toolbox-hand-sort", "sgs-toolbox-countdown"].includes(node.name) ? (saved.push([node, node.visible]), node.visible = !1) : Array.isArray(node._children) && queue.push(...node._children));
     }
     return () => {
@@ -4162,8 +4490,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     };
   }
   function captureNative(win, canvas, hide) {
-    var _a, _b, _c;
-    let doc = win.document, stage = (_a = win.Laya) == null ? void 0 : _a.stage, restore = hide ? hideNativeOverlays(stage) : () => {
+    var _a2, _b2, _c;
+    let doc = win.document, stage = (_a2 = win.Laya) == null ? void 0 : _a2.stage, restore = hide ? hideNativeOverlays(stage) : () => {
     }, rendered;
     try {
       let output = doc.createElement("canvas"), width = Math.round((stage == null ? void 0 : stage.width) || canvas.width), height = Math.round((stage == null ? void 0 : stage.height) || canvas.height);
@@ -4175,7 +4503,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         return context.drawImage(canvas, 0, 0, width, height), output;
       }
       rendered = stage.drawToCanvas(width, height, 0, 0);
-      let target = (_b = rendered == null ? void 0 : rendered._ctx) == null ? void 0 : _b._targets;
+      let target = (_b2 = rendered == null ? void 0 : rendered._ctx) == null ? void 0 : _b2._targets;
       if (target != null && target.getData) {
         let pixels = target.getData(0, 0, width, height);
         if (!pixels || pixels.length < width * height * 4) throw new Error("\u6E38\u620F\u753B\u9762\u8BFB\u53D6\u5931\u8D25");
@@ -4198,31 +4526,31 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
   async function captureGameImage(win, game, { hideUI = !0 } = {}) {
     let { canvas, rect } = gameCanvas(win), inGame = game.isInGame(), output = captureNative(win, canvas, hideUI && inGame), ctx = output.getContext("2d"), layerOrder = (host) => {
-      var _a;
+      var _a2;
       return Math.max(
         Number(win.getComputedStyle(host).zIndex) || 0,
-        ...[...((_a = host.shadowRoot) == null ? void 0 : _a.children) || []].filter((child) => !child.classList.contains("toast")).map((child) => Number(win.getComputedStyle(child).zIndex) || 0)
+        ...[...((_a2 = host.shadowRoot) == null ? void 0 : _a2.children) || []].filter((child) => !child.classList.contains("toast")).map((child) => Number(win.getComputedStyle(child).zIndex) || 0)
       );
     }, hosts = [...win.document.querySelectorAll("[data-sgs-toolbox]")].filter((host) => !(hideUI && (host.dataset.sgsToolbox === "core" || inGame))).sort((a, b) => layerOrder(a) - layerOrder(b));
     for (let host of hosts) {
       let css = win.getComputedStyle(host);
       if (css.display === "none" || css.visibility === "hidden") continue;
-      let box = host.getBoundingClientRect(), fullViewport = !box.width || !box.height, width = fullViewport ? win.innerWidth : box.width, height = fullViewport ? win.innerHeight : box.height, x = fullViewport ? 0 : box.left, y = fullViewport ? 0 : box.top;
-      if (x >= rect.right || y >= rect.bottom || x + width <= rect.left || y + height <= rect.top) continue;
+      let box = host.getBoundingClientRect(), fullViewport = !box.width || !box.height, width = fullViewport ? win.innerWidth : box.width, height = fullViewport ? win.innerHeight : box.height, x2 = fullViewport ? 0 : box.left, y = fullViewport ? 0 : box.top;
+      if (x2 >= rect.right || y >= rect.bottom || x2 + width <= rect.left || y + height <= rect.top) continue;
       let layer = await toCanvas(host, {
         width,
         height,
         pixelRatio: 1,
         skipFonts: !0,
         filter: (node) => {
-          var _a;
-          return !["STYLE", "SCRIPT"].includes(node.tagName) && !((_a = node.classList) != null && _a.contains("toast"));
+          var _a2;
+          return !["STYLE", "SCRIPT"].includes(node.tagName) && !((_a2 = node.classList) != null && _a2.contains("toast"));
         },
         style: { position: "relative", left: "0", top: "0", right: "auto", bottom: "auto", margin: "0", transform: "none" }
       });
       ctx.drawImage(
         layer,
-        (x - rect.left) * output.width / rect.width,
+        (x2 - rect.left) * output.width / rect.width,
         (y - rect.top) * output.height / rect.height,
         width * output.width / rect.width,
         height * output.height / rect.height
@@ -4233,14 +4561,16 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function createScreenshotController({ window: win, game, settings, scope, notify }) {
     let busy = !1;
     async function capture() {
-      var _a;
+      var _a2;
       if (!(busy || scope.closed)) {
         busy = !0;
         try {
-          if (!win.ClipboardItem || !((_a = win.navigator.clipboard) != null && _a.write)) throw new Error("\u6D4F\u89C8\u5668\u4E0D\u652F\u6301\u56FE\u7247\u526A\u8D34\u677F\uFF0C\u8BF7\u4F7F\u7528 HTTPS \u9875\u9762\u548C\u65B0\u7248 Chrome / Edge");
+          if (!win.ClipboardItem || !((_a2 = win.navigator.clipboard) != null && _a2.write)) throw new Error("\u6D4F\u89C8\u5668\u4E0D\u652F\u6301\u56FE\u7247\u526A\u8D34\u677F\uFF0C\u8BF7\u4F7F\u7528 HTTPS \u9875\u9762\u548C\u65B0\u7248 Chrome / Edge");
           let image = captureGameImage(win, game, { hideUI: settings.get("screenshotHideUI", !0) });
           image.catch(() => {
-          }), await win.navigator.clipboard.write([new win.ClipboardItem({ "image/png": image })]), scope.closed || notify("\u6E38\u620F\u622A\u56FE\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F");
+          });
+          let png = await image;
+          await win.navigator.clipboard.write([new win.ClipboardItem({ "image/png": png })]), scope.closed || notify("\u6E38\u620F\u622A\u56FE\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F");
         } catch (error) {
           scope.closed || notify((error == null ? void 0 : error.name) === "NotAllowedError" ? "\u65E0\u6CD5\u590D\u5236\u622A\u56FE\uFF1A\u8BF7\u5141\u8BB8\u6B64\u9875\u9762\u8BBF\u95EE\u526A\u8D34\u677F\uFF0C\u518D\u70B9\u51FB\u622A\u56FE\u91CD\u8BD5" : `\u622A\u56FE\u5931\u8D25\uFF1A${(error == null ? void 0 : error.message) || error}`);
         } finally {
@@ -4254,23 +4584,23 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
   var numeric = (a, b) => (a = a.replace(/^0+(?=\d)/, ""), b = b.replace(/^0+(?=\d)/, ""), Math.sign(a.length - b.length) || (a === b ? 0 : a > b ? 1 : -1));
   function parse(version) {
-    var _a;
+    var _a2;
     let match = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(version);
-    return match && { core: match.slice(1, 4), pre: ((_a = match[4]) == null ? void 0 : _a.split(".")) || [] };
+    return match && { core: match.slice(1, 4), pre: ((_a2 = match[4]) == null ? void 0 : _a2.split(".")) || [] };
   }
   function compareVersions2(a, b) {
     let left = parse(a), right = parse(b);
     if (!left || !right) throw new Error("\u63D2\u4EF6\u7248\u672C\u683C\u5F0F\u65E0\u6548\u3002");
-    for (let i = 0; i < 3; i++) {
-      let order = numeric(left.core[i], right.core[i]);
+    for (let i2 = 0; i2 < 3; i2++) {
+      let order = numeric(left.core[i2], right.core[i2]);
       if (order) return order;
     }
     if (!left.pre.length || !right.pre.length) return Math.sign(right.pre.length) - Math.sign(left.pre.length);
-    for (let i = 0; i < Math.max(left.pre.length, right.pre.length); i++) {
-      let x = left.pre[i], y = right.pre[i];
-      if (x === void 0 || y === void 0) return x === void 0 ? -1 : 1;
-      if (x === y) continue;
-      let xn = /^\d+$/.test(x), yn = /^\d+$/.test(y), order = xn && yn ? numeric(x, y) : xn !== yn ? xn ? -1 : 1 : x > y ? 1 : -1;
+    for (let i2 = 0; i2 < Math.max(left.pre.length, right.pre.length); i2++) {
+      let x2 = left.pre[i2], y = right.pre[i2];
+      if (x2 === void 0 || y === void 0) return x2 === void 0 ? -1 : 1;
+      if (x2 === y) continue;
+      let xn = /^\d+$/.test(x2), yn = /^\d+$/.test(y), order = xn && yn ? numeric(x2, y) : xn !== yn ? xn ? -1 : 1 : x2 > y ? 1 : -1;
       if (order) return order;
     }
     return 0;
@@ -4359,7 +4689,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 :host([data-theme-scheme=light][data-collapsed]) .shell{background:linear-gradient(165deg,var(--sgs-surface),var(--sgs-bg) 65%);box-shadow:0 3px 8px #0002,0 8px 20px #0001,inset 0 1px #fff8}
 ${CONTROL_STYLES}
 button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%,var(--sgs-surface)),var(--sgs-surface));border-color:color-mix(in srgb,var(--sgs-border) 60%,transparent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 4%,transparent);transition:background 140ms,border-color 140ms,color 140ms}button:active:not(:disabled){background:var(--sgs-bg)}button:disabled{cursor:not-allowed}.nav button,.footer button{box-shadow:none}.tabs{gap:2px;padding:3px;border-radius:8px;background:var(--sgs-surface);box-shadow:inset 0 1px 3px #0004}.tabs button{border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);padding:6px 2px}.tabs button.active{background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 17%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent);color:var(--sgs-accent)}
-.settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{flex:1;min-width:0}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:90px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
+.settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 0 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
   function createShell({ window: win, document: doc, settings, scope }) {
@@ -4386,8 +4716,8 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     for (let [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
     let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, pluginSearch = "", onlyUninstalled = settings.get("marketOnlyUninstalled", !0) === !0, marketState = {}, marketRequest = 0, installing = /* @__PURE__ */ new Set(), dependencyPrompts = /* @__PURE__ */ new Map();
     function currentMarketState() {
-      var _a;
-      let client = (_a = handlers.market) == null ? void 0 : _a.call(handlers);
+      var _a2;
+      let client = (_a2 = handlers.market) == null ? void 0 : _a2.call(handlers);
       return marketState.client !== client && (marketRequest++, marketState = { client }), marketState;
     }
     let el = (tag, text2, cls) => {
@@ -4407,8 +4737,8 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       }), n;
     };
     function notify(message) {
-      var _a;
-      (_a = shadow.querySelector(".toast")) == null || _a.remove(), clearTimeout(toastTimer);
+      var _a2;
+      (_a2 = shadow.querySelector(".toast")) == null || _a2.remove(), clearTimeout(toastTimer);
       let n = el("div", message, "toast");
       n.setAttribute("role", "status"), shadow.append(n), toastTimer = setTimeout(() => n.remove(), 6e3);
     }
@@ -4417,12 +4747,12 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       n.append(createIcon(doc, icon2)), n.append(el("strong", title), el("div", text2)), content.append(n);
     }
     async function exportDiagnostics() {
-      var _a;
+      var _a2;
       if (typeof handlers.exportDiagnostics != "function") throw new Error("\u8BB0\u724C\u8BCA\u65AD\u5C1A\u672A\u51C6\u5907\u597D");
       let json = await handlers.exportDiagnostics();
       if (scope.closed) return;
       if (typeof json != "string") throw new Error("\u8BCA\u65AD\u6570\u636E\u683C\u5F0F\u65E0\u6548");
-      if (typeof ((_a = win.URL) == null ? void 0 : _a.createObjectURL) != "function") throw new Error("\u5F53\u524D\u6D4F\u89C8\u5668\u6682\u4E0D\u652F\u6301\u8BCA\u65AD\u6587\u4EF6\u4E0B\u8F7D");
+      if (typeof ((_a2 = win.URL) == null ? void 0 : _a2.createObjectURL) != "function") throw new Error("\u5F53\u524D\u6D4F\u89C8\u5668\u6682\u4E0D\u652F\u6301\u8BCA\u65AD\u6587\u4EF6\u4E0B\u8F7D");
       let blob = new win.Blob([json], { type: "application/json;charset=utf-8" }), url = win.URL.createObjectURL(blob), link = doc.createElement("a"), release = scope.add(() => win.URL.revokeObjectURL(url));
       link.href = url, link.download = `\u4E09\u56FD\u6740OL\u5DE5\u5177\u7BB1-\u8BB0\u724C\u8BCA\u65AD-${CORE_VERSION}-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}.json`, link.hidden = !0, doc.documentElement.append(link);
       try {
@@ -4432,7 +4762,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       }
     }
     function showLegacyWarning() {
-      var _a;
+      var _a2;
     }
     function renderAppearance(cleanups) {
       content.classList.add("appearance-page");
@@ -4453,10 +4783,11 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       content.append(cardWorkshop), cleanups.push(mountCardStyleWorkshop(cardWorkshop, { document: doc, cardStyles: handlers.cardStyles, settings }));
     }
     function renderSettings(cleanups) {
-      var _a;
+      var _a2;
       let first = content.children.length;
       if (!mobileDevice()) {
-        content.append(el("h3", "HUD \u9760\u8FB9\u884C\u4E3A"));
+        let edgeHeading = el("h3", "HUD \u9760\u8FB9\u884C\u4E3A");
+        content.append(edgeHeading);
         let choices = el("div", void 0, "sgs-segments");
         choices.setAttribute("role", "group"), choices.setAttribute("aria-label", "HUD \u9760\u8FB9\u884C\u4E3A");
         for (let [value, label] of [["none", "\u65E0\u64CD\u4F5C"], ["hide", "\u6536\u8D77"], ["fixed", "\u56FA\u5B9A"]]) {
@@ -4465,15 +4796,15 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
             let atEdge = host.hasAttribute("data-edge-docked") || host.getBoundingClientRect().right >= win.innerWidth - 12;
             setEdgeDocked(atEdge), render();
           });
-          choice.dataset.edgeBehavior = value, choice.setAttribute("aria-pressed", String(edgeBehavior() === value)), choices.append(choice);
+          choice.dataset.edgeBehavior = value, choice.setAttribute("aria-pressed", String(edgeBehavior() === value)), choices.append(choice), value === "hide" && (choice.disabled = !0, choice.title = "\u5FAE\u7AEF\u6682\u4E0D\u652F\u6301\u9760\u8FB9\u6536\u8D77", choice.style.cursor = "not-allowed");
         }
-        content.append(choices, helpTip(doc, "\u62D6\u5230\u53F3\u8FB9\u7F18\u65F6\uFF1A\u65E0\u64CD\u4F5C\u4FDD\u6301\u60AC\u6D6E\uFF1B\u6536\u8D77\u5728\u9F20\u6807\u79FB\u5F00\u540E\u9690\u85CF\uFF1B\u56FA\u5B9A\u4E3A\u4FA7\u680F\u5E76\u4E3A\u6E38\u620F\u753B\u5E03\u7559\u51FA\u7A7A\u95F4\u3002"));
+        content.append(choices), edgeHeading.append(helpTip(doc, "\u62D6\u5230\u53F3\u8FB9\u7F18\u65F6\uFF1A\u65E0\u64CD\u4F5C\u4FDD\u6301\u60AC\u6D6E\uFF1B\u56FA\u5B9A\u4E3A\u4FA7\u680F\u5E76\u4E3A\u6E38\u620F\u753B\u5E03\u7559\u51FA\u7A7A\u95F4\u3002\u5FAE\u7AEF\u6682\u4E0D\u652F\u6301\u9760\u8FB9\u6536\u8D77\u3002"));
       }
       content.append(el("h3", "\u622A\u56FE"));
       let cleanRow = el("label", void 0, "row");
       cleanRow.append(el("span", "\u622A\u56FE\u65F6\u9690\u85CF\u5DE5\u5177\u7BB1 UI"));
       let clean2 = el("input");
-      clean2.type = "checkbox", styleSwitch(clean2), clean2.checked = settings.get("screenshotHideUI", !0), clean2.dataset.setting = "screenshotHideUI", clean2.onchange = () => settings.set("screenshotHideUI", clean2.checked), cleanRow.append(clean2), content.append(cleanRow), content.append(helpTip(doc, "\u5BF9\u5C40\u5185\u9690\u85CF HUD\u3001\u660E\u724C\u4E0E\u7406\u724C\u7B49\u53E0\u52A0\uFF1B\u5927\u5385\u4EC5\u9690\u85CF HUD\u3002"));
+      clean2.type = "checkbox", styleSwitch(clean2), clean2.checked = settings.get("screenshotHideUI", !0), clean2.dataset.setting = "screenshotHideUI", clean2.onchange = () => settings.set("screenshotHideUI", clean2.checked), cleanRow.append(clean2), content.append(cleanRow), cleanRow.firstChild.append(helpTip(doc, "\u5BF9\u5C40\u5185\u9690\u85CF HUD\u3001\u660E\u724C\u4E0E\u7406\u724C\u7B49\u53E0\u52A0\uFF1B\u5927\u5385\u4EC5\u9690\u85CF HUD\u3002"));
       let shortcutRow = el("label", void 0, "row");
       shortcutRow.append(el("span", "\u622A\u56FE\u5FEB\u6377\u952E"));
       let shortcut = el("input", void 0, "sgs-input");
@@ -4498,9 +4829,11 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       }, "icon-action"), iconButton("\u6062\u590D\u9ED8\u8BA4\u5FEB\u6377\u952E", "rollback", () => {
         settings.set("screenshotShortcut", DEFAULT_SCREENSHOT_SHORTCUT), showShortcut();
       }, "icon-action"), button("\u622A\u56FE\u5E76\u590D\u5236", () => {
-        var _a2;
-        return (_a2 = handlers.screenshot) == null ? void 0 : _a2.call(handlers);
-      })), content.append(shotActions), content.append(helpTip(doc, "\u70B9\u51FB\u5F55\u5165\u5FEB\u6377\u952E\uFF0CEsc \u53D6\u6D88\u3002\u622A\u56FE\u81EA\u52A8\u590D\u5236\u5230\u526A\u8D34\u677F\u3002")), content.append(el("h3", "\u8BB0\u724C\u8BCA\u65AD"), helpTip(doc, "\u5BFC\u51FA\u672C\u5C40\u6700\u8FD1\u7684\u5361\u724C\u8BB0\u5F55\u4E0E\u6D88\u606F\u7C7B\u578B\uFF0C\u7528\u4E8E\u6392\u67E5\u660E\u724C\u9057\u6F0F\u3002\u6587\u4EF6\u4E0D\u542B\u8D26\u53F7\u3001\u6635\u79F0\u6216\u5B8C\u6574\u767B\u5F55\u6570\u636E\uFF0C\u53EA\u4FDD\u5B58\u5230\u672C\u673A\u3002"), button("\u5BFC\u51FA\u8BB0\u724C\u8BCA\u65AD", exportDiagnostics));
+        var _a3;
+        return (_a3 = handlers.screenshot) == null ? void 0 : _a3.call(handlers);
+      })), content.append(shotActions), shortcutRow.firstChild.append(helpTip(doc, "\u70B9\u51FB\u5F55\u5165\u5FEB\u6377\u952E\uFF0CEsc \u53D6\u6D88\u3002\u622A\u56FE\u81EA\u52A8\u590D\u5236\u5230\u526A\u8D34\u677F\u3002"));
+      let diagnosticHeading = el("h3", "\u8BB0\u724C\u8BCA\u65AD");
+      diagnosticHeading.append(helpTip(doc, "\u5BFC\u51FA\u672C\u5C40\u6700\u8FD1\u7684\u5361\u724C\u8BB0\u5F55\u4E0E\u6D88\u606F\u7C7B\u578B\uFF0C\u7528\u4E8E\u6392\u67E5\u660E\u724C\u9057\u6F0F\u3002\u6587\u4EF6\u4E0D\u542B\u8D26\u53F7\u3001\u6635\u79F0\u6216\u5B8C\u6574\u767B\u5F55\u6570\u636E\uFF0C\u53EA\u4FDD\u5B58\u5230\u672C\u673A\u3002")), content.append(diagnosticHeading, button("\u5BFC\u51FA\u8BB0\u724C\u8BCA\u65AD", exportDiagnostics));
       let group;
       for (let node of [...content.children].slice(first))
         node.tagName === "H3" && (group = el("section", void 0, "settings-group"), content.append(group)), group.append(node);
@@ -4510,10 +4843,10 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       }
     }
     function formatCompat(status) {
-      var _a, _b, _c, _d, _e;
+      var _a2, _b2, _c, _d, _e;
       if (!status) return "\u517C\u5BB9\u63A7\u5236\u5668\u7B49\u5F85\u542F\u52A8\u3002";
       if (typeof status == "string") return status;
-      let hidden = status.hiddenCount ?? ((_a = status.hidden) == null ? void 0 : _a.length) ?? ((_b = status.hiddenElements) == null ? void 0 : _b.length) ?? 0, exits = ((_c = status.exitCalls) == null ? void 0 : _c.length) ?? ((_d = status.exitCalled) == null ? void 0 : _d.length) ?? ((_e = status.exits) == null ? void 0 : _e.length) ?? 0;
+      let hidden = status.hiddenCount ?? ((_a2 = status.hidden) == null ? void 0 : _a2.length) ?? ((_b2 = status.hiddenElements) == null ? void 0 : _b2.length) ?? 0, exits = ((_c = status.exitCalls) == null ? void 0 : _c.length) ?? ((_d = status.exitCalled) == null ? void 0 : _d.length) ?? ((_e = status.exits) == null ? void 0 : _e.length) ?? 0;
       return `\u5DF2\u9690\u85CF ${hidden} \u4E2A\u65E7\u754C\u9762\uFF1B\u9000\u51FA\u8C03\u7528 ${exits} \u6B21\u3002`;
     }
     function startPicker() {
@@ -4523,14 +4856,14 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       }, cancel = (e) => {
         e.key === "Escape" && finish();
       }, pick = (e) => {
-        var _a;
+        var _a2;
         if (e.composedPath().includes(host)) return;
         let target = e.target;
         if (!target || ["HTML", "BODY", "CANVAS"].includes(target.tagName) || target.id === "bgDiv") {
           notify("\u8BF7\u70B9\u9009\u65E7\u9762\u677F\u672C\u8EAB\uFF0C\u4E0D\u8981\u9009\u62E9\u6E38\u620F\u753B\u5E03\u3002");
           return;
         }
-        e.preventDefault(), e.stopImmediatePropagation(), finish(), (_a = handlers.compat) == null || _a.hideElement(target), notify("\u6240\u9009\u5143\u7D20\u5DF2\u9690\u85CF\uFF0C\u53EF\u5173\u95ED\u517C\u5BB9\u6A21\u5F0F\u6062\u590D\u3002");
+        e.preventDefault(), e.stopImmediatePropagation(), finish(), (_a2 = handlers.compat) == null || _a2.hideElement(target), notify("\u6240\u9009\u5143\u7D20\u5DF2\u9690\u85CF\uFF0C\u53EF\u5173\u95ED\u517C\u5BB9\u6A21\u5F0F\u6062\u590D\u3002");
       };
       setTimeout(() => {
         doc.addEventListener("click", pick, !0), doc.addEventListener("keydown", cancel, !0);
@@ -4547,30 +4880,30 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       return text2.tabIndex = 0, text2.setAttribute("role", "region"), text2.setAttribute("aria-label", `${item.version} \u66F4\u65B0\u5185\u5BB9`), details.append(el("summary", `\u6700\u8FD1\u66F4\u65B0 \xB7 ${item.version}`), text2), [details];
     }
     function pluginIdentity(card, item, fallbackDescription) {
-      var _a, _b;
+      var _a2, _b2;
       let heading = el("div", void 0, "plugin-heading"), symbol = el("div", void 0, "plugin-symbol");
       symbol.append(svgIcon(item.icon || "package"));
       let name = el("strong", item.name, "plugin-name");
       name.title = item.name, heading.append(symbol, name, el("span", item.version, "plugin-version"));
       let description = el("div", item.description || fallbackDescription || "\u6B64\u63D2\u4EF6\u6682\u672A\u63D0\u4F9B\u7B80\u4ECB", "plugin-description");
-      if (description.title = description.textContent, heading.append(helpTip(doc, description.textContent, `${item.name}\u7B80\u4ECB`)), card.append(heading, description), (_a = item.dependencies) != null && _a.length) {
-        let installed = ((_b = handlers.manager) == null ? void 0 : _b.list()) || [], label = "\u524D\u7F6E\uFF1A" + item.dependencies.map((id) => {
-          var _a2, _b2, _c;
-          return ((_a2 = installed.find((p) => p.id === id)) == null ? void 0 : _a2.name) || ((_c = (_b2 = currentMarketState().catalog) == null ? void 0 : _b2.plugins.find((p) => p.id === id)) == null ? void 0 : _c.name) || id;
+      if (description.title = description.textContent, heading.append(helpTip(doc, description.textContent, `${item.name}\u7B80\u4ECB`)), card.append(heading, description), (_a2 = item.dependencies) != null && _a2.length) {
+        let installed = ((_b2 = handlers.manager) == null ? void 0 : _b2.list()) || [], label = "\u524D\u7F6E\uFF1A" + item.dependencies.map((id) => {
+          var _a3, _b3, _c;
+          return ((_a3 = installed.find((p) => p.id === id)) == null ? void 0 : _a3.name) || ((_c = (_b3 = currentMarketState().catalog) == null ? void 0 : _b3.plugins.find((p) => p.id === id)) == null ? void 0 : _c.name) || id;
         }).join("\u3001"), dependency = el("div", label, "plugin-prerequisites");
         dependency.title = label, card.append(dependency);
       }
     }
     function pluginCards() {
-      var _a, _b;
-      let list2 = [...((_a = handlers.manager) == null ? void 0 : _a.list()) || []].sort(comparePluginOrder), state = currentMarketState(), updates = new Map((state.catalog ? findPluginUpdates(list2, state.catalog.plugins) : []).map((item) => [item.id, item]));
+      var _a2, _b2;
+      let list2 = [...((_a2 = handlers.manager) == null ? void 0 : _a2.list()) || []].sort(comparePluginOrder), state = currentMarketState(), updates = new Map((state.catalog ? findPluginUpdates(list2, state.catalog.plugins) : []).map((item) => [item.id, item]));
       list2.sort((a, b) => {
-        var _a2, _b2;
-        return +(((_a2 = updates.get(b.id)) == null ? void 0 : _a2.status) === "update") - +(((_b2 = updates.get(a.id)) == null ? void 0 : _b2.status) === "update") || comparePluginOrder(a, b);
+        var _a3, _b3;
+        return +(((_a3 = updates.get(b.id)) == null ? void 0 : _a3.status) === "update") - +(((_b3 = updates.get(a.id)) == null ? void 0 : _b3.status) === "update") || comparePluginOrder(a, b);
       }), content.append(el("h3", "\u5DF2\u5B89\u88C5\u63D2\u4EF6")), list2.length || content.append(el("p", "\u6682\u65E0\u5DF2\u5B89\u88C5\u63D2\u4EF6\u3002\u4ECE\u4E0B\u65B9\u5E02\u573A\u5B89\u88C5\uFF0C\u6216\u5BFC\u5165\u63D2\u4EF6\u5305\u6587\u4EF6\u3002", "muted"));
       for (let item of list2) {
         let update = updates.get(item.id), maintenance = { updating: "\u6B63\u5728\u66F4\u65B0", waiting: "\u7B49\u5F85\u524D\u7F6E\u66F4\u65B0", restarting: "\u6B63\u5728\u6062\u590D" }[item.maintenance], failed = !maintenance && (!!item.error || item.enabled && !item.active), card = el("section", void 0, `card plugin-card${(update == null ? void 0 : update.status) === "update" ? " has-update" : ""}${failed ? " has-error" : ""}`);
-        card.dataset.pluginId = item.id, maintenance && card.setAttribute("aria-busy", "true"), pluginIdentity(card, item, (_b = update == null ? void 0 : update.entry) == null ? void 0 : _b.description);
+        card.dataset.pluginId = item.id, maintenance && card.setAttribute("aria-busy", "true"), pluginIdentity(card, item, (_b2 = update == null ? void 0 : update.entry) == null ? void 0 : _b2.description);
         let bottom = el("div", void 0, "plugin-bottom"), status = el("span", maintenance || (failed ? "\u8FD0\u884C\u5F02\u5E38" : item.active ? "\u8FD0\u884C\u4E2D" : "\u5DF2\u505C\u7528"), `plugin-status ${maintenance ? "" : failed ? "is-error" : item.active ? "is-running" : ""}`);
         if (status.title = `${status.textContent} \xB7 ${item.source}`, bottom.append(status), update && update.status !== "update" && !failed) {
           let label = update.status === "current" ? "\u5DF2\u662F\u5E02\u573A\u6700\u65B0\u6B63\u5F0F\u7248" : update.status === "newer" ? `\u5F53\u524D\u7248\u672C\u9AD8\u4E8E\u5E02\u573A\u6B63\u5F0F\u7248 ${update.entry.version}` : "\u5E02\u573A\u6682\u65E0\u6B64\u63D2\u4EF6\u7684\u6B63\u5F0F\u7248", marker = el("span", void 0, "plugin-current");
@@ -4592,12 +4925,12 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       }
     }
     async function installEntry(entry, updateOnly = !1, confirmed = !1) {
-      var _a, _b;
+      var _a2, _b2;
       let client = handlers.market();
       if (installing.has(entry.id)) return;
       let dependencies;
       try {
-        dependencies = planDependencies(entry, handlers.manager.list(), ((_a = currentMarketState().catalog) == null ? void 0 : _a.plugins) || []);
+        dependencies = planDependencies(entry, handlers.manager.list(), ((_a2 = currentMarketState().catalog) == null ? void 0 : _a2.plugins) || []);
       } catch (error) {
         dependencyPrompts.set(entry.id, { entry, error: error.message, updateOnly }), render();
         return;
@@ -4622,7 +4955,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
           if (handlers.market() !== client) throw new Error("\u5E02\u573A\u5730\u5740\u5DF2\u6539\u53D8\uFF0C\u8BF7\u91CD\u65B0\u68C0\u6D4B\u66F4\u65B0\u3002");
           await handlers.manager.install(dependencyPackage);
         }
-        planDependencies(entry, handlers.manager.list(), ((_b = currentMarketState().catalog) == null ? void 0 : _b.plugins) || []);
+        planDependencies(entry, handlers.manager.list(), ((_b2 = currentMarketState().catalog) == null ? void 0 : _b2.plugins) || []);
         let pkg = await client.getPackage(entry);
         if (scope.closed) return;
         if (handlers.market() !== client) throw new Error("\u5E02\u573A\u5730\u5740\u5DF2\u6539\u53D8\uFF0C\u8BF7\u91CD\u65B0\u68C0\u6D4B\u66F4\u65B0\u3002");
@@ -4689,7 +5022,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       } else content.append(el("div", "\u70B9\u51FB\u68C0\u6D4B\uFF0C\u6BD4\u8F83\u5DF2\u5B89\u88C5\u63D2\u4EF6\u4E0E\u5E02\u573A\u6700\u65B0\u7248\u672C\u3002", "notice"));
     }
     function catalogCards(container) {
-      var _a;
+      var _a2;
       let state = currentMarketState();
       if (!state.client) {
         container.append(el("div", "\u79BB\u7EBF\u6A21\u5F0F\uFF1A\u53EF\u5BFC\u5165\u63D2\u4EF6\u5305\u6587\u4EF6\uFF0C\u5DF2\u5B89\u88C5\u63D2\u4EF6\u7167\u5E38\u8FD0\u884C\u3002", "notice"));
@@ -4707,7 +5040,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         container.append(el("div", "\u70B9\u51FB\u8FDE\u63A5\u540E\u8BFB\u53D6\u9759\u6001\u76EE\u5F55\u3002\u76EE\u5F55\u79BB\u7EBF\u4E0D\u4F1A\u505C\u6B62\u5DF2\u5B89\u88C5\u63D2\u4EF6\u3002", "notice"));
         return;
       }
-      let installed = new Map((((_a = handlers.manager) == null ? void 0 : _a.list()) || []).map((item) => [item.id, item])), filter = el("label", void 0, "row"), toggle = styleSwitch(el("input"));
+      let installed = new Map((((_a2 = handlers.manager) == null ? void 0 : _a2.list()) || []).map((item) => [item.id, item])), filter = el("label", void 0, "row"), toggle = styleSwitch(el("input"));
       toggle.type = "checkbox", toggle.checked = onlyUninstalled, toggle.addEventListener("change", () => {
         onlyUninstalled = toggle.checked, settings.set("marketOnlyUninstalled", onlyUninstalled), render();
       }), filter.append(el("span", "\u53EA\u663E\u793A\u672A\u5B89\u88C5"), toggle), container.append(filter);
@@ -4725,12 +5058,12 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       }
     }
     function coreUpdateStatus() {
-      var _a, _b;
-      let version = (_b = (_a = currentMarketState().catalog) == null ? void 0 : _a.core) == null ? void 0 : _b.version;
+      var _a2, _b2;
+      let version = (_b2 = (_a2 = currentMarketState().catalog) == null ? void 0 : _a2.core) == null ? void 0 : _b2.version;
       return typeof version == "string" && /^\d+\.\d+\.\d+$/.test(version) ? { version, order: compareVersions2(version, CORE_VERSION) } : null;
     }
     function renderCoreUpgrade() {
-      var _a;
+      var _a2;
       {
         let card2 = el("section", void 0, "card plugin-card" + (microUpdate != null && microUpdate.newer ? " has-update" : ""));
         card2.dataset.coreUpgrade = "", pluginIdentity(card2, { name: "\u5DE5\u5177\u7BB1\u6838\u5FC3", version: CORE_VERSION, icon: "toolbox", description: "\u76F4\u63A5\u66F4\u65B0\u5DE5\u5177\u7BB1\u811A\u672C\uFF0C\u4FDD\u7559\u63D2\u4EF6\u4E0E\u8BBE\u7F6E\uFF0C\u4E0B\u6B21\u6253\u5F00\u6E38\u620F\u751F\u6548\u3002" });
@@ -4753,7 +5086,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       let status = state.client ? state.loading ? "\u6B63\u5728\u68C0\u6D4B\u6838\u5FC3\u7248\u672C\u2026" : state.error ? "\u6838\u5FC3\u7248\u672C\u68C0\u6D4B\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5" : latest ? latest.order > 0 ? "\u53D1\u73B0\u6838\u5FC3\u66F4\u65B0\uFF1A" + CORE_VERSION + " \u2192 " + latest.version : latest.order < 0 ? "\u5F53\u524D\u6838\u5FC3\u9AD8\u4E8E\u5E02\u573A\u6B63\u5F0F\u7248 " + latest.version : "\u6838\u5FC3\u5DF2\u662F\u5E02\u573A\u6700\u65B0\u6B63\u5F0F\u7248" : "\u5C1A\u672A\u83B7\u53D6\u6838\u5FC3\u6B63\u5F0F\u7248\u4FE1\u606F" : "\u79BB\u7EBF \xB7 \u672A\u68C0\u6D4B\u6838\u5FC3\u7248\u672C";
       card.append(el("div", status, "notice"));
       let link = el("a", (latest == null ? void 0 : latest.order) > 0 ? "\u8DF3\u8F6C\u5347\u7EA7\u81F3 " + latest.version : "\u67E5\u770B\u6838\u5FC3\u5B89\u88C5\u9875");
-      link.href = new URL("../lite/toolbox.user.js", (((_a = state.client) == null ? void 0 : _a.baseUrl) || OSS_MARKET_URL) + "/").href, link.target = "_blank", link.rel = "noopener noreferrer", link.style.cssText = "display:inline-flex;align-items:center;gap:6px;color:var(--sgs-accent);padding:6px 0;";
+      link.href = new URL("../lite/toolbox.user.js", (((_a2 = state.client) == null ? void 0 : _a2.baseUrl) || OSS_MARKET_URL) + "/").href, link.target = "_blank", link.rel = "noopener noreferrer", link.style.cssText = "display:inline-flex;align-items:center;gap:6px;color:var(--sgs-accent);padding:6px 0;";
       let actions = el("div", void 0, "core-upgrade-actions");
       if (link.addEventListener("click", () => {
         pendingCoreUpgrade = (latest == null ? void 0 : latest.order) > 0 ? latest.version : CORE_VERSION, settings.set("pendingCoreUpgrade", pendingCoreUpgrade), render(), notify("\u5DF2\u6253\u5F00\u6838\u5FC3\u5B89\u88C5\u9875\uFF1B\u5B8C\u6210\u5B89\u88C5\u540E\uFF0C\u8BF7\u8FD4\u56DE\u6B64\u9875\u70B9\u51FB\u201C\u5237\u65B0\u751F\u6548\u201D\u3002");
@@ -4768,7 +5101,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       content.append(card);
     }
     function renderMarket() {
-      var _a, _b, _c, _d;
+      var _a2, _b2, _c, _d;
       renderCoreUpgrade(), updateControls(), pluginCards(), content.append(el("h3", "\u63D2\u4EF6\u76EE\u5F55"));
       let catalog = el("div"), actions = el("div", void 0, "actions"), refresh = button("\u8FDE\u63A5 / \u5237\u65B0\u5E02\u573A", fetchCatalog);
       refresh.disabled = !currentMarketState().client || !!currentMarketState().loading, actions.append(refresh, button("\u5BFC\u5165\u63D2\u4EF6\u5305", () => {
@@ -4781,7 +5114,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
             notify(e.message);
           }
         }, file.click();
-      })), (_b = (_a = handlers.manager) == null ? void 0 : _a.builtins) != null && _b.has("cards") && !handlers.manager.list().some((p) => p.id === "cards") && actions.append(button("\u6062\u590D\u5185\u7F6E\u5361\u724C", () => handlers.manager.restoreBuiltin("cards"))), content.append(actions, catalog), catalogCards(catalog);
+      })), (_b2 = (_a2 = handlers.manager) == null ? void 0 : _a2.builtins) != null && _b2.has("cards") && !handlers.manager.list().some((p) => p.id === "cards") && actions.append(button("\u6062\u590D\u5185\u7F6E\u5361\u724C", () => handlers.manager.restoreBuiltin("cards"))), content.append(actions, catalog), catalogCards(catalog);
     }
     function renderManagement(cleanups) {
       let tabs = el("div", void 0, "tabs management-tabs");
@@ -4794,7 +5127,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       content.append(tabs), management === "settings" ? renderSettings(cleanups) : management === "market" ? renderMarket() : management === "appearance" && renderAppearance(cleanups);
     }
     function render() {
-      var _a, _b, _c;
+      var _a2, _b2, _c;
       let previousKey = renderedKey, anchors = renderedKey === "manage:market" ? [...content.querySelectorAll("[data-catalog-key]")].filter((card) => !card.hidden && card.getBoundingClientRect().bottom > content.getBoundingClientRect().top).map((card) => ({ key: card.dataset.catalogKey, top: card.getBoundingClientRect().top })) : [], restoreScroll = () => {
         if (content.scrollTop = viewScroll.get(renderedKey) || 0, previousKey === renderedKey)
           for (let anchor of anchors) {
@@ -4819,8 +5152,8 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
           } catch {
           }
       };
-      let installed = ((_a = handlers.manager) == null ? void 0 : _a.list()) || [], market = currentMarketState(), failures = installed.filter((item) => !item.maintenance && (item.error || item.enabled && !item.active)).length, upgrades = market.catalog ? findPluginUpdates(installed, market.catalog.plugins).filter((item) => item.status === "update").length : 0, manage = shadow.querySelector('[data-category="manage"]');
-      (_b = manage.querySelector(".nav-alert")) == null || _b.remove();
+      let installed = ((_a2 = handlers.manager) == null ? void 0 : _a2.list()) || [], market = currentMarketState(), failures = installed.filter((item) => !item.maintenance && (item.error || item.enabled && !item.active)).length, upgrades = market.catalog ? findPluginUpdates(installed, market.catalog.plugins).filter((item) => item.status === "update").length : 0, manage = shadow.querySelector('[data-category="manage"]');
+      (_b2 = manage.querySelector(".nav-alert")) == null || _b2.remove();
       let coreUpgrade = ((_c = coreUpdateStatus()) == null ? void 0 : _c.order) > 0, alerts = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", failures && `${failures} \u4E2A\u63D2\u4EF6\u5F02\u5E38`, upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`].filter(Boolean).join(" \xB7 ");
       if (manage.title = alerts || "\u7BA1\u7406", alerts) {
         let badge = el("i", String(failures || upgrades + Number(coreUpgrade)), `nav-alert${failures ? " is-error" : ""}`);
@@ -4871,8 +5204,8 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     });
     scope.listen(shadow.querySelector(".nav"), "keydown", (e) => {
       if (!["ArrowLeft", "ArrowRight"].includes(e.key)) return;
-      let buttons = [...shadow.querySelectorAll("[data-category]")], i = buttons.indexOf(shadow.activeElement);
-      buttons[(i + (e.key === "ArrowLeft" ? 4 : 1)) % 5].focus(), e.preventDefault();
+      let buttons = [...shadow.querySelectorAll("[data-category]")], i2 = buttons.indexOf(shadow.activeElement);
+      buttons[(i2 + (e.key === "ArrowLeft" ? 4 : 1)) % 5].focus(), e.preventDefault();
     }), scope.listen(shadow.querySelector("[data-open-market]"), "click", () => {
       active = "manage", management = "market", render();
     });
@@ -4891,20 +5224,22 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     scope.listen(shadow.querySelector("[data-expand]"), "click", expandHUD), scope.listen(shadow.querySelector(".compact"), "dblclick", (event) => {
       event.target.closest("button") || (event.preventDefault(), expandHUD());
     }), scope.listen(shadow.querySelector("[data-screenshot]"), "click", () => {
-      var _a;
-      return (_a = handlers.screenshot) == null ? void 0 : _a.call(handlers);
+      var _a2;
+      return (_a2 = handlers.screenshot) == null ? void 0 : _a2.call(handlers);
     });
     let mobileDevice = () => {
-      var _a, _b;
-      return !!((_a = win.navigator.userAgentData) != null && _a.mobile) || /Android|iPhone|iPad|iPod|Mobile/i.test(win.navigator.userAgent || "") || win.navigator.platform === "MacIntel" && win.navigator.maxTouchPoints > 1 || !!((_b = win.matchMedia) != null && _b.call(win, "(pointer: coarse)").matches);
-    }, edgeBehavior = () => {
+      var _a2, _b2;
+      return !1;
+    };
+    settings.get("hudEdgeBehavior", "fixed") === "hide" && settings.set("hudEdgeBehavior", "fixed");
+    let edgeBehavior = () => {
       let value = settings.get("hudEdgeBehavior", "fixed");
-      return mobileDevice() ? "none" : ["none", "hide", "fixed"].includes(value) ? value : "fixed";
+      return mobileDevice() ? "none" : value === "hide" ? "fixed" : ["none", "hide", "fixed"].includes(value) ? value : "fixed";
     }, gameViewport = createGameViewport({ window: win, document: doc, scope }), syncGameViewport = () => gameViewport.reserve(host.hasAttribute("data-edge-fixed") ? host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280 : 0), edgeHideTimer, draggingHUD = !1, revealEdge = () => {
       clearTimeout(edgeHideTimer), host.removeAttribute("data-edge-hidden");
     }, hasKeyboardFocus = () => {
-      var _a;
-      return host.matches(":focus-visible") || !!((_a = shadow.activeElement) != null && _a.matches(":focus-visible"));
+      var _a2;
+      return host.matches(":focus-visible") || !!((_a2 = shadow.activeElement) != null && _a2.matches(":focus-visible"));
     }, hideEdge = () => {
       clearTimeout(edgeHideTimer), !(!host.hasAttribute("data-edge-docked") || host.hasAttribute("data-edge-fixed") || draggingHUD || hasKeyboardFocus()) && (edgeHideTimer = setTimeout(() => {
         !scope.closed && !draggingHUD && !hasKeyboardFocus() && host.setAttribute("data-edge-hidden", "");
@@ -4913,7 +5248,9 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       let behavior = edgeBehavior(), docked = !!value && behavior !== "none";
       revealEdge(), host.toggleAttribute("data-edge-docked", docked), host.toggleAttribute("data-edge-fixed", docked && behavior === "fixed"), host.toggleAttribute("data-edge-hidden", docked && behavior === "hide" && hidden), docked ? (setCollapsed(!1), host.tabIndex = 0, host.setAttribute("aria-label", behavior === "fixed" ? "\u5DE5\u5177\u7BB1\u56FA\u5B9A\u4FA7\u680F" : "\u5DE5\u5177\u7BB1\u81EA\u52A8\u9690\u85CF\u4FA7\u680F")) : (host.removeAttribute("tabindex"), host.removeAttribute("aria-label")), settings.set("edgeDocked", docked), syncGameViewport();
     }, edgeResizer = doc.createElement("div");
-    edgeResizer.className = "edge-resizer", edgeResizer.tabIndex = 0, edgeResizer.setAttribute("role", "separator"), edgeResizer.setAttribute("aria-orientation", "vertical"), edgeResizer.setAttribute("aria-label", "\u8C03\u6574\u4FA7\u680F\u5BBD\u5EA6"), edgeResizer.title = "\u5411\u5DE6\u62D6\u52A8\u52A0\u5BBD\uFF0C\u5411\u53F3\u62D6\u52A8\u53D8\u7A84\uFF1B\u65B9\u5411\u952E\u8C03\u6574", edgeResizer.setAttribute("aria-valuemin", "248"), edgeResizer.setAttribute("aria-valuemax", "420");
+    edgeResizer.className = "edge-resizer", edgeResizer.tabIndex = 0;
+    let snapHint = doc.createElement("div");
+    snapHint.textContent = "\u677E\u5F00\u5438\u9644", snapHint.hidden = !0, snapHint.setAttribute("aria-hidden", "true"), snapHint.style.cssText = "position:fixed;right:8px;top:45%;padding:8px 12px;border:1px solid var(--sgs-accent);border-radius:7px;background:var(--sgs-bg);color:var(--sgs-accent);box-shadow:0 4px 16px #0005;pointer-events:none;z-index:20;font-size:12px", shadow.append(snapHint), edgeResizer.setAttribute("role", "separator"), edgeResizer.setAttribute("aria-orientation", "vertical"), edgeResizer.setAttribute("aria-label", "\u8C03\u6574\u4FA7\u680F\u5BBD\u5EA6"), edgeResizer.title = "\u5411\u5DE6\u62D6\u52A8\u52A0\u5BBD\uFF0C\u5411\u53F3\u62D6\u52A8\u53D8\u7A84\uFF1B\u65B9\u5411\u952E\u8C03\u6574", edgeResizer.setAttribute("aria-valuemin", "248"), edgeResizer.setAttribute("aria-valuemax", "420");
     let grip = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
     grip.setAttribute("viewBox", "0 0 24 24"), grip.setAttribute("aria-hidden", "true");
     let gripPath = doc.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -4939,9 +5276,9 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     let position = settings.get("position", null);
     if (position && (host.style.left = Math.max(0, Math.min(win.innerWidth - 248, position.x)) + "px", host.style.top = Math.max(0, Math.min(win.innerHeight - 50, position.y)) + "px", host.style.right = "auto"), host.style.width = Math.max(248, Math.min(420, settings.get("width", 280))) + "px", edgeResizer.setAttribute("aria-valuenow", String(parseFloat(host.style.width))), syncGameViewport(), win.ResizeObserver) {
       let saveWidth, observer = new win.ResizeObserver((entries) => {
-        var _a, _b;
+        var _a2, _b2;
         if (host.hasAttribute("data-collapsed")) return;
-        let width = Math.round(((_b = (_a = entries[0].borderBoxSize) == null ? void 0 : _a[0]) == null ? void 0 : _b.inlineSize) || shadow.querySelector(".shell").getBoundingClientRect().width);
+        let width = Math.round(((_b2 = (_a2 = entries[0].borderBoxSize) == null ? void 0 : _a2[0]) == null ? void 0 : _b2.inlineSize) || shadow.querySelector(".shell").getBoundingClientRect().width);
         width < 248 || (host.style.width = width + "px", edgeResizer.setAttribute("aria-valuenow", String(width)), syncGameViewport(), clearTimeout(saveWidth), saveWidth = setTimeout(() => settings.set("width", width), 200));
       });
       observer.observe(shadow.querySelector(".shell")), scope.add(() => {
@@ -4949,16 +5286,35 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       });
     }
     for (let handle of shadow.querySelectorAll(".brand,.compact")) scope.listen(handle, "pointerdown", (e) => {
-      if (e.button !== 0 || e.target.closest("button")) return;
-      let moved = !1, rect = host.getBoundingClientRect();
+      if (e.button !== 0 || e.target.closest("button") || draggingHUD) return;
+      e.preventDefault(), e.stopPropagation();
+      let moved = !1, finished = !1, snapReady = !1, rect = host.getBoundingClientRect();
       !host.hasAttribute("data-edge-docked") && rect.right < win.innerWidth - 12 && settings.set("hudFloatingPosition", { x: rect.left, y: rect.top }), draggingHUD = !0, setEdgeDocked(!1), host.style.left = rect.left + "px", host.style.right = "auto";
-      let dx = e.clientX - rect.left, dy = e.clientY - rect.top, move = (event) => {
+      let dx = e.clientX - rect.left, dy = e.clientY - rect.top, cleanup = () => {
+        var _a2;
+        snapHint.hidden = !0, win.removeEventListener("pointermove", move, !0), win.removeEventListener("pointerup", up, !0), win.removeEventListener("pointercancel", up, !0), win.removeEventListener("blur", up), handle.removeEventListener("lostpointercapture", up), (_a2 = handle.hasPointerCapture) != null && _a2.call(handle, e.pointerId) && handle.releasePointerCapture(e.pointerId);
+      }, up = (event) => {
+        finished || (event == null ? void 0 : event.pointerId) !== void 0 && event.pointerId !== e.pointerId || ((event == null ? void 0 : event.type) === "pointerup" && updatePosition(event), finished = !0, cleanup(), draggingHUD = !1, !scope.closed && (settings.set("position", { x: host.offsetLeft, y: host.offsetTop }), moved && (event == null ? void 0 : event.type) !== "pointercancel" && edgeBehavior() !== "none" && snapReady && (setEdgeDocked(!0), host.matches(":hover") || hideEdge())));
+      }, updatePosition = (event) => {
         moved ||= Math.abs(event.clientX - e.clientX) > 3 || Math.abs(event.clientY - e.clientY) > 3, host.style.left = Math.max(0, Math.min(win.innerWidth - rect.width, event.clientX - dx)) + "px", host.style.top = Math.max(0, Math.min(win.innerHeight - 45, event.clientY - dy)) + "px", host.style.right = "auto";
-      }, up = () => {
-        win.removeEventListener("pointermove", move), win.removeEventListener("pointerup", up), draggingHUD = !1, settings.set("position", { x: host.offsetLeft, y: host.offsetTop }), moved && !mobileDevice() && host.getBoundingClientRect().right >= win.innerWidth - 12 && (setEdgeDocked(!0), host.matches(":hover") || hideEdge());
+        let gap = win.innerWidth - Math.max(event.clientX, event.clientX - dx + rect.width);
+        snapReady = moved && edgeBehavior() !== "none" && gap <= (snapReady ? 72 : 48), snapHint.hidden = !snapReady;
+      }, move = (event) => {
+        if (event.pointerId === e.pointerId) {
+          if (event.buttons === 0) {
+            up(event);
+            return;
+          }
+          event.preventDefault(), updatePosition(event);
+        }
       };
-      win.addEventListener("pointermove", move), win.addEventListener("pointerup", up), scope.add(() => {
-        win.removeEventListener("pointermove", move), win.removeEventListener("pointerup", up);
+      win.addEventListener("pointermove", move, !0), win.addEventListener("pointerup", up, !0), win.addEventListener("pointercancel", up, !0), win.addEventListener("blur", up), handle.addEventListener("lostpointercapture", up);
+      try {
+        handle.setPointerCapture(e.pointerId);
+      } catch {
+      }
+      scope.add(() => {
+        finished = !0, cleanup(), draggingHUD = !1;
       });
     });
     let mount = () => {
@@ -5009,7 +5365,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     return startOwnedRuntime(win, EDITION, (api) => initialize(win, api));
   }
   async function initialize(win, api) {
-    var _a, _b, _c;
+    var _a2, _b2, _c;
     let scope = api.scope;
     installMicroCompatibility(win, scope);
     let onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
@@ -5050,14 +5406,14 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       screenshot: screenshot.capture,
       exportDiagnostics: async () => (await bridge.flush(), diagnostics.serialize({ bridge: bridge.getStatus() }))
     }), shell.setStatusVisible(!1), scope.add(journal.subscribe((event) => {
-      var _a2;
-      event.type === "toolbox:snapshot" && typeof ((_a2 = event.payload) == null ? void 0 : _a2.inGame) == "boolean" ? shell.setStatusVisible(event.payload.inGame) : event.type === "MsgGamePlayCardNtf" ? shell.setStatusVisible(!0) : ["MsgGameOver", "ClientLeavetableRep"].includes(event.type) && shell.setStatusVisible(!1);
+      var _a3;
+      event.type === "toolbox:snapshot" && typeof ((_a3 = event.payload) == null ? void 0 : _a3.inGame) == "boolean" ? shell.setStatusVisible(event.payload.inGame) : event.type === "MsgGamePlayCardNtf" ? shell.setStatusVisible(!0) : ["MsgGameOver", "ClientLeavetableRep"].includes(event.type) && shell.setStatusVisible(!1);
     }));
     let snapshots = attachSessionSnapshots({ journal, game, scope, settled: bridge.flush });
     return scope.interval(() => {
-      var _a2;
+      var _a3;
       shell.setRemainingSlash(game.getRemainingSlash());
-      let ready = !!(game.getScene() || (_a2 = win.Laya) != null && _a2.stage || win.__SGS_TOOLBOX_DEMO__);
+      let ready = !!(game.getScene() || (_a3 = win.Laya) != null && _a3.stage || win.__SGS_TOOLBOX_DEMO__);
       shell.host.style.display = ready ? "" : "none", ready && !mounted && (mounted = !0, snapshots.request());
       let capture = bridge.getStatus();
       shell.setStatus(bridge.error || (ready ? capture.received ? `\u5DF2\u6536 ${capture.received} \u6761\u6D88\u606F \xB7 ${journal.incomplete ? "\u7F3A\u5C11\u5F00\u5C40\u8BB0\u5F55" : "\u672C\u5C40\u8BB0\u5F55\u4E2D"}` : capture.targets.length ? "\u6D88\u606F\u5165\u53E3\u5DF2\u8FDE\u63A5 \xB7 \u7B49\u5F85\u6536\u5305" : "\u672A\u63A5\u5165\u6E38\u620F\u6D88\u606F \xB7 \u4EC5\u539F\u751F\u663E\u793A\u53EF\u7528" : "\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6"));

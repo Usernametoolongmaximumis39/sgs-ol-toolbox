@@ -194,7 +194,7 @@ test('short Chinese clipboard codes are reread after parser upgrade without rese
   f.storage.set('account:A:permanent-attempts', { ['code:' + encodeURIComponent('主播赴战局')]: { status: 'rejected' } });
   f.controller.options({ automatic: true, clipboardCodes: true, serverCodes: false });
   await f.controller.run();
-  assert.deepEqual(f.sent, clipboard.split('\n').filter(code => code !== '主播赴战局'));
+  assert.deepEqual(f.sent, clipboard.split(/\r?\n/).filter(code => code !== '主播赴战局'));
   assert.equal(f.storage.get('account:A:clipboard-parser-version'), 3);
   await f.controller.run();
   assert.equal(f.sent.length, 12);

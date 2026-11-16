@@ -48,6 +48,33 @@ test('config service is lazy, shares one archive, keeps tables independent, and 
   await assert.rejects(service.loadConfigData('../accounts'), /尚未声明/);
   assert.deepEqual(service.getConfigData('gn_zonghe.sgs'), data);
 });
+
+test('old microclient without DecompressionStream reads compressed ZIP and gzip tables with bounds', async t => {
+  const scope = new ResourceScope(); t.after(() => scope.dispose());
+  const goods = { root: { items: [{ ID: 100016, name: '将印' }] } };
+  const achievements = { root: { achievement: [{ ID: 719, name: '百胜' }] } };
+  const characters = { GameCharacters: { character: [{ id: 719, name: '测试武将' }] } };
+  const archive = zip(Object.fromEntries(Object.entries({ sys_gs_dbs_fs_goodsbaseinfo: goods, gn_gs_ahievement: achievements, character: characters }).map(([name, value]) => [`${name}.sgs`, gzipSync(JSON.stringify(value))])), true);
+  let calls = 0;
+  const win = { DecompressionStream: undefined, location: { origin: 'https://web.sanguosha.com' }, resourceVersion: 'legacy',
+    CtrUtil: { Ctr: { Ofb_Dec: value => value } }, fetch: async () => { calls++; return new Response(archive); } };
+  const service = createConfigData(win, scope);
+  assert.deepEqual(await Promise.all(['sys_gs_dbs_fs_goodsbaseinfo', 'gn_gs_ahievement', 'character'].map(name => service.loadConfigData(name))), [goods, achievements, characters]);
+  assert.equal(calls, 1);
+  class GzipOnly {
+    constructor(format) { if (format === 'deflate-raw') throw new TypeError('unsupported format'); return new DecompressionStream(format); }
+  }
+  const partial = createConfigData({ ...win, DecompressionStream: GzipOnly }, scope);
+  assert.deepEqual(await partial.loadConfigData('character'), characters);
+  const bomb = zip({ 'big.sgs': Buffer.alloc(16 * 1024 * 1024 + 1) }, true);
+  // A lying directory must not bypass the streaming output bound.
+  const directory = new DataView(bomb.buffer).getUint32(bomb.length - 6, true);
+  new DataView(bomb.buffer).setUint32(directory + 24, 1, true);
+  await assert.rejects(readZipEntry(bomb, 'big.sgs', win), /超过读取上限/);
+  const broken = zip({ 'character.sgs': 'not gzip' }, true);
+  const retry = createConfigData({ ...win, fetch: async () => new Response(broken) }, scope);
+  await assert.rejects(retry.loadConfigData('character'));
+});
 test('config failures remain retryable, local fixture needs no decoder, disposal stops pending results', async () => {
   const scope = new ResourceScope(); let calls = 0;
   const service = createConfigData({ location: { origin: 'https://web.sanguosha.com' }, resourceVersion: '1',

@@ -106,8 +106,9 @@ try {
   }, { methods, coverage });
   const host = page.locator('[data-sgs-toolbox="core"]');
   await host.locator('[data-category="manage"]').click();
-  await host.getByRole('button', { name: '设置', exact: true }).click();
-  await host.locator('.card-style-workshop summary').click();
+  await host.getByRole('button', { name: '外观', exact: true }).click();
+  await host.locator('.card-style-workshop').waitFor();
+  await host.locator('.card-style-workshop .plugin-toggle').click();
   assert.equal(requests.length, 0, 'installing and opening settings do not download images');
   const option = host.locator('[data-card-side="face"][data-card-style="dafeiyu-cards.beta"]');
   assert.equal(await option.getAttribute('aria-pressed'), 'false');

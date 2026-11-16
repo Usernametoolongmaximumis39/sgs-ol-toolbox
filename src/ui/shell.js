@@ -52,7 +52,7 @@ const style = `
 :host([data-theme-scheme=light][data-collapsed]) .shell{background:linear-gradient(165deg,var(--sgs-surface),var(--sgs-bg) 65%);box-shadow:0 3px 8px #0002,0 8px 20px #0001,inset 0 1px #fff8}
 ${CONTROL_STYLES}
 button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%,var(--sgs-surface)),var(--sgs-surface));border-color:color-mix(in srgb,var(--sgs-border) 60%,transparent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 4%,transparent);transition:background 140ms,border-color 140ms,color 140ms}button:active:not(:disabled){background:var(--sgs-bg)}button:disabled{cursor:not-allowed}.nav button,.footer button{box-shadow:none}.tabs{gap:2px;padding:3px;border-radius:8px;background:var(--sgs-surface);box-shadow:inset 0 1px 3px #0004}.tabs button{border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);padding:6px 2px}.tabs button.active{background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 17%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent);color:var(--sgs-accent)}
-.settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{flex:1;min-width:0}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:90px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
+.settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 0 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
 export function createShell({ window: win, document: doc, settings, scope }) {
@@ -158,7 +158,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   function renderSettings(cleanups) {
     const first = content.children.length;
     if (!mobileDevice()) {
-      content.append(el('h3', 'HUD 靠边行为'));
+      const edgeHeading = el('h3', 'HUD 靠边行为'); content.append(edgeHeading);
       const choices = el('div', undefined, 'sgs-segments'); choices.setAttribute('role', 'group'); choices.setAttribute('aria-label', 'HUD 靠边行为');
       for (const [value, label] of [['none', '无操作'], ['hide', '收起'], ['fixed', '固定']]) {
         const choice = button(label, () => {
@@ -167,14 +167,15 @@ export function createShell({ window: win, document: doc, settings, scope }) {
           setEdgeDocked(atEdge); render();
         });
         choice.dataset.edgeBehavior = value; choice.setAttribute('aria-pressed', String(edgeBehavior() === value)); choices.append(choice);
+        if (MICROCLIENT && value === 'hide') { choice.disabled = true; choice.title = '微端暂不支持靠边收起'; choice.style.cursor = 'not-allowed'; }
       }
-      content.append(choices, helpTip(doc, '拖到右边缘时：无操作保持悬浮；收起在鼠标移开后隐藏；固定为侧栏并为游戏画布留出空间。'));
+      content.append(choices); edgeHeading.append(helpTip(doc, MICROCLIENT ? '拖到右边缘时：无操作保持悬浮；固定为侧栏并为游戏画布留出空间。微端暂不支持靠边收起。' : '拖到右边缘时：无操作保持悬浮；收起在鼠标移开后隐藏；固定为侧栏并为游戏画布留出空间。'));
     }
     content.append(el('h3', '截图'));
     const cleanRow = el('label', undefined, 'row'); cleanRow.append(el('span', '截图时隐藏工具箱 UI'));
     const clean = el('input'); clean.type = 'checkbox'; styleSwitch(clean); clean.checked = settings.get('screenshotHideUI', true); clean.dataset.setting = 'screenshotHideUI';
     clean.onchange = () => settings.set('screenshotHideUI', clean.checked); cleanRow.append(clean); content.append(cleanRow);
-    content.append(helpTip(doc, '对局内隐藏 HUD、明牌与理牌等叠加；大厅仅隐藏 HUD。'));
+    cleanRow.firstChild.append(helpTip(doc, '对局内隐藏 HUD、明牌与理牌等叠加；大厅仅隐藏 HUD。'));
     const shortcutRow = el('label', undefined, 'row'); shortcutRow.append(el('span', '截图快捷键'));
     const shortcut = el('input', undefined, 'sgs-input'); shortcut.readOnly = true; shortcut.style.width = '150px'; shortcut.setAttribute('aria-label', '截图快捷键');
     const showShortcut = () => { shortcut.value = shortcutLabel(settings.get('screenshotShortcut', DEFAULT_SCREENSHOT_SHORTCUT)); };
@@ -189,7 +190,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     shortcutRow.append(shortcut); content.append(shortcutRow);
     const shotActions = el('div', undefined, 'actions');
     shotActions.append(iconButton('清除快捷键', 'trash', () => { settings.set('screenshotShortcut', null); showShortcut(); }, 'icon-action'), iconButton('恢复默认快捷键', 'rollback', () => { settings.set('screenshotShortcut', DEFAULT_SCREENSHOT_SHORTCUT); showShortcut(); }, 'icon-action'), button('截图并复制', () => handlers.screenshot?.())); content.append(shotActions);
-    content.append(helpTip(doc, '点击录入快捷键，Esc 取消。截图自动复制到剪贴板。'));
+    shortcutRow.firstChild.append(helpTip(doc, '点击录入快捷键，Esc 取消。截图自动复制到剪贴板。'));
     if (!MICROCLIENT) {
     content.append(el('h3', '旧脚本兼容'));
     content.append(button('前往篡改猴管理', showLegacyWarning));
@@ -215,7 +216,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     input.disabled = selected === '离线';
     content.append(sources, input, button('保存地址', () => { handlers.setMarketUrl(input.value); render(); notify('市场地址已保存'); }), helpTip(doc, '市场连接可选；仅手动连接或检测更新时联网，离线仍可导入插件包。'));
     }
-    content.append(el('h3', '记牌诊断'), helpTip(doc, '导出本局最近的卡牌记录与消息类型，用于排查明牌遗漏。文件不含账号、昵称或完整登录数据，只保存到本机。'), button('导出记牌诊断', exportDiagnostics));
+    const diagnosticHeading = el('h3', '记牌诊断'); diagnosticHeading.append(helpTip(doc, '导出本局最近的卡牌记录与消息类型，用于排查明牌遗漏。文件不含账号、昵称或完整登录数据，只保存到本机。')); content.append(diagnosticHeading, button('导出记牌诊断', exportDiagnostics));
     let group;
     for (const node of [...content.children].slice(first)) {
       if (node.tagName === 'H3') { group = el('section', undefined, 'settings-group'); content.append(group); }
@@ -586,8 +587,10 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     event.preventDefault(); expandHUD();
   });
   scope.listen(shadow.querySelector('[data-screenshot]'), 'click', () => handlers.screenshot?.());
-  const mobileDevice = () => !!win.navigator.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(win.navigator.userAgent || '') || (win.navigator.platform === 'MacIntel' && win.navigator.maxTouchPoints > 1) || !!win.matchMedia?.('(pointer: coarse)').matches;
-  const edgeBehavior = () => { const value = settings.get('hudEdgeBehavior', 'fixed'); return mobileDevice() ? 'none' : ['none', 'hide', 'fixed'].includes(value) ? value : 'fixed'; };
+  // The Windows microclient remains a desktop even on touch-enabled hardware.
+  const mobileDevice = () => !MICROCLIENT && (!!win.navigator.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(win.navigator.userAgent || '') || (win.navigator.platform === 'MacIntel' && win.navigator.maxTouchPoints > 1) || !!win.matchMedia?.('(pointer: coarse)').matches);
+  if (MICROCLIENT && settings.get('hudEdgeBehavior', 'fixed') === 'hide') settings.set('hudEdgeBehavior', 'fixed');
+  const edgeBehavior = () => { const value = settings.get('hudEdgeBehavior', 'fixed'); return mobileDevice() ? 'none' : MICROCLIENT && value === 'hide' ? 'fixed' : ['none', 'hide', 'fixed'].includes(value) ? value : 'fixed'; };
   const gameViewport = createGameViewport({ window: win, document: doc, scope });
   const syncGameViewport = () => gameViewport.reserve(host.hasAttribute('data-edge-fixed') ? (host.hasAttribute('data-collapsed') ? 156 : parseFloat(host.style.width) || 280) : 0);
   let edgeHideTimer, draggingHUD = false;
@@ -606,6 +609,10 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     settings.set('edgeDocked', docked); syncGameViewport();
   };
   const edgeResizer = doc.createElement('div'); edgeResizer.className = 'edge-resizer'; edgeResizer.tabIndex = 0;
+  const snapHint = doc.createElement('div');
+  snapHint.textContent = '松开吸附'; snapHint.hidden = true; snapHint.setAttribute('aria-hidden', 'true');
+  snapHint.style.cssText = 'position:fixed;right:8px;top:45%;padding:8px 12px;border:1px solid var(--sgs-accent);border-radius:7px;background:var(--sgs-bg);color:var(--sgs-accent);box-shadow:0 4px 16px #0005;pointer-events:none;z-index:20;font-size:12px';
+  shadow.append(snapHint);
   edgeResizer.setAttribute('role', 'separator'); edgeResizer.setAttribute('aria-orientation', 'vertical'); edgeResizer.setAttribute('aria-label', '调整侧栏宽度'); edgeResizer.title = '向左拖动加宽，向右拖动变窄；方向键调整';
   edgeResizer.setAttribute('aria-valuemin', '248'); edgeResizer.setAttribute('aria-valuemax', '420');
   const grip = doc.createElementNS('http://www.w3.org/2000/svg', 'svg'); grip.setAttribute('viewBox', '0 0 24 24'); grip.setAttribute('aria-hidden', 'true');
@@ -642,10 +649,43 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     observer.observe(shadow.querySelector('.shell')); scope.add(() => { observer.disconnect(); clearTimeout(saveWidth); });
   }
   for (const handle of shadow.querySelectorAll('.brand,.compact')) scope.listen(handle, 'pointerdown', e => {
-    if (e.button !== 0 || e.target.closest('button')) return; let moved = false; const rect = host.getBoundingClientRect(); if (!host.hasAttribute('data-edge-docked') && rect.right < win.innerWidth - 12) settings.set('hudFloatingPosition', { x: rect.left, y: rect.top }); draggingHUD = true; setEdgeDocked(false); host.style.left = rect.left + 'px'; host.style.right = 'auto'; const dx = e.clientX - rect.left, dy = e.clientY - rect.top;
-    const move = event => { moved ||= Math.abs(event.clientX - e.clientX) > 3 || Math.abs(event.clientY - e.clientY) > 3; host.style.left = Math.max(0, Math.min(win.innerWidth - rect.width, event.clientX - dx)) + 'px'; host.style.top = Math.max(0, Math.min(win.innerHeight - 45, event.clientY - dy)) + 'px'; host.style.right = 'auto'; };
-    const up = () => { win.removeEventListener('pointermove', move); win.removeEventListener('pointerup', up); draggingHUD = false; settings.set('position', { x: host.offsetLeft, y: host.offsetTop }); if (moved && !mobileDevice() && host.getBoundingClientRect().right >= win.innerWidth - 12) { setEdgeDocked(true); if (!host.matches(':hover')) hideEdge(); } };
-    win.addEventListener('pointermove', move); win.addEventListener('pointerup', up); scope.add(() => { win.removeEventListener('pointermove', move); win.removeEventListener('pointerup', up); });
+    if (e.button !== 0 || e.target.closest('button') || draggingHUD) return;
+    e.preventDefault(); e.stopPropagation();
+    let moved = false, finished = false, snapReady = false;
+    const rect = host.getBoundingClientRect(); if (!host.hasAttribute('data-edge-docked') && rect.right < win.innerWidth - 12) settings.set('hudFloatingPosition', { x: rect.left, y: rect.top }); draggingHUD = true; setEdgeDocked(false); host.style.left = rect.left + 'px'; host.style.right = 'auto'; const dx = e.clientX - rect.left, dy = e.clientY - rect.top;
+    const cleanup = () => {
+      snapHint.hidden = true;
+      win.removeEventListener('pointermove', move, true); win.removeEventListener('pointerup', up, true);
+      win.removeEventListener('pointercancel', up, true); win.removeEventListener('blur', up);
+      handle.removeEventListener('lostpointercapture', up);
+      if (handle.hasPointerCapture?.(e.pointerId)) handle.releasePointerCapture(e.pointerId);
+    };
+    const up = event => {
+      if (finished || event?.pointerId !== undefined && event.pointerId !== e.pointerId) return;
+      if (event?.type === 'pointerup') updatePosition(event);
+      finished = true; cleanup(); draggingHUD = false;
+      if (scope.closed) return;
+      settings.set('position', { x: host.offsetLeft, y: host.offsetTop });
+      if (moved && event?.type !== 'pointercancel' && edgeBehavior() !== 'none' && snapReady) { setEdgeDocked(true); if (!host.matches(':hover')) hideEdge(); }
+    };
+    const updatePosition = event => {
+      moved ||= Math.abs(event.clientX - e.clientX) > 3 || Math.abs(event.clientY - e.clientY) > 3;
+      host.style.left = Math.max(0, Math.min(win.innerWidth - rect.width, event.clientX - dx)) + 'px'; host.style.top = Math.max(0, Math.min(win.innerHeight - 45, event.clientY - dy)) + 'px'; host.style.right = 'auto';
+      // Use the intended drag position as well as the pointer: the native window
+      // can stop delivering movement at its border, before the panel reaches it.
+      const gap = win.innerWidth - Math.max(event.clientX, event.clientX - dx + rect.width);
+      snapReady = moved && edgeBehavior() !== 'none' && gap <= (snapReady ? 72 : 48);
+      snapHint.hidden = !snapReady;
+    };
+    const move = event => {
+      if (event.pointerId !== e.pointerId) return;
+      if (event.buttons === 0) { up(event); return; }
+      event.preventDefault(); updatePosition(event);
+    };
+    win.addEventListener('pointermove', move, true); win.addEventListener('pointerup', up, true); win.addEventListener('pointercancel', up, true); win.addEventListener('blur', up);
+    handle.addEventListener('lostpointercapture', up);
+    try { handle.setPointerCapture(e.pointerId); } catch { /* Synthetic replay events have no active pointer. */ }
+    scope.add(() => { finished = true; cleanup(); draggingHUD = false; });
   });
   const mount = () => { if (!host.isConnected && doc.documentElement) doc.documentElement.append(host); }; mount(); scope.interval(mount, 1000);
   scope.add(() => {
