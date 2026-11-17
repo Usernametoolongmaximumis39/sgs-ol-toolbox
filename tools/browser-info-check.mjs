@@ -144,17 +144,14 @@ try {
     if (id === 'appearances') {
       // A malformed projected packet explicitly exercises the gap/error path.
       await page.evaluate(() => { const d = window.__SGS_TOOLBOX_DEMO__; d.emit('MsgGameDealCharacter', { Type: 1, Datas: [1, 2] }); d.emit('SmsgGameSetCharacter', { Infos: null }); });
-      await page.waitForFunction(() => { const slot = window[Symbol.for('sgs.ol.toolbox.core')].manager.slots.get('appearances'); return slot.restartUsed && !slot.recovering; });
-      assert.equal(await host.locator('[data-category=manage] .nav-alert.is-error').count(), 0, 'first recoverable error is cleared by the core restart');
-      await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.emit('SmsgGameSetCharacter', { Infos: null }));
-      await host.locator('[data-category=manage] .nav-alert.is-error').waitFor({ timeout: 5000 }).catch(async error => {
-        console.error(await page.evaluate(() => ({ plugins: window[Symbol.for('sgs.ol.toolbox.core')].manager.list(), panels: document.querySelector('[data-sgs-toolbox]').shadowRoot.querySelector('.content').innerText, events: Object.keys(window.__SGS_TOOLBOX_DEMO__.scene.proxy._events) })));
-        throw error;
-      });
-      await root.getByText('记录异常 · 查看详情', { exact: true }).click();
-      assert.ok((await root.innerText()).includes('消息记录有缺口'));
-      await root.getByRole('button', { name: '重试保存', exact: true }).click();
-      assert.equal(await host.locator('[data-category=manage] .nav-alert.is-error').count(), 0);
+      await root.getByText('曾有消息未能处理；已保存记录保留。',{exact:true}).waitFor();
+      assert.equal(await host.locator('[data-category=manage] .nav-alert.is-error').count(),0,'capture notices must not trigger plugin error recovery');
+      assert.equal(await root.locator('details.error').isVisible(),false);
+      await root.getByText('曾有消息未能处理；已保存记录保留。',{exact:true}).click();
+      await root.getByText(/消息读取失败 · SmsgGameSetCharacter/).waitFor();
+      await root.getByRole('button',{name:'知道了',exact:true}).click();
+      assert.equal(await root.getByText('曾有消息未能处理；已保存记录保留。',{exact:true}).isVisible(),false);
+      await root.getByText(/^2 条出框 · 2 条战绩已保存/).waitFor();
     }
     if(id==='appearances'){
       await page.evaluate(()=>{const d=window.__SGS_TOOLBOX_DEMO__;
@@ -278,6 +275,40 @@ try {
       assert.equal(await detailHost.count(),0);
       await page.evaluate(() => window[Symbol.for('sgs.ol.toolbox.core')].manager.enable('appearances'));
       checks.push('appearances: built-in detail, JSON import entry, no external popup, sorts, search, 248/280/420px, close, Escape and disable cleanup');
+      await page.evaluate(() => {
+        const d=window.__SGS_TOOLBOX_DEMO__, realNow=Date.now;
+        Date.now=()=>realNow()+20000;
+        const seat=d.scene.SelfSeatUi.seat; seat.SeatID=0; seat.FixedViewId=1; seat.Figure=3;
+        d.mode=148; d.group=3; d.replay=false;
+        window.UserInfoManger={SendClientGameRecordInfoReq(uuid,mode){setTimeout(()=>d.emit('ClientGameRecordInfoRep',{
+          Uuid:uuid,Tab:0,RecordId:mode,RecordItems:mode===35?[null,{GameId:'111',Label:14803},{GameId:'888888888',Label:14803,Figure:3,GameResult:0,
+          GameTime:0,GameOverTime:Math.floor(Date.now()/1000)+28800,UsedGenerals:[5]}]:[]}),20);}};
+        d.emit('ClientSitdownRep',{Result:1,TypeID:148,GroupID:3,SeatID:0});
+        d.emit('MsgGameDealCharacter',{Type:1,Datas:[5]});
+        d.emit('SmsgGameSetCharacter',{Infos:[{SeatID:0,CharacterID:5}]});
+        d.emit('ClientLeavetableRep');
+      });
+      await root.getByText('已补收 1 局战绩',{exact:true}).waitFor();
+      assert.doesNotMatch(await root.innerText(), /记录缺口|未关联本机开局|部分条目未处理|缺少已用武将列表/);
+      await page.evaluate(() => {
+        const d=window.__SGS_TOOLBOX_DEMO__;
+        d.emit('MsgGameDealCharacter',{Type:1,Datas:[5]});
+        setTimeout(()=>d.emit('MsgGameDealCharacter',{Type:3,Datas:Array(257).fill(2)}),30);
+      });
+      await root.getByText(/采集中断：本局未完成部分/).waitFor();
+      assert.equal(await root.locator('details.error').isVisible(),false);
+      for(const offset of [-2,-1,0,2]) for(const width of [248,280,420]) {
+        await host.evaluate((node,{offset,width})=>{node.style.width=width+'px';node.style.setProperty('--sgs-font-offset',offset+'px');}, {offset,width});
+        const bounds=await root.evaluate(n=>({outer:n.getRootNode().host.getBoundingClientRect().width,inner:n.getBoundingClientRect().width,overflow:n.scrollWidth>n.clientWidth+1}));
+        assert.ok(!bounds.overflow && bounds.inner<=bounds.outer);
+        const path=fileURLToPath(new URL(`appearances-backfill-${width}-${offset}.png`,output));
+        await host.screenshot({path,animations:'disabled'}); screenshots.push(path);
+      }
+      await root.getByText(/采集中断：本局未完成部分/).click();
+      await root.getByRole('button',{name:'知道了',exact:true}).click();
+      assert.equal(await root.getByText(/采集中断：本局未完成部分/).isVisible(),false);
+      checks.push('appearances: next-opening official history completes a locally captured early-exit game; status at three widths and four font sizes');
+
     }
     const [major, minor, patch] = baseVersion.split('.').map(Number);
     const upgrade = await makePluginPackage(await bundlePlugin(id), `${major}.${minor}.${patch + 1}-local`);

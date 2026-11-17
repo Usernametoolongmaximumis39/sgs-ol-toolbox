@@ -468,6 +468,30 @@ test('effects: native draw-list task badges hide immediately, direct state reads
   } finally { f.dispose(); }
 });
 
+test('effects: ads suppress both calendar entries and More aggregate, preserving unrelated reminders and unread state', () => {
+  const f = setup(), calendar = new NativeRedButton(), activity = new NativeRedButton(), more = new NativeRedButton();
+  const manager = { unread: true, GetSpecialActivityCalendar() {}, GetLimitActivityCalendar() {}, IsReddot() { return this.unread; } };
+  const menu = { UpdateRedPoint(id, value) { if (id === 10307) value ? calendar.ShowRedPoint() : calendar.RemoveRedPoint(); } };
+  const bar = { moreView: menu, other: false, checkMoreRed() { const value = manager.IsReddot(); menu.UpdateRedPoint(10307, value); return value || this.other; },
+    moreUpdate() { this.checkMoreRed() ? more.ShowRedPoint() : more.RemoveRedPoint(); } };
+  const view = { calendarBtn: activity, activityCalendarRedHandler(value) { value ? activity.ShowRedPoint() : activity.RemoveRedPoint(); },
+    initCalendarRedDot() { this.activityCalendarRedHandler(manager.unread); } };
+  const saved = view.activityCalendarRedHandler.bind(view);
+  try {
+    f.scene._children = [manager, bar, view]; bar.moreUpdate(); view.initCalendarRedDot();
+    f.controller.setEnabled('ads', true);
+    assert.equal(calendar.redPointTex.renderedVisible, false); assert.equal(activity.redPointTex.renderedVisible, false);
+    assert.equal(more.redPointTex.renderedVisible, false); assert.equal(manager.unread, true);
+    saved(true); menu.UpdateRedPoint(10307, true); bar.moreUpdate();
+    assert.equal(activity.redPointTex.renderedVisible, false); assert.equal(calendar.redPointTex.renderedVisible, false);
+    bar.other = true; bar.moreUpdate(); assert.equal(more.redPointTex.renderedVisible, true);
+    f.controller.setEnabled('ads', false);
+    assert.equal(calendar.redPointTex.renderedVisible, true); assert.equal(activity.redPointTex.renderedVisible, true);
+    f.controller.setEnabled('ads', true); manager.unread = false; f.controller.setEnabled('ads', false);
+    assert.equal(calendar.redPointTex.renderedVisible, false); assert.equal(activity.redPointTex.renderedVisible, false);
+  } finally { f.dispose(); }
+});
+
 test('effects: existing singleton task managers attach without invoking their factories or getter singletons', () => {
   const f = setup(), red = nativeRedFixture(); let invoked = 0;
   try {

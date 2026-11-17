@@ -21,10 +21,11 @@ export function styleSwitch(input) { input.classList.add('sgs-switch'); input.se
 // Explicit opt-in: only explanatory copy belongs here; statuses and errors stay visible.
 export function helpTip(doc, text, label = '说明') {
   const wrap = doc.createElement('span'), button = doc.createElement('button'), tip = doc.createElement('span');
-  wrap.style.cssText = 'display:inline-flex;vertical-align:middle;margin:2px 0';
+  wrap.className = 'sgs-help-tip';
+  wrap.style.cssText = 'display:inline-flex;align-items:center;flex:0 0 auto;vertical-align:middle;margin:0;line-height:1';
   button.dataset.helpTip = ''; button.type = 'button'; button.setAttribute('aria-label', label); button.title = text;
-  button.style.cssText = 'display:inline-grid;place-items:center;width:24px;height:24px;min-width:24px;padding:3px;border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);cursor:help;border-radius:50%';
-  button.append(controlIcon(doc, 'info'));
+  button.style.cssText = 'box-sizing:border-box;display:inline-grid;place-items:center;flex:none;width:24px;height:24px;min-width:24px;min-height:24px;margin:0;padding:3px;border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);cursor:help;border-radius:50%';
+  const icon = controlIcon(doc, 'info'); icon.style.margin = '0'; button.append(icon);
   tip.textContent = text; tip.setAttribute('popover', 'manual'); tip.setAttribute('role', 'tooltip');
   tip.style.cssText = 'position:fixed;inset:auto;margin:0;padding:10px 12px;max-width:min(300px,calc(100vw - 24px));width:max-content;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--sgs-font,sans-serif);color:var(--sgs-text);background:var(--sgs-raised);border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 6px 24px #0004';
   const hide = () => { if (tip.matches(':popover-open')) tip.hidePopover(); };

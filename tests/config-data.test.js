@@ -131,3 +131,10 @@ test('landlord shop currency config loads through the core whitelist', async t =
     CtrUtil: { Ctr: { Ofb_Dec: buffer => Array.from(new Uint8Array(buffer)) } }, fetch: async () => new Response(bytes) }, scope);
   assert.deepEqual(await service.loadConfigData('hd_fight_lord_config'), data);
 });
+
+test('native mode general-pool config loads through the core whitelist',async t=>{
+  const scope=new ResourceScope();t.after(()=>scope.dispose());
+  const data={Root:{TongYongJinJiang:[{id:8,gamemodel:'148,3',Extype:'51'}]}};
+  const service=createConfigData({__SGS_TOOLBOX_DEMO__:{configs:{sys_ss_gamelabel_config:data}}},scope);
+  assert.deepEqual(await service.loadConfigData('sys_ss_gamelabel_config'),data);
+});

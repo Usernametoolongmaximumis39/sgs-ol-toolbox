@@ -1,7 +1,209 @@
-// 三国杀OL工具箱 · 微端 LITE · 0.6.62
+// 三国杀OL工具箱 · 微端 LITE · 0.6.75
 (() => {
+  var MESSAGE = "sgs-toolbox-alipay-final-qr-v1";
+  function finalAlipayURL(value) {
+    let url = new URL(value);
+    if (url.origin !== "https://qr.alipay.com" || url.username || url.password || !/^\/[a-z\d]+$/i.test(url.pathname)) throw Error("\u652F\u4ED8\u5B9D\u6700\u7EC8\u4ED8\u6B3E\u7801\u5730\u5740\u5F02\u5E38");
+    return url.href;
+  }
+  function readAlipayCashier(doc) {
+    if (typeof (doc == null ? void 0 : doc.querySelector) != "function") throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u6587\u6863\u4E0D\u53EF\u8BFB\u53D6");
+    let input = doc.querySelector("input#J_qrCode");
+    if (!(input != null && input.value)) throw Error("\u6536\u94F6\u53F0\u5C1A\u672A\u63D0\u4F9B\u6700\u7EC8\u4ED8\u6B3E\u7801");
+    return finalAlipayURL(input.value);
+  }
+  function installAlipayCashierBridge(win) {
+    if (!(win.location.origin === "https://openapi.alipay.com" && win.location.pathname === "/gateway.do") && !(win.location.origin === "https://excashier.alipay.com" && win.location.pathname === "/standard/auth.htm")) return !1;
+    if (win.parent === win) return !0;
+    let observer = null, timer = null, release = () => {
+      observer == null || observer.disconnect(), observer = null, win.clearTimeout(timer);
+    };
+    return win.addEventListener("message", (event) => {
+      var _a2;
+      if (event.source !== win.parent || event.origin !== "https://web.sanguosha.com" || ((_a2 = event.data) == null ? void 0 : _a2.type) !== MESSAGE || typeof event.data.nonce != "string" || event.data.nonce.length > 100) return;
+      release();
+      let send = () => {
+        try {
+          let url = readAlipayCashier(win.document);
+          win.parent.postMessage({ type: MESSAGE, nonce: event.data.nonce, url }, event.origin), release();
+        } catch {
+        }
+      };
+      observer = new win.MutationObserver(send), observer.observe(win.document, { childList: !0, subtree: !0, attributes: !0 }), timer = win.setTimeout(release, 15e3), send();
+    }), win.addEventListener("pagehide", release, { once: !0 }), !0;
+  }
+  function resolveAlipayCashier(win, value, signal, request = null) {
+    let url = new URL(value);
+    return url.hostname === "qr.alipay.com" ? Promise.resolve(finalAlipayURL(value)) : url.origin !== "https://openapi.alipay.com" || url.pathname !== "/gateway.do" || url.username || url.password || url.searchParams.get("method") !== "alipay.trade.page.pay" ? Promise.reject(Error("\u4E0D\u662F\u53EF\u89E3\u6790\u7684\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u5730\u5740")) : request ? new Promise((resolve, reject) => {
+      if (signal.aborted) return reject(Error("\u89E3\u6790\u5DF2\u53D6\u6D88"));
+      let handle = null, done = !1, finish = (error, result) => {
+        done || (done = !0, win.clearTimeout(timer), signal.removeEventListener("abort", cancel), error ? reject(error) : resolve(result));
+      }, cancel = () => {
+        finish(Error("\u89E3\u6790\u5DF2\u53D6\u6D88")), handle == null || handle.abort();
+      }, timer = win.setTimeout(() => {
+        finish(Error("\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801\u89E3\u6790\u8D85\u65F6\uFF0C\u53EF\u91CD\u8BD5\u89E3\u6790\u540C\u4E00\u8BA2\u5355")), handle == null || handle.abort();
+      }, 15e3);
+      signal.addEventListener("abort", cancel, { once: !0 });
+      try {
+        handle = request({
+          method: "GET",
+          url: url.href,
+          anonymous: !0,
+          timeout: 15e3,
+          responseType: "text",
+          onload(response) {
+            if (!done)
+              try {
+                if (response.status !== 200) throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0 HTTP " + response.status);
+                let final = new URL(response.finalUrl || url.href);
+                if (!(final.origin === "https://openapi.alipay.com" && final.pathname === "/gateway.do" || final.origin === "https://excashier.alipay.com" && final.pathname === "/standard/auth.htm")) throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u8DF3\u8F6C\u5730\u5740\u5F02\u5E38");
+                if (typeof response.responseText != "string" || response.responseText.length > 2 * 1024 * 1024) throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u5185\u5BB9\u5F02\u5E38");
+                let template = win.document.createElement("template");
+                template.innerHTML = response.responseText, finish(null, readAlipayCashier(template.content));
+              } catch (error) {
+                finish(error);
+              }
+          },
+          onerror: () => finish(Error("\u65E0\u6CD5\u8BFB\u53D6\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\uFF0C\u53EF\u91CD\u8BD5\u89E3\u6790\u540C\u4E00\u8BA2\u5355")),
+          ontimeout: () => finish(Error("\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801\u89E3\u6790\u8D85\u65F6\uFF0C\u53EF\u91CD\u8BD5\u89E3\u6790\u540C\u4E00\u8BA2\u5355")),
+          onabort: () => finish(Error("\u89E3\u6790\u5DF2\u53D6\u6D88"))
+        }), done && signal.aborted && (handle == null || handle.abort());
+      } catch (error) {
+        finish(error);
+      }
+    }) : new Promise((resolve, reject) => {
+      var _a2, _b2;
+      if (signal.aborted) return reject(Error("\u89E3\u6790\u5DF2\u53D6\u6D88"));
+      let frame = win.document.createElement("iframe"), nonce = ((_b2 = (_a2 = win.crypto).randomUUID) == null ? void 0 : _b2.call(_a2)) || String(Date.now()) + ":" + Math.random();
+      frame.title = "\u89E3\u6790\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801", frame.style.cssText = "position:fixed;width:1px;height:1px;left:-10000px;top:0;border:0;visibility:hidden", frame.referrerPolicy = "no-referrer", frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
+      let settled = !1, finish = (error, result) => {
+        settled || (settled = !0, win.clearTimeout(timer), win.removeEventListener("message", receive), signal.removeEventListener("abort", cancel), frame.remove(), error ? reject(error) : resolve(result));
+      }, cancel = () => finish(Error("\u89E3\u6790\u5DF2\u53D6\u6D88")), receive = (event) => {
+        var _a3;
+        if (!(event.source !== frame.contentWindow || !["https://openapi.alipay.com", "https://excashier.alipay.com"].includes(event.origin) || ((_a3 = event.data) == null ? void 0 : _a3.type) !== MESSAGE || event.data.nonce !== nonce))
+          try {
+            finish(null, finalAlipayURL(event.data.url));
+          } catch (error) {
+            finish(error);
+          }
+      }, timer = win.setTimeout(() => finish(Error("\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801\u89E3\u6790\u8D85\u65F6\uFF0C\u8BF7\u66F4\u65B0\u6838\u5FC3\u540E\u91CD\u8BD5\u89E3\u6790")), 15e3);
+      win.addEventListener("message", receive), signal.addEventListener("abort", cancel, { once: !0 }), frame.onload = () => {
+        var _a3, _b3;
+        try {
+          let result = readAlipayCashier(frame.contentDocument);
+          finish(null, result);
+          return;
+        } catch {
+        }
+        (_a3 = frame.contentWindow) == null || _a3.postMessage({ type: MESSAGE, nonce }, url.origin), (_b3 = frame.contentWindow) == null || _b3.postMessage({ type: MESSAGE, nonce }, "https://excashier.alipay.com");
+      }, frame.src = url.href, win.document.body.append(frame);
+    });
+  }
   function installRefreshReentry() {
     return !1;
+  }
+  var read = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return;
+    }
+  };
+  function installTouchPreview(win, scope) {
+    let nav = win.navigator;
+    if (!(/Android|iPhone|iPad|iPod/i.test((nav == null ? void 0 : nav.userAgent) || "") || /Mac/i.test((nav == null ? void 0 : nav.platform) || "") && (nav == null ? void 0 : nav.maxTouchPoints) > 1)) return;
+    let stage, unbind = () => {
+    }, down, pending, active, hold, expanded, patched = /* @__PURE__ */ new WeakSet(), close = () => {
+      active && read(() => active.hide.call(active.node)), active = null, expanded && read(() => expanded.outHandler({ stopPropagation() {
+      } })), expanded = null;
+    }, cancel = () => {
+      down = null, clearTimeout(hold), clearTimeout(pending), close();
+    }, point = (e) => {
+      var _a2, _b2;
+      let native = ((_b2 = (_a2 = e.nativeEvent) == null ? void 0 : _a2.changedTouches) == null ? void 0 : _b2[0]) || e.nativeEvent;
+      return { x: (native == null ? void 0 : native.clientX) ?? e.stageX, y: (native == null ? void 0 : native.clientY) ?? e.stageY };
+    }, parentOf = (node) => node.parentContainer || node.parent || node.render, friendRow = (target) => {
+      var _a2;
+      for (let node = target, i2 = 0; node && i2 < 24; node = parentOf(node), i2++)
+        if ((_a2 = node.data) != null && _a2.FriendNickname && typeof node.itemCliCk == "function" && typeof node.overHandler == "function" && typeof node.SetOutState == "function") return node;
+    }, guardFriend = (row) => {
+      for (let node of [row, row.bg, row.overBg])
+        !(node != null && node.event) || patched.has(node) || (patched.add(node), scope.patch(node, "event", (original) => function(type, e, ...args) {
+          if (!(type === "click" && (isTouch(e || {}) || (down == null ? void 0 : down.row) === row)) && !(type === "mouseout" && expanded === row))
+            return original.call(this, type, e, ...args);
+        }));
+    }, tooltip = (target, e) => {
+      let texture = read(() => target.getTextureByPosition(e.stageX, e.stageY));
+      for (let node = texture || target, i2 = 0; node && i2 < 24; node = parentOf(node), i2++) {
+        if (node.destroyed || node.visible === !1 || node.renderVisible === !1) return null;
+        if (read(() => node.ToolTip)) {
+          for (let [show, hide] of [["onRollOver", "tipsRollOut"], ["rollOverHandler", "rollOutHandler"]])
+            if (typeof node[show] == "function" && typeof node[hide] == "function") return { node, show: node[show], hide: node[hide] };
+        }
+      }
+      return null;
+    }, isTouch = (e) => {
+      var _a2, _b2;
+      let native = e.nativeEvent;
+      return native != null && native.pointerType ? native.pointerType === "touch" : !!((_a2 = native == null ? void 0 : native.changedTouches) != null && _a2.length || (_b2 = native == null ? void 0 : native.touches) != null && _b2.length);
+    }, bind = () => {
+      var _a2;
+      let next = (_a2 = win.Laya) == null ? void 0 : _a2.stage;
+      if (next === stage || (unbind(), cancel(), stage = next, !(stage != null && stage.on) || !(stage != null && stage.off))) return;
+      let owner = {}, bound = stage, events = [], listen = (type, fn) => {
+        bound.on(type, owner, fn), events.push([type, fn]);
+      };
+      listen("mousedown", (e) => {
+        var _a3, _b2;
+        let hitRow = friendRow(e.target), action = hitRow && ![hitRow, hitRow.bg, hitRow.overBg].includes(e.target);
+        if (isTouch(e) && action && expanded === hitRow) {
+          down = null, clearTimeout(hold), clearTimeout(pending);
+          return;
+        }
+        if (cancel(), isTouch(e) && !(((_b2 = (_a3 = e.nativeEvent) == null ? void 0 : _a3.touches) == null ? void 0 : _b2.length) > 1)) {
+          let row = friendRow(e.target), surface = row && [row, row.bg, row.overBg].includes(e.target);
+          if (down = { ...point(e), target: tooltip(e.target, e), row: surface ? row : null, moved: !1 }, surface) {
+            guardFriend(row);
+            let start = down;
+            hold = setTimeout(() => {
+              down !== start || start.moved || row.destroyed || !parentOf(row) || row.data !== start.data || (start.held = !0, close(), read(() => row.itemCliCk(e)));
+            }, 500), start.data = row.data;
+          }
+        }
+      }), listen("mousemove", (e) => {
+        if (down) {
+          let p = point(e);
+          Math.hypot(p.x - down.x, p.y - down.y) > 12 && (down.moved = !0, clearTimeout(hold));
+        }
+      }), listen("mouseup", (e) => {
+        let start = down;
+        if (down = null, clearTimeout(hold), start != null && start.held || !start || start.moved || !start.target) return;
+        let end = point(e), target = tooltip(e.target, e);
+        if (Math.hypot(end.x - start.x, end.y - start.y) > 12 || (target == null ? void 0 : target.node) !== start.target.node) return;
+        let event = { stageX: e.stageX ?? bound.mouseX, stageY: e.stageY ?? bound.mouseY };
+        pending = setTimeout(() => {
+          if (scope.closed || target.node.destroyed || target.node.visible === !1 || !parentOf(target.node)) return;
+          let parent = target.node;
+          for (let i2 = 0; parent && parent !== bound && i2 < 64; i2++, parent = parentOf(parent))
+            if (parent.destroyed || parent.visible === !1 || parent.renderVisible === !1) return;
+          if (parent === bound) {
+            if (start.row) {
+              if (start.row.data !== start.data) return;
+              expanded = start.row, read(() => expanded.overHandler({ stopPropagation() {
+              } }));
+            }
+            active = target, read(() => target.show.call(target.node, event));
+          }
+        }, 0);
+      }), unbind = () => {
+        for (let [type, fn] of events) bound.off(type, owner, fn);
+      };
+    };
+    scope.listen(win.document, "touchcancel", cancel, !0), scope.listen(win.document, "pointerdown", (e) => {
+      e.pointerType !== "touch" && cancel();
+    }, !0), scope.listen(win, "blur", cancel), scope.interval(bind, 400), bind(), scope.add(() => {
+      unbind(), cancel();
+    });
   }
   var EDITION = "lite", GITHUB_MARKET_URL = "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/plugins", OSS_MARKET_URL = "https://tools.3gs.xyz/sgs-toolbox/market", HANGZHOU_MARKET_URL = "https://chk-sgstools-hangzhou.oss-cn-hangzhou.aliyuncs.com/sgs-toolbox/market";
   function installMicroAPIs(win) {
@@ -1145,7 +1347,7 @@
         this.restore(), this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
       }
     }
-  }, CORE_VERSION = "0.6.62", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
+  }, CORE_VERSION = "0.6.75", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
     "43a4cbff657c319e8b7b1bf2ec7689e0a557fc9bb17a9090d24a2163d1857dda",
@@ -1712,7 +1914,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
   function helpTip(doc, text2, label = "\u8BF4\u660E") {
     let wrap = doc.createElement("span"), button = doc.createElement("button"), tip = doc.createElement("span");
-    wrap.style.cssText = "display:inline-flex;vertical-align:middle;margin:2px 0", button.dataset.helpTip = "", button.type = "button", button.setAttribute("aria-label", label), button.title = text2, button.style.cssText = "display:inline-grid;place-items:center;width:24px;height:24px;min-width:24px;padding:3px;border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);cursor:help;border-radius:50%", button.append(controlIcon(doc, "info")), tip.textContent = text2, tip.setAttribute("popover", "manual"), tip.setAttribute("role", "tooltip"), tip.style.cssText = "position:fixed;inset:auto;margin:0;padding:10px 12px;max-width:min(300px,calc(100vw - 24px));width:max-content;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--sgs-font,sans-serif);color:var(--sgs-text);background:var(--sgs-raised);border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 6px 24px #0004";
+    wrap.className = "sgs-help-tip", wrap.style.cssText = "display:inline-flex;align-items:center;flex:0 0 auto;vertical-align:middle;margin:0;line-height:1", button.dataset.helpTip = "", button.type = "button", button.setAttribute("aria-label", label), button.title = text2, button.style.cssText = "box-sizing:border-box;display:inline-grid;place-items:center;flex:none;width:24px;height:24px;min-width:24px;min-height:24px;margin:0;padding:3px;border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);cursor:help;border-radius:50%";
+    let icon2 = controlIcon(doc, "info");
+    icon2.style.margin = "0", button.append(icon2), tip.textContent = text2, tip.setAttribute("popover", "manual"), tip.setAttribute("role", "tooltip"), tip.style.cssText = "position:fixed;inset:auto;margin:0;padding:10px 12px;max-width:min(300px,calc(100vw - 24px));width:max-content;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--sgs-font,sans-serif);color:var(--sgs-text);background:var(--sgs-raised);border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 6px 24px #0004";
     let hide = () => {
       tip.matches(":popover-open") && tip.hidePopover();
     }, show = () => {
@@ -2880,8 +3084,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE. */
   var ALLOWED = /* @__PURE__ */ new Set(["gn_zonghe", "cha_gs_dbs_fs_skininfo", "ff_jubaopen", "ff_dbs_pay_gift", "sys_gs_dbs_fs_goodsbaseinfo", "cha_dbs_general_series", "ff_task_daily", "mod_new_ttrank_config", "ff_general_chest_info_config", "gn_dbs_giftbag", "hd_roguelike", "cha_spell", "sys_playcard", "character", "gn_gs_ahievement", "ff_qifu_new", "ff_tiangong", "h5_officer"]);
-  ALLOWED.add("sys_h5_shop"), ALLOWED.add("gn_dbs_coupon_cfg"), ALLOWED.add("hd_fight_lord_config");
-  var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read = (fn) => {
+  ALLOWED.add("sys_h5_shop"), ALLOWED.add("gn_dbs_coupon_cfg"), ALLOWED.add("hd_fight_lord_config"), ALLOWED.add("sys_ss_gamelabel_config");
+  var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read2 = (fn) => {
     try {
       return fn();
     } catch {
@@ -2965,26 +3169,26 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function getConfigData(name) {
       name = validate(name);
       for (let container of [
-        read(() => win.CtrUtil.AllDatas),
-        read(() => win.SystemContext.AllDatas),
-        read(() => win.__SGS_TOOLBOX_DEMO__.configs)
+        read2(() => win.CtrUtil.AllDatas),
+        read2(() => win.SystemContext.AllDatas),
+        read2(() => win.__SGS_TOOLBOX_DEMO__.configs)
       ]) {
-        let data = read(() => container[`${name}.sgs`]) || read(() => container[name]);
+        let data = read2(() => container[`${name}.sgs`]) || read2(() => container[name]);
         if (data && typeof data == "object") return data;
       }
       return cache2.get(name) || null;
     }
     function archiveUrl() {
-      let origin = read(() => win.location.origin);
+      let origin = read2(() => win.location.origin);
       if (origin !== "https://web.sanguosha.com" && origin !== "http://web.sanguosha.com") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u6570\u636E\u5C31\u7EEA");
-      let entries = read(() => win.performance.getEntriesByType("resource")) || [];
+      let entries = read2(() => win.performance.getEntriesByType("resource")) || [];
       for (let entry of entries.slice(-2048).reverse())
         try {
           let url = new URL(entry.name);
           if (url.protocol === "https:" && url.hostname === "web.sanguosha.com" && /\/Config_w\.sgs$/.test(url.pathname) && !url.username && !url.password) return url.href;
         } catch {
         }
-      let version = read(() => win.resourceVersion);
+      let version = read2(() => win.resourceVersion);
       if (!["string", "number"].includes(typeof version) || !String(version).trim()) throw new Error("\u7B49\u5F85\u5BA2\u6237\u7AEF\u8D44\u6E90\u7248\u672C\u5C31\u7EEA\uFF0C\u8BF7\u7A0D\u540E\u5237\u65B0");
       return `https://web.sanguosha.com/220/h5_2/res/config/Config_w.sgs?v=${encodeURIComponent(String(version))}`;
     }
@@ -3007,8 +3211,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     async function loadConfigData(name) {
       if (name = validate(name), scope.closed) throw cancelled();
       return getConfigData(name) || (pending.has(name) || pending.set(name, (async () => {
-        let ctrClass = read(() => win.CtrUtil) || read(() => typeof CtrUtil < "u" ? CtrUtil : null), decryptor = read(() => ctrClass.Ctr);
-        if (typeof read(() => decryptor.Ofb_Dec) != "function") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u89E3\u7801\u5668\u5C31\u7EEA");
+        let ctrClass = read2(() => win.CtrUtil) || read2(() => typeof CtrUtil < "u" ? CtrUtil : null), decryptor = read2(() => ctrClass.Ctr);
+        if (typeof read2(() => decryptor.Ofb_Dec) != "function") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u89E3\u7801\u5668\u5C31\u7EEA");
         let packed = await archive();
         if (scope.closed) throw cancelled();
         let encrypted = await readZipEntry(packed, `${name}.sgs`, win);
@@ -3026,7 +3230,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       cache2.clear(), pending.clear(), archivePromise = null;
     }), { getConfigData, loadConfigData };
   }
-  var read2 = (fn) => {
+  var read3 = (fn) => {
     try {
       return fn();
     } catch {
@@ -3035,39 +3239,39 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   };
   function nativeSeatOccupied(ui) {
     let seat = nativeSeat(ui);
-    return read2(() => seat.IsFull) !== !1;
+    return read3(() => seat.IsFull) !== !1;
   }
   function nativeSeatPosition(ui) {
-    let seat = nativeSeat(ui), value = read2(() => seat.FixedViewId) ?? read2(() => seat.fixedViewId);
+    let seat = nativeSeat(ui), value = read3(() => seat.FixedViewId) ?? read3(() => seat.fixedViewId);
     return Number.isInteger(value) && value >= 1 && value <= 255 ? value : void 0;
   }
   function nativeSeat(ui) {
-    return read2(() => ui.Seat) ?? read2(() => ui.seat) ?? read2(() => ui.cardContainer.Seat) ?? read2(() => ui.cardContainer.seat) ?? null;
+    return read3(() => ui.Seat) ?? read3(() => ui.seat) ?? read3(() => ui.cardContainer.Seat) ?? read3(() => ui.cardContainer.seat) ?? null;
   }
   function nativeSeatId(ui) {
     let seat = nativeSeat(ui);
     for (let value of [
-      read2(() => seat.index),
-      read2(() => seat.Index),
-      read2(() => seat.SeatID),
-      read2(() => seat.ID),
-      read2(() => ui.seatID),
-      read2(() => ui.seatId)
+      read3(() => seat.index),
+      read3(() => seat.Index),
+      read3(() => seat.SeatID),
+      read3(() => seat.ID),
+      read3(() => ui.seatID),
+      read3(() => ui.seatId)
     ]) {
       if (value == null || value === "" || typeof value == "boolean") continue;
       let id = Number(value);
       if (Number.isInteger(id) && id >= 0 && id < 255) return id;
     }
   }
-  var GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/, read3 = (fn) => {
+  var GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/, read4 = (fn) => {
     try {
       return fn();
     } catch {
       return;
     }
-  }, object = (value) => value && (typeof value == "object" || typeof value == "function") ? value : null, alive = (value) => !!(object(value) && read3(() => value.destroyed) !== !0), children = (node) => Array.isArray(read3(() => node._children)) ? node._children : [];
+  }, object = (value) => value && (typeof value == "object" || typeof value == "function") ? value : null, alive = (value) => !!(object(value) && read4(() => value.destroyed) !== !0), children = (node) => Array.isArray(read4(() => node._children)) ? node._children : [];
   function list(value) {
-    return Array.isArray(value) ? value : object(value) ? typeof value.values == "function" ? read3(() => [...value.values()]) || [] : read3(() => Object.values(value)) || [] : [];
+    return Array.isArray(value) ? value : object(value) ? typeof value.values == "function" ? read4(() => [...value.values()]) || [] : read4(() => Object.values(value)) || [] : [];
   }
   function number(...values) {
     for (let value of values) {
@@ -3077,7 +3281,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
   }
   function cardId(card) {
-    return typeof card == "number" || typeof card == "string" ? number(card) : number(read3(() => card.CardId), read3(() => card.CardID), read3(() => card.ID), read3(() => card.Id), read3(() => card.id), read3(() => card.cardId), read3(() => card.cardID));
+    return typeof card == "number" || typeof card == "string" ? number(card) : number(read4(() => card.CardId), read4(() => card.CardID), read4(() => card.ID), read4(() => card.Id), read4(() => card.id), read4(() => card.cardId), read4(() => card.cardID));
   }
   function cardIds(cards) {
     return [...new Set(list(cards).map(cardId).filter((id) => Number.isInteger(id) && id > 0))];
@@ -3085,32 +3289,32 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function publicHandIds(seat, ui) {
     let shown = [], cached = [], hidden = /* @__PURE__ */ new Set();
     for (let owner of [seat, ui]) for (let key of ["HandShowCards", "handShowCards", "HandShowCardIDs", "handShowCardIDs"]) {
-      let values = read3(() => owner[key]);
+      let values = read4(() => owner[key]);
       if (!Array.isArray(values)) continue;
-      let length = read3(() => values.length);
+      let length = read4(() => values.length);
       if (!Number.isInteger(length) || length < 0) continue;
       let target = key.endsWith("IDs") ? cached : shown;
       for (let i2 = 0; i2 < length && i2 < 2048; i2++) {
-        let value = read3(() => values[i2]), card = object(read3(() => value.Card)) || object(read3(() => value.card)) || object(read3(() => value.cardInfo)) || value, id = cardId(card);
-        !Number.isInteger(id) || id <= 0 || (read3(() => value.IsHide) === !0 || read3(() => value.isHide) === !0 || read3(() => card.IsHide) === !0 || read3(() => card.isHide) === !0 ? hidden.add(id) : target.push(id));
+        let value = read4(() => values[i2]), card = object(read4(() => value.Card)) || object(read4(() => value.card)) || object(read4(() => value.cardInfo)) || value, id = cardId(card);
+        !Number.isInteger(id) || id <= 0 || (read4(() => value.IsHide) === !0 || read4(() => value.isHide) === !0 || read4(() => card.IsHide) === !0 || read4(() => card.isHide) === !0 ? hidden.add(id) : target.push(id));
       }
     }
     return [...new Set((shown.length ? shown : cached).filter((id) => !hidden.has(id)))];
   }
   function sceneName(scene) {
-    return String(read3(() => scene.SceneName) || read3(() => scene.sceneName) || read3(() => scene.name) || (read3(() => scene.constructor.name) !== "Object" ? read3(() => scene.constructor.name) : "") || "");
+    return String(read4(() => scene.SceneName) || read4(() => scene.sceneName) || read4(() => scene.name) || (read4(() => scene.constructor.name) !== "Object" ? read4(() => scene.constructor.name) : "") || "");
   }
   function isGameScene(scene) {
-    return alive(scene) && !!(read3(() => scene.SelfSeatUi) || read3(() => scene.selfSeatUI) || read3(() => scene.seatContainer.seatUIs) || sceneName(scene) === "GameScene");
+    return alive(scene) && !!(read4(() => scene.SelfSeatUi) || read4(() => scene.selfSeatUI) || read4(() => scene.seatContainer.seatUIs) || sceneName(scene) === "GameScene");
   }
   function createGameAdapter(win, scope) {
     let configs = scope ? createConfigData(win, scope) : null, selfClass = null, selfSearchAt = -1 / 0, current = null, stage = null, dispatcher = null, dispatcherOwner = null, providers = /* @__PURE__ */ new Set(), definitionTables = /* @__PURE__ */ new WeakMap(), listeners = /* @__PURE__ */ new Set();
-    function walk(predicate, root = read3(() => win.Laya.stage)) {
+    function walk(predicate, root = read4(() => win.Laya.stage)) {
       let queue = root ? [root] : [], seen = /* @__PURE__ */ new Set();
       for (let i2 = 0; i2 < queue.length && i2 < 4e3; i2++) {
         let item = queue[i2];
         if (!(!alive(item) || seen.has(item))) {
-          if (seen.add(item), read3(() => predicate(item))) return item;
+          if (seen.add(item), read4(() => predicate(item))) return item;
           queue.push(...children(item));
         }
       }
@@ -3118,15 +3322,15 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     function getDispatcher() {
       return alive(dispatcher) && alive(dispatcherOwner) || (dispatcher = dispatcherOwner = null, walk((node) => {
-        let candidate = read3(() => node.ged);
-        return alive(candidate) && object(read3(() => candidate._events)) ? (dispatcher = candidate, dispatcherOwner = node, !0) : read3(() => node._events.SWITCH_SCENE) || read3(() => node._events.HIDE_WINDOW) ? (dispatcher = dispatcherOwner = node, !0) : !1;
+        let candidate = read4(() => node.ged);
+        return alive(candidate) && object(read4(() => candidate._events)) ? (dispatcher = candidate, dispatcherOwner = node, !0) : read4(() => node._events.SWITCH_SCENE) || read4(() => node._events.HIDE_WINDOW) ? (dispatcher = dispatcherOwner = node, !0) : !1;
       })), dispatcher;
     }
     function eventCallerFrom(target, event, predicate) {
-      let handlers = read3(() => target._events[event]);
+      let handlers = read4(() => target._events[event]);
       for (let entry of Array.isArray(handlers) ? handlers : [handlers]) {
-        let candidate = read3(() => entry.caller);
-        if (alive(candidate) && read3(() => predicate(candidate))) return candidate;
+        let candidate = read4(() => entry.caller);
+        if (alive(candidate) && read4(() => predicate(candidate))) return candidate;
       }
       return null;
     }
@@ -3135,12 +3339,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     function stageScene() {
       let layer = walk((node) => node.name === "SceneLayer" || node.layerOrder === 2);
-      return layer && children(layer).filter((node) => node !== layer && alive(node) && read3(() => node.visible) !== !1).at(-1) || null;
+      return layer && children(layer).filter((node) => node !== layer && alive(node) && read4(() => node.visible) !== !1).at(-1) || null;
     }
     function getScene() {
-      let nextStage = read3(() => win.Laya.stage) || null;
+      let nextStage = read4(() => win.Laya.stage) || null;
       stage !== nextStage && (stage = nextStage, dispatcher = dispatcherOwner = null, providers = /* @__PURE__ */ new Set());
-      let demo = read3(() => win.__SGS_TOOLBOX_DEMO__.scene), manager = demo ? null : eventCaller("SWITCH_SCENE", (value) => "CurrentScene" in value), managerScene = read3(() => manager.CurrentScene), rendered = demo ? null : stageScene(), next = alive(demo) ? demo : rendered || (alive(managerScene) && read3(() => managerScene.visible) !== !1 ? managerScene : null) || walk((node) => read3(() => node.visible) !== !1 && (GAME_SCENE.test(sceneName(node)) || isGameScene(node)));
+      let demo = read4(() => win.__SGS_TOOLBOX_DEMO__.scene), manager = demo ? null : eventCaller("SWITCH_SCENE", (value) => "CurrentScene" in value), managerScene = read4(() => manager.CurrentScene), rendered = demo ? null : stageScene(), next = alive(demo) ? demo : rendered || (alive(managerScene) && read4(() => managerScene.visible) !== !1 ? managerScene : null) || walk((node) => read4(() => node.visible) !== !1 && (GAME_SCENE.test(sceneName(node)) || isGameScene(node)));
       if (next !== current) {
         current = next || null, providers = /* @__PURE__ */ new Set(), dispatcher = dispatcherOwner = null;
         for (let fn of [...listeners])
@@ -3151,42 +3355,42 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       return current;
     }
-    let selfUI = (scene) => read3(() => scene.SelfSeatUi) || read3(() => scene.selfSeatUI) || null, seats = (scene) => list(read3(() => scene.seatContainer.seatUIs) || read3(() => scene.seatUIs)).filter((ui) => alive(ui) && nativeSeatOccupied(ui)), handUIs = (ui) => list(read3(() => ui.cardContainer.cardUis) || read3(() => ui.cardUis) || children(read3(() => ui.cardContainer))).filter(alive), model = (ui) => read3(() => ui.Card) || read3(() => ui.card) || read3(() => ui.cardInfo) || read3(() => ui.dataSource), seatData = nativeSeat, seatId = nativeSeatId;
+    let selfUI = (scene) => read4(() => scene.SelfSeatUi) || read4(() => scene.selfSeatUI) || null, seats = (scene) => list(read4(() => scene.seatContainer.seatUIs) || read4(() => scene.seatUIs)).filter((ui) => alive(ui) && nativeSeatOccupied(ui)), handUIs = (ui) => list(read4(() => ui.cardContainer.cardUis) || read4(() => ui.cardUis) || children(read4(() => ui.cardContainer))).filter(alive), model = (ui) => read4(() => ui.Card) || read4(() => ui.card) || read4(() => ui.cardInfo) || read4(() => ui.dataSource), seatData = nativeSeat, seatId = nativeSeatId;
     function getClass(name) {
-      return typeof name != "string" || !name ? null : object(read3(() => win.Laya.ClassUtils.getClass(name))) || object(read3(() => win[name]));
+      return typeof name != "string" || !name ? null : object(read4(() => win.Laya.ClassUtils.getClass(name))) || object(read4(() => win[name]));
     }
     function getSelf() {
-      let demo = read3(() => win.__SGS_TOOLBOX_DEMO__.self);
+      let demo = read4(() => win.__SGS_TOOLBOX_DEMO__.self);
       if (demo) return demo;
-      let nativeClass = selfClass || getClass("UserData"), stored = nativeClass && read3(() => Object.getOwnPropertyDescriptor(nativeClass, "self"));
+      let nativeClass = selfClass || getClass("UserData"), stored = nativeClass && read4(() => Object.getOwnPropertyDescriptor(nativeClass, "self"));
       if (stored && "value" in stored) return object(stored.value);
       if (Date.now() - selfSearchAt < 1e3) return null;
       selfSearchAt = Date.now();
       let inspectUserNode = (node) => {
         for (let key of ["userData", "data"]) {
-          let descriptor = read3(() => Object.getOwnPropertyDescriptor(node, key)), value = descriptor && "value" in descriptor ? descriptor.value : null;
-          if (!object(value) || !number(read3(() => value.ClientId))) continue;
-          let ctor = read3(() => value.constructor), own3 = read3(() => Object.getOwnPropertyDescriptor(ctor, "self"));
-          if (own3 && "value" in own3 && object(own3.value) && number(read3(() => own3.value.ClientId)))
+          let descriptor = read4(() => Object.getOwnPropertyDescriptor(node, key)), value = descriptor && "value" in descriptor ? descriptor.value : null;
+          if (!object(value) || !number(read4(() => value.ClientId))) continue;
+          let ctor = read4(() => value.constructor), own3 = read4(() => Object.getOwnPropertyDescriptor(ctor, "self"));
+          if (own3 && "value" in own3 && object(own3.value) && number(read4(() => own3.value.ClientId)))
             return selfClass = ctor, !0;
         }
         return !1;
       };
-      return inspectUserNode(read3(() => getScene().topMenu.moneyMenuUI)) || walk(inspectUserNode), selfClass ? object(read3(() => Object.getOwnPropertyDescriptor(selfClass, "self").value)) : null;
+      return inspectUserNode(read4(() => getScene().topMenu.moneyMenuUI)) || walk(inspectUserNode), selfClass ? object(read4(() => Object.getOwnPropertyDescriptor(selfClass, "self").value)) : null;
     }
     function getServerProxy() {
-      let scene = getScene(), direct = read3(() => scene.proxy) || read3(() => scene.serverProxy);
+      let scene = getScene(), direct = read4(() => scene.proxy) || read4(() => scene.serverProxy);
       if (alive(direct)) return direct;
       let manager = eventCaller("HIDE_WINDOW", (value) => object(value.proxy));
-      return object(read3(() => manager.proxy)) || existingSingleton("ServerProxy");
+      return object(read4(() => manager.proxy)) || existingSingleton("ServerProxy");
     }
     function existingSingleton(name) {
       let registered = getClass(name);
       if (!alive(registered)) return null;
-      if (typeof registered != "function" && typeof read3(() => registered.event) == "function") return registered;
+      if (typeof registered != "function" && typeof read4(() => registered.event) == "function") return registered;
       for (let key of ["instance", "Instance", "I", "_instance", "s_instance"]) {
-        let descriptor = read3(() => Object.getOwnPropertyDescriptor(registered, key)), candidate = descriptor && "value" in descriptor ? descriptor.value : null;
-        if (alive(candidate) && typeof read3(() => candidate.event) == "function") return candidate;
+        let descriptor = read4(() => Object.getOwnPropertyDescriptor(registered, key)), candidate = descriptor && "value" in descriptor ? descriptor.value : null;
+        if (alive(candidate) && typeof read4(() => candidate.event) == "function") return candidate;
       }
       return null;
     }
@@ -3196,29 +3400,29 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function getMessageTargets() {
       let targets = [], seen = /* @__PURE__ */ new Set(), proxy = getServerProxy();
       for (let [name, target] of [["ServerProxy", proxy], ["ActivityManager", getActivityManager(proxy)]])
-        !alive(target) || typeof read3(() => target.event) != "function" || seen.has(target) || (seen.add(target), targets.push({ name, target }));
+        !alive(target) || typeof read4(() => target.event) != "function" || seen.has(target) || (seen.add(target), targets.push({ name, target }));
       return targets;
     }
     function registerProviders(card) {
       let proto = object(card), seen = /* @__PURE__ */ new Set();
       for (let i2 = 0; proto && i2 < 8 && !seen.has(proto); i2++) {
         seen.add(proto);
-        let ctor = read3(() => proto.constructor);
-        typeof ctor == "function" && typeof read3(() => ctor.GetInstance) == "function" && providers.add(ctor), proto = read3(() => Object.getPrototypeOf(proto));
+        let ctor = read4(() => proto.constructor);
+        typeof ctor == "function" && typeof read4(() => ctor.GetInstance) == "function" && providers.add(ctor), proto = read4(() => Object.getPrototypeOf(proto));
       }
     }
     function getCardDefinition(id) {
       for (let data of [
-        read3(() => win.CtrUtil.AllDatas),
-        read3(() => win.CtrUtil.allDatas),
-        read3(() => win.SystemContext.AllDatas),
-        read3(() => win.SystemContext.allDatas)
+        read4(() => win.CtrUtil.AllDatas),
+        read4(() => win.CtrUtil.allDatas),
+        read4(() => win.SystemContext.AllDatas),
+        read4(() => win.SystemContext.allDatas)
       ]) {
-        let config = read3(() => data["sys_playcard.sgs"]), rows = read3(() => config.GamePlayCards.card);
+        let config = read4(() => data["sys_playcard.sgs"]), rows = read4(() => config.GamePlayCards.card);
         if (!Array.isArray(rows)) continue;
         let index = definitionTables.get(rows);
         if (!index || index.length !== rows.length) {
-          let abbreviations = new Map(list(read3(() => config.abbreviation)).map((item) => [read3(() => item.Short), read3(() => item.Long)])), records = /* @__PURE__ */ new Map();
+          let abbreviations = new Map(list(read4(() => config.abbreviation)).map((item) => [read4(() => item.Short), read4(() => item.Long)])), records = /* @__PURE__ */ new Map();
           for (let row of rows) {
             if (!object(row)) continue;
             let record = {};
@@ -3235,7 +3439,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     function getCardMeta(id) {
       if (id = number(id), !Number.isInteger(id) || id <= 0) return { id, name: "\u672A\u77E5\u724C", unknown: !0 };
-      let scene = getScene(), demo = read3(() => win.__SGS_TOOLBOX_DEMO__.cards[id]);
+      let scene = getScene(), demo = read4(() => win.__SGS_TOOLBOX_DEMO__.cards[id]);
       if (demo) return { ...demo, id };
       let card;
       for (let item of handUIs(selfUI(scene))) {
@@ -3243,7 +3447,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         observed && (registerProviders(observed), cardId(observed) === id && (card = observed));
       }
       if (!card) for (let provider of providers) {
-        let candidate = read3(() => provider.GetInstance(id));
+        let candidate = read4(() => provider.GetInstance(id));
         if (object(candidate) && (cardId(candidate) === void 0 || cardId(candidate) === id)) {
           card = candidate;
           break;
@@ -3251,78 +3455,78 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       let definition = getCardDefinition(id);
       if (!card && !definition) return { id, name: `\u724C #${id}`, unknown: !0 };
-      let name = read3(() => card.CardName) || read3(() => card.cardName) || read3(() => card.Name) || read3(() => card.name) || read3(() => definition.CardName) || read3(() => definition.Name) || read3(() => definition.name), cardClass = read3(() => definition.cardClass) || read3(() => card.cardInfo.cardClass) || read3(() => card.cardClass) || read3(() => card.cardInfo.Class) || read3(() => card.className) || read3(() => card.ClassName) || read3(() => definition.Class) || read3(() => definition.class) || read3(() => definition.className);
+      let name = read4(() => card.CardName) || read4(() => card.cardName) || read4(() => card.Name) || read4(() => card.name) || read4(() => definition.CardName) || read4(() => definition.Name) || read4(() => definition.name), cardClass = read4(() => definition.cardClass) || read4(() => card.cardInfo.cardClass) || read4(() => card.cardClass) || read4(() => card.cardInfo.Class) || read4(() => card.className) || read4(() => card.ClassName) || read4(() => definition.Class) || read4(() => definition.class) || read4(() => definition.className);
       return {
         id,
         name: typeof name == "string" && name ? name : `\u724C #${id}`,
         suit: number(
-          read3(() => card.FlowerOnSeat),
-          read3(() => card.CardFlower),
-          read3(() => card.Flower),
-          read3(() => card.suit),
-          read3(() => definition.color),
-          read3(() => definition.CardSuit),
-          read3(() => definition.suit)
+          read4(() => card.FlowerOnSeat),
+          read4(() => card.CardFlower),
+          read4(() => card.Flower),
+          read4(() => card.suit),
+          read4(() => definition.color),
+          read4(() => definition.CardSuit),
+          read4(() => definition.suit)
         ),
         number: number(
-          read3(() => card.CardNumber),
-          read3(() => card.Number),
-          read3(() => card.number),
-          read3(() => definition.number),
-          read3(() => definition.CardNumber),
-          read3(() => definition.Number)
+          read4(() => card.CardNumber),
+          read4(() => card.Number),
+          read4(() => card.number),
+          read4(() => definition.number),
+          read4(() => definition.CardNumber),
+          read4(() => definition.Number)
         ),
         type: number(
-          read3(() => card.CardType),
-          read3(() => card.Type),
-          read3(() => card.type),
-          read3(() => definition.type),
-          read3(() => definition.CardType),
-          read3(() => definition.Type)
+          read4(() => card.CardType),
+          read4(() => card.Type),
+          read4(() => card.type),
+          read4(() => definition.type),
+          read4(() => definition.CardType),
+          read4(() => definition.Type)
         ),
         unknown: !(typeof name == "string" && name),
         ...typeof cardClass == "string" && cardClass ? { cardClass } : {}
       };
     }
     function getCountdown() {
-      let scene = getScene(), ui = selfUI(scene), timer = read3(() => ui.countdownTimer) || read3(() => scene.countdownTimer), value = alive(timer) ? number(read3(() => timer.RemainValue)) : void 0;
+      let scene = getScene(), ui = selfUI(scene), timer = read4(() => ui.countdownTimer) || read4(() => scene.countdownTimer), value = alive(timer) ? number(read4(() => timer.RemainValue)) : void 0;
       return value === void 0 ? null : Math.max(0, value);
     }
     function getRemainingSlash() {
       let scene = getScene();
       if (!isGameScene(scene)) return null;
       let seat = seatData(selfUI(scene));
-      if (!seat || read3(() => seat.IsDead) === !0) return null;
-      let targets = read3(() => seat.GetSeatState(1).Targets), info = read3(() => seat.shaInfo);
-      if (read3(() => info.Disabled) === !0) return 0;
-      if (read3(() => info.NoLimit) === !0 || read3(() => targets[4]) === 9999) return 1 / 0;
+      if (!seat || read4(() => seat.IsDead) === !0) return null;
+      let targets = read4(() => seat.GetSeatState(1).Targets), info = read4(() => seat.shaInfo);
+      if (read4(() => info.Disabled) === !0) return 0;
+      if (read4(() => info.NoLimit) === !0 || read4(() => targets[4]) === 9999) return 1 / 0;
       if (targets && typeof targets.length == "number") {
         let used = Number(targets[0] || 0), limit2 = Number(targets[1] || 1);
         return Number.isFinite(used) && Number.isFinite(limit2) ? Math.max(0, limit2 - used) : null;
       }
-      if (read3(() => seat.ShaNoLimit) === !0) return 1 / 0;
-      let count = number(read3(() => info.Count), read3(() => seat.ShaCount));
+      if (read4(() => seat.ShaNoLimit) === !0) return 1 / 0;
+      let count = number(read4(() => info.Count), read4(() => seat.ShaCount));
       return count === void 0 ? null : Math.max(0, count);
     }
     function getSnapshot() {
-      let scene = getScene(), self = selfUI(scene), selfSeatId = seatId(self), selfSeat = read3(() => self.cardContainer.seat) || seatData(self), ownModels = read3(() => selfSeat.HandCards) ?? read3(() => selfSeat.handCards), handCardIds = Array.isArray(ownModels) ? cardIds(ownModels) : cardIds(handUIs(self).map(model)), mode = read3(() => getClass("GameContext").GetModeVO()), countdown = read3(() => self.countdownTimer) || read3(() => scene.countdownTimer), remaining = alive(countdown) ? number(read3(() => countdown.RemainValue)) : void 0;
+      let scene = getScene(), self = selfUI(scene), selfSeatId = seatId(self), selfSeat = read4(() => self.cardContainer.seat) || seatData(self), ownModels = read4(() => selfSeat.HandCards) ?? read4(() => selfSeat.handCards), handCardIds = Array.isArray(ownModels) ? cardIds(ownModels) : cardIds(handUIs(self).map(model)), mode = read4(() => getClass("GameContext").GetModeVO()), countdown = read4(() => self.countdownTimer) || read4(() => scene.countdownTimer), remaining = alive(countdown) ? number(read4(() => countdown.RemainValue)) : void 0;
       return {
         sceneName: sceneName(scene),
         inGame: isGameScene(scene),
-        modeId: number(read3(() => scene.ModeID), read3(() => scene.modeId), read3(() => mode.ModeID), read3(() => mode.Id), read3(() => mode.id)),
+        modeId: number(read4(() => scene.ModeID), read4(() => scene.modeId), read4(() => mode.ModeID), read4(() => mode.Id), read4(() => mode.id)),
         selfSeatId,
         handCardIds,
-        emptySeatIds: list(read3(() => scene.seatContainer.seatUIs) || read3(() => scene.seatUIs)).filter((ui) => alive(ui) && !nativeSeatOccupied(ui)).map(seatId).filter((id) => id !== void 0),
+        emptySeatIds: list(read4(() => scene.seatContainer.seatUIs) || read4(() => scene.seatUIs)).filter((ui) => alive(ui) && !nativeSeatOccupied(ui)).map(seatId).filter((id) => id !== void 0),
         // Resume means reconnect, not replay. Require explicit replay evidence.
-        isReplay: !!(read3(() => scene.IsReplay) || read3(() => scene.isReplay) || alive(read3(() => scene.replayBar))),
+        isReplay: !!(read4(() => scene.IsReplay) || read4(() => scene.isReplay) || alive(read4(() => scene.replayBar))),
         countdownRemaining: remaining === void 0 ? null : Math.max(0, remaining),
         seats: seats(scene).map((ui) => {
           let seat = seatData(ui), id = seatId(ui), result = {
             seatId: id,
             position: nativeSeatPosition(ui) ?? null,
-            viewId: number(read3(() => seat.fixedViewId), read3(() => seat.FixedViewId), read3(() => ui.fixedViewId), read3(() => ui.viewId), read3(() => ui.actualSeatID)),
-            handCount: number(read3(() => seat.HandCardCount), read3(() => seat.HandCount), id === selfSeatId ? read3(() => ownModels.length) : void 0),
-            dead: read3(() => seat.IsDead) ?? read3(() => seat.isDead),
+            viewId: number(read4(() => seat.fixedViewId), read4(() => seat.FixedViewId), read4(() => ui.fixedViewId), read4(() => ui.viewId), read4(() => ui.actualSeatID)),
+            handCount: number(read4(() => seat.HandCardCount), read4(() => seat.HandCount), id === selfSeatId ? read4(() => ownModels.length) : void 0),
+            dead: read4(() => seat.IsDead) ?? read4(() => seat.isDead),
             knownHandCardIds: publicHandIds(seat, ui)
           };
           return id !== void 0 && id === selfSeatId && (result.handCardIds = handCardIds.slice()), result;
@@ -3962,6 +4166,28 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       reserved = Math.max(0, Number(width) || 0), sync();
     } };
   }
+  function installEdgeSwipe({ win, host, scope, mobile, reveal, hide }) {
+    let gesture, suppressClickUntil = 0;
+    scope.listen(host, "click", (event) => {
+      Date.now() >= suppressClickUntil || (event.preventDefault(), event.stopImmediatePropagation());
+    }, !0), scope.listen(host, "pointerdown", (event) => {
+      suppressClickUntil = 0, !(!mobile() || !host.hasAttribute("data-edge-docked") || event.pointerType !== "touch" || !event.isPrimary) && (gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, hidden: host.hasAttribute("data-edge-hidden") });
+    }), scope.listen(win, "pointermove", (event) => {
+      if (!gesture || event.pointerId !== gesture.id) return;
+      let dx = event.clientX - gesture.x, dy = event.clientY - gesture.y;
+      if (Math.abs(dy) > 18 && Math.abs(dy) > Math.abs(dx)) {
+        gesture = null;
+        return;
+      }
+      Math.abs(dx) < 28 || Math.abs(dx) < Math.abs(dy) * 1.4 || (gesture.hidden && dx < 0 ? (reveal(), suppressClickUntil = Date.now() + 600) : !gesture.hidden && dx > 0 && (hide(), suppressClickUntil = Date.now() + 600), gesture = null);
+    });
+    let cancel = () => {
+      gesture = null;
+    };
+    scope.listen(win, "pointerup", (event) => {
+      (gesture == null ? void 0 : gesture.id) === event.pointerId && gesture.hidden && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) <= 12 && reveal(), cancel();
+    }), scope.listen(win, "pointercancel", cancel), scope.listen(win, "blur", cancel);
+  }
   function mountCardStyleWorkshop(container, { document: doc, cardStyles, settings }) {
     let details = doc.createElement("section");
     details.className = "card-style-workshop plugin-group";
@@ -3982,9 +4208,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }, heading.append(toggle), details.append(heading, body), container.append(details);
     let render = () => {
       var _a2, _b2;
-      body.replaceChildren(), body.append(helpTip(doc, "\u5361\u9762\u4E0E\u5361\u80CC\u72EC\u7ACB\u9009\u62E9\u3002\u5B8C\u6574\u5361\u9762\u6309\u724C\u540D\u5339\u914D\uFF0C\u7F3A\u5931\u5361\u56FE\u4FDD\u7559\u6E38\u620F\u539F\u751F\u663E\u793A\uFF1B\u82B1\u8272\u70B9\u6570\u6CBF\u7528\u6E38\u620F\u3002"));
+      body.replaceChildren();
       let scopeLabel = doc.createElement("p");
-      scopeLabel.textContent = "\u5E94\u7528\u8303\u56F4", body.append(scopeLabel);
+      scopeLabel.textContent = "\u5E94\u7528\u8303\u56F4", scopeLabel.style.cssText = "display:flex;align-items:center;gap:5px", scopeLabel.append(helpTip(doc, "\u5361\u9762\u4E0E\u5361\u80CC\u72EC\u7ACB\u9009\u62E9\u3002\u5B8C\u6574\u5361\u9762\u6309\u724C\u540D\u5339\u914D\uFF0C\u7F3A\u5931\u5361\u56FE\u4FDD\u7559\u6E38\u620F\u539F\u751F\u663E\u793A\uFF1B\u82B1\u8272\u70B9\u6570\u6CBF\u7528\u6E38\u620F\u3002")), body.append(scopeLabel);
       let scopes = doc.createElement("div");
       scopes.className = "sgs-segments", body.append(scopes);
       for (let [value, name] of [["self", "\u4EC5\u81EA\u5DF1\u7684\u624B\u724C"], ["all", "\u6240\u6709\u4EBA"]]) {
@@ -4075,6 +4301,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .sgs-themes [aria-pressed=true] .theme-card-state{color:var(--sgs-accent)}
 .sgs-themes .theme-description{display:block;margin-top:3px;font-size:10px;color:var(--sgs-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sgs-themes .theme-status{display:flex;align-items:center;gap:5px;margin:11px 0 0;font-size:11px;color:var(--sgs-accent);overflow-wrap:anywhere}
+.sgs-themes .theme-status-row{display:flex;align-items:center;gap:5px;margin-top:11px}.sgs-themes .theme-status-row .theme-status{margin:0;min-width:0}
 .sgs-themes .theme-footnote{margin:5px 0 0;font-size:10px;line-height:1.7;color:var(--sgs-muted)}
 @media(prefers-reduced-motion:reduce){.sgs-themes button.theme-card{transition:none}}
 `;
@@ -4086,14 +4313,16 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return cls && (node.className = cls), text2 !== void 0 && (node.textContent = text2), node;
     }, style2 = el("style");
     style2.textContent = STYLES;
-    let heading = el("div", "theme-heading"), count = el("span", "theme-count");
-    heading.append(el("h4", "", "\u9009\u62E9\u914D\u8272"), count);
+    let heading = el("div", "theme-heading"), count = el("span", "theme-count"), title = el("div", "theme-heading");
+    title.style.marginBottom = "0", title.append(el("h4", "", "\u9009\u62E9\u914D\u8272")), heading.append(title, count);
     let intro = helpTip(doc, "\u9009\u62E9\u4E00\u5957\u914D\u8272\uFF0C\u5373\u523B\u6362\u88C5\u3002"), grid = el("div", "theme-grid");
     grid.setAttribute("role", "group"), grid.setAttribute("aria-label", "\u5DE5\u5177\u7BB1\u4E3B\u9898");
     let status = el("p", "theme-status");
     status.dataset.themeStatus = "", status.setAttribute("role", "status"), status.setAttribute("aria-live", "polite");
     let footnote = helpTip(doc, "\u914D\u8272\u81EA\u52A8\u4FDD\u5B58\u3002\u4E3B\u9898\u5305\u505C\u7528\u540E\u6682\u56DE\u7384\u91D1\uFF0C\u91CD\u65B0\u542F\u7528\u540E\u6062\u590D\u9009\u62E9\u3002");
-    root.append(style2, heading, intro, grid, status, footnote), container.append(root);
+    title.append(intro);
+    let statusRow = el("div", "theme-status-row");
+    statusRow.append(status, footnote), root.append(style2, heading, grid, statusRow), container.append(root);
     let signature, cards = /* @__PURE__ */ new Map(), cardScope, update = () => {
       if (scope.closed) return;
       let palette = (themes == null ? void 0 : themes.list()) || [BLACK_GOLD], current = themes == null ? void 0 : themes.current, next = JSON.stringify(palette);
@@ -4107,8 +4336,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           for (let [key, value] of Object.entries({ ...BLACK_GOLD.tokens, ...theme.tokens })) preview.style.setProperty("--preview-" + key, value);
           let mini = el("span", "theme-mini");
           mini.append(el("span", "theme-mini-seal", "\u6740"), el("span", "theme-mini-number", "3"), el("span", "theme-mini-separator"), controlIcon(doc, "camera")), preview.append(mini);
-          let meta = el("span", "theme-meta"), title = el("span", "theme-title-row"), state = el("span", "theme-card-state");
-          title.append(el("span", "theme-name", theme.name), state), meta.append(title, el("span", "theme-description", description)), button.append(preview, meta), cardScope.listen(button, "click", () => {
+          let meta = el("span", "theme-meta"), title2 = el("span", "theme-title-row"), state = el("span", "theme-card-state");
+          title2.append(el("span", "theme-name", theme.name), state), meta.append(title2, el("span", "theme-description", description)), button.append(preview, meta), cardScope.listen(button, "click", () => {
             try {
               themes.select(theme.id);
             } catch (error) {
@@ -4754,7 +4983,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .plugin-body .skin-entry{margin:0;padding:0;border:0;background:none}.plugin-body .skin-entry>h3{display:none}.plugin-body .reward-heading h3 .sgs-line-icon{display:none}.plugin-body .reward-heading h3,.plugin-body .sgs-effects h3{font-size:11px;font-weight:400;color:var(--sgs-muted)}
 :host{all:initial;position:fixed;top:72px;right:24px;width:280px;min-width:248px;max-width:420px;z-index:2147483000;color:var(--sgs-text);font:13px/1.55 var(--sgs-font);color-scheme:var(--sgs-scheme,dark)}
 *{box-sizing:border-box}button,input,select{font:inherit}button{white-space:nowrap} :host{-webkit-text-size-adjust:100%;text-size-adjust:100%}.settings-group .actions{align-items:center}.settings-group .actions>span{display:inline-flex;flex:none}.settings-group label.row>span{flex-shrink:1}button{cursor:pointer}button:disabled{cursor:wait;opacity:.5}button,input,select{color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 9px}button:hover{background:var(--sgs-raised);border-color:var(--sgs-accent)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}a{color:var(--sgs-accent)}
-.edge-tab{display:none}:host([data-mobile][data-edge-hidden]){transform:translateX(calc(100% - 28px))}:host([data-mobile][data-edge-hidden]) .edge-tab{display:block;position:absolute;left:0;top:0;z-index:20;width:28px;height:64px;padding:0;border-radius:7px 0 0 7px;background:var(--sgs-bg);color:var(--sgs-accent);font-size:26px;touch-action:manipulation}.shell{background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:var(--sgs-radius);box-shadow:0 16px 48px #0006;overflow:hidden;resize:horizontal;min-width:248px;max-width:420px;width:100%}
+:host([data-mobile][data-edge-docked]) .shell,:host([data-mobile][data-edge-docked]) .content{touch-action:pan-y}:host([data-mobile][data-edge-hidden]) .shell{visibility:hidden}.edge-tab{display:none}:host([data-mobile][data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 48px))}:host([data-mobile][data-edge-hidden]) .edge-tab{display:block;position:absolute;left:0;top:0;z-index:20;width:48px;height:100%;min-height:160px;padding:0;border-radius:7px 0 0 7px;background:var(--sgs-bg);color:var(--sgs-accent);font-size:26px;touch-action:pan-y}.shell{background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:var(--sgs-radius);box-shadow:0 16px 48px #0006;overflow:hidden;resize:horizontal;min-width:248px;max-width:420px;width:100%}
 .content.has-plugin-panels{min-height:0}.plugin-group{min-width:0}.plugin-group+.plugin-group{border-top:1px solid var(--sgs-border);margin-top:10px;padding-top:10px}.plugin-heading{margin:0;font-size:13px}.plugin-heading .plugin-toggle{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;padding:6px 3px;border:0;border-radius:6px;background:transparent;box-shadow:none;text-align:left;color:var(--sgs-accent)}.plugin-heading .plugin-toggle:hover{background:color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.plugin-toggle svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.plugin-toggle .plugin-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;letter-spacing:.5px}.plugin-toggle .plugin-chevron{width:15px;height:15px;color:var(--sgs-muted);transition:transform .16s}.plugin-toggle[aria-expanded=false] .plugin-chevron{transform:rotate(-90deg)}.plugin-body{padding:9px 2px 2px}.plugin-body[hidden]{display:none!important}:host([data-edge-docked]){left:auto!important;right:0!important;transition:transform 180ms ease;transform:translateX(0)}:host([data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 5px));background:var(--sgs-bg);border-left:1px solid var(--sgs-accent);border-radius:5px 0 0 5px}:host([data-edge-hidden]) .shell{visibility:hidden}:host([data-edge-fixed]){transition:none;top:0!important;bottom:0!important;height:100vh;height:100dvh}:host([data-edge-fixed]) .shell{display:flex;flex-direction:column;height:100%;border-radius:0}:host([data-edge-fixed]) .shell>.brand,:host([data-edge-fixed]) .shell>.status,:host([data-edge-fixed]) .shell>.nav,:host([data-edge-fixed]) .shell>.footer,:host([data-edge-fixed]) .shell>.compact{flex-shrink:0}:host([data-edge-fixed]) .content{flex:1;min-height:0;max-height:none}.edge-resizer{display:none;position:absolute;left:0;bottom:0;width:22px;height:22px;z-index:12;color:var(--sgs-muted);cursor:ew-resize;touch-action:none;user-select:none;align-items:center;justify-content:center}.edge-resizer svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round}.edge-resizer:hover{color:var(--sgs-accent)}.edge-resizer:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:-3px}:host([data-edge-docked]) .shell{resize:none}:host([data-edge-docked]:not([data-collapsed]):not([data-edge-hidden])) .edge-resizer{display:flex}:host([data-edge-docked]) .footer{padding-left:25px}:host([data-edge-docked]:focus-visible){outline:2px solid var(--sgs-accent);outline-offset:-2px}
 @media(prefers-reduced-motion:reduce){.plugin-toggle .plugin-chevron{transition:none}}
 .brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand strong{letter-spacing:1px;font-size:13px}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
@@ -4937,7 +5166,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
           });
           choice.dataset.edgeBehavior = value, choice.setAttribute("aria-pressed", String(edgeBehavior() === value)), choices.append(choice), mobileDevice() && value === "fixed" && (choice.disabled = !0, choice.title = "\u79FB\u52A8\u7AEF\u6682\u4E0D\u652F\u6301\u56FA\u5B9A\u4FA7\u680F"), value === "hide" && (choice.disabled = !0, choice.title = "\u5FAE\u7AEF\u6682\u4E0D\u652F\u6301\u9760\u8FB9\u6536\u8D77", choice.style.cursor = "not-allowed");
         }
-        content.append(choices), edgeHeading.append(helpTip(doc, mobileDevice() ? "\u62D6\u5230\u53F3\u8FB9\u7F18\u540E\u6536\u8D77\u81F3\u53F3\u4FA7\uFF1B\u70B9\u51FB\u8FB9\u6761\u5C55\u5F00\uFF0C\u70B9\u51FB\u9762\u677F\u5916\u518D\u6B21\u6536\u8D77\u3002\u79FB\u52A8\u7AEF\u6682\u4E0D\u652F\u6301\u56FA\u5B9A\u4FA7\u680F\u3002" : "\u62D6\u5230\u53F3\u8FB9\u7F18\u65F6\uFF1A\u65E0\u64CD\u4F5C\u4FDD\u6301\u60AC\u6D6E\uFF1B\u56FA\u5B9A\u4E3A\u4FA7\u680F\u5E76\u4E3A\u6E38\u620F\u753B\u5E03\u7559\u51FA\u7A7A\u95F4\u3002\u5FAE\u7AEF\u6682\u4E0D\u652F\u6301\u9760\u8FB9\u6536\u8D77\u3002"));
+        content.append(choices), edgeHeading.append(helpTip(doc, mobileDevice() ? "\u62D6\u5230\u53F3\u8FB9\u7F18\u540E\u6536\u8D77\u81F3\u53F3\u4FA7\uFF1B\u70B9\u51FB\u8FB9\u6761\u6216\u5411\u5DE6\u5212\u5C55\u5F00\uFF0C\u5411\u53F3\u5212\u6216\u70B9\u51FB\u9762\u677F\u5916\u6536\u8D77\u3002\u79FB\u52A8\u7AEF\u6682\u4E0D\u652F\u6301\u56FA\u5B9A\u4FA7\u680F\u3002" : "\u62D6\u5230\u53F3\u8FB9\u7F18\u65F6\uFF1A\u65E0\u64CD\u4F5C\u4FDD\u6301\u60AC\u6D6E\uFF1B\u56FA\u5B9A\u4E3A\u4FA7\u680F\u5E76\u4E3A\u6E38\u620F\u753B\u5E03\u7559\u51FA\u7A7A\u95F4\u3002\u5FAE\u7AEF\u6682\u4E0D\u652F\u6301\u9760\u8FB9\u6536\u8D77\u3002"));
       }
       content.append(el("h3", "\u622A\u56FE"));
       let cleanRow = el("label", void 0, "row");
@@ -5458,13 +5687,20 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     }), scope.listen(win, "pointerup", finishEdgeResize), scope.listen(win, "pointercancel", finishEdgeResize), scope.listen(edgeResizer, "keydown", (event) => {
       let current = parseFloat(host.style.width) || 280, next = { ArrowLeft: current + 8, ArrowRight: current - 8, Home: 248, End: 420 }[event.key];
       next !== void 0 && (event.preventDefault(), settings.set("width", applyEdgeWidth(next)));
-    }), scope.listen(host, "pointerdown", revealEdge), scope.listen(doc, "pointerdown", (event) => {
+    }), scope.listen(host, "pointerdown", (event) => {
+      (event.pointerType !== "touch" || !host.hasAttribute("data-edge-hidden")) && revealEdge();
+    }), installEdgeSwipe({ win, host, scope, mobile: mobileDevice, reveal: revealEdge, hide: () => {
+      var _a2;
+      (_a2 = shadow.activeElement) == null || _a2.blur(), host.blur(), hideEdge();
+    } }), scope.listen(doc, "pointerdown", (event) => {
       mobileDevice() && !event.composedPath().includes(host) && hideEdge();
     }), scope.listen(host, "pointerenter", (event) => {
       event.pointerType !== "touch" && !mobileDevice() && revealEdge();
     }), scope.listen(host, "pointerleave", (event) => {
-      event.pointerType !== "touch" && hideEdge();
-    }), scope.listen(host, "focusin", revealEdge), scope.listen(host, "focusout", () => {
+      event.pointerType !== "touch" && !mobileDevice() && hideEdge();
+    }), scope.listen(host, "focusin", () => {
+      (!mobileDevice() || shadow.activeElement !== edgeTab) && revealEdge();
+    }), scope.listen(host, "focusout", () => {
       host.matches(":hover") || hideEdge();
     }), scope.listen(win, "resize", () => {
       host.toggleAttribute("data-mobile", mobileDevice()), mobileDevice() && (setEdgeDocked(host.hasAttribute("data-edge-docked"), host.hasAttribute("data-edge-hidden")), active === "manage" && render()), host.style.left && (host.style.left = Math.max(0, Math.min(win.innerWidth - (host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280), parseFloat(host.style.left))) + "px");
@@ -5482,7 +5718,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       });
     }
     for (let handle of shadow.querySelectorAll(".brand,.compact")) scope.listen(handle, "pointerdown", (e) => {
-      if (e.button !== 0 || e.target.closest("button") || draggingHUD) return;
+      if (mobileDevice() && e.pointerType === "touch" && host.hasAttribute("data-edge-docked") || e.button !== 0 || e.target.closest("button") || draggingHUD) return;
       e.preventDefault(), e.stopPropagation();
       let moved = !1, finished = !1, snapReady = !1, rect = host.getBoundingClientRect();
       !host.hasAttribute("data-edge-docked") && rect.right < win.innerWidth - 12 && settings.set("hudFloatingPosition", { x: rect.left, y: rect.top }), draggingHUD = !0, setEdgeDocked(!1), host.style.left = rect.left + "px", host.style.right = "auto";
@@ -5583,7 +5819,18 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       journal,
       store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : "sgs-ol-toolbox"),
       settings,
-      context: { core: Object.freeze({ version: CORE_VERSION, distribution: EDITION, platform: "microclient" }), window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds, notify: shell.notify },
+      context: {
+        core: Object.freeze({ version: CORE_VERSION, distribution: EDITION, platform: "microclient" }),
+        window: win,
+        document: win.document,
+        game,
+        ui: shell,
+        themes,
+        cardStyles,
+        backgrounds,
+        payments: Object.freeze({ resolveAlipayCashier: (url, signal) => resolveAlipayCashier(win, url, signal, null) }),
+        notify: shell.notify
+      },
       onChange: () => shell.render()
     });
     scope.add(() => manager.dispose());
@@ -5623,7 +5870,8 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       shell.setStatus(bridge.error || (ready ? capture.received ? `\u5DF2\u6536 ${capture.received} \u6761\u6D88\u606F \xB7 ${journal.incomplete ? "\u7F3A\u5C11\u5F00\u5C40\u8BB0\u5F55" : "\u672C\u5C40\u8BB0\u5F55\u4E2D"}` : capture.targets.length ? "\u6D88\u606F\u5165\u53E3\u5DF2\u8FDE\u63A5 \xB7 \u7B49\u5F85\u6536\u5305" : "\u672A\u63A5\u5165\u6E38\u620F\u6D88\u606F \xB7 \u4EC5\u539F\u751F\u663E\u793A\u53EF\u7528" : "\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6"));
     }, 500), !win.__SGS_TOOLBOX_DEMO__ && !((_c = win.Laya) != null && _c.stage) && (shell.host.style.display = "none"), await manager.init(), scope.closed ? null : (Object.assign(api, { manager, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager.errors.length && shell.notify(manager.errors.join("\uFF1B")), api);
   }
-  boot().catch((error) => {
+  var pageWindow = window;
+  installAlipayCashierBridge(pageWindow) || boot(pageWindow).catch((error) => {
     console.error("[\u4E09\u56FD\u6740OL\u5DE5\u5177\u7BB1]", error);
   });
 })();

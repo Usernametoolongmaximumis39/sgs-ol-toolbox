@@ -44,14 +44,15 @@ try {
     Laya.stage.addChild(hand);
     const scope = new HandCheck.ResourceScope(), watchers = new Set();
     const palette = { accent: '#ddbe78', bg: '#202127', border: '#87744f', borderSoft: '#514935', highlight: '#81744e', muted: '#bbb4a4', text: '#eee3cc' };
-    const ctx = { window, document, scope, settings: { get: (key, fallback) => fallback, set() {} }, ui: { nativeTheme: { palette, watch(fn) { watchers.add(fn); fn(); return () => watchers.delete(fn); } } } };
+    const values = new Map();
+    const ctx = { window, document, scope, settings: { get: (key, fallback) => values.has(key) ? values.get(key) : fallback, set(key, value) { values.set(key, value); } }, ui: { nativeTheme: { palette, watch(fn) { watchers.add(fn); fn(); return () => watchers.delete(fn); } } } };
     const controller = HandCheck.createHandGrouping(ctx); controller.update(hand);
     const controls = HandCheck.createSortControls(ctx, { sort() {}, lock() {} }); controls.update(hand, null);
     scope.add(() => controls.dispose());
     const title = new Laya.Text(); title.font = 'Microsoft YaHei'; title.fontSize = 20; title.color = '#eae4d5'; title.pos(30, 24); Laya.stage.addChild(title);
     const names = ['杀', '火杀', '闪', '桃', '酒', '新基本牌', '顺手牵羊', '过河拆桥', '无中生有', '铁索连环', '决斗', '南蛮入侵', '万箭齐发', '火攻', '无懈可击', '五谷丰登', '桃园结义', '借刀杀人', '乐不思蜀', '兵粮寸断', '闪电', '新锦囊', '装备甲', '装备乙'];
     const models = names.map((CardName, i) => ({ CardName, CardId: i + 1, CardBaseType: i >= 22 ? 8 : i >= 6 ? 4 : 2, CardNumber: i % 13 + 1, FlowerOnSeat: i % 4 + 1 }));
-    window.fixture = { hand, scope, controller, watchers, palette, title, models, original: CapturedHand.prototype.layoutHandCard,
+    window.fixture = { hand, scope, controller, values, watchers, palette, title, models, original: CapturedHand.prototype.layoutHandCard,
       settle() { hand.cardUis.forEach((ui, i) => { ui.pos(ui.EndX, ui.EndY); ui.zOrder = i; }); const root = hand.getChildByName('sgs-hand-groups'); if (root) root.zOrder = 999; },
       render(indices, width, mode) {
         for (const ui of hand.cardUis) ui.destroy(true);
@@ -92,6 +93,27 @@ try {
     else assert.deepEqual(snapshot.labels, []);
     await page.waitForTimeout(60); await page.screenshot({ path: `${out}/${name}.png` }); checks.push({ name, ...snapshot });
   }
+  const spacing = await page.evaluate(() => {
+    fixture.render([0, 2, 3, 4], 720, 'type');
+    const button = fixture.hand.getChildByName('sgs-toolbox-hand-sort').getChildByName('spacing');
+    button.event('click', { stopPropagation() {} }); fixture.settle();
+    const compact = fixture.snapshot();
+    const saved = fixture.values.get('handGroupSpacing');
+    fixture.original.call(fixture.hand); fixture.settle();
+    const native = fixture.snapshot();
+    button.event('click', { stopPropagation() {} }); fixture.settle();
+    return { compact, native, saved, restored: fixture.snapshot() };
+  });
+  assert.equal(spacing.saved, false);
+  assert.deepEqual(spacing.compact.xs, spacing.native.xs);
+  assert.deepEqual(spacing.compact.labels, []);
+  assert.equal(spacing.restored.xs[1] - spacing.restored.xs[0], 169.75);
+  checks.push({ name: 'spacing-toggle-native-parity', ...spacing });
+  await page.evaluate(() => {
+    fixture.hand.getChildByName('sgs-toolbox-hand-sort').getChildByName('spacing').event('click', { stopPropagation() {} }); fixture.settle();
+  });
+  await page.waitForTimeout(60); await page.screenshot({ path: `${out}/compact.png` });
+  await page.evaluate(() => fixture.hand.getChildByName('sgs-toolbox-hand-sort').getChildByName('spacing').event('click', { stopPropagation() {} }));
   await page.evaluate(() => fixture.render([0, 2, 3, 4], 720, 'type'));
   await page.waitForTimeout(100);
   await page.mouse.click(42, 190);

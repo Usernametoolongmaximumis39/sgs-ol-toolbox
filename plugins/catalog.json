@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.63"
+    "version": "0.6.75"
   },
   "plugins": [
     {
       "id": "social",
       "name": "好友与聊天",
-      "version": "0.1.12",
+      "version": "0.1.14",
       "icon": {
         "paths": [
           "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
@@ -23,14 +23,14 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "好友置顶、改名与将灯新增提醒、公屏一键进房与聊天官阶补全",
-      "releaseNotes": "新增置顶好友将灯变化提醒与已拥有武将记录，可导出当前账号记录；聊天官阶查询和好友界面显示更清晰。将灯变化不代表付费判断，首次读取仅建立基准。",
-      "packageUrl": "packages/social/0.1.12.json",
-      "sha256": "f2c3aee7c8e827bb5eaca47eaac95a26fec266f5c46cc2e9ed4f3103bdbac5a1"
+      "releaseNotes": "优化好友将灯变化横幅，补充好友消失提示；本机主动删除成功后清除对应本地记录，好友消失不能判断由哪一方删除。首次读取仍只建立基准。",
+      "packageUrl": "packages/social/0.1.14.json",
+      "sha256": "9836d97ec7bf0d6c2fe1016e6afd18bc3803e2874c2078b70dc8150e9d993e71"
     },
     {
       "id": "player-info",
       "name": "玩家信息",
-      "version": "0.3.8",
+      "version": "0.4.19",
       "icon": {
         "paths": [
           "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
@@ -38,14 +38,16 @@
         ]
       },
       "priority": 30200,
-      "categories": [],
+      "categories": [
+        "game"
+      ],
       "contractVersion": 1,
-      "minCoreVersion": "0.5.0",
+      "minCoreVersion": "0.6.70",
       "apiVersion": 1,
-      "description": "排位、单骑、斗地主显示玩家胜率和连胜败，支持人机提示与自选身份补全",
-      "releaseNotes": "优化玩家资料卡的选将显示：与选将卡牌重叠的局部区域半透明，其他部分保持清晰；选将结束后恢复。",
-      "packageUrl": "packages/player-info/0.3.8.json",
-      "sha256": "49a4f41653aabb6f1a7fe8e50d15c6fe6140d0eb5357b500ee946e134d58d9c9"
+      "description": "可选玩家资料卡与斗地主将灯检查，支持自定义关注武将、人机提示与自选身份补全",
+      "releaseNotes": "新增斗地主将灯检查与关注武将设置，优化选将期间资料卡遮挡和提示布局。玩家资料卡与将灯检查默认开启，保留已有关闭选择；查询会访问游戏服务器并按需加载武将原画，体验卡等临时拥有状态可能影响判断。",
+      "packageUrl": "packages/player-info/0.4.19.json",
+      "sha256": "137de51e07acf360074aba07283559f9c8e91b6a7559daa95a74a6e62217ec5c"
     },
     {
       "id": "native-cards",
@@ -168,7 +170,7 @@
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.68",
+      "version": "0.1.72",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -183,9 +185,9 @@
       "minCoreVersion": "0.6.62",
       "apiVersion": 1,
       "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
-      "releaseNotes": "他人明牌随头像大小同步缩放，显示两行半并支持滚动；改善查看多张明牌时的滚动体验，隐藏滚动条。",
-      "packageUrl": "packages/cards/0.1.68.json",
-      "sha256": "0422914b6c6e0e602f7712b1dcce9ca9341d204751c959c9fe455c423fd4a759"
+      "releaseNotes": "新增手牌组间留空快捷开关，保留排序方式与已有选择；改善卡牌面板在低高度下的滚动和内容显示。",
+      "packageUrl": "packages/cards/0.1.72.json",
+      "sha256": "cbfb48da95ab967acc27b26715f374f177f4567b0764d7458b5ad7e66ad0103a"
     },
     {
       "id": "play-assist",
@@ -212,7 +214,7 @@
     {
       "id": "daily-rewards",
       "name": "日常领奖",
-      "version": "0.7.33",
+      "version": "0.7.34",
       "icon": {
         "paths": [
           "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -227,9 +229,9 @@
       "minCoreVersion": "0.6.38",
       "apiVersion": 1,
       "description": "自动领取签到、任务、邮件与活动奖励，按账号记录",
-      "releaseNotes": "排除回归、回流及老玩家任务，未确认项目显示名称与任务编号；修复部分已读未领邮件无法恢复领取的问题，精简排查信息。保留已有防重复领取记录。自动领取仍默认关闭，兑换可能消耗欢乐豆；共享兑换码需单独开启，只上传游戏明确成功的码及账号摘要。",
-      "packageUrl": "packages/daily-rewards/0.7.33.json",
-      "sha256": "b0d3c11d10b7991d7a95b396f4739ec10fb44f01c6451fc604832cef5a73c24f"
+      "releaseNotes": "调整活动奖励领取，避免发送多余的领取请求。自动领取仍默认关闭，兑换可能消耗欢乐豆；共享兑换码需单独开启，只上传游戏明确成功的码及账号摘要。",
+      "packageUrl": "packages/daily-rewards/0.7.34.json",
+      "sha256": "4b88f8df18eb2f1930f4aeb52cad91d96db273a4e21c0d6523f2eed2eeb8f07f"
     },
     {
       "id": "seckill",
@@ -256,7 +258,7 @@
     {
       "id": "gaizhu",
       "name": "盖主速刷",
-      "version": "0.1.12",
+      "version": "0.1.16",
       "icon": {
         "paths": [
           "M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0",
@@ -274,15 +276,15 @@
       "dependencies": [
         "baisheng"
       ],
-      "description": "黄盖房主苦肉速刷，反贼自动选将、准备与托管，支持百胜轮换和延时收尾。",
-      "releaseNotes": "统一速刷开关与操作提示外观，保留手动开始和停止方式。点将可能消耗游戏道具。",
-      "packageUrl": "packages/gaizhu/0.1.12.json",
-      "sha256": "9c2e608ea3087aa3d0239957dd5388e4f441ec63afffebf376dc4c886ada3a91"
+      "description": "支持盖主速刷、反贼房主单人百胜和单骑人机训练；单人对局优先接受小杀助手提示，超时本地处理与托管兜底。",
+      "releaseNotes": "新增反贼房主单人百胜和单骑人机训练，优先使用小杀助手提示，并提供取消无懈选项。需手动开始；点将可能消耗道具，单骑训练自动选购可能消耗局内货币。",
+      "packageUrl": "packages/gaizhu/0.1.16.json",
+      "sha256": "9850f093bec013649ee2bdb7ca403d2f3a0b22b88384fde5975e627abe7bc50c"
     },
     {
       "id": "effects",
       "name": "特效屏蔽",
-      "version": "0.5.10",
+      "version": "0.5.11",
       "icon": {
         "paths": [
           "M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2",
@@ -297,9 +299,9 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "按需屏蔽对局特效与界面提醒，让画面更清爽",
-      "releaseNotes": "统一特效设置的刷新、恢复及帮助提示外观，保留已有屏蔽选择。",
-      "packageUrl": "packages/effects/0.5.10.json",
-      "sha256": "bc1e15da0996029e6fe4c6435c6c40a22050b0102dd3e55cc4b6037ddad02b8f"
+      "releaseNotes": "统一设置中的帮助图标外观，保留已有特效屏蔽选择。",
+      "packageUrl": "packages/effects/0.5.11.json",
+      "sha256": "bfa1078addcc398d8c3c96a0929b4abf1aac79e91e1e12dd00f1ca9b0d1934cc"
     },
     {
       "id": "skins",
@@ -363,7 +365,7 @@
     {
       "id": "baisheng",
       "name": "百胜战功",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "icon": {
         "paths": [
           "M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4",
@@ -378,14 +380,14 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "查看当前账号百胜进度、完成日期与技能战功，仅保存在本机",
-      "releaseNotes": "优化战功进度展示、登录等待提示与筛选操作，保留当前账号记录。",
-      "packageUrl": "packages/baisheng/0.1.7.json",
-      "sha256": "5b336ee55f25706ef864e2667e0f855a855981805b6b25383dece16a930b0802"
+      "releaseNotes": "随公共界面资源更新，百胜统计、筛选与账号记录保持不变。",
+      "packageUrl": "packages/baisheng/0.1.8.json",
+      "sha256": "86eb2b56d37adb85fae479bc8f1d1b04dd15a6e48dc2a277d538c9006cb4514c"
     },
     {
       "id": "appearances",
       "name": "出框与胜率统计",
-      "version": "0.4.20",
+      "version": "0.4.24",
       "icon": {
         "paths": [
           "M9 21H3V3h18v9",
@@ -401,14 +403,14 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "本机统计正式排位、斗地主与单骑无双的出框、选取、胜率及对局历史",
-      "releaseNotes": "随公共图标资源更新，统计、筛选、历史记录与导入方式保持不变。",
-      "packageUrl": "packages/appearances/0.4.20.json",
-      "sha256": "2781a716e79711e114c602910bc2b0b2ad24802699087ad6a8d3c3d3e732790e"
+      "releaseNotes": "支持用官方七日战绩补齐本机已采到开局的对局，避免重复统计；缺少可靠模式或身份依据时不补记，不补造历史出框与胜率。",
+      "packageUrl": "packages/appearances/0.4.24.json",
+      "sha256": "bfccea5e37c553b554d7e76af6dc6fa85f5440957f0e79b5d0e56db10b3874f9"
     },
     {
       "id": "ledger",
       "name": "账本",
-      "version": "0.3.6",
+      "version": "0.3.7",
       "icon": {
         "paths": [
           "M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18",
@@ -423,14 +425,14 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "重要物品余额、登录收支与祈愿记录，背包道具搜索和抵价券满减角标",
-      "releaseNotes": "修复登录时元宝余额尚未加载完整就误报大量消耗的问题；修复部分微端物品减少提醒弹窗偏移、内容超出窗口的问题。",
-      "packageUrl": "packages/ledger/0.3.6.json",
-      "sha256": "91b2b39bbedebf1ff5939ca5fd31d5d4f5d7debf5c67a67aaf07105d66f210de"
+      "releaseNotes": "随公共界面资源更新，账本统计、登录余额判断与物品提醒方式保持不变。",
+      "packageUrl": "packages/ledger/0.3.7.json",
+      "sha256": "10c7edaf11b31208d51f9148dc4662510c93eb67914fdc1b92996b8f02b54a25"
     },
     {
       "id": "recharge",
       "name": "95折充值与旧卡",
-      "version": "0.1.7",
+      "version": "0.1.13",
       "icon": {
         "paths": [
           "M3 6h18v14H3Z",
@@ -444,12 +446,12 @@
         "tools"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.37",
+      "minCoreVersion": "0.6.72",
       "apiVersion": 1,
       "description": "官服微信／支付宝充值及旧周月卡原生直购入口，操作前请阅读风险",
-      "releaseNotes": "修复微端支付宝正常付款二维码区域空白的问题，保留备用跳转码和收银台入口。出码仍需核对账号与金额并确认；付款须手动完成，出码不代表付款或到账。",
-      "packageUrl": "packages/recharge/0.1.7.json",
-      "sha256": "fa5422c3c6f7177240a4bc982f363db8d90b639b6e94244cacaac2824f05ce28"
+      "releaseNotes": "将95折开关移到游戏充值按钮左侧，新增自定义元宝输入并修复入口定位和付款码显示。仍默认关闭；创建订单会向官方支付服务发送账号及订单信息，需核对账号、数量和风险后确认，付款须手动完成，不保证折扣或到账。",
+      "packageUrl": "packages/recharge/0.1.13.json",
+      "sha256": "5fcb83f361d29fe92f3837bb1e68824a460b49efa81259150081e5f03d077088"
     }
   ]
 }

@@ -73,3 +73,13 @@ test('gaizhu UI: remount cleanup is idempotent, releases listeners without stopp
   assert.equal(f.scope.cleanups.length, 0);
   button.click(); f.update({ status: '仍在运行' }); assert.deepEqual(f.changes, []);
 });
+
+
+test('gaizhu UI: cancel-wuxie is a named accessible switch, defaults on and preserves explicit off', t => {
+  const f = fixture(t), input = f.root.querySelector('[aria-label="取消无懈"]');
+  f.button('反贼大号').click(); assert.equal(input.checked, true);
+  assert.equal(input.classList.contains('sgs-switch'), true);
+  input.click(); assert.deepEqual(f.changes.at(-1), { cancelWuxie: false });
+  f.update({ role: 'rebel', cancelWuxie: false }); assert.equal(input.checked, false);
+  f.update({ account: '' }); assert.equal(input.disabled, true);
+});

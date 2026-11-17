@@ -2,8 +2,8 @@ import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
 import { createGaiZhu } from './runtime.js';
 
 export const manifest = {
-  id: 'gaizhu', name: '盖主速刷', version: '0.1.12', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "统一速刷开关与操作提示外观，保留手动开始和停止方式。点将可能消耗游戏道具。", minCoreVersion: '0.6.37', dependencies: ['baisheng'], description: '黄盖房主苦肉速刷，反贼自动选将、准备与托管，支持百胜轮换和延时收尾。',
+  id: 'gaizhu', name: '盖主速刷', version: '0.1.16', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "新增反贼房主单人百胜和单骑人机训练，优先使用小杀助手提示，并提供取消无懈选项。需手动开始；点将可能消耗道具，单骑训练自动选购可能消耗局内货币。", minCoreVersion: '0.6.37', dependencies: ['baisheng'], description: '支持盖主速刷、反贼房主单人百胜和单骑人机训练；单人对局优先接受小杀助手提示，超时本地处理与托管兜底。',
   icon: PLUGIN_ICONS['gaizhu'], priority: 21000, categories: ['automation'],
 };
 
@@ -52,11 +52,11 @@ export function renderPanel(ctx, controller, container) {
     [data-gaizhu] pre{max-height:180px;overflow:auto;margin:0 0 7px;white-space:pre-wrap;overflow-wrap:anywhere;font:10px/1.6 var(--sgs-font,sans-serif);color:var(--sgs-muted)}
     [data-gaizhu] .gz-error pre{color:var(--sgs-danger)}
   `;
-  const intro = el('p', '两端手动进入同一自建身份房，再选择本端角色。', 'gz-note');
+  const intro = el('p', '双人进入同一身份房；单人用反贼大号坐房主，或进入单骑人机训练。', 'gz-note');
   const roleField = el('div', undefined, 'gz-field'), roleTitle = el('h3', '本端角色');
   const roleGroup = el('div', undefined, 'sgs-segments gz-roles'); roleGroup.setAttribute('role', 'group'); roleGroup.setAttribute('aria-label', '本端角色');
   const roleButtons = new Map();
-  for (const [role, title, description] of [['host', '盖主小号', '房主 · 黄盖'], ['rebel', '反贼大号', '百胜 · 托管']]) {
+  for (const [role, title, description] of [['host', '盖主小号', '房主 · 黄盖'], ['rebel', '反贼大号', '百胜 · 单人 / 双人']]) {
     const button = el('button', title); button.type = 'button'; button.dataset.role = role;
     button.setAttribute('aria-label', title); button.title = `${title} · ${description}`;
     button.append(el('small', description)); listen(button, 'click', () => { draftRole = role; redraw(); });
@@ -76,6 +76,10 @@ export function renderPanel(ctx, controller, container) {
   waitCopy.append(el('span', '等1分钟'), el('small', '前45秒烧条，剩3秒苦肉；之后立即收尾。'));
   const waitState = el('span', undefined, 'gz-wait-state'), waitInput = ctx.ui.styleSwitch(el('input')); waitInput.type = 'checkbox'; waitInput.setAttribute('aria-label', '等1分钟');
   waitRow.append(waitCopy, waitState, waitInput); listen(waitInput, 'change', () => controller.setOptions({ wait: waitInput.checked }));
+  const wuxieRow = el('label', undefined, 'gz-wait'), wuxieCopy = el('span', undefined, 'gz-wait-copy');
+  wuxieCopy.append(el('span', '取消无懈'), el('small', '单人百胜和单骑训练默认跳过无懈；关闭后按助手和锦囊来源判断。'));
+  const wuxieInput = ctx.ui.styleSwitch(el('input')); wuxieInput.type = 'checkbox'; wuxieInput.setAttribute('aria-label', '取消无懈');
+  wuxieRow.append(wuxieCopy, wuxieInput); listen(wuxieInput, 'change', () => controller.setOptions({ cancelWuxie: wuxieInput.checked }));
   const caution = el('p', undefined, 'gz-caution');
   const action = el('button', undefined, 'gz-action'); action.type = 'button';
   const actionIcon = el('span'), actionText = el('span'); actionIcon.setAttribute('aria-hidden', 'true'); action.append(actionIcon, actionText);
@@ -95,7 +99,7 @@ export function renderPanel(ctx, controller, container) {
   const meta = el('div', undefined, 'gz-meta'), general = el('span'), rounds = el('span'); meta.append(general, rounds);
   const errors = el('details', undefined, 'sgs-fold gz-error'), errorSummary = el('summary', '查看完整错误'), errorText = el('pre'); errors.append(errorSummary, errorText);
   const history = el('details', undefined, 'sgs-fold'), historySummary = el('summary', '运行记录'), historyText = el('pre'); history.append(historySummary, historyText);
-  root.append(style, intro, roleField, pickField, waitRow, caution, action, status, passwordRow, meta, errors, history); container.append(root);
+  root.append(style, intro, roleField, pickField, waitRow, wuxieRow, caution, action, status, passwordRow, meta, errors, history); container.append(root);
   let previousRunning;
   function redraw() {
     if (!mounted) return;
@@ -105,9 +109,12 @@ export function renderPanel(ctx, controller, container) {
     if (running) draftRole = s.role;
     for (const [role, button] of roleButtons) { button.disabled = !s.account || running; button.setAttribute('aria-pressed', String(draftRole === role)); }
     for (const [pick, button] of pickButtons) { button.disabled = !s.account || running; button.setAttribute('aria-pressed', String(s.pick === pick)); }
-    pickField.hidden = draftRole !== 'rebel'; waitRow.hidden = draftRole !== 'host';
+    pickField.hidden = draftRole !== 'rebel';
+    pickTitle.textContent = s.training ? '单骑人机不支持点将 · 设置暂不生效' : '点将 · 百胜轮换';
+    if (s.training) for (const button of pickButtons.values()) button.disabled = true; waitRow.hidden = draftRole !== 'host';
+    wuxieRow.hidden = draftRole !== 'rebel'; wuxieInput.checked = s.cancelWuxie !== false; wuxieInput.disabled = !s.account;
     waitInput.checked = Boolean(s.wait); waitInput.disabled = !s.account; waitState.textContent = s.wait ? '已开启' : '已关闭';
-    caution.textContent = draftRole === 'host' ? '开始后自动补普通小杀、点将黄盖并苦肉求死。房间点将可能消耗点将资源。' : s.pick === 'off' ? '开始后自动准备、选将并托管。先拒绝手气卡，再进入托管。' : '开始后自动点将、准备与托管；点将可能消耗游戏点将卡等资源。';
+    caution.textContent = s.training ? '优先执行小杀助手提示，超时本地处理并托管兜底，拒绝手气卡并自动续局。商店沿用选购规则，可能消耗局内货币；点将设置不生效。' : draftRole === 'host' ? '开始后自动补普通小杀、点将黄盖并苦肉求死。房间点将可能消耗点将资源。' : s.pick === 'off' ? '拒绝手气卡。双人时自动准备、选将并托管；反贼房主单人时补小杀开局，优先执行小杀助手提示，超时本地处理并托管兜底。单骑训练自动选购，可能消耗局内货币。' : '按所选方式点将，可能消耗游戏点将卡等资源。双人时托管；单人房主优先执行小杀助手提示，超时本地处理并托管兜底。单骑训练自动选购，可能消耗局内货币。';
     action.disabled = !s.account && !running; action.classList.toggle('is-running', running);
     actionText.textContent = running ? '停止速刷' : '开始速刷'; action.setAttribute('aria-label', actionText.textContent); action.title = running ? '停止本端自动操作' : `开始${draftRole === 'host' ? '盖主小号' : '反贼大号'}速刷`;
     if (previousRunning !== running) { previousRunning = running; actionIcon.replaceChildren(ctx.ui.icon(running ? 'pause' : 'play')); }

@@ -7,12 +7,13 @@ const source = rows => ({ AchievementAll: { Achievement: rows } });
 const reply = changes => ({ requestType: 0, NickName: '账号甲', Achs: [], ...changes });
 const candidate = (id, changes = {}) => ({ id, name: `候选${id}`, owned: true, progress: 1, required: 100, completed: false, skillCompleted: false, ...changes });
 
-test('gaizhu model: persistent schema contains only valid pick/wait preferences', () => {
-  assert.deepEqual(cleanOptions(), { pick: 'off', wait: false });
-  assert.deepEqual(cleanOptions(null), { pick: 'off', wait: false });
-  assert.deepEqual(cleanOptions({ pick: 'order', wait: true, role: 'host' }), { pick: 'order', wait: true });
-  assert.deepEqual(cleanOptions({ pick: 'invalid', wait: 1 }), { pick: 'off', wait: false });
-  assert.deepEqual(cleanOptions({ pick: 'random', wait: false }), { pick: 'random', wait: false });
+test('gaizhu model: persistent schema contains only valid pick/wait/cancelWuxie preferences', () => {
+  assert.equal(cleanOptions({ cancelWuxie: false }).cancelWuxie, false);
+  assert.deepEqual(cleanOptions(), { pick: 'off', wait: false, cancelWuxie: true });
+  assert.deepEqual(cleanOptions(null), { pick: 'off', wait: false, cancelWuxie: true });
+  assert.deepEqual(cleanOptions({ pick: 'order', wait: true, role: 'host' }), { pick: 'order', wait: true, cancelWuxie: true });
+  assert.deepEqual(cleanOptions({ pick: 'invalid', wait: 1 }), { pick: 'off', wait: false, cancelWuxie: true });
+  assert.deepEqual(cleanOptions({ pick: 'random', wait: false, cancelWuxie: true }), { pick: 'random', wait: false, cancelWuxie: true });
 });
 
 test('gaizhu model: parses official direct/XML attributes and multiple progress criteria', () => {

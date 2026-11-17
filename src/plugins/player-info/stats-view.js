@@ -2,6 +2,7 @@ import { singleRiderShopVisible } from '../../shared/native-shop.js';
 import { getNativeTheme } from '../../ui/native-theme.js';
 import { placeStats } from './stats-model.js';
 import { officerColor } from './officer-style.js';
+import { createLampStrip } from './lamps-view.js';
 
 export function displayRect(host, L) {
   if (!host || host.destroyed || host.visible === false || host.parent === null || !host.localToGlobal) return null;
@@ -85,7 +86,7 @@ export function portraitRect(ui, L) {
 export function createStatsView(ctx) {
   const entries = new Map(), theme = getNativeTheme(ctx);
   let palette = theme.palette;
-  function disposeEntry(e) { e.root.destroy(true); for (const part of e.parts) part.mask.destroy(true); }
+  function disposeEntry(e) { e.lamps?.remove(); e.root.destroy(true); for (const part of e.parts) part.mask.destroy(true); }
   function clear() { for (const e of entries.values()) disposeEntry(e); entries.clear(); }
   ctx.scope.add(clear);
   ctx.scope.add(theme.watch(p => { palette = p; }));
@@ -105,14 +106,14 @@ export function createStatsView(ctx) {
     }
     const active = new Set();
     for (const row of mapped) {
-      const height = row.roles ? 110 : 86;
+      const height = (row.roles ? 110 : 86) + (row.lamps ? 94 : 0);
       let position = null;
       for (const width of [248, 224, 208]) { position = placeStats(row.rect, obstacles, stage, width, height); if (position) break; }
       if (!position) continue;
       obstacles.push(position); active.add(row.ui);
       let entry = entries.get(row.ui);
       if (!entry || entry.root.destroyed) {
-        const wrapper = new L.Sprite(); wrapper.name = 'sgs-player-stats'; wrapper.mouseEnabled = false; wrapper.zOrder = 90;
+        const wrapper = new L.Sprite(); wrapper.name = 'sgs-player-stats'; wrapper.mouseEnabled = true; wrapper.mouseThrough = true; wrapper.zOrder = 90;
         const makePart = alpha => {
         const root = new L.Sprite(); root.name = 'sgs-player-stats-content'; root.mouseEnabled = false; root.alpha = alpha;
         const background = new L.Sprite(); background.name = 'sgs-player-stats-background'; background.alpha = .76;
@@ -126,10 +127,11 @@ export function createStatsView(ctx) {
         const mask = new L.Sprite(); wrapper.addChild(root);
         return { root, background, lines, badge, badgeText, mask };
         };
-        entry = { root: wrapper, parts: [makePart(1), makePart(.5)] };
+        entry = { root: wrapper, parts: [makePart(1), makePart(.5)], lamps: createLampStrip(ctx) };
         stage.addChild(wrapper); entries.set(row.ui, entry);
       }
       entry.root.pos(position.x, position.y); entry.root.size(position.width, height);
+      entry.lamps.update(row.lamps, { ...position, height, label: row.name }, L, entry.root);
       maskOverlap(entry, position, occluders, L);
       for (const e of entry.parts) {
       const { root, lines, badge } = e, p = palette;

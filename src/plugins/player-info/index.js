@@ -2,12 +2,14 @@ import { nativeSeat } from '../../core/seat.js';
 import { BLACK_GOLD } from '../../core/themes.js';
 import { createIdentityHints } from './identity.js';
 import { createPlayerStats } from './stats.js';
+import { createBattleLamps } from './lamps.js';
+import { createPlayerSettings, renderPlayerSettings } from './settings.js';
 
 export const manifest = {
-  id: 'player-info', name: '玩家信息', version: '0.3.8', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "优化玩家资料卡的选将显示：与选将卡牌重叠的局部区域半透明，其他部分保持清晰；选将结束后恢复。", minCoreVersion: '0.5.0', description: '排位、单骑、斗地主显示玩家胜率和连胜败，支持人机提示与自选身份补全',
+  id: 'player-info', name: '玩家信息', version: '0.4.19', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "新增斗地主将灯检查与关注武将设置，优化选将期间资料卡遮挡和提示布局。玩家资料卡与将灯检查默认开启，保留已有关闭选择；查询会访问游戏服务器并按需加载武将原画，体验卡等临时拥有状态可能影响判断。", minCoreVersion: '0.6.70', description: '可选玩家资料卡与斗地主将灯检查，支持自定义关注武将、人机提示与自选身份补全',
   icon: { paths: ['M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0', 'M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3'] },
-  priority: 30200, categories: [],
+  priority: 30200, categories: ['game'],
 };
 const read = fn => { try { return fn(); } catch { return undefined; } };
 export const initialState = () => ({ sessionId: null, identityBlocked: false });
@@ -46,7 +48,10 @@ export function profileViews(stage, ViewClass) {
 export function activate(ctx) {
   const { document: doc, scope } = ctx;
   const identities = createIdentityHints(ctx);
-  const stats = createPlayerStats(ctx);
+  const settings = createPlayerSettings(ctx, () => tick());
+  const lamps = createBattleLamps(ctx, settings.get, () => tick());
+  const stats = createPlayerStats(ctx, lamps);
+  ctx.ui?.registerPanel({ id: 'settings', category: 'game', render: container => renderPlayerSettings(ctx, container, settings, lamps) });
   let banner = null, until = 0, account, battle = null, announced = false, profiles = new Map();
   function clear() { banner?.remove(); banner = null; until = 0; }
   function theme() {
@@ -90,7 +95,8 @@ export function activate(ctx) {
     const key = scene ? ctx.getState?.()?.sessionId : null;
     if (!scene || battle?.scene !== scene || battle?.key !== key) { identities.clear(); battle = scene ? { scene, key } : null; announced = false; }
     identities.update(snapshot, ctx.getState?.()?.identityBlocked === true);
-    stats.update(snapshot, key);
+    lamps.update(snapshot, key);
+    if (settings.get().cards) stats.update(snapshot, key); else stats.clear();
     if (scene && !announced) {
       const seats = read(() => ctx.game.getSeatUIs()) || [];
       if (seats.slice(0, 8).some(ui => {

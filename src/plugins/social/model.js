@@ -10,7 +10,7 @@ export function normalizeRecord(value) {
   r.pins = [...new Set((Array.isArray(value.pins) ? value.pins : []).map(userId).filter(Boolean))].slice(0, 2000);
   for (const [id, entry] of Object.entries(value.friends && typeof value.friends === 'object' && !Array.isArray(value.friends) ? value.friends : {}).slice(0, 2000)) {
     const key = userId(id);
-    if (key && typeof entry?.name === 'string' && entry.name.length <= 128) r.friends[key] = { name: entry.name, seenAt: Number(entry.seenAt) || 0 };
+    if (key && typeof entry?.name === 'string' && entry.name.length <= 128) r.friends[key] = { name: entry.name, seenAt: Number(entry.seenAt) || 0, ...(entry.missingAt ? { missingAt: Number(entry.missingAt) || 0 } : {}) };
   }
   r.changes = (Array.isArray(value.changes) ? value.changes : []).filter(c => c && userId(c.id) && typeof c.from === 'string' && c.from.length <= 128 && typeof c.to === 'string' && c.to.length <= 128)
     .slice(-200).map(c => ({ id: userId(c.id), from: c.from, to: c.to, at: Number(c.at) || 0 }));

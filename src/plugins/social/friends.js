@@ -24,10 +24,12 @@ export function friendManager(ctx, nodes) {
   }
   return nodes.find(n => typeof n.manager?.GetGoodFriendsList === 'function' && Array.isArray(n.goodFriendsList))?.manager || null;
 }
-export function createFriendManagement(ctx) {
+export function createFriendManagement(ctx, banner = null) {
   const root = new ResourceScope(); ctx.scope.add(() => root.dispose());
   let account = null, record = normalizeRecord(null), manager = null, child = new ResourceScope();
   let storageError = null, storageReadable = true;
+  const deletionListeners = new Set();
+  let deleted = new Set(), listStamp = '', listSince = 0;
   let rows = new Map(), menus = new Map(), menuHosts=new Map(), requested = new Set(), lastSave = 0, refresh = false;
   const currentId = () => userId(loginAccount(ctx).id);
   const ctor = () => read(() => ctx.game.getSelf().constructor);
@@ -36,8 +38,24 @@ export function createFriendManagement(ctx) {
   function persist(candidate = record) { if (!account || currentId() !== account || root.signal.aborted || !storageReadable) return false; try { ctx.storage.set('friends:' + account, candidate); storageError=null; return true; } catch(error) { storageError=String(error?.message || error); ctx.reportError?.(error); return false; } }
   function restoreOrder(){for(const n of socialNodes(ctx.window.Laya?.stage))if(Array.isArray(n.goodFriendsList)&&typeof n.itemResizeHandler==='function'&&typeof manager?.sortFriend==='function'){n.goodFriendsList.sort((a,b)=>manager.sortFriend(a.data,b.data));n.itemResizeHandler();}}
   function reset(next) {
+    banner?.clear();
+    deleted.clear(); listStamp = ''; listSince = 0;
     record.pins=[]; child.dispose(); restoreOrder(); child = new ResourceScope(); rows = new Map(); menus = new Map(); manager = null; requested.clear(); lastSave = 0;
     menuHosts=new Map();account = next; storageError=null; storageReadable=true; try { record = normalizeRecord(next ? ctx.storage.get('friends:' + next) : null); } catch(error) { record=normalizeRecord(null); storageReadable=false; storageError=String(error?.message || error);ctx.reportError?.(error); } refresh = true;
+  }
+  function forget(id) {
+    deleted.add(id);
+    for (const listener of deletionListeners) listener(id);
+    return flushDeleted();
+  }
+  function flushDeleted() {
+    if (!deleted.size) return true;
+    const candidate = normalizeRecord(record);
+    for (const id of deleted) delete candidate.friends[id];
+    candidate.pins = candidate.pins.filter(id => !deleted.has(id));
+    candidate.changes = candidate.changes.filter(c => !deleted.has(c.id));
+    if (!persist(candidate)) return false;
+    record = candidate; deleted.clear(); refresh = true; return true;
   }
   function togglePin(id) {
     id = userId(id); if (!account || currentId() !== account || !id || !record.friends[id]) return false;
@@ -128,6 +146,19 @@ export function createFriendManagement(ctx) {
     for(const node of nodes)if(typeof node.ShowUserOptMenu==='function'&&typeof node.ResetOptMenuPos==='function'&&typeof node.addChild==='function')bindMenuHost(node);
     if(found && found!==manager) {
       manager=found;
+      listStamp = ''; listSince = Date.now();
+      if (typeof manager.friendListResponse === 'function') child.patch(manager, 'friendListResponse', original => function(...args) {
+        listSince = Date.now(); return original.apply(this, args);
+      });
+      // Native success callback runs only for this client's successful operations.
+      // Capture the stable ID before the native handler removes the friend.
+      if (typeof manager.operatorFriendSuccess === 'function') child.patch(manager, 'operatorFriendSuccess', original => function(packet, ...args) {
+        const id = packet?.Type === 2 && packet.GroupID === 1
+          ? idFor(read(() => this.GetFriendByNickName(packet.FriendName))) || Object.keys(record.friends).find(id => record.friends[id].name === packet.FriendName) : null;
+        const value = original.call(this, packet, ...args);
+        if (id && currentId() === account && !root.signal.aborted) forget(id);
+        return value;
+      });
       // Use the manager comparator for the exact native GOODFRIENDS constant,
       // avoiding reliance on its numeric value when GetFriendArr is invoked.
       if(typeof manager.sortFriend==='function')child.patch(manager,'sortFriend',original=>function(a,b){const x=a?.GroupID===1&&record.pins.includes(idFor(a)),y=b?.GroupID===1&&record.pins.includes(idFor(b));return x!==y?Number(y)-Number(x):original.call(this,a,b);});
@@ -135,17 +166,31 @@ export function createFriendManagement(ctx) {
     }
     const list=read(()=>manager.GetGoodFriendsList());
     if(Array.isArray(list)) {
+      if (!flushDeleted()) return;
       const known=[]; let sent=false;
       for(const f of list.slice(0,2000)) {
         const id=idFor(f), name=f.FriendNickname;
         if(id)known.push({id,name});
         else if(!sent && typeof name==='string' && name && !requested.has(name) && typeof ctor()?.SendUserBaseInfo==='function') { requested.add(name); sent=true; read(()=>ctor().SendUserBaseInfo(name)); }
       }
-      if(known.length && (Date.now()-lastSave>=60000 || known.some(f=>record.friends[f.id]?.name!==f.name))) {
+      const stamp = JSON.stringify(list.map(f => [idFor(f), f.FriendNickname]).sort());
+      if (stamp !== listStamp) { listStamp = stamp; listSince = Date.now(); }
+      // Friend pages arrive incrementally; never infer absence from unresolved IDs
+      // or from the manager's initial empty list before its first response.
+      const complete = manager?.firstPageCome === true && list.length <= 2000 && known.length === list.length && Date.now() - listSince >= 5000;
+      const ids = new Set(known.map(f => f.id));
+      const missing = complete ? Object.entries(record.friends).filter(([id, f]) => !ids.has(id) && !f.missingAt) : [];
+      if((known.length || missing.length) && (missing.length || Date.now()-lastSave>=60000 || known.some(f=>record.friends[f.id]?.name!==f.name || record.friends[f.id]?.missingAt))) {
         const captured=captureFriends(record,known);
+        for (const [id] of missing) captured.record.friends[id].missingAt = Date.now();
         if(persist(captured.record)) {record=captured.record;lastSave=Date.now();}
         else return;
-        if(captured.changes.length)ctx.notify?.(captured.changes.length+'位好友可能改名，前往好友与聊天查看');
+        const show = message => banner ? banner.showMessage(message) : ctx.notify?.(message);
+        if(captured.changes.length) show(captured.changes.length+'位好友可能改名，前往好友与聊天查看');
+        if (missing.length) {
+          const messages = missing.map(([id, f]) => `好友「${f.name}」（ID：${id}）消失了，可能你将其删除了或者被删除。`);
+          if (banner) messages.forEach(show); else show(messages.join('\n'));
+        }
         refresh=true;
       }
     }
@@ -162,5 +207,7 @@ export function createFriendManagement(ctx) {
   }
   root.add(()=>{record.pins=[];child.dispose();restoreOrder();account=null;record=normalizeRecord(null);});
   root.interval(tick,500); tick();
-  return {tick,dispose:()=>root.dispose(),getRecord:()=>structuredClone({...record,accountId:account,savedAt:lastSave,error:storageError}),togglePin};
+  root.add(() => deletionListeners.clear());
+  return {tick,dispose:()=>root.dispose(),getRecord:()=>structuredClone({...record,accountId:account,savedAt:lastSave,error:storageError}),togglePin,
+    onDeleted(listener) { deletionListeners.add(listener); return () => deletionListeners.delete(listener); }};
 }

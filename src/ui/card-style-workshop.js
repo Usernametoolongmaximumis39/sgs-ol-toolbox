@@ -19,8 +19,8 @@ export function mountCardStyleWorkshop(container, { document: doc, cardStyles, s
   heading.append(toggle); details.append(heading, body); container.append(details);
   const render = () => {
     body.replaceChildren();
-    body.append(helpTip(doc, '卡面与卡背独立选择。完整卡面按牌名匹配，缺失卡图保留游戏原生显示；花色点数沿用游戏。'));
-    const scopeLabel = doc.createElement('p'); scopeLabel.textContent = '应用范围'; body.append(scopeLabel);
+    const scopeLabel = doc.createElement('p'); scopeLabel.textContent = '应用范围'; scopeLabel.style.cssText = 'display:flex;align-items:center;gap:5px';
+    scopeLabel.append(helpTip(doc, '卡面与卡背独立选择。完整卡面按牌名匹配，缺失卡图保留游戏原生显示；花色点数沿用游戏。')); body.append(scopeLabel);
     const scopes = doc.createElement('div'); scopes.className = 'sgs-segments'; body.append(scopes);
     for (const [value, name] of [['self','仅自己的手牌'],['all','所有人']]) {
       const button = doc.createElement('button'); button.type = 'button'; button.textContent = name;

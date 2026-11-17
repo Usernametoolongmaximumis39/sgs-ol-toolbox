@@ -2,19 +2,20 @@ import { createFriendManagement } from './friends.js';
 import { createChatEnhancements } from './chat.js';
 import { ResourceScope } from '../../core/resources.js';
 import { downloadJSON } from '../../shared/info-runtime.js';
-import { createLampTracking } from './lamps.js';
+import { createLampTracking, createLampBanner } from './lamps.js';
 
 export const manifest = {
-  id: 'social', name: '好友与聊天', version: '0.1.12', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "新增置顶好友将灯变化提醒与已拥有武将记录，可导出当前账号记录；聊天官阶查询和好友界面显示更清晰。将灯变化不代表付费判断，首次读取仅建立基准。", minCoreVersion: '0.6.37',
+  id: 'social', name: '好友与聊天', version: '0.1.14', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "优化好友将灯变化横幅，补充好友消失提示；本机主动删除成功后清除对应本地记录，好友消失不能判断由哪一方删除。首次读取仍只建立基准。", minCoreVersion: '0.6.37',
   description: '好友置顶、改名与将灯新增提醒、公屏一键进房与聊天官阶补全',
   icon: { paths: ['M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 'M2 21v-3a6 6 0 0 1 12 0v3', 'M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1'] },
   priority: 30300, categories: ['tools'],
 };
 
 export function activate(ctx) {
-  const friends = createFriendManagement(ctx);
-  const lamps = createLampTracking(ctx, friends);
+  const banner = createLampBanner(ctx);
+  const friends = createFriendManagement(ctx, banner);
+  const lamps = createLampTracking(ctx, friends, banner);
   createChatEnhancements(ctx);
   ctx.ui.registerPanel({ id: 'history', category: 'tools', render(container) {
     return renderHistory(ctx, container, friends, lamps);
@@ -30,7 +31,7 @@ export function renderHistory(ctx, container, friends, lamps) {
   const status = doc.createElement('p'); status.dataset.socialStatus = ''; status.setAttribute('role', 'status');
   const button = doc.createElement('button'); button.type = 'button'; button.dataset.socialExport = ''; button.textContent = '导出好友记录';
   button.title = '下载当前账号好友、改名记录及所有已保存的武将名单；取消置顶不删除武将记录';
-  const history = doc.createElement('ol'); history.dataset.socialHistory = ''; history.setAttribute('aria-label', '可能改名的好友');
+  const history = doc.createElement('ol'); history.dataset.socialHistory = ''; history.setAttribute('aria-label', '好友变化记录');
   const empty = doc.createElement('p'); empty.className = 'social-muted';
   const error = doc.createElement('p'); error.style.color = 'var(--sgs-danger)'; error.setAttribute('role', 'alert');
   root.append(style, status, error, button, intro, history, empty); container.append(root);
@@ -41,7 +42,14 @@ export function renderHistory(ctx, container, friends, lamps) {
     error.hidden = !data.error; error.textContent = data.error || '';
     status.hidden = !!data.accountId; status.textContent = data.accountId ? '' : '等待登录与好友资料';
     empty.textContent = data.changes.length ? '昵称变化仅表示可能改名，用户 ID 保持不变。最多保留最近 200 条变化；导出含已保存好友。' : '尚未发现好友昵称变化。首次记录作为比较基准。';
+    if (Object.values(data.friends).some(f => f.missingAt)) empty.textContent += ' 好友消失无法判断由哪一方删除；本机主动删除成功后会清除该好友的本地记录。';
     history.replaceChildren();
+    for (const [id, friend] of Object.entries(data.friends).filter(([, f]) => f.missingAt).sort((a,b) => b[1].missingAt-a[1].missingAt)) {
+      const row = doc.createElement('li'), name = doc.createElement('strong'), detail = doc.createElement('small');
+      name.textContent = `${friend.name} · 好友消失`;
+      detail.textContent = `ID：${id} · 可能你将其删除了或者被删除。`;
+      row.append(name, detail); history.append(row);
+    }
     for (const change of [...data.changes].reverse()) {
       const row = doc.createElement('li'), names = doc.createElement('strong'), detail = doc.createElement('small');
       names.textContent = `${change.from} → ${change.to}`;

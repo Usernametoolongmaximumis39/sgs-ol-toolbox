@@ -12,7 +12,8 @@ export const pluginQuality = {
     "browser": [
       "tools/browser-social-check.mjs",
       "tools/browser-social-menu-check.mjs",
-      "tools/browser-social-lamps-check.mjs"
+      "tools/browser-social-lamps-check.mjs",
+      "tools/browser-social-missing-check.mjs"
     ]
   },
   "player-info": {
@@ -21,12 +22,16 @@ export const pluginQuality = {
     ],
     "tests": [
       "tests/player-info.test.js",
-      "tests/player-stats.test.js"
+      "tests/player-stats.test.js",
+      "tests/player-lamps.test.js",
+      "tests/player-manual-lamps.test.js"
     ],
     "browser": [
       "tools/browser-player-info-check.mjs",
       "tools/browser-player-info-native-check.mjs",
-      "tools/browser-player-stats-check.mjs"
+      "tools/browser-player-stats-check.mjs",
+      "tools/browser-player-lamps-check.mjs",
+      "tools/browser-player-settings-check.mjs"
     ]
   },
   "native-cards": {
@@ -160,6 +165,8 @@ export const pluginQuality = {
     ],
     "tests": [
       "tests/gaizhu.test.js",
+      "tests/gaizhu-assistant.test.js",
+      "tests/gaizhu-guards.test.js",
       "tests/gaizhu-client-flow.test.js"
     ],
     "browser": [
@@ -241,7 +248,8 @@ export const pluginQuality = {
     ],
     "tests": [
       "tests/info-plugins.test.js",
-      "tests/appearance-mode-evidence.test.js"
+      "tests/appearance-mode-evidence.test.js",
+      "tests/appearance-history.test.js"
     ],
     "browser": [
       "tools/browser-info-check.mjs"
@@ -269,7 +277,10 @@ export const pluginQuality = {
       "tests/recharge.test.js"
     ],
     "browser": [
-      "tools/browser-recharge-check.mjs"
+      "tools/browser-recharge-check.mjs",
+      "tools/browser-recharge-native-check.mjs",
+      "tools/browser-alipay-resolution-check.mjs",
+      "tools/browser-recharge-tampermonkey-check.mjs"
     ]
   }
 };

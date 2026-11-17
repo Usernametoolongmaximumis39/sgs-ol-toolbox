@@ -43,8 +43,17 @@ const STYLES = `
 .sgs-card-hud-recent .sgs-card-mini{width:48px;height:min(66px,calc(var(--sgs-card-round-height,58px) + 14px))}.sgs-card-hud-recent-label{font-size:10px;line-height:1;color:var(--sgs-accent,#dbba70)}.sgs-card-hud-placeholder{white-space:pre-line;text-align:center;font:18px/1.2 "Microsoft YaHei",sans-serif;color:var(--sgs-muted,#b7aa8c)}
 .sgs-card-hud:not(.has-recent) .sgs-card-hud-actions{grid-column:1}
 .sgs-card-hud-actions{grid-column:2;grid-row:2;display:flex;gap:6px}.sgs-card-hud-actions>button{pointer-events:auto;flex:1;min-width:0;padding:2px 5px;font-size:16px;line-height:1.4;white-space:nowrap;background:color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,transparent);border-color:var(--sgs-accent,#dbba70);border-radius:5px}.sgs-card-hud-actions>button[aria-expanded=true]{background:var(--sgs-raised,#383327);box-shadow:inset 0 0 0 1px var(--sgs-accent,#dbba70)}
-.sgs-card-hud-list{pointer-events:auto;grid-column:1/-1;grid-row:3;padding:8px;background:var(--sgs-bg,#201e1a);border:1px solid var(--sgs-border,#665b42);border-radius:6px;max-height:240px;overflow:auto;min-width:0}
-.sgs-card-hud-caption{font-size:11px;color:var(--sgs-muted,#b7aa8c);margin:0 0 6px}
+.sgs-card-hud-list{pointer-events:auto;grid-column:2;grid-row:3;padding:5px;background:var(--sgs-bg,#201e1a);border:1px solid var(--sgs-border,#665b42);border-radius:6px;width:var(--sgs-card-list-width,201px);min-width:0;overflow:hidden}
+.sgs-card-hud:not(.has-recent) .sgs-card-hud-list{grid-column:1}
+.sgs-card-hud-scroll{max-height:calc(var(--sgs-card-list-card-height,42px) * 2.5 + 6px);overflow-y:auto;overflow-x:hidden;scrollbar-width:none;touch-action:pan-y;overscroll-behavior:contain;outline-offset:-2px}
+.sgs-card-hud-scroll::-webkit-scrollbar{display:none}
+.sgs-card-hud-scroll:focus-visible{outline:2px solid var(--sgs-accent,#dbba70)}
+.sgs-card-hud-list .sgs-card-grid{display:grid;grid-template-columns:repeat(var(--sgs-card-list-columns,6),minmax(0,1fr));gap:3px;align-items:start}
+.sgs-card-hud-list .sgs-card-mini{width:100%;height:var(--sgs-card-list-card-height,42px);min-width:0;border-radius:3px}
+.sgs-card-hud-list .sgs-card-suit,.sgs-card-hud-list .sgs-card-name{font-size:12px}
+.sgs-card-hud-list .sgs-card-controls{margin-bottom:5px}
+.sgs-card-hud-list .sgs-segments>button{flex:1;min-width:0;padding:3px 1px;font-size:10px}
+.sgs-card-hud-caption{font-size:10px;color:var(--sgs-muted,#b7aa8c);margin:0 0 4px}
 .sgs-card-seat-layer{position:absolute;inset:0;pointer-events:none}.sgs-card-seat-reveal,.sgs-card-source-label{position:absolute}.sgs-card-seat-reveal{display:flex;gap:2px;align-items:center;width:344px;max-width:calc(100vw - 8px);max-height:166px;overflow-y:auto;overflow-x:hidden;align-content:flex-start;scrollbar-width:thin;pointer-events:auto;flex-wrap:wrap}
 .sgs-card-seat-reveal{gap:calc(2px * var(--sgs-reveal-scale,1));scrollbar-width:none;touch-action:pan-y;overscroll-behavior:contain}.sgs-card-seat-reveal::-webkit-scrollbar{display:none}
 .sgs-card-seat-reveal .sgs-card-mini{width:calc(40px * var(--sgs-reveal-scale,1));height:calc(54px * var(--sgs-reveal-scale,1));pointer-events:auto}.sgs-card-seat-reveal .sgs-card-suit,.sgs-card-seat-reveal .sgs-card-name{font-size:calc(16px * var(--sgs-reveal-scale,1))}.sgs-card-seat-reveal .sgs-card-mini:hover{z-index:1}
@@ -150,9 +159,16 @@ export function activate(ctx) {
     if (!bounds) return;
     const recentWidth = setting('recent') ? 66 : 0;
     hud.style.setProperty('--sgs-card-pile-width', Math.max(60, Math.min(bounds.width, window.innerWidth - recentWidth - 24)) + 'px');
+    // Enlarge only the expanded list; keep the round-aligned action bar stable.
+    const listWidth = Math.max(60, Math.min(bounds.width + 15, window.innerWidth - recentWidth - 24));
+    const columns = Math.max(1, Math.round((listWidth - 12 + 3) / 33));
+    const cardWidth = (listWidth - 12 - (columns - 1) * 3) / columns;
+    hud.style.setProperty('--sgs-card-list-width', listWidth + 'px');
+    hud.style.setProperty('--sgs-card-list-columns', columns);
+    hud.style.setProperty('--sgs-card-list-card-height', (cardWidth * 1.4) + 'px');
     hud.style.setProperty('--sgs-card-round-height', bounds.height + 'px');
     const rect = hud.getBoundingClientRect();
-    const x = Math.max(12, Math.min(Math.max(12, window.innerWidth - rect.width - 12), bounds.x - recentWidth));
+    const x = Math.max(12, Math.min(Math.max(12, window.innerWidth - Math.max(rect.width, recentWidth + listWidth) - 12), bounds.x - recentWidth));
     const y = Math.max(12, Math.min(Math.max(12, window.innerHeight - rect.height - 12), bounds.y));
     hud.style.left = x + 'px'; hud.style.top = y + 'px';
   }
@@ -207,7 +223,10 @@ export function activate(ctx) {
     if (shownList) {
       const caption = { top: '牌堆顶 · 最顶在左', bottom: '牌堆底 · 最底在右', discard: `本回合弃牌 · ${discardMode === 'time' ? '新的在右' : { suit: '花色顺序', type: '类型顺序', number: '点数顺序' }[discardMode]}` }[shownList];
       const ids = listIds(state, shownList);
-      const cards = element('div'); cardList(cards, shownList === 'bottom' ? ids.slice().reverse() : ids);
+      const cards = element('div', 'sgs-card-hud-scroll');
+      cards.tabIndex = 0; cards.setAttribute('role', 'region');
+      cards.setAttribute('aria-label', '卡牌列表，可上下滚动');
+      cardList(cards, shownList === 'bottom' ? ids.slice().reverse() : ids);
       hudList.replaceChildren(element('p', 'sgs-card-hud-caption', caption));
       if (shownList === 'discard') {
         const controls = element('div', 'sgs-card-controls sgs-segments');
@@ -480,8 +499,8 @@ export function activate(ctx) {
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.68', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "他人明牌随头像大小同步缩放，显示两行半并支持滚动；改善查看多张明牌时的滚动体验，隐藏滚动条。", minCoreVersion: '0.6.62', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.72', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "新增手牌组间留空快捷开关，保留排序方式与已有选择；改善卡牌面板在低高度下的滚动和内容显示。", minCoreVersion: '0.6.62', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
     description: '记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数' },
   initialState, reduce, activate,
 };

@@ -100,12 +100,12 @@ export function createNative(ctx) {
     const windows = entries.map(([, win]) => win);
     nodes = walkNative([...nodes, ...windows], 768);
     return { scene, name: nodeName(scene), self: read(() => scene.SelfSeatUi) || read(() => scene.selfSeatUI),
-      game: Boolean(read(() => scene.SelfSeatUi) || read(() => scene.selfSeatUI) || nodeName(scene) === 'GameScene'), nodes };
+      game: Boolean(read(() => scene.SelfSeatUi) || read(() => scene.selfSeatUI) || /^(GameScene|RogueLike1v1GameScene)$/.test(nodeName(scene))), nodes: nodes.filter(n => displayed.has(n) || Boolean(read(() => n.parent))) };
   }
   // WindowManager caches are not a display list. Its native IsWindowShow
   // requires parent+visible; fixture stage membership supplies the same fact.
   const mounted = node => displayed.has(node) || Boolean(read(() => node.parent));
-  const matching = re => nodes.filter(n => usable(n) && re.test(nodeName(n)));
+  const matching = re => nodes.filter(n => mounted(n) && usable(n) && re.test(nodeName(n)));
   const buttons = root => walkNative([root], 128).filter(usable);
   const findLabel = (root, re) => buttons(root).find(n => re.test(label(n)));
   const dj = () => { const view = read(() => scene.dianjiangView), mgr = read(() => view.manger); return view && mgr ? { view, mgr } : null; };

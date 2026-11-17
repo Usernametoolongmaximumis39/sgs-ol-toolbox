@@ -26,30 +26,41 @@ export function createLampBanner(ctx) {
   };
   function clear() { root?.remove(); root = null; }
   ctx.scope.add(clear); ctx.scope.interval(position, 500);
-  return { clear, show(name, names) {
+  function showMessage(message, closeLabel = '关闭这条好友提醒') {
     if (!ctx.document.body || ctx.scope.signal.aborted) return;
     if (!root) {
-      root = ctx.document.createElement('section'); root.dataset.socialLamps = ''; root.setAttribute('aria-label', '置顶好友新增武将');
+      root = ctx.document.createElement('section'); root.dataset.socialLamps = ''; root.setAttribute('aria-label', '好友变化提醒');
       root.style.cssText = 'position:fixed;z-index:2147483601;box-sizing:border-box;padding:12px 16px;border:1px solid var(--sgs-border,#695b3d);border-radius:10px;background:var(--sgs-surface,#202426);color:var(--sgs-text,#eee4ce);box-shadow:0 5px 18px #0005;font:14px/1.7 sans-serif;max-height:40vh;overflow:auto;overflow-wrap:anywhere';
       ctx.document.body.append(root);
     }
     const row = ctx.document.createElement('div'), text = ctx.document.createElement('span'), close = ctx.document.createElement('button');
     row.style.cssText = 'display:flex;align-items:flex-start;gap:12px;padding:4px 0'; row.setAttribute('role', 'status');
-    text.textContent = `你的置顶好友[${name}]氪了[${names.length}]个武将：${names.join('、')}`;
-    close.type = 'button'; close.textContent = '×'; close.setAttribute('aria-label', '关闭这条武将提醒'); close.title = '关闭这条提醒';
+    text.textContent = message;
+    close.type = 'button'; close.textContent = '×'; close.setAttribute('aria-label', closeLabel); close.title = '关闭这条提醒';
     close.style.cssText = 'flex:0 0 28px;min-height:28px;border:0;border-radius:5px;background:transparent;color:inherit;font:22px sans-serif;cursor:pointer';
     close.onclick = () => { row.remove(); if (!root?.children.length) clear(); };
     row.append(text, close); root.append(row); theme(); position();
+  }
+  return { clear, showMessage, show(name, names) {
+    showMessage(`你的置顶好友[${name}]氪了[${names.length}]个武将：${names.join('、')}`, '关闭这条武将提醒');
   } };
 }
 
-export function createLampTracking(ctx, friends) {
-  const banner = createLampBanner(ctx);
+export function createLampTracking(ctx, friends, banner = createLampBanner(ctx)) {
   let owner = '', snapshots = {}, pending = null, due = new Map(), names = {}, loading = false, retryNames = 0, readable = true;
   const current = () => userId(account(ctx).id);
+  const deleted = new Set();
+  function flushDeleted() {
+    if (!deleted.size || !owner || !readable) return;
+    const next = { ...snapshots };
+    for (const id of deleted) { delete next[id]; due.delete(id); if (pending?.id === id) pending = null; }
+    try { ctx.storage.set('lamps:' + owner, { version: 1, friends: next }); snapshots = next; deleted.clear(); }
+    catch (e) { ctx.reportError?.(e); }
+  }
+  if (friends.onDeleted) ctx.scope.add(friends.onDeleted(id => { sync(); deleted.add(id); flushDeleted(); }));
   function sync() {
     const next = current();
-    if (next !== owner) { owner = next; snapshots = {}; pending = null; due.clear(); banner.clear(); readable = true;
+    if (next !== owner) { owner = next; snapshots = {}; pending = null; due.clear(); deleted.clear(); banner.clear(); readable = true;
       if (owner) { try { const saved = ctx.storage.get('lamps:' + owner); if (saved?.version === 1 && saved.friends && typeof saved.friends === 'object' && !Array.isArray(saved.friends)) {
         for (const [id, entry] of Object.entries(saved.friends)) if (userId(id) === id && Array.isArray(entry?.ids) && entry.ids.length <= 10000 && entry.ids.every(n => Number.isSafeInteger(n) && n > 0)) snapshots[id] = entry;
       } } catch (e) { readable = false; ctx.reportError?.(e); } }
@@ -75,6 +86,7 @@ export function createLampTracking(ctx, friends) {
   observeNative(ctx, { ClientSelfbuygeneralRep: projectLamp }, consume, () => { pending = null; });
   function tick() {
     sync(); if (!owner || !readable) return;
+    flushDeleted();
     if (!Object.keys(names).length) {
       names = generalNames(read(() => ctx.game.getConfigData('character')));
       if (!Object.keys(names).length && !loading && Date.now() >= retryNames && ctx.game.loadConfigData) {
@@ -86,7 +98,7 @@ export function createLampTracking(ctx, friends) {
     if (pending && (!data.pins.includes(pending.id) || data.friends[pending.id]?.name !== pending.name)) pending = null;
     if (pending && Date.now() - pending.at < 30000) return;
     pending = null;
-    const id = data.pins.find(id => data.friends[id]?.name && Date.now() >= (due.get(id) || 0));
+    const id = data.pins.find(id => data.friends[id]?.name && !data.friends[id].missingAt && !deleted.has(id) && Date.now() >= (due.get(id) || 0));
     if (!id) return;
     const m = manager(ctx, 'GeneralManager', 'ClientSelfbuygeneralRep', m => typeof m.ReqOtherbuygeneral === 'function');
     if (!m) return;

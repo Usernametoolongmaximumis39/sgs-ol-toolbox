@@ -2,8 +2,8 @@ import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
 import { account, read, manager, observeNative, field, generalNames, downloadJSON } from '../../shared/info-runtime.js';
 import { definitions, projectAchievements, evaluate, validSnapshot } from './model.js';
 import { achievementExport } from './export.js';
-export const manifest = { id: 'baisheng', name: '百胜战功', version: '0.1.7', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "优化战功进度展示、登录等待提示与筛选操作，保留当前账号记录。", minCoreVersion: '0.6.37', categories: ['info'], icon: PLUGIN_ICONS['baisheng'], priority: 31000,
+export const manifest = { id: 'baisheng', name: '百胜战功', version: '0.1.8', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "随公共界面资源更新，百胜统计、筛选与账号记录保持不变。", minCoreVersion: '0.6.37', categories: ['info'], icon: PLUGIN_ICONS['baisheng'], priority: 31000,
   description: '查看当前账号百胜进度、完成日期与技能战功，仅保存在本机' };
 
 export function createController(ctx) {

@@ -327,8 +327,9 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
         const clip = avatar?.scrollRect;
         const top = avatar && nativeAnchor(window, avatar, Number(clip?.x) || 0, Number(clip?.y) || 0);
         // A standard native portrait is 172 game units high. Use its visible
-        // height in CSS pixels, including per-seat and canvas scaling.
-        const scale = top && anchor.y > top.y ? (anchor.y - top.y) / 172 : 1;
+        // height in CSS pixels, including per-seat and canvas scaling. Cap at
+        // 40 × 54 CSS pixels per card when desktop portraits grow larger.
+        const scale = Math.min(1, top && anchor.y > top.y ? (anchor.y - top.y) / 172 : 1);
         box.style.setProperty('--sgs-reveal-scale', String(scale));
         const left = Math.max(0, anchor.x - 20 * scale);
         const right = avatar && nativeAnchor(window, avatar,

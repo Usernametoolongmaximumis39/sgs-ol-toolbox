@@ -445,3 +445,14 @@ test('release UI shows non-task and unknown uncertain records with exact keys', 
  const dispose=panel.render(dom.window.document.querySelector('main')),pending=dom.window.document.querySelector('[data-rewards-unconfirmed]');
  for(const key of ['activity:weekly:3','unknown:9','mail:m3'])assert.ok(!pending.textContent.includes(key));assert.match(pending.textContent,/未命名领奖项目/);assert.match(pending.textContent,/邮件附件/);assert.match(pending.textContent,/每周奖励/);assert.equal(pending.hidden,false);dispose();
 });
+
+ test('old invisible lamp attempts are retained but excluded from issues', async t => {
+  const f = fixture(t);
+  f.settings.set('account:41:attempts', { day: f.adapter.day(), items: {
+    'lamp:81': { status: 'unconfirmed', label: '武将集灯 81 奖励' },
+    'lamp:5': { status: 'pending', label: '武将集灯 5 奖励' },
+    'task:other': { status: 'unconfirmed', label: '其他任务' },
+  } });
+  assert.deepEqual(f.controller.snapshot().issues.map(item => item.key), ['task:other']);
+  assert.equal(f.settings.get('account:41:attempts').items['lamp:81'].status, 'unconfirmed');
+});

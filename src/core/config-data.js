@@ -21,6 +21,7 @@ const ALLOWED = new Set(['gn_zonghe', 'cha_gs_dbs_fs_skininfo', 'ff_jubaopen', '
 ALLOWED.add('sys_h5_shop');
 ALLOWED.add('gn_dbs_coupon_cfg');
 ALLOWED.add('hd_fight_lord_config');
+ALLOWED.add('sys_ss_gamelabel_config');
 const ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024;
 const read = fn => { try { return fn(); } catch { return undefined; } };
 const normalize = name => String(name).replace(/\.sgs$/, '');

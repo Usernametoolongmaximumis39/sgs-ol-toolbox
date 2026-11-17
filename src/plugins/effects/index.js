@@ -1,8 +1,8 @@
 import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
 import { OPTIONS, OTHER_OPTIONS, OPTION_GROUPS, EFFECT_LEVELS, createEffectController } from './native.js';
 
-export const manifest = { id: 'effects', name: '特效屏蔽', version: '0.5.10', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "统一特效设置的刷新、恢复及帮助提示外观，保留已有屏蔽选择。", minCoreVersion: '0.6.37', categories: ['tools'], icon: PLUGIN_ICONS['effects'], priority: 20000,
+export const manifest = { id: 'effects', name: '特效屏蔽', version: '0.5.11', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "统一设置中的帮助图标外观，保留已有特效屏蔽选择。", minCoreVersion: '0.6.37', categories: ['tools'], icon: PLUGIN_ICONS['effects'], priority: 20000,
     description: '按需屏蔽对局特效与界面提醒，让画面更清爽' };
 export function activate(ctx) {
   const panels = new Set();

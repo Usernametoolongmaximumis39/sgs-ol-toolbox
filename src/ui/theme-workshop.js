@@ -27,6 +27,7 @@ const STYLES = `
 .sgs-themes [aria-pressed=true] .theme-card-state{color:var(--sgs-accent)}
 .sgs-themes .theme-description{display:block;margin-top:3px;font-size:10px;color:var(--sgs-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sgs-themes .theme-status{display:flex;align-items:center;gap:5px;margin:11px 0 0;font-size:11px;color:var(--sgs-accent);overflow-wrap:anywhere}
+.sgs-themes .theme-status-row{display:flex;align-items:center;gap:5px;margin-top:11px}.sgs-themes .theme-status-row .theme-status{margin:0;min-width:0}
 .sgs-themes .theme-footnote{margin:5px 0 0;font-size:10px;line-height:1.7;color:var(--sgs-muted)}
 @media(prefers-reduced-motion:reduce){.sgs-themes button.theme-card{transition:none}}
 `;
@@ -38,12 +39,16 @@ export function mountThemeWorkshop(container, { document: doc, themes, notify })
   const el = (tag, cls, text) => { const node = doc.createElement(tag); if (cls) node.className = cls; if (text !== undefined) node.textContent = text; return node; };
   const style = el('style'); style.textContent = STYLES;
   const heading = el('div', 'theme-heading'), count = el('span', 'theme-count');
-  heading.append(el('h4', '', '选择配色'), count);
+  const title = el('div', 'theme-heading'); title.style.marginBottom = '0';
+  title.append(el('h4', '', '选择配色'));
+  heading.append(title, count);
   const intro = helpTip(doc, '选择一套配色，即刻换装。');
   const grid = el('div', 'theme-grid'); grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', '工具箱主题');
   const status = el('p', 'theme-status'); status.dataset.themeStatus = ''; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   const footnote = helpTip(doc, '配色自动保存。主题包停用后暂回玄金，重新启用后恢复选择。');
-  root.append(style, heading, intro, grid, status, footnote); container.append(root);
+  title.append(intro);
+  const statusRow = el('div', 'theme-status-row'); statusRow.append(status, footnote);
+  root.append(style, heading, grid, statusRow); container.append(root);
   let signature, cards = new Map(), cardScope;
   const update = () => {
     if (scope.closed) return;

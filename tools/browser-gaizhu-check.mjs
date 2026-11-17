@@ -106,6 +106,74 @@ try {
   checks.push('rebel slot 2 ordered unfinished achievement selection; ready once; no trustee during opening guard; no mulligan resource use');
 
   await root.getByRole('button', { name: '停止速刷', exact: true }).click();
+  // The same rebel entry accepts training, while all point preferences remain stored.
+  await page.evaluate(() => {
+    const d = window.__SGS_TOOLBOX_DEMO__, c = window.Laya.ClassUtils.getClass('GameContext');
+    c.GetModeVO = () => ({ ModeID: 160, Section: 3 }); c.GetGroupID = () => 3;
+    d.battle();
+    d.scene.requestAiHelp = () => d.requests.push(['assistant-request']);
+    d.scene.SelfSeatUi.buttonBar.visible = true;
+    d.scene.SelfSeatUi.CurStepHelpData = { buttonName: 'btnCancel' };
+  });
+  assert.equal(await root.getByRole('switch', { name: '取消无懈', exact: true }).isChecked(), true);
+  const pointBeforeTraining = await requestCount('point');
+  await root.getByRole('button', { name: '开始速刷', exact: true }).click();
+  await hasRequest('cancel');
+  await page.evaluate(() => {
+    const d=window.__SGS_TOOLBOX_DEMO__;
+    const win={name:'SelectSkinWindow',generalID:2,selectView:{usingSkinID:9,itemList:[]},Close(){d.requests.push(['skin-close']);this.visible=false;}};
+    d.scene._children=[win];
+  });
+  await page.clock.fastForward(500); await hasRequest('skin-close');
+  assert.equal(await requestCount('skin-close'),1);
+  await page.evaluate(() => { window.__SGS_TOOLBOX_DEMO__.scene._children=[]; });
+  const wuxieCancelBefore = await requestCount('cancel');
+  await page.evaluate(() => {
+    const d = window.__SGS_TOOLBOX_DEMO__, self = d.scene.SelfSeatUi;
+    self.buttonBar.visible = true;
+    self.cardContainer = { selectCardContext: { SpecifySkillId: 13, Skill: { SkillId: 13 } }, cardUis: [{ activated: true, Card: { CardId: 13 }, setSelected() { throw Error('must not select Wuxie'); } }],
+      AllSelectHandCards() { throw Error('must not all-select during Wuxie'); } };
+    self.CurStepHelpData = { cardIds: [13], buttonName: 'btnOK' };
+  });
+  await page.clock.fastForward(1250);
+  await page.waitForFunction(count => window.__SGS_TOOLBOX_DEMO__.requests.filter(r => r[0] === 'cancel').length > count, wuxieCancelBefore);
+  assert.equal(await requestCount('cancel'), wuxieCancelBefore + 1);
+  const wuxieFile = resolve(output, 'wuxie-guard-248.png');
+  await host.evaluate(node => { node.style.width = '248px'; }); await host.screenshot({ path: wuxieFile }); screenshots.push(wuxieFile);
+  await root.getByRole('switch', { name: '取消无懈', exact: true }).click();
+  assert.equal(await root.getByRole('switch', { name: '取消无懈', exact: true }).isChecked(), false);
+  await root.getByRole('switch', { name: '取消无懈', exact: true }).click();
+  const cancelsBeforeTimeout = await requestCount('cancel');
+  await page.evaluate(() => {
+    const d = window.__SGS_TOOLBOX_DEMO__, self = d.scene.SelfSeatUi;
+    self.CurStepHelpData = null;
+    self.cardContainer = { selectCardContext: { message: '是否发动应援，选择一名角色，使其获得一张锦囊牌或取消' } };
+    self.buttonBar.visible = true;
+    self.buttonBar.btns[0].onClick = () => { d.requests.push(['cancel']); self.buttonBar.visible = false; };
+  });
+  await page.clock.fastForward(1500);
+  await page.waitForFunction(count => window.__SGS_TOOLBOX_DEMO__.requests.filter(r => r[0] === 'cancel').length > count, cancelsBeforeTimeout);
+  assert.equal(await requestCount('cancel'), cancelsBeforeTimeout + 1, 'missing AI strategy cancels optional Yingyuan once');
+  assert.equal(await requestCount('mulligan-use'), 0);
+  await root.getByText('单骑人机不支持点将 · 设置暂不生效', { exact: true }).waitFor();
+  assert.equal(await root.getByRole('button', { name: '按序点将', exact: true }).isDisabled(), true);
+  assert.equal(await requestCount('point'), pointBeforeTraining);
+  await host.evaluate(node => { node.style.width = '248px'; }, null);
+  const trainingFile = resolve(output, 'training-248.png'); await host.screenshot({ path: trainingFile }); screenshots.push(trainingFile);
+  await page.evaluate(() => {
+    const d = window.__SGS_TOOLBOX_DEMO__;
+    d.proxy.event('MsgGameOver', {});
+    d.scene._children = [{ name: 'RogueLike1v1ZhanJiWindow', onClickAgain() { d.requests.push(['training-again']); } }];
+  });
+  await page.clock.fastForward(2000); await hasRequest('training-again');
+  await page.clock.fastForward(2000); assert.equal(await requestCount('training-again'), 1);
+  await root.getByRole('button', { name: '停止速刷', exact: true }).click();
+  await page.evaluate(() => {
+    const c = window.Laya.ClassUtils.getClass('GameContext'); c.GetModeVO = () => ({ ModeID: 1 }); delete c.GetGroupID;
+    window.__SGS_TOOLBOX_DEMO__.room('rebel');
+  });
+  checks.push('training uses rebel entry; point setting remains disabled and sends no point request; executes explicit assistant hint; skin selection retains current skin through native Close; cancel-Wuxie switch overrides AI and blocks all-select; missing AI strategy cancels Yingyuan after waiting; requests next training game once; training UI screenshot at 248px');
+
   const themes = {
     dark: { bg: '#201e1a', surface: '#2c2922', raised: '#393329', text: '#eee3cc', muted: '#b7aa8c', accent: '#dbba70', border: '#665b42', danger: '#e57575', scheme: 'dark' },
     light: { bg: '#f4f0e6', surface: '#fffcf4', raised: '#e8dfcc', text: '#302b24', muted: '#706658', accent: '#8c6528', border: '#c6b897', danger: '#a83338', scheme: 'light' },
@@ -118,7 +186,7 @@ try {
     const file = resolve(output, `${theme}-${width}.png`); await host.screenshot({ path: file }); screenshots.push(file);
   }
   await root.getByRole('button', { name: '盖主小号', exact: true }).click();
-  assert.equal(await root.getByRole('switch').evaluate(node => getComputedStyle(node).appearance), 'none');
+  assert.equal(await root.getByRole('switch', { name: '等1分钟', exact: true }).evaluate(node => getComputedStyle(node).appearance), 'none');
   for (const [theme, tokens] of Object.entries(themes)) {
     await host.evaluate((node, tokens) => { node.style.width = '280px'; for (const [key, value] of Object.entries(tokens)) node.style.setProperty('--sgs-' + key, value); }, tokens);
     const file = resolve(output, `${theme}-host-280.png`); await host.screenshot({ path: file }); screenshots.push(file);
@@ -130,13 +198,13 @@ try {
   assert.equal(await root.getByRole('button', { name: '开始速刷', exact: true }).count(), 1);
   assert.equal(await page.evaluate(() => window[Symbol.for('sgs.ol.toolbox.core')].manager.list()[0].version), pkg.manifest.version);
   assert.equal(await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.proxy._events.MsgGameOver?.length), 1);
-  assert.equal(await root.getByRole('switch').isChecked(), true, 'account preference retained');
+  assert.equal(await root.getByRole('switch', { name: '等1分钟', exact: true }).isChecked(), true, 'account preference retained');
   await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.room('host'));
   await root.getByRole('button', { name: '开始速刷', exact: true }).click();
   await root.getByRole('button', { name: '停止速刷', exact: true }).waitFor();
   await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.switchAccount());
   await root.getByRole('button', { name: '开始速刷', exact: true }).waitFor();
-  assert.equal(await root.getByRole('switch').isChecked(), false, 'new account defaults');
+  assert.equal(await root.getByRole('switch', { name: '等1分钟', exact: true }).isChecked(), false, 'new account defaults');
   // A host selection without Huang Gai must stop and preserve actionable details.
   await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.selection(true));
   await root.getByRole('button', { name: '开始速刷', exact: true }).click();

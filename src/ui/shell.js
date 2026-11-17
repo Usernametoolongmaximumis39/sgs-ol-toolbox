@@ -285,7 +285,9 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       choice.setAttribute('aria-pressed', String(label === selected)); sources.append(choice);
     }
     input.disabled = selected === '离线';
-    content.append(sources, input, button('保存地址', () => { handlers.setMarketUrl(input.value); render(); notify('市场地址已保存'); }), helpTip(doc, '开发版仅连接本地市场，不自动连接远程来源；可手动保存自定义地址，离线仍可导入插件包。'));
+    const saveActions = el('div', undefined, 'actions');
+    saveActions.append(button('保存地址', () => { handlers.setMarketUrl(input.value); render(); notify('市场地址已保存'); }), helpTip(doc, '开发版仅连接本地市场，不自动连接远程来源；可手动保存自定义地址，离线仍可导入插件包。'));
+    content.append(sources, input, saveActions);
     }
     const diagnosticHeading = el('h3', '记牌诊断'); diagnosticHeading.append(helpTip(doc, '导出本局最近的卡牌记录与消息类型，用于排查明牌遗漏。文件不含账号、昵称或完整登录数据，只保存到本机。')); content.append(diagnosticHeading, button('导出记牌诊断', exportDiagnostics));
     let group;

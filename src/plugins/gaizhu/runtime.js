@@ -1,5 +1,7 @@
 import { account, manager, observeNative, read, generalNames, field } from '../../shared/info-runtime.js';
 import { cleanOptions, definitions, projectAchievements, evaluate, chooseGeneral, bannedGeneral } from './model.js';
+import { projectBattleGuard } from './battle-guards.js';
+import { createAssistant, TRAINING_SHOP_IDS } from './assistant.js';
 import { inspectHostRoom } from './room-settings.js';
 import { createNative, usable, press, label, selfButtonBar } from './native.js';
 
@@ -12,13 +14,14 @@ export function createGaiZhu(ctx) {
   let roomCheck = null, roomPassword = '', settingsRelease = null;
   let seq = 0, round = {}, rounds = 0, log = [], general = null;
   let defs = [], names = {}, progress = null, pendingAch = null, configLoading = false, lastQuery = -Infinity;
+  let solo = false, training = false, assistant = createAssistant({ cancelWuxie: () => options.cancelWuxie, getCardMeta: id => read(() => ctx.game.getCardMeta(id)), getSkill: id => read(() => ctx.game.getClass('Skill').GetInstance(id)), canOperate: () => read(() => ctx.game.getClass('GameContext').CanOperationInGame()) });
   let djRelease = null, stopped = false, configSeq = 0, synced = false;
   const now = () => typeof ctx.now === 'function' ? ctx.now() : Date.now();
   const alive = token => !stopped && !ctx.scope.signal.aborted && role !== 'off' && token === seq && account(ctx).id === who.id;
   function notify() { if (stopped || ctx.scope.signal.aborted) return; for (const fn of [...listeners]) fn(); }
   function note(text) { log = [...log.slice(-39), text]; }
   function state(text) { if (status === text) return; status = text; notify(); }
-  function cancelRun() { settingsJob = null; settingsRelease?.(); settingsRelease = null; roomCheck = null; roomPassword = ''; seq++; djRelease?.(); djRelease = null; pendingAch = null; round = {}; general = null; configLoading = false; configSeq++; }
+  function cancelRun() { settingsJob = null; settingsRelease?.(); settingsRelease = null; roomCheck = null; roomPassword = ''; solo = false; training = false; assistant = createAssistant({ cancelWuxie: () => options.cancelWuxie, getCardMeta: id => read(() => ctx.game.getCardMeta(id)), getSkill: id => read(() => ctx.game.getClass('Skill').GetInstance(id)), canOperate: () => read(() => ctx.game.getClass('GameContext').CanOperationInGame()) }); seq++; djRelease?.(); djRelease = null; pendingAch = null; round = {}; general = null; configLoading = false; configSeq++; }
   // PluginManager's automatic recovery keeps slot.state but rebuilds this
   // controller. Preserve only the stopped diagnostic, never a running role.
   const sessionState = () => ctx.getState?.();
@@ -82,6 +85,7 @@ export function createGaiZhu(ctx) {
     return evaluate(defs, progress, names, id => gm ? read(() => gm.HasGeneral(id)) ?? null : null);
   }
   function resetPhase(phase) {
+    if (phase === 'game') assistant = createAssistant({ cancelWuxie: () => options.cancelWuxie, getCardMeta: id => read(() => ctx.game.getCardMeta(id)), getSkill: id => read(() => ctx.game.getClass('Skill').GetInstance(id)), canOperate: () => read(() => ctx.game.getClass('GameContext').CanOperationInGame()) });
     const played = general;
     djRelease?.(); djRelease = null;
     round = { phase, entered: now(), dj: null, djDone: false, djContextAt: null,
@@ -146,6 +150,7 @@ export function createGaiZhu(ctx) {
   function selectGeneral() {
     const win = native.selectWindow();
     if (!win) { round.selectWindow = null; return false; }
+    if (training && round.overAt) resetPhase('game');
     if (round.selectWindow !== win) { round.selectWindow = win; round.selectAt = now(); round.selected = false; }
     if (round.selected) {
       const retry = round.selectRetry;
@@ -163,6 +168,10 @@ export function createGaiZhu(ctx) {
     if (role === 'host') {
       card = cards.find(c => c.name === '黄盖' || (names[c.id] === '黄盖'));
       if (!card && elapsed >= 20000) { fail('选将等待20秒仍未找到黄盖，已停止。候选：' + cards.map(c => `${c.name || '未知'}#${c.id || '?'}`).join('、')); return true; }
+    } else if (training) {
+      const pool = cards.filter(c => c.ui.CanSelect !== false);
+      card = pool.find(c => c.ui.winRateBg?.visible === true && c.ui.winRateTf?.visible === true)
+        || pool.reduce((best, c) => Number(c.ui.generalInfo?.quality ?? c.ui.GeneralInfo?.Quality ?? 0) > Number(best?.ui.generalInfo?.quality ?? best?.ui.GeneralInfo?.Quality ?? -1) ? c : best, null);
     } else if (options.pick !== 'off') {
       card = cards.find(c => c.id === general?.id);
       if (!card && elapsed >= 5000) card = cards.find(c => !bannedGeneral(c.id, c.name || names[c.id]));
@@ -274,10 +283,10 @@ export function createGaiZhu(ctx) {
     job.send();
     return false;
   }
-  function roomHost(scene) {
+  function roomHost(scene, single = false) {
     if (!checkHostSettings(scene)) return;
     if (round.dj) { stepDj(); return; }
-    if (!round.djDone) {
+    if (!single && !round.djDone) {
       // HaveDianJiang is this account's submitted/locked state. It is not a
       // room permission switch and must not be toggled before writing slots.
       const id = Number(Object.keys(names).find(id => names[id] === '黄盖'));
@@ -287,7 +296,7 @@ export function createGaiZhu(ctx) {
       return;
     }
     const huanggaiId = Number(Object.keys(names).find(id => names[id] === '黄盖'));
-    if (!(huanggaiId > 0) || native.slot(native.dj()?.mgr, 0) !== huanggaiId) {
+    if (!single && (!(huanggaiId > 0) || native.slot(native.dj()?.mgr, 0) !== huanggaiId)) {
       fail('主公点将槽为空、不可读或不是黄盖，已阻止添加人机和开始'); return;
     }
     const seats = read(() => scene.seatListView.seatList);
@@ -321,7 +330,8 @@ export function createGaiZhu(ctx) {
   }
   function roomRebel(scene) {
     const self = ownRoomSeat(scene);
-    if (self?.isMaster === true) { fail('反贼（大号）不能在房主账号运行'); return; }
+    solo = self?.isMaster === true;
+    if (solo && !checkHostSettings(scene)) return;
     if (round.dj) { stepDj(); return; }
     if (options.pick !== 'off' && !round.djDone) {
       if (!progress) { queryAchievements(); return; }
@@ -339,6 +349,7 @@ export function createGaiZhu(ctx) {
       general = chosen; beginDj(chosen.id, 2); return;
     }
     if (options.pick === 'off' && !progress) queryAchievements();
+    if (solo) { roomHost(scene, true); return; }
     if (self?.ready || self?.isMaster) { round.ready = true; state('已准备，等待房主开始'); return; }
     if (round.ready) { state('已请求准备，等待房主开始'); return; }
     const ready = read(() => scene.startUI.readyBtn);
@@ -349,19 +360,20 @@ export function createGaiZhu(ctx) {
     const seat = read(() => self.seat) || read(() => self.Seat) || read(() => self.cardContainer.seat);
     const on = read(() => seat.IsAiControl);
     const guarded = now() < (round.guardUntil || 0);
-    if (guarded) {
+    if (guarded || (solo || training) && !assistant.isTrustee()) {
       if (on === true && round.offTries < 3 && now() - round.trusteeAt >= 1200 && typeof read(() => self.onTrusteeshipClick) === 'function') {
         round.offTries++; round.trusteeAt = now(); self.onTrusteeshipClick(); note('手气卡守备：已请求关闭托管');
       }
-      return true;
+      return guarded;
     }
-    if (role !== 'rebel' || on === true || round.trusteeTries >= 5) return false;
+    if (solo || training || role !== 'rebel' || on === true || round.trusteeTries >= 5) return false;
     if (typeof read(() => self.onTrusteeshipClick) !== 'function') { state('托管接口未就绪，继续等待'); return false; }
     if (now() - round.trusteeAt >= 3000) { round.trusteeAt = now(); round.trusteeTries++; self.onTrusteeshipClick(); state('已请求开启托管'); }
     return false;
   }
   function gameStep(frame) {
     if (round.overAt) {
+      if (training && trainingWindows(frame)) return;
       state('对局结束，正在返回房间');
       if (now() - round.overAt >= 1200 && now() - round.overClick >= 1500 && round.overTries < 20) {
         round.overClick = now(); round.overTries++; native.continueResult();
@@ -369,6 +381,10 @@ export function createGaiZhu(ctx) {
       return;
     }
     const guarded = guardTrustee(frame.self);
+    if (role === 'rebel' && (solo || training)) {
+      const acted = assistant.run(frame, now(), { allowTrustee: !guarded });
+      state(assistant.reason() || (assistant.mode() === 'trustee' ? '小杀助手未推进 · 托管兜底中' : assistant.mode() === 'local' ? '小杀助手未推进 · 本地处理询问' : acted ? '正在执行小杀助手提示' : '等待小杀助手提示')); return;
+    }
     if (role === 'rebel') {
       if (cancelPrompt(frame.self)) return;
       if (guarded) state('手气卡守备中 · 暂缓托管'); else if (!read(() => frame.self.seat.IsAiControl)) state('等待托管确认'); else state('托管中，等待结算'); return;
@@ -393,6 +409,71 @@ export function createGaiZhu(ctx) {
     if (now() - round.skillAt < 600) return;
     if (native.clickSkill(skill)) { round.skillAt = now(); round.skillCount++; state(`已发动苦肉 · 第${round.skillCount}次`); }
   }
+  function trainingSkin() {
+    const win = native.matching(/^SelectSkinWindow$/)[0];
+    if (!win) { round.skinJob = null; return false; }
+    const view = read(() => win.selectView);
+    if (!view || win.loading || win.isShowWait || win.closeing || win.isClosing) { state('等待皮肤窗口就绪'); return true; }
+    const token = read(() => view.itemList);
+    if (round.skinJob?.win !== win || round.skinJob?.view !== view || round.skinJob?.token !== token || round.skinJob?.general !== win.generalID) {
+      round.skinJob = { win, view, token, general: win.generalID, at: -Infinity, tries: 0 };
+    }
+    const job = round.skinJob;
+    if (now() - job.at < 1200) return true;
+    if (job.tries >= 3) { fail('单骑皮肤窗口连续处理3次仍未关闭，请检查窗口后重新启动'); return true; }
+    job.at = now(); job.tries++;
+    // Native SelectSkinWindow.Close also finishes pending general selection;
+    // merely hiding/removing the window would leave the game waiting.
+    const current = read(() => view.usingSkinID);
+    if (typeof win.Close === 'function' && Number.isInteger(current) && current >= 0 && job.tries === 1) {
+      win.Close(); state('单骑人机：已请求保留当前皮肤并关闭选择'); return true;
+    }
+    const first = (Array.isArray(token) ? token : []).find(item => usable(item) && read(() => item.HasSkin) === true);
+    if (first && typeof view.itemClick === 'function') {
+      view.itemClick({ currentTarget: first }); state('单骑人机：已请求选择第一个可用皮肤'); return true;
+    }
+    if (typeof win.Close === 'function') { win.Close(); state('单骑人机：已请求跳过皮肤选择'); return true; }
+    state('等待皮肤选择原生接口'); return true;
+  }
+  function trainingWindows(frame) {
+    if (trainingSkin()) return true;
+    const bidding = native.matching(/^SayRogueLike1V1Window$/)[0];
+    if (bidding) {
+      const first = read(() => bidding.btnList[1]);
+      if (usable(first) && round.firstHandButton !== first) { round.firstHandButton = first; press(first); state('单骑人机：已选择先手'); }
+      return true;
+    }
+    const result = native.matching(/^RogueLike1v1ZhanJiWindow$/).find(win => !win.isShare);
+    if (result && round.overAt && typeof result.onClickAgain === 'function') {
+      if (round.againWindow !== result) { round.againWindow = result; result.onClickAgain(); state('单骑人机：已请求下一把'); }
+      return true;
+    }
+    const shop = native.matching(/^RogueLike1v1GameShopWindow$/)[0];
+    if (shop) {
+      if (round.shopWindow !== shop) { round.shopWindow = shop; round.shopAt = now(); round.shopBought = new Set(); }
+      if (now() - round.shopAt < 1000) return true;
+      const select = read(() => shop.selectView.ShowItemList);
+      const items = Array.isArray(select) && select.length ? [select[select.length - 1]] : read(() => shop.ShopView.ShowItemList) || [];
+      for (const item of items.slice(0, 64)) {
+        if (round.shopBought.has(item) || typeof item?.Requestbuy !== 'function') continue;
+        if (!(select?.length || Number(item.hufuNum) === 0 || TRAINING_SHOP_IDS.has(Number(item.Id)))) continue;
+        if (read(() => item.lbPriceUnEnough.visible) === true) continue;
+        round.shopBought.add(item); item.Requestbuy(); state('单骑人机：已按原选购规则请求购买'); return true;
+      }
+      if (now() - round.shopAt >= 3000 && typeof shop.LeftHide === 'function') shop.LeftHide();
+      return true;
+    }
+    round.shopWindow = null;
+    return false;
+  }
+  function isTraining(frame) {
+    const context = read(() => ctx.game.getClass('GameContext'));
+    const proto = read(() => ctx.game.getClass('CreateTableWindow').prototype);
+    const getter = read(() => Object.getOwnPropertyDescriptor(proto, 'curModeVo').get);
+    const mode = read(() => context.GetModeVO()) || read(() => getter.call({}));
+    const group = read(() => context.GetGroupID()) ?? read(() => mode.Section);
+    return Number(mode?.ModeID) === 160 && Number(group) === 3;
+  }
   function tick() {
     if (stopped || ctx.scope.signal.aborted) return;
     try {
@@ -400,6 +481,18 @@ export function createGaiZhu(ctx) {
       if (!who.id) { fail('当前账号尚未登录'); return; }
       if (read(() => ctx.game.getSnapshot().isReplay) === true) { fail('回放场景不能运行盖主速刷'); return; }
       const frame = native.frame();
+      const detectedTraining = isTraining(frame);
+      if (role === 'rebel') {
+        if (training && frame.game && !detectedTraining) { fail('已离开单骑人机训练模式，已停止'); return; }
+        training = detectedTraining || training && !frame.game && Boolean(round.overAt);
+      }
+      if (role === 'rebel' && training && !frame.game) {
+        if (trainingWindows(frame)) return;
+        const robot = (read(() => frame.scene.btnList) || []).find(b => b.name === 'zgs_robot_tex');
+        if (frame.name === 'RogueLike1v1Scene' && round.phase === 'game') resetPhase('room');
+        if (frame.name === 'RogueLike1v1Scene' && usable(robot) && now() - (round.robotAt || 0) >= 3000) { round.robotAt = now(); press(robot); state('已请求单骑人机训练'); }
+        return;
+      }
       if (settingsJob && (frame.game || frame.scene !== settingsJob.scene)) { fail('等待房间设置期间已离开原等待房间，已停止'); return; }
       if (frame.game && round.phase !== 'game') resetPhase('game');
       else if (!frame.game && (frame.name === 'TableScene' || read(() => frame.scene.seatListView)) && round.phase !== 'room') resetPhase('room');
@@ -419,7 +512,9 @@ export function createGaiZhu(ctx) {
         return;
       }
       if (refuseMulligan()) { if (frame.game) guardTrustee(frame.self); return; }
+      if (training && trainingSkin()) return;
       if (selectGeneral()) return;
+      if (training && trainingWindows(frame)) return;
       if (frame.game) { gameStep(frame); return; }
       if (round.phase === 'room') { if (role === 'host') roomHost(frame.scene); else roomRebel(frame.scene); }
     } catch (e) { fail(e); }
@@ -429,7 +524,7 @@ export function createGaiZhu(ctx) {
     sync();
     try {
       const next = cleanOptions({ ...options, ...value });
-      if (next.pick !== options.pick || next.wait !== options.wait) {
+      if (next.pick !== options.pick || next.wait !== options.wait || next.cancelWuxie !== options.cancelWuxie) {
         if (role !== 'off' && next.pick !== options.pick) throw new Error('请先停止再更换点将模式');
         if (who.id) ctx.settings.set(`account:${who.id}:options-v1`, next);
         options = next;
@@ -446,15 +541,17 @@ export function createGaiZhu(ctx) {
       notify(); tick();
     } catch (e) { fail(e); }
   }
-  observeNative(ctx, { ClientDbsGetuserachinfoRep: projectAchievements, MsgGameOver: () => true }, (type, data, sender) => {
+  const projectGuardEvent = packet => ({ ...projectBattleGuard(packet), run: seq });
+  observeNative(ctx, { ClientDbsGetuserachinfoRep: projectAchievements, MsgGameOver: () => true, GsCTriggerSpellNew: projectGuardEvent, GsCGamephaseNtf: projectGuardEvent, MsgGameTurnNtf: projectGuardEvent, PubGsCMoveCard: projectGuardEvent, PubGsCUseSpell: projectGuardEvent }, (type, data, sender) => {
     if (role === 'off' || sender.id !== who.id || !alive(seq)) return;
     if (type === 'ClientDbsGetuserachinfoRep') {
       if (!pendingAch || pendingAch.seq !== seq || data.nickname !== who.nickname || pendingAch.nickname !== who.nickname) return;
       progress = data; pendingAch = null; round.achFailures = 0; note('已收到当前账号百胜快照'); notify();
+    } else if (type !== 'MsgGameOver') { if (data.run === seq) assistant.observe(type, data);
     } else if (round.phase === 'game' && !round.overAt) { round.overAt = now(); rounds++; note(`本次第${rounds}局结束`); state('对局结束，等待结算'); }
   }, () => { if (role !== 'off') fail('原生消息连接发生变化或消息有缺口，已停止，请重新核对当前房间后启动'); });
   sync(); ctx.scope.interval(tick, 250);
   ctx.scope.add(() => { stopped = true; role = 'off'; cancelRun(); listeners.clear(); });
-  return { snapshot() { sync(); return { account: who.id, nickname: who.nickname, role, ...options, status, error, roomPassword, generalName: general?.name || '', rounds, log: [...log] }; },
+  return { snapshot() { sync(); return { account: who.id, nickname: who.nickname, role, ...options, status, error, roomPassword, solo, training, generalName: general?.name || '', rounds, log: [...log] }; },
     setOptions, subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }, tick };
 }

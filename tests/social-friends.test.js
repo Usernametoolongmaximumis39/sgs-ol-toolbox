@@ -82,3 +82,42 @@ test('native host binds before first positioning; visible menus never acquire a 
  const late=createFriendManagement(g.ctx);late.tick();assert.deepEqual([menu.y,menu.height],[50,80]);assert.equal(menu.showBtnList.length,1);
  menu.ShowOptMenu();assert.equal(menu.showBtnList.length,2);g.scope.dispose();
 });
+
+test('missing friends wait for loaded stable complete IDs, notify once across reloads and reset after re-add',t=>{
+ const f=fixture(); let now=100000;const original=Date.now;Date.now=()=>now;t.after(()=>{Date.now=original;f.scope.dispose()});
+ let list=[f.a,f.b]; f.manager.GetGoodFriendsList=()=>list;f.manager.firstPageCome=false;
+ const run=createFriendManagement(f.ctx);list=[];run.tick();now+=6000;run.tick();assert.equal(f.messages.length,0);
+ f.manager.firstPageCome=true;list=[{...f.a,userData:null}];run.tick();now+=6000;run.tick();assert.equal(f.messages.length,0);
+ list=[f.a];run.tick();now+=6000;run.tick();assert.equal(f.messages.length,1);assert.match(f.messages[0],/1000000002.*可能你将其删除了或者被删除/);
+ run.tick();assert.equal(f.messages.length,1);run.dispose();
+ const reload=createFriendManagement(f.ctx);now+=6000;reload.tick();assert.equal(f.messages.length,1);
+ list=[f.a,f.b];reload.tick();assert.equal(reload.getRecord().friends['1000000002'].missingAt,undefined);
+ list=[];reload.tick();now+=6000;reload.tick();assert.equal(f.messages.length,2);
+ assert.match(f.messages[1],/1000000001/);assert.match(f.messages[1],/1000000002/);
+});
+test('successful native local deletion purges friend, pins and rename JSON; failed operations preserve data',t=>{
+ const f=fixture();t.after(()=>f.scope.dispose());let list=[f.a,f.b];f.manager.GetGoodFriendsList=()=>list;f.manager.firstPageCome=true;
+ f.manager.operatorFriendSuccess=function(p){if(p.Type===2)list=list.filter(x=>x.FriendNickname!==p.FriendName)};
+ const original=f.manager.operatorFriendSuccess,run=createFriendManagement(f.ctx);run.togglePin('1000000002');f.b.FriendNickname='B2';run.tick();
+ let deleted;run.onDeleted(id=>deleted=id);
+ // A failed reply never reaches the native success handler.
+ run.tick();assert.ok(run.getRecord().friends['1000000002']);
+ f.manager.operatorFriendSuccess({Type:2,GroupID:1,FriendName:'B2'});
+ const saved=f.storage.get('friends:1000000000');assert.equal(deleted,'1000000002');assert.equal(saved.friends['1000000002'],undefined);assert.deepEqual(saved.pins,[]);assert.deepEqual(saved.changes,[]);
+ const count=f.messages.length;run.tick();assert.equal(f.messages.length,count);run.dispose();assert.equal(f.manager.operatorFriendSuccess,original);
+});
+test('missing friend persistence failure retries without consuming notice',t=>{
+ const f=fixture();let now=100000;const original=Date.now;Date.now=()=>now;t.after(()=>{Date.now=original;f.scope.dispose()});
+ let list=[f.a,f.b];f.manager.firstPageCome=true;f.manager.GetGoodFriendsList=()=>list;const run=createFriendManagement(f.ctx);
+ list=[];run.tick();now+=6000;const save=f.ctx.storage.set;f.ctx.storage.set=()=>{throw Error('full')};run.tick();assert.equal(f.messages.length,0);
+ f.ctx.storage.set=save;run.tick();assert.equal(f.messages.length,1);
+});
+
+test('friend changes share the upper banner and switching account clears previous notices',t=>{
+ const f=fixture(),shown=[];let clears=0,now=100000;const original=Date.now;Date.now=()=>now;
+ t.after(()=>{Date.now=original;f.scope.dispose()});let list=[f.a,f.b];f.manager.GetGoodFriendsList=()=>list;f.manager.firstPageCome=true;
+ const run=createFriendManagement(f.ctx,{clear(){clears++},showMessage(message){shown.push(message)}});
+ f.a.FriendNickname='A2';run.tick();assert.match(shown[0],/可能改名/);assert.equal(f.messages.length,0);
+ list=[f.a];run.tick();now+=6000;run.tick();assert.match(shown[1],/1000000002.*可能你将其删除了或者被删除/);assert.equal(f.messages.length,0);
+ const before=clears;f.self.ClientId=1000000009;run.tick();assert.equal(clears,before+1);
+});

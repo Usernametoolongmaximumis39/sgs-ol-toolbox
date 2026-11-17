@@ -28,7 +28,7 @@ function dragBounds(window, container, width, height) {
 export function createSortControls(ctx, { sort, lock }) {
   const { window, scope, settings } = ctx, theme = getNativeTheme(ctx);
   let root = null, container = null, buttons = [], dragging = null, timer = null;
-  let locked = null, suppressUntil = 0;
+  let locked = null, suppressUntil = 0, hint = null;
   let releaseStageEvents = null, releaseTheme = null;
   let offset = settings.get('nativeSortOffset', { x: 0, y: 0 });
   if (!Number.isFinite(offset?.x) || !Number.isFinite(offset?.y)) offset = { x: 0, y: 0 };
@@ -77,14 +77,24 @@ export function createSortControls(ctx, { sort, lock }) {
     if (!root || root.destroyed) return;
     const palette = theme.palette;
     root.graphics.clear();
-    rounded(root.graphics, 0.5, 0.5, 107, 23, palette.bg, palette.border);
-    root.graphics.drawRect(7, 1, 94, 1, palette.highlight);
-    for (const x of [36, 72]) root.graphics.drawRect(x, 8, 1, 8, palette.borderSoft);
+    rounded(root.graphics, 0.5, 0.5, 135, 23, palette.bg, palette.border);
+    root.graphics.drawRect(7, 1, 122, 1, palette.highlight);
+    for (const x of [28, 64, 100]) root.graphics.drawRect(x, 8, 1, 8, palette.borderSoft);
     for (const item of buttons) {
-      const selected = item.mode === locked;
+      const spacing = settings.get('handGroupSpacing', true) !== false;
+      const selected = item.mode === 'spacing' ? spacing : item.mode === locked;
       item.sprite.graphics.clear();
       if (selected || item.hover) rounded(item.sprite.graphics, 2, 2, item.width - 4, 20, selected ? palette.selected : palette.hover);
       if (selected) item.sprite.graphics.drawRect(9, 21, item.width - 18, 1, palette.accent);
+      if (item.mode === 'spacing') {
+        const g = item.sprite.graphics, color = item.hover ? palette.text : palette.muted;
+        const left = spacing ? 6 : 9, right = spacing ? 19 : 16;
+        g.drawRect(left, 7, 3, 10, null, color, 1);
+        g.drawRect(right, 7, 3, 10, null, color, 1);
+        item.sprite.toolTip = spacing ? '组间留空 · 点击收窄' : '不留空 · 点击放宽';
+        item.sprite.accessibilityLabel = item.sprite.toolTip;
+        if (hint) { hint.text = item.sprite.toolTip; hint.visible = item.hover; hint.color = palette.text; hint.bgColor = palette.bg; }
+      }
       item.label.color = selected ? palette.accent : item.hover ? palette.text : palette.muted;
     }
   }
@@ -93,21 +103,24 @@ export function createSortControls(ctx, { sort, lock }) {
     if (typeof laya?.Sprite !== 'function' || typeof laya?.Text !== 'function') return false;
     releaseStageEvents?.(); releaseStageEvents = null;
     releaseTheme?.(); releaseTheme = null;
-    root = new laya.Sprite(); root.name = 'sgs-toolbox-hand-sort'; root.size(108, 24);
+    root = new laya.Sprite(); root.name = 'sgs-toolbox-hand-sort'; root.size(136, 24);
     root.mouseEnabled = true;
     buttons = [];
-    for (const [index, mode, title, width] of [[0, 'type', '类型', 36], [1, 'suit', '花色', 36], [2, 'number', '点数', 36]]) {
+    for (const [index, mode, title, width] of [[-1, 'spacing', '', 28], [0, 'type', '类型', 36], [1, 'suit', '花色', 36], [2, 'number', '点数', 36]]) {
       const sprite = new laya.Sprite(), label = new laya.Text();
-      sprite.name = mode; sprite.size(width, 24); sprite.pos(index * 36, 0); sprite.mouseEnabled = true;
+      sprite.name = mode; sprite.size(width, 24); sprite.pos(index < 0 ? 0 : 28 + index * 36, 0); sprite.mouseEnabled = true;
       label.text = title; label.font = 'Microsoft YaHei'; label.fontSize = 12; label.bold = false;
       label.width = width; label.height = 24; label.align = 'center'; label.valign = 'middle'; label.mouseEnabled = false;
       sprite.addChild(label); root.addChild(sprite);
       const item = { mode, sprite, label, width, hover: false }; buttons.push(item);
       sprite.on('mouseover', root, () => { item.hover = true; paint(); });
       sprite.on('mouseout', root, () => { item.hover = false; paint(); });
-      sprite.on('click', root, event => { event?.stopPropagation?.(); if (Date.now() >= suppressUntil) sort(mode); });
-      sprite.on('doubleclick', root, event => { event?.stopPropagation?.(); if (Date.now() >= suppressUntil) lock(mode); });
+      sprite.on('click', root, event => { event?.stopPropagation?.(); if (Date.now() < suppressUntil) return;
+        if (mode === 'spacing') { laya.stage.focus = sprite; settings.set('handGroupSpacing', settings.get('handGroupSpacing', true) === false); container?.invalidateLayoutHandCard?.(); paint(); }
+        else sort(mode); });
+      sprite.on('doubleclick', root, event => { event?.stopPropagation?.(); if (mode !== 'spacing' && Date.now() >= suppressUntil) lock(mode); });
     }
+    hint = new laya.Text(); hint.font = 'Microsoft YaHei'; hint.fontSize = 12; hint.height = 22; hint.width = 176; hint.align = 'center'; hint.valign = 'middle'; hint.pos(0, -26); hint.mouseEnabled = false; hint.visible = false; root.addChild(hint);
     root.on('mousedown', root, event => {
       event?.stopPropagation?.();
       if (event?.nativeEvent?.button > 0) return;
@@ -132,6 +145,11 @@ export function createSortControls(ctx, { sort, lock }) {
     if (pending) scope.timeout(() => { if (dragging === pending) finishDrag(); }, 50);
   });
   scope.listen(window, 'blur', () => endDrag());
+  scope.listen(window, 'keydown', event => {
+    const laya = window.Laya ?? window.laya, button = buttons.find(item => item.mode === 'spacing');
+    if (!root?.visible || !button || laya?.stage?.focus !== button.sprite || !['Enter', ' '].includes(event.key) || event.repeat) return;
+    event.preventDefault(); button.sprite.event('click', { stopPropagation() {} });
+  });
   return {
     update(nextContainer, mode) {
       if (!nextContainer?.parent || typeof nextContainer.addChild !== 'function') return false;

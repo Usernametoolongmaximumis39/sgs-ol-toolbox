@@ -460,3 +460,73 @@ test('gaizhu: official Pt takes precedence over stale legacy alias and handles h
   f.controller.setOptions({ role: 'host' });
   assert.ok(f.calls.includes('pt-decline')); assert.equal(f.calls.includes('kurou'), false);
 });
+
+
+test('gaizhu: rebel host fills AI and starts without forcing Huang Gai; assistant receives first opportunity before fallback', t => {
+  const f = fixture(t);
+  f.controller.setOptions({ role: 'rebel', pick: 'off' });
+  f.advance(); f.advance(2000);
+  assert.equal(f.controller.snapshot().solo, true);
+  assert.ok(f.calls.includes('ai')); assert.ok(f.calls.includes('start'));
+  assert.ok(!f.calls.some(c => Array.isArray(c) && c[0] === 'point'));
+  f.scene(f.game); f.advance(30000);
+  assert.ok(!f.calls.includes('trustee')); assert.ok(!f.calls.includes('kurou'));
+  let hinted = 0, requests = 0;
+  f.game.requestAiHelp = () => requests++;
+  f.advance(1500); assert.equal(requests, 1);
+  const button = { name: 'btnCancel', enabled: true, onClick() { hinted++; } };
+  f.game.SelfSeatUi.Pt = { btns: [button] };
+  f.game.SelfSeatUi.CurStepHelpData = { buttonName: 'btnCancel' };
+  f.advance(); f.advance(); assert.equal(hinted, 1);
+  f.controller.setOptions({ role: 'off' });
+  f.game.SelfSeatUi.CurStepHelpData = { buttonName: 'btnCancel' };
+  f.advance(); assert.equal(hinted, 1);
+});
+
+test('gaizhu: training ignores point modes, selects recommended general, shops and requests next game once', async t => {
+  const f = fixture(t), oldClass = f.ctx.game.getClass;
+  let group = 3, buys = 0, again = 0, selected = 0;
+  f.ctx.game.getClass = name => name === 'GameContext' ? { GetModeVO: () => ({ ModeID: 160 }), GetGroupID: () => group } : oldClass(name);
+  f.scene(f.game);
+  const win = { name: 'SelectGeneralRogue1v1Window', generalUis: [
+    { generalInfo: { itemId: 2, quality: 5 }, sureBtnClick() { selected = 2; } },
+    { generalInfo: { itemId: 3, quality: 1 }, winRateBg: { visible: true }, winRateTf: { visible: true }, sureBtnClick() { selected = 3; } },
+  ] };
+  f.game._children = [win];
+  f.controller.setOptions({ role: 'rebel', pick: 'order' });
+  assert.equal(f.controller.snapshot().training, true); assert.equal(selected, 3);
+  assert.ok(!f.calls.some(c => Array.isArray(c) && c[0] === 'point'));
+  f.game._children = [{ name: 'RogueLike1v1GameShopWindow', ShopView: { ShowItemList: [
+    { Id: 9999, hufuNum: 0, Requestbuy() { buys++; } },
+    { Id: 2009, hufuNum: 1, Requestbuy() { buys++; } },
+    { Id: 9998, hufuNum: 1, Requestbuy() { throw Error('not in old whitelist'); } },
+    { Id: 2021, hufuNum: 1, lbPriceUnEnough: { visible: true }, Requestbuy() { throw Error('insufficient'); } },
+  ] }, LeftHide() {} }];
+  f.advance(); f.advance(1000); f.advance(); assert.equal(buys, 2);
+  f.emit('MsgGameOver', {}); await flush();
+  f.game._children = [{ name: 'RogueLike1v1ZhanJiWindow', onClickAgain() { again++; } }];
+  f.advance(1500); f.advance(); assert.equal(again, 1);
+  f.game._children = [win]; f.advance(); assert.equal(f.controller.snapshot().rounds, 1);
+  group = 2; f.advance(); assert.equal(f.controller.snapshot().role, 'off');
+  assert.match(f.controller.snapshot().error, /离开单骑人机/);
+});
+
+
+test('training skin: preserves current skin via native Close, falls back to first owned and never runs when stopped', t => {
+  for (const outcome of ['close','first','stuck','off']) {
+    const f=fixture(t),old=f.ctx.game.getClass,calls=[];
+    f.ctx.game.getClass=name=>name==='GameContext'?{GetModeVO:()=>({ModeID:160,Section:3})}:old(name);
+    f.scene(f.game);
+    const unusable={HasSkin:false},owned={HasSkin:true};
+    const win={name:'SelectSkinWindow',generalID:2,selectView:{usingSkinID:outcome==='first'?undefined:9,itemList:[unusable,owned],itemClick(event){assert.equal(event.currentTarget,owned);calls.push('first');if(outcome!=='stuck') win.visible=false;}},Close(){calls.push('close');if(outcome!=='stuck')win.visible=false;}};
+    f.game._children=[win];
+    if(outcome==='off'){f.advance();assert.deepEqual(calls,[]);continue;}
+    f.controller.setOptions({role:'rebel'});
+    assert.deepEqual(calls,[outcome==='first'?'first':'close']);
+    f.advance(250);assert.equal(calls.length,1);
+    if(outcome==='stuck'){
+      f.advance(1200);f.advance(1200);f.advance(1200);
+      assert.deepEqual(calls,['close','first','first']);assert.equal(f.controller.snapshot().role,'off');assert.match(f.controller.snapshot().error,/皮肤窗口连续处理3次/);
+    }else{f.advance(1500);assert.equal(calls.length,1);}
+  }
+});

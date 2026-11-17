@@ -165,13 +165,13 @@ test('officer daily and weekly require timestamp change and entitlement removal'
   const actions = fixture({ OfficerManager: manager }).plan().actions; assert.equal(actions.length, 2); actions.forEach(action => action.send()); assert.deepEqual(calls, ['day', 'week']);
   manager.DayRewardTime = 123; assert.equal(actions[0].done(), true); assert.equal(actions[1].done(), false);
 });
-test('atlas missing state is not success; lamp rewards are deduplicated and independently confirmed', () => {
+test('atlas missing state is not success; all lamp series are excluded', () => {
   const calls = [], rewarded = [], manager = { atlasGeneralDict: dict({ 123: true, 124: false }), GetCurryAtlasGeneralState(id) { return this.atlasGeneralDict.get(id); },
     GeneralAtlasRewardReq: id => calls.push(['atlas', id]), LampRewardCanAward: id => id === 5, LampHasReward: id => rewarded.includes(id), LampRewardReq: id => calls.push(['lamp', id]) };
-  const f = fixture({ GameGeneralManager: manager }, { 'cha_dbs_general_series.sgs': { root: { Collection: [{ seriesList: '5,5,6,invalid' }] } } });
-  const actions = f.plan().actions; assert.equal(actions.length, 2); actions.forEach(action => action.send()); assert.deepEqual(calls, [['atlas', 123], ['lamp', 5]]);
+  const f = fixture({ GameGeneralManager: manager }, { 'cha_dbs_general_series.sgs': { root: { Collection: [{ seriesList: '5,5,6,81,invalid' }] } } });
+  const actions = f.plan().actions; assert.equal(actions.length, 1); actions.forEach(action => action.send()); assert.deepEqual(calls, [['atlas', 123]]);
   delete manager.atlasGeneralDict._maps[123]; assert.equal(actions[0].done(), false); manager.atlasGeneralDict._maps[123] = false; assert.equal(actions[0].done(), true);
-  rewarded.push(5); assert.equal(actions[1].done(), true);
+  rewarded.push(5); assert.equal(f.plan().actions.some(action => action.key.startsWith('lamp:')), false);
 });
 function freeRecruitFixture(freeId = 8123456) {
   const calls = [], bindings = new Map();

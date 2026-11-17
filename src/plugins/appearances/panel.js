@@ -21,7 +21,7 @@ export function activate(ctx) {
     let count = 50, alive = true, confirmAccount = null;
     const note = el('p', 'muted'), summary = el('div', 'stat'), totals = el('p', 'muted'), state = el('p', 'muted'), bar = el('div', 'bar');
     bar.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:6px';
-    const refresh = button('刷新', 'refresh', () => controller.refreshNames()); refresh.title = '刷新武将名称；登录游戏后自动加载';
+    const refresh = button('刷新', 'refresh', () => { void controller.refreshNames(); controller.refreshHistory(); }); refresh.title = '刷新武将名称并补收官方七日战绩；登录和开始下一局时也会自动补收';
     const exportButton = button('导出', 'download', () => { const v = controller.view(); downloadJSON(ctx, `出框与胜率统计-${v.who.id}.json`, {
       format: BACKUP_FORMAT, schema: 1, accountId: v.who.id, startedAt: v.startedAt, records: v.records, matches: v.matches }); });
     bar.append(refresh, exportButton);
@@ -55,12 +55,16 @@ export function activate(ctx) {
     const order = segments([['desc', '从高到低'], ['asc', '从低到高']], direction, value => { direction = value; draw(); });
     filters.append(el('summary', '', '筛选与排序'), fields, sorts, order);
     if (detailed) filters.open = true;
+    const captureState = el('details', 'sgs-fold'), captureSummary = el('summary'), captureText = el('p');
+    const dismissCapture = button('知道了', 'check', () => controller.dismissCaptureNotice());
+    captureState.append(captureSummary, captureText, dismissCapture);
+    const historyState = el('p', 'muted'); historyState.setAttribute('role', 'status');
     const error = el('details', 'error'), errText = el('p'), retry = button('重试保存', 'save', () => controller.retry());
     error.append(el('summary', '', '记录异常 · 查看详情'), errText, retry);
     const list = el('div', 'list'); list.setAttribute('aria-label', '出框与战绩记录');
     const more = button('加载更多', null, () => { count += 50; draw(); });
     const help = el('details', 'sgs-fold');
-    help.append(el('summary', '', '统计口径与数据记录'), el('p', '', '仅统计正式排位、斗地主基础/高级场和单骑无双；自由欢乐22、排位演武、公会战22、赛事及扑克牌斗地主不采集。单骑正式匹配包含人机对局；训练局仍不采集。人机标记仅作记录，不影响统计。\n出框率＝出现局数/已采集候选的局数；选取率＝选中次数/选取结果已知的出框次数。胜率＝胜场/(胜场+败场)，平局及结果未知不计分母。相同武将每局只算一次。\n结算只认自己座位的结果。斗地主按地主/农民分开；排位1、4号位为先手，2、3号位为后手；单骑按先手/后手分开。座次读取客户端已确定的一基行动顺序，不把协议座位ID当成号位。缺少身份或先后手依据的数据不保存、不统计；旧数据及恢复备份中的此类记录会剔除。不限时合并同模式的先后手或地主/农民，按合计胜败场计算胜率；选择具体先后手或身份时仅统计对应记录。不同模式分别显示，出框率分母为同模式当前筛选候选局数。历史出框没有胜负信息，不补造胜率；未采到候选的已完成对局可只计战绩。平均时长来自官方结算。\n只在启用期间采集；断线、重连、消息缺口不补记，已有出框保留。出框和战绩各最多10000条，满后暂停对应追加。仅存本机、按账号隔离，无上传或云同步。'));
+    help.append(el('summary', '', '统计口径与数据记录'), el('p', '', '仅统计正式排位、斗地主基础/高级场和单骑无双；自由欢乐22、排位演武、公会战22、赛事及扑克牌斗地主不采集。单骑正式匹配包含人机对局；训练局仍不采集。人机标记仅作记录，不影响统计。\n出框率＝出现局数/已采集候选的局数；选取率＝选中次数/选取结果已知的出框次数。胜率＝胜场/(胜场+败场)，平局及结果未知不计分母。相同武将每局只算一次。\n结算只认自己座位的结果。斗地主按地主/农民分开；排位1、4号位为先手，2、3号位为后手；单骑按先手/后手分开。座次读取客户端已确定的一基行动顺序，不把协议座位ID当成号位。缺少身份或先后手依据的数据不保存、不统计；旧数据及恢复备份中的此类记录会剔除。不限时合并同模式的先后手或地主/农民，按合计胜败场计算胜率；选择具体先后手或身份时仅统计对应记录。不同模式分别显示，出框率分母为同模式当前筛选候选局数。历史出框没有胜负信息，不补造胜率；未采到候选的已完成对局可只计战绩。平均时长来自官方结算。\n出框只在启用期间采集；断线、重连、消息缺口不补造出框，已有出框保留。登录、开始下一局及点击刷新时补收官方七日战绩（每模式最多100局）；官方尚未入库时需稍后刷新。仅补齐本机已采到开局的对局；没有对应开局记录的历史局暂不新增，缺少可靠模式或先后手依据的战绩不补记。出框和战绩各最多10000条，满后暂停对应追加。仅存本机、按账号隔离，无上传或云同步。'));
     const restoreInput = input('恢复工具箱备份', 'file'); restoreInput.accept = '.json,application/json'; restoreInput.hidden = true;
     const restore = button('恢复工具箱备份', 'download', () => restoreInput.click());
     listen(restoreInput, 'change', () => { const file = restoreInput.files?.[0]; if (file) void controller.restore(file); restoreInput.value = ''; });
@@ -70,7 +74,7 @@ export function activate(ctx) {
     const no = button('取消', null, () => { confirmation.hidden = true; confirmAccount = null; });
     confirmation.append(el('p', 'muted', '将删除当前账号的全部本机出框和战绩，请先导出备份。'), yes, no);
     help.append(restore, restoreInput, clear, confirmation);
-    root.append(note, summary, totals, state, bar, tabs, modes, roles, find, filters, error, list, more, help);
+    root.append(note, summary, totals, state, bar, historyState, captureState, tabs, modes, roles, find, filters, error, list, more, help);
     function metrics(node, values) { const m = el('div', 'metrics'); for (const [value, label] of values) { const n = el('span', '', label); n.prepend(el('b', '', String(value))); m.append(n); } node.append(m); }
     function draw() {
       if (!alive || ctx.scope.signal.aborted) return;
@@ -78,7 +82,8 @@ export function activate(ctx) {
       if (confirmAccount && confirmAccount !== v.who.id) { confirmation.hidden = true; confirmAccount = null; }
       note.hidden = Boolean(v.who.id);
       note.textContent = '等待登录当前账号';
-      refresh.disabled = !v.who.id || v.loading; exportButton.disabled = !v.who.id || busy;
+      historyState.textContent = v.historyStatus; historyState.hidden = !v.historyStatus;
+      refresh.disabled = !v.who.id || v.loading || v.historyLoading; exportButton.disabled = !v.who.id || busy;
       if (detailed) clear.hidden = true;
       clear.disabled = !v.who.id || busy || (!v.records.length && !v.matches.length && !v.storageBlocked); restore.disabled = !v.who.id || busy || v.storageBlocked;
       roles.hidden = !mode;
@@ -93,7 +98,9 @@ export function activate(ctx) {
       summary.replaceChildren(el('strong', '', busy ? '—' : percent(overall.rate)), el('span', 'muted', busy ? '核对本机数据中' : '当前筛选合计胜率'));
       totals.textContent = busy ? '正在处理本机记录…' : `${frames.length} 局出框 · ${battles.length} 局战绩 · ${overall.wins}胜 ${overall.losses}负${overall.draws ? ` ${overall.draws}平` : ''}${overall.unknown ? ` · ${overall.unknown}局结果未知` : ''}`;
       const unknownCount = new Set([...frames, ...battles].filter(r => r.mode === 44 && r.isAiMatch == null).map(r => r.id)).size;
-      state.textContent = busy ? '正在核对并剔除已确认的百胜速刷记录…' : `${v.records.length} 条出框 · ${v.matches.length} 条战绩已保存${v.gaps ? ` · ${v.gaps} 次记录缺口` : ''}${unknownCount ? ` · ${unknownCount}局单骑人机身份未知` : ''}`;
+      state.textContent = busy ? '正在核对并剔除已确认的百胜速刷记录…' : `${v.records.length} 条出框 · ${v.matches.length} 条战绩已保存${unknownCount ? ` · ${unknownCount}局单骑人机身份未知` : ''}`;
+      captureState.hidden = !v.captureNotice; captureSummary.textContent = v.captureNotice; captureText.textContent = v.captureDetail;
+      retry.hidden = !v.canRetrySave;
       error.hidden = !v.error; errText.textContent = v.error; retry.disabled = !v.who.id || v.reviewing;
       list.replaceChildren();
       let show = stats;

@@ -35,7 +35,8 @@ test('explicitly empty seats remove stale hand candidates without turning other 
   assert.deepEqual(cardsInZone(state,zoneKey(5,2)),[]);
 });
 
-test('seat diagnostics retain bounded numeric mapping, reset across sessions, and omit names and hand identities', () => {
+test('seat diagnostics retain bounded numeric mapping, reset across sessions, and omit names and hand identities', t => {
+  t.mock.method(Date, 'now', () => 12);
   const d = createCardDiagnostics();
   let getterReads=0;
   const seat={seatId:3,position:2,viewId:7,handCount:4,dead:false,name:'private',handCardIds:[999]};

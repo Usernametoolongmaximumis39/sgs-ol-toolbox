@@ -1,0 +1,31 @@
+{
+  "source": "https://web.sanguosha.com/220/h5_2/res/config/Config_w.sgs",
+  "encryptedCharacterSha256": "c36bcfc5456bf8cc50e30e8520fb0f7bb60a2e3885b6a7d2bccec9bb5b365d61",
+  "GameCharacters": {
+    "character": [
+      {
+        "id": 2060,
+        "name": "何太后",
+        "exType": 21,
+        "GeneralItemType": "16",
+        "GeneralEnable": "1"
+      },
+      {
+        "id": 717,
+        "name": "诸葛亮",
+        "SpecifyName": "谋",
+        "exType": 51,
+        "GeneralItemType": "64",
+        "GeneralEnable": "20250930T180000"
+      },
+      {
+        "id": 770,
+        "name": "周瑜",
+        "SpecifyName": "谋",
+        "exType": 51,
+        "GeneralItemType": "64",
+        "GeneralEnable": "20260930T180000"
+      }
+    ]
+  }
+}

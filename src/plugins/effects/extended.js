@@ -33,6 +33,7 @@ export function createExtendedEffects(ctx, api) {
   let probStates = new WeakMap(), inspected = new Set();
   const redTrees = new Set(), closing = new WeakSet();
   const getters = new Map(), noticeBars = new Set();
+  const calendarViews = new Set();
   const probNodes = new Set();
   const treeBars = new Set(), blessManagers = new Set();
   const blockedTree = () => enabled('banner') && [...blessManagers].some(manager => alive(manager) && read(() => manager.FreeBlessItemEnough) === false);
@@ -302,6 +303,23 @@ export function createExtendedEffects(ctx, api) {
     redTree(target);
     redTree(read(() => target.manager));
     redVisual(target);
+    if (enabled('version')) {
+      // Calendar unread status feeds both the More aggregate and activity tab.
+      // Identify its manager by its dedicated APIs, preserving read history.
+      if (typeof read(() => target.GetSpecialActivityCalendar) === 'function'
+          && typeof read(() => target.GetLimitActivityCalendar) === 'function') {
+        skip(target, 'IsReddot', 'version', () => true, false);
+      }
+      if (typeof read(() => target.activityCalendarRedHandler) === 'function') {
+        calendarViews.add(target);
+        patch(target, 'activityCalendarRedHandler', null, '', (_self, args, invoke) =>
+          invoke(enabled('version') ? [false, ...args.slice(1)] : args));
+        const button = read(() => target.calendarBtn);
+        const hide = () => hidden(read(() => button.redPointTex), 'version');
+        for (const method of ['ShowRedPoint', 'addDrawChild']) patch(button, method, hide);
+        hide();
+      }
+    }
     // These hall surfaces can be outside the Sprite child list.
     if (enabled('redDot') || enabled('version')) for (const key of ['hallToolbar', 'toolBar', 'moreView']) inspect(read(() => target[key]));
     for (const key of ['IsReddot', 'HasRedDot']) skip(target, key, 'redDot', () => true, false);
@@ -313,7 +331,7 @@ export function createExtendedEffects(ctx, api) {
       // moreUpdate recomputes the aggregate using all other native sources.
       const view = target.moreView;
       patch(view, 'UpdateRedPoint', null, '', (self, args, invoke) =>
-        invoke(enabled('version') && args[0] === 10049 ? [args[0], false, ...args.slice(2)] : args));
+        invoke(enabled('version') && [10049, 10307].includes(args[0]) ? [args[0], false, ...args.slice(2)] : args));
       ready('version');
     }
     skip(target, 'dealChatMessage', 'slogan', (_self, args) => isSlogan(args[0]));
@@ -384,9 +402,11 @@ export function createExtendedEffects(ctx, api) {
     }
   }
   function updateNotices() {
+    for (const view of calendarViews) if (alive(view)) read(() => view.initCalendarRedDot());
     for (const bar of treeBars) if (alive(bar)) read(() => bar.checkKanShuRed());
     for (const bar of noticeBars) if (alive(bar)) {
       read(() => bar.moreView.UpdateRedPoint(10049, false));
+      read(() => bar.moreView.UpdateRedPoint(10307, false));
       read(() => bar.moreUpdate());
     }
   }
@@ -399,6 +419,8 @@ export function createExtendedEffects(ctx, api) {
       if (record.own) Object.defineProperty(target, key, record.own); else delete target[key];
     }
     getters.clear();
+    for (const view of calendarViews) if (alive(view)) read(() => view.initCalendarRedDot());
+    calendarViews.clear();
     for (const bar of treeBars) if (alive(bar)) read(() => bar.checkKanShuRed());
     treeBars.clear(); blessManagers.clear();
     for (const bar of noticeBars) if (alive(bar)) read(() => bar.moreUpdate());

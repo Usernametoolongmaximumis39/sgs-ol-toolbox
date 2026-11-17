@@ -312,7 +312,8 @@ test('spectator double-general cards align with the visible cropped portrait ins
     assert.deepEqual(seatRevealAnchor(env.window,env.other),{x:720,y:368});
     assert.ok(Math.abs(nativeAnchor(env.window,avatar,0,172).x-720+57.6)<.001,'reproduce the 36-native-unit crop error');
     env.activate();
-    assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.left,`${720 - 20 * (256 / 172)}px`);
+    assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.left,'700px');
+    assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.getPropertyValue('--sgs-reveal-scale'),'1');
     assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.top,'368px');
     avatar.displayedInStage=false;
     assert.equal(seatRevealAnchor(env.window,env.other),null);
@@ -540,11 +541,11 @@ test('sort controls clamp old offsets to the hand band and visible canvas', () =
     env.settings.set('nativeSortOffset', { x: 1e6, y: -1e6 });
     env.activate();
     const bar = env.container.getChildByName('sgs-toolbox-hand-sort');
-    assert.equal(bar._children.length, 3); assert.equal(bar.getChildByName('drag'), undefined);
-    assert.equal(bar.x, 375); assert.equal(bar.y, -40);
-    env.window.innerWidth = 300;
+    assert.deepEqual(bar._children.filter(child => ['spacing', 'type', 'suit', 'number'].includes(child.name)).map(child => child.name), ['spacing', 'type', 'suit', 'number']); assert.equal(bar.getChildByName('drag'), undefined);
+    assert.equal(bar.x, 347); assert.equal(bar.y, -40);
+    env.window.innerWidth = 340;
     env.send('MsgGameTurnNtf', { SeatID: 1 });
-    assert.equal(bar.x, 188); assert.ok(bar.x + bar.width < 300);
+    assert.equal(bar.x, 200); assert.ok(bar.x + bar.width < 340);
     assert.equal(bar.y, -40);
   } finally { env.close(); }
 });

@@ -35,10 +35,15 @@ export function userscriptHeader({ edition, version, toolboxSvg }) {
 // @description  ${label}：${edition === 'lite' ? '独立核心，按需安装插件并沿用已保存的插件' : '工具箱核心与全部插件'}
 // @match        https://web.sanguosha.com/*
 // @match        http://web.sanguosha.com/*
+// @match        https://openapi.alipay.com/gateway.do*
+// @match        https://excashier.alipay.com/standard/auth.htm*
 ${dev ? '// @match        http://127.0.0.1:17321/dev/*\n' : ''}${update}// @exclude      *://web.sanguosha.com/10/*
 // @exclude      *://web.sanguosha.com/10th/*
 // @run-at       document-start
-// @grant        none
+// @grant        unsafeWindow
+// @grant        GM_xmlhttpRequest
+// @connect      openapi.alipay.com
+// @connect      excashier.alipay.com
 // ==/UserScript==
 
 `;

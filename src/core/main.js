@@ -1,3 +1,4 @@
+import { installAlipayCashierBridge, resolveAlipayCashier } from '../shared/alipay-cashier.js';
 import { installRefreshReentry } from './refresh-reentry.js';
 import { installTouchPreview } from './touch-preview.js';
 import { DEVELOPMENT, EDITION, MICROCLIENT } from './distribution.js';
@@ -54,7 +55,9 @@ async function initialize(win, api) {
   const marketConnection = createMarketConnection(settings, win.fetch.bind(win), shell.notify);
   void marketConnection.start();
   const manager = new PluginManager({ journal, store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : 'sgs-ol-toolbox'), settings,
-    context: { core: Object.freeze({ version: CORE_VERSION, distribution: EDITION, platform: MICROCLIENT ? 'microclient' : 'browser' }), window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds, notify: shell.notify }, onChange: () => shell.render() });
+    context: { core: Object.freeze({ version: CORE_VERSION, distribution: EDITION, platform: MICROCLIENT ? 'microclient' : 'browser' }), window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds,
+      payments: Object.freeze({ resolveAlipayCashier: (url, signal) => resolveAlipayCashier(win, url, signal, !MICROCLIENT && typeof GM_xmlhttpRequest === 'function' ? GM_xmlhttpRequest : null) }),
+      notify: shell.notify }, onChange: () => shell.render() });
   scope.add(() => manager.dispose());
   const replacements = { cards: REPLACED_CARD_PACKAGES, backgrounds: REPLACED_BACKGROUND_PACKAGES,
     'daily-rewards': REPLACED_REWARD_PACKAGES, effects: REPLACED_EFFECT_PACKAGES, skins: REPLACED_SKIN_PACKAGES,
@@ -94,4 +97,5 @@ async function initialize(win, api) {
   if (manager.errors.length) shell.notify(manager.errors.join('；'));
   return api;
 }
-boot().catch(error => { console.error('[三国杀OL工具箱]', error); });
+const pageWindow = !MICROCLIENT && typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+if (!installAlipayCashierBridge(pageWindow)) boot(pageWindow).catch(error => { console.error('[三国杀OL工具箱]', error); });

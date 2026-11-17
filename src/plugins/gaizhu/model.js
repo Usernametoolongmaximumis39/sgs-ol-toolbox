@@ -7,7 +7,7 @@ const count = value => Number.isFinite(value) && value >= 0 ? value : 0;
 
 // Only preferences persist. A role is deliberately absent from this schema.
 export function cleanOptions(value = {}) {
-  return { pick: ['off', 'random', 'order'].includes(value?.pick) ? value.pick : 'off', wait: value?.wait === true };
+  return { pick: ['off', 'random', 'order'].includes(value?.pick) ? value.pick : 'off', wait: value?.wait === true, cancelWuxie: value?.cancelWuxie !== false };
 }
 
 export function definitions(config) {

@@ -522,3 +522,52 @@ test(`ranked real event replay with unavailable native positions: ${variant}`, a
  assert.equal(c.view().records.length,count);assert.equal(c.view().matches.length,count);
  if(count){assert.equal(c.view().matches[0].position,2);assert.equal(c.view().matches[0].result,1);assert.equal(c.view().matches[0].duration,387);assert.deepEqual(c.view().matches[0].general,[543]);assert.equal(c.view().records[0].general.length,12);}
 });
+
+
+test('appearances: official history requests on login and next opening; deduplicates, isolates account and disposes', async t => {
+  const f = fixture(t, 'appearances'), calls = [];
+  f.ctx.game.getClass = ((original) => name => name === 'UserInfoManger'
+    ? { SendClientGameRecordInfoReq: (...args) => calls.push(args) } : original(name))(f.ctx.game.getClass);
+  const ended = Math.floor(Date.now()/1000) + 28800 - 60;
+  f.ctx.storage.set('account:41:records-v1', {schema:1,records:[{id:'missed',mode:35,general:[1,2],selected:[1],time:(ended-28800)*1000-310000,figure:3}],matches:[]});
+  const c = appearances(f.ctx);
+  for (let i=0; i<30 && !calls.length; i++) await flush();
+  assert.equal(calls[0][1], 26);
+  const row = { label_mode: 14803, figure: 3, game_result: 0, game_time: 300,
+    game_over_time: ended, used_general: [1], game_id: '123456789' };
+  const reply = (mode, rows) => f.proxy.event('ClientGameRecordInfoRep', { Protocol: { query_uid: 41, id: mode, all_record: rows } });
+  reply(35, [null, row]); reply(26, []); reply(44, []); await flush();
+  assert.equal(c.view().matches.length, 1);
+  assert.equal(c.view().matches[0].figure, 3);
+  assert.equal(c.view().historyStatus, '已补收 1 局战绩');
+  // Start another query after the request throttle without waiting in real time.
+  const originalNow = Date.now; Date.now = () => originalNow() + 11000;
+  try {
+    f.proxy.event('SmsgGameSetCharacter', { Protocol: { Infos: [{ SeatID: 0, CharacterID: 1 }] } }); await flush();
+    assert.ok(c.view().historyLoading);
+    reply(35, [row]); reply(26, []); reply(44, []); await flush();
+    assert.equal(c.view().matches.length, 1);
+    Date.now = () => originalNow() + 22000; c.refreshHistory(); f.account(42);
+    reply(35, [{ ...row, game_id: '999' }]); await flush();
+    assert.equal(c.view().matches.length, 0);
+  } finally { Date.now = originalNow; }
+  f.scope.dispose(); assert.equal([...f.handlers.values()].flat().length, 0);
+});
+
+test('appearances: capture notices are separate from save failures and idle proxy changes do not count gaps', async t => {
+ const f=fixture(t,'appearances'), ticks=[];
+ f.ctx.scope.interval=fn=>{ticks.push(fn);return ()=>{};};
+ const c=appearances(f.ctx); await flush();
+ const proxy=f.ctx.game.getServerProxy();
+ f.ctx.game.getServerProxy=()=>({...proxy});
+ ticks[0](); await flush(); assert.equal(c.view().gaps,0); assert.equal(c.view().error,'');
+ // Rebind to a stable native proxy, then provoke a malformed candidate packet.
+ f.ctx.game.getServerProxy=()=>proxy; ticks[0]();
+ f.proxy.event('MsgGameDealCharacter',{Protocol:{Type:1,Datas:[1,2]}}); await flush();
+ f.proxy.event('MsgGameDealCharacter',{Protocol:{Type:3,Datas:Array(257).fill(2)}}); await flush();
+ assert.equal(c.view().gaps,1); assert.match(c.view().captureNotice,/采集中断/);
+ assert.match(c.view().captureDetail,/MsgGameDealCharacter/);
+ assert.equal(c.view().error,''); assert.equal(c.view().canRetrySave,false);
+ c.dismissCaptureNotice(); assert.equal(c.view().captureNotice,'');
+ assert.equal(c.view().gaps,1);
+});

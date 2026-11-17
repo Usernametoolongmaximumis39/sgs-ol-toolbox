@@ -35,3 +35,12 @@ test('lamp projection rejects non-query and malformed rows and excludes trial ow
  const p={Type:1,Nickname:'甲',IsEnd:1,GeneralIDList:[{ID:1,GoodsID:1,EndTime:0},{ID:2,GoodsID:1,EndTime:50},{ID:3,GoodsID:0,EndTime:0}]};
  assert.deepEqual(projectLamp(p).ids,[1]);assert.equal(projectLamp({...p,Type:0}),null);assert.equal(projectLamp({...p,GeneralIDList:[{ID:4}]}),null);
 });
+
+test('local deletion removes owned-general JSON and cancels pending responses, retries storage failures',t=>{
+ const dom=new JSDOM('<canvas></canvas>'),scope=new ResourceScope(),stored=new Map([['lamps:1000000001',{version:1,friends:{1000000002:{name:'甲',ids:[1],names:{1:'周瑜'},at:1}}}]]);
+ t.after(()=>{scope.dispose();dom.window.close()});let listener,fail=false;
+ const ctx={scope,window:dom.window,document:dom.window.document,game:{getSelf:()=>({ClientId:1000000001}),getServerProxy:()=>null,getConfigData:()=>null},storage:{get:k=>stored.get(k),set(k,v){if(fail)throw Error('full');stored.set(k,structuredClone(v))}},reportError(){}};
+ const run=createLampTracking(ctx,{getRecord:()=>({pins:[],friends:{}}),onDeleted(fn){listener=fn;return ()=>{listener=null}}});
+ fail=true;listener('1000000002');assert.ok(stored.get('lamps:1000000001').friends['1000000002']);fail=false;run.tick();assert.deepEqual(stored.get('lamps:1000000001').friends,{});assert.deepEqual(run.getRecords(),{});
+ scope.dispose();assert.equal(listener,null);
+});

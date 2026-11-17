@@ -100,7 +100,7 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
       schemaVersion: 2, ...(!owner ? { automatic: false } : {}) };
   }
   state.status = config().automatic ? '自动领取已开启，等待检查' : state.status;
-  const excludedAttempt = (id, entry) => /^(?:task|quest):/.test(id) &&
+  const excludedAttempt = (id, entry) => /^lamp:/.test(id) || /^(?:task|quest):/.test(id) &&
     (safely(() => adapter.describeAttempt?.(id)?.excluded) === true || isReturnTask({ baseVo: { name: entry?.label } }));
   const snapshot = () => {
     const owner = account(), date = day(), issues = [], codeHistory = [];

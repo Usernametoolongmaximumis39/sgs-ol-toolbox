@@ -27,30 +27,30 @@ export function field(packet, key) {
 }
 // Projection happens before the client can reuse its packet. Work/storage/UI is deferred.
 export function observeNative(ctx, project, consume, gap = () => {}) {
-  let bound = null, releases = [], queue = [], scheduled = false, overflow = false;
+  let bound = null, releases = [], queue = [], scheduled = false, overflow = false, gapDetail = null;
   const caller = {};
   const flush = () => {
     scheduled = false;
     if (ctx.scope.signal.aborted) return;
     const batch = queue; queue = [];
-    if (overflow) { overflow = false; gap(); return; }
+    if (overflow) { overflow = false; const detail = gapDetail; gapDetail = null; gap(detail); return; }
     for (const item of batch) {
-      if (item.account.id && item.account.id === account(ctx).id) { try { consume(item.type, item.data, item.account); } catch { gap(); } }
+      if (item.account.id && item.account.id === account(ctx).id) { try { consume(item.type, item.data, item.account); } catch (e) { gap({ reason: 'consume', type: item.type, message: String(e?.message || e) }); } }
     }
   };
   const enqueue = (type, packet) => {
     try {
       const data = project[type](packet); if (data == null) return;
-      if (queue.length >= 256) { overflow = true; queue = []; }
+      if (queue.length >= 256) { overflow = true; gapDetail = { reason: 'overflow', type }; queue = []; }
       if (!overflow) queue.push({ type, data, account: account(ctx) });
-    } catch { overflow = true; queue = []; }
+    } catch (e) { overflow = true; gapDetail = { reason: 'projection', type, message: String(e?.message || e) }; queue = []; }
     if (!scheduled) { scheduled = true; ctx.scope.timeout(flush, 0); }
   };
   function bind() {
     const proxy = read(() => ctx.game.getServerProxy());
     if (proxy === bound) return;
     for (const release of releases) release(); releases = [];
-    if (bound) { queue = []; gap(); }
+    if (bound) { queue = []; gap({ reason: 'rebind' }); }
     bound = proxy;
     if (typeof read(() => proxy.on) !== 'function' || typeof read(() => proxy.off) !== 'function') return;
     for (const type of Object.keys(project)) {

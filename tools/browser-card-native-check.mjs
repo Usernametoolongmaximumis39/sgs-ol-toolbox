@@ -115,13 +115,13 @@ try {
       if(!revealed)return false;
       const actual=revealed.getBoundingClientRect();
       const top=avatar.parent.localToGlobal(new Laya.Point(avatar.x,avatar.y),true);
-      return Math.abs(actual.x-Math.max(0,expected.x-20*(expected.y-top.y)/172))<.1&&Math.abs(actual.y-expected.y)<.1;
+      return Math.abs(actual.x-Math.max(0,expected.x-20*Math.min(1,(expected.y-top.y)/172)))<.1&&Math.abs(actual.y-expected.y)<.1;
     });
     assert.equal(await page.evaluate(()=>!!nativeCheck.staleTimer.getChildByName('sgs-toolbox-countdown')),false);
     assert.equal(await page.locator('[data-sgs-cards-overlay]').locator('.sgs-card-countdown').count(),0);
-    assert.equal(await page.evaluate(() => nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort').numChildren), 3);
+    assert.equal(await page.evaluate(() => nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort').numChildren), 5);
     assert.equal(bounds.fontSize, 12); assert.ok(Math.abs(bounds.height - 24 * scale) < .1);
-    assert.ok(Math.abs(bounds.width - 108 * scale) < .1);
+    assert.ok(Math.abs(bounds.width - 136 * scale) < .1);
     await page.waitForTimeout(350);
     await page.mouse.click(bounds.cx, bounds.cy);
     assert.deepEqual(await page.evaluate(() => nativeCheck.hand.cardUis.map(ui => ui.Card.CardNumber)), [3, 7, 9]);
@@ -146,9 +146,10 @@ try {
     });
     assert.ok(layout.rows>1); assert.ok(layout.inside); assert.ok(layout.right<=width);
     assert.ok(layout.width<=(portraitWidth+40)*scale+.1);
-    assert.ok(Math.abs(layout.cardWidth-40*scale)<.1);
-    assert.ok(Math.abs(layout.cardHeight-54*scale)<.1);
-    assert.ok(Math.abs(layout.height-139*scale)<.1,'two and a half visible rows');
+    const cardScale = Math.min(1, scale);
+    assert.ok(Math.abs(layout.cardWidth-40*cardScale)<.1);
+    assert.ok(Math.abs(layout.cardHeight-54*cardScale)<.1);
+    assert.ok(Math.abs(layout.height-139*cardScale)<.1,'two and a half visible rows');
     const reveal=page.locator('[data-sgs-cards-overlay]').locator('.sgs-card-seat-reveal');
     await reveal.evaluate(box=>{box.scrollTop=0;window.revealBeforeScroll=box;});
     await page.screenshot({path:path.join(output,`card-reveal-wrap-${width}.png`)});
@@ -176,7 +177,7 @@ try {
     const box=document.querySelector('[data-sgs-cards-overlay]').shadowRoot.querySelector('.sgs-card-seat-reveal');
     const cards=[...box.children].map(c=>c.getBoundingClientRect());
     return {columns:cards.filter(c=>c.y===cards[0].y).length,wrapped:cards[8].y>cards[0].y,scroll:box.scrollHeight>box.clientHeight};
-  }),{columns:2,wrapped:true,scroll:true});
+  }),{columns:3,wrapped:true,scroll:true});
   const bounds = await measure();
   await page.screenshot({path:path.join(output,'toolbox-spectator-reveals.png'),clip:{x:600,y:20,width:400,height:540}});
   // A native dialog must cover only the intersecting part of the HTML reveals.

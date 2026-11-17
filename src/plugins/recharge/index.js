@@ -1,12 +1,17 @@
 import { qrData } from './encoding.js';
+import { resolveAlipayCashier } from '../../shared/alipay-cashier.js';
+import { installNativeRecharge } from './native-recharge.js';
+import { CONTROL_STYLES } from '../../ui/controls.js';
 import { PAY_BASE, CARDS, isOfficialServer, buildPayload, paymentResult, queryCards, validateCard } from './payment.js';
 export const manifest = {
-  id: 'recharge', name: '95折充值与旧卡', version: '0.1.7', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "修复微端支付宝正常付款二维码区域空白的问题，保留备用跳转码和收银台入口。出码仍需核对账号与金额并确认；付款须手动完成，出码不代表付款或到账。", minCoreVersion: '0.6.37', categories: ['tools'], priority: 45000,
+  id: 'recharge', name: '95折充值与旧卡', version: '0.1.13', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "将95折开关移到游戏充值按钮左侧，新增自定义元宝输入并修复入口定位和付款码显示。仍默认关闭；创建订单会向官方支付服务发送账号及订单信息，需核对账号、数量和风险后确认，付款须手动完成，不保证折扣或到账。", minCoreVersion: '0.6.72', categories: ['tools'], priority: 45000,
   icon: { paths: ['M3 6h18v14H3Z', 'M3 10h18', 'M15 15h3', 'M6 3h12'] },
   description: '官服微信／支付宝充值及旧周月卡原生直购入口，操作前请阅读风险',
 };
 export function activate(ctx) {
+  let replaceNative = ctx.settings?.get('replaceNativeRecharge', false) === true;
+  installNativeRecharge(ctx, () => replaceNative, value => { replaceNative = value; ctx.settings?.set('replaceNativeRecharge', value); });
   const riskKey = Symbol.for('sgs.toolbox.recharge.login-risk');
   const riskSession = ctx.window[riskKey] ||= { account: '', acknowledged: false };
   function syncRiskSession() { const account = String(ctx.game.getSelf()?.ClientId || ''); if (account !== riskSession.account) { riskSession.account = account; riskSession.acknowledged = false; } }
@@ -43,7 +48,7 @@ export function activate(ctx) {
   ctx.scope.add(() => detach()); ctx.scope.interval(observe, 1000); observe();
   ctx.ui.registerPanel({ id: 'main', category: 'tools', render(container) {
     const doc = ctx.document, root = doc.createElement('div'); root.dataset.sgsRecharge = '';
-    const style = doc.createElement('style'); style.textContent = `
+    const style = doc.createElement('style'); style.textContent = CONTROL_STYLES + `
       [data-sgs-recharge]{font:12px/1.65 var(--sgs-font,sans-serif);color:var(--sgs-text);overflow-wrap:anywhere}
       [data-sgs-recharge] *{box-sizing:border-box}
       [data-sgs-recharge] p{margin:6px 0 10px}
@@ -90,6 +95,7 @@ export function activate(ctx) {
     const official = () => isOfficialServer(ctx.window);
     if (!official()) add('p', '当前服务器不是官服，95折充值已被禁用', root, 'pay-risk');
     const payArea = add('div', '', root); payArea.hidden = !official();
+    add('p', '95折开关与自定义元宝输入位于游戏“立即充值”按钮左侧。默认关闭；自定义留空使用选中档位。月卡、军典等直购不替换。', payArea, 'pay-note');
     const riskBox = add('div', '', root, 'pay-risk-box'); root.insertBefore(riskBox, payArea);
     add('strong', '充值与旧卡风险提示', riskBox);
     add('p', '历史通道及旧卡可能失效，存在不到账、无法激活、无奖励或无法退款的风险。请核对账号与收款金额，建议先小额验证；工具不保证补偿。', riskBox);
@@ -176,10 +182,19 @@ export function activate(ctx) {
         const timeout = setTimeout(() => request.abort(), 15000), request = new AbortController();
         const cancel = () => request.abort(); controller.signal.addEventListener('abort', cancel, { once: true });
         try {
-          const response = await ctx.window.fetch(PAY_BASE + job.kind + '/qrcode/order/create', { method: 'POST', credentials: 'omit', signal: request.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildPayload({ ...job.values, udid })) });
-          if (!response.ok) throw Error('HTTP ' + response.status);
-          const responseData = await response.json(); if (!valid(job.identity)) return;
-          result = paymentResult(job.kind, responseData);
+          if (!job.paymentResult) {
+            const response = await ctx.window.fetch(PAY_BASE + job.kind + '/qrcode/order/create', { method: 'POST', credentials: 'omit', signal: request.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildPayload({ ...job.values, udid })) });
+            if (!response.ok) throw Error('HTTP ' + response.status);
+            const responseData = await response.json(); if (!valid(job.identity)) return;
+            job.paymentResult = paymentResult(job.kind, responseData);
+          }
+          result = { ...job.paymentResult };
+          clearTimeout(timeout);
+          if (result.url && new URL(result.url).hostname === 'openapi.alipay.com') {
+            status.textContent = '正在解析支付宝最终付款码…';
+            result.url = await (ctx.payments?.resolveAlipayCashier ? ctx.payments.resolveAlipayCashier(result.url, request.signal) : resolveAlipayCashier(ctx.window, result.url, request.signal));
+            if (!valid(job.identity)) return;
+          }
           if (result.url && new URL(result.url).hostname !== 'qr.alipay.com') {
             const wrap = add('div', '', output, 'pay-cashier'), viewport = add('div', '', wrap, 'pay-cashier-viewport'), frame = doc.createElement('iframe');
             frame.title = '支付宝最终付款码'; frame.setAttribute('sandbox', 'allow-scripts allow-same-origin'); frame.setAttribute('scrolling', 'no'); frame.referrerPolicy = 'no-referrer';
@@ -208,6 +223,11 @@ export function activate(ctx) {
           if (result.url) { const link = add('a', '打开支付宝收银台', output); link.href = result.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; }
           add('p', `订单 ${result.order || '未提供订单号'} · ${job.values.account} / ${job.values.userId} · ${job.values.yb}元宝。二维码已生成，付款及到账状态未知。`, output);
           status.textContent = '请核对收银台金额和收款方后付款；如结果不明，请勿重复支付。';
+        } catch (error) {
+          if (valid(job.identity) && job.paymentResult?.url && new URL(job.paymentResult.url).hostname === 'openapi.alipay.com') {
+            pending = job; confirmText.textContent = '当前订单解析失败，可重试解析；不会重新下单。'; confirmation.hidden = false;
+          }
+          throw error;
         } finally { clearTimeout(timeout); controller.signal.removeEventListener('abort', cancel); }
       });
     });

@@ -1,0 +1,100 @@
+{
+  "source": "Official character.sgs, 2026-11-17",
+  "GameCharacters": {
+    "character": [
+      {
+        "id": 16,
+        "name": "司马懿",
+        "country": 1,
+        "exType": 1,
+        "GeneralEnable": "1"
+      },
+      {
+        "id": 161,
+        "name": "张春华",
+        "country": 1,
+        "exType": 11,
+        "GeneralEnable": "1"
+      },
+      {
+        "id": 2086,
+        "name": "司马懿",
+        "country": 6,
+        "exType": 49,
+        "GeneralEnable": "1",
+        "AvatarUseId": "7003"
+      },
+      {
+        "id": 2088,
+        "name": "王元姬",
+        "country": 6,
+        "exType": 49,
+        "GeneralEnable": "1",
+        "AvatarUseId": "7005"
+      },
+      {
+        "id": 2090,
+        "name": "张春华",
+        "country": 6,
+        "exType": 49,
+        "GeneralEnable": "1",
+        "AvatarUseId": "7007"
+      },
+      {
+        "id": 3047,
+        "name": "司马懿",
+        "country": 6,
+        "exType": 23,
+        "GeneralEnable": "1",
+        "AvatarUseId": "7003"
+      },
+      {
+        "id": 3049,
+        "name": "王元姬",
+        "country": 6,
+        "exType": 23,
+        "GeneralEnable": "1",
+        "AvatarUseId": "7005"
+      },
+      {
+        "id": 3051,
+        "name": "张春华",
+        "country": 6,
+        "exType": 23,
+        "GeneralEnable": "1",
+        "AvatarUseId": "7007"
+      },
+      {
+        "id": 7003,
+        "name": "司马懿",
+        "country": 6,
+        "exType": 40,
+        "GeneralEnable": "1",
+        "GeneralItemType": "36"
+      },
+      {
+        "id": 7005,
+        "name": "王元姬",
+        "country": 6,
+        "exType": 40,
+        "GeneralEnable": "1",
+        "GeneralItemType": "38"
+      },
+      {
+        "id": 7007,
+        "name": "张春华",
+        "country": 6,
+        "exType": 40,
+        "GeneralEnable": "1",
+        "GeneralItemType": "36"
+      },
+      {
+        "id": 6036,
+        "name": "王元姬",
+        "country": 1,
+        "exType": 0,
+        "GeneralEnable": "0"
+      }
+    ]
+  }
+}

@@ -317,15 +317,7 @@ export function planActivities(adapter, selected = {}) {
         send: () => manager.GeneralAtlasRewardReq(id),
       });
     }
-    const collection = adapter.config('cha_dbs_general_series.sgs')?.root?.Collection;
-    if (method(manager, 'LampRewardReq')) {
-      if (!Array.isArray(collection)) note('武将集灯配置尚未就绪');
-      const ids = new Set(rows(collection).flatMap(item => String(item?.seriesList ?? '').split(',')).map(Number).filter(positive));
-      for (const id of ids) add({ key: `lamp:${id}`, label: `武将集灯 ${id} 奖励`, manager,
-        eligible: () => manager.LampRewardCanAward(id) === true && manager.LampHasReward(id) === false,
-        done: () => manager.LampHasReward(id) === true, send: () => manager.LampRewardReq(id),
-      });
-    }
+    // 武将集灯系列不参与自动领取（包括任务面板不可见的奖励）。
     const before = Number(manager.FreeOpenGeneralPackTime);
     const freeId = freeGeneralId(adapter);
     if (!selected.excludeRecruit && method(manager, 'CanFreeOpenGeneral') && method(manager, 'SendClientUseGeneralDrawCardReq') && Number.isFinite(before) && positive(freeId)) add({

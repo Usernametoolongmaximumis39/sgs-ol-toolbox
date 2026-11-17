@@ -51,7 +51,7 @@ export function createHandGrouping(ctx) {
     for (let i = used; i < labels.length; i++) labels[i].visible = false;
   }
   function apply() {
-    if (!mode || !container || container.destroyed || container.dragIng || container.switchIng) { hide(); return; }
+    if (ctx.settings.get('handGroupSpacing', true) === false || !mode || !container || container.destroyed || container.dragIng || container.switchIng) { hide(); return; }
     const cards = container.cardUis, rect = container.HandCardRect ?? container.handCardRect;
     const cardWidth = Number((container.CardUiSize ?? container.cardUiSize)?.width);
     // Virtual cards use a separate native stack. Keep that interaction intact.

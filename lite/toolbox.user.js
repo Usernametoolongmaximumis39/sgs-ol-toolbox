@@ -1,21 +1,123 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.63
+// @version      0.6.75
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  轻量版：独立核心，按需安装插件并沿用已保存的插件
 // @match        https://web.sanguosha.com/*
 // @match        http://web.sanguosha.com/*
+// @match        https://openapi.alipay.com/gateway.do*
+// @match        https://excashier.alipay.com/standard/auth.htm*
 // @updateURL    https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/lite/toolbox.meta.js
 // @downloadURL  https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/lite/toolbox.user.js
 // @exclude      *://web.sanguosha.com/10/*
 // @exclude      *://web.sanguosha.com/10th/*
 // @run-at       document-start
-// @grant        none
+// @grant        unsafeWindow
+// @grant        GM_xmlhttpRequest
+// @connect      openapi.alipay.com
+// @connect      excashier.alipay.com
 // ==/UserScript==
 
 (() => {
+  // src/shared/alipay-cashier.js
+  var MESSAGE = "sgs-toolbox-alipay-final-qr-v1";
+  function finalAlipayURL(value) {
+    let url = new URL(value);
+    if (url.origin !== "https://qr.alipay.com" || url.username || url.password || !/^\/[a-z\d]+$/i.test(url.pathname)) throw Error("\u652F\u4ED8\u5B9D\u6700\u7EC8\u4ED8\u6B3E\u7801\u5730\u5740\u5F02\u5E38");
+    return url.href;
+  }
+  function readAlipayCashier(doc) {
+    if (typeof doc?.querySelector != "function") throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u6587\u6863\u4E0D\u53EF\u8BFB\u53D6");
+    let input = doc.querySelector("input#J_qrCode");
+    if (!input?.value) throw Error("\u6536\u94F6\u53F0\u5C1A\u672A\u63D0\u4F9B\u6700\u7EC8\u4ED8\u6B3E\u7801");
+    return finalAlipayURL(input.value);
+  }
+  function installAlipayCashierBridge(win) {
+    if (!(win.location.origin === "https://openapi.alipay.com" && win.location.pathname === "/gateway.do") && !(win.location.origin === "https://excashier.alipay.com" && win.location.pathname === "/standard/auth.htm")) return !1;
+    if (win.parent === win) return !0;
+    let observer = null, timer = null, release = () => {
+      observer?.disconnect(), observer = null, win.clearTimeout(timer);
+    };
+    return win.addEventListener("message", (event) => {
+      if (event.source !== win.parent || event.origin !== "https://web.sanguosha.com" || event.data?.type !== MESSAGE || typeof event.data.nonce != "string" || event.data.nonce.length > 100) return;
+      release();
+      let send = () => {
+        try {
+          let url = readAlipayCashier(win.document);
+          win.parent.postMessage({ type: MESSAGE, nonce: event.data.nonce, url }, event.origin), release();
+        } catch {
+        }
+      };
+      observer = new win.MutationObserver(send), observer.observe(win.document, { childList: !0, subtree: !0, attributes: !0 }), timer = win.setTimeout(release, 15e3), send();
+    }), win.addEventListener("pagehide", release, { once: !0 }), !0;
+  }
+  function resolveAlipayCashier(win, value, signal, request = null) {
+    let url = new URL(value);
+    return url.hostname === "qr.alipay.com" ? Promise.resolve(finalAlipayURL(value)) : url.origin !== "https://openapi.alipay.com" || url.pathname !== "/gateway.do" || url.username || url.password || url.searchParams.get("method") !== "alipay.trade.page.pay" ? Promise.reject(Error("\u4E0D\u662F\u53EF\u89E3\u6790\u7684\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u5730\u5740")) : request ? new Promise((resolve, reject) => {
+      if (signal.aborted) return reject(Error("\u89E3\u6790\u5DF2\u53D6\u6D88"));
+      let handle = null, done = !1, finish = (error, result) => {
+        done || (done = !0, win.clearTimeout(timer), signal.removeEventListener("abort", cancel), error ? reject(error) : resolve(result));
+      }, cancel = () => {
+        finish(Error("\u89E3\u6790\u5DF2\u53D6\u6D88")), handle?.abort();
+      }, timer = win.setTimeout(() => {
+        finish(Error("\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801\u89E3\u6790\u8D85\u65F6\uFF0C\u53EF\u91CD\u8BD5\u89E3\u6790\u540C\u4E00\u8BA2\u5355")), handle?.abort();
+      }, 15e3);
+      signal.addEventListener("abort", cancel, { once: !0 });
+      try {
+        handle = request({
+          method: "GET",
+          url: url.href,
+          anonymous: !0,
+          timeout: 15e3,
+          responseType: "text",
+          onload(response) {
+            if (!done)
+              try {
+                if (response.status !== 200) throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0 HTTP " + response.status);
+                let final = new URL(response.finalUrl || url.href);
+                if (!(final.origin === "https://openapi.alipay.com" && final.pathname === "/gateway.do" || final.origin === "https://excashier.alipay.com" && final.pathname === "/standard/auth.htm")) throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u8DF3\u8F6C\u5730\u5740\u5F02\u5E38");
+                if (typeof response.responseText != "string" || response.responseText.length > 2 * 1024 * 1024) throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u5185\u5BB9\u5F02\u5E38");
+                let template = win.document.createElement("template");
+                template.innerHTML = response.responseText, finish(null, readAlipayCashier(template.content));
+              } catch (error) {
+                finish(error);
+              }
+          },
+          onerror: () => finish(Error("\u65E0\u6CD5\u8BFB\u53D6\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\uFF0C\u53EF\u91CD\u8BD5\u89E3\u6790\u540C\u4E00\u8BA2\u5355")),
+          ontimeout: () => finish(Error("\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801\u89E3\u6790\u8D85\u65F6\uFF0C\u53EF\u91CD\u8BD5\u89E3\u6790\u540C\u4E00\u8BA2\u5355")),
+          onabort: () => finish(Error("\u89E3\u6790\u5DF2\u53D6\u6D88"))
+        }), done && signal.aborted && handle?.abort();
+      } catch (error) {
+        finish(error);
+      }
+    }) : new Promise((resolve, reject) => {
+      if (signal.aborted) return reject(Error("\u89E3\u6790\u5DF2\u53D6\u6D88"));
+      let frame = win.document.createElement("iframe"), nonce = win.crypto.randomUUID?.() || String(Date.now()) + ":" + Math.random();
+      frame.title = "\u89E3\u6790\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801", frame.style.cssText = "position:fixed;width:1px;height:1px;left:-10000px;top:0;border:0;visibility:hidden", frame.referrerPolicy = "no-referrer", frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
+      let settled = !1, finish = (error, result) => {
+        settled || (settled = !0, win.clearTimeout(timer), win.removeEventListener("message", receive), signal.removeEventListener("abort", cancel), frame.remove(), error ? reject(error) : resolve(result));
+      }, cancel = () => finish(Error("\u89E3\u6790\u5DF2\u53D6\u6D88")), receive = (event) => {
+        if (!(event.source !== frame.contentWindow || !["https://openapi.alipay.com", "https://excashier.alipay.com"].includes(event.origin) || event.data?.type !== MESSAGE || event.data.nonce !== nonce))
+          try {
+            finish(null, finalAlipayURL(event.data.url));
+          } catch (error) {
+            finish(error);
+          }
+      }, timer = win.setTimeout(() => finish(Error("\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801\u89E3\u6790\u8D85\u65F6\uFF0C\u8BF7\u66F4\u65B0\u6838\u5FC3\u540E\u91CD\u8BD5\u89E3\u6790")), 15e3);
+      win.addEventListener("message", receive), signal.addEventListener("abort", cancel, { once: !0 }), frame.onload = () => {
+        try {
+          let result = readAlipayCashier(frame.contentDocument);
+          finish(null, result);
+          return;
+        } catch {
+        }
+        frame.contentWindow?.postMessage({ type: MESSAGE, nonce }, url.origin), frame.contentWindow?.postMessage({ type: MESSAGE, nonce }, "https://excashier.alipay.com");
+      }, frame.src = url.href, win.document.body.append(frame);
+    });
+  }
+
   // src/core/refresh-reentry.js
   var KEY = "sgstoolbox:refresh-reentry:v1";
   var GAME_PATH = /^\/220\/h5_2\/index(?:_\d+)?\.php$/, INSTALLED = Symbol.for("sgs.ol.toolbox.refresh-reentry");
@@ -76,15 +178,27 @@
     }
   };
   function installTouchPreview(win, scope) {
+    let nav = win.navigator;
+    if (!(/Android|iPhone|iPad|iPod/i.test(nav?.userAgent || "") || /Mac/i.test(nav?.platform || "") && nav?.maxTouchPoints > 1)) return;
     let stage, unbind = () => {
-    }, down, pending, active, close = () => {
-      active && read(() => active.hide.call(active.node)), active = null;
+    }, down, pending, active, hold, expanded, patched = /* @__PURE__ */ new WeakSet(), close = () => {
+      active && read(() => active.hide.call(active.node)), active = null, expanded && read(() => expanded.outHandler({ stopPropagation() {
+      } })), expanded = null;
     }, cancel = () => {
-      down = null, clearTimeout(pending), close();
+      down = null, clearTimeout(hold), clearTimeout(pending), close();
     }, point = (e) => {
       let native = e.nativeEvent?.changedTouches?.[0] || e.nativeEvent;
       return { x: native?.clientX ?? e.stageX, y: native?.clientY ?? e.stageY };
-    }, parentOf = (node) => node.parentContainer || node.parent || node.render, tooltip = (target, e) => {
+    }, parentOf = (node) => node.parentContainer || node.parent || node.render, friendRow = (target) => {
+      for (let node = target, i = 0; node && i < 24; node = parentOf(node), i++)
+        if (node.data?.FriendNickname && typeof node.itemCliCk == "function" && typeof node.overHandler == "function" && typeof node.SetOutState == "function") return node;
+    }, guardFriend = (row) => {
+      for (let node of [row, row.bg, row.overBg])
+        !node?.event || patched.has(node) || (patched.add(node), scope.patch(node, "event", (original) => function(type, e, ...args) {
+          if (!(type === "click" && (isTouch(e || {}) || down?.row === row)) && !(type === "mouseout" && expanded === row))
+            return original.call(this, type, e, ...args);
+        }));
+    }, tooltip = (target, e) => {
       let texture = read(() => target.getTextureByPosition(e.stageX, e.stageY));
       for (let node = texture || target, i = 0; node && i < 24; node = parentOf(node), i++) {
         if (node.destroyed || node.visible === !1 || node.renderVisible === !1) return null;
@@ -94,22 +208,39 @@
         }
       }
       return null;
-    }, isTouch = (e) => !!(e.nativeEvent?.changedTouches || e.nativeEvent?.touches || e.nativeEvent?.pointerType === "touch"), bind = () => {
+    }, isTouch = (e) => {
+      let native = e.nativeEvent;
+      return native?.pointerType ? native.pointerType === "touch" : !!(native?.changedTouches?.length || native?.touches?.length);
+    }, bind = () => {
       let next = win.Laya?.stage;
       if (next === stage || (unbind(), cancel(), stage = next, !stage?.on || !stage?.off)) return;
       let owner = {}, bound = stage, events = [], listen = (type, fn) => {
         bound.on(type, owner, fn), events.push([type, fn]);
       };
       listen("mousedown", (e) => {
-        cancel(), isTouch(e) && !(e.nativeEvent?.touches?.length > 1) && (down = { ...point(e), target: tooltip(e.target, e), moved: !1 });
+        let hitRow = friendRow(e.target), action = hitRow && ![hitRow, hitRow.bg, hitRow.overBg].includes(e.target);
+        if (isTouch(e) && action && expanded === hitRow) {
+          down = null, clearTimeout(hold), clearTimeout(pending);
+          return;
+        }
+        if (cancel(), isTouch(e) && !(e.nativeEvent?.touches?.length > 1)) {
+          let row = friendRow(e.target), surface = row && [row, row.bg, row.overBg].includes(e.target);
+          if (down = { ...point(e), target: tooltip(e.target, e), row: surface ? row : null, moved: !1 }, surface) {
+            guardFriend(row);
+            let start = down;
+            hold = setTimeout(() => {
+              down !== start || start.moved || row.destroyed || !parentOf(row) || row.data !== start.data || (start.held = !0, close(), read(() => row.itemCliCk(e)));
+            }, 500), start.data = row.data;
+          }
+        }
       }), listen("mousemove", (e) => {
         if (down) {
           let p = point(e);
-          Math.hypot(p.x - down.x, p.y - down.y) > 12 && (down.moved = !0);
+          Math.hypot(p.x - down.x, p.y - down.y) > 12 && (down.moved = !0, clearTimeout(hold));
         }
       }), listen("mouseup", (e) => {
         let start = down;
-        if (down = null, !start || start.moved || !start.target) return;
+        if (down = null, clearTimeout(hold), start?.held || !start || start.moved || !start.target) return;
         let end = point(e), target = tooltip(e.target, e);
         if (Math.hypot(end.x - start.x, end.y - start.y) > 12 || target?.node !== start.target.node) return;
         let event = { stageX: e.stageX ?? bound.mouseX, stageY: e.stageY ?? bound.mouseY };
@@ -118,13 +249,22 @@
           let parent = target.node;
           for (let i = 0; parent && parent !== bound && i < 64; i++, parent = parentOf(parent))
             if (parent.destroyed || parent.visible === !1 || parent.renderVisible === !1) return;
-          parent === bound && (active = target, read(() => target.show.call(target.node, event)));
+          if (parent === bound) {
+            if (start.row) {
+              if (start.row.data !== start.data) return;
+              expanded = start.row, read(() => expanded.overHandler({ stopPropagation() {
+              } }));
+            }
+            active = target, read(() => target.show.call(target.node, event));
+          }
         }, 0);
       }), unbind = () => {
         for (let [type, fn] of events) bound.off(type, owner, fn);
       };
     };
-    scope.listen(win.document, "touchcancel", cancel, !0), scope.listen(win.document, "pointerdown", cancel, !0), scope.listen(win, "blur", cancel), scope.interval(bind, 400), bind(), scope.add(() => {
+    scope.listen(win.document, "touchcancel", cancel, !0), scope.listen(win.document, "pointerdown", (e) => {
+      e.pointerType !== "touch" && cancel();
+    }, !0), scope.listen(win, "blur", cancel), scope.interval(bind, 400), bind(), scope.add(() => {
       unbind(), cancel();
     });
   }
@@ -1266,7 +1406,7 @@
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.63", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.75", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
@@ -1834,7 +1974,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
   function helpTip(doc, text2, label = "\u8BF4\u660E") {
     let wrap = doc.createElement("span"), button = doc.createElement("button"), tip = doc.createElement("span");
-    wrap.style.cssText = "display:inline-flex;vertical-align:middle;margin:2px 0", button.dataset.helpTip = "", button.type = "button", button.setAttribute("aria-label", label), button.title = text2, button.style.cssText = "display:inline-grid;place-items:center;width:24px;height:24px;min-width:24px;padding:3px;border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);cursor:help;border-radius:50%", button.append(controlIcon(doc, "info")), tip.textContent = text2, tip.setAttribute("popover", "manual"), tip.setAttribute("role", "tooltip"), tip.style.cssText = "position:fixed;inset:auto;margin:0;padding:10px 12px;max-width:min(300px,calc(100vw - 24px));width:max-content;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--sgs-font,sans-serif);color:var(--sgs-text);background:var(--sgs-raised);border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 6px 24px #0004";
+    wrap.className = "sgs-help-tip", wrap.style.cssText = "display:inline-flex;align-items:center;flex:0 0 auto;vertical-align:middle;margin:0;line-height:1", button.dataset.helpTip = "", button.type = "button", button.setAttribute("aria-label", label), button.title = text2, button.style.cssText = "box-sizing:border-box;display:inline-grid;place-items:center;flex:none;width:24px;height:24px;min-width:24px;min-height:24px;margin:0;padding:3px;border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);cursor:help;border-radius:50%";
+    let icon2 = controlIcon(doc, "info");
+    icon2.style.margin = "0", button.append(icon2), tip.textContent = text2, tip.setAttribute("popover", "manual"), tip.setAttribute("role", "tooltip"), tip.style.cssText = "position:fixed;inset:auto;margin:0;padding:10px 12px;max-width:min(300px,calc(100vw - 24px));width:max-content;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--sgs-font,sans-serif);color:var(--sgs-text);background:var(--sgs-raised);border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 6px 24px #0004";
     let hide = () => {
       tip.matches(":popover-open") && tip.hidePopover();
     }, show = () => {
@@ -3008,6 +3150,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   ALLOWED.add("sys_h5_shop");
   ALLOWED.add("gn_dbs_coupon_cfg");
   ALLOWED.add("hd_fight_lord_config");
+  ALLOWED.add("sys_ss_gamelabel_config");
   var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read2 = (fn) => {
     try {
       return fn();
@@ -4347,9 +4490,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       settings.set("cardStyleExpanded", expanded), apply(expanded);
     }, heading.append(toggle), details.append(heading, body), container.append(details);
     let render = () => {
-      body.replaceChildren(), body.append(helpTip(doc, "\u5361\u9762\u4E0E\u5361\u80CC\u72EC\u7ACB\u9009\u62E9\u3002\u5B8C\u6574\u5361\u9762\u6309\u724C\u540D\u5339\u914D\uFF0C\u7F3A\u5931\u5361\u56FE\u4FDD\u7559\u6E38\u620F\u539F\u751F\u663E\u793A\uFF1B\u82B1\u8272\u70B9\u6570\u6CBF\u7528\u6E38\u620F\u3002"));
+      body.replaceChildren();
       let scopeLabel = doc.createElement("p");
-      scopeLabel.textContent = "\u5E94\u7528\u8303\u56F4", body.append(scopeLabel);
+      scopeLabel.textContent = "\u5E94\u7528\u8303\u56F4", scopeLabel.style.cssText = "display:flex;align-items:center;gap:5px", scopeLabel.append(helpTip(doc, "\u5361\u9762\u4E0E\u5361\u80CC\u72EC\u7ACB\u9009\u62E9\u3002\u5B8C\u6574\u5361\u9762\u6309\u724C\u540D\u5339\u914D\uFF0C\u7F3A\u5931\u5361\u56FE\u4FDD\u7559\u6E38\u620F\u539F\u751F\u663E\u793A\uFF1B\u82B1\u8272\u70B9\u6570\u6CBF\u7528\u6E38\u620F\u3002")), body.append(scopeLabel);
       let scopes = doc.createElement("div");
       scopes.className = "sgs-segments", body.append(scopes);
       for (let [value, name] of [["self", "\u4EC5\u81EA\u5DF1\u7684\u624B\u724C"], ["all", "\u6240\u6709\u4EBA"]]) {
@@ -4435,6 +4578,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .sgs-themes [aria-pressed=true] .theme-card-state{color:var(--sgs-accent)}
 .sgs-themes .theme-description{display:block;margin-top:3px;font-size:10px;color:var(--sgs-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sgs-themes .theme-status{display:flex;align-items:center;gap:5px;margin:11px 0 0;font-size:11px;color:var(--sgs-accent);overflow-wrap:anywhere}
+.sgs-themes .theme-status-row{display:flex;align-items:center;gap:5px;margin-top:11px}.sgs-themes .theme-status-row .theme-status{margin:0;min-width:0}
 .sgs-themes .theme-footnote{margin:5px 0 0;font-size:10px;line-height:1.7;color:var(--sgs-muted)}
 @media(prefers-reduced-motion:reduce){.sgs-themes button.theme-card{transition:none}}
 `;
@@ -4446,14 +4590,16 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return cls && (node.className = cls), text2 !== void 0 && (node.textContent = text2), node;
     }, style2 = el("style");
     style2.textContent = STYLES;
-    let heading = el("div", "theme-heading"), count = el("span", "theme-count");
-    heading.append(el("h4", "", "\u9009\u62E9\u914D\u8272"), count);
+    let heading = el("div", "theme-heading"), count = el("span", "theme-count"), title = el("div", "theme-heading");
+    title.style.marginBottom = "0", title.append(el("h4", "", "\u9009\u62E9\u914D\u8272")), heading.append(title, count);
     let intro = helpTip(doc, "\u9009\u62E9\u4E00\u5957\u914D\u8272\uFF0C\u5373\u523B\u6362\u88C5\u3002"), grid = el("div", "theme-grid");
     grid.setAttribute("role", "group"), grid.setAttribute("aria-label", "\u5DE5\u5177\u7BB1\u4E3B\u9898");
     let status = el("p", "theme-status");
     status.dataset.themeStatus = "", status.setAttribute("role", "status"), status.setAttribute("aria-live", "polite");
     let footnote = helpTip(doc, "\u914D\u8272\u81EA\u52A8\u4FDD\u5B58\u3002\u4E3B\u9898\u5305\u505C\u7528\u540E\u6682\u56DE\u7384\u91D1\uFF0C\u91CD\u65B0\u542F\u7528\u540E\u6062\u590D\u9009\u62E9\u3002");
-    root.append(style2, heading, intro, grid, status, footnote), container.append(root);
+    title.append(intro);
+    let statusRow = el("div", "theme-status-row");
+    statusRow.append(status, footnote), root.append(style2, heading, grid, statusRow), container.append(root);
     let signature, cards = /* @__PURE__ */ new Map(), cardScope, update = () => {
       if (scope.closed) return;
       let palette = themes?.list() || [BLACK_GOLD], current = themes?.current, next = JSON.stringify(palette);
@@ -4467,8 +4613,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           for (let [key, value] of Object.entries({ ...BLACK_GOLD.tokens, ...theme.tokens })) preview.style.setProperty("--preview-" + key, value);
           let mini = el("span", "theme-mini");
           mini.append(el("span", "theme-mini-seal", "\u6740"), el("span", "theme-mini-number", "3"), el("span", "theme-mini-separator"), controlIcon(doc, "camera")), preview.append(mini);
-          let meta = el("span", "theme-meta"), title = el("span", "theme-title-row"), state = el("span", "theme-card-state");
-          title.append(el("span", "theme-name", theme.name), state), meta.append(title, el("span", "theme-description", description)), button.append(preview, meta), cardScope.listen(button, "click", () => {
+          let meta = el("span", "theme-meta"), title2 = el("span", "theme-title-row"), state = el("span", "theme-card-state");
+          title2.append(el("span", "theme-name", theme.name), state), meta.append(title2, el("span", "theme-description", description)), button.append(preview, meta), cardScope.listen(button, "click", () => {
             try {
               themes.select(theme.id);
             } catch (error) {
@@ -5420,9 +5566,11 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
           });
           choice.style.cssText = "white-space:nowrap;padding:4px 3px;font-size:10px;line-height:18px", choice.setAttribute("aria-pressed", String(label === selected)), sources.append(choice);
         }
-        input.disabled = selected === "\u79BB\u7EBF", content.append(sources, input, button("\u4FDD\u5B58\u5730\u5740", () => {
+        input.disabled = selected === "\u79BB\u7EBF";
+        let saveActions = el("div", void 0, "actions");
+        saveActions.append(button("\u4FDD\u5B58\u5730\u5740", () => {
           handlers.setMarketUrl(input.value), render(), notify("\u5E02\u573A\u5730\u5740\u5DF2\u4FDD\u5B58");
-        }), helpTip(doc, "\u5F00\u53D1\u7248\u4EC5\u8FDE\u63A5\u672C\u5730\u5E02\u573A\uFF0C\u4E0D\u81EA\u52A8\u8FDE\u63A5\u8FDC\u7A0B\u6765\u6E90\uFF1B\u53EF\u624B\u52A8\u4FDD\u5B58\u81EA\u5B9A\u4E49\u5730\u5740\uFF0C\u79BB\u7EBF\u4ECD\u53EF\u5BFC\u5165\u63D2\u4EF6\u5305\u3002"));
+        }), helpTip(doc, "\u5F00\u53D1\u7248\u4EC5\u8FDE\u63A5\u672C\u5730\u5E02\u573A\uFF0C\u4E0D\u81EA\u52A8\u8FDE\u63A5\u8FDC\u7A0B\u6765\u6E90\uFF1B\u53EF\u624B\u52A8\u4FDD\u5B58\u81EA\u5B9A\u4E49\u5730\u5740\uFF0C\u79BB\u7EBF\u4ECD\u53EF\u5BFC\u5165\u63D2\u4EF6\u5305\u3002")), content.append(sources, input, saveActions);
       }
       let diagnosticHeading = el("h3", "\u8BB0\u724C\u8BCA\u65AD");
       diagnosticHeading.append(helpTip(doc, "\u5BFC\u51FA\u672C\u5C40\u6700\u8FD1\u7684\u5361\u724C\u8BB0\u5F55\u4E0E\u6D88\u606F\u7C7B\u578B\uFF0C\u7528\u4E8E\u6392\u67E5\u660E\u724C\u9057\u6F0F\u3002\u6587\u4EF6\u4E0D\u542B\u8D26\u53F7\u3001\u6635\u79F0\u6216\u5B8C\u6574\u767B\u5F55\u6570\u636E\uFF0C\u53EA\u4FDD\u5B58\u5230\u672C\u673A\u3002")), content.append(diagnosticHeading, button("\u5BFC\u51FA\u8BB0\u724C\u8BCA\u65AD", exportDiagnostics));
@@ -6020,7 +6168,18 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       journal,
       store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : "sgs-ol-toolbox"),
       settings,
-      context: { core: Object.freeze({ version: CORE_VERSION, distribution: EDITION, platform: "browser" }), window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds, notify: shell.notify },
+      context: {
+        core: Object.freeze({ version: CORE_VERSION, distribution: EDITION, platform: "browser" }),
+        window: win,
+        document: win.document,
+        game,
+        ui: shell,
+        themes,
+        cardStyles,
+        backgrounds,
+        payments: Object.freeze({ resolveAlipayCashier: (url, signal) => resolveAlipayCashier(win, url, signal, !!1 && typeof GM_xmlhttpRequest == "function" ? GM_xmlhttpRequest : null) }),
+        notify: shell.notify
+      },
       onChange: () => shell.render()
     });
     scope.add(() => manager.dispose());
@@ -6058,7 +6217,8 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       shell.setStatus(bridge.error || (ready ? capture.received ? `\u5DF2\u6536 ${capture.received} \u6761\u6D88\u606F \xB7 ${journal.incomplete ? "\u7F3A\u5C11\u5F00\u5C40\u8BB0\u5F55" : "\u672C\u5C40\u8BB0\u5F55\u4E2D"}` : capture.targets.length ? "\u6D88\u606F\u5165\u53E3\u5DF2\u8FDE\u63A5 \xB7 \u7B49\u5F85\u6536\u5305" : "\u672A\u63A5\u5165\u6E38\u620F\u6D88\u606F \xB7 \u4EC5\u539F\u751F\u663E\u793A\u53EF\u7528" : "\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6"));
     }, 500), !win.__SGS_TOOLBOX_DEMO__ && !win.Laya?.stage && (shell.host.style.display = "none"), await manager.init(), scope.closed ? null : (Object.assign(api, { manager, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager.errors.length && shell.notify(manager.errors.join("\uFF1B")), api);
   }
-  boot().catch((error) => {
+  var pageWindow = !!1 && typeof unsafeWindow < "u" ? unsafeWindow : window;
+  installAlipayCashierBridge(pageWindow) || boot(pageWindow).catch((error) => {
     console.error("[\u4E09\u56FD\u6740OL\u5DE5\u5177\u7BB1]", error);
   });
 })();
