@@ -4,8 +4,9 @@ import { EXTRA_IDS, skillKind } from './strategies.js';
 import { createExtended, redShaOwnTurn } from './extended.js';
 
 // Static baseline: 小抄 1.6.75 uO/uE. Conditional judgement skills need 洛神 / 界洛神.
-export const SKILL_IDS = Object.freeze([62,769,726,3295,3310,792,3750,3753,295,250,784,445,49,716,101,3269,273,97,3260,102,891,...EXTRA_IDS]);
+export const SKILL_IDS = Object.freeze([62,769,726,3295,3310,792,3750,3753,295,250,784,445,49,716,101,3269,273,97,3260,102,891,484,3876,...EXTRA_IDS]);
 const isWuxie = ui => Number(ui?.Card?.FirstSkillId ?? ui?.Card?.FirstSkill?.ID) === 13;
+const QIANGZHI_IDS = [484,3876];
 const QIANFU_IDS = [3750,3753];
 export const CONDITIONAL_SKILL_IDS = Object.freeze([48,719,79,883]);
 export function supported(item) {
@@ -246,10 +247,14 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     if (!getSettings().skillLock || !locks.size) return false;
     const self = s.self, selector = self.spellSelector, cards = list(self.cardContainer?.cardUis);
     if (selector?.visible) {
-      if (choice(s,d => locks.has(Number(d.callBackParams?.[0]?.FirstTriggerParam?.SpellId ?? d.callBackParams?.[0]?.TriggerSpellData?.[0]?.SpellId)))) return true;
+      if (choice(s,d => { const id = Number(d.callBackParams?.[0]?.FirstTriggerParam?.SpellId ?? d.callBackParams?.[0]?.TriggerSpellData?.[0]?.SpellId); return !QIANGZHI_IDS.includes(id) && locks.has(id); })) return true;
       const id = Number(selector.spell?.SkillId);
       if (locks.has(id)) {
-        if (id === 295) return choice(s,d => Number(d.sendData) === 2);
+        if (id === 295) {
+          const hp = self.seat?.Hp;
+          if (hp == null || hp === '' || !Number.isFinite(Number(hp))) return false;
+          return choice(s,d => Number(d.sendData) === (Number(hp) < 2 ? 1 : 2));
+        }
         if (id === 250 && currentSeat !== null) return choice(s,d => d.label === (currentSeat === Number(self.seat?.Index) ? '令其摸两张牌' : '摸一张牌'));
         if (id === 784) return choice(s,d => d.label === (String(selector.txtOptMsg?._innerHTML).includes('(您)') ? '选项二' : '选项一'));
       }
@@ -307,6 +312,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       }
     }
     for (const item of list(self.skillItems).filter(x => supported(x) && locks.has(Number(x.Skill?.SkillId)))) {
+      if (QIANGZHI_IDS.includes(Number(item.Skill.SkillId))) continue;
       const kind=skillKind(Number(item.Skill.SkillId));
       if (kind==='yingyuan' || kind==='weishu' || kind==='longyin' && !redShaOwnTurn(s,sourceCard,currentSeat)) continue;
       if (Number(item.Skill.SkillId) === 62 && Number(self.seat?.Hp) <= 1) {
@@ -325,6 +331,19 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     const opt = getSettings(), self = s.self, context = self.cardContainer?.selectCardContext, gc = gameContext();
     const message = String(context?.message || buttonBar(self)?.txtOptMsg?._innerHTML || '').replace(/<[^>]*>/g,'');
     const specify = Number(context?.SpecifySkillId), skill = Number(context?.Skill?.SkillId), selection = self.spellSelector?.visible ? Number(self.spellSelector.spell?.SkillId) : 0;
+    // Both native versions share the draw response. Keep target/show-hand
+    // selection manual, including when generic auto-confirm is enabled.
+    if (opt.skillLock && QIANGZHI_IDS.some(id => locks.has(id))) {
+      const selector = self.spellSelector;
+      const prompt = String(selector?.visible ? selector.txtOptMsg?._innerHTML || '' : message).replace(/<[^>]*>/g,'').replace(/\s/g,'');
+      const involved = [specify,skill,selection,Number(s.scene.seatContainer?.selectContext?.Skill?.SkillId)].some(id => QIANGZHI_IDS.includes(id) && locks.has(id));
+      if (selector?.visible && QIANGZHI_IDS.includes(selection) && locks.has(selection)) {
+        if (prompt === '是否摸一张牌') choice(s,d => !d.callBack && Number(d.sendData) === 1);
+        return;
+      }
+      if (!selector?.visible && prompt === '是否发动强识，摸一张牌') { button(s,'btnOK'); return; }
+      if (involved || /强识/.test(prompt)) return;
+    }
     if (declineQianfuFollowup(s,context)) return;
     if (opt.skillLock && locks.size && extended.run(s,context,message,sourceCard,currentSeat,gc)) return;
     if (opt.skillLock && locks.has(62) && Number(self.seat?.Hp) <= 0 && specify === 3 && Number(gc?.NextSpellTargets?.[0]) === Number(self.seat?.Index)) {

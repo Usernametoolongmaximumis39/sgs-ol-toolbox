@@ -59,7 +59,7 @@ test('timeout survives reload and blocks changed selection and double-clicks', a
   const click = f.click(), first = f.controller.claimChoice(click);
   assert.equal(await f.controller.claimChoice({ ...click, optionId: 7 }), false);
   assert.equal(await first, false); assert.equal(f.sent.length, 1);
-  assert.match(f.controller.snapshot().choices[0].reason, /未收到成功/);
+  assert.match(f.controller.snapshot().choices[0].reason, /通常尚未满足领取条件/);
   const again = createRewardsController({ adapter: f.adapter, settings: f.settings, scope: f.scope });
   assert.equal(await again.claimChoice(click), false); assert.equal(f.sent.length, 1);
 });

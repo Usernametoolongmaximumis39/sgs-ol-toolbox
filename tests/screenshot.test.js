@@ -35,7 +35,7 @@ test('compact shell remembers collapse, preserves expanded width and records/cle
   const scope = new ResourceScope(), settings = new Settings(win.localStorage);
   const shell = createShell({ window: win, document: win.document, settings, scope });
   let shots = 0; shell.setHandlers({ screenshot: () => shots++ });
-  shell.shadow.querySelector('.brand button').click(); assert.equal(settings.get('collapsed'), true);
+  shell.shadow.querySelector('[data-collapse]').click(); assert.equal(settings.get('collapsed'), true);
   shell.setRemainingSlash(0); assert.equal(shell.shadow.querySelector('[data-slash]').textContent, '0');
   shell.shadow.querySelector('[data-screenshot]').click(); assert.equal(shots, 1);
   shell.shadow.querySelector('[data-expand]').click(); assert.equal(shell.host.hasAttribute('data-collapsed'), false);

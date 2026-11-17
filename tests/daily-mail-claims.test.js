@@ -66,7 +66,7 @@ test('legacy keyed pending mail is repaired once only after fresh matching read 
   assert.deepEqual(f.trace.map(item => item[0]), ['read', 'item']);
   const records = f.storage.get('account:41:attempts').items;
   assert.equal(records['mail-legacy:1011:10'].priorStatus, 'unconfirmed'); assert.equal(records['mail-legacy:1011:10'].status, 'superseded');
-  assert.equal(records['mail:1011'].flowVersion, 2); await f.make().run(); assert.equal(f.trace.length, 2);
+  assert.equal(records['mail:1011'].flowVersion, 3); await f.make().run(); assert.equal(f.trace.length, 2);
 });
 test('a repair timeout persists the new version and never retries again across hot reloads', async t => {
   const f = fixture(t);
@@ -79,12 +79,12 @@ test('old pending mails already reported received by the native model settle wit
   const f = fixture(t, { read: 1 }); f.mail.Geted = true;
   f.storage.set('account:41:attempts', { day: '2026-11-14', items: { 'mail:1011': { status: 'unconfirmed', at: 10 } } });
   await f.controller.run(); assert.deepEqual(f.trace, []);
-  assert.equal(f.storage.get('account:41:attempts').items['mail:1011'].status, 'confirmed'); assert.doesNotMatch(f.controller.snapshot().status, /待核对/);
+  assert.equal(f.storage.get('account:41:attempts').items['mail:1011'].status, 'confirmed'); assert.doesNotMatch(f.controller.snapshot().status, /暂未确认领取/);
 });
 test('keyless gift legacy intent cannot be repaired by inventing a new redemption', async t => {
   const f = fixture(t, { type: 1, read: 1, token: '' });
   f.storage.set('account:41:attempts', { day: '2026-11-14', items: { 'mail:1011': { status: 'unconfirmed', at: 10 } } });
-  await f.controller.run(); assert.deepEqual(f.trace, []); assert.match(f.controller.snapshot().status, /待核对/);
+  await f.controller.run(); assert.deepEqual(f.trace, []); assert.match(f.controller.snapshot().status, /暂未确认领取/);
 });
 test('one uncertain ReadMail blocks other reads from overwriting the native global readMailID', async t => {
   const f = fixture(t); f.manager.systemMailList.push({ ...f.mail, mid: '1012' });
@@ -94,4 +94,26 @@ test('one uncertain ReadMail blocks other reads from overwriting the native glob
 test('disposal while reading prevents any later attachment request', async t => {
   const f = fixture(t); f.manager.ReadMail = id => { f.trace.push(['read', id]); queueMicrotask(() => f.scope.dispose()); };
   await f.controller.run(); assert.deepEqual(f.trace, [['read', '1011']]);
+});
+
+test('already-read uncertain keyed item mail v2 refreshes read acknowledgement then repairs exactly once', async t => {
+ const f=fixture(t,{read:1});
+ f.storage.set('account:41:attempts',{day:'2026-11-14',items:{'mail:1011':{status:'unconfirmed',at:10,flowVersion:2}}});
+ await f.controller.run();assert.deepEqual(f.trace.map(v=>v[0]),['read','item']);assert.equal(f.controller.snapshot().confirmed,1);
+ assert.equal(f.storage.get('account:41:attempts').items['mail:1011'].flowVersion,3);
+ await f.make().run();assert.equal(f.trace.length,2);
+});
+test('repair of already-read mail awaits exact fresh read ACK, not the old read flag', async t => {
+ const f=fixture(t,{read:1});f.manager.ReadMail=id=>{f.trace.push(['read',id]);f.manager.event('READ_MAIL_SUCCESS',{mid:'other'});};
+ f.storage.set('account:41:attempts',{day:'2026-11-14',items:{'mail:1011':{status:'unconfirmed',at:10,flowVersion:2}}});
+ await f.controller.run();assert.deepEqual(f.trace,[['read','1011']]);
+});
+test('v2 gift mail is never repaired by repeating potentially repeatable gift redemption', async t => {
+ const f=fixture(t,{read:1,type:1});f.storage.set('account:41:attempts',{day:'2026-11-14',items:{'mail:1011':{status:'unconfirmed',at:10,flowVersion:2}}});
+ await f.controller.run();assert.deepEqual(f.trace,[]);
+});
+test('v3 repair timeout stays protected across reloads', async t => {
+ const f=fixture(t,{read:1});f.manager.SendClientDbsGetgmawardReq=(...args)=>f.trace.push(['item',...args]);
+ f.storage.set('account:41:attempts',{day:'2026-11-14',items:{'mail:1011':{status:'unconfirmed',at:10,flowVersion:2}}});
+ await f.controller.run();await f.make().run();assert.deepEqual(f.trace.map(v=>v[0]),['read','item']);assert.equal(f.storage.get('account:41:attempts').items['mail:1011'].flowVersion,3);
 });

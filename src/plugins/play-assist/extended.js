@@ -1,7 +1,7 @@
 import { read } from '../../shared/info-runtime.js';
 import { nativeSeat, nativeSeatId } from '../../core/seat.js';
 import { EXTRA_IDS, EXTRA_NAMES, skillKind, model, selected, available, red, black, skillId, equip, nonBasic, select,
-  miuyanCard, longyinCard, pojunCards } from './strategies.js';
+  miuyanCard, longyinCard, pojunCards, wuniangCard } from './strategies.js';
 
 const list = value => Array.isArray(value) ? value.slice(0,256) : [];
 const id = skill => Number(skill?.SkillId ?? skill?.ID);
@@ -59,10 +59,10 @@ export function createExtended(ctx, api) {
     return result;
   }
   function windows(s) {
-    if (!api.hasKind('pojun') && !api.hasKind('luoying')) return false;
+    if (!api.hasKind('pojun') && !api.hasKind('luoying') && !api.hasKind('wuniang')) return false;
     for (const win of windowNodes(s)) {
       const kind = win.name === 'LuoYingSelectCardWindow' ? 'luoying' : skillKind(id(win.Skill));
-      if (!['luoying','pojun'].includes(kind) || !api.hasKind(kind)) continue;
+      if (!['luoying','pojun','wuniang'].includes(kind) || !api.hasKind(kind)) continue;
       let entry = revisions.get(win);
       if (!entry) {
         entry = {revision:0,submitted:-1}; revisions.set(win,entry);
@@ -71,6 +71,14 @@ export function createExtended(ctx, api) {
         });
       }
       if (entry.submitted === entry.revision) return true;
+      if (kind === 'wuniang') {
+        // Prefer armour, then other equipment, then a legal hidden hand.
+        const card = wuniangCard(list(win.handCardUis),list(win.equipCardUis));
+        if (Number(win.Skill.SelectCardCountWhenResponse) !== 1 || !card ||
+          model(card).CardId == null || typeof win.Skill.SelectCardComplete !== 'function' || typeof win.Close !== 'function') return true;
+        entry.submitted=entry.revision;
+        win.Skill.SelectCardComplete([model(card).CardId]); win.Close(); return true;
+      }
       if (kind === 'luoying') {
         if (!list(win.cardIds).length || typeof win.sureBtnHandler !== 'function' || !win.btn1 || win.btn1.enabled === false) return true;
         entry.submitted=entry.revision; win.sureBtnHandler({currentTarget:win.btn1}); return true;
@@ -103,7 +111,7 @@ export function createExtended(ctx, api) {
     // the current native operation bar for HP-loss and draw/discard boundaries.
     const currentMessage=s.self.Pt?.txtOptMsg?._innerHTML || s.self.buttonBar?.txtOptMsg?._innerHTML || message;
     const ids=[selector?.visible ? id(selector.spell) : 0,id(context?.Skill),Number(context?.SpecifySkillId),id(targetContext?.Skill)];
-    const active=ids.find(n=>EXTRA_IDS.includes(n) && api.locked(n)) ||
+    const active=(api.hasKind('wuniang') && /^是否失去1点体力重置镇南[？?]?$/.test(text(currentMessage)) ? 3796 : 0) || ids.find(n=>EXTRA_IDS.includes(n) && api.locked(n)) ||
       EXTRA_IDS.find(n=>api.locked(n) && text(currentMessage).startsWith('是否发动'+EXTRA_NAMES[skillKind(n)]));
     if (selector?.visible) {
       const triggerId=d=>Number(d.callBackParams?.[0]?.FirstTriggerParam?.SpellId ?? d.callBackParams?.[0]?.TriggerSpellData?.[0]?.SpellId);
@@ -130,7 +138,8 @@ export function createExtended(ctx, api) {
     }
     if (kind==='huaiyuan') { if (selfTarget(s)) api.button(s,'btnOK'); return true; }
     if (kind==='wuniang' && /失去.*体力/.test(plain)) {
-      if (isShanhe(s.scene,gc) && Number(s.self.seat.Hp)>2) api.button(s,'btnOK');
+      if (isShanhe(s.scene,gc) && Number(nativeSeat(s.self)?.Hp)>2) api.button(s,'btnOK');
+      else decline(s);
       return true;
     }
     if (['wusheng','wuniang','miuyan'].includes(kind)) {

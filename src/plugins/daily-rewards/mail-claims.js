@@ -60,17 +60,17 @@ export function planMailClaims(adapter, selected, rows) {
     // A one-time migration may repair a keyed mail sent by the old flow,
     // but only after a fresh native READ_MAIL_SUCCESS for this exact mail.
     const legacy = selected.legacyMailAttempts?.[`mail:${id}`];
-    const repair = legacy && typeof token === 'string' && token.length > 0;
-    const readKey = repair ? `mail-read-v2:${id}:${Number(legacy.at) || 0}` : `mail-read:${id}`;
+    const repair = legacy && (!legacy.flowVersion || (legacy.flowVersion === 2 && type === 2)) && typeof token === 'string' && token.length > 0;
+    const readKey = repair ? `mail-read-v3:${id}:${Number(legacy.at) || 0}` : `mail-read:${id}`;
     let readAcked = false, readSent = false;
     if (unread || repair) {
       if (typeof manager.ReadMail !== 'function') { note('邮件尚未读，等待原生读信接口就绪'); continue; }
       // ReadMail is a prerequisite, not a reward. Its private readMailID is
       // global, so the controller's sequential queue must await each read.
-      actions.push({ key: readKey, category: 'mail', workflowGroup: 'mail-read', label: `读取邮件 ${seen.size}`, manager, flowVersion: 2, auxiliary: true,
+      actions.push({ key: readKey, category: 'mail', workflowGroup: 'mail-read', label: `读取邮件 ${seen.size}`, manager, flowVersion: 3, auxiliary: true,
         rewards: () => mailRewardItems(adapter, current()),
-        eligible: () => live() && (current()?.read === 0 || current()?.read === false),
-        done: () => current()?.Geted === true || (readSent && (unread || readAcked) && (current()?.read === 1 || current()?.read === true)),
+        eligible: () => live() && (repair || current()?.read === 0 || current()?.read === false),
+        done: () => current()?.Geted === true || (readSent && (repair ? readAcked : unread || readAcked) && (current()?.read === 1 || current()?.read === true)),
         confirmations: [{ manager, event: 'READ_MAIL_SUCCESS', accept: value => {
           if (!sameId(value?.mid, id) || !(current()?.read === 1 || current()?.read === true)) return false;
           readAcked = true; return true;
@@ -78,7 +78,7 @@ export function planMailClaims(adapter, selected, rows) {
         send: () => { if (!live()) return false; readSent = true; return manager.ReadMail(mail.mid); },
       });
     }
-    actions.push({ key: `mail:${id}`, category: 'mail', workflowGroup: `mail:${id}`, label: `邮件附件 ${seen.size}`, manager, flowVersion: 2,
+    actions.push({ key: `mail:${id}`, category: 'mail', workflowGroup: `mail:${id}`, label: `邮件附件 ${seen.size}`, manager, flowVersion: 3,
       legacyMailRepair: repair ? { readKey, previousAt: Number(legacy.at) || 0 } : undefined,
       rewards: () => mailRewardItems(adapter, current()),
       eligible: () => live() && current()?.read !== 0 && current()?.read !== false,

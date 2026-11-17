@@ -55,7 +55,7 @@ test('conditional return rewards and raw selection lists never issue ordinary ta
   f.controller.options({ sign: false, mail: false });
   await enable(f.controller).run();
   assert.equal(f.sent.length, 0);
-  assert.match(f.controller.snapshot().capabilities.map(n => n.text).join(''), /回归登录-第四天.*适用条件尚未核实/);
+  assert.match(f.controller.snapshot().capabilities.map(n => n.text).join(''), /回归登录-第四天.*回归任务已排除/);
   f.task.baseVo = { _name: '二选一', taskSelectReward: [{ id: 1 }, { id: 2 }] };
   await f.controller.run();
   assert.equal(f.sent.length, 0);
@@ -200,13 +200,13 @@ test('unrelated reply is not success and timeout never retries after plugin relo
   assert.equal(first, again, 'one in-flight queue');
   await first;
   assert.equal(f.controller.snapshot().confirmed, 0);
-  assert.match(f.controller.snapshot().status, /未收到成功状态/);
+  assert.match(f.controller.snapshot().status, /通常尚未满足领取条件/);
   assert.equal(f.sent.length, 1);
   const nextScope = new ResourceScope(); t.after(() => nextScope.dispose());
   const next = createRewardsController({ adapter: f.adapter, settings: f.settings, scope: nextScope, timeout: 20, poll: 2 });
   await enable(next).run();
   assert.equal(f.sent.length, 1, 'persisted pending result prevents resend after reload');
-  assert.match(next.snapshot().status, /待核对/);
+  assert.match(next.snapshot().status, /暂未确认领取/);
 });
 
 test('one unconfirmed workflow does not block independent mail and task rewards', async t => {
@@ -218,7 +218,7 @@ test('one unconfirmed workflow does not block independent mail and task rewards'
   assert.equal(f.sent.filter(row => row[0] === 'task').length, 1);
   assert.equal(f.sent.filter(row => row[0] === 'ranked').length, 2);
   assert.equal(f.controller.snapshot().confirmed, 5);
-  assert.match(f.controller.snapshot().status, /1 项.*待核对/);
+  assert.match(f.controller.snapshot().status, /1 项.*暂未确认领取/);
   await enable(f.controller).run();
   assert.equal(f.sent.length, 6, 'uncertain sign was not resent after checking the independent rewards');
 });
@@ -230,7 +230,7 @@ test('legacy pending ledger only blocks its dependent signup day', async t => {
   f.settings.set('account:41:attempts', { day: '2026-11-13', items: { 'sign:1:1': { status: 'pending' } } });
   await enable(f.controller).run();
   assert.deepEqual(f.sent, [['sign', 2, 1]]);
-  assert.match(f.controller.snapshot().status, /1 项.*待核对/);
+  assert.match(f.controller.snapshot().status, /1 项.*暂未确认领取/);
 });
 
 test('a late authoritative state settles its pending group without another request', async t => {
@@ -403,4 +403,45 @@ test('completed cumulative silver task claims once without relaxing cost or comp
   await f.controller.run();
   assert.equal(f.sent.filter(item => item[0] === 'task').length, 1);
   assert.equal(f.task.HasAward, true);
+});
+
+test('return task names are excluded even without reward matrix; daily tasks still run', async t => {
+  for (const name of ['回归登录-第四天','回流活跃奖励','老玩家任务']) {
+    const f=fixture(t);f.task.baseVo={_name:name,maxComplete:1};
+    assert.match(taskSkipReason(f.task),/回归任务已排除/);
+    assert.match(taskSkipReason(f.task,{allowSelection:true}),/回归任务已排除/);
+    assert.equal(planRewards(f.adapter,{tasks:true}).actions.some(a=>a.key==='task:101'),false);
+    f.task.baseVo={name:'每日活跃',maxComplete:1};
+    assert.equal(planRewards(f.adapter,{tasks:true}).actions.some(a=>a.key==='task:101'),true);
+  }
+});
+
+test('excluded return attempts stay persisted but disappear from issues and unresolved total', async t => {
+ const f=fixture(t);f.ranked.NewPWDailyRewardId=2;f.task.baseVo={_name:'回归登录-第四天'};
+ f.settings.set('account:41:attempts',{day:f.adapter.day(),items:{'task:101':{status:'unconfirmed',at:1},'task:999':{status:'unconfirmed',at:2,label:'回流奖励'}}});
+ f.controller.options({sign:false,mail:false});
+ assert.equal(f.controller.snapshot().issues.length,0);
+ await enable(f.controller).run();
+ assert.equal(f.controller.snapshot().issues.length,0);assert.match(f.controller.snapshot().status,/本轮完成/);assert.deepEqual(f.sent,[]);
+ assert.equal(f.settings.get('account:41:attempts').items['task:101'].status,'unconfirmed');
+ // An unrelated historical request must remain visible and counted.
+ const ledger=f.settings.get('account:41:attempts');ledger.items['task:998']={status:'unconfirmed',at:3,label:'每日活跃'};f.settings.set('account:41:attempts',ledger);
+ await f.controller.run();assert.equal(f.controller.snapshot().issues.length,1);assert.match(f.controller.snapshot().status,/1 项暂未确认领取/);
+});
+
+test('release UI names uncertain task and ID with full long text but hides excluded return task', t => {
+ const f=fixture(t),dom=new JSDOM('<main></main>');t.after(()=>dom.window.close());
+ const long='每日任务'.repeat(40);f.task.baseVo={name:long};
+ f.settings.set('account:41:attempts',{day:f.adapter.day(),items:{'task:101':{status:'unconfirmed',at:1},'task:999':{status:'unconfirmed',at:2,label:'回归登录'}}});
+ let panel;plugin.activate({window:dom.window,document:dom.window.document,game:f.game,settings:f.settings,scope:f.scope,ui:{icon:spec=>createIcon(dom.window.document,spec),registerPanel(spec){panel=spec;}}});
+ const dispose=panel.render(dom.window.document.querySelector('main'));
+ const pending=dom.window.document.querySelector('[data-rewards-unconfirmed]');assert.equal(pending.hidden,false);assert.match(pending.textContent,/任务 101/);assert.doesNotMatch(pending.textContent,/回归登录/);assert.equal(f.sent.length,0);dispose();
+});
+
+test('release UI shows non-task and unknown uncertain records with exact keys', t => {
+ const f=fixture(t),dom=new JSDOM('<main></main>');t.after(()=>dom.window.close());
+ f.settings.set('account:41:attempts',{day:f.adapter.day(),items:{'activity:weekly:3':{status:'unconfirmed',label:'每周奖励',at:1},'unknown:9':{status:'interrupted',at:2},'mail:m3':{status:'pending',label:'邮件附件',at:3}}});
+ let panel;plugin.activate({window:dom.window,document:dom.window.document,game:f.game,settings:f.settings,scope:f.scope,ui:{icon:spec=>createIcon(dom.window.document,spec),registerPanel(spec){panel=spec;}}});
+ const dispose=panel.render(dom.window.document.querySelector('main')),pending=dom.window.document.querySelector('[data-rewards-unconfirmed]');
+ for(const key of ['activity:weekly:3','unknown:9','mail:m3'])assert.ok(!pending.textContent.includes(key));assert.match(pending.textContent,/未命名领奖项目/);assert.match(pending.textContent,/邮件附件/);assert.match(pending.textContent,/每周奖励/);assert.equal(pending.hidden,false);dispose();
 });

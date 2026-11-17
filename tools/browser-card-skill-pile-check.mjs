@@ -11,6 +11,8 @@ try {
   await page.goto(market.url + '/dev/index.html');
   const overlay = page.locator('[data-sgs-cards-overlay]');
   await overlay.locator('.sgs-card-hud-actions').waitFor();
+  // Finish the demo's delayed opening deal before injecting another sequence.
+  await page.waitForFunction(() => document.querySelector('#event-log')?.textContent.includes('MsgGamePlayCardNtf'));
   const emit = payload => page.evaluate(payload => window.__SGS_DEMO_EMIT__(payload), payload);
   await emit({ ClassName: 'GsCRoleOptTargetNtf', SpellID: 3543, Type: 28, Params: [3,2,1] });
   const bottom = overlay.locator('.sgs-card-hud-actions button').nth(1);

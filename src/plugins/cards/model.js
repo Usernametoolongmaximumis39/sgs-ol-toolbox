@@ -1,3 +1,6 @@
+import { legacyReveal } from './legacy-reveals.js';
+import { legacyEvent, legacyBeforeMove, legacyAfterMove } from './legacy-moves.js';
+import { reduceSkillHints } from './skill-hints.js';
 /** Card observations are public client facts. Unknown transfers retain possibilities. */
 export const REFERENCE = Object.freeze({
   version: '1.6.76',
@@ -14,6 +17,7 @@ const CONSERVATIVE = new Set(CONSERVATIVE_SKILLS);
 // Official client SkillId.ZUIFENG / OPT_SKILL_FLAG1. See docs/醉锋明牌协议核查.md.
 // Other skills also use Params for choices; they are not card observations.
 const ZUIFENG = 4025, OPT_SKILL_FLAG1 = 28;
+const QIANGZHI_PO = 3876, OPT_SEL_CARD_HAND = 3;
 const SIQI = 3543, JIELI = 3483;
 const orderedSiqiMove = data => Number(data.SpellID) === SIQI &&
   (Number(data.ToZone) === 1 && Number(data.ToPosition) === POSITION.bottom && Number(data.CardCount) === 1 ||
@@ -26,6 +30,7 @@ const EVENT_TYPES = new Set([
   'ClientHappyGetFriendHandcardRep', 'SmsgGameSetCharacter', 'GsCGuoZhanSetCharacter',
   'GsCRoleOptTargetNtf', 'CGsRoleSpellOptRep', 'SmsgGamePlayerDead',
   'MsgGameOver', 'ClientLeavetableRep', 'ClientLoginRep',
+  'GsCUpdateRoleDataExNtf', 'MsgClientOperateInGameNtf',
 ]);
 const int = value => value === null || value === undefined || value === '' || typeof value === 'boolean'
   ? null : Number.isInteger(Number(value)) ? Number(value) : null;
@@ -39,7 +44,7 @@ export function initialState() {
   return { schemaVersion: 1, sessionId: null, lastSeq: 0, active: false,
     historyComplete: false, seenHistoryComplete: false, connected: true, selfSeatId: null, currentSeatId: null,
     turn: 0, phase: null, mode: { id: null, sceneName: '', flags: [] },
-    seats: {}, cards: {}, zones: {}, deckIds: [], deckStartSeq: 0, deckRemaining: null, deckCycleCompleted: false, recentBySeat: {}, recentCurrent: null,
+    seats: {}, cards: {}, cardMeta: {}, zones: {}, deckIds: [], deckStartSeq: 0, deckRemaining: null, deckCycleCompleted: false, recentBySeat: {}, recentCurrent: null,
     discardTurn: [], skillUses: { complete: false, counts: {} }, pending: {}, limitations: [], moves: [], lastEvent: null };
 }
 
@@ -130,6 +135,12 @@ function reveal(state, ids, key, seq, count, authoritative = false) {
 }
 
 function snapshot(state, data, seq) {
+  state.cardMeta ||= {};
+  for (const [id, value] of Object.entries(data.cardMeta || {}).slice(0, 2048)) {
+    if (!state.deckIds.includes(Number(id)) || !value || typeof value !== 'object') continue;
+    if (Number.isInteger(value.suit) && value.suit >= 1 && value.suit <= 4 && Number.isInteger(value.number) && value.number >= 1 && value.number <= 13)
+      state.cardMeta[id] = { suit: value.suit, number: value.number, type: Number.isInteger(value.type) ? value.type : 0 };
+  }
   if (typeof data.inGame === 'boolean') state.active = data.inGame;
   if (validSeat(data.selfSeatId)) state.selfSeatId = Number(data.selfSeatId);
   state.mode.id = data.modeId ?? state.mode.id;
@@ -177,6 +188,7 @@ function startTurn(state, seatId, turn) {
   state.turn = Number.isFinite(Number(turn)) ? Number(turn) : state.turn + 1;
   state.discardTurn = [];
   state.recentCurrent = null;
+  for (const key of Object.keys(state.pending)) if (key.startsWith('legacyExchange:') || key.startsWith('legacyCandidates:') || key === 'legacyYingshi') delete state.pending[key];
 }
 
 function removeOrder(source, ids, count, position) {
@@ -270,6 +282,10 @@ function move(state, data, seq) {
   let position = int(data.FromPosition) ?? POSITION.unknown;
   let destination = int(data.ToPosition) ?? POSITION.unknown;
   let supplied = cardIds(data.CardIDs);
+  const legacy = legacyBeforeMove(state, data, seq, legacyHelpers);
+  if (legacy.position !== undefined) position = legacy.position;
+  if (legacy.destination !== undefined) destination = legacy.destination;
+  if (legacy.hiddenCreation) supplied = [];
   if (skill === 0x2c9 && Number(data.MoveType) === 0x15 && Array.isArray(data.CardIDs) && count === data.CardIDs.length - 2) {
     const raw = data.CardIDs.slice(1);
     raw.splice(Number(data.CardIDs[0]), 1);
@@ -284,7 +300,7 @@ function move(state, data, seq) {
     if (skill === 0xec0 && target.kind === 10 && count === 3 || skill === 0xc1d && target.kind === 5 && count === 1) position = POSITION.bottom;
     if ([0x1b68, 0x1b69].includes(skill) && !state.mode.flags.includes('guozhan') && target.kind === 5 && count === 1) position = POSITION.top;
   }
-  if (CONSERVATIVE.has(skill) && !supplied.length && !orderedSiqiMove(data)) {
+  if (CONSERVATIVE.has(skill) && !supplied.length && !legacy.ids?.length && !orderedSiqiMove(data)) {
     note(state, `skill:${skill}`, `技能 ${skill} 的隐藏移牌仅保留可能归属`, seq);
     source.top = []; source.bottom = [];
     destination = POSITION.unknown;
@@ -295,13 +311,14 @@ function move(state, data, seq) {
       delete state.pending[`zexing:${data.FromID}`];
       if (count === 1 && supplied.length === 1) state.pending[`zexing:${data.FromID}`] = { id: supplied[0], turn: state.turn };
     }
-    if (supplied.length) reveal(state, supplied, from, seq);
+    if (supplied.length && !legacy.suppressReveal) reveal(state, supplied, from, seq);
     if (Number(data.MoveType) === 24 && source.kind === 5 && supplied.length === count) {
       for (const item of Object.values(state.cards)) {
         if (item.locations.includes(from) && !supplied.includes(item.id)) item.locations = ['?'];
       }
       source.count = count;
     }
+    legacyAfterMove(state, data, seq, legacy.suppressReveal ? [] : supplied, legacyHelpers);
     return;
   }
   if (Number(data.ToZone) === 9 && source.kind === 2) {
@@ -315,7 +332,7 @@ function move(state, data, seq) {
     state.pending = {};
     return;
   }
-  const ids = inferIds(state, data, source, supplied, count, position);
+  const ids = legacy.hiddenCreation ? [] : supplied.length === count ? supplied : legacy.ids?.length === count ? legacy.ids : inferIds(state, data, source, supplied, count, position);
   const previousCount = source.count;
   if (previousCount < count && source.kind !== 0 && source.kind !== 12) {
     state.historyComplete = false;
@@ -339,6 +356,7 @@ function move(state, data, seq) {
   target.count += count;
   removeOrder(source, ids, count, position);
   addOrder(target, ids, count, destination);
+  legacyAfterMove(state, data, seq, ids, legacyHelpers);
   if (source.kind === 2) state.discardTurn = state.discardTurn.filter(id => !ids.includes(id));
   if (target.kind === 2) state.discardTurn = [...state.discardTurn.filter(id => !ids.includes(id)), ...ids];
   if (Number(data.MoveType) === 2 && [5, 6].includes(source.kind)) recent(state, source.seatId, ids, false);
@@ -373,7 +391,11 @@ function spell(state, data, seq) {
 }
 
 function revealSkillHand(state, data, seq) {
-  if (int(data.SpellID) !== ZUIFENG || int(data.Type) !== OPT_SKILL_FLAG1 || !validSeat(data.TargetSeatID)) return;
+  const skill = int(data.SpellID), type = int(data.Type);
+  // QiangZhiPo enables ShowHands in SelectCardWindow; its hand-selection
+  // request carries the complete target hand in Params (unlike base QiangZhi).
+  if (!(skill === ZUIFENG && type === OPT_SKILL_FLAG1 ||
+        skill === QIANGZHI_PO && type === OPT_SEL_CARD_HAND) || !validSeat(data.TargetSeatID)) return;
   const values = list(data.Params);
   // A missing, masked or invalid list must not erase prior observations. Native
   // SelectCardWindow consumes each Params entry as one complete hand card ID.
@@ -458,6 +480,8 @@ export function normalizeCardPayload(payload = {}) {
     useType: ['UseType'], TurnCnt: ['turnCnt', 'TurnCount', 'turnCount'], Round: ['round'],
     isSend: ['IsSend'], IsResume: ['isResume'], Count: ['count', 'hand_count'],
     DestSeatIDs: ['DestSeatIds', 'destSeatIds', 'Targets'], EffectIndex: ['effectIndex'],
+    IsSpell: ['isSpell', 'is_spell'], DataID: ['DataId', 'dataId', 'data_id'],
+    MurSeatID: ['MurSeatId', 'murSeatId', 'MurderSeatID'], MData: ['mData'], MsgID: ['MsgId', 'msgId', 'msg_id'],
     list_card_id: ['listCardId'], error_id: ['ErrorID', 'errorId'],
   };
   for (const key of ['FromZone', 'ToZone', 'FromPosition', 'ToPosition', 'FromZoneParam', 'ToZoneParam', 'MoveType']) {
@@ -481,6 +505,10 @@ export function reduce(previous, event) {
   state.sessionId = event.sessionId ?? state.sessionId;
   state.lastSeq = seq;
   state.lastEvent = event.type;
+  if (['GsCRoleOptTargetNtf', 'CGsRoleSpellOptRep'].includes(event.type))
+    legacyReveal(state, data, seq, { ...legacyHelpers, eventType: event.type });
+  legacyEvent(state, data, seq, event.type, legacyHelpers);
+  reduceSkillHints(state, data, seq, event.type);
   switch (event.type) {
     case 'toolbox:snapshot': snapshot(state, data, seq); break;
     case 'toolbox:gap': forget(state, String(data.reason || '事件记录存在缺口'), seq); break;
@@ -569,6 +597,8 @@ export function reduce(previous, event) {
   }
   return state;
 }
+
+const legacyHelpers = { reveal, zone, locate, zoneKey, cardIds, validSeat, int };
 
 export function cardsInZone(state, key, certainty = 'known') {
   return Object.values(state.cards).filter(item => item.locations.includes(key) &&

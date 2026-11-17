@@ -10,6 +10,9 @@ try {
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(`${market.url}/dev/index.html`);
  await page.waitForFunction(()=>window[Symbol.for('sgs.ol.toolbox.core')]?.manager?.slots.get('cards')?.active);
+ // The demo starts its initial deal 500ms after load; finish that setup before
+ // replacing seats, otherwise its delayed new-game packet clears this fixture.
+ await page.waitForFunction(()=>document.querySelector('#event-log')?.textContent.includes('MsgGamePlayCardNtf'));
  await page.evaluate(()=>{
   const api=window[Symbol.for('sgs.ol.toolbox.core')],demo=window.__SGS_TOOLBOX_DEMO__;
   const seats=[1,2,3].map((id,i)=>({seatID:6-i,seat:{Index:id,FixedViewId:i+1,IsFull:true,HandCount:0,HandShowCardIDs:[]}}));

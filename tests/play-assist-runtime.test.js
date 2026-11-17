@@ -45,8 +45,26 @@ function fixture(t, options={}) {
   return {runtime,self,item,settings,saved,gc,proxy,ctx,get calls(){return calls;},get skillCalls(){return skillCalls;},setScene:s=>scene=s};
 }
 const flush = () => new Promise(r=>setTimeout(r,15));
+test('狂骨 chooses recovery below two HP, including dying, and reevaluates every prompt', async t => {
+  const f = fixture(t,{skillLock:true});
+  f.item.Skill = {SkillId:295}; f.runtime.tick(); f.runtime.toggle(295);
+  const chosen = [];
+  Object.assign(f.self.spellSelector,{visible:true,spell:{SkillId:295},
+    btnList:[1,2].map(sendData => ({_enabled:true,data:{sendData}})),
+    btnClick(btn){chosen.push(btn.data.sendData);}});
+  for (const hp of [-2,0,1,2,3,'1','2',undefined,null,'',NaN]) {
+    f.self.seat.Hp = hp;
+    const before = chosen.length;
+    f.self.spellSelector.Show(); f.runtime.tick(); await flush();
+    const known = hp != null && hp !== '' && Number.isFinite(Number(hp));
+    assert.equal(chosen.length,before + Number(known),`HP ${hp}`);
+    if (known) assert.equal(chosen.at(-1),Number(hp)<2?1:2);
+    f.runtime.tick(); await flush();
+    assert.equal(chosen.length,before + Number(known),'same prompt submits once');
+  }
+});
 test('baseline whitelist and conditional judgement support',()=>{
-  assert.equal(SKILL_IDS.length,21+EXTRA_IDS.length); assert.equal(supported({Skill:{SkillId:48},seat:{HasSkill:()=>false}}),false);
+  assert.equal(SKILL_IDS.length,23+EXTRA_IDS.length); assert.equal(supported({Skill:{SkillId:48},seat:{HasSkill:()=>false}}),false);
   assert.equal(supported({Skill:{SkillId:48},seat:{HasSkill:id=>id===45}}),true);
 });
 test('auto confirm requires explicit selections and submits once per Show',async t=>{
@@ -148,7 +166,8 @@ test('every unconditional skill reaches its native activation and confirmation p
     const f=fixture(t,{skillLock:true});f.item.Skill={SkillId:id,Name:'技能'+id};f.item.activated=true;
     f.item.on('click',f.item,()=>{f.item.Selected=true;f.self.cardContainer.selectCardContext={message:'是否发动技能'+id};f.self.buttonBar.Show();});
     f.runtime.tick();assert.equal(f.runtime.toggle(id),true);await flush();await flush();
-    assert.equal(f.skillCalls,1,'activation '+id);assert.equal(f.calls,1,'confirmation '+id);
+    const expected = [484,3876].includes(id) ? 0 : 1;
+    assert.equal(f.skillCalls,expected,'activation '+id);assert.equal(f.calls,expected,'confirmation '+id);
     f.runtime.dispose();
   }
 });
@@ -331,11 +350,11 @@ test('武圣 red, 武娘 nonbasic and 谬焰 majority black suit select one with
   f.runtime.dispose();
  }
 });
-test('武娘 lose HP only in 山河 with HP above two; otherwise stays untouched',async t=>{
+test('武娘 lose HP only in 山河 with HP above two; otherwise cancels',async t=>{
  for(const [shanhe,hp,want] of [[true,3,1],[true,2,0],[false,4,0]]){
   const f=arm(t,3796);f.ctx.game.getScene().SceneName=shanhe?'RogueLikeGameScene':'GameScene';f.self.seat.Hp=hp;
   f.self.cardContainer.cardUis=[card()];f.self.cardContainer.cardUis[0].selected=true;
-  f.context('是否失去1点体力重置镇南');await flush();assert.equal(f.ok,want);assert.equal(f.cancel,0);f.runtime.dispose();
+  f.context('是否失去1点体力重置镇南');await flush();assert.equal(f.ok,want);assert.equal(f.cancel,1-want);f.runtime.dispose();
  }
 });
 test('百出 chooses draw; 怀远 targets self then chooses draw; unknown 百出 choices stay manual',async t=>{
@@ -408,7 +427,7 @@ test('current native bar preserves 武娘 HP and 卫戍 discard boundaries over 
   const f=arm(t,id);selfTarget(f);f.self.cardContainer.cardUis=[card({type:1})];f.self.cardContainer.cardUis[0].selected=true;
   f.self.buttonBar.txtOptMsg={_innerHTML:id===3796?'是否失去1点体力重置镇南':'请选择一名角色，弃置其1张牌'};
   f.context(id===3796?'请选择一张非基本牌当杀使用':'请选择一名角色，令其摸1张牌');await flush();
-  assert.equal(f.ok,0);assert.equal(f.cancel,0);f.runtime.dispose();
+  assert.equal(f.ok,0);assert.equal(f.cancel,id===3796?1:0);f.runtime.dispose();
  }
 });
 
@@ -515,4 +534,53 @@ test('only explicitly remembered skills restore after reload; obsolete global me
  runtime=createRuntime(f.ctx,()=>f.settings);assert.equal(runtime.getSkills()[0].remembered,true);
  runtime.toggle(62);runtime.dispose();
  runtime=createRuntime(f.ctx,()=>f.settings);assert.equal(runtime.getSkills()[0].locked,false);runtime.dispose();
+});
+
+for (const id of [484,3876]) test(`强识 ${id} keeps reveal manual and confirms only draw after enabling`, async t => {
+  const f=fixture(t,{skillLock:true,autoConfirm:true});
+  f.item.Skill={SkillId:id,Name:'强识'}; f.item.activated=true; f.runtime.tick();
+  f.self.cardContainer.selectCardContext={Skill:{SkillId:id},message:'是否发动强识，摸一张牌'};
+  await flush(); assert.equal(f.calls,0); assert.equal(f.skillCalls,0);
+  f.runtime.toggle(id);
+  f.self.cardContainer.selectCardContext.message='请选择一名角色，对其发动强识';
+  f.self.cardContainer.cardUis=[{selected:true,activated:true,setSelected(){throw new Error('must not select hand');}}];
+  f.self.buttonBar.Show(); await flush(); assert.equal(f.calls,0); assert.equal(f.skillCalls,0);
+  f.self.cardContainer.selectCardContext.message='请选择一张要展示的手牌';
+  f.self.buttonBar.Show(); await flush(); assert.equal(f.calls,0);
+  f.self.cardContainer.selectCardContext.message='是否发动<font>强识</font>，摸一张牌';
+  f.self.buttonBar.Show(); await flush(); assert.equal(f.calls,1);
+  f.runtime.tick(); await flush(); assert.equal(f.calls,1);
+  f.self.buttonBar.Show(); await flush(); assert.equal(f.calls,2);
+  let choices=[];
+  Object.assign(f.self.spellSelector,{visible:true,spell:{SkillId:id},txtOptMsg:{_innerHTML:'是否摸一张牌'},btnList:[{_enabled:true,data:{sendData:0}},{_enabled:true,data:{sendData:1}}],btnClick(b){choices.push(b.data.sendData);}});
+  f.self.spellSelector.Show(); await flush(); assert.deepEqual(choices,[1]);
+  f.runtime.tick(); await flush(); assert.deepEqual(choices,[1]);
+  f.self.spellSelector.txtOptMsg._innerHTML='请选择展示的手牌';
+  f.self.spellSelector.Show(); await flush(); assert.deepEqual(choices,[1]);
+  f.runtime.toggle(id); f.self.spellSelector.txtOptMsg._innerHTML='是否摸一张牌';
+  f.self.spellSelector.Show(); await flush(); assert.deepEqual(choices,[1]);
+});
+
+ test('武娘 hidden hand window submits once and ignores unavailable cards',async t=>{
+ const f=arm(t,3796);let sent=[],closed=0;
+ const win={name:'SelectCardWindow',visible:true,Skill:{SkillId:3796,SelectCardCountWhenResponse:1,SelectCardComplete:ids=>sent.push(ids)},handCardUis:[{CanBeSelected:false,Card:{CardId:8}},{CanBeSelected:true,Card:{CardId:9}}],Close(){closed++;this.visible=false;},enterWindow(){this.visible=true;}};
+ f.ctx.game.getScene()._children=[win];f.runtime.tick();await flush();assert.deepEqual(sent,[[9]]);assert.equal(closed,1);
+ f.runtime.tick();await flush();assert.equal(sent.length,1);
+ win.enterWindow();f.runtime.tick();await flush();assert.equal(sent.length,2);
+ });
+ test('武娘 current reset prompt works without card context',async t=>{
+ const f=arm(t,3796);f.self.cardContainer.selectCardContext={};f.self.buttonBar.txtOptMsg={_innerHTML:'是否失去1点体力重置镇南'};
+ f.self.buttonBar.Show();await flush();assert.equal(f.cancel,1);
+ });
+test('武娘 takes armour before other equipment, then hands; unavailable cards are excluded',async t=>{
+ const f=arm(t,3796), sent=[];
+ const ui=(id,type,extra={})=>({CanBeSelected:true,Card:{CardId:id,FirstSkill:{Type:type}},...extra});
+ const hand=ui(1,0), weapon=ui(2,3), armour=ui(3,4);
+ const win={name:'SelectCardWindow',visible:false,Skill:{ID:3796,SelectCardCountWhenResponse:1,SelectCardComplete:ids=>sent.push(ids)},handCardUis:[hand],equipCardUis:[],Close(){this.visible=false;},enterWindow(){this.visible=true;}};
+ f.ctx.game.getScene()._children=[win];f.runtime.tick();
+ for(const [equipment,want] of [ [[weapon,armour],3], [[weapon],2], [[],1], [[{...armour,CanBeSelected:false},weapon],2], [[{...armour,destroyed:true},{...weapon,visible:false}],1] ]){
+  win.equipCardUis=equipment;win.enterWindow();f.runtime.tick();await flush();assert.deepEqual(sent.at(-1),[want]);
+  const count=sent.length;f.runtime.tick();await flush();assert.equal(sent.length,count);
+ }
+ hand.CanBeSelected=false;win.equipCardUis=[];win.enterWindow();f.runtime.tick();await flush();assert.equal(sent.length,5);
 });

@@ -41,6 +41,11 @@ try {
   for (const selector of ['[data-rewards-attention]', '[data-rewards-code-history]', '[data-reward-choices]', '[data-rewards-log]']) assert.equal(await host.locator(selector).count(), 0);
   assert.doesNotMatch(await host.innerText(), /待选奖励|领取详情|兑换码历史|错误码 23/);
   assert.equal(await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.sent.length), 0);
+  await page.evaluate(async()=>{const api=window[Symbol.for('sgs.ol.toolbox.core')],demo=window.__SGS_TOOLBOX_DEMO__;demo.task.baseVo={name:'每日活跃奖励（未确认任务显示检查）'};await api.manager.reload('daily-rewards');});
+  const pending=host.locator('[data-rewards-unconfirmed]');
+  await pending.waitFor();assert.match(await pending.innerText(),/每日活跃奖励.*任务 101/);
+  await page.evaluate(async()=>{const api=window[Symbol.for('sgs.ol.toolbox.core')],settings=api.settings.namespace('daily-rewards');const ledger=settings.get('account:41:attempts');ledger.items['activity:weekly:3']={status:'unconfirmed',label:'每周活动奖励',at:3};ledger.items['unknown:9']={status:'unconfirmed',at:4};settings.set('account:41:attempts',ledger);await api.manager.reload('daily-rewards');});
+  assert.match(await pending.innerText(),/每周活动奖励/);assert.doesNotMatch(await pending.innerText(),/activity:weekly:3|unknown:9|记录：/);assert.match(await pending.innerText(),/未命名领奖项目/);
   for (const background of ['#eee', '#181818']) for (const width of [248, 280, 420]) {
     await page.evaluate(color => { document.body.style.background = color; }, background);
     await host.evaluate((node, width) => { node.style.width = width + 'px'; node.style.top = '10px'; node.style.left = '20px'; node.style.maxHeight = '480px'; }, width);

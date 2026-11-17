@@ -1,5 +1,7 @@
+import { marketServerLabel, userErrorMessage } from '../core/market-display.js';
+import { officialPluginIds, planOfficialPlugins } from '../market/official.js';
 import { createGameViewport } from './game-viewport.js';
-import { LOCAL_MARKET_URL, OSS_MARKET_URL, GITHUB_MARKET_URL } from '../core/market-connection.js';
+import { LOCAL_MARKET_URL, OSS_MARKET_URL } from '../core/market-connection.js';
 import { DEVELOPMENT, EDITION, MICROCLIENT } from '../core/distribution.js';
 import { mountCardStyleWorkshop } from './card-style-workshop.js';
 import { mountThemeWorkshop } from './theme-workshop.js';
@@ -12,6 +14,8 @@ import { selectGamePanels } from '../core/game-view.js';
 import { comparePanelOrder, comparePluginOrder } from '../core/plugin-contract.js';
 import { createIcon } from './icons.js';
 const categories = [['game', '牌局'], ['automation', '自动'], ['tools', '工具'], ['manage', '管理'], ['info', '信息']];
+const FONT_SIZES = [['tiny', '特小', -2], ['small', '小', -1], ['standard', '标准', 0], ['large', '大', 2]];
+const scaleFonts = css => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix, size) => `${prefix}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`);
 const style = `
 /* A moving perimeter marker keeps the folded HUD easy to locate without covering controls. */
 .hud-locator{display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible;color:var(--sgs-accent)}
@@ -32,8 +36,8 @@ const style = `
 
 .plugin-body .skin-entry{margin:0;padding:0;border:0;background:none}.plugin-body .skin-entry>h3{display:none}.plugin-body .reward-heading h3 .sgs-line-icon{display:none}.plugin-body .reward-heading h3,.plugin-body .sgs-effects h3{font-size:11px;font-weight:400;color:var(--sgs-muted)}
 :host{all:initial;position:fixed;top:72px;right:24px;width:280px;min-width:248px;max-width:420px;z-index:2147483000;color:var(--sgs-text);font:13px/1.55 var(--sgs-font);color-scheme:var(--sgs-scheme,dark)}
-*{box-sizing:border-box}button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:wait;opacity:.5}button,input,select{color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 9px}button:hover{background:var(--sgs-raised);border-color:var(--sgs-accent)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}a{color:var(--sgs-accent)}
-.shell{background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:var(--sgs-radius);box-shadow:0 16px 48px #0006;overflow:hidden;resize:horizontal;min-width:248px;max-width:420px;width:100%}
+*{box-sizing:border-box}button,input,select{font:inherit}button{white-space:nowrap} :host{-webkit-text-size-adjust:100%;text-size-adjust:100%}.settings-group .actions{align-items:center}.settings-group .actions>span{display:inline-flex;flex:none}.settings-group label.row>span{flex-shrink:1}button{cursor:pointer}button:disabled{cursor:wait;opacity:.5}button,input,select{color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 9px}button:hover{background:var(--sgs-raised);border-color:var(--sgs-accent)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}a{color:var(--sgs-accent)}
+.edge-tab{display:none}:host([data-mobile][data-edge-hidden]){transform:translateX(calc(100% - 28px))}:host([data-mobile][data-edge-hidden]) .edge-tab{display:block;position:absolute;left:0;top:0;z-index:20;width:28px;height:64px;padding:0;border-radius:7px 0 0 7px;background:var(--sgs-bg);color:var(--sgs-accent);font-size:26px;touch-action:manipulation}.shell{background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:var(--sgs-radius);box-shadow:0 16px 48px #0006;overflow:hidden;resize:horizontal;min-width:248px;max-width:420px;width:100%}
 .content.has-plugin-panels{min-height:0}.plugin-group{min-width:0}.plugin-group+.plugin-group{border-top:1px solid var(--sgs-border);margin-top:10px;padding-top:10px}.plugin-heading{margin:0;font-size:13px}.plugin-heading .plugin-toggle{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;padding:6px 3px;border:0;border-radius:6px;background:transparent;box-shadow:none;text-align:left;color:var(--sgs-accent)}.plugin-heading .plugin-toggle:hover{background:color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.plugin-toggle svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.plugin-toggle .plugin-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;letter-spacing:.5px}.plugin-toggle .plugin-chevron{width:15px;height:15px;color:var(--sgs-muted);transition:transform .16s}.plugin-toggle[aria-expanded=false] .plugin-chevron{transform:rotate(-90deg)}.plugin-body{padding:9px 2px 2px}.plugin-body[hidden]{display:none!important}:host([data-edge-docked]){left:auto!important;right:0!important;transition:transform 180ms ease;transform:translateX(0)}:host([data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 5px));background:var(--sgs-bg);border-left:1px solid var(--sgs-accent);border-radius:5px 0 0 5px}:host([data-edge-hidden]) .shell{visibility:hidden}:host([data-edge-fixed]){transition:none;top:0!important;bottom:0!important;height:100vh;height:100dvh}:host([data-edge-fixed]) .shell{display:flex;flex-direction:column;height:100%;border-radius:0}:host([data-edge-fixed]) .shell>.brand,:host([data-edge-fixed]) .shell>.status,:host([data-edge-fixed]) .shell>.nav,:host([data-edge-fixed]) .shell>.footer,:host([data-edge-fixed]) .shell>.compact{flex-shrink:0}:host([data-edge-fixed]) .content{flex:1;min-height:0;max-height:none}.edge-resizer{display:none;position:absolute;left:0;bottom:0;width:22px;height:22px;z-index:12;color:var(--sgs-muted);cursor:ew-resize;touch-action:none;user-select:none;align-items:center;justify-content:center}.edge-resizer svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round}.edge-resizer:hover{color:var(--sgs-accent)}.edge-resizer:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:-3px}:host([data-edge-docked]) .shell{resize:none}:host([data-edge-docked]:not([data-collapsed]):not([data-edge-hidden])) .edge-resizer{display:flex}:host([data-edge-docked]) .footer{padding-left:25px}:host([data-edge-docked]:focus-visible){outline:2px solid var(--sgs-accent);outline-offset:-2px}
 @media(prefers-reduced-motion:reduce){.plugin-toggle .plugin-chevron{transition:none}}
 .brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand strong{letter-spacing:1px;font-size:13px}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
@@ -52,7 +56,9 @@ const style = `
 :host([data-theme-scheme=light][data-collapsed]) .shell{background:linear-gradient(165deg,var(--sgs-surface),var(--sgs-bg) 65%);box-shadow:0 3px 8px #0002,0 8px 20px #0001,inset 0 1px #fff8}
 ${CONTROL_STYLES}
 button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%,var(--sgs-surface)),var(--sgs-surface));border-color:color-mix(in srgb,var(--sgs-border) 60%,transparent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 4%,transparent);transition:background 140ms,border-color 140ms,color 140ms}button:active:not(:disabled){background:var(--sgs-bg)}button:disabled{cursor:not-allowed}.nav button,.footer button{box-shadow:none}.tabs{gap:2px;padding:3px;border-radius:8px;background:var(--sgs-surface);box-shadow:inset 0 1px 3px #0004}.tabs button{border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);padding:6px 2px}.tabs button.active{background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 17%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent);color:var(--sgs-accent)}
-.settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 0 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
+.settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 1 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
+.font-preview{margin-top:12px;padding:12px 0 12px 10px;border-left:2px solid var(--sgs-accent);line-height:1.6}.font-preview strong{font-size:13px}.font-preview p{font-size:12px;margin:5px 0}.font-settings .sgs-segments button{min-width:0;flex:1;padding:6px 2px}.brand{gap:6px}.brand-name{min-width:0;flex:1}.brand strong{white-space:nowrap;letter-spacing:0;font-size:13px}.brand small{font-size:9px}.brand .mark{flex:none}.brand [data-collapse]{flex:none;margin-left:0}.brand-name strong{display:block;overflow:hidden;text-overflow:ellipsis}.brand [data-update-hint]{display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 7px;border:1px solid color-mix(in srgb,var(--sgs-accent) 48%,var(--sgs-border));border-radius:7px;background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 20%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 10%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 20%,transparent),0 2px 4px #0002;color:var(--sgs-accent);font-size:11px;font-weight:600;line-height:18px;cursor:pointer;white-space:nowrap;transition:background 140ms,border-color 140ms,box-shadow 140ms,transform 140ms}.brand [data-update-hint] svg{width:13px;height:13px;flex:none;stroke-width:1.8}.brand [data-update-hint][hidden]{display:none}.brand [data-update-hint]:hover{border-color:var(--sgs-accent);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 30%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 17%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 28%,transparent),0 3px 7px #0003;transform:translateY(-1px)}.brand [data-update-hint]:active{transform:translateY(0);box-shadow:inset 0 1px 3px #0003}.brand [data-update-hint]:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}
+
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
 export function createShell({ window: win, document: doc, settings, scope }) {
@@ -64,7 +70,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       microUpdate = await win.__SGS_TOOLBOX_SCRIPT_UPDATE__(action);
       if (action === 'check' && microUpdate.current && compareVersions(microUpdate.current, CORE_VERSION) > 0) microUpdate = { ...microUpdate, version: microUpdate.current, pending: true };
       if (microUpdate.pending) notify('脚本已保存，下次打开游戏时生效；当前牌局不受影响。');
-    } catch (error) { microUpdateError = error.message; }
+    } catch (error) { microUpdateError = userErrorMessage(error); }
     finally { microUpdateBusy = false; render(); }
   }
   let pendingCoreUpgrade = settings.get('pendingCoreUpgrade', '');
@@ -72,13 +78,43 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   let gameView = 'battle', renderedKey = '', viewScroll = new Map();
   const host = doc.createElement('div'); host.dataset.sgsToolbox = 'core';
   const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = `<style>${style}</style><section class="shell"><svg class="hud-locator" aria-hidden="true" focusable="false"><rect pathLength="100"/></svg><div class="compact" data-count-state="unknown"><span class="slash" title="剩余出杀次数暂不可用；双击展开，按住拖动"><span class="slash-seal" aria-hidden="true">杀</span><span class="slash-reading"><span class="slash-label">剩余</span><b data-slash aria-label="剩余出杀次数暂不可用">—</b></span></span><div class="compact-actions"><button data-screenshot title="截图并复制" aria-label="截图并复制"></button><button data-expand title="放大面板" aria-label="放大面板"></button></div></div><div class="compact-summary" aria-label="关注卡牌未见张数"></div><header class="brand"><div class="mark" aria-hidden="true"></div><div><strong>三国杀 OL 工具箱</strong><small>${EDITION.toUpperCase()} · ${CORE_VERSION}</small></div><button title="折叠面板" aria-label="折叠面板"></button></header><div class="status"><i class="dot"></i><span>等待游戏运行时</span></div><nav class="nav" role="tablist">${categories.map(([id, title]) => `<button data-category="${id}" role="tab" aria-label="${title}" aria-selected="false"><span>${title}</span></button>`).join('')}</nav><main class="content" role="tabpanel"></main><footer class="footer"><span>${EDITION === 'dev' ? '开发版' : EDITION === 'lite' ? '轻量版' : '完整版'} ${CORE_VERSION}</span><button data-open-market title="打开插件市场" aria-label="打开插件市场">插件市场</button></footer></section>`;
-  for (const [selector, name] of [['.mark', 'toolbox'], ['[data-screenshot]', 'camera'], ['[data-expand]', 'expand'], ['.brand button', 'collapse'], ['[data-open-market]', 'package']]) {
-    shadow.querySelector(selector).append(createIcon(doc, name));
+  shadow.innerHTML = `<style>${scaleFonts(style)} .brand,.compact{--sgs-font-offset:0px}</style><section class="shell"><svg class="hud-locator" aria-hidden="true" focusable="false"><rect pathLength="100"/></svg><div class="compact" data-count-state="unknown"><span class="slash" title="剩余出杀次数暂不可用；双击展开，按住拖动"><span class="slash-seal" aria-hidden="true">杀</span><span class="slash-reading"><span class="slash-label">剩余</span><b data-slash aria-label="剩余出杀次数暂不可用">—</b></span></span><div class="compact-actions"><button data-screenshot title="截图并复制" aria-label="截图并复制"></button><button data-expand title="放大面板" aria-label="放大面板"></button></div></div><div class="compact-summary" aria-label="关注卡牌未见张数"></div><header class="brand"><div class="mark" aria-hidden="true"></div><div class="brand-name"><strong title="三国杀 OL 工具箱">三国杀 OL 工具箱</strong><small>${EDITION.toUpperCase()} · ${CORE_VERSION}</small></div><button data-update-hint hidden title="有更新可用，点击前往更新" aria-label="有更新可用，点击前往更新"><span>更新</span></button><button data-collapse title="折叠面板" aria-label="折叠面板"></button></header><div class="status"><i class="dot"></i><span>等待游戏运行时</span></div><nav class="nav" role="tablist">${categories.map(([id, title]) => `<button data-category="${id}" role="tab" aria-label="${title}" aria-selected="false"><span>${title}</span></button>`).join('')}</nav><main class="content" role="tabpanel"></main><footer class="footer"><span>${EDITION === 'dev' ? '开发版' : EDITION === 'lite' ? '轻量版' : '完整版'} ${CORE_VERSION}</span><button data-open-market title="打开插件市场" aria-label="打开插件市场">插件市场</button></footer></section>`;
+  for (const [selector, name] of [['.mark', 'toolbox'], ['[data-screenshot]', 'camera'], ['[data-expand]', 'expand'], ['[data-collapse]', 'collapse'], ['[data-update-hint]', 'refresh'], ['[data-open-market]', 'package']]) {
+    shadow.querySelector(selector).prepend(createIcon(doc, name));
   }
   for (const [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
   const content = shadow.querySelector('.content'); let active = settings.get('category', 'game'); let management = 'market'; let renderedCleanup; let handlers = {}; const panels = new Map(); let toastTimer;
+  const applyFontSize = () => {
+    const choice = FONT_SIZES.find(([id]) => id === settings.get('fontSize', 'standard')) || FONT_SIZES[2];
+    host.style.setProperty('--sgs-font-offset', `${choice[2]}px`);
+  };
+  applyFontSize();
+  // Plugins mount their own styles in this shadow root; use the same reading size.
+  const scaleSheet = node => {
+    if (node.nodeType !== 1) return;
+    for (const sheet of [...(node.matches('style') ? [node] : []), ...node.querySelectorAll('style')]) {
+      const scaled = scaleFonts(sheet.textContent);
+      if (scaled !== sheet.textContent) sheet.textContent = scaled;
+    }
+  };
+  if (win.MutationObserver) {
+    const observer = new win.MutationObserver(records => {
+      for (const record of records) {
+        if (record.target.nodeType === 1 && record.target.matches('style')) scaleSheet(record.target);
+        for (const node of record.addedNodes) scaleSheet(node);
+      }
+    });
+    observer.observe(shadow, { childList: true, subtree: true }); scope.add(() => observer.disconnect());
+  }
+  scope.listen(shadow.querySelector('[data-update-hint]'), 'click', () => {
+    active = 'manage'; management = 'market'; settings.set('category', active); render();
+    content.scrollTop = 0;
+    const target = content.querySelector('[data-core-upgrade].has-update, .plugin-card.has-update');
+    target?.scrollIntoView({ block: 'nearest' });
+    target?.setAttribute('tabindex', '-1'); target?.focus({ preventScroll: true });
+  });
   let pluginSearch = '';
+  let officialBusy = false, officialStatus = '';
   let onlyUninstalled = settings.get('marketOnlyUninstalled', true) === true;
   let marketState = {}; let marketRequest = 0; const installing = new Set(); const dependencyPrompts = new Map();
   function currentMarketState() {
@@ -87,7 +123,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     return marketState;
   }
   const el = (tag, text, cls) => { const n = doc.createElement(tag); if (text !== undefined) n.textContent = text; if (cls) n.className = cls; return n; };
-  const button = (text, fn) => { const n = el('button', text); n.addEventListener('click', async () => { n.disabled = true; try { await fn(); } catch (e) { notify(e.message); } finally { n.disabled = false; } }); return n; };
+  const button = (text, fn) => { const n = el('button', text); n.addEventListener('click', async () => { n.disabled = true; try { await fn(); } catch (e) { notify(userErrorMessage(e)); } finally { n.disabled = false; } }); return n; };
   function notify(message) { shadow.querySelector('.toast')?.remove(); clearTimeout(toastTimer); const n = el('div', message, 'toast'); n.setAttribute('role', 'status'); shadow.append(n); toastTimer = setTimeout(() => n.remove(), 6000); }
   function empty(title, text, icon = active) { const n = el('div', undefined, 'empty'); n.append(createIcon(doc, icon)); n.append(el('strong', title), el('div', text)); content.append(n); }
   async function exportDiagnostics() {
@@ -124,8 +160,8 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       return url.protocol + '//' + url.hostname + '/options.html#nav=dashboard';
     };
     const actions = el('div', undefined, 'actions');
-    actions.append(button('保存地址', () => { try { const address = normalize(input.value); settings.set('userscriptDashboardAddress', address); input.value = address; hint.textContent = '已保存到当前浏览器，已移除游戏链接等参数。'; } catch (error) { hint.textContent = error.message; } }), button('复制地址', async () => {
-      try { input.value = normalize(input.value); } catch (error) { hint.textContent = error.message; return; }
+    actions.append(button('保存地址', () => { try { const address = normalize(input.value); settings.set('userscriptDashboardAddress', address); input.value = address; hint.textContent = '已保存到当前浏览器，已移除游戏链接等参数。'; } catch (error) { hint.textContent = userErrorMessage(error); } }), button('复制地址', async () => {
+      try { input.value = normalize(input.value); } catch (error) { hint.textContent = userErrorMessage(error); return; }
       try { await win.navigator.clipboard.writeText(input.value); hint.textContent = '已复制，请粘贴到浏览器地址栏打开管理面板。'; } catch { input.focus(); input.select(); hint.textContent = '地址已选中，请按 Ctrl+C 复制。'; }
     }), button('清除地址', () => { settings.set('userscriptDashboardAddress', ''); input.value = ''; hint.textContent = '已清除本机地址。'; }));
     details.append(input, actions, hint); panel.append(details);
@@ -133,6 +169,39 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   }
   function renderAppearance(cleanups) {
     content.classList.add('appearance-page');
+    const sizeGroup = el('section', undefined, 'plugin-group appearance-section font-settings');
+    const sizeHeading = el('h3', undefined, 'plugin-heading');
+    const sizeToggle = el('button', undefined, 'plugin-toggle'); sizeToggle.type = 'button';
+    sizeToggle.append(createIcon(doc, 'typography'), el('span', '界面字号', 'plugin-title'), createIcon(doc, 'chevron', 'plugin-chevron'));
+    const sizeBody = el('div', undefined, 'plugin-body'); sizeBody.id = 'core-font-settings';
+    sizeToggle.setAttribute('aria-controls', sizeBody.id);
+    const applySizeFold = collapsed => {
+      sizeBody.hidden = collapsed; sizeToggle.setAttribute('aria-expanded', String(!collapsed));
+      sizeToggle.title = `${collapsed ? '展开' : '收起'}界面字号`; sizeToggle.setAttribute('aria-label', sizeToggle.title);
+    };
+    applySizeFold(settings.get('fontSettingsCollapsed', false));
+    sizeToggle.onclick = () => { const collapsed = !sizeBody.hidden; settings.set('fontSettingsCollapsed', collapsed); applySizeFold(collapsed); };
+    sizeHeading.append(sizeToggle); sizeGroup.append(sizeHeading, sizeBody);
+    const sizes = el('div', undefined, 'sgs-segments'); sizes.setAttribute('role', 'group'); sizes.setAttribute('aria-label', '界面字号');
+    const selected = FONT_SIZES.some(([id]) => id === settings.get('fontSize', 'standard')) ? settings.get('fontSize', 'standard') : 'standard';
+    for (const [id, label] of FONT_SIZES) {
+      const option = button(label, () => {
+        const previous = FONT_SIZES.find(([key]) => key === settings.get('fontSize', 'standard')) || FONT_SIZES[2];
+        const next = FONT_SIZES.find(([key]) => key === id);
+        const width = parseFloat(host.style.width) || 280;
+        settings.set('fontSize', id); applyFontSize();
+        if (!host.hasAttribute('data-collapsed')) {
+          const adjusted = applyEdgeWidth(width + (next[2] - previous[2]) * 10);
+          settings.set('width', adjusted);
+          if (host.style.left) host.style.left = Math.max(0, Math.min(win.innerWidth - adjusted, parseFloat(host.style.left))) + 'px';
+        }
+        for (const node of sizes.children) node.setAttribute('aria-pressed', String(node.dataset.fontSize === id));
+      });
+      option.dataset.fontSize = id; option.setAttribute('aria-pressed', String(selected === id)); sizes.append(option);
+    }
+    const preview = el('div', undefined, 'font-preview'); preview.setAttribute('aria-label', '字号预览');
+    preview.append(el('strong', '字号预览 · 三国杀 OL'), el('p', '选择适合你的阅读大小'), el('span', '剩余次数 12 · 已启用', 'muted'));
+    sizeBody.append(sizes, preview, el('p', '即时生效并保存；仅调整工具箱界面，不改变游戏内文字。', 'muted')); content.append(sizeGroup);
     const themeHeading = el('h3', undefined, 'plugin-heading');
     const themeToggle = el('button', undefined, 'plugin-toggle'); themeToggle.type = 'button';
     themeToggle.append(createIcon(doc, 'palette'), el('span', '主题工坊', 'plugin-title'), createIcon(doc, 'chevron', 'plugin-chevron'));
@@ -157,7 +226,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   }
   function renderSettings(cleanups) {
     const first = content.children.length;
-    if (!mobileDevice()) {
+    {
       const edgeHeading = el('h3', 'HUD 靠边行为'); content.append(edgeHeading);
       const choices = el('div', undefined, 'sgs-segments'); choices.setAttribute('role', 'group'); choices.setAttribute('aria-label', 'HUD 靠边行为');
       for (const [value, label] of [['none', '无操作'], ['hide', '收起'], ['fixed', '固定']]) {
@@ -167,9 +236,10 @@ export function createShell({ window: win, document: doc, settings, scope }) {
           setEdgeDocked(atEdge); render();
         });
         choice.dataset.edgeBehavior = value; choice.setAttribute('aria-pressed', String(edgeBehavior() === value)); choices.append(choice);
+        if (mobileDevice() && value === 'fixed') { choice.disabled = true; choice.title = '移动端暂不支持固定侧栏'; }
         if (MICROCLIENT && value === 'hide') { choice.disabled = true; choice.title = '微端暂不支持靠边收起'; choice.style.cursor = 'not-allowed'; }
       }
-      content.append(choices); edgeHeading.append(helpTip(doc, MICROCLIENT ? '拖到右边缘时：无操作保持悬浮；固定为侧栏并为游戏画布留出空间。微端暂不支持靠边收起。' : '拖到右边缘时：无操作保持悬浮；收起在鼠标移开后隐藏；固定为侧栏并为游戏画布留出空间。'));
+      content.append(choices); edgeHeading.append(helpTip(doc, mobileDevice() ? '拖到右边缘后收起至右侧；点击边条展开，点击面板外再次收起。移动端暂不支持固定侧栏。' : MICROCLIENT ? '拖到右边缘时：无操作保持悬浮；固定为侧栏并为游戏画布留出空间。微端暂不支持靠边收起。' : '拖到右边缘时：无操作保持悬浮；收起在鼠标移开后隐藏；固定为侧栏并为游戏画布留出空间。'));
     }
     content.append(el('h3', '截图'));
     const cleanRow = el('label', undefined, 'row'); cleanRow.append(el('span', '截图时隐藏工具箱 UI'));
@@ -198,14 +268,14 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     const policy = el('select', undefined, 'sgs-select'); policy.setAttribute('aria-label', '旧脚本接管方式'); for (const [value, label] of [['exit-known', '退出已知版本并隐藏'], ['hide', '仅隐藏界面']]) { const option = el('option', label); option.value = value; policy.append(option); } policy.value = settings.get('compatPolicy', 'hide'); policy.onchange = () => { settings.set('compatPolicy', policy.value); handlers.compat?.setTakeoverPolicy?.(policy.value); handlers.compat?.scan(); render(); }; content.append(policy);
     const compatStatus = handlers.compat?.getStatus(); content.append(el('div', formatCompat(compatStatus), 'notice'));
     const actions = el('div', undefined, 'actions'); actions.append(iconButton('重新检测', 'reload', () => { handlers.compat?.scan(); render(); }, 'icon-action'), button('点选隐藏旧面板', () => startPicker())); content.append(actions);
-    content.append(helpTip(doc, '隐藏 UI 不代表后台逻辑已停止。无法退出的脚本仍需在 Tampermonkey 中停用；已退出脚本需刷新页面才能恢复。'));
+    actions.append(helpTip(doc, '隐藏 UI 不代表后台逻辑已停止。无法退出的脚本仍需在 Tampermonkey 中停用；已退出脚本需刷新页面才能恢复。'));
     }
     if (DEVELOPMENT) {
     content.append(el('h3', '插件市场目录地址'));
     const input = el('input', undefined, 'address sgs-input'); input.value = settings.get('marketUrl', LOCAL_MARKET_URL); input.setAttribute('aria-label', '市场地址');
     const sources = el('div', undefined, 'sgs-segments'); sources.setAttribute('role', 'group'); sources.setAttribute('aria-label', '市场连接方式');
-    const selected = input.value === '' ? '离线' : input.value === LOCAL_MARKET_URL ? '本机' : input.value === GITHUB_MARKET_URL ? 'GitHub' : input.value === OSS_MARKET_URL ? 'OSS' : '自定义';
-    for (const [label, url] of [['离线', ''], ['本机', LOCAL_MARKET_URL], ['GitHub', GITHUB_MARKET_URL], ['OSS', OSS_MARKET_URL], ['自定义', null]]) {
+    const selected = input.value === '' ? '离线' : input.value === LOCAL_MARKET_URL ? '本机' : '自定义';
+    for (const [label, url] of [['离线', ''], ['本机', LOCAL_MARKET_URL], ['自定义', null]]) {
       const choice = button(label, () => {
         if (url === null) { input.disabled = false; input.focus(); input.select(); return; }
         handlers.setMarketUrl(url); render(); notify(url ? '市场地址已选择，手动连接后读取目录' : '已切换为离线，可继续导入插件包');
@@ -214,7 +284,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       choice.setAttribute('aria-pressed', String(label === selected)); sources.append(choice);
     }
     input.disabled = selected === '离线';
-    content.append(sources, input, button('保存地址', () => { handlers.setMarketUrl(input.value); render(); notify('市场地址已保存'); }), helpTip(doc, '市场连接可选；仅手动连接或检测更新时联网，离线仍可导入插件包。'));
+    content.append(sources, input, button('保存地址', () => { handlers.setMarketUrl(input.value); render(); notify('市场地址已保存'); }), helpTip(doc, '开发版仅连接本地市场，不自动连接远程来源；可手动保存自定义地址，离线仍可导入插件包。'));
     }
     const diagnosticHeading = el('h3', '记牌诊断'); diagnosticHeading.append(helpTip(doc, '导出本局最近的卡牌记录与消息类型，用于排查明牌遗漏。文件不含账号、昵称或完整登录数据，只保存到本机。')); content.append(diagnosticHeading, button('导出记牌诊断', exportDiagnostics));
     let group;
@@ -301,7 +371,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       bottom.append(actions); card.append(bottom);
       if (failed) {
         const details = el('details', undefined, 'plugin-error'), summary = el('summary');
-        summary.append(svgIcon('alert'), el('span', '插件运行异常')); details.append(summary, el('pre', item.error || '插件未能激活，请尝试重载。')); card.append(details);
+        summary.append(svgIcon('alert'), el('span', '插件运行异常')); details.append(summary, el('pre', userErrorMessage(item.error || '插件未能激活，请尝试重载。'))); card.append(details);
       }
       if (update?.status === 'update') {
         const notice = el('div', undefined, 'plugin-update'), info = el('div', undefined, 'plugin-update-info');
@@ -315,10 +385,10 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   }
   async function installEntry(entry, updateOnly = false, confirmed = false) {
     const client = handlers.market();
-    if (installing.has(entry.id)) return;
+    if (officialBusy || installing.has(entry.id)) return;
     let dependencies;
     try { dependencies = planDependencies(entry, handlers.manager.list(), currentMarketState().catalog?.plugins || []); }
-    catch (error) { dependencyPrompts.set(entry.id, { entry, error: error.message, updateOnly }); render(); return; }
+    catch (error) { dependencyPrompts.set(entry.id, { entry, error: userErrorMessage(error), updateOnly }); render(); return; }
     const previous = dependencyPrompts.get(entry.id);
     const signature = JSON.stringify(dependencies.map(item => [item.id, item.version, item.sha256]));
     if (dependencies.length && (!confirmed || previous?.signature !== signature || previous?.client !== client)) {
@@ -350,7 +420,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       }
       await handlers.manager.install(pkg); notify(`${entry.name} ${entry.version} 已安装`);
     } catch (error) {
-      if (!scope.closed) dependencyPrompts.set(entry.id, { entry, error: error.message, updateOnly });
+      if (!scope.closed) dependencyPrompts.set(entry.id, { entry, error: userErrorMessage(error), updateOnly });
       throw error;
     } finally { for (const id of locked) installing.delete(id); if (!scope.closed) render(); }
   }
@@ -359,7 +429,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     if (!prompt || prompt.entry.version !== entry.version) return;
     const box = el('div', undefined, 'plugin-update'); box.dataset.dependencyPrompt = entry.id;
     box.setAttribute('role', 'status');
-    const message = el('div', prompt.error || '需要先安装并启用：' + prompt.dependencies.map(item => `${item.name} ${item.version}`).join('、') + '。是否继续？');
+    const message = el('div', (prompt.error ? userErrorMessage(prompt.error) : '') || '需要先安装并启用：' + prompt.dependencies.map(item => `${item.name} ${item.version}`).join('、') + '。是否继续？');
     message.style.overflowWrap = 'anywhere'; box.append(message);
     if (!prompt.error) box.append(button('安装前置并继续', () => installEntry(entry, prompt.updateOnly, true)));
     box.append(button(prompt.error ? '关闭提示' : '取消', () => { dependencyPrompts.delete(entry.id); render(); }));
@@ -375,7 +445,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       state.catalog = catalog; state.checkedAt = new Date();
     } catch (e) {
       if (scope.closed || request !== marketRequest || handlers.market() !== state.client) return;
-      state.catalog = null; state.checkedAt = null; state.error = e.message;
+      state.catalog = null; state.checkedAt = null; state.error = userErrorMessage(e);
     } finally {
       state.loading = false;
       if (!scope.closed && request === marketRequest) render();
@@ -397,7 +467,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     const search = el('input', undefined, 'plugin-search'); search.type = 'search'; search.placeholder = '搜索插件名称、简介或 ID'; search.setAttribute('aria-label', '搜索插件'); search.value = pluginSearch;
     search.addEventListener('input', () => { pluginSearch = search.value; filterPlugins(); }); content.append(search);
     const empty = el('div', '没有匹配的插件', 'notice plugin-search-empty'); empty.setAttribute('role', 'status'); empty.hidden = true; content.append(empty);
-    if (!state.client) content.append(el('div', '市场连接已关闭，可在设置中选择本机、OSS 或自定义地址。', 'notice'));
+    if (!state.client) content.append(el('div', '市场连接已关闭，可在设置中选择本机或自定义地址。', 'notice'));
     else if (state.error) content.append(el('div', `检测失败：${state.error}`, 'notice error'));
     else if (state.catalog) {
       const results = findPluginUpdates(handlers.manager.list(), state.catalog.plugins);
@@ -430,7 +500,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       status.title = status.textContent; status.style.whiteSpace = 'normal'; bottom.append(status);
       const busy = installing.has(entry.id);
       const install = button(busy ? '正在安装…' : same ? '已安装' : current ? '替换此版本' : '安装此版本', () => installEntry(entry));
-      install.disabled = busy || same; install.style.marginLeft = 'auto'; install.style.flexShrink = '0';
+      install.disabled = officialBusy || busy || same; install.style.marginLeft = 'auto'; install.style.flexShrink = '0';
       if (busy) card.setAttribute('aria-busy', 'true');
       bottom.append(install); card.append(bottom, ...releaseNotesBlock(entry)); renderDependencyPrompt(card, entry); markSearchable(card, entry); container.append(card);
     }
@@ -482,15 +552,44 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     }
     content.append(card);
   }
+  async function completeOfficialPlugins() {
+    if (officialBusy || installing.size) return;
+    const client = handlers.market();
+    officialBusy = true; officialStatus = '正在准备官方插件套装…'; render();
+    let completed = 0;
+    try {
+      const catalog = await client.getCatalog();
+      const plan = planOfficialPlugins(handlers.manager.list(), catalog.plugins);
+      for (const entry of plan) {
+        if (scope.closed) return;
+        if (handlers.market() !== client) throw new Error('市场地址已改变，请重新连接后重试。');
+        if (handlers.manager.list().some(item => item.id === entry.id)) continue;
+        officialStatus = `正在安装 ${completed + 1}/${plan.length}：${entry.name}`; render();
+        planDependencies(entry, handlers.manager.list(), catalog.plugins);
+        const pkg = await client.getPackage(entry);
+        if (scope.closed) return;
+        if (handlers.market() !== client) throw new Error('市场地址已改变，请重新连接后重试。');
+        if (!handlers.manager.list().some(item => item.id === entry.id)) { planDependencies(entry, handlers.manager.list(), catalog.plugins); await handlers.manager.install(pkg); completed++; }
+      }
+      officialStatus = completed ? `已补齐 ${completed} 个官方插件` : '官方插件已齐全';
+    } catch (error) { officialStatus = `已安装 ${completed} 个，补齐未完成：${userErrorMessage(error)}`; }
+    finally { officialBusy = false; if (!scope.closed) render(); }
+  }
   function renderMarket() {
     renderCoreUpgrade();
+    const pack = el('section', undefined, 'card');
+    pack.append(el('strong', '官方插件套装'), el('div', `一键补齐 ${officialPluginIds.length} 个官方插件；保留已有版本、设置和停用状态。`, 'notice'));
+    const complete = button(officialBusy ? '正在补齐…' : '一键补齐官方插件', completeOfficialPlugins);
+    complete.disabled = officialBusy || !!installing.size || !currentMarketState().client;
+    pack.append(complete); if (officialStatus) { const status = el('div', officialStatus, 'notice'); status.setAttribute('role', 'status'); pack.append(status); } content.append(pack);
     updateControls();
     pluginCards(); content.append(el('h3', '插件目录'));
     const catalog = el('div'); const actions = el('div', undefined, 'actions');
     const refresh = button('连接 / 刷新市场', fetchCatalog); refresh.disabled = !currentMarketState().client || !!currentMarketState().loading;
-    actions.append(refresh, button('导入插件包', () => { const file = doc.createElement('input'); file.type = 'file'; file.accept = '.json'; file.onchange = async () => { try { if (!file.files[0]) return; await handlers.manager.install(JSON.parse(await file.files[0].text())); notify('插件包已安装'); } catch (e) { notify(e.message); } }; file.click(); }));
+    actions.append(refresh, button('导入插件包', () => { const file = doc.createElement('input'); file.type = 'file'; file.accept = '.json'; file.onchange = async () => { try { if (!file.files[0]) return; await handlers.manager.install(JSON.parse(await file.files[0].text())); notify('插件包已安装'); } catch (e) { notify(userErrorMessage(e)); } }; file.click(); }));
     if (handlers.manager?.builtins?.has('cards') && !handlers.manager.list().some(p => p.id === 'cards')) actions.append(button('恢复内置卡牌', () => handlers.manager.restoreBuiltin('cards')));
     if (DEVELOPMENT) content.append(el('div', handlers.market?.()?.baseUrl || '离线 · 未连接市场', 'muted'));
+    else if (handlers.market?.()) content.append(el('div', '下载来源：' + marketServerLabel(handlers.market().baseUrl), 'muted'));
     content.append(actions, catalog);
     catalogCards(catalog);
   }
@@ -521,7 +620,10 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     const failures = installed.filter(item => !item.maintenance && (item.error || (item.enabled && !item.active))).length;
     const upgrades = market.catalog ? findPluginUpdates(installed, market.catalog.plugins).filter(item => item.status === 'update').length : 0;
     const manage = shadow.querySelector('[data-category="manage"]'); manage.querySelector('.nav-alert')?.remove();
-    const coreUpgrade = coreUpdateStatus()?.order > 0;
+    const coreUpgrade = MICROCLIENT ? !!microUpdate?.newer && !microUpdate?.pending : coreUpdateStatus()?.order > 0;
+    const updateHint = shadow.querySelector('[data-update-hint]');
+    updateHint.hidden = !coreUpgrade && !upgrades;
+    updateHint.title = [coreUpgrade && '核心可升级', upgrades && `${upgrades} 个插件可更新`, '点击前往更新'].filter(Boolean).join(' · ');
     const alerts = [coreUpgrade && '核心可升级', failures && `${failures} 个插件异常`, upgrades && `${upgrades} 个插件可更新`].filter(Boolean).join(' · ');
     manage.title = alerts || '管理';
     if (alerts) { const badge = el('i', String(failures || (upgrades + Number(coreUpgrade))), `nav-alert${failures ? ' is-error' : ''}`); badge.setAttribute('aria-label', alerts); manage.append(badge); }
@@ -558,7 +660,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       }
       const section = el('section'); section.dataset.panelId = panel.id; body.append(section);
       try { const clean = panel.render(section); if (typeof clean === 'function') cleanups.push(clean); }
-      catch (e) { section.append(el('div', '面板加载失败：' + e.message, 'error')); }
+      catch (e) { section.append(el('div', '面板加载失败：' + userErrorMessage(e), 'error')); }
     }
     restoreScroll();
   }
@@ -576,7 +678,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     }
     host.toggleAttribute('data-collapsed', value); settings.set('collapsed', value); if (typeof syncGameViewport === 'function') syncGameViewport(); };
   host.toggleAttribute('data-collapsed', settings.get('collapsed', false));
-  scope.listen(shadow.querySelector('.brand button'), 'click', () => setCollapsed(true));
+  scope.listen(shadow.querySelector('[data-collapse]'), 'click', () => setCollapsed(true));
   const expandHUD = () => {
     setCollapsed(false);
     if (host.style.left) host.style.left = Math.max(0, Math.min(win.innerWidth - (parseFloat(host.style.width) || 280), parseFloat(host.style.left))) + 'px';
@@ -590,7 +692,28 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   // The Windows microclient remains a desktop even on touch-enabled hardware.
   const mobileDevice = () => !MICROCLIENT && (!!win.navigator.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(win.navigator.userAgent || '') || (win.navigator.platform === 'MacIntel' && win.navigator.maxTouchPoints > 1) || !!win.matchMedia?.('(pointer: coarse)').matches);
   if (MICROCLIENT && settings.get('hudEdgeBehavior', 'fixed') === 'hide') settings.set('hudEdgeBehavior', 'fixed');
-  const edgeBehavior = () => { const value = settings.get('hudEdgeBehavior', 'fixed'); return mobileDevice() ? 'none' : MICROCLIENT && value === 'hide' ? 'fixed' : ['none', 'hide', 'fixed'].includes(value) ? value : 'fixed'; };
+  // Native title tooltips are unavailable on touch screens. A tap shows the
+  // same explanation without swallowing the control's normal action.
+  host.toggleAttribute('data-mobile', mobileDevice());
+  const edgeTab = doc.createElement('button'); edgeTab.className = 'edge-tab'; edgeTab.textContent = '‹'; edgeTab.setAttribute('aria-label', '展开工具箱侧栏'); shadow.append(edgeTab);
+  scope.listen(edgeTab, 'click', () => revealEdge());
+  const touchTip = doc.createElement('div'); touchTip.setAttribute('popover', 'manual'); touchTip.setAttribute('role', 'tooltip');
+  touchTip.style.cssText = 'position:fixed;inset:auto;margin:0;max-width:min(300px,calc(100vw - 24px));padding:9px 12px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-raised);color:var(--sgs-text);font:12px/1.7 var(--sgs-font);overflow-wrap:anywhere;pointer-events:none;box-shadow:0 6px 24px #0004';
+  shadow.append(touchTip); let touchTipTimer;
+  const closeTouchTip = () => { clearTimeout(touchTipTimer); if (touchTip.matches(':popover-open')) touchTip.hidePopover(); };
+  scope.listen(shadow, 'click', event => {
+    if (!mobileDevice()) return;
+    closeTouchTip();
+    const target = event.target.closest?.('[title]');
+    if (!target?.title || target.hasAttribute('data-help-tip') || !touchTip.showPopover) return;
+    touchTip.textContent = target.title; touchTip.showPopover();
+    const box = target.getBoundingClientRect(), bounds = touchTip.getBoundingClientRect();
+    touchTip.style.left = Math.max(12, Math.min(box.left, win.innerWidth - bounds.width - 12)) + 'px';
+    touchTip.style.top = Math.max(12, box.bottom + bounds.height + 8 < win.innerHeight ? box.bottom + 6 : box.top - bounds.height - 6) + 'px';
+    touchTipTimer = setTimeout(closeTouchTip, 3500);
+  });
+  scope.listen(doc, 'pointerdown', closeTouchTip); scope.listen(content, 'scroll', closeTouchTip); scope.add(closeTouchTip);
+  const edgeBehavior = () => { const value = settings.get('hudEdgeBehavior', 'fixed'); return mobileDevice() ? (value === 'none' ? 'none' : 'hide') : MICROCLIENT && value === 'hide' ? 'fixed' : ['none', 'hide', 'fixed'].includes(value) ? value : 'fixed'; };
   const gameViewport = createGameViewport({ window: win, document: doc, scope });
   const syncGameViewport = () => gameViewport.reserve(host.hasAttribute('data-edge-fixed') ? (host.hasAttribute('data-collapsed') ? 156 : parseFloat(host.style.width) || 280) : 0);
   let edgeHideTimer, draggingHUD = false;
@@ -634,11 +757,13 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     const next = { ArrowLeft: current + 8, ArrowRight: current - 8, Home: 248, End: 420 }[event.key];
     if (next === undefined) return; event.preventDefault(); settings.set('width', applyEdgeWidth(next));
   });
-  scope.listen(host, 'pointerenter', revealEdge);
-  scope.listen(host, 'pointerleave', hideEdge);
+  scope.listen(host, 'pointerdown', revealEdge);
+  scope.listen(doc, 'pointerdown', event => { if (mobileDevice() && !event.composedPath().includes(host)) hideEdge(); });
+  scope.listen(host, 'pointerenter', event => { if (event.pointerType !== 'touch' && !mobileDevice()) revealEdge(); });
+  scope.listen(host, 'pointerleave', event => { if (event.pointerType !== 'touch') hideEdge(); });
   scope.listen(host, 'focusin', revealEdge);
   scope.listen(host, 'focusout', () => { if (!host.matches(':hover')) hideEdge(); });
-  scope.listen(win, 'resize', () => { if (mobileDevice()) { setEdgeDocked(false); if (active === 'manage') render(); } if (host.style.left) host.style.left = Math.max(0, Math.min(win.innerWidth - (host.hasAttribute('data-collapsed') ? 156 : parseFloat(host.style.width) || 280), parseFloat(host.style.left))) + 'px'; });
+  scope.listen(win, 'resize', () => { host.toggleAttribute('data-mobile', mobileDevice()); if (mobileDevice()) { setEdgeDocked(host.hasAttribute('data-edge-docked'), host.hasAttribute('data-edge-hidden')); if (active === 'manage') render(); } if (host.style.left) host.style.left = Math.max(0, Math.min(win.innerWidth - (host.hasAttribute('data-collapsed') ? 156 : parseFloat(host.style.width) || 280), parseFloat(host.style.left))) + 'px'; });
   scope.add(() => clearTimeout(edgeHideTimer));
   setEdgeDocked(settings.get('edgeDocked', false), true);
   const position = settings.get('position', null); if (position) { host.style.left = Math.max(0, Math.min(win.innerWidth - 248, position.x)) + 'px'; host.style.top = Math.max(0, Math.min(win.innerHeight - 50, position.y)) + 'px'; host.style.right = 'auto'; }
@@ -666,7 +791,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
       finished = true; cleanup(); draggingHUD = false;
       if (scope.closed) return;
       settings.set('position', { x: host.offsetLeft, y: host.offsetTop });
-      if (moved && event?.type !== 'pointercancel' && edgeBehavior() !== 'none' && snapReady) { setEdgeDocked(true); if (!host.matches(':hover')) hideEdge(); }
+      if (moved && event?.type !== 'pointercancel' && edgeBehavior() !== 'none' && snapReady) { setEdgeDocked(true); if (mobileDevice() || !host.matches(':hover')) hideEdge(); }
     };
     const updatePosition = event => {
       moved ||= Math.abs(event.clientX - e.clientX) > 3 || Math.abs(event.clientY - e.clientY) > 3;
@@ -713,5 +838,5 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     compact.dataset.countSize = text.length > 2 ? 'long' : 'normal';
     const label = value === Infinity ? '出杀次数不限' : known ? `剩余出杀次数：${text}` : '剩余出杀次数暂不可用';
     count.setAttribute('aria-label', label); shadow.querySelector('.slash').title = label + '；双击展开，按住拖动';
-  }, setHandlers(value) { handlers = value; render(); }, setStatusVisible(visible) { shadow.querySelector('.status').hidden = !visible; }, setStatus(text) { shadow.querySelector('.status span').textContent = text; }, applyTheme(tokens) { host.dataset.themeScheme = tokens.scheme === 'light' ? 'light' : 'dark'; for (const [key, value] of Object.entries(tokens)) host.style.setProperty('--sgs-' + key, value); }, registerPanel(spec) { if (panels.has(spec.id)) throw new Error('面板重复注册：' + spec.id); panels.set(spec.id, spec); render(); return () => { panels.delete(spec.id); render(); }; } };
+  }, setHandlers(value) { const first = !handlers.manager; handlers = value; render(); if (first && handlers.market?.()) scope.timeout(() => { if (!scope.closed) fetchCatalog(); }, 1500); if (first && MICROCLIENT && typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ === 'function') scope.timeout(() => { if (!scope.closed) runMicroUpdate('check'); }, 1500); }, setStatusVisible(visible) { shadow.querySelector('.status').hidden = !visible; }, setStatus(text) { shadow.querySelector('.status span').textContent = text; }, applyTheme(tokens) { host.dataset.themeScheme = tokens.scheme === 'light' ? 'light' : 'dark'; for (const [key, value] of Object.entries(tokens)) host.style.setProperty('--sgs-' + key, value); }, registerPanel(spec) { if (panels.has(spec.id)) throw new Error('面板重复注册：' + spec.id); panels.set(spec.id, spec); render(); return () => { panels.delete(spec.id); render(); }; } };
 }

@@ -11,7 +11,7 @@ const edition = process.argv[2];
 if (edition && !['full', 'lite'].includes(edition)) throw new Error('Public builds support full/lite only');
 await validateRepositoryPlugins({ root });
 const packages = [];
-if (edition !== 'lite') for (const spec of pluginReleases) {
+if (edition !== 'lite') for (const spec of pluginReleases.filter(spec => !spec.localOnly)) {
   const pkg = await makePluginPackage(await bundlePlugin(spec.id, { root })); packages.push(pkg);
   const dir = resolve(root, 'dist/plugins/packages', spec.id); await mkdir(dir, { recursive: true });
   await writeFile(resolve(dir, pkg.manifest.version + '.json'), JSON.stringify(pkg));

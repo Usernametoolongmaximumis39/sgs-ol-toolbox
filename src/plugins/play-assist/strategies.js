@@ -48,3 +48,7 @@ export function pojunCards(hand, equipment, hp, ownEquipCount) {
   return [...priority, ...rest.slice(0,extra), ...hs, ...rest.slice(extra)]
     .slice(0,Math.min(Math.max(0,Math.floor(hp)),hs.length + eq.length));
 }
+export function wuniangCard(hand, equipment) {
+  const legal = equipment.filter(windowAvailable);
+  return legal.find(c => cardType(c) === 4) || legal[0] || hand.find(windowAvailable);
+}

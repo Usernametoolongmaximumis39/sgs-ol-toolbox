@@ -37,6 +37,10 @@ try {
   await support.locator('details > summary').press('Enter');
   await support.locator(':scope > summary').press('Enter');
   assert.equal(await support.locator('p').first().isVisible(),false);
+  await support.locator(':scope > summary').press('Enter');
+  assert.ok((await support.innerText()).includes('强识'));
+  await support.locator('details > summary').press('Enter');
+  await support.locator(':scope > summary').press('Enter');
   assert.equal(await root.getByRole('switch').count(), 8);
   assert.equal(await root.getByRole('switch', {checked:true}).count(), 1);
   await page.locator('main').evaluate(n => { n.style.cssText = 'width:280px;padding:12px;background:#201e1a;--sgs-text:#eee3cc;--sgs-muted:#b7aa8c;--sgs-accent:#dbba70;--sgs-border:#665b42;--sgs-surface:#2c2922;--sgs-font:system-ui'; });
@@ -57,6 +61,10 @@ try {
     }, {theme,width});
     assert.equal(await root.evaluate(n=>n.scrollWidth<=n.clientWidth),true);
     await root.screenshot({path:resolve(output,`${theme}-${width}.png`)});
+    await support.locator(':scope > summary').press('Enter');
+    assert.equal(await root.evaluate(n=>n.scrollWidth<=n.clientWidth),true);
+    await root.screenshot({path:resolve(output,`qiangzhi-${theme}-${width}.png`)});
+    await support.locator(':scope > summary').press('Enter');
   }
   await page.evaluate(()=>{document.querySelector('main').style.maxHeight='260px';document.querySelector('main').style.overflow='auto';});
   await root.getByRole('switch',{name:'技能连按',exact:true}).focus(); await page.keyboard.press('Space');

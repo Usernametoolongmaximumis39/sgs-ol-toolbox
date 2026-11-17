@@ -1,3 +1,4 @@
+import { isReturnTask } from './return-tasks.js';
 import { managerSpecs as welfareSpecs, planWelfare, prepareWelfare } from './welfare.js';
 import { managerSpecs as activitySpecs, planActivities, prepareActivities, currentTavernTaskIds } from './activities.js';
 import { managerSpecs as codeSpecs, planCodes } from './codes.js';
@@ -118,7 +119,7 @@ export function createNativeAdapter(ctx) {
       const match = /^task:(\d+)$/.exec(actionKey);
       if (!match) return null;
       const task = read(() => manager('TaskManager').GetServerTaskDataByTaskID(Number(match[1])));
-      return { label: taskLabel(task, match[1]), reason: task ? taskSkipReason(task) : '' };
+      return { label: taskLabel(task, match[1]), reason: task ? taskSkipReason(task) : '', excluded: isReturnTask(task) };
     },
     goods(id) {
       const root = config('sys_gs_dbs_fs_goodsbaseinfo.sgs')?.root;
@@ -162,15 +163,13 @@ export function taskSkipReason(task, { allowSelection = false } = {}) {
   const base = task?.baseVo;
   if (!base || task.CanAward !== true || task.HasAward === true) return '尚不可领取';
   if (task.HasExpired === true || task.hasExpired === true || base.IsEffectServerTimeStart === false || base.EffectClientTime === false) return '已过期或尚未开始';
+  if (isReturnTask(task)) return '回归任务已排除，请在游戏内手动领取';
   // Modern G1t.TaskSelectReward enumerates ALL ordinary rewards as selectable
   // view rows even when SelectRewards=0. Its explicit native boolean, rather
   // than the presence of those rows, determines whether a choice is required.
   const ordinaryModernRewards = task.IsNewQusetType === true && base.HaveSelectReward === false;
   if (!allowSelection && (task.HaveSelectReward || base.HaveSelectReward || base.haveSelectReward ||
       (!ordinaryModernRewards && (rows(base.TaskSelectReward).length || rows(base.taskSelectReward).length || rows(task.taskSelectReward).length)))) return '需要选择奖励，请在待选奖励中选择';
-  // ReturnReward is an account-dependent reward matrix, not an ordinary item
-  // list. CanAward alone does not establish the offline-day / return eligibility.
-  if (base._rewardItem?.ReturnReward || base.rewardItem?.ReturnReward) return '回归奖励的账号适用条件尚未核实，请在游戏内手动领取';
   if (task.IsBuyTask || base.IsBuyTask) return '购买任务';
   const description = [base.name, base.Name, base.desc, base.Desc, base._name, base._desc].filter(value => typeof value === 'string').join(' ');
   const conditions = rows(task.TaskConditions || task.taskConditions, 64);

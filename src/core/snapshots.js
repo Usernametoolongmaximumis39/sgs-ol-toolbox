@@ -4,6 +4,7 @@ const RESYNC = new Set(['MsgGamePlayCardNtf', 'MsgReconnectGame', 'MsgReconnectG
 // Read native state after the current dispatch completes, then retry boundedly.
 export function attachSessionSnapshots({ journal, game, scope, settled = () => Promise.resolve() }) {
   let generation = 0, lastSignature = '', pending = false;
+  let deckIds = [];
   const timers = new Set();
   function cancel() { for (const timer of timers) clearTimeout(timer); timers.clear(); }
   function request() {
@@ -21,6 +22,17 @@ export function attachSessionSnapshots({ journal, game, scope, settled = () => P
         if (attempt) { try { await settled(); } catch { return; } }
         if (scope.closed || current !== generation) return;
         let data; try { data = game.getSnapshot(); } catch { data = {}; }
+        // Definitions describe card IDs, never opponents' hidden hand models.
+        if (game.getCardMeta && deckIds.length) {
+          data.cardMeta = {};
+          for (const id of deckIds) {
+            let value; try { value = game.getCardMeta(id); } catch { continue; }
+            if (!value || value.unknown) continue;
+            const suit = Number(value.suit), number = Number(value.number), type = Number(value.type);
+            if (suit >= 1 && suit <= 4 && number >= 1 && number <= 13)
+              data.cardMeta[id] = { suit, number, type: Number.isInteger(type) ? type : 0 };
+          }
+        }
         const signature = JSON.stringify([journal.sessionId, data]);
         if (signature !== lastSignature) { lastSignature = signature; journal.push('toolbox:snapshot', data); }
         const ready = Number.isInteger(data.selfSeatId) && Array.isArray(data.seats) && data.seats.length > 0;
@@ -32,7 +44,11 @@ export function attachSessionSnapshots({ journal, game, scope, settled = () => P
       collect(0);
     });
   }
-  scope.add(journal.subscribe(event => { if (RESYNC.has(event.type)) request(); }));
+  scope.add(journal.subscribe(event => {
+    if (event.type === 'MsgGamePlayCardNtf') deckIds = (event.payload?.CardList || []).map(Number).filter(id => Number.isInteger(id) && id > 0).slice(0, 2048);
+    if (event.type === 'ClientLeavetableRep' || event.type === 'ClientLoginRep') deckIds = [];
+    if (RESYNC.has(event.type)) request();
+  }));
   scope.add(game.onSceneChange(request));
   scope.add(() => { generation++; cancel(); });
   request();

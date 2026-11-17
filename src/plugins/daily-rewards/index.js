@@ -1,6 +1,6 @@
 import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
 import { createNativeAdapter } from './native.js';
-import { createRewardsController, rewardCategoryNames } from './controller.js';
+import { createRewardsController } from './controller.js';
 import { createCodeSources } from './code-sources.js';
 import { rewardExclusions } from './exclusions.js';
 import { createExchangeController } from './exchange.js';
@@ -9,13 +9,12 @@ import { createExchangeUI } from './exchange-ui.js';
 
 
 export default {
-  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.26', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "补全斗地主与单骑连胜奖励领取，避免同一宝箱重复请求；优化奖励说明和状态显示。自动领取仍默认关闭，兑换可能消耗欢乐豆，共享兑换码仍需单独开启且只上传游戏明确成功的码及账号摘要。", minCoreVersion: '0.6.38', categories: ['automation'], icon: PLUGIN_ICONS['daily-rewards'], priority: 20000,
+  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.33', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "排除回归、回流及老玩家任务，未确认项目显示名称与任务编号；修复部分已读未领邮件无法恢复领取的问题，精简排查信息。保留已有防重复领取记录。自动领取仍默认关闭，兑换可能消耗欢乐豆；共享兑换码需单独开启，只上传游戏明确成功的码及账号摘要。", minCoreVersion: '0.6.38', categories: ['automation'], icon: PLUGIN_ICONS['daily-rewards'], priority: 20000,
     description: '自动领取签到、任务、邮件与活动奖励，按账号记录' },
   activate(ctx) {
-    const debug = ctx.window.__SGS_TOOLBOX_DEMO__?.onlyPlugin === 'daily-rewards';
     const native = createNativeAdapter(ctx);
-    const controller = createRewardsController({ adapter: native, settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window, { core: ctx.core }), debug });
+    const controller = createRewardsController({ adapter: native, settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window, { core: ctx.core }) });
     const exchangeAdapter = createExchangeAdapter(ctx, native);
     const exchange = createExchangeController({ adapter: exchangeAdapter, settings: ctx.settings, enabled: () => controller.snapshot().config.automatic });
     const exchangeUI = createExchangeUI(ctx, exchange, exchangeAdapter);
@@ -93,15 +92,10 @@ export default {
       codes.append(el('span', '兑换码', 'muted'), codeToggles);
       codes.title = '自动检查完整序列号及4–8字中文短口令，可夹带少量英文数字；中文口令每行一个，无法识别的行会跳过并继续处理其他行。特殊口令可标注“兑换码：口令”。只兑换未尝试的新码；共享默认关闭，开启后仅上报游戏确认成功的单个码。';
       const status = el('p', undefined, 'muted reward-status'); status.setAttribute('role', 'status'); status.dataset.rewardsStatus = '';
-      root.append(style, heading, excluded, codes, status);
-      let list, notes, sourceStatus;
-      if (debug) {
-        const details = el('details', undefined, 'sgs-fold'), summary = el('summary', '开发调试');
-        notes = el('p'); sourceStatus = el('p'); sourceStatus.dataset.codesSourceStatus = '';
-        list = el('div'); list.dataset.rewardsLog = '';
-        const refresh = el('button', '检查状态'); refresh.dataset.rewardsRefresh = ''; refresh.addEventListener('click', controller.refresh);
-        details.append(summary, refresh, sourceStatus, notes, list); root.append(details);
-      }
+      const pending = el('div', undefined, 'reward-pending'); pending.dataset.rewardsUnconfirmed = ''; pending.hidden = true;
+      pending.setAttribute('aria-label', '未确认领取的项目');
+      const pendingStyle = el('style'); pendingStyle.textContent = '.reward-pending{margin:4px 0 10px;padding-left:9px;border-left:2px solid var(--sgs-border);font-size:11px;line-height:1.7;color:var(--sgs-muted)}.reward-pending p{margin:3px 0;white-space:pre-wrap;overflow-wrap:anywhere}.reward-pending[hidden]{display:none}';
+      root.append(style, pendingStyle, heading, excluded, codes, status, pending);
       container.append(root);
       const render = state => {
         for (const [key, input] of Object.entries(inputs)) {
@@ -117,11 +111,12 @@ export default {
         inputs.automatic.querySelector('.reward-name').textContent = state.config.automatic ? '已开启' : '已关闭';
         status.classList.toggle('is-error', !!state.sourceError);
         status.textContent = state.sourceError ? `${state.status}；${state.sourceError}` : state.status; status.title = state.sourceError || state.sourceStatus;
-        if (list) {
-          sourceStatus.textContent = state.sourceStatus;
-          notes.textContent = state.capabilities.map(item => `${rewardCategoryNames[item.category] || '状态'}：${item.text}`).join('；');
-          list.replaceChildren(...state.logs.slice(0, 24).map(item => el('p', `${new Date(item.at).toLocaleTimeString()} · ${rewardCategoryNames[item.category] || '状态'} · ${item.text}`)));
-        }
+        const uncertainTasks = state.issues.filter(item => ['pending','unconfirmed','interrupted'].includes(item.status));
+        pending.hidden = !uncertainTasks.length;
+        pending.replaceChildren(...uncertainTasks.map(item => {
+          const id = /^(?:task|quest):(\d+)/.exec(item.key)?.[1];
+          return el('p', `未确认：${item.label === item.key ? '未命名领奖项目' : item.label}${id && !item.label.includes(`任务 ${id}`) ? `（任务 ${id}）` : ''}`);
+        }));
       };
       controller.refresh(); render(controller.snapshot());
       const off = controller.subscribe(render);

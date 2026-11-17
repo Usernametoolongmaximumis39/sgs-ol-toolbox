@@ -13,13 +13,16 @@ const aliases = {
   DestSeatIDs: ['DestSeatIds', 'destSeatIds', 'Targets'], EffectIndex: ['effectIndex'],
   list_card_id: ['listCardId'], error_id: ['ErrorID', 'errorId', 'errCode'], userID: ['UserID', 'userId'],
   CastSeatID: ['castSeatId'], ItemID: ['itemId'], ItemParams: ['param'],
+  IsSpell: ['isSpell', 'is_spell'], DataID: ['DataId', 'dataId', 'data_id'],
+  MurSeatID: ['MurSeatId', 'murSeatId', 'MurderSeatID'], MData: ['mData'],
+  MsgID: ['MsgId', 'msgId', 'msg_id'],
 };
 for (const key of ['FromZone', 'ToZone', 'FromPosition', 'ToPosition', 'FromZoneParam', 'ToZoneParam', 'MoveType']) {
   aliases[key] = [key[0].toLowerCase() + key.slice(1), key.replace(/[A-Z]/g, (char, index) => (index ? '_' : '') + char.toLowerCase())];
 }
 const schemas = {
   MsgGamePlayCardNtf: ['CardList', 'IsResume', 'SeatID'],
-  PubGsCMoveCard: ['FromID', 'FromZone', 'FromPosition', 'FromZoneParam', 'ToID', 'ToZone', 'ToPosition', 'ToZoneParam', 'MoveType', 'CardIDs', 'CardCount', 'SpellID'],
+  PubGsCMoveCard: ['FromID', 'FromZone', 'FromPosition', 'FromZoneParam', 'ToID', 'ToZone', 'ToPosition', 'ToZoneParam', 'MoveType', 'CardIDs', 'CardCount', 'SpellID', 'SrcSeatID'],
   PubGsCUseCard: ['SeatID', 'CardID', 'CardIDs', 'SpellID', 'useType'],
   MsgNtfUseCardType: ['CastSeatID', 'SpellID', 'useType'],
   decodeRogueLikeItemEffectNtf: ['ItemID', 'ItemParams', 'error_id'],
@@ -31,10 +34,12 @@ const schemas = {
   ClientHappyGetFriendHandcardRep: ['SeatID', 'CardIDs', 'error_id'],
   SmsgGameSetCharacter: ['Infos'], GsCGuoZhanSetCharacter: ['SeatID', 'GeneralData'],
   GsCRoleOptTargetNtf: ['SpellID', 'SeatID', 'SrcSeatID', 'TargetSeatID', 'Type', 'Param', 'Params'],
-  CGsRoleSpellOptRep: ['SpellID', 'SeatID', 'Type', 'Datas'], SmsgGamePlayerDead: ['SeatID'],
+  CGsRoleSpellOptRep: ['SpellID', 'SeatID', 'Type', 'Datas'], SmsgGamePlayerDead: ['SeatID', 'MurSeatID'],
+  GsCUpdateRoleDataExNtf: ['SeatID', 'IsSpell', 'DataID', 'Datas'],
+  MsgClientOperateInGameNtf: ['SeatID', 'Type', 'MsgID', 'MData'],
   MsgGameOver: [], ClientLeavetableRep: [], ClientLoginRep: ['userID'],
 };
-const lists = new Set(['CardList', 'CardIDs', 'DestSeatIDs', 'list_card_id', 'Infos', 'GeneralData', 'Params', 'Datas', 'ItemParams']);
+const lists = new Set(['CardList', 'CardIDs', 'DestSeatIDs', 'list_card_id', 'Infos', 'GeneralData', 'Params', 'Datas', 'ItemParams', 'MData']);
 const wrappers = ['Protocol', 'protocol', 'ProtoObj', 'protoObj', 'Data', 'data', 'msg', 'Msg'];
 export const isObservedMessage = type => typeof type === 'string' && Object.hasOwn(schemas, type);
 const get = (object, key) => { try { return object?.[key]; } catch { return undefined; } };

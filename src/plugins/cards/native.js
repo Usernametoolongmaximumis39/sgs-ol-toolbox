@@ -3,6 +3,9 @@ import { nativeSeat, nativeSeatId, nativeSeatOccupied } from '../../core/seat.js
 import { createSortControls } from './sort-controls.js';
 import { createCountdowns } from './countdowns.js';
 import { createSkillCounts } from './skill-counts.js';
+import { compareHandTypes } from './hand-order.js';
+import { createHandGrouping, setHandGroupingMode } from './hand-groups.js';
+import { ResourceScope } from '../../core/resources.js';
 
 export const SORT_INHIBITOR_SKILL = 0xde2;
 
@@ -19,7 +22,26 @@ export function sortHand(game, mode, { automatic = false } = {}) {
   const selected = new Map(cards.map(ui => [ui, ui.selected ?? ui.Selected]));
   if (mode === 'type') {
     if (typeof container.SortNormalCards !== 'function') return false;
-    container.SortNormalCards();
+    const seat = container.seat ?? container.Seat;
+    if (typeof seat?.SortHandCardsCompare === 'function') {
+      // Let the native operation retain its synchronization and special-skill
+      // behavior, with our priority before its equipment / same-card ordering.
+      const temporary = new ResourceScope();
+      try {
+        temporary.patch(seat, 'SortHandCardsCompare', original => function (a, b) {
+          return compareHandTypes(a, b) || original.call(this, a, b);
+        });
+        container.SortNormalCards();
+      } finally { temporary.dispose(); }
+    } else {
+      container.SortNormalCards();
+      cards.sort((a, b) => compareHandTypes(a.Card, b.Card));
+      if (Array.isArray(seat?.HandCards)) seat.HandCards.sort(compareHandTypes);
+      for (const ui of cards) {
+        if (typeof ui.clear === 'function' && typeof ui.Draw === 'function') { ui.clear(false); ui.Draw(container); }
+      }
+      container.invalidateLayoutHandCard?.();
+    }
   } else {
     if (mode !== 'suit' && mode !== 'number') return false;
     const suitOrder = [3, 1, 4, 2];
@@ -40,6 +62,7 @@ export function sortHand(game, mode, { automatic = false } = {}) {
     }
     container.invalidateLayoutHandCard?.();
   }
+  setHandGroupingMode(container, mode);
   for (const [ui, value] of selected) {
     if (value !== undefined && (ui.selected ?? ui.Selected) !== value) {
       if (typeof ui.setSelected === 'function') ui.setSelected(value);
@@ -205,6 +228,7 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
   const labelLayer = node('div', 'sgs-card-label-layer');
   const countdowns = createCountdowns(ctx);
   const skillCounts = createSkillCounts(ctx);
+  const handGrouping = createHandGrouping(ctx);
   overlay.append(seatLayer, labelLayer);
   let ownedButton = null, original = null, previousSignature = '', lockedMode = settings.get('lockedSort', null);
   let disposed = false, restoreSelectionWindow = null, patchedSelectionPrototype = null;
@@ -262,7 +286,7 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
     seatLayer.replaceChildren(); labelLayer.replaceChildren();
     if (!state.active) {
       seatLayer.style.clipPath = '';
-      countdowns.clear(); skillCounts.clear(); sortControls.hide(); releaseOriginal();
+      countdowns.clear(); skillCounts.clear(); sortControls.hide(); handGrouping.detach(); releaseOriginal();
       restoreSelectionWindow?.(); restoreSelectionWindow = null; patchedSelectionPrototype = null;
       return;
     }
@@ -312,6 +336,7 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
     }
     countdowns.update([...new Set([self, ...seats].filter(Boolean))], settings.get('countdown', true));
     updateSelectionOrder();
+    handGrouping.update(settings.get('handSort', true) ? self?.cardContainer : null);
     const button = self?.sortCardBtn;
     const anchor = settings.get('handSort', true) ? handSortAnchor(window, self) : null;
     if (!anchor || !button || button.enabled === false || button._enabled === false || button.disabled === true || !sortControls.update(self.cardContainer, lockedMode)) {
@@ -334,7 +359,7 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
   update();
   return { update, dispose() {
     if (disposed) return;
-    disposed = true; countdowns.dispose(); skillCounts.dispose(); sortControls.dispose(); releaseOriginal(); restoreSelectionWindow?.();
+    disposed = true; countdowns.dispose(); skillCounts.dispose(); sortControls.dispose(); handGrouping.dispose(); releaseOriginal(); restoreSelectionWindow?.();
     [seatLayer, labelLayer].forEach(element => element.remove());
   } };
 }

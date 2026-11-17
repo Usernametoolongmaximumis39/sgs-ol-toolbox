@@ -9,9 +9,9 @@ const FIELDS = [
   'MoveType', 'SpellID', 'SrcSeatID', 'TargetSeatID', 'TargetID', 'TargetID1', 'TargetID2',
   'DestSeatIDs', 'EffectIndex', 'Type', 'Param', 'Params', 'Option', 'Opt', 'Count', 'TurnCnt',
   'Round', 'useType', 'isPassed', 'isSend', 'IsResume', 'list_card_id', 'error_id',
-  'Infos', 'GeneralData',
+  'Infos', 'GeneralData', 'Datas', 'IsSpell', 'DataID', 'MsgID', 'MData', 'MurSeatID',
 ];
-const ARRAYS = new Set(['CardList', 'CardIDs', 'DestSeatIDs', 'list_card_id', 'Params', 'Infos', 'GeneralData']);
+const ARRAYS = new Set(['CardList', 'CardIDs', 'DestSeatIDs', 'list_card_id', 'Params', 'Infos', 'GeneralData', 'Datas', 'MData']);
 const REQUIRED = {
   MsgGamePlayCardNtf: [['CardList']],
   PubGsCMoveCard: [['FromID'], ['ToID'], ['FromZone'], ['ToZone'], ['CardCount'], ['CardIDs']],

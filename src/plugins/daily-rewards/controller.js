@@ -1,3 +1,4 @@
+import { isReturnTask } from './return-tasks.js';
 import { planRewards, rows, nativeMethod, taskSkipReason } from './native.js';
 import { planChoiceRewards } from './choice-rewards.js';
 import { DEFAULT_CODE_SERVER, codeServerUrl, mergeCodeText } from './code-sources.js';
@@ -64,7 +65,7 @@ export function awaitClaim(action, { signal, valid, timeout = 8000, poll = 100 }
     }
     signal?.addEventListener('abort', abort, { once: true });
     interval = setInterval(check, poll);
-    deadline = setTimeout(() => finish({ status: 'unconfirmed', text: '未收到成功状态，保留待核对；不会自动重发' }), timeout);
+    deadline = setTimeout(() => finish({ status: 'unconfirmed', text: '暂未确认领取，通常尚未满足领取条件；不会自动重发' }), timeout);
     try {
       if (!valid() || signal?.aborted) return abort();
       const result = action.send();
@@ -77,7 +78,7 @@ export function awaitClaim(action, { signal, valid, timeout = 8000, poll = 100 }
   });
 }
 
-export function createRewardsController({ adapter, settings, scope, sources, debug = false, timeout = 8000, poll = 100, now = () => Date.now() }) {
+export function createRewardsController({ adapter, settings, scope, sources, timeout = 8000, poll = 100, now = () => Date.now() }) {
   const listeners = new Set();
   const pendingActions = new Map();
   // Shared by plugin activations in the same game page, not by accounts/days.
@@ -99,6 +100,8 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
       schemaVersion: 2, ...(!owner ? { automatic: false } : {}) };
   }
   state.status = config().automatic ? '自动领取已开启，等待检查' : state.status;
+  const excludedAttempt = (id, entry) => /^(?:task|quest):/.test(id) &&
+    (safely(() => adapter.describeAttempt?.(id)?.excluded) === true || isReturnTask({ baseVo: { name: entry?.label } }));
   const snapshot = () => {
     const owner = account(), date = day(), issues = [], codeHistory = [];
     if (owner) {
@@ -107,6 +110,7 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
       const permanent = settings.get(key(owner) + 'permanent-attempts', {});
       for (const records of [daily, permanent]) for (const [id, entry] of Object.entries(records || {})) {
         if (!uncertainStatuses.has(entry?.status) && entry?.status !== 'rejected') continue;
+        if (excludedAttempt(id, entry)) continue;
         const detail = safely(() => adapter.describeAttempt?.(id));
         const history = id.startsWith('code:') && entry.status === 'rejected';
         (history ? codeHistory : issues).push({ key: id, status: entry.status, at: entry.at,
@@ -124,7 +128,7 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
   };
   const emit = () => { for (const fn of listeners) fn(snapshot()); };
   function log(category, text, status = 'info') {
-    logs = [{ at: now(), category, text, status }, ...logs].slice(0, debug ? 80 : 12); emit();
+    logs = [{ at: now(), category, text, status }, ...logs].slice(0, 12); emit();
   }
   function options(change) {
     const owner = account();
@@ -319,7 +323,7 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
         // Pre-fix clipboard queues lack provenance and may contain private prose.
         // Preserve their stored value until import, but never send that old queue.
         if (selected.codeInputVersion !== 1) selected.codeText = '';
-        selected.legacyMailAttempts = Object.fromEntries(Object.entries(ledger.items).filter(([id, entry]) => id.startsWith('mail:') && uncertainStatuses.has(entry?.status) && !entry.flowVersion));
+        selected.legacyMailAttempts = Object.fromEntries(Object.entries(ledger.items).filter(([id, entry]) => id.startsWith('mail:') && uncertainStatuses.has(entry?.status) && (!entry.flowVersion || entry.flowVersion === 2)));
         // Previously sent keys (including failed/uncertain ones) never re-enter
         // the queue or block unrelated new codes in a later automatic cycle.
         const parsed = parseCodes(selected.codeText);
@@ -336,7 +340,7 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
         const plan = inspect(selection());
         for (const action of plan.actions) {
           const previous = ledger.items[action.key], repair = action.legacyMailRepair;
-          if (!repair || !uncertainStatuses.has(previous?.status) || previous.flowVersion || (Number(previous.at) || 0) !== repair.previousAt ||
+          if (!repair || !uncertainStatuses.has(previous?.status) || (previous.flowVersion && previous.flowVersion !== 2) || (Number(previous.at) || 0) !== repair.previousAt ||
             ledger.items[repair.readKey]?.status !== 'confirmed' || !safely(action.eligible)) continue;
           // Preserve the old intent as superseded, never as a claimed reward.
           // The replacement is versioned before send, so a second timeout
@@ -350,9 +354,9 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
         }
         const blockedGroups = new Set();
         for (const records of [ledger.items, permanent]) for (const [actionKey, entry] of Object.entries(records)) {
-          if (uncertainStatuses.has(entry?.status)) blockedGroups.add(rewardWorkflowGroup({ key: actionKey, workflowGroup: entry.workflowGroup }));
+          if (!excludedAttempt(actionKey, entry) && uncertainStatuses.has(entry?.status)) blockedGroups.add(rewardWorkflowGroup({ key: actionKey, workflowGroup: entry.workflowGroup }));
         }
-        unresolved = Object.values(ledger.items).filter(entry => uncertainStatuses.has(entry?.status)).length + newPermanentUnresolved.size;
+        unresolved = Object.entries(ledger.items).filter(([id, entry]) => !excludedAttempt(id, entry) && uncertainStatuses.has(entry?.status)).length + newPermanentUnresolved.size;
         const retryable = item => {
           const prior = record(item)[item.key];
           return prior?.status === 'rejected' && Number.isInteger(item.maxRejectedAttempts) && item.maxRejectedAttempts > 1 && item.maxRejectedAttempts <= 3 &&
@@ -396,7 +400,7 @@ export function createRewardsController({ adapter, settings, scope, sources, deb
         }
       }
       if (!valid()) state.status = '本轮已停止；账号或日期变化、停用后不再发送请求';
-      else if (state.status.startsWith('正在')) state.status = unresolved ? `已确认 ${state.confirmed} 项；${unresolved} 项未收到成功状态，待核对且未重发` : `本轮完成，已确认领取 ${state.confirmed} 项`;
+      else if (state.status.startsWith('正在')) state.status = unresolved ? `已确认 ${state.confirmed} 项；${unresolved} 项暂未确认领取（通常尚未满足领取条件，未重发）` : `本轮完成，已确认领取 ${state.confirmed} 项`;
       if (valid() && rejected) state.status += `；${rejected} 项失败：${lastFailure}`;
       if (count >= 200) state.status = `本轮已达 200 项上限，已确认 ${state.confirmed} 项`;
       return snapshot();

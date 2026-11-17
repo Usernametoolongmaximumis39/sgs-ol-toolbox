@@ -1,3 +1,4 @@
+import { isReturnTask } from './return-tasks.js';
 // Reconstructed from static client evidence; only already-owned reward rights.
 // This module does not import another plugin or execute the old userscript.
 import { planMilitaryRewards } from './military-rewards.js';
@@ -112,7 +113,7 @@ function taskRequest(manager) {
 function safeTask(item, tavern = false) {
   const base = item?.baseVo;
   const description = [base?.name, base?.Name, base?._name, base?.desc, base?.Desc, base?._desc].filter(value => typeof value === 'string').join(' ');
-  return !!base && item.CanAward === true && item.HasAward !== true && item.HasExpired !== true && item.hasExpired !== true && (item.TaskCompeleMax !== true || (tavern && base.IsRepect === true)) && base.EffectClientTime !== false && base.IsEffectServerTimeStart !== false && !item.HaveSelectReward && !base.HaveSelectReward && !base.haveSelectReward && !rows(base.taskSelectReward).length && !rows(item.taskSelectReward).length && !item.IsBuyTask && !base.IsBuyTask && (tavern || (Number(item.CanRewardCount ?? 1) <= 1 && Number(base.maxComplete ?? base._maxComplete ?? 1) <= 1)) && !/兑换|兑取|换取|消耗|扣除|购买|合成|盲盒/.test(description) && !rows(item.TaskConditions ?? item.taskConditions).some(value => Number(value?.reqType ?? value?._reqType) === 30);
+  return !!base && !isReturnTask(item) && item.CanAward === true && item.HasAward !== true && item.HasExpired !== true && item.hasExpired !== true && (item.TaskCompeleMax !== true || (tavern && base.IsRepect === true)) && base.EffectClientTime !== false && base.IsEffectServerTimeStart !== false && !item.HaveSelectReward && !base.HaveSelectReward && !base.haveSelectReward && !rows(base.taskSelectReward).length && !rows(item.taskSelectReward).length && !item.IsBuyTask && !base.IsBuyTask && (tavern || (Number(item.CanRewardCount ?? 1) <= 1 && Number(base.maxComplete ?? base._maxComplete ?? 1) <= 1)) && !/兑换|兑取|换取|消耗|扣除|购买|合成|盲盒/.test(description) && !rows(item.TaskConditions ?? item.taskConditions).some(value => Number(value?.reqType ?? value?._reqType) === 30);
 }
 function latestHistory(manager) {
   const history = manager?.NewParWeiOriData?.historyDataDic;

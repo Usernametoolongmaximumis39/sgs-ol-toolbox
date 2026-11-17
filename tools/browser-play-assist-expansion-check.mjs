@@ -51,6 +51,22 @@ try {
   await page.evaluate(()=>{po.enterWindow();po.TargetSeat.Hp=1;po.Skill.SelectCardCountWhenResponse=1;runtime.tick();});
   await page.waitForFunction(()=>sent.length===3);
   assert.deepEqual(await page.evaluate(()=>sent[2][0]),[40],'one HP uses native single-card response');
+  await page.evaluate(()=>{
+    const self=scene.SelfSeatUi;self.skillItems.push({Skill:{SkillId:3796,Name:'武娘'},seat:self.seat});
+    runtime.tick();runtime.toggle(3796);window.wuniangCards=[];
+    po.Skill={ID:3796,SelectCardCountWhenResponse:1,SelectCardComplete:ids=>wuniangCards.push(ids)};
+    po.enterWindow();runtime.tick();
+  });
+  await page.waitForFunction(()=>wuniangCards.length===1);
+  assert.deepEqual(await page.evaluate(()=>wuniangCards),[[40]],'武娘 prefers armour over weapon and hands');
+  await page.evaluate(()=>runtime.tick());
+  assert.equal(await page.evaluate(()=>wuniangCards.length),1,'武娘 window submits once');
+  await page.evaluate(()=>{po.equipCardUis=po.equipCardUis.filter(c=>c.Card.CardId!==40);po.enterWindow();runtime.tick();});
+  await page.waitForFunction(()=>wuniangCards.length===2);
+  assert.deepEqual(await page.evaluate(()=>wuniangCards[1]),[30],'武娘 takes other equipment before hands');
+  await page.evaluate(()=>{po.equipCardUis=[];po.enterWindow();runtime.tick();});
+  await page.waitForFunction(()=>wuniangCards.length===3);
+  assert.deepEqual(await page.evaluate(()=>wuniangCards[2]),[1],'武娘 falls back to hands without equipment');
   await page.evaluate(targetMethods=>{
     const methods=new Function('V2t','qk',targetMethods+';return nativeMethods;')({CanOperationInGame:()=>true},{SELECT_SEAT:'SELECTE'});
     const self=scene.SelfSeatUi;self.Seat=self.seat;self.Activated=true;self.activated=true;self.AutoSelectProtect=false;

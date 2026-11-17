@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.52
+// @version      0.6.62
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  完整版：工具箱核心与全部插件
@@ -69,7 +69,7 @@
 
   // src/core/distribution.js
   var EDITION = "full";
-  var GITHUB_MARKET_URL = "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/plugins", OSS_MARKET_URL = "https://tools.3gs.xyz/sgs-toolbox/market";
+  var GITHUB_MARKET_URL = "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/plugins", OSS_MARKET_URL = "https://tools.3gs.xyz/sgs-toolbox/market", HANGZHOU_MARKET_URL = "https://chk-sgstools-hangzhou.oss-cn-hangzhou.aliyuncs.com/sgs-toolbox/market";
 
   // src/core/micro-compatibility.js
   function installMicroAPIs(win) {
@@ -8048,7 +8048,7 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56FE","version":"0.2.31","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4FEE\u590D\u5FAE\u7AEF\u6362\u5C06\u5361\u9884\u5224\u6D6E\u5C42\u8D34\u5728\u5DE6\u4E0A\u89D2\u7684\u95EE\u9898\uFF0C\u6539\u4E3A\u5728\u6E38\u620F\u533A\u57DF\u9876\u90E8\u5C45\u4E2D\uFF0C\u5E76\u907F\u5F00\u56FA\u5B9A\u5DE5\u5177\u7BB1\u4FA7\u680F\u3002","minCoreVersion":"0.6.37","categories":["game"],"icon":{"paths":["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z","M6 12 10 7l4 5 3-3 2 3","M6 16c3-3 7 3 12-1"]},"priority":11000,"description":"\u654C\u519B\u3001\u95EE\u53F7\u4E0E\u5546\u5E97\u9884\u89C8\uFF0C\u6362\u5C06\u5361\u9884\u5224\u4E0E\u8DE8\u6A21\u5F0F\u6218\u6CD5\u8BA1\u6570"}};
-`, sha256: "57a4cfd8c4c49dfd5353456041be215dfbbe2ed6ea09d790c626edb2ccf3d663" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "cards", name: "\u5361\u724C", version: "0.1.62", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8865\u5145\u53F8\u5951\u3001\u52BC\u529B\u5C55\u793A\u724C\u5806\u4FE1\u606F\u7684\u8BB0\u5F55\uFF0C\u8C03\u6574\u724C\u5806\u987A\u5E8F\u63D0\u793A\uFF1B\u5355\u9A91\u5546\u5E97\u6253\u5F00\u65F6\u6536\u8D77\u76F8\u5173\u60AC\u6D6E\u4FE1\u606F\uFF0C\u51CF\u5C11\u906E\u6321\u3002", minCoreVersion: "0.6.37", categories: ["game"], icon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, priority: 1e4, description: "\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570" }, code: `var SGSCards = (() => {
+`, sha256: "57a4cfd8c4c49dfd5353456041be215dfbbe2ed6ea09d790c626edb2ccf3d663" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "cards", name: "\u5361\u724C", version: "0.1.66", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u591A\u79CD\u6280\u80FD\u7684\u516C\u5F00\u5361\u724C\u8BB0\u5F55\u4E0E\u53EA\u8BFB\u6280\u80FD\u63D0\u793A\uFF0C\u4FEE\u590D\u754C\u5F3A\u8BC6\u660E\u724C\u8BB0\u5F55\uFF1B\u4F18\u5316\u624B\u724C\u6392\u5E8F\u548C\u5206\u7EC4\u95F4\u8DDD\uFF0C\u4FEE\u590D\u9009\u724C\u65F6\u5206\u7EC4\u6807\u7B7E\u8DF3\u52A8\u3002\u4EC5\u4F7F\u7528\u5BA2\u6237\u7AEF\u5DF2\u77E5\u4FE1\u606F\uFF0C\u65E0\u6CD5\u786E\u8BA4\u7684\u5F52\u5C5E\u548C\u987A\u5E8F\u4FDD\u7559\u672A\u77E5\uFF0C\u63D0\u793A\u4E0D\u4EE3\u4E3A\u51FA\u724C\u3002", minCoreVersion: "0.6.62", categories: ["game"], icon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, priority: 1e4, description: "\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570" }, code: `var SGSCards = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -8156,6 +8156,709 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     "M12 9l3 3-3 3-3-3Z"
   );
 
+  // src/plugins/cards/legacy-reveals.js
+  var seat = (value) => Number.isInteger(value) && value >= 0 && value < 255;
+  var ids = (values) => Array.isArray(values) && values.length > 0 && values.length <= 200 && values.every((id) => Number.isInteger(id) && id > 0 && id < 65535) && new Set(values).size === values.length;
+  var count = (value) => Number.isInteger(value) && value >= 0 && value <= 200;
+  var TARGET_TYPES = /* @__PURE__ */ new Map([
+    [4, 1],
+    [5, 1],
+    [921, 28],
+    [372, 29],
+    [811, 29],
+    [357, 28],
+    [3119, 28],
+    [501, 3],
+    [3437, 29],
+    [851, 28],
+    [361, 29]
+  ]);
+  var ZERO_PARAM = /* @__PURE__ */ new Set([851, 361]);
+  function countedGroups(values) {
+    if (!Array.isArray(values) || values.length < 2) return null;
+    const [pileCount, handCount] = values;
+    if (!count(pileCount) || !count(handCount) || values.length !== 2 + pileCount + handCount) return null;
+    const pile = values.slice(2, 2 + pileCount), hand = values.slice(2 + pileCount);
+    if (pile.length && !ids(pile) || hand.length && !ids(hand) || (/* @__PURE__ */ new Set([...pile, ...hand])).size !== pile.length + hand.length) return null;
+    return { pile, hand, pileCount, handCount };
+  }
+  function legacyReveal(state, data, seq, api) {
+    if (!data || data.isSend) return false;
+    const { reveal: reveal2, zone: zone2, locate: locate2, zoneKey: zoneKey2 } = api;
+    const eventType = api.eventType || state.lastEvent;
+    const skill = data.SpellID, type = data.Type, target = data.TargetSeatID ?? data.targetSeatID;
+    const params = data.Params, datas = data.Datas;
+    const hand = (values, owner, complete = false) => {
+      if (!seat(owner) || !ids(values)) return false;
+      reveal2(state, values, zoneKey2(5, owner), seq, complete ? values.length : void 0, complete);
+      return true;
+    };
+    const pile = (values, side) => {
+      if (!ids(values)) return false;
+      const key = zoneKey2(1), record = zone2(state, key);
+      for (const id of values) locate2(state, id, key, seq);
+      record.order = [.../* @__PURE__ */ new Set([...record.order, ...values])];
+      if (side) {
+        record[side] = values.slice();
+        const other = side === "top" ? "bottom" : "top";
+        record[other] = record[other].filter((id) => !values.includes(id));
+      }
+      record.count = Math.max(record.count, values.length);
+      return true;
+    };
+    if (eventType === "GsCRoleOptTargetNtf") {
+      if (TARGET_TYPES.get(skill) === type && (!ZERO_PARAM.has(skill) || data.Param === 0)) {
+        return hand(params, target);
+      }
+      if (skill === 3310 && type === 28 && data.Param === 0) return hand(params, data.SeatID);
+      if (skill === 774 && type === 30 && data.Param === 0 && seat(data.SrcSeatID) && ids(params)) {
+        const keys = [zoneKey2(5, data.SrcSeatID), zoneKey2(6, data.SrcSeatID)];
+        for (const id of params) {
+          const previous = state.cards[id];
+          const locations = previous?.locations?.length === 1 && keys.includes(previous.locations[0]) ? previous.locations.slice() : keys.slice();
+          state.cards[id] = { ...previous || { id, tags: [] }, locations, lastSeq: seq, seen: true };
+        }
+        return true;
+      }
+      if (skill === 3854 && type === 29) return hand(params, target);
+      if (skill === 943 && type === 28 && data.Param === 0 && params?.length === 1) return pile(params, "top");
+      if (skill === 898 && type === 28 && data.Param === 0 && Array.isArray(params) && count(params[0]) && params[0] > 0 && params.length > params[0] && params.length <= 401) {
+        return hand(params.slice(1, 1 + params[0]), data.SrcSeatID);
+      }
+      if (([987, 988].includes(skill) && type === 29 || [3483, 3903].includes(skill) && type === 28) && ([987, 988, 3483].includes(skill) ? data.Param === 1 : data.Param === 0)) {
+        const groups2 = countedGroups(params);
+        if (!groups2) return false;
+        if (groups2.hand.length && !seat(target)) return false;
+        if (groups2.pile.length) pile(groups2.pile, "top");
+        if (groups2.hand.length) hand(groups2.hand, target, true);
+        state.pending ||= {};
+        state.pending[\`legacyExchange:\${skill}:\${data.SrcSeatID}\`] = {
+          skill,
+          turn: state.turn,
+          target,
+          pile: groups2.pile,
+          hand: groups2.hand,
+          seq
+        };
+        return true;
+      }
+      if (skill === 3266 && type === 29 && data.Param === 0 && data.SrcSeatID === state.selfSeatId && Array.isArray(params) && params.length >= 4 && (params.length - 1) % 3 === 0 && params.length <= 13 && Number.isInteger(params[0])) {
+        const values = params.filter((_, index) => index % 3 === 1);
+        if (target === 255) return pile(values);
+        return hand(values, target);
+      }
+      if ([7010, 7011].includes(skill) && type === 28 && target === 255 && ids(params)) {
+        state.pending ||= {};
+        state.pending.legacyYingshi = { turn: state.turn, remaining: params.length * 2, seq };
+        return data.SrcSeatID === state.selfSeatId ? pile(params) : true;
+      }
+      if ([7016, 7017].includes(skill) && type === 28 && data.SrcSeatID === state.selfSeatId && seat(data.Param) && params?.length === 3 && ids(params)) {
+        const handKey = zoneKey2(5, data.Param), pileKey = zoneKey2(1);
+        const at = (id, key) => state.cards[id]?.locations?.length === 1 && state.cards[id].locations[0] === key && state.cards[id].seen;
+        let knownHand = params.filter((id) => at(id, handKey)), knownPile = params.filter((id) => at(id, pileKey));
+        if (knownPile.length === 2) knownHand = params.filter((id) => !knownPile.includes(id));
+        if (knownHand.length === 1) knownPile = params.filter((id) => !knownHand.includes(id));
+        const resolved = knownHand.length === 1 && knownPile.length === 2;
+        for (const id of params) {
+          const previous = state.cards[id];
+          const locations = resolved ? [knownHand.includes(id) ? handKey : pileKey] : [handKey, pileKey];
+          state.cards[id] = { ...previous || { id, tags: [] }, locations, lastSeq: seq, seen: true };
+        }
+        state.pending ||= {};
+        state.pending[\`legacyCandidates:\${skill}:\${data.SrcSeatID}\`] = {
+          skill,
+          target: data.Param,
+          turn: state.turn,
+          seq,
+          ids: params.slice(),
+          hand: resolved ? knownHand : [],
+          pile: resolved ? knownPile : []
+        };
+        return true;
+      }
+      return false;
+    }
+    if (eventType !== "CGsRoleSpellOptRep") return false;
+    if (type === 48) return hand(datas, data.SeatID);
+    if (skill === 3659 && type === 61) return hand(datas, data.SeatID);
+    if (skill === 3868 && [30, 50].includes(type)) return pile(datas, "top");
+    if (skill === 3336 && [30, 50].includes(type) && ids(datas)) return pile(datas.slice().reverse(), "bottom");
+    if (skill === 7009 && [30, 50].includes(type) && ids(datas)) {
+      state.pending ||= {};
+      const pending = state.pending.legacyYingshi;
+      if (!pending || pending.turn !== state.turn) return pile(datas, "top");
+      pending.remaining -= 1;
+      if (pending.remaining <= 0) {
+        delete state.pending.legacyYingshi;
+        return pile(datas, "top");
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // src/plugins/cards/legacy-moves.js
+  var TOP = 65280;
+  var BOTTOM = 0;
+  var UNKNOWN = 65282;
+  var TEMP_SKILLS = /* @__PURE__ */ new Set([987, 988, 3483, 3208, 3776, 3903, 7011]);
+  var idsOf = (values) => Array.isArray(values) && values.length <= 2e3 && values.every((v) => Number.isInteger(v) && v > 0 && v < 65535) && new Set(values).size === values.length ? values.slice() : [];
+  var seat2 = (value) => Number.isInteger(value) && value >= 0 && value < 255;
+  function memory(state) {
+    state.pending ||= {};
+    const epoch = \`\${state.sessionId}:\${state.turn}\`;
+    let m = state.pending.legacy;
+    if (!m || m.epoch !== epoch) state.pending.legacy = m = { epoch, session: state.sessionId, jianzhi: {}, colors: {}, judgments: {}, zuolian: {}, temp: {}, yanxi: {}, qie: {}, qi: m?.session === state.sessionId ? m.qi : {}, qiReady: m?.session === state.sessionId && m.qiReady, qiIds: m?.session === state.sessionId ? m.qiIds : void 0, moveIndex: 0 };
+    return m;
+  }
+  var exact = (state, id, key) => state.cards[id]?.locations?.length === 1 && state.cards[id].locations[0] === key;
+  var members = (state, key) => Object.values(state.cards).filter((c) => exact(state, c.id, key)).map((c) => c.id);
+  var suit = (state, id) => Number(state.cardMeta?.[id]?.suit ?? state.cardMeta?.[id]?.color);
+  function present(state, values, key) {
+    return values.length > 0 && values.every((id) => exact(state, id, key));
+  }
+  function applyQiOwners(state, m, h) {
+    if (!m.qiReady) return;
+    for (const [owner, values] of Object.entries(m.qi)) for (const id of values) {
+      const c = state.cards[id];
+      if (c && (!m.qiIds?.length || m.qiIds.includes(id)) && exact(state, id, h.zoneKey(5, Number(owner)))) {
+        c.qiOwner = Number(owner);
+        if (!c.tags.includes("\\u7081")) c.tags.push("\\u7081");
+      }
+    }
+  }
+  function traceUpdate(trace, values) {
+    if (!trace || !trace.valid || !Array.isArray(values)) return;
+    if (values.length === 1) {
+      trace.closed = true;
+      return;
+    }
+    const [from, to, logical] = values;
+    const size = trace.original.length;
+    if (values.length !== 3 || !values.every(Number.isInteger) || from < 0 || to < 0 || from >= size * 2 || to >= size * 2 || logical < 0) {
+      trace.valid = false;
+      return;
+    }
+    const id = trace.logical[from];
+    if ([987, 988].includes(trace.skill)) {
+      let selected, destination;
+      if (!id && to < size) {
+        selected = trace.original.find((card2) => trace.grid[card2] === to) || (trace.displaced?.length === 1 ? trace.displaced[0] : void 0);
+        destination = from;
+      } else if (id && trace.grid[id] < size && to >= size) {
+        selected = id;
+        destination = to;
+      }
+      if (selected) {
+        for (const previous of trace.displaced || []) if (previous !== selected)
+          trace.grid[previous] = trace.original.indexOf(previous);
+        trace.displaced = [selected];
+        trace.grid[selected] = destination;
+      }
+      trace.seen = true;
+      return;
+    }
+    if (!id) {
+      const displaced = trace.original.find((card2) => trace.grid[card2] === to);
+      if (displaced) {
+        trace.grid[displaced] = from;
+        trace.displaced = [displaced];
+      }
+      trace.seen = true;
+      return;
+    }
+    const old = trace.grid[id], swapped = trace.original.find((card2) => trace.grid[card2] === to);
+    if (swapped) trace.grid[swapped] = old;
+    else if (old < size !== to < size) {
+      for (const other of trace.original) if (other !== id && trace.grid[other] < size === old < size && trace.grid[other] > old)
+        trace.grid[other]--;
+    }
+    trace.grid[id] = to;
+    trace.logical.splice(from, 1);
+    trace.logical.splice(logical % size, 0, id);
+    trace.seen = true;
+  }
+  function legacyEvent(state, data, seq, type, h) {
+    if (data?.isSend) return;
+    const m = memory(state), skill = Number(data.SpellID), who = Number(data.SeatID);
+    if (type === "GsCUpdateRoleDataExNtf") {
+      if (!data.IsSpell || !seat2(who)) return;
+      const id = Number(data.DataID), value = data.Datas?.[0];
+      if (id === 3652) {
+        delete m.jianzhi[who];
+        if (Number.isInteger(value) && value >= 0 && (value & ~30) === 0) m.jianzhi[who] = { mask: value, cards: null };
+      } else if (id === 3653) {
+        if (m.jianzhi[who]) m.jianzhi[who].cards = null;
+      } else if (id === 3571 && [1, 2].includes(value)) m.colors[who] = value;
+    }
+    if (type === "PubGsCUseSpell") {
+      if (skill === 3653 && Number(data.EffectIndex) === 0 && m.jianzhi[who]) {
+        m.jianzhi[who].cards = m.jianzhi[who].mask ? [] : null;
+        delete m.jianzhi[who].remaining;
+      }
+      if (skill === 3571 && Number(data.EffectIndex) === 1 && seat2(who)) m.judgments[who] = [];
+      if (skill === 361 && seat2(who)) {
+        delete m.xiashu;
+        const dest = idsOf(data.DestSeatIDs?.map((v) => v + 1)).map((v) => v - 1);
+        if (dest.length === 1 && seat2(dest[0]) && dest[0] !== who) m.xiashu = { caster: who, target: dest[0], shown: [], choice: 0 };
+      }
+      if ([3730, 3731].includes(skill) && seat2(who) && Array.isArray(data.DestSeatIDs) && data.DestSeatIDs.length === 1 && seat2(data.DestSeatIDs[0])) m.qiTransfer = { victim: data.DestSeatIDs[0], recipient: who, moveIndex: m.moveIndex };
+    }
+    if (type === "CGsRoleSpellOptRep") {
+      if (skill === 361 && Number(data.Type) === 22 && who === m.xiashu?.caster && [1, 2].includes(data.Datas?.[0])) m.xiashu.choice = data.Datas[0];
+      const trace = Object.values(m.temp).find((t) => t.actor === who && t.skill === skill);
+      if (Number(data.Type) === 12) traceUpdate(trace, data.Datas);
+      if (skill === 0 && Number(data.Type) === 72) {
+        const qiIds = idsOf(data.Datas);
+        m.qiReady = qiIds.length > 0;
+        m.qiIds = qiIds;
+        for (const id of qiIds) {
+          state.cards[id] ||= { id, locations: ["?"], tags: [], seen: true, lastSeq: seq };
+          if (!state.cards[id].tags.includes("\\u7081")) state.cards[id].tags.push("\\u7081");
+        }
+        applyQiOwners(state, m, h);
+      }
+    }
+    if (type === "MsgClientOperateInGameNtf" && Number(data.Type) === 0 && Number(data.MsgID) === 13) {
+      const traces = Object.values(m.temp).filter((t) => t.actor === who && t.original.some((id) => !t.returned.includes(id)));
+      if (traces.length === 1) traceUpdate(traces[0], data.MData);
+    }
+    if (type === "GsCRoleOptTargetNtf" && [7016, 7017].includes(skill) && Number(data.SrcSeatID) === state.selfSeatId) {
+      const validated = state.pending[\`legacyCandidates:\${skill}:\${data.SrcSeatID}\`];
+      const values = validated?.turn === state.turn ? idsOf(validated.ids) : [], target = Number(validated?.target);
+      if (values.length === 3 && seat2(target)) {
+        const handKey = h.zoneKey(5, target), pile = state.zones[h.zoneKey(1)];
+        const knownHand = values.filter((id) => exact(state, id, handKey)), knownPile = values.filter((id) => pile?.top?.slice(0, 2).includes(id));
+        const handCandidates2 = values.filter((id) => !knownPile.includes(id));
+        m.yanxi[skill] = { values, target, knownHand, handCandidates: handCandidates2 };
+        if (handCandidates2.length === 1) h.reveal(state, handCandidates2, handKey, seq);
+      }
+    }
+    if (type === "ClientHappyGetFriendHandcardRep") {
+      const target = Number(data.SeatID ?? data.seatId), values = idsOf(data.CardIDs ?? data.Cards);
+      if ((data.error_id === void 0 || [0, 1].includes(Number(data.error_id))) && seat2(target) && values.length && state.turn <= 1 && (state.phase === null || state.phase === 0)) {
+        m.qi[target] = values;
+        for (const id of m.qiReady ? values.filter((id2) => !m.qiIds?.length || m.qiIds.includes(id2)) : []) {
+          h.locate(state, id, h.zoneKey(5, target), seq, "\\u7081");
+          state.cards[id].qiOwner = target;
+        }
+      }
+    }
+    if ([3730, 3731].includes(skill)) {
+      m.qiReady = true;
+      applyQiOwners(state, m, h);
+    }
+    if (type === "SmsgGamePlayerDead") {
+      const victim = Number(data.SeatID), recipient = Number(data.MurSeatID ?? data.MurderSeatID);
+      if (seat2(victim)) m.qiDeath = { victim, recipient: seat2(recipient) ? recipient : null, moveIndex: m.moveIndex };
+    }
+  }
+  function legacyBeforeMove(state, data, seq, h) {
+    if (data?.isSend) return {};
+    const m = memory(state), skill = Number(data.SpellID), from = Number(data.FromZone), to = Number(data.ToZone), count3 = Number(data.CardCount);
+    const fromSeat = Number(data.FromID), toSeat = Number(data.ToID), actor = Number(data.SrcSeatID), move2 = Number(data.MoveType);
+    const supplied = idsOf(data.CardIDs), fromKey = h.zoneKey(from, fromSeat, data.FromZoneParam);
+    const result = {};
+    m.moveIndex++;
+    if (m.jieliDeferred && m.moveIndex - m.jieliDeferred.moveIndex > 1) delete m.jieliDeferred;
+    if (!Number.isInteger(count3) || count3 <= 0 || count3 > 2e3) return result;
+    const candidate = (values) => {
+      if (values?.length === count3 && present(state, values, fromKey)) result.ids = values.slice();
+    };
+    if (skill === 3694 && from === 0 && to === 1 && Number(data.ToPosition) === TOP + 1 && move2 === 19) return { ids: [], position: UNKNOWN, destination: UNKNOWN, hiddenCreation: true };
+    if (from === to && fromSeat === toSeat && (skill === 7011 && move2 === 19 || skill === 3744 && move2 === 21)) return { suppressReveal: true };
+    if (skill === 361 && m.xiashu && from === 5 && to === 5 && fromSeat === m.xiashu.target) {
+      const x = m.xiashu;
+      if (toSeat === fromSeat && move2 === 21 && supplied.length === count3) x.shown = supplied;
+      if (toSeat === x.caster && move2 === 18) {
+        delete m.xiashu;
+        if ([1, 2].includes(x.choice) && x.shown.length && present(state, x.shown, fromKey)) {
+          if (x.choice === 1) candidate(x.shown);
+          else {
+            const all = members(state, fromKey);
+            if (state.zones[fromKey]?.count === all.length) candidate(all.filter((id) => !x.shown.includes(id)));
+          }
+        }
+      }
+    }
+    if (skill === 3653 && from === 2 && to === 5 && [8, 15].includes(move2)) {
+      const x = m.jianzhi[actor];
+      if (x?.cards) {
+        if (x.remaining === void 0) x.remaining = x.cards.filter((id) => x.mask & 1 << suit(state, id));
+        if (x.cards.every((id) => [1, 2, 3, 4].includes(suit(state, id)))) {
+          if (supplied.length) {
+            if (supplied.every((id) => x.remaining.includes(id))) x.remaining = x.remaining.filter((id) => !supplied.includes(id));
+            else x.cards = null;
+          } else if (count3 === x.remaining.length) {
+            candidate(x.remaining);
+            x.cards = null;
+          }
+        }
+      }
+    }
+    if (skill === 3571 && from === 8 && to === 5 && move2 === 8) {
+      const color2 = m.colors[toSeat], colors = color2 === 1 ? [1, 2] : color2 === 2 ? [3, 4] : [];
+      candidate((m.judgments[toSeat] || []).filter((id) => colors.includes(suit(state, id))));
+      delete m.judgments[toSeat];
+    }
+    if (skill === 3488) {
+      if (from === 5 && to === 10 && move2 === 11 && !supplied.length) {
+        const id = m.zuolian[fromSeat];
+        if (id) {
+          candidate([id]);
+          m.zuolianStack = result.ids?.[0];
+        }
+      } else if (from === 10 && [1, 2].includes(to) && move2 === 11 && !supplied.length) {
+        candidate([m.zuolianStack]);
+        delete m.zuolianStack;
+      }
+    }
+    if (skill === 780 && from === 5 && to === 1 && fromSeat !== state.currentSeatId && Number(data.FromPosition) === UNKNOWN && count3 === 1) {
+      const id = m.wengua?.[fromSeat];
+      if (id) candidate([id]);
+      if (m.wengua) delete m.wengua[fromSeat];
+    }
+    if (skill === 3543 && from === 2 && to === 1 && !supplied.length) {
+      const order = state.zones[fromKey]?.order || [];
+      if (state.zones[fromKey]?.count === order.length && order.every((id) => [1, 2, 3, 4].includes(suit(state, id)))) candidate(order.filter((id) => [1, 2].includes(suit(state, id))).reverse().slice(0, count3));
+    }
+    if ([7016, 7017].includes(skill) && to === 5 && count3 === 1 && actor === state.selfSeatId) {
+      const x = m.yanxi[skill];
+      if (x) {
+        if (supplied.length) x.values = x.values.filter((id) => !supplied.includes(id));
+        else if (from === 5 && fromSeat === x.target) candidate(x.handCandidates.filter((id) => x.values.includes(id)));
+        else if (x.values.length === 1) candidate(x.values);
+        if (result.ids) x.values = x.values.filter((id) => !result.ids.includes(id));
+      }
+    }
+    if ([3730, 3731].includes(skill) && from !== 2 && to === 5 && fromSeat !== toSeat) m.qiTransfer = { victim: fromSeat, recipient: toSeat, moveIndex: m.moveIndex };
+    if (m.qiReady && from === 2 && to === 5 && !supplied.length) {
+      const relation = [m.qiTransfer, m.qiDeath].find((x) => x && x.recipient === toSeat && m.moveIndex - x.moveIndex <= 1);
+      if (relation) {
+        const values = members(state, fromKey).filter((id) => state.cards[id].qiOwner === relation.victim);
+        candidate(values);
+        delete m.qiTransfer;
+        delete m.qiDeath;
+      }
+    }
+    if (TEMP_SKILLS.has(skill) && [8, 10].includes(from)) {
+      const trace = m.temp[\`\${actor}:\${skill}:\${from}\`];
+      if (trace?.valid && (trace.seen || trace.closed)) {
+        const available = trace.original.filter((id) => !trace.returned.includes(id) && exact(state, id, fromKey));
+        const destination = Number(data.ToPosition);
+        if (to === 1 && [TOP, BOTTOM].includes(destination)) {
+          const selected = available.filter((id) => destination === TOP ? trace.grid[id] < trace.original.length : trace.grid[id] >= trace.original.length).sort((a, b) => trace.grid[a] - trace.grid[b]);
+          if (selected.length === count3) candidate(destination === TOP ? selected.slice().reverse() : selected);
+        } else if (to === 5 && [987, 988, 3776].includes(skill)) {
+          if (skill === 3776 && available.length === count3) candidate(available);
+          else candidate((trace.displaced || []).filter((id) => available.includes(id)));
+        }
+      }
+      if (skill === 3208 && to === 5 && !supplied.length) {
+        const order = state.zones[fromKey]?.order || [];
+        if (count3 === 1 && order.length === state.zones[fromKey]?.count) candidate(order.slice(0, 1));
+      }
+    }
+    if (skill === 3483) {
+      const exchange = state.pending[\`legacyExchange:\${skill}:\${actor}\`];
+      if (from === 1 && to === 10 && Number(data.FromPosition) === UNKNOWN && exchange?.turn === state.turn && exchange.pile?.length === count3 && present(state, exchange.pile, fromKey)) {
+        result.position = TOP;
+        if (!supplied.length) result.ids = exchange.pile.slice();
+      }
+      if (from === 10 && to === 1 && Number(data.FromPosition) === UNKNOWN && !supplied.length) {
+        const hand = m.jieliHands?.[fromKey] || [];
+        const all = members(state, fromKey);
+        if (hand.length && all.length === state.zones[fromKey]?.count && all.length === count3 + hand.length) {
+          m.jieliDeferred = { source: fromKey, all, handCount: hand.length, count: count3, actor, deck: h.zoneKey(1), destination: Number(data.ToPosition), moveIndex: m.moveIndex };
+        }
+      }
+    }
+    return result;
+  }
+  function legacyAfterMove(state, data, seq, ids2, h) {
+    if (data?.isSend) return;
+    const m = memory(state), skill = Number(data.SpellID), from = Number(data.FromZone), to = Number(data.ToZone), count3 = Number(data.CardCount), move2 = Number(data.MoveType);
+    const fromSeat = Number(data.FromID), toSeat = Number(data.ToID), actor = Number(data.SrcSeatID);
+    const complete = ids2.length === count3;
+    if (skill === 3653 && from === 3 && to === 2 && move2 === 14) {
+      const x = m.jianzhi[actor];
+      if (x?.cards) {
+        if (!complete || ids2.some((id) => ![1, 2, 3, 4].includes(suit(state, id)) || x.cards.includes(id))) x.cards = null;
+        else x.cards.push(...ids2);
+      }
+    }
+    if (skill === 3571 && from === 3 && to === 8 && move2 === 6 && seat2(actor)) {
+      if (complete) m.judgments[actor] = [.../* @__PURE__ */ new Set([...m.judgments[actor] || [], ...ids2])];
+      else delete m.judgments[actor];
+    }
+    if (skill === 3488 && from === 5 && to === 5 && move2 === 21 && complete && count3 === 1) m.zuolian[fromSeat] = ids2[0];
+    if (skill === 780 && from === 5 && to === 5 && fromSeat === state.currentSeatId && complete && count3 === 1) {
+      m.wengua ||= {};
+      m.wengua[toSeat] = ids2[0];
+    }
+    if (skill === 3659 && move2 === 21 && complete) for (const id of ids2) {
+      const item = state.cards[id];
+      if (item && !item.tags.includes("\\u6377\\u609F")) item.tags = [...item.tags, "\\u6377\\u609F"].slice(-5);
+    }
+    if (skill === 3483 && to === 10 && from === 5) {
+      m.jieliHands ||= {};
+      const k = h.zoneKey(to, toSeat, data.ToZoneParam);
+      if (complete) m.jieliHands[k] = ids2.slice();
+      else delete m.jieliHands[k];
+    }
+    if (skill === 3483 && from === 10 && to === 5 && m.jieliDeferred) {
+      const d = m.jieliDeferred;
+      delete m.jieliDeferred;
+      const source = h.zoneKey(from, fromSeat, data.FromZoneParam);
+      if (source === d.source && actor === d.actor && complete && count3 === d.handCount && ids2.every((id) => d.all.includes(id))) {
+        const returned = d.all.filter((id) => !ids2.includes(id));
+        if (returned.length === d.count) {
+          returned.forEach((id) => h.locate(state, id, d.deck, seq, void 0, false));
+          if (returned.length === 1 && [TOP, BOTTOM].includes(d.destination)) {
+            const pile = h.zone(state, d.deck), side = d.destination === TOP ? "top" : "bottom";
+            pile[side] = [...returned, ...(pile[side] || []).filter((id) => !returned.includes(id))];
+          }
+        }
+      }
+    }
+    if (TEMP_SKILLS.has(skill)) {
+      if (from === 1 && [8, 10].includes(to) && complete && count3 > 1 && seat2(actor)) {
+        const original = [3208, 7011, 987, 988, 3903].includes(skill) ? ids2.slice().reverse() : ids2.slice();
+        m.temp[\`\${actor}:\${skill}:\${to}\`] = { actor, skill, original, logical: original.slice(), grid: Object.fromEntries(original.map((id, i) => [id, i])), returned: [], valid: true, seen: false, closed: false };
+      }
+      if ([8, 10].includes(from)) {
+        const trace = m.temp[\`\${actor}:\${skill}:\${from}\`];
+        if (trace) {
+          if (complete) trace.returned.push(...ids2.filter((id) => trace.original.includes(id)));
+          else trace.valid = false;
+          if (trace.returned.length >= trace.original.length) delete m.temp[\`\${actor}:\${skill}:\${from}\`];
+        }
+      }
+    }
+    if (from === 5 && !(to === 5 && fromSeat === toSeat)) {
+      if (skill !== 3488) delete m.zuolian[fromSeat];
+      if (skill !== 780 && m.wengua) delete m.wengua[fromSeat];
+      if (m.xiashu && fromSeat === m.xiashu.target && skill !== 361) delete m.xiashu;
+    }
+  }
+
+  // src/plugins/cards/skill-hints.js
+  var SUITS = ["", "\\u2665", "\\u2666", "\\u2660", "\\u2663"];
+  var TARGET_TRICKS = /^(\u65E0\u4E2D\u751F\u6709|\u6D1E\u70DB\u5148\u673A|\u987A\u624B\u7275\u7F8A|\u8FC7\u6CB3\u62C6\u6865|\u9010\u8FD1\u5F03\u8FDC|\u51B3\u6597|\u5357\u86EE\u5165\u4FB5|\u4E07\u7BAD\u9F50\u53D1|\u51FA\u5176\u4E0D\u610F|\u6C34\u6DF9\u4E03\u519B|\u968F\u673A\u5E94\u53D8|\u6D2A\u8352\u4E4B\u529B|\u540C\u821F\u5171\u6D4E|\u529B\u4E89\u4E0A\u6E38|\u79FB\u82B1\u63A5\u6728)$/;
+  var OTHER_TRICKS = /^(\u4E94\u8C37\u4E30\u767B|\u6843\u56ED\u7ED3\u4E49|\u706B\u653B|\u501F\u5200\u6740\u4EBA|\u6492\u8C46\u6210\u5175)$/;
+  var GROUPS = Object.freeze({
+    yanxi: { title: "\\u5BB4\\u620F", ids: [7016, 7017], names: ["\\u8BC6\\u4EBA", "\\u5BB4\\u620F"] },
+    luanji: { title: "\\u4E71\\u51FB", ids: [102, 891, 2143, 14162], names: ["\\u4E71\\u51FB", "\\u754C\\u4E71\\u51FB"] },
+    guhuo: { title: "\\u86CA\\u60D1", ids: [81, 469, 884], names: ["\\u86CA\\u60D1", "\\u754C\\u86CA\\u60D1"] },
+    yanjiao: { title: "\\u4E25\\u6559", ids: [945], names: ["\\u4E25\\u6559"] },
+    mizhu: { title: "\\u8D44\\u63F4", ids: [291], names: ["\\u8D44\\u63F4", "\\u754C\\u8D44\\u63F4"] },
+    chengxiang: { title: "\\u79F0\\u8C61", ids: [441, 3492], names: ["\\u79F0\\u8C61", "\\u754C\\u79F0\\u8C61"] },
+    yicheng: { title: "\\u6613\\u57CE", ids: [3440], names: ["\\u6613\\u57CE"] },
+    shuangxiong: { title: "\\u53CC\\u96C4", ids: [101, 3269, 14169], names: ["\\u53CC\\u96C4"] },
+    jizhan: { title: "\\u5409\\u5360", ids: [3033], names: ["\\u5409\\u5360"] },
+    hezhong: { title: "\\u548C\\u8877", ids: [3329], names: ["\\u548C\\u8877"] },
+    duanzao: { title: "\\u953B\\u9020", ids: [11003], names: ["\\u795E\\u5DE5", "\\u953B\\u9020"] },
+    quandao: { title: "\\u6743\\u9053", ids: [3140, 3184], names: ["\\u6743\\u9053"] },
+    xiasheng: { title: "\\u590F\\u665F", ids: [4007], names: ["\\u590F\\u665F"] },
+    jiaoyu: { title: "\\u6912\\u9047", ids: [3571], names: ["\\u6912\\u9047"] }
+  });
+  var idList = (value) => Array.isArray(value) && value.length <= 200 && value.every((id) => Number.isInteger(id) && id > 0 && id < 65535) && new Set(value).size === value.length ? value.slice() : null;
+  var seat3 = (value) => Number.isInteger(value) && value >= 0 && value < 255;
+  var ownCards = (state, kind) => Object.values(state.cards || {}).filter((card2) => card2.locations?.length === 1 && card2.locations[0] === \`\${kind}:\${state.selfSeatId}\`).map((card2) => card2.id);
+  var identity = (state) => \`\${state.sessionId}:\${state.deckStartSeq}\`;
+  function reduceSkillHints(state, data, seq, type) {
+    if (!state || !data || data.isSend) return;
+    if (["toolbox:gap", "MsgReconnectGame", "MsgGameOver", "ClientLeavetableRep", "ClientLoginRep"].includes(type)) {
+      delete state.hintContext;
+      return;
+    }
+    let context = state.hintContext;
+    if (!context || context.identity !== identity(state)) context = state.hintContext = { identity: identity(state), turn: state.turn, windows: {}, luanji: [] };
+    if (context.turn !== state.turn || type === "MsgGameTurnNtf" || type === "GsCGamephaseNtf" && Number(data.Round) === 0) {
+      context.turn = state.turn;
+      context.windows = {};
+      context.luanji = [];
+    }
+    const skill = Number(data.SpellID), ids2 = idList(data.CardIDs), params = idList(data.Params);
+    const save = (key, cards, extra = {}) => {
+      if (cards?.length) context.windows[key] = { ids: cards.slice(), seq, ...extra };
+      else delete context.windows[key];
+    };
+    if (type === "PubGsCUseSpell" && skill === 2143 && Number(data.SeatID) === state.selfSeatId && ids2) context.luanji = [.../* @__PURE__ */ new Set([...context.luanji, ...ids2])].slice(-200);
+    if (type === "GsCRoleOptTargetNtf") {
+      const param = Number(data.Param), opt = Number(data.Type);
+      if ([7016, 7017].includes(skill) && Number(data.SrcSeatID) === state.selfSeatId && params?.length === 3 && seat3(param)) save("yanxi", params, { target: param });
+      if (skill === 945 && param === 0 && opt === 28) save("yanjiao", params || ids2);
+      if (skill === 3440 && param === 0 && Number(data.SeatID) === state.selfSeatId) save("yicheng", opt === 28 ? params : null);
+      if (skill === 11003 && param === 0 && Number(data.SrcSeatID) !== state.selfSeatId && opt === 28) save("duanzao", params);
+    }
+    if (type === "PubGsCMoveCard") {
+      const count3 = Number(data.CardCount);
+      if ([441, 3492].includes(skill) && Number(data.ToZone) === 8 && Number(data.MoveType) === 6) save("chengxiang", ids2?.length === count3 ? ids2 : null, { skill });
+      if (skill === 3033 && Number(data.FromZone) === 1 && Number(data.ToZone) === 8) save("jizhan", ids2?.length === 1 && count3 === 1 ? ids2 : null);
+      if (skill === 3329 && Number(data.FromID) === state.currentSeatId && ids2?.length === count3) save("hezhong", ids2.slice(0, 1));
+      if (skill === 3571 && Number(data.FromZone) === 3 && Number(data.ToZone) === 8 && Number(data.MoveType) === 6 && ids2?.length === count3 && seat3(Number(data.SrcSeatID))) {
+        const old = context.windows.jiaoyu;
+        save("jiaoyu", [.../* @__PURE__ */ new Set([...old?.caster === Number(data.SrcSeatID) ? old.ids : [], ...ids2])], { caster: Number(data.SrcSeatID) });
+      }
+      for (const key of ["yanjiao", "yicheng", "duanzao", "chengxiang"]) {
+        const current = context.windows[key];
+        if (current && current.seq !== seq && ids2?.some((id) => current.ids.includes(id))) delete context.windows[key];
+      }
+    }
+  }
+  function subsetSum(cards, getMeta, target = 13) {
+    const dp = /* @__PURE__ */ new Map([[0, []]]);
+    for (const id of cards) {
+      const n = getMeta(id).number;
+      for (const [sum, choice] of [...dp].sort((a, b) => b[0] - a[0])) {
+        if (sum + n <= target && (!dp.has(sum + n) || dp.get(sum + n).length < choice.length + 1)) dp.set(sum + n, [...choice, id]);
+      }
+    }
+    return dp;
+  }
+  function subsetChoices(cards, getMeta, target = 13, limit = 15) {
+    const dp = /* @__PURE__ */ new Map([[0, [[]]]]);
+    for (const id of cards) {
+      const point = getMeta(id).number;
+      for (const [total, choices] of [...dp].sort((a, b) => b[0] - a[0])) {
+        if (total + point > target) continue;
+        const next = [...dp.get(total + point) || [], ...choices.map((choice) => [...choice, id])];
+        next.sort((a, b) => b.length - a.length || a.join(",").localeCompare(b.join(",")));
+        dp.set(total + point, next.slice(0, limit));
+      }
+    }
+    return dp.get(target) || [];
+  }
+  function equalPartition(cards, getMeta) {
+    let dp = /* @__PURE__ */ new Map([[0, { left: [], right: [] }]]);
+    for (const id of cards) {
+      const next = new Map(dp), n = getMeta(id).number;
+      for (const [difference, choice] of dp) {
+        for (const side of ["left", "right"]) {
+          const key = difference + (side === "left" ? n : -n), candidate = { ...choice, [side]: [...choice[side], id] };
+          const old = next.get(key);
+          if (!old || candidate.left.length + candidate.right.length > old.left.length + old.right.length) next.set(key, candidate);
+        }
+      }
+      dp = next;
+    }
+    const best = dp.get(0);
+    return best?.left.length && best?.right.length ? best : null;
+  }
+  function combinations(cards, count3, cap = 512) {
+    const result = [];
+    function walk(start, chosen) {
+      if (result.length >= cap) return;
+      if (chosen.length === count3) {
+        result.push(chosen.slice());
+        return;
+      }
+      for (let index = start; index <= cards.length - count3 + chosen.length && result.length < cap; index++) walk(index + 1, [...chosen, cards[index]]);
+    }
+    walk(0, []);
+    return result;
+  }
+  function skillHints(state, options = {}) {
+    if (!state?.active) return [];
+    const getMeta = (id) => {
+      const value = options.getMeta?.(id) || {};
+      return { ...value, name: String(value.name || \`\\u724C\${id}\`), suit: Number(value.suit) || 0, number: Number(value.number) || 0, type: Number(value.type) || 0 };
+    };
+    const skills = Array.from(options.skills || []), numeric = new Set(skills.map((value) => Number(typeof value === "object" ? value.SkillId ?? value.id : value))), names = new Set(skills.map((value) => String(typeof value === "object" ? value.name ?? value.Name ?? "" : value)));
+    const has = (key) => Boolean(windows[key]) || GROUPS[key].ids.some((id) => numeric.has(id)) || GROUPS[key].names.some((name) => names.has(name));
+    const context = state.hintContext?.identity === identity(state) ? state.hintContext : { windows: {}, luanji: [] };
+    const windows = context.windows || {};
+    const hand = idList(options.selfHand) || ownCards(state, 5), equipment = idList(options.selfEquipment) || ownCards(state, 6);
+    const handLabel = Number(state.zones?.[\`5:\${state.selfSeatId}\`]?.count) > hand.length ? "\\u5DF2\\u77E5\\u624B\\u724C" : "\\u624B\\u724C";
+    const pointsKnown = (cards) => cards.length <= 32 && cards.every((id) => getMeta(id).number >= 1 && getMeta(id).number <= 13);
+    const colour = (cards) => cards.reduce((sum2, id) => {
+      const s = getMeta(id).suit;
+      if (s === 1 || s === 2) sum2.red++;
+      else if (s === 3 || s === 4) sum2.black++;
+      else sum2.unknown++;
+      return sum2;
+    }, { red: 0, black: 0, unknown: 0 });
+    const format = (cards) => cards.map((id) => \`\${getMeta(id).name}\${getMeta(id).number || "?"}\`).join("\\u3001");
+    const sum = (cards) => cards.reduce((total, id) => total + getMeta(id).number, 0);
+    const rows = [], add = (id, text, extra = {}) => rows.push({ id, title: GROUPS[id].title, text, ...extra });
+    const deck = [...new Set(state.deckIds || [])].filter((id) => !state.cards?.[id]?.seen);
+    const poolLabel = state.seenHistoryComplete ? "\\u672A\\u89C1\\u724C" : "\\u5DF2\\u77E5\\u5F00\\u5C40\\u724C\\u8868\\u4E2D\\u5C1A\\u672A\\u89C2\\u5BDF\\u7684\\u724C\\uFF08\\u8BB0\\u5F55\\u4E0D\\u5B8C\\u6574\\uFF09";
+    if (has("xiasheng")) {
+      const c = colour(hand);
+      add("xiasheng", \`\${handLabel}\\uFF1A\\u9ED1\\u8272 \${c.black} \\xB7 \\u7EA2\\u8272 \${c.red}\${c.unknown ? \` \\xB7 \\u82B1\\u8272\\u672A\\u77E5 \${c.unknown}\` : ""}\`, { counts: c });
+    }
+    if (has("quandao")) {
+      const slash = hand.filter((id) => /^(\u6740|\u706B\u6740|\u706B\u7130\u6740|\u96F7\u6740|\u96F7\u7535\u6740|\u51B0\u6740|\u51B0\u971C\u6740)$/.test(getMeta(id).name)).length, trick = hand.filter((id) => getMeta(id).type === 2 && !/\u4E50\u4E0D\u601D\u8700|\u5175\u7CAE\u5BF8\u65AD|\u95EA\u7535/.test(getMeta(id).name)).length;
+      add("quandao", \`\${handLabel}\\uFF1A\\u6740 \${slash} \\xB7 \\u666E\\u901A\\u9526\\u56CA \${trick}\`, { counts: { slash, trick } });
+    }
+    if (has("shuangxiong")) {
+      const c = colour([...hand, ...equipment]);
+      add("shuangxiong", \`\\u624B\\u724C\\u4E0E\\u88C5\\u5907\\uFF1A\\u7EA2 \${c.red} \\xB7 \\u9ED1 \${c.black}\${c.unknown ? \` \\xB7 \\u672A\\u77E5 \${c.unknown}\` : ""}\`, { counts: c });
+    }
+    if (has("luanji")) {
+      const counts = [1, 2, 3, 4].map((s) => hand.filter((id) => getMeta(id).suit === s).length), used = [...new Set((context.luanji || []).map((id) => getMeta(id).suit).filter((s) => s >= 1 && s <= 4))];
+      add("luanji", \`\${counts.map((n, i) => \`\${SUITS[i + 1]} \${n}\`).join(" \\xB7 ")}\${numeric.has(2143) ? \`\\uFF1B\\u672C\\u56DE\\u5408\\u5DF2\\u7528 \${used.map((s) => SUITS[s]).join(" ") || (state.historyComplete ? "\\u65E0" : "\\u672A\\u77E5")}\` : ""}\`, { usedSuits: used });
+    }
+    if (has("mizhu") && pointsKnown(hand)) {
+      const choices = subsetChoices(hand, getMeta), choice = choices[0];
+      add("mizhu", choice ? choices.map((ids2) => \`\${format(ids2)} = 13\`).join("\\uFF1B") : \`\${handLabel}\\u6CA1\\u6709\\u70B9\\u6570\\u548C\\u4E3A 13 \\u7684\\u7EC4\\u5408\`, { cardIds: choice || [], choices });
+    }
+    if (has("yanxi") && windows.yanxi) {
+      const w = windows.yanxi, top = state.zones?.["1:255"]?.top || [], lines = w.ids.map((id) => {
+        const locations = state.cards?.[id]?.locations || [], knownHand = locations.length === 1 && locations[0] === \`5:\${w.target}\`, knownPile = locations.length === 1 && locations[0] === "1:255" && top.includes(id);
+        return \`\${getMeta(id).name}\\uFF1A\${knownHand ? "\\u5DF2\\u77E5\\u624B\\u724C" : knownPile ? "\\u5DF2\\u77E5\\u724C\\u5806\\u724C" : "\\u5F52\\u5C5E\\u672A\\u77E5"}\`;
+      });
+      add("yanxi", lines.join("\\uFF1B"), { cardIds: w.ids });
+    }
+    if (has("yanjiao") && windows.yanjiao && pointsKnown(windows.yanjiao.ids)) {
+      const ids2 = windows.yanjiao.ids, p = equalPartition(ids2, getMeta);
+      add("yanjiao", p ? \`\${format(p.left)} = \${format(p.right)}\\uFF08\\u5404 \${sum(p.left)}\\uFF1B\\u4F59 \${ids2.length - p.left.length - p.right.length} \\u5F20\\uFF09\` : "\\u8FD9\\u7EC4\\u724C\\u65E0\\u6CD5\\u5206\\u4E3A\\u70B9\\u6570\\u548C\\u76F8\\u7B49\\u7684\\u4E24\\u4E2A\\u975E\\u7A7A\\u7EC4", { partition: p });
+    }
+    if (has("chengxiang") && windows.chengxiang && pointsKnown(windows.chengxiang.ids)) {
+      const w = windows.chengxiang, choices = [...subsetSum(w.ids, getMeta)].filter(([n]) => n > 0).sort((a, b) => (w.skill === 3492 ? Number(b[0] === 13) - Number(a[0] === 13) : 0) || b[1].length - a[1].length || b[0] - a[0]), best = choices[0];
+      if (best) add("chengxiang", \`\${format(best[1])}\\uFF08\${best[1].length} \\u5F20\\uFF0C\\u70B9\\u6570\\u548C \${best[0]}\\uFF09\`, { cardIds: best[1] });
+    }
+    if (has("yicheng") && windows.yicheng && pointsKnown(windows.yicheng.ids) && pointsKnown(hand)) {
+      const shown = windows.yicheng.ids.slice().sort((a, b) => getMeta(a).number - getMeta(b).number), own = hand.slice().sort((a, b) => getMeta(a).number - getMeta(b).number), exchanges = [];
+      for (let count3 = 1; count3 <= Math.min(5, hand.length, shown.length) && exchanges.length < 5; count3++) for (const from of combinations(own, count3)) {
+        for (const to of combinations(shown, count3)) {
+          if (sum(from) > sum(to)) {
+            exchanges.push({ from, to });
+            if (exchanges.length >= 5) break;
+          }
+        }
+        if (exchanges.length >= 5) break;
+      }
+      add("yicheng", exchanges.length ? exchanges.map((x) => \`\${format(x.from)} \\u2192 \${format(x.to)}\`).join("\\uFF1B") : "\\u672C\\u6B21\\u5019\\u9009\\u8303\\u56F4\\u5185\\u672A\\u627E\\u5230\\u589E\\u52A0\\u5C55\\u793A\\u724C\\u70B9\\u6570\\u548C\\u7684\\u4EA4\\u6362", { exchanges, limited: true });
+    }
+    for (const key of ["jizhan", "hezhong"]) if (has(key) && windows[key] && pointsKnown(windows[key].ids) && deck.length) {
+      const point = getMeta(windows[key].ids[0]).number, valid = deck.filter((id) => getMeta(id).number >= 1 && getMeta(id).number <= 13), counts = { greater: valid.filter((id) => getMeta(id).number > point).length, less: valid.filter((id) => getMeta(id).number < point).length, equal: valid.filter((id) => getMeta(id).number === point).length };
+      if (key === "hezhong") {
+        const grouped = [TARGET_TRICKS, OTHER_TRICKS].map((pattern) => {
+          const cards = valid.filter((id) => pattern.test(getMeta(id).name));
+          return { greater: cards.filter((id) => getMeta(id).number > point).length, less: cards.filter((id) => getMeta(id).number < point).length, equal: cards.filter((id) => getMeta(id).number === point).length };
+        });
+        add(key, \`\${poolLabel}\\u4E0E \${point} \\u6BD4\\uFF1A\\u76EE\\u6807\\u7C7B\\u9526\\u56CA\\u5927 \${grouped[0].greater} \\xB7 \\u5C0F \${grouped[0].less}\\uFF1B\\u5176\\u4F59\\u5E38\\u7528\\u9526\\u56CA\\u5927 \${grouped[1].greater} \\xB7 \\u5C0F \${grouped[1].less}\\uFF1B\\u8FD9\\u4E0D\\u662F\\u5B9E\\u65F6\\u724C\\u5806\\u6982\\u7387\`, { counts, trickCounts: grouped });
+      } else add(key, \`\${poolLabel}\\u4E0E \${point} \\u6BD4\\uFF1A\\u5927 \${counts.greater} \\xB7 \\u5C0F \${counts.less} \\xB7 \\u5E73 \${counts.equal}\\uFF1B\\u8FD9\\u4E0D\\u662F\\u5B9E\\u65F6\\u724C\\u5806\\u6982\\u7387\`, { counts });
+    }
+    if (has("guhuo") && deck.length) {
+      const counts = /* @__PURE__ */ new Map();
+      for (const id of deck) {
+        const m = getMeta(id);
+        if (m.type === 1 || m.type === 2 && !/\u4E50\u4E0D\u601D\u8700|\u5175\u7CAE\u5BF8\u65AD|\u95EA\u7535/.test(m.name)) counts.set(m.name, (counts.get(m.name) || 0) + 1);
+      }
+      add("guhuo", \`\${poolLabel}\\uFF1A\${[...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-CN")).slice(0, 16).map(([name, n]) => \`\${name} \${n}\`).join(" \\xB7 ")}\\uFF1B\\u4E0D\\u80FD\\u636E\\u6B64\\u5224\\u65AD\\u4ED6\\u4EBA\\u662F\\u5426\\u8BF4\\u8C0E\`, { counts: Object.fromEntries(counts) });
+    }
+    if (has("duanzao") && windows.duanzao) add("duanzao", \`\\u5DF2\\u5C55\\u793A\\uFF1A\${format(windows.duanzao.ids)}\`, { cardIds: windows.duanzao.ids });
+    if (has("jiaoyu") && windows.jiaoyu) {
+      const c = colour(windows.jiaoyu.ids);
+      add("jiaoyu", \`\\u5DF2\\u89C2\\u5BDF\\u5224\\u5B9A\\u724C\\uFF1A\\u7EA2 \${c.red} \\xB7 \\u9ED1 \${c.black}\${c.unknown ? \` \\xB7 \\u672A\\u77E5 \${c.unknown}\` : ""}\`, { counts: c, cardIds: windows.jiaoyu.ids });
+    }
+    return rows;
+  }
+  var SKILL_HINT_GROUPS = GROUPS;
+
   // src/plugins/cards/model.js
   var REFERENCE = Object.freeze({
     version: "1.6.76",
@@ -8169,6 +8872,8 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
   var CONSERVATIVE = new Set(CONSERVATIVE_SKILLS);
   var ZUIFENG = 4025;
   var OPT_SKILL_FLAG1 = 28;
+  var QIANGZHI_PO = 3876;
+  var OPT_SEL_CARD_HAND = 3;
   var SIQI = 3543;
   var JIELI = 3483;
   var orderedSiqiMove = (data) => Number(data.SpellID) === SIQI && (Number(data.ToZone) === 1 && Number(data.ToPosition) === POSITION.bottom && Number(data.CardCount) === 1 || Number(data.FromZone) === 1 && Number(data.FromPosition) === POSITION.bottom);
@@ -8194,7 +8899,9 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     "SmsgGamePlayerDead",
     "MsgGameOver",
     "ClientLeavetableRep",
-    "ClientLoginRep"
+    "ClientLoginRep",
+    "GsCUpdateRoleDataExNtf",
+    "MsgClientOperateInGameNtf"
   ]);
   var int = (value) => value === null || value === void 0 || value === "" || typeof value === "boolean" ? null : Number.isInteger(Number(value)) ? Number(value) : null;
   var list = (values) => values && typeof values === "object" && Number.isInteger(values.length) && values.length >= 0 && values.length <= 1e4 ? Array.from(values) : [];
@@ -8217,6 +8924,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       mode: { id: null, sceneName: "", flags: [] },
       seats: {},
       cards: {},
+      cardMeta: {},
       zones: {},
       deckIds: [],
       deckStartSeq: 0,
@@ -8232,11 +8940,11 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       lastEvent: null
     };
   }
-  function zoneKey(kind, seat = 255, param = 0) {
+  function zoneKey(kind, seat4 = 255, param = 0) {
     kind = int(kind) ?? 0;
     if (kind === 9) kind = 1;
-    if (GLOBAL_ZONES.has(kind)) seat = 255;
-    return \`\${kind}:\${int(seat) ?? 255}\${kind === 4 || kind === 8 || kind === 10 ? ":" + (int(param) ?? 0) : ""}\`;
+    if (GLOBAL_ZONES.has(kind)) seat4 = 255;
+    return \`\${kind}:\${int(seat4) ?? 255}\${kind === 4 || kind === 8 || kind === 10 ? ":" + (int(param) ?? 0) : ""}\`;
   }
   function zone(state, key) {
     if (!state.zones[key]) {
@@ -8289,23 +8997,29 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     if (state.mode.sceneName === "SWJGScene") result.push("swjg");
     state.mode.flags = result;
   }
-  function reveal(state, ids, key, seq, count2, authoritative = false) {
+  function reveal(state, ids2, key, seq, count3, authoritative = false) {
     const target = zone(state, key);
-    if (authoritative && count2 === ids.length) {
+    if (authoritative && count3 === ids2.length) {
       for (const item of Object.values(state.cards)) {
-        if (item.locations.includes(key) && !ids.includes(item.id)) {
+        if (item.locations.includes(key) && !ids2.includes(item.id)) {
           item.locations = item.locations.filter((location) => location !== key);
           if (!item.locations.length) item.locations = ["?"];
         }
       }
-      target.order = ids.slice();
+      target.order = ids2.slice();
     }
-    for (const id of ids) locate(state, id, key, seq);
-    if (Number.isInteger(count2) && count2 >= ids.length) target.count = count2;
-    else target.count = Math.max(target.count, ids.length);
-    target.order = [.../* @__PURE__ */ new Set([...target.order, ...ids])];
+    for (const id of ids2) locate(state, id, key, seq);
+    if (Number.isInteger(count3) && count3 >= ids2.length) target.count = count3;
+    else target.count = Math.max(target.count, ids2.length);
+    target.order = [.../* @__PURE__ */ new Set([...target.order, ...ids2])];
   }
   function snapshot(state, data, seq) {
+    state.cardMeta ||= {};
+    for (const [id, value] of Object.entries(data.cardMeta || {}).slice(0, 2048)) {
+      if (!state.deckIds.includes(Number(id)) || !value || typeof value !== "object") continue;
+      if (Number.isInteger(value.suit) && value.suit >= 1 && value.suit <= 4 && Number.isInteger(value.number) && value.number >= 1 && value.number <= 13)
+        state.cardMeta[id] = { suit: value.suit, number: value.number, type: Number.isInteger(value.type) ? value.type : 0 };
+    }
     if (typeof data.inGame === "boolean") state.active = data.inGame;
     if (validSeat(data.selfSeatId)) state.selfSeatId = Number(data.selfSeatId);
     state.mode.id = data.modeId ?? state.mode.id;
@@ -8337,16 +9051,16 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       reveal(state, cardIds(own), zoneKey(5, seatId), seq, int(source.handCount), seatId === state.selfSeatId && Array.isArray(source.handCardIds ?? source.handCards));
     }
     if (validSeat(state.selfSeatId) && data.handCardIds) {
-      const ids = cardIds(data.handCardIds);
-      reveal(state, ids, zoneKey(5, state.selfSeatId), seq, ids.length, true);
+      const ids2 = cardIds(data.handCardIds);
+      reveal(state, ids2, zoneKey(5, state.selfSeatId), seq, ids2.length, true);
     }
     flags(state);
   }
-  function recent(state, seatId, ids, observed = true) {
-    if (!validSeat(seatId) || !ids.length) return;
-    if (observed) for (const id of ids) card(state, id).seen = true;
-    state.recentBySeat[seatId] = ids.at(-1);
-    if (Number(seatId) === state.currentSeatId) state.recentCurrent = ids.at(-1);
+  function recent(state, seatId, ids2, observed = true) {
+    if (!validSeat(seatId) || !ids2.length) return;
+    if (observed) for (const id of ids2) card(state, id).seen = true;
+    state.recentBySeat[seatId] = ids2.at(-1);
+    if (Number(seatId) === state.currentSeatId) state.recentCurrent = ids2.at(-1);
   }
   function startTurn(state, seatId, turn) {
     state.skillUses = { complete: true, counts: {} };
@@ -8354,28 +9068,29 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     state.turn = Number.isFinite(Number(turn)) ? Number(turn) : state.turn + 1;
     state.discardTurn = [];
     state.recentCurrent = null;
+    for (const key of Object.keys(state.pending)) if (key.startsWith("legacyExchange:") || key.startsWith("legacyCandidates:") || key === "legacyYingshi") delete state.pending[key];
   }
-  function removeOrder(source, ids, count2, position) {
-    const set = new Set(ids);
+  function removeOrder(source, ids2, count3, position) {
+    const set = new Set(ids2);
     source.order = source.order.filter((id) => !set.has(id));
     if (source.kind !== 1) return;
     if (position === POSITION.top) {
-      source.top = source.top.slice(count2);
+      source.top = source.top.slice(count3);
       source.bottom = source.bottom.filter((id) => !set.has(id));
     } else if (position === POSITION.bottom) {
-      source.bottom = source.bottom.slice(count2);
+      source.bottom = source.bottom.slice(count3);
       source.top = source.top.filter((id) => !set.has(id));
     } else {
       source.top = [];
       source.bottom = [];
     }
   }
-  function addOrder(target, ids, count2, position) {
-    target.order = [...target.order.filter((id) => !ids.includes(id)), ...ids];
+  function addOrder(target, ids2, count3, position) {
+    target.order = [...target.order.filter((id) => !ids2.includes(id)), ...ids2];
     if (target.kind !== 1) return;
-    const entries = Array.from({ length: count2 }, (_, index) => ids[index] ?? null);
-    if (position === POSITION.top) target.top = [...entries, ...target.top.filter((id) => !ids.includes(id))];
-    else if (position === POSITION.bottom) target.bottom = [...entries, ...target.bottom.filter((id) => !ids.includes(id))];
+    const entries = Array.from({ length: count3 }, (_, index) => ids2[index] ?? null);
+    if (position === POSITION.top) target.top = [...entries, ...target.top.filter((id) => !ids2.includes(id))];
+    else if (position === POSITION.bottom) target.bottom = [...entries, ...target.bottom.filter((id) => !ids2.includes(id))];
     else {
       target.top = [];
       target.bottom = [];
@@ -8383,7 +9098,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     target.top = target.top.slice(0, target.count);
     target.bottom = target.bottom.slice(0, target.count);
   }
-  function inferIds(state, payload, source, supplied, count2, position) {
+  function inferIds(state, payload, source, supplied, count3, position) {
     const skill = Number(payload.SpellID) || 0;
     let correlated = null;
     const consume = (key) => {
@@ -8402,34 +9117,34 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     }
     if (source.kind === 5 && !(Number(payload.ToZone) === 5 && Number(payload.ToID) === Number(payload.FromID))) {
       const shown = consume(\`zexing:\${payload.FromID}\`);
-      if (skill === 3854 && Number(payload.MoveType) === 18 && Number(payload.ToZone) === 5 && count2 === 1 && shown?.turn === state.turn) correlated = [shown.id];
+      if (skill === 3854 && Number(payload.MoveType) === 18 && Number(payload.ToZone) === 5 && count3 === 1 && shown?.turn === state.turn) correlated = [shown.id];
     }
-    if (supplied.length === count2) return supplied;
+    if (supplied.length === count3) return supplied;
     if (CONSERVATIVE.has(skill) && !orderedSiqiMove(payload)) return [];
-    if (correlated?.length === count2) return correlated;
-    if (skill === 3511 && source.kind === 2 && Number(payload.ToZone) === 5 && state.pending.gainedDiscard?.length === count2) {
-      const ids = state.pending.gainedDiscard;
+    if (correlated?.length === count3) return correlated;
+    if (skill === 3511 && source.kind === 2 && Number(payload.ToZone) === 5 && state.pending.gainedDiscard?.length === count3) {
+      const ids2 = state.pending.gainedDiscard;
       delete state.pending.gainedDiscard;
-      return ids;
+      return ids2;
     }
     if (source.kind === 1) {
       const ordered = position === POSITION.top ? source.top : position === POSITION.bottom ? source.bottom : [];
-      const prefix2 = ordered.slice(0, count2);
-      if (prefix2.length === count2 && prefix2.every((id) => id > 0)) return prefix2;
+      const prefix2 = ordered.slice(0, count3);
+      if (prefix2.length === count3 && prefix2.every((id) => id > 0)) return prefix2;
     }
-    if (source.count === count2) {
+    if (source.count === count3) {
       const known = Object.values(state.cards).filter((item) => item.locations.length === 1 && item.locations[0] === source.key).map((item) => item.id);
-      if (known.length === count2) return known;
+      if (known.length === count3) return known;
     }
     return [];
   }
   function move(state, data, seq) {
-    const count2 = int(data.CardCount);
-    if (count2 === null || count2 < 0 || count2 > 2e3) {
+    const count3 = int(data.CardCount);
+    if (count3 === null || count3 < 0 || count3 > 2e3) {
       note(state, "invalid-move", "\\u79FB\\u724C\\u6570\\u91CF\\u65E0\\u6548\\uFF0C\\u5DF2\\u5FFD\\u7565\\u8BE5\\u4E8B\\u4EF6", seq);
       return;
     }
-    if (!count2 || Number(data.MoveType) === 0 || Number(data.ToZone) === 11) return;
+    if (!count3 || Number(data.MoveType) === 0 || Number(data.ToZone) === 11) return;
     if (int(data.FromZone) === null || int(data.ToZone) === null) {
       forget(state, "\\u79FB\\u724C\\u7F3A\\u5C11\\u724C\\u533A\\uFF0C\\u9700\\u91CD\\u65B0\\u786E\\u8BA4\\u660E\\u724C", seq);
       return;
@@ -8438,28 +9153,32 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     const to = zoneKey(data.ToZone, data.ToID, data.ToZoneParam);
     const source = zone(state, from), target = zone(state, to);
     if (state.deckRemaining !== null && from !== to) {
-      if (source.kind === 1) state.deckRemaining = Math.max(0, state.deckRemaining - count2);
-      if (target.kind === 1) state.deckRemaining += count2;
+      if (source.kind === 1) state.deckRemaining = Math.max(0, state.deckRemaining - count3);
+      if (target.kind === 1) state.deckRemaining += count3;
     }
     const skill = Number(data.SpellID) || 0;
     let position = int(data.FromPosition) ?? POSITION.unknown;
     let destination = int(data.ToPosition) ?? POSITION.unknown;
     let supplied = cardIds(data.CardIDs);
-    if (skill === 713 && Number(data.MoveType) === 21 && Array.isArray(data.CardIDs) && count2 === data.CardIDs.length - 2) {
+    const legacy = legacyBeforeMove(state, data, seq, legacyHelpers);
+    if (legacy.position !== void 0) position = legacy.position;
+    if (legacy.destination !== void 0) destination = legacy.destination;
+    if (legacy.hiddenCreation) supplied = [];
+    if (skill === 713 && Number(data.MoveType) === 21 && Array.isArray(data.CardIDs) && count3 === data.CardIDs.length - 2) {
       const raw = data.CardIDs.slice(1);
       raw.splice(Number(data.CardIDs[0]), 1);
       supplied = cardIds(raw);
     }
-    if (supplied.length && supplied.length !== count2) {
+    if (supplied.length && supplied.length !== count3) {
       note(state, "partial-card-ids", "\\u79FB\\u724C\\u6570\\u91CF\\u4E0E\\u516C\\u5F00\\u724C\\u53F7\\u4E0D\\u4E00\\u81F4\\uFF0C\\u6309\\u672A\\u77E5\\u79FB\\u52A8\\u8BB0\\u5F55", seq);
       supplied = [];
     }
     if (source.kind === 1 && position === POSITION.unknown) {
-      if (START_TOP_SKILLS.has(skill) || Number(data.MoveType) === 13 && count2 === 1 || skill === 795 && target.kind === 4 && count2 === 1) position = POSITION.top;
-      if (skill === 3776 && target.kind === 10 && count2 === 3 || skill === 3101 && target.kind === 5 && count2 === 1) position = POSITION.bottom;
-      if ([7016, 7017].includes(skill) && !state.mode.flags.includes("guozhan") && target.kind === 5 && count2 === 1) position = POSITION.top;
+      if (START_TOP_SKILLS.has(skill) || Number(data.MoveType) === 13 && count3 === 1 || skill === 795 && target.kind === 4 && count3 === 1) position = POSITION.top;
+      if (skill === 3776 && target.kind === 10 && count3 === 3 || skill === 3101 && target.kind === 5 && count3 === 1) position = POSITION.bottom;
+      if ([7016, 7017].includes(skill) && !state.mode.flags.includes("guozhan") && target.kind === 5 && count3 === 1) position = POSITION.top;
     }
-    if (CONSERVATIVE.has(skill) && !supplied.length && !orderedSiqiMove(data)) {
+    if (CONSERVATIVE.has(skill) && !supplied.length && !legacy.ids?.length && !orderedSiqiMove(data)) {
       note(state, \`skill:\${skill}\`, \`\\u6280\\u80FD \${skill} \\u7684\\u9690\\u85CF\\u79FB\\u724C\\u4EC5\\u4FDD\\u7559\\u53EF\\u80FD\\u5F52\\u5C5E\`, seq);
       source.top = [];
       source.bottom = [];
@@ -8469,15 +9188,16 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     if (from === to && !(source.kind === 1 && position !== destination)) {
       if (skill === 3854 && source.kind === 5 && Number(data.MoveType) === 21) {
         delete state.pending[\`zexing:\${data.FromID}\`];
-        if (count2 === 1 && supplied.length === 1) state.pending[\`zexing:\${data.FromID}\`] = { id: supplied[0], turn: state.turn };
+        if (count3 === 1 && supplied.length === 1) state.pending[\`zexing:\${data.FromID}\`] = { id: supplied[0], turn: state.turn };
       }
-      if (supplied.length) reveal(state, supplied, from, seq);
-      if (Number(data.MoveType) === 24 && source.kind === 5 && supplied.length === count2) {
+      if (supplied.length && !legacy.suppressReveal) reveal(state, supplied, from, seq);
+      if (Number(data.MoveType) === 24 && source.kind === 5 && supplied.length === count3) {
         for (const item of Object.values(state.cards)) {
           if (item.locations.includes(from) && !supplied.includes(item.id)) item.locations = ["?"];
         }
-        source.count = count2;
+        source.count = count3;
       }
+      legacyAfterMove(state, data, seq, legacy.suppressReveal ? [] : supplied, legacyHelpers);
       return;
     }
     if (Number(data.ToZone) === 9 && source.kind === 2) {
@@ -8494,15 +9214,15 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       state.pending = {};
       return;
     }
-    const ids = inferIds(state, data, source, supplied, count2, position);
+    const ids2 = legacy.hiddenCreation ? [] : supplied.length === count3 ? supplied : legacy.ids?.length === count3 ? legacy.ids : inferIds(state, data, source, supplied, count3, position);
     const previousCount = source.count;
-    if (previousCount < count2 && source.kind !== 0 && source.kind !== 12) {
+    if (previousCount < count3 && source.kind !== 0 && source.kind !== 12) {
       state.historyComplete = false;
       state.deckRemaining = null;
       note(state, "zone-underflow", "\\u8BB0\\u5F55\\u5F00\\u59CB\\u8F83\\u665A\\u6216\\u6709\\u7F3A\\u5931\\u4E8B\\u4EF6\\uFF0C\\u90E8\\u5206\\u724C\\u533A\\u4E0D\\u5B8C\\u6574", seq);
     }
-    if (ids.length !== count2) {
-      const wholeZone = previousCount === count2 && previousCount > 0;
+    if (ids2.length !== count3) {
+      const wholeZone = previousCount === count3 && previousCount > 0;
       for (const item of Object.values(state.cards)) {
         if (!item.locations.includes(from)) continue;
         const locations = wholeZone ? item.locations.filter((key) => key !== from) : item.locations;
@@ -8511,17 +9231,18 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       }
     } else {
       const tag = source.kind === 1 ? "\\u6478\\u724C" : source.kind === 2 ? "\\u5F03\\u724C\\u83B7\\u5F97" : source.kind === 5 && source.seatId !== target.seatId ? \`\\u6765\\u81EA\${seatLabel(state, source.seatId)}\` : ZONE_NAMES[source.kind];
-      for (const id of ids) locate(state, id, to, seq, target.kind === 5 ? tag : null, supplied.includes(id));
+      for (const id of ids2) locate(state, id, to, seq, target.kind === 5 ? tag : null, supplied.includes(id));
     }
-    source.count = Math.max(0, source.count - count2);
+    source.count = Math.max(0, source.count - count3);
     if (source.kind === 1 && state.historyComplete && previousCount > 0 && source.count === 0) state.deckCycleCompleted = true;
-    target.count += count2;
-    removeOrder(source, ids, count2, position);
-    addOrder(target, ids, count2, destination);
-    if (source.kind === 2) state.discardTurn = state.discardTurn.filter((id) => !ids.includes(id));
-    if (target.kind === 2) state.discardTurn = [...state.discardTurn.filter((id) => !ids.includes(id)), ...ids];
-    if (Number(data.MoveType) === 2 && [5, 6].includes(source.kind)) recent(state, source.seatId, ids, false);
-    state.moves.push({ seq, from, to, count: count2, ids, skill });
+    target.count += count3;
+    removeOrder(source, ids2, count3, position);
+    addOrder(target, ids2, count3, destination);
+    legacyAfterMove(state, data, seq, ids2, legacyHelpers);
+    if (source.kind === 2) state.discardTurn = state.discardTurn.filter((id) => !ids2.includes(id));
+    if (target.kind === 2) state.discardTurn = [...state.discardTurn.filter((id) => !ids2.includes(id)), ...ids2];
+    if (Number(data.MoveType) === 2 && [5, 6].includes(source.kind)) recent(state, source.seatId, ids2, false);
+    state.moves.push({ seq, from, to, count: count3, ids: ids2, skill });
     if (state.moves.length > 40) state.moves.shift();
   }
   function spell(state, data, seq) {
@@ -8530,31 +9251,32 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       const key = \`\${Number(data.SpellID)}:\${Number(data.SeatID)}\`;
       state.skillUses.counts[key] = (state.skillUses.counts[key] || 0) + 1;
     }
-    const skill = Number(data.SpellID), ids = cardIds(data.CardIDs);
-    recent(state, data.SeatID, ids);
-    const seat = int(data.SeatID), count2 = int(data.CardCount ?? data.card_count) ?? ids.length;
-    if (validSeat(seat)) {
+    const skill = Number(data.SpellID), ids2 = cardIds(data.CardIDs);
+    recent(state, data.SeatID, ids2);
+    const seat4 = int(data.SeatID), count3 = int(data.CardCount ?? data.card_count) ?? ids2.length;
+    if (validSeat(seat4)) {
       if ([290, 3065].includes(skill) && Number(data.EffectIndex) === 1) {
-        delete state.pending[\`known:\${skill}:\${seat}\`];
-        if (ids.length && ids.length === count2) state.pending[\`known:\${skill}:\${seat}\`] = ids;
+        delete state.pending[\`known:\${skill}:\${seat4}\`];
+        if (ids2.length && ids2.length === count3) state.pending[\`known:\${skill}:\${seat4}\`] = ids2;
       }
-      if (skill === 3157 && ids.length && ids.length === count2) state.pending[\`gain:\${skill}:\${seat}\`] = ids;
-      if (skill === 3434 && [1, 2].includes(Number(data.EffectIndex)) && count2 === 1 && ids.length === 1) state.pending[\`gain:\${skill}:\${seat}\`] = ids;
+      if (skill === 3157 && ids2.length && ids2.length === count3) state.pending[\`gain:\${skill}:\${seat4}\`] = ids2;
+      if (skill === 3434 && [1, 2].includes(Number(data.EffectIndex)) && count3 === 1 && ids2.length === 1) state.pending[\`gain:\${skill}:\${seat4}\`] = ids2;
       if ([3750, 3753].includes(skill)) {
-        delete state.pending[\`return:\${skill}:\${seat}\`];
-        if (Number(data.EffectIndex) === 2 && Array.isArray(data.DestSeatIDs) && !data.DestSeatIDs.length && ids.length) state.pending[\`return:\${skill}:\${seat}\`] = ids;
+        delete state.pending[\`return:\${skill}:\${seat4}\`];
+        if (Number(data.EffectIndex) === 2 && Array.isArray(data.DestSeatIDs) && !data.DestSeatIDs.length && ids2.length) state.pending[\`return:\${skill}:\${seat4}\`] = ids2;
       }
     }
-    if (skill === 3511 && Number(data.SrcSeatID) === state.selfSeatId && ids.length) state.pending.gainedDiscard = ids;
+    if (skill === 3511 && Number(data.SrcSeatID) === state.selfSeatId && ids2.length) state.pending.gainedDiscard = ids2;
     if (CONSERVATIVE.has(skill)) note(state, \`skill:\${skill}\`, \`\\u6280\\u80FD \${skill} \\u7684\\u9690\\u85CF\\u79FB\\u724C\\u4EC5\\u4FDD\\u7559\\u53EF\\u80FD\\u5F52\\u5C5E\`, seq);
   }
   function revealSkillHand(state, data, seq) {
-    if (int(data.SpellID) !== ZUIFENG || int(data.Type) !== OPT_SKILL_FLAG1 || !validSeat(data.TargetSeatID)) return;
+    const skill = int(data.SpellID), type = int(data.Type);
+    if (!(skill === ZUIFENG && type === OPT_SKILL_FLAG1 || skill === QIANGZHI_PO && type === OPT_SEL_CARD_HAND) || !validSeat(data.TargetSeatID)) return;
     const values = list(data.Params);
     if (!values.length || values.length !== data.Params.length || values.some((id) => int(id) === null || int(id) <= 0)) return;
-    const ids = cardIds(values);
-    if (ids.length !== values.length) return;
-    reveal(state, ids, zoneKey(5, Number(data.TargetSeatID)), seq, ids.length, true);
+    const ids2 = cardIds(values);
+    if (ids2.length !== values.length) return;
+    reveal(state, ids2, zoneKey(5, Number(data.TargetSeatID)), seq, ids2.length, true);
   }
   function revealZhitianTop(state, data, seq) {
     if (int(data.SpellID) !== 3744 || ![30, 50].includes(int(data.Type))) return;
@@ -8569,25 +9291,25 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
   function revealSkillPile(state, data, seq) {
     if (int(data.Type) !== OPT_SKILL_FLAG1) return;
     const values = data.Params;
-    const validIds = (ids2) => ids2.length > 0 && ids2.every((id) => Number.isInteger(id) && id > 0 && id < 65535) && new Set(ids2).size === ids2.length;
-    let ids, side;
+    const validIds = (ids3) => ids3.length > 0 && ids3.every((id) => Number.isInteger(id) && id > 0 && id < 65535) && new Set(ids3).size === ids3.length;
+    let ids2, side;
     if (int(data.SpellID) === SIQI) {
       if (!Array.isArray(values) || values.length > 3 || !validIds(values)) return;
-      ids = values;
+      ids2 = values;
       side = "bottom";
     } else if (int(data.SpellID) === JIELI) {
       if (!Array.isArray(values)) return;
       const [pileCount, handCount] = values;
       if (!Number.isInteger(pileCount) || pileCount < 1 || pileCount > 32 || !Number.isInteger(handCount) || handCount < 0 || handCount > 200 || values.length !== 2 + pileCount + handCount) return;
-      ids = values.slice(2, 2 + pileCount);
+      ids2 = values.slice(2, 2 + pileCount);
       side = "top";
-      if (!validIds(ids)) return;
+      if (!validIds(ids2)) return;
     } else return;
     const target = zone(state, zoneKey(1)), other = side === "top" ? "bottom" : "top";
-    for (const id of ids) locate(state, id, target.key, seq);
-    target[side] = ids.slice();
-    target[other] = target[other].filter((id) => !ids.includes(id));
-    target.count = Math.max(target.count, ids.length);
+    for (const id of ids2) locate(state, id, target.key, seq);
+    target[side] = ids2.slice();
+    target[other] = target[other].filter((id) => !ids2.includes(id));
+    target.count = Math.max(target.count, ids2.length);
   }
   function normalizeCardPayload(payload = {}) {
     const queue = [payload], sources = [], seen = /* @__PURE__ */ new Set();
@@ -8638,6 +9360,11 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       Count: ["count", "hand_count"],
       DestSeatIDs: ["DestSeatIds", "destSeatIds", "Targets"],
       EffectIndex: ["effectIndex"],
+      IsSpell: ["isSpell", "is_spell"],
+      DataID: ["DataId", "dataId", "data_id"],
+      MurSeatID: ["MurSeatId", "murSeatId", "MurderSeatID"],
+      MData: ["mData"],
+      MsgID: ["MsgId", "msgId", "msg_id"],
       list_card_id: ["listCardId"],
       error_id: ["ErrorID", "errorId"]
     };
@@ -8661,6 +9388,10 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     state.sessionId = event.sessionId ?? state.sessionId;
     state.lastSeq = seq;
     state.lastEvent = event.type;
+    if (["GsCRoleOptTargetNtf", "CGsRoleSpellOptRep"].includes(event.type))
+      legacyReveal(state, data, seq, { ...legacyHelpers, eventType: event.type });
+    legacyEvent(state, data, seq, event.type, legacyHelpers);
+    reduceSkillHints(state, data, seq, event.type);
     switch (event.type) {
       case "toolbox:snapshot":
         snapshot(state, data, seq);
@@ -8669,7 +9400,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         forget(state, String(data.reason || "\\u4E8B\\u4EF6\\u8BB0\\u5F55\\u5B58\\u5728\\u7F3A\\u53E3"), seq);
         break;
       case "MsgGamePlayCardNtf": {
-        const ids = cardIds(data.CardList);
+        const ids2 = cardIds(data.CardList);
         const before = state;
         state = {
           ...initialState(),
@@ -8679,17 +9410,17 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
           mode: state.mode,
           seats: state.seats,
           active: true,
-          historyComplete: ids.length > 0,
-          seenHistoryComplete: ids.length > 0,
-          deckIds: ids,
+          historyComplete: ids2.length > 0,
+          seenHistoryComplete: ids2.length > 0,
+          deckIds: ids2,
           deckStartSeq: seq,
-          deckRemaining: ids.length || null,
+          deckRemaining: ids2.length || null,
           lastEvent: event.type,
           skillUses: { complete: true, counts: {} }
         };
-        if (!ids.length) note(state, "no-deck", "\\u5F00\\u5C40\\u724C\\u8868\\u7F3A\\u5931\\uFF0C\\u724C\\u5806\\u603B\\u6570\\u672A\\u77E5", seq);
-        for (const id of ids) locate(state, id, zoneKey(1), seq, null, false);
-        zone(state, zoneKey(1)).count = ids.length;
+        if (!ids2.length) note(state, "no-deck", "\\u5F00\\u5C40\\u724C\\u8868\\u7F3A\\u5931\\uFF0C\\u724C\\u5806\\u603B\\u6570\\u672A\\u77E5", seq);
+        for (const id of ids2) locate(state, id, zoneKey(1), seq, null, false);
+        zone(state, zoneKey(1)).count = ids2.length;
         flags(state);
         if (before.mode.sceneName) state.mode.sceneName = before.mode.sceneName;
         break;
@@ -8720,9 +9451,9 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         state.connected = true;
         break;
       case "MsgReconnectGameHand": {
-        const seat = data.SeatIndex ?? data.seat_id ?? data.seatId;
-        const ids = cardIds(data.CardIDs ?? data.hand_cards);
-        if (validSeat(seat)) reveal(state, ids, zoneKey(5, seat), seq, int(data.Count ?? data.hand_count), true);
+        const seat4 = data.SeatIndex ?? data.seat_id ?? data.seatId;
+        const ids2 = cardIds(data.CardIDs ?? data.hand_cards);
+        if (validSeat(seat4)) reveal(state, ids2, zoneKey(5, seat4), seq, int(data.Count ?? data.hand_count), true);
         break;
       }
       case "decodeClientGetCardInfoResp": {
@@ -8733,12 +9464,12 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         if ((data.error_id === void 0 || [0, 1].includes(Number(data.error_id))) && validSeat(data.SeatID)) reveal(state, cardIds(data.CardIDs ?? data.CardList), zoneKey(5, data.SeatID), seq);
         break;
       case "decodeGameDealPileTopCardList": {
-        const ids = cardIds(data.list_card_id);
-        if (data.IsResume && ids.length) {
+        const ids2 = cardIds(data.list_card_id);
+        if (data.IsResume && ids2.length) {
           const target = zone(state, zoneKey(1));
-          for (const id of ids) locate(state, id, target.key, seq);
-          target.top = ids;
-          target.count = Math.max(target.count, ids.length);
+          for (const id of ids2) locate(state, id, target.key, seq);
+          target.top = ids2;
+          target.count = Math.max(target.count, ids2.length);
         }
         break;
       }
@@ -8752,9 +9483,9 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       }
       case "GsCGuoZhanSetCharacter": {
         if (!validSeat(data.SeatID)) break;
-        const seat = state.seats[data.SeatID] ||= { seatId: Number(data.SeatID), generals: [null, null] };
-        seat.generals ||= [null, null];
-        for (const item of data.GeneralData || []) if ([0, 1].includes(Number(item.index))) seat.generals[item.index] = item.cardID;
+        const seat4 = state.seats[data.SeatID] ||= { seatId: Number(data.SeatID), generals: [null, null] };
+        seat4.generals ||= [null, null];
+        for (const item of data.GeneralData || []) if ([0, 1].includes(Number(item.index))) seat4.generals[item.index] = item.cardID;
         break;
       }
       case "GsCRoleOptTargetNtf":
@@ -8782,13 +9513,14 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     }
     return state;
   }
+  var legacyHelpers = { reveal, zone, locate, zoneKey, cardIds, validSeat, int };
   function cardsInZone(state, key, certainty = "known") {
     return Object.values(state.cards).filter((item) => item.locations.includes(key) && (certainty === "all" || (certainty === "known" ? item.locations.length === 1 : item.locations.length > 1))).map((item) => item.id);
   }
   function seatLabel(state, seatId) {
-    const seat = state.seats[seatId];
-    if (seat?.name) return seat.name;
-    if (Number.isInteger(seat?.position) && seat.position > 0) return \`\${seat.position}\\u53F7\\u4F4D\`;
+    const seat4 = state.seats[seatId];
+    if (seat4?.name) return seat4.name;
+    if (Number.isInteger(seat4?.position) && seat4.position > 0) return \`\${seat4.position}\\u53F7\\u4F4D\`;
     return \`\\u73A9\\u5BB6\\uFF08ID \${seatId}\\uFF09\`;
   }
   function observedHandCandidates(state, seatId) {
@@ -8800,10 +9532,10 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
   }
   function handCandidates(state, seatId) {
     if (!state.active || !state.historyComplete || !state.deckCycleCompleted || !validSeat(state.selfSeatId)) return [];
-    const living = Object.values(state.seats).filter((seat) => seat.dead !== true);
-    if (!living.some((seat) => seat.seatId === state.selfSeatId) || seatId === state.selfSeatId) return [];
-    const uncertain = living.filter((seat) => {
-      const key = zoneKey(5, seat.seatId), hand = state.zones[key];
+    const living = Object.values(state.seats).filter((seat4) => seat4.dead !== true);
+    if (!living.some((seat4) => seat4.seatId === state.selfSeatId) || seatId === state.selfSeatId) return [];
+    const uncertain = living.filter((seat4) => {
+      const key = zoneKey(5, seat4.seatId), hand = state.zones[key];
       return !hand || cardsInZone(state, key).length !== hand.count;
     });
     if (uncertain.length !== 1 || uncertain[0].seatId !== seatId) return [];
@@ -8817,11 +9549,11 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     return info.name === "\\u6740" || type === "ShaNCard" ? "\\u666E\\u901A\\u6740" : null;
   }
   function deckComposition(state, groupBy = "name", getMeta = (id) => ({ name: "\\u5361\\u724C " + id })) {
-    const initial = [...new Set(state.deckIds)], groups = /* @__PURE__ */ new Map();
+    const initial = [...new Set(state.deckIds)], groups2 = /* @__PURE__ */ new Map();
     const add = (key, id, subgroup = false) => {
-      const row = groups.get(key) || { key, ids: [], subgroup };
+      const row = groups2.get(key) || { key, ids: [], subgroup };
       row.ids.push(id);
-      groups.set(key, row);
+      groups2.set(key, row);
     };
     for (const id of initial) {
       const info = getMeta(id);
@@ -8837,7 +9569,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         } else add(info.name, id);
       }
     }
-    const rows = [...groups.values()].map((row) => {
+    const rows = [...groups2.values()].map((row) => {
       const seenIds = row.ids.filter((id) => wasSeen(state, id));
       return { ...row, seenIds, total: row.ids.length, seen: seenIds.length, unseen: row.ids.length - seenIds.length };
     });
@@ -8846,7 +9578,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       if (groupBy !== "name") return Number(a.key) - Number(b.key);
       if (slashOrder.includes(a.key) && slashOrder.includes(b.key)) return slashOrder.indexOf(a.key) - slashOrder.indexOf(b.key);
       const aSlash = slashOrder.includes(a.key), bSlash = slashOrder.includes(b.key);
-      return (bSlash ? groups.get("\\u6740").ids.length : b.total) - (aSlash ? groups.get("\\u6740").ids.length : a.total) || Number(bSlash) - Number(aSlash) || String(a.key).localeCompare(String(b.key), "zh-CN");
+      return (bSlash ? groups2.get("\\u6740").ids.length : b.total) - (aSlash ? groups2.get("\\u6740").ids.length : a.total) || Number(bSlash) - Number(aSlash) || String(a.key).localeCompare(String(b.key), "zh-CN");
     });
     const seen = initial.filter((id) => wasSeen(state, id)).length;
     return {
@@ -8877,10 +9609,10 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       cardClass
     };
   }
-  function sortCards(ids, mode, getMeta) {
+  function sortCards(ids2, mode, getMeta) {
     const fields = { suit: ["suit", "type", "number"], type: ["type", "suit", "number"], number: ["number", "suit", "type"] }[mode];
-    if (!fields) return ids.slice();
-    return ids.map((id, index) => ({ id, index, meta: getMeta(id) })).sort((a, b) => {
+    if (!fields) return ids2.slice();
+    return ids2.map((id, index) => ({ id, index, meta: getMeta(id) })).sort((a, b) => {
       for (const field of fields) {
         const left = a.meta[field], right = b.meta[field];
         const difference = typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "zh-CN");
@@ -8907,19 +9639,19 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     }
   };
   function nativeSeatOccupied(ui) {
-    const seat = nativeSeat(ui);
-    return read(() => seat.IsFull) !== false;
+    const seat4 = nativeSeat(ui);
+    return read(() => seat4.IsFull) !== false;
   }
   function nativeSeat(ui) {
     return read(() => ui.Seat) ?? read(() => ui.seat) ?? read(() => ui.cardContainer.Seat) ?? read(() => ui.cardContainer.seat) ?? null;
   }
   function nativeSeatId(ui) {
-    const seat = nativeSeat(ui);
+    const seat4 = nativeSeat(ui);
     for (const value of [
-      read(() => seat.index),
-      read(() => seat.Index),
-      read(() => seat.SeatID),
-      read(() => seat.ID),
+      read(() => seat4.index),
+      read(() => seat4.Index),
+      read(() => seat4.SeatID),
+      read(() => seat4.ID),
       read(() => ui.seatID),
       read(() => ui.seatId)
     ]) {
@@ -9601,7 +10333,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
   }
 
   // src/plugins/cards/skill-counts.js
-  var count = (value) => Number.isSafeInteger(value) && value >= 0 && value < Number.MAX_SAFE_INTEGER;
+  var count2 = (value) => Number.isSafeInteger(value) && value >= 0 && value < Number.MAX_SAFE_INTEGER;
   var prefix = /^(?:(?:\u9501\u5B9A\u6280|\u8F6C\u6362\u6280|[\u9B4F\u8700\u5434\u7FA4\u664B]\u52BF\u529B\u6280)[\uFF0C,])?(?:\u51FA\u724C\u9636\u6BB5|\u6BCF\u56DE\u5408|\u6BCF\u8F6E|\u6BCF\u9636\u6BB5|\u6BCF\u5C40|\u6574\u5C40)(?:\u5185)?\u9650([\u4E00\u4E8C\u4E24\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u767E\\d]+|[Xx])\u6B21/;
   function eligible(desc, seen) {
     const match = prefix.exec(desc);
@@ -9610,30 +10342,30 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
   }
   function skillCount(skill, seen = /* @__PURE__ */ new Set(), state = {}, scene = {}) {
     if (!skill?.Seat) return null;
-    const id = skill.SkillId, seat = skill.Seat;
-    const observed = () => state.skillUses?.complete ? state.skillUses.counts[\`\${id}:\${seat.Index}\`] || 0 : null;
-    const result = (limit, used) => ({ remaining: count(limit) && count(used) ? Math.max(0, limit - used) : null });
-    if (id === 3751) return result(seat.MaxHp, observed());
+    const id = skill.SkillId, seat4 = skill.Seat;
+    const observed = () => state.skillUses?.complete ? state.skillUses.counts[\`\${id}:\${seat4.Index}\`] || 0 : null;
+    const result = (limit, used) => ({ remaining: count2(limit) && count2(used) ? Math.max(0, limit - used) : null });
+    if (id === 3751) return result(seat4.MaxHp, observed());
     const desc = String(skill.SpecialModeDesc || "").replace(/<[^>]*>/g, "").replace(/\\s|&nbsp;/g, "");
     if (!eligible(desc, seen)) return null;
-    if (/^(?:(?:\u9501\u5B9A\u6280|\u8F6C\u6362\u6280|[\u9B4F\u8700\u5434\u7FA4\u664B]\u52BF\u529B\u6280)[\uFF0C,])?\u51FA\u724C\u9636\u6BB5(?:\u5185)?\u9650/.test(desc) && !seat.InDealRound) return null;
+    if (/^(?:(?:\u9501\u5B9A\u6280|\u8F6C\u6362\u6280|[\u9B4F\u8700\u5434\u7FA4\u664B]\u52BF\u529B\u6280)[\uFF0C,])?\u51FA\u724C\u9636\u6BB5(?:\u5185)?\u9650/.test(desc) && !seat4.InDealRound) return null;
     if (skill.hasUnlimitedUses?.()) return { remaining: Infinity };
     let round = skill.TimelimitRound;
     if (id === 858 && /\u6BCF\u56DE\u5408\u9650\u4E09\u6B21/.test(desc)) round = 3;
-    if (id === 3150) round = (skill.opFlag1 === 1 || skill.opFlag2 === 1) && seat.InOwnRound2 ? 2 : 1;
+    if (id === 3150) round = (skill.opFlag1 === 1 || skill.opFlag2 === 1) && seat4.InOwnRound2 ? 2 : 1;
     if (id === 3090) round = Array.isArray(scene.gameManager?.Seats) ? Math.min(3, scene.gameManager.Seats.filter((s) => s?.IsLegalOperable).length) : null;
-    if (id === 3682) round = seat.GetSkillBuffInfo?.(3681)?.[0] ?? null;
+    if (id === 3682) round = seat4.GetSkillBuffInfo?.(3681)?.[0] ?? null;
     if (id === 985 && round === 2) {
-      const used = skill.GetSkillUseCountInRound?.(), value = seat.GetStateValue?.(286);
-      if (!count(used) || !count(value)) return { remaining: null };
+      const used = skill.GetSkillUseCountInRound?.(), value = seat4.GetStateValue?.(286);
+      if (!count2(used) || !count2(value)) return { remaining: null };
       if (used === 0 || used === 1 && value >= 2) round = 1;
     }
     const candidates = [];
     for (const [kind, limit, read2] of [
       ["round", round, () => id === 3090 ? observed() : skill.GetSkillUseCountInRound?.()],
-      ["game", skill.TimeLimitGame, () => seat.GetSkillUseCountInGame?.(id)]
+      ["game", skill.TimeLimitGame, () => seat4.GetSkillUseCountInGame?.(id)]
     ]) {
-      if (count(limit) && limit > 1) seen.add(kind);
+      if (count2(limit) && limit > 1) seen.add(kind);
       if (!seen.has(kind)) continue;
       const value = result(limit, read2());
       if (value.remaining === null) return value;
@@ -9643,7 +10375,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
   }
   function createSkillCounts(ctx) {
     const labels = /* @__PURE__ */ new Map(), seen = /* @__PURE__ */ new Map(), theme = getNativeTheme(ctx);
-    let owner = null, seat = null, session = null, releaseTheme = null;
+    let owner = null, seat4 = null, session = null, releaseTheme = null;
     const paint = (palette = theme.palette) => {
       for (const label of labels.values()) if (!label.destroyed) {
         label.color = label.text === "0" ? palette.muted : palette.accent;
@@ -9656,18 +10388,18 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       for (const label of labels.values()) if (!label.destroyed) label.destroy(true);
       labels.clear();
       seen.clear();
-      owner = seat = session = null;
+      owner = seat4 = session = null;
     }
     return { clear, dispose: clear, update(self, state, enabled) {
       if (!enabled || !state.active || !self?.seat || self.destroyed) {
         clear();
         return;
       }
-      const identity = \`\${state.sessionId}:\${state.deckStartSeq}\`;
-      if (owner !== self || seat !== self.seat || session !== identity) clear();
+      const identity2 = \`\${state.sessionId}:\${state.deckStartSeq}\`;
+      if (owner !== self || seat4 !== self.seat || session !== identity2) clear();
       owner = self;
-      seat = self.seat;
-      session = identity;
+      seat4 = self.seat;
+      session = identity2;
       const laya = ctx.window.Laya ?? ctx.window.laya;
       if (typeof laya?.Text !== "function") return;
       const items = new Set((self.skillItems || []).filter((item) => item && !item.destroyed));
@@ -9718,6 +10450,268 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     } };
   }
 
+  // src/plugins/cards/hand-order.js
+  var HAND_GROUP_NAMES = ["\\u6740", "\\u95EA", "\\u6843\\u9152", "\\u672A\\u77E5", "\\u987A\\u62C6", "\\u8F93\\u51FA", "\\u6742\\u9879", "\\u5175\\u4E50", "\\u672A\\u77E5", "\\u88C5\\u5907"];
+  var groups = [
+    ["\\u6740", "\\u666E\\u901A\\u6740", "\\u706B\\u6740", "\\u706B\\u7130\\u6740", "\\u96F7\\u6740", "\\u96F7\\u7535\\u6740", "\\u51B0\\u6740", "\\u51B0\\u971C\\u6740"],
+    ["\\u95EA"],
+    ["\\u6843", "\\u9152"],
+    [],
+    ["\\u987A\\u624B\\u7275\\u7F8A", "\\u8FC7\\u6CB3\\u62C6\\u6865", "\\u65E0\\u4E2D\\u751F\\u6709", "\\u94C1\\u7D22\\u8FDE\\u73AF"],
+    ["\\u51B3\\u6597", "\\u5357\\u86EE\\u5165\\u4FB5", "\\u4E07\\u7BAD\\u9F50\\u53D1", "\\u706B\\u653B"],
+    ["\\u65E0\\u61C8\\u53EF\\u51FB", "\\u4E94\\u8C37\\u4E30\\u767B", "\\u6843\\u56ED\\u7ED3\\u4E49", "\\u501F\\u5200\\u6740\\u4EBA"],
+    ["\\u4E50\\u4E0D\\u601D\\u8700", "\\u5175\\u7CAE\\u5BF8\\u65AD", "\\u95EA\\u7535"],
+    [],
+    []
+  ];
+  function handTypeKey(card2 = {}) {
+    if (card2.IsEquipCard || card2.CardBaseType === 8) return [9, 0];
+    const name = String(card2.CardName ?? card2.name ?? card2.Name ?? "");
+    if (card2.FirstIndexSkillID === 1 || groups[0].includes(name)) {
+      const cls = String(card2.ClassName ?? card2.cardClass ?? "").split(".").at(-1);
+      const attribute = /^(?:\u706B|\u96F7|\u51B0)/.test(name) || ["HuoShaNCard", "LeiShaNCard", "BingShaNCard"].includes(cls) || Number(card2.SubType) > 0;
+      return [0, attribute ? 1 : 0];
+    }
+    for (let group = 1; group < groups.length; group++) {
+      const rank = groups[group].indexOf(name);
+      if (rank >= 0) return [group, rank];
+    }
+    return [card2.IsJinNangCard || card2.CardBaseType === 4 ? 8 : 3, 0];
+  }
+  function compareHandTypes(a, b) {
+    const left = handTypeKey(a), right = handTypeKey(b);
+    return left[0] - right[0] || left[1] - right[1];
+  }
+  function handGroup(card2, mode) {
+    return mode === "type" ? handTypeKey(card2)[0] : mode === "suit" ? Number(card2?.FlowerOnSeat) || 0 : Number(card2?.CardNumber) || 0;
+  }
+  function groupedHandLayout(cards, mode, width, cardWidth, nativeGap = 2) {
+    if (!cards.length || !(width >= cardWidth) || !(cardWidth > 0)) return null;
+    const keys = cards.map((ui) => handGroup(ui.Card, mode));
+    const breaks = keys.map((key, i) => i > 0 && key !== keys[i - 1]);
+    const count3 = breaks.filter(Boolean).length, n = cards.length;
+    const normal = Math.max(0, nativeGap);
+    const spare = width - n * cardWidth - (n - 1) * normal;
+    const gap = count3 ? Math.max(0, Math.min(cardWidth * 0.25, spare / count3)) : 0;
+    const hovered = cards.slice(0, -1).filter((ui) => ui.RollOvered).length;
+    const compressible = n - 1 - hovered;
+    const step = spare >= 0 ? cardWidth + normal : compressible > 0 ? Math.max(0, (width - cardWidth - hovered * (cardWidth + normal)) / compressible) : cardWidth + normal;
+    let x = 0;
+    const positions = cards.map((ui, i) => {
+      if (i) x += (cards[i - 1].RollOvered ? cardWidth + normal : step) + (breaks[i] ? gap : 0);
+      return x;
+    });
+    return { positions, keys, gap, overlapping: step < cardWidth, width: x + cardWidth };
+  }
+
+  // src/core/resources.js
+  var ResourceScope = class {
+    constructor() {
+      this.controller = new AbortController();
+      this.signal = this.controller.signal;
+      this.cleanups = [];
+      this.closed = false;
+    }
+    add(fn) {
+      if (typeof fn !== "function") return fn;
+      if (this.closed) {
+        fn();
+        return () => {
+        };
+      }
+      let alive = true;
+      const release = () => {
+        if (!alive) return;
+        alive = false;
+        const index = this.cleanups.indexOf(release);
+        if (index >= 0) this.cleanups.splice(index, 1);
+        return fn();
+      };
+      this.cleanups.push(release);
+      return release;
+    }
+    listen(target, type, fn, options) {
+      target.addEventListener(type, fn, options);
+      return this.add(() => target.removeEventListener(type, fn, options));
+    }
+    timeout(fn, ms) {
+      let release;
+      const id = setTimeout(() => {
+        release();
+        if (!this.closed) fn();
+      }, ms);
+      release = this.add(() => clearTimeout(id));
+      return id;
+    }
+    interval(fn, ms) {
+      const id = setInterval(() => {
+        if (!this.closed) fn();
+      }, ms);
+      this.add(() => clearInterval(id));
+      return id;
+    }
+    patch(target, key, factory) {
+      const own = Object.getOwnPropertyDescriptor(target, key), original = target[key];
+      const changed = factory(original), scope = this;
+      const wrapper = function(...args) {
+        return Reflect.apply(scope.closed ? original : changed, this, args);
+      };
+      target[key] = wrapper;
+      return this.add(() => {
+        if (target[key] !== wrapper) return;
+        if (own) Object.defineProperty(target, key, own);
+        else delete target[key];
+      });
+    }
+    dispose() {
+      if (this.closed) return;
+      this.closed = true;
+      this.controller.abort();
+      const errors = [];
+      for (const fn of [...this.cleanups].reverse()) {
+        try {
+          fn();
+        } catch (e) {
+          errors.push(e);
+        }
+      }
+      return errors;
+    }
+  };
+
+  // src/plugins/cards/hand-groups.js
+  var owners = /* @__PURE__ */ new WeakMap();
+  function setHandGroupingMode(container, mode) {
+    owners.get(container)?.setMode(mode);
+  }
+  function createHandGrouping(ctx) {
+    const theme = getNativeTheme(ctx);
+    let container = null, resources = null, root = null, mode = null, labels = [], lastLayout = null;
+    function hide() {
+      if (root) root.visible = false;
+      lastLayout = null;
+    }
+    function draw() {
+      if (!root || !lastLayout) return;
+      const { layout, start, y, cardWidth } = lastLayout;
+      root.visible = mode === "type" && layout.overlapping;
+      root.graphics.clear();
+      let used = 0;
+      const laneEnds = [];
+      const controls = container.getChildByName?.("sgs-toolbox-hand-sort");
+      if (root.visible) for (let i = 0; i < layout.keys.length; i++) {
+        if (i && layout.keys[i] === layout.keys[i - 1]) continue;
+        let end = i + 1;
+        while (end < layout.keys.length && layout.keys[end] === layout.keys[i]) end++;
+        const left = start + layout.positions[i];
+        const right = start + (end < layout.keys.length ? layout.positions[end] : layout.positions.at(-1) + cardWidth);
+        const title = HAND_GROUP_NAMES[layout.keys[i]], width = title.length * 11 + 8;
+        const x = Math.max(start, Math.min(left + 2, start + layout.width - width));
+        let lane = 0;
+        while (true) {
+          const top = y - 19 - lane * 17;
+          const touchesControls = controls?.visible && x < controls.x + controls.width && x + width > controls.x && top < controls.y + controls.height + 2 && top + 16 > controls.y - 2;
+          if ((laneEnds[lane] ?? -Infinity) + 3 <= x && !touchesControls) break;
+          lane++;
+        }
+        laneEnds[lane] = x + width;
+        let label = labels[used++];
+        if (!label) {
+          label = new (ctx.window.Laya ?? ctx.window.laya).Text();
+          label.font = "Microsoft YaHei";
+          label.fontSize = 11;
+          label.mouseEnabled = false;
+          label.height = 16;
+          label.align = "center";
+          label.valign = "middle";
+          root.addChild(label);
+          labels.push(label);
+        }
+        label.visible = true;
+        label.text = title;
+        label.width = width;
+        label.color = theme.palette.accent;
+        label.bgColor = theme.palette.bg;
+        label.pos(x, y - 19 - lane * 17);
+        root.graphics.drawRect(left + 1, y - 2, Math.max(1, right - left - 3), 1, theme.palette.border);
+      }
+      for (let i = used; i < labels.length; i++) labels[i].visible = false;
+    }
+    function apply() {
+      if (!mode || !container || container.destroyed || container.dragIng || container.switchIng) {
+        hide();
+        return;
+      }
+      const cards = container.cardUis, rect = container.HandCardRect ?? container.handCardRect;
+      const cardWidth = Number((container.CardUiSize ?? container.cardUiSize)?.width);
+      if (!cards?.length || container.virtualCardUis?.length || container.virtualGeneralUis?.length || !rect || !Number.isFinite(rect.width) || !(cardWidth > 0) || !cards.every((ui) => Number.isFinite(ui.EndX))) {
+        hide();
+        return;
+      }
+      const start = cards[0].EndX;
+      let right = rect.x + rect.width;
+      const additional = container.additionalCardUis;
+      if (additional?.length && Number.isFinite(additional[0].EndX)) right = Math.min(right, additional[0].EndX);
+      const layout = groupedHandLayout(cards, mode, right - start, cardWidth, container.MAX_HGAP ?? 2);
+      if (!layout || layout.width > right - start + 0.5) {
+        hide();
+        return;
+      }
+      cards.forEach((ui, i) => {
+        ui.EndX = start + layout.positions[i];
+      });
+      lastLayout = { layout, start, cardWidth, y: container.NORMAL_Y };
+      draw();
+    }
+    function detach() {
+      const previous = container;
+      if (previous) owners.delete(previous);
+      resources?.dispose();
+      resources = null;
+      root?.destroy?.(true);
+      root = null;
+      labels = [];
+      container = null;
+      mode = null;
+      lastLayout = null;
+      if (previous && !previous.destroyed) previous.invalidateLayoutHandCard?.();
+    }
+    const controller = {
+      setMode(value) {
+        mode = value;
+        container?.invalidateLayoutHandCard?.();
+      },
+      update(next) {
+        if (next === container) {
+          draw();
+          return;
+        }
+        detach();
+        if (!next || typeof next.layoutHandCard !== "function" || typeof next.addChild !== "function") return;
+        const laya = ctx.window.Laya ?? ctx.window.laya;
+        if (!laya?.Sprite || !laya?.Text || owners.has(next)) return;
+        container = next;
+        resources = new ResourceScope();
+        root = new laya.Sprite();
+        root.name = "sgs-hand-groups";
+        root.mouseEnabled = false;
+        root.visible = false;
+        container.addChild(root);
+        owners.set(container, controller);
+        resources.patch(container, "layoutHandCard", (original) => function(...args) {
+          const result = original.apply(this, args);
+          apply();
+          return result;
+        });
+        resources.add(theme.watch(draw, { target: root }));
+      },
+      detach,
+      dispose: detach
+    };
+    ctx.scope.add(detach);
+    return controller;
+  }
+
   // src/plugins/cards/native.js
   var SORT_INHIBITOR_SKILL = 3554;
   function ownUi(game) {
@@ -9736,7 +10730,29 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     const selected = new Map(cards.map((ui) => [ui, ui.selected ?? ui.Selected]));
     if (mode === "type") {
       if (typeof container.SortNormalCards !== "function") return false;
-      container.SortNormalCards();
+      const seat4 = container.seat ?? container.Seat;
+      if (typeof seat4?.SortHandCardsCompare === "function") {
+        const temporary = new ResourceScope();
+        try {
+          temporary.patch(seat4, "SortHandCardsCompare", (original) => function(a, b) {
+            return compareHandTypes(a, b) || original.call(this, a, b);
+          });
+          container.SortNormalCards();
+        } finally {
+          temporary.dispose();
+        }
+      } else {
+        container.SortNormalCards();
+        cards.sort((a, b) => compareHandTypes(a.Card, b.Card));
+        if (Array.isArray(seat4?.HandCards)) seat4.HandCards.sort(compareHandTypes);
+        for (const ui of cards) {
+          if (typeof ui.clear === "function" && typeof ui.Draw === "function") {
+            ui.clear(false);
+            ui.Draw(container);
+          }
+        }
+        container.invalidateLayoutHandCard?.();
+      }
     } else {
       if (mode !== "suit" && mode !== "number") return false;
       const suitOrder = [3, 1, 4, 2];
@@ -9754,6 +10770,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       }
       container.invalidateLayoutHandCard?.();
     }
+    setHandGroupingMode(container, mode);
     for (const [ui, value] of selected) {
       if (value !== void 0 && (ui.selected ?? ui.Selected) !== value) {
         if (typeof ui.setSelected === "function") ui.setSelected(value);
@@ -9909,6 +10926,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     const labelLayer = node("div", "sgs-card-label-layer");
     const countdowns = createCountdowns(ctx);
     const skillCounts = createSkillCounts(ctx);
+    const handGrouping = createHandGrouping(ctx);
     overlay.append(seatLayer, labelLayer);
     let ownedButton = null, original = null, previousSignature = "", lockedMode = settings.get("lockedSort", null);
     let disposed = false, restoreSelectionWindow = null, patchedSelectionPrototype = null;
@@ -9978,6 +10996,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         countdowns.clear();
         skillCounts.clear();
         sortControls.hide();
+        handGrouping.detach();
         releaseOriginal();
         restoreSelectionWindow?.();
         restoreSelectionWindow = null;
@@ -10034,6 +11053,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       }
       countdowns.update([...new Set([self, ...seats].filter(Boolean))], settings.get("countdown", true));
       updateSelectionOrder();
+      handGrouping.update(settings.get("handSort", true) ? self?.cardContainer : null);
       const button = self?.sortCardBtn;
       const anchor = settings.get("handSort", true) ? handSortAnchor(window, self) : null;
       if (!anchor || !button || button.enabled === false || button._enabled === false || button.disabled === true || !sortControls.update(self.cardContainer, lockedMode)) {
@@ -10064,6 +11084,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       countdowns.dispose();
       skillCounts.dispose();
       sortControls.dispose();
+      handGrouping.dispose();
       releaseOriginal();
       restoreSelectionWindow?.();
       [seatLayer, labelLayer].forEach((element) => element.remove());
@@ -10114,11 +11135,12 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
 .sgs-card-seat-reveal .sgs-card-mini{height:54px;pointer-events:auto}.sgs-card-seat-reveal .sgs-card-mini:hover{transform:translateY(-5px);z-index:1}
 .sgs-card-possible-count,.sgs-card-overflow{font-size:10px;color:var(--sgs-muted,#b7aa8c);padding:2px}
 .sgs-card-source-label{background:var(--sgs-bg,#201e1a);border:1px solid var(--sgs-border,#665b42);border-radius:3px;padding:1px 4px;font-size:10px;max-width:90px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.sgs-card-skill-hint{padding:7px 0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 30%,transparent);overflow-wrap:anywhere}.sgs-card-skill-hint:last-child{border-bottom:0}.sgs-card-skill-hint strong{display:block;color:var(--sgs-accent);font-size:12px;margin-bottom:3px}.sgs-card-skill-hint p{margin:0;color:var(--sgs-text);font-size:12px;line-height:1.65}
 
 .sgs-card-setting-grid{grid-template-columns:1fr;gap:0;margin:4px 0 0}.sgs-card-setting{justify-content:space-between;gap:12px;min-height:37px;padding:7px 2px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent);font-size:12px;cursor:pointer}.sgs-card-setting:last-child{border:0}.sgs-card-setting span{min-width:0;color:var(--sgs-text,#eee3cc)}.sgs-card-settings{padding:0 10px;margin-top:10px;border-radius:9px;background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-accent,#dbba70) 5%,transparent),#00000018);border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 40%,transparent)}.sgs-cards .sgs-fold>summary{padding:10px 0}.sgs-cards .sgs-segments{flex-wrap:nowrap;gap:2px}.sgs-cards .sgs-segments>button{border:0;background:transparent;font-size:11px;border-radius:5px;padding:4px 6px;color:var(--sgs-muted,#b7aa8c)}.sgs-cards .sgs-segments>button.is-active,.sgs-cards .sgs-segments>button[aria-pressed=true]{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent);color:var(--sgs-accent,#dbba70)}.sgs-cards select.sgs-select{padding:5px 27px 5px 9px;background-color:var(--sgs-bg,#201e1a);border-color:color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);font-size:11px}.sgs-card-section{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 45%,transparent)}.sgs-card-composition th,.sgs-card-composition td{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent)}.sgs-card-hud .sgs-card-hud-recent{background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-raised,#383327) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions{gap:3px;padding:2px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);border-radius:7px;background:linear-gradient(color-mix(in srgb,var(--sgs-surface,#2c2922) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions>button{border:0;background:transparent;padding:0 3px;font-size:14px;color:var(--sgs-muted,#b7aa8c)}.sgs-card-hud-actions>button[aria-expanded=true]{color:var(--sgs-accent,#dbba70);background:color-mix(in srgb,var(--sgs-accent,#dbba70) 10%,transparent);box-shadow:inset 0 -1px color-mix(in srgb,var(--sgs-accent,#dbba70) 50%,transparent)}.sgs-card-hud-list{border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:0 8px 24px #0004}
 @media(prefers-reduced-motion:no-preference){.sgs-cards button{transition:background 140ms,border-color 140ms}}
 \`;
-  var SUITS = { 1: "\\u2665", 2: "\\u2666", 3: "\\u2660", 4: "\\u2663" };
+  var SUITS2 = { 1: "\\u2665", 2: "\\u2666", 3: "\\u2660", 4: "\\u2663" };
   var SHORT_NAMES = {
     "\\u706B\\u7130\\u6740": "\\u706B\\u6740",
     "\\u96F7\\u7535\\u6740": "\\u96F7\\u6740",
@@ -10195,11 +11217,13 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     ["fourColors", "\\u56DB\\u8272\\u82B1\\u8272", false],
     ["handSort", "\\u6269\\u5C55\\u7406\\u724C", true],
     ["countdown", "\\u51FA\\u724C\\u8BFB\\u79D2", true],
-    ["skillCounts", "\\u663E\\u793A\\u6280\\u80FD\\u6B21\\u6570", true]
+    ["skillCounts", "\\u663E\\u793A\\u6280\\u80FD\\u6B21\\u6570", true],
+    ["skillHints", "\\u6280\\u80FD\\u63D0\\u793A", true]
   ];
   function activate(ctx) {
     const { document, window, scope, settings } = ctx;
     const panelRefreshers = /* @__PURE__ */ new Set();
+    const hintRefreshers = /* @__PURE__ */ new Set();
     let disposed = false, native = null, activeHudList = null, hoverHudList = null, heldKey = null;
     let discardMode = settings.get("discardMode", "time"), recentMode = settings.get("recentMode", "player"), deckGroup = settings.get("deckGroup", "name");
     const pinnedDeckRows = /* @__PURE__ */ new Set();
@@ -10219,30 +11243,30 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       const chip = element("span", \`sgs-card-chip\${possible ? " is-possible" : ""}\${compact ? " is-compact" : ""}\${miniature ? " sgs-card-mini" : ""}\${meta.suit === 1 || meta.suit === 2 ? " is-red" : ""}\`);
       chip.dataset.cardId = String(id);
       const pip = meta.number > 10 ? { 11: "J", 12: "Q", 13: "K" }[meta.number] || meta.number : meta.number || "";
-      const suit = element("span", "sgs-card-suit", \`\${SUITS[meta.suit] || ""}\${pip}\`);
-      if (!miniature && (meta.suit === 1 || meta.suit === 2)) suit.style.color = "#ef968a";
-      if (setting("fourColors", false) && meta.suit === 2) suit.style.color = "#89bdf5";
-      if (setting("fourColors", false) && meta.suit === 4) suit.style.color = "#8ac8a7";
+      const suit2 = element("span", "sgs-card-suit", \`\${SUITS2[meta.suit] || ""}\${pip}\`);
+      if (!miniature && (meta.suit === 1 || meta.suit === 2)) suit2.style.color = "#ef968a";
+      if (setting("fourColors", false) && meta.suit === 2) suit2.style.color = "#89bdf5";
+      if (setting("fourColors", false) && meta.suit === 4) suit2.style.color = "#8ac8a7";
       const name = element("span", "sgs-card-name", miniature ? miniatureName(meta.name) : meta.name);
-      chip.append(suit, name);
+      chip.append(suit2, name);
       if (possible) chip.append(element("small", "sgs-card-certainty", "\\u53EF\\u80FD"));
       const record = state.cards[id];
       const locations = record?.locations?.map((key) => key === "?" ? "\\u672A\\u77E5\\u4F4D\\u7F6E" : \`\${ZONE_NAMES[Number(key.split(":")[0])] || "\\u724C\\u533A"}\${Number(key.split(":")[1]) < 255 ? \` \\xB7 \${seatLabel(state, Number(key.split(":")[1]))}\` : ""}\`) || [];
-      const description = \`\${meta.name} \${SUITS[meta.suit] || ""}\${pip} \\xB7 #\${id}\${possible ? " \\xB7 \\u53EF\\u80FD\\u6709\\uFF08\\u975E\\u786E\\u5B9A\\uFF09" : ""}\${locations.length ? " \\xB7 " + locations.join(" / ") : ""}\${record?.tags?.length ? " \\xB7 " + record.tags.join(" / ") : ""}\`;
+      const description = \`\${meta.name} \${SUITS2[meta.suit] || ""}\${pip} \\xB7 #\${id}\${possible ? " \\xB7 \\u53EF\\u80FD\\u6709\\uFF08\\u975E\\u786E\\u5B9A\\uFF09" : ""}\${locations.length ? " \\xB7 " + locations.join(" / ") : ""}\${record?.tags?.length ? " \\xB7 " + record.tags.join(" / ") : ""}\`;
       chip.title = description;
       chip.setAttribute("aria-label", description);
       if (!miniature && !compact && setting("labels") && record?.tags?.length) chip.append(element("small", "sgs-card-tag", record.tags.at(-1)));
       return chip;
     }
-    function cardList(host, ids, { possible = false, empty = "\\u6682\\u65E0\\u5DF2\\u77E5\\u8BB0\\u5F55", limit = 120 } = {}) {
+    function cardList(host, ids2, { possible = false, empty = "\\u6682\\u65E0\\u5DF2\\u77E5\\u8BB0\\u5F55", limit = 120 } = {}) {
       host.replaceChildren();
-      if (!ids.length) {
+      if (!ids2.length) {
         host.append(element("div", "sgs-card-empty", empty));
         return;
       }
       const grid = element("div", "sgs-card-grid");
-      ids.slice(0, limit).forEach((id) => grid.append(makeCard(id, possible, false, true)));
-      if (ids.length > limit) grid.append(element("span", "sgs-card-muted", \`\\u53E6\\u6709 \${ids.length - limit} \\u5F20\\uFF0C\\u8BF7\\u7F29\\u5C0F\\u7B5B\\u9009\\u8303\\u56F4\`));
+      ids2.slice(0, limit).forEach((id) => grid.append(makeCard(id, possible, false, true)));
+      if (ids2.length > limit) grid.append(element("span", "sgs-card-muted", \`\\u53E6\\u6709 \${ids2.length - limit} \\u5F20\\uFF0C\\u8BF7\\u7F29\\u5C0F\\u7B5B\\u9009\\u8303\\u56F4\`));
       host.append(grid);
     }
     function selectedRecent(state) {
@@ -10355,9 +11379,9 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       hudButtons.top.hidden = hudButtons.bottom.hidden = !setting("deck");
       hudButtons.discard.hidden = !setting("discard");
       for (const [key, label] of [["top", "\\u9876"], ["bottom", "\\u5E95"], ["discard", "\\u5F03"]]) {
-        const count2 = listIds(state, key).filter((id) => id > 0).length;
-        hudButtons[key].textContent = \`\${label} \${count2}\`;
-        hudButtons[key].title = \`\${key === "discard" ? "\\u672C\\u56DE\\u5408\\u516C\\u5F00\\u5F03\\u724C" : \`\\u5DF2\\u77E5\\u724C\\u5806\${label}\`} \${count2} \\u5F20\\uFF1B\\u60AC\\u505C\\u67E5\\u770B\\uFF0C\\u70B9\\u51FB\\u56FA\\u5B9A\\u67E5\\u770B\`;
+        const count3 = listIds(state, key).filter((id) => id > 0).length;
+        hudButtons[key].textContent = \`\${label} \${count3}\`;
+        hudButtons[key].title = \`\${key === "discard" ? "\\u672C\\u56DE\\u5408\\u516C\\u5F00\\u5F03\\u724C" : \`\\u5DF2\\u77E5\\u724C\\u5806\${label}\`} \${count3} \\u5F20\\uFF1B\\u60AC\\u505C\\u67E5\\u770B\\uFF0C\\u70B9\\u51FB\\u56FA\\u5B9A\\u67E5\\u770B\`;
       }
       if (activeHudList === "discard" ? !setting("discard") : activeHudList && !setting("deck")) activeHudList = null;
       if (hoverHudList === "discard" ? !setting("discard") : hoverHudList && !setting("deck")) hoverHudList = null;
@@ -10366,9 +11390,9 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       hudList.hidden = !shownList;
       if (shownList) {
         const caption = { top: "\\u724C\\u5806\\u9876 \\xB7 \\u6700\\u9876\\u5728\\u5DE6", bottom: "\\u724C\\u5806\\u5E95 \\xB7 \\u6700\\u5E95\\u5728\\u53F3", discard: \`\\u672C\\u56DE\\u5408\\u5F03\\u724C \\xB7 \${discardMode === "time" ? "\\u65B0\\u7684\\u5728\\u53F3" : { suit: "\\u82B1\\u8272\\u987A\\u5E8F", type: "\\u7C7B\\u578B\\u987A\\u5E8F", number: "\\u70B9\\u6570\\u987A\\u5E8F" }[discardMode]}\` }[shownList];
-        const ids = listIds(state, shownList);
+        const ids2 = listIds(state, shownList);
         const cards = element("div");
-        cardList(cards, shownList === "bottom" ? ids.slice().reverse() : ids);
+        cardList(cards, shownList === "bottom" ? ids2.slice().reverse() : ids2);
         hudList.replaceChildren(element("p", "sgs-card-hud-caption", caption));
         if (shownList === "discard") {
           const controls = element("div", "sgs-card-controls sgs-segments");
@@ -10503,6 +11527,41 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       const compositionHint = element("p", "sgs-card-reason");
       compositionSection.body.append(deckSummary, deckControls, compositionTable, compositionHint);
       const inferenceSection = section("\\u624B\\u724C\\u63A8\\u65AD");
+      const hintSection = section("\\u6280\\u80FD\\u63D0\\u793A");
+      hintSection.wrap.dataset.cardSkillHints = "true";
+      let hintSignature = "";
+      function updateHints() {
+        if (disposed) return;
+        const state = currentState(), skills = [];
+        const allowed2 = state.active && setting("skillHints") && !singleRiderShopVisible(window, ctx.game);
+        if (allowed2) {
+          try {
+            const knownIds = [...new Set(Object.values(SKILL_HINT_GROUPS).flatMap((group) => group.ids))];
+            for (const ui of ctx.game.getSeatUIs?.() || []) {
+              if (ui.destroyed || ui.seat?.IsDead) continue;
+              for (const id of knownIds) if (ui.seat?.HasSkill?.(id)) skills.push(id);
+              for (const item of ui.skillItems || []) {
+                const skill = item.Skill;
+                if (skill) skills.push({ SkillId: skill.SkillId, name: skill.SkillName ?? skill.Name ?? skill.name ?? "" });
+              }
+            }
+          } catch {
+          }
+        }
+        const rows = allowed2 ? skillHints(state, { skills, getMeta }) : [];
+        hintSection.wrap.hidden = !rows.length;
+        const signature2 = JSON.stringify(rows);
+        if (signature2 === hintSignature) return;
+        hintSignature = signature2;
+        hintSection.body.replaceChildren();
+        for (const row of rows) {
+          const item = element("div", "sgs-card-skill-hint");
+          item.dataset.skillHint = row.id;
+          item.append(element("strong", "", row.title), element("p", "", row.text));
+          hintSection.body.append(item);
+        }
+      }
+      hintRefreshers.add(updateHints);
       const querySection = element("details", "sgs-card-section sgs-card-query-section sgs-fold");
       querySection.append(element("summary", "", "\\u5361\\u724C\\u7EC4\\u5408\\u67E5\\u8BE2"));
       root.append(querySection);
@@ -10539,17 +11598,17 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
           if (!names.includes(criteria.name)) criteria.name = "";
           nameSelect.value = criteria.name;
         }
-        const ids = queryCards(currentState(), criteria, getMeta);
-        queryCount.textContent = \`\\u7B26\\u5408\\u6761\\u4EF6 \${ids.length} \\u5F20 \\xB7 \\u865A\\u7EBF\\u8868\\u793A\\u4F4D\\u7F6E\\u4E0D\\u786E\\u5B9A\`;
+        const ids2 = queryCards(currentState(), criteria, getMeta);
+        queryCount.textContent = \`\\u7B26\\u5408\\u6761\\u4EF6 \${ids2.length} \\u5F20 \\xB7 \\u865A\\u7EBF\\u8868\\u793A\\u4F4D\\u7F6E\\u4E0D\\u786E\\u5B9A\`;
         queryResults.replaceChildren();
         const grid = element("div", "sgs-card-grid");
-        for (const id of ids.slice(0, 120)) {
+        for (const id of ids2.slice(0, 120)) {
           const record = currentState().cards[id];
           grid.append(makeCard(id, record.locations.length !== 1 || record.locations[0] === "?", false, true));
         }
         queryResults.append(grid);
-        if (!ids.length) queryResults.append(element("div", "sgs-card-empty", "\\u6682\\u65E0\\u7B26\\u5408\\u6761\\u4EF6\\u7684\\u5361\\u724C\\uFF1B\\u9700\\u5148\\u53D6\\u5F97\\u672C\\u5C40\\u724C\\u8868"));
-        if (ids.length > 120) queryResults.append(element("p", "sgs-card-muted", "\\u663E\\u793A\\u524D 120 \\u5F20\\uFF0C\\u8BF7\\u7EC4\\u5408\\u7B5B\\u9009\\u4EE5\\u7F29\\u5C0F\\u8303\\u56F4"));
+        if (!ids2.length) queryResults.append(element("div", "sgs-card-empty", "\\u6682\\u65E0\\u7B26\\u5408\\u6761\\u4EF6\\u7684\\u5361\\u724C\\uFF1B\\u9700\\u5148\\u53D6\\u5F97\\u672C\\u5C40\\u724C\\u8868"));
+        if (ids2.length > 120) queryResults.append(element("p", "sgs-card-muted", "\\u663E\\u793A\\u524D 120 \\u5F20\\uFF0C\\u8BF7\\u7EC4\\u5408\\u7B5B\\u9009\\u4EE5\\u7F29\\u5C0F\\u8303\\u56F4"));
       }
       nameSelect.addEventListener("change", () => {
         criteria.name = nameSelect.value;
@@ -10591,6 +11650,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       function update() {
         if (disposed) return;
         const state = currentState();
+        updateHints();
         inputs.forEach(([key, fallback, input]) => {
           input.checked = setting(key, fallback);
         });
@@ -10699,6 +11759,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       update();
       return () => {
         panelRefreshers.delete(update);
+        hintRefreshers.delete(updateHints);
         root.remove();
       };
     }
@@ -10715,6 +11776,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     scope.interval(() => {
       if (!releaseTheme) applyTheme();
       updateHud();
+      hintRefreshers.forEach((update) => update());
     }, 1e3);
     refresh();
     return () => {
@@ -10725,6 +11787,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       unregister?.();
       native?.dispose();
       panelRefreshers.clear();
+      hintRefreshers.clear();
       overlayHost.remove();
     };
   }
@@ -10732,11 +11795,11 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     manifest: {
       id: "cards",
       name: "\\u5361\\u724C",
-      version: "0.1.62",
+      version: "0.1.66",
       apiVersion: 1,
       contractVersion: 1,
-      releaseNotes: "\\u8865\\u5145\\u53F8\\u5951\\u3001\\u52BC\\u529B\\u5C55\\u793A\\u724C\\u5806\\u4FE1\\u606F\\u7684\\u8BB0\\u5F55\\uFF0C\\u8C03\\u6574\\u724C\\u5806\\u987A\\u5E8F\\u63D0\\u793A\\uFF1B\\u5355\\u9A91\\u5546\\u5E97\\u6253\\u5F00\\u65F6\\u6536\\u8D77\\u76F8\\u5173\\u60AC\\u6D6E\\u4FE1\\u606F\\uFF0C\\u51CF\\u5C11\\u906E\\u6321\\u3002",
-      minCoreVersion: "0.6.37",
+      releaseNotes: "\\u65B0\\u589E\\u591A\\u79CD\\u6280\\u80FD\\u7684\\u516C\\u5F00\\u5361\\u724C\\u8BB0\\u5F55\\u4E0E\\u53EA\\u8BFB\\u6280\\u80FD\\u63D0\\u793A\\uFF0C\\u4FEE\\u590D\\u754C\\u5F3A\\u8BC6\\u660E\\u724C\\u8BB0\\u5F55\\uFF1B\\u4F18\\u5316\\u624B\\u724C\\u6392\\u5E8F\\u548C\\u5206\\u7EC4\\u95F4\\u8DDD\\uFF0C\\u4FEE\\u590D\\u9009\\u724C\\u65F6\\u5206\\u7EC4\\u6807\\u7B7E\\u8DF3\\u52A8\\u3002\\u4EC5\\u4F7F\\u7528\\u5BA2\\u6237\\u7AEF\\u5DF2\\u77E5\\u4FE1\\u606F\\uFF0C\\u65E0\\u6CD5\\u786E\\u8BA4\\u7684\\u5F52\\u5C5E\\u548C\\u987A\\u5E8F\\u4FDD\\u7559\\u672A\\u77E5\\uFF0C\\u63D0\\u793A\\u4E0D\\u4EE3\\u4E3A\\u51FA\\u724C\\u3002",
+      minCoreVersion: "0.6.62",
       categories: ["game"],
       icon: PLUGIN_ICONS["cards"],
       priority: 1e4,
@@ -10749,8 +11812,8 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","version":"0.1.62","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8865\u5145\u53F8\u5951\u3001\u52BC\u529B\u5C55\u793A\u724C\u5806\u4FE1\u606F\u7684\u8BB0\u5F55\uFF0C\u8C03\u6574\u724C\u5806\u987A\u5E8F\u63D0\u793A\uFF1B\u5355\u9A91\u5546\u5E97\u6253\u5F00\u65F6\u6536\u8D77\u76F8\u5173\u60AC\u6D6E\u4FE1\u606F\uFF0C\u51CF\u5C11\u906E\u6321\u3002","minCoreVersion":"0.6.37","categories":["game"],"icon":{"paths":["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z","M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"]},"priority":10000,"description":"\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570"}};
-`, sha256: "2dace0ba531e64648999028a7943e60594a75193389d6146b2ce1a89c3a0c460" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "play-assist", name: "\u51FA\u724C\u8F85\u52A9", version: "0.2.12", apiVersion: 1, contractVersion: 1, releaseNotes: "\u957F\u6309\u6280\u80FD\u8F85\u52A9\u9ED8\u8BA4\u5F00\u542F\uFF0C\u4FDD\u7559\u5DF2\u6709\u8BBE\u7F6E\uFF1B\u53F3\u952E\u957F\u6309\u53EF\u8BB0\u4F4F\u6280\u80FD\uFF0C\u79FB\u52A8\u7AEF\u7EE7\u7EED\u957F\u6309\u4E5F\u53EF\u8BB0\u4F4F\uFF0C\u70B9\u6309\u53D6\u6D88\u3002\u79FB\u9664\u7EDF\u4E00\u8DE8\u5C40\u8BB0\u5FC6\u5F00\u5173\uFF0C\u6539\u4E3A\u9010\u6280\u80FD\u8BB0\u5FC6\uFF0C\u5E76\u4FEE\u6B63\u90E8\u5206\u8BE2\u95EE\u5904\u7406\u3002", minCoreVersion: "0.6.37", description: "\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002", icon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] }, priority: 12e3, categories: ["game"] }, code: `var SGSPlugin = (() => {
+return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","version":"0.1.66","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u591A\u79CD\u6280\u80FD\u7684\u516C\u5F00\u5361\u724C\u8BB0\u5F55\u4E0E\u53EA\u8BFB\u6280\u80FD\u63D0\u793A\uFF0C\u4FEE\u590D\u754C\u5F3A\u8BC6\u660E\u724C\u8BB0\u5F55\uFF1B\u4F18\u5316\u624B\u724C\u6392\u5E8F\u548C\u5206\u7EC4\u95F4\u8DDD\uFF0C\u4FEE\u590D\u9009\u724C\u65F6\u5206\u7EC4\u6807\u7B7E\u8DF3\u52A8\u3002\u4EC5\u4F7F\u7528\u5BA2\u6237\u7AEF\u5DF2\u77E5\u4FE1\u606F\uFF0C\u65E0\u6CD5\u786E\u8BA4\u7684\u5F52\u5C5E\u548C\u987A\u5E8F\u4FDD\u7559\u672A\u77E5\uFF0C\u63D0\u793A\u4E0D\u4EE3\u4E3A\u51FA\u724C\u3002","minCoreVersion":"0.6.62","categories":["game"],"icon":{"paths":["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z","M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"]},"priority":10000,"description":"\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570"}};
+`, sha256: "214c41b08aef5bf021f853deae8ec0f52f3d559c5bbb60325dc7366cc868237d" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "play-assist", name: "\u51FA\u724C\u8F85\u52A9", version: "0.2.16", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8865\u5145\u5F3A\u8BC6\u6478\u724C\u4E0E\u6B66\u5A18\u53D6\u724C\u8F85\u52A9\uFF0C\u6B66\u5A18\u4F18\u5148\u9009\u62E9\u53EF\u9009\u9632\u5177\u3001\u5176\u4ED6\u88C5\u5907\uFF0C\u518D\u9009\u62E9\u624B\u724C\uFF1B\u72C2\u9AA8\u6309\u5F53\u524D\u4F53\u529B\u9009\u62E9\u56DE\u8840\u6216\u6478\u724C\u3002\u4ECD\u9700\u5F00\u542F\u76F8\u5E94\u6280\u80FD\u8F85\u52A9\uFF0C\u5F3A\u8BC6\u524D\u534A\u6BB5\u9009\u4EBA\u548C\u5C55\u793A\u4FDD\u7559\u624B\u52A8\u3002", minCoreVersion: "0.6.37", description: "\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002", icon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] }, priority: 12e3, categories: ["game"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -10839,6 +11902,10 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
     const rest = eq.filter((c) => !priority.includes(c));
     const extra = Math.max(0, eq.length - priority.length - ownEquipCount);
     return [...priority, ...rest.slice(0, extra), ...hs, ...rest.slice(extra)].slice(0, Math.min(Math.max(0, Math.floor(hp)), hs.length + eq.length));
+  }
+  function wuniangCard(hand, equipment) {
+    const legal = equipment.filter(windowAvailable);
+    return legal.find((c) => cardType(c) === 4) || legal[0] || hand.find(windowAvailable);
   }
 
   // src/plugins/play-assist/quandao.js
@@ -10988,10 +12055,10 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
       return result;
     }
     function windows(s) {
-      if (!api.hasKind("pojun") && !api.hasKind("luoying")) return false;
+      if (!api.hasKind("pojun") && !api.hasKind("luoying") && !api.hasKind("wuniang")) return false;
       for (const win of windowNodes(s)) {
         const kind = win.name === "LuoYingSelectCardWindow" ? "luoying" : skillKind(id(win.Skill));
-        if (!["luoying", "pojun"].includes(kind) || !api.hasKind(kind)) continue;
+        if (!["luoying", "pojun", "wuniang"].includes(kind) || !api.hasKind(kind)) continue;
         let entry = revisions.get(win);
         if (!entry) {
           entry = { revision: 0, submitted: -1 };
@@ -11002,6 +12069,14 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
           });
         }
         if (entry.submitted === entry.revision) return true;
+        if (kind === "wuniang") {
+          const card = wuniangCard(list(win.handCardUis), list(win.equipCardUis));
+          if (Number(win.Skill.SelectCardCountWhenResponse) !== 1 || !card || model(card).CardId == null || typeof win.Skill.SelectCardComplete !== "function" || typeof win.Close !== "function") return true;
+          entry.submitted = entry.revision;
+          win.Skill.SelectCardComplete([model(card).CardId]);
+          win.Close();
+          return true;
+        }
         if (kind === "luoying") {
           if (!list(win.cardIds).length || typeof win.sureBtnHandler !== "function" || !win.btn1 || win.btn1.enabled === false) return true;
           entry.submitted = entry.revision;
@@ -11036,7 +12111,7 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
       const selector = s.self.spellSelector, targetContext = s.scene.seatContainer?.selectContext;
       const currentMessage = s.self.Pt?.txtOptMsg?._innerHTML || s.self.buttonBar?.txtOptMsg?._innerHTML || message;
       const ids = [selector?.visible ? id(selector.spell) : 0, id(context?.Skill), Number(context?.SpecifySkillId), id(targetContext?.Skill)];
-      const active = ids.find((n) => EXTRA_IDS.includes(n) && api.locked(n)) || EXTRA_IDS.find((n) => api.locked(n) && text(currentMessage).startsWith("\\u662F\\u5426\\u53D1\\u52A8" + EXTRA_NAMES[skillKind(n)]));
+      const active = (api.hasKind("wuniang") && /^\u662F\u5426\u5931\u53BB1\u70B9\u4F53\u529B\u91CD\u7F6E\u9547\u5357[\uFF1F?]?$/.test(text(currentMessage)) ? 3796 : 0) || ids.find((n) => EXTRA_IDS.includes(n) && api.locked(n)) || EXTRA_IDS.find((n) => api.locked(n) && text(currentMessage).startsWith("\\u662F\\u5426\\u53D1\\u52A8" + EXTRA_NAMES[skillKind(n)]));
       if (selector?.visible) {
         const triggerId = (d) => Number(d.callBackParams?.[0]?.FirstTriggerParam?.SpellId ?? d.callBackParams?.[0]?.TriggerSpellData?.[0]?.SpellId);
         const forbidden = (n) => skillKind(n) === "yingyuan" || skillKind(n) === "longyin" && !redShaOwnTurn(s, source, currentSeat);
@@ -11068,7 +12143,8 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
         return true;
       }
       if (kind === "wuniang" && /\u5931\u53BB.*\u4F53\u529B/.test(plain)) {
-        if (isShanhe(s.scene, gc) && Number(s.self.seat.Hp) > 2) api.button(s, "btnOK");
+        if (isShanhe(s.scene, gc) && Number(nativeSeat(s.self)?.Hp) > 2) api.button(s, "btnOK");
+        else decline(s);
         return true;
       }
       if (["wusheng", "wuniang", "miuyan"].includes(kind)) {
@@ -11107,8 +12183,9 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
   }
 
   // src/plugins/play-assist/runtime.js
-  var SKILL_IDS = Object.freeze([62, 769, 726, 3295, 3310, 792, 3750, 3753, 295, 250, 784, 445, 49, 716, 101, 3269, 273, 97, 3260, 102, 891, ...EXTRA_IDS]);
+  var SKILL_IDS = Object.freeze([62, 769, 726, 3295, 3310, 792, 3750, 3753, 295, 250, 784, 445, 49, 716, 101, 3269, 273, 97, 3260, 102, 891, 484, 3876, ...EXTRA_IDS]);
   var isWuxie = (ui) => Number(ui?.Card?.FirstSkillId ?? ui?.Card?.FirstSkill?.ID) === 13;
+  var QIANGZHI_IDS = [484, 3876];
   var QIANFU_IDS = [3750, 3753];
   var CONDITIONAL_SKILL_IDS = Object.freeze([48, 719, 79, 883]);
   function supported(item) {
@@ -11457,10 +12534,17 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
       if (!getSettings().skillLock || !locks.size) return false;
       const self = s.self, selector = self.spellSelector, cards = list2(self.cardContainer?.cardUis);
       if (selector?.visible) {
-        if (choice(s, (d) => locks.has(Number(d.callBackParams?.[0]?.FirstTriggerParam?.SpellId ?? d.callBackParams?.[0]?.TriggerSpellData?.[0]?.SpellId)))) return true;
+        if (choice(s, (d) => {
+          const id4 = Number(d.callBackParams?.[0]?.FirstTriggerParam?.SpellId ?? d.callBackParams?.[0]?.TriggerSpellData?.[0]?.SpellId);
+          return !QIANGZHI_IDS.includes(id4) && locks.has(id4);
+        })) return true;
         const id3 = Number(selector.spell?.SkillId);
         if (locks.has(id3)) {
-          if (id3 === 295) return choice(s, (d) => Number(d.sendData) === 2);
+          if (id3 === 295) {
+            const hp = self.seat?.Hp;
+            if (hp == null || hp === "" || !Number.isFinite(Number(hp))) return false;
+            return choice(s, (d) => Number(d.sendData) === (Number(hp) < 2 ? 1 : 2));
+          }
           if (id3 === 250 && currentSeat !== null) return choice(s, (d) => d.label === (currentSeat === Number(self.seat?.Index) ? "\\u4EE4\\u5176\\u6478\\u4E24\\u5F20\\u724C" : "\\u6478\\u4E00\\u5F20\\u724C"));
           if (id3 === 784) return choice(s, (d) => d.label === (String(selector.txtOptMsg?._innerHTML).includes("(\\u60A8)") ? "\\u9009\\u9879\\u4E8C" : "\\u9009\\u9879\\u4E00"));
         }
@@ -11511,6 +12595,7 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
         }
       }
       for (const item of list2(self.skillItems).filter((x) => supported(x) && locks.has(Number(x.Skill?.SkillId)))) {
+        if (QIANGZHI_IDS.includes(Number(item.Skill.SkillId))) continue;
         const kind = skillKind(Number(item.Skill.SkillId));
         if (kind === "yingyuan" || kind === "weishu" || kind === "longyin" && !redShaOwnTurn(s, sourceCard, currentSeat)) continue;
         if (Number(item.Skill.SkillId) === 62 && Number(self.seat?.Hp) <= 1) {
@@ -11527,6 +12612,20 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
       const opt = getSettings(), self = s.self, context = self.cardContainer?.selectCardContext, gc = gameContext();
       const message = String(context?.message || buttonBar(self)?.txtOptMsg?._innerHTML || "").replace(/<[^>]*>/g, "");
       const specify = Number(context?.SpecifySkillId), skill = Number(context?.Skill?.SkillId), selection = self.spellSelector?.visible ? Number(self.spellSelector.spell?.SkillId) : 0;
+      if (opt.skillLock && QIANGZHI_IDS.some((id2) => locks.has(id2))) {
+        const selector = self.spellSelector;
+        const prompt = String(selector?.visible ? selector.txtOptMsg?._innerHTML || "" : message).replace(/<[^>]*>/g, "").replace(/\\s/g, "");
+        const involved = [specify, skill, selection, Number(s.scene.seatContainer?.selectContext?.Skill?.SkillId)].some((id2) => QIANGZHI_IDS.includes(id2) && locks.has(id2));
+        if (selector?.visible && QIANGZHI_IDS.includes(selection) && locks.has(selection)) {
+          if (prompt === "\\u662F\\u5426\\u6478\\u4E00\\u5F20\\u724C") choice(s, (d) => !d.callBack && Number(d.sendData) === 1);
+          return;
+        }
+        if (!selector?.visible && prompt === "\\u662F\\u5426\\u53D1\\u52A8\\u5F3A\\u8BC6\\uFF0C\\u6478\\u4E00\\u5F20\\u724C") {
+          button(s, "btnOK");
+          return;
+        }
+        if (involved || /\u5F3A\u8BC6/.test(prompt)) return;
+      }
       if (declineQianfuFollowup(s, context)) return;
       if (opt.skillLock && locks.size && extended.run(s, context, message, sourceCard, currentSeat, gc)) return;
       if (opt.skillLock && locks.has(62) && Number(self.seat?.Hp) <= 0 && specify === 3 && Number(gc?.NextSpellTargets?.[0]) === Number(self.seat?.Index)) {
@@ -11744,10 +12843,10 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
   var manifest = {
     id: "play-assist",
     name: "\\u51FA\\u724C\\u8F85\\u52A9",
-    version: "0.2.12",
+    version: "0.2.16",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u957F\\u6309\\u6280\\u80FD\\u8F85\\u52A9\\u9ED8\\u8BA4\\u5F00\\u542F\\uFF0C\\u4FDD\\u7559\\u5DF2\\u6709\\u8BBE\\u7F6E\\uFF1B\\u53F3\\u952E\\u957F\\u6309\\u53EF\\u8BB0\\u4F4F\\u6280\\u80FD\\uFF0C\\u79FB\\u52A8\\u7AEF\\u7EE7\\u7EED\\u957F\\u6309\\u4E5F\\u53EF\\u8BB0\\u4F4F\\uFF0C\\u70B9\\u6309\\u53D6\\u6D88\\u3002\\u79FB\\u9664\\u7EDF\\u4E00\\u8DE8\\u5C40\\u8BB0\\u5FC6\\u5F00\\u5173\\uFF0C\\u6539\\u4E3A\\u9010\\u6280\\u80FD\\u8BB0\\u5FC6\\uFF0C\\u5E76\\u4FEE\\u6B63\\u90E8\\u5206\\u8BE2\\u95EE\\u5904\\u7406\\u3002",
+    releaseNotes: "\\u8865\\u5145\\u5F3A\\u8BC6\\u6478\\u724C\\u4E0E\\u6B66\\u5A18\\u53D6\\u724C\\u8F85\\u52A9\\uFF0C\\u6B66\\u5A18\\u4F18\\u5148\\u9009\\u62E9\\u53EF\\u9009\\u9632\\u5177\\u3001\\u5176\\u4ED6\\u88C5\\u5907\\uFF0C\\u518D\\u9009\\u62E9\\u624B\\u724C\\uFF1B\\u72C2\\u9AA8\\u6309\\u5F53\\u524D\\u4F53\\u529B\\u9009\\u62E9\\u56DE\\u8840\\u6216\\u6478\\u724C\\u3002\\u4ECD\\u9700\\u5F00\\u542F\\u76F8\\u5E94\\u6280\\u80FD\\u8F85\\u52A9\\uFF0C\\u5F3A\\u8BC6\\u524D\\u534A\\u6BB5\\u9009\\u4EBA\\u548C\\u5C55\\u793A\\u4FDD\\u7559\\u624B\\u52A8\\u3002",
     minCoreVersion: "0.6.37",
     description: "\\u957F\\u6309\\u6280\\u80FD\\u8F85\\u52A9\\u3001\\u81EA\\u52A8\\u786E\\u5B9A\\u4E0E\\u8BE2\\u95EE\\u8DF3\\u8FC7\\u3002",
     icon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] },
@@ -11807,14 +12906,14 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
           support.append(el("summary", "\\u652F\\u6301\\u6280\\u80FD"));
           support.setAttribute("aria-label", "\\u6280\\u80FD\\u8F85\\u52A9\\u652F\\u6301\\u5217\\u8868");
           const regular = el("p");
-          regular.append(el("strong", "\\u652F\\u6301\\uFF1A"), ...["\\u82E6\\u8089", "\\u6781\\u5962", "\\u5FD8\\u9699", "\\u5929\\u8FA9", "\\u8FC1\\u9644", "\\u72C2\\u9AA8", "\\u826F\\u52A9", "\\u6E05\\u5F26", "\\u5FA1\\u7B56", "\\u521A\\u70C8", "\\u8FDE\\u8425", "\\u53CC\\u96C4", "\\u5947\\u5236", "\\u706B\\u8BA1", "\\u4E71\\u51FB"].concat(["\\u70C8\\u5F13", "\\u7834\\u519B", "\\u8986\\u8F7D", "\\u6B66\\u5723", "\\u6B66\\u5A18", "\\u767E\\u51FA", "\\u5E94\\u63F4", "\\u6000\\u8FDC", "\\u536B\\u620D", "\\u8C2C\\u7130", "\\u5408\\u51FB", "\\u4F24\\u901D", "\\u843D\\u82F1", "\\u9F99\\u541F"]).map((name2, i, names) => el("span", name2 + (i === names.length - 1 ? "\\u3002" : "\\u3001"), "pa-skill-name")));
+          regular.append(el("strong", "\\u652F\\u6301\\uFF1A"), ...["\\u82E6\\u8089", "\\u6781\\u5962", "\\u5FD8\\u9699", "\\u5929\\u8FA9", "\\u8FC1\\u9644", "\\u72C2\\u9AA8", "\\u826F\\u52A9", "\\u6E05\\u5F26", "\\u5FA1\\u7B56", "\\u521A\\u70C8", "\\u8FDE\\u8425", "\\u53CC\\u96C4", "\\u5947\\u5236", "\\u706B\\u8BA1", "\\u4E71\\u51FB"].concat(["\\u70C8\\u5F13", "\\u7834\\u519B", "\\u8986\\u8F7D", "\\u6B66\\u5723", "\\u6B66\\u5A18", "\\u767E\\u51FA", "\\u5E94\\u63F4", "\\u6000\\u8FDC", "\\u536B\\u620D", "\\u8C2C\\u7130", "\\u5408\\u51FB", "\\u4F24\\u901D", "\\u843D\\u82F1", "\\u9F99\\u541F", "\\u5F3A\\u8BC6"]).map((name2, i, names) => el("span", name2 + (i === names.length - 1 ? "\\u3002" : "\\u3001"), "pa-skill-name")));
           const conditional = el("p");
           conditional.append(el("strong", "\\u6761\\u4EF6\\u652F\\u6301\\uFF1A"), doc.createTextNode("\\u9B3C\\u624D\\u3001\\u9B3C\\u9053\\uFF08\\u542B\\u754C\\u7248\\uFF09\\uFF1B\\u9700\\u540C\\u65F6\\u62E5\\u6709\\u6D1B\\u795E\\u6216\\u754C\\u6D1B\\u795E\\u3002"));
           const versions = el("details", null, "sgs-fold");
-          versions.append(el("summary", \`\\u7248\\u672C\\u8BE6\\u60C5 \\xB7 \${21 + Object.values(EXTRA_SKILLS).flat().length} + 4\`));
+          versions.append(el("summary", \`\\u7248\\u672C\\u8BE6\\u60C5 \\xB7 \${23 + Object.values(EXTRA_SKILLS).flat().length} + 4\`));
           versions.append(el("p", "\\u82E6\\u8089 62\\uFF1B\\u6781\\u5962 769\\uFF1B\\u5FD8\\u9699 726 / 3295 / 3310\\uFF1B\\u5929\\u8FA9 792\\uFF1B\\u8FC1\\u9644 3750 / 3753\\uFF1B\\u72C2\\u9AA8 295\\uFF1B\\u826F\\u52A9 250\\uFF1B\\u6E05\\u5F26 784\\uFF1B\\u5FA1\\u7B56 445\\uFF1B\\u521A\\u70C8 49\\uFF1B\\u8FDE\\u8425 716\\uFF1B\\u53CC\\u96C4 101 / 3269\\uFF1B\\u5947\\u5236 273\\uFF1B\\u706B\\u8BA1 97 / 3260\\uFF1B\\u4E71\\u51FB 102 / 891\\u3002"));
           versions.append(el("p", "\\u6761\\u4EF6\\u6280\\u80FD\\uFF1A\\u9B3C\\u624D 48 / 719\\uFF1B\\u9B3C\\u9053 79 / 883\\u3002\\u524D\\u7F6E\\u6280\\u80FD\\uFF1A\\u6D1B\\u795E 45 / 875\\u3002\\u4EC5\\u652F\\u6301\\u6240\\u5217\\u7248\\u672C\\uFF0C\\u4E0D\\u6309\\u540C\\u540D\\u6280\\u80FD\\u81EA\\u52A8\\u6269\\u5C55\\u3002"));
-          versions.append(el("p", "\\u70C8\\u5F13 71 / 297 / 3264\\uFF1B\\u7834\\u519B 414 / 3389\\uFF1B\\u8986\\u8F7D 3824\\uFF1B\\u6B66\\u5723 33 / 878\\uFF1B\\u6B66\\u5A18 3796\\uFF1B\\u767E\\u51FA 3338\\uFF1B\\u5E94\\u63F4 384\\uFF1B\\u6000\\u8FDC 3081\\uFF1B\\u536B\\u620D 3084\\uFF1B\\u8C2C\\u7130 3274\\uFF1B\\u5408\\u51FB 3586\\uFF1B\\u4F24\\u901D 419\\uFF1B\\u843D\\u82F1 401\\uFF1B\\u9F99\\u541F 446 / 21003\\u3002"));
+          versions.append(el("p", "\\u70C8\\u5F13 71 / 297 / 3264\\uFF1B\\u7834\\u519B 414 / 3389\\uFF1B\\u8986\\u8F7D 3824\\uFF1B\\u6B66\\u5723 33 / 878\\uFF1B\\u6B66\\u5A18 3796\\uFF1B\\u767E\\u51FA 3338\\uFF1B\\u5E94\\u63F4 384\\uFF1B\\u6000\\u8FDC 3081\\uFF1B\\u536B\\u620D 3084\\uFF1B\\u8C2C\\u7130 3274\\uFF1B\\u5408\\u51FB 3586\\uFF1B\\u4F24\\u901D 419\\uFF1B\\u843D\\u82F1 401\\uFF1B\\u9F99\\u541F 446 / 21003\\uFF1B\\u5F3A\\u8BC6 484 / 3876\\uFF08\\u4EC5\\u81EA\\u52A8\\u786E\\u5B9A\\u6478\\u724C\\uFF0C\\u5C55\\u793A\\u624B\\u724C\\u624B\\u52A8\\uFF09\\u3002"));
           support.append(regular, conditional, versions);
           root.append(support);
         }
@@ -11868,8 +12967,8 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\u8F85\u52A9","version":"0.2.12","apiVersion":1,"contractVersion":1,"releaseNotes":"\u957F\u6309\u6280\u80FD\u8F85\u52A9\u9ED8\u8BA4\u5F00\u542F\uFF0C\u4FDD\u7559\u5DF2\u6709\u8BBE\u7F6E\uFF1B\u53F3\u952E\u957F\u6309\u53EF\u8BB0\u4F4F\u6280\u80FD\uFF0C\u79FB\u52A8\u7AEF\u7EE7\u7EED\u957F\u6309\u4E5F\u53EF\u8BB0\u4F4F\uFF0C\u70B9\u6309\u53D6\u6D88\u3002\u79FB\u9664\u7EDF\u4E00\u8DE8\u5C40\u8BB0\u5FC6\u5F00\u5173\uFF0C\u6539\u4E3A\u9010\u6280\u80FD\u8BB0\u5FC6\uFF0C\u5E76\u4FEE\u6B63\u90E8\u5206\u8BE2\u95EE\u5904\u7406\u3002","minCoreVersion":"0.6.37","description":"\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002","icon":{"paths":["M4 5h10v14H4zM7 8h4M7 11h3","m17 3-3 8h5l-3 10 7-13h-5l2-5"]},"priority":12000,"categories":["game"]}};
-`, sha256: "31e156875a0ff0f21a0fc47ee577fdd8580ecc047035d0ff57bcc0fbd2c7a3a1" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "daily-rewards", name: "\u65E5\u5E38\u9886\u5956", version: "0.7.26", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8865\u5168\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u8FDE\u80DC\u5956\u52B1\u9886\u53D6\uFF0C\u907F\u514D\u540C\u4E00\u5B9D\u7BB1\u91CD\u590D\u8BF7\u6C42\uFF1B\u4F18\u5316\u5956\u52B1\u8BF4\u660E\u548C\u72B6\u6001\u663E\u793A\u3002\u81EA\u52A8\u9886\u53D6\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF0C\u5171\u4EAB\u5151\u6362\u7801\u4ECD\u9700\u5355\u72EC\u5F00\u542F\u4E14\u53EA\u4E0A\u4F20\u6E38\u620F\u660E\u786E\u6210\u529F\u7684\u7801\u53CA\u8D26\u53F7\u6458\u8981\u3002", minCoreVersion: "0.6.38", categories: ["automation"], icon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, priority: 2e4, description: "\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\u8F85\u52A9","version":"0.2.16","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8865\u5145\u5F3A\u8BC6\u6478\u724C\u4E0E\u6B66\u5A18\u53D6\u724C\u8F85\u52A9\uFF0C\u6B66\u5A18\u4F18\u5148\u9009\u62E9\u53EF\u9009\u9632\u5177\u3001\u5176\u4ED6\u88C5\u5907\uFF0C\u518D\u9009\u62E9\u624B\u724C\uFF1B\u72C2\u9AA8\u6309\u5F53\u524D\u4F53\u529B\u9009\u62E9\u56DE\u8840\u6216\u6478\u724C\u3002\u4ECD\u9700\u5F00\u542F\u76F8\u5E94\u6280\u80FD\u8F85\u52A9\uFF0C\u5F3A\u8BC6\u524D\u534A\u6BB5\u9009\u4EBA\u548C\u5C55\u793A\u4FDD\u7559\u624B\u52A8\u3002","minCoreVersion":"0.6.37","description":"\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002","icon":{"paths":["M4 5h10v14H4zM7 8h4M7 11h3","m17 3-3 8h5l-3 10 7-13h-5l2-5"]},"priority":12000,"categories":["game"]}};
+`, sha256: "c8964e440113d571e229b4a20458181c3f233a133c51423d48f03613804dedd9" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "daily-rewards", name: "\u65E5\u5E38\u9886\u5956", version: "0.7.33", apiVersion: 1, contractVersion: 1, releaseNotes: "\u6392\u9664\u56DE\u5F52\u3001\u56DE\u6D41\u53CA\u8001\u73A9\u5BB6\u4EFB\u52A1\uFF0C\u672A\u786E\u8BA4\u9879\u76EE\u663E\u793A\u540D\u79F0\u4E0E\u4EFB\u52A1\u7F16\u53F7\uFF1B\u4FEE\u590D\u90E8\u5206\u5DF2\u8BFB\u672A\u9886\u90AE\u4EF6\u65E0\u6CD5\u6062\u590D\u9886\u53D6\u7684\u95EE\u9898\uFF0C\u7CBE\u7B80\u6392\u67E5\u4FE1\u606F\u3002\u4FDD\u7559\u5DF2\u6709\u9632\u91CD\u590D\u9886\u53D6\u8BB0\u5F55\u3002\u81EA\u52A8\u9886\u53D6\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF1B\u5171\u4EAB\u5151\u6362\u7801\u9700\u5355\u72EC\u5F00\u542F\uFF0C\u53EA\u4E0A\u4F20\u6E38\u620F\u660E\u786E\u6210\u529F\u7684\u7801\u53CA\u8D26\u53F7\u6458\u8981\u3002", minCoreVersion: "0.6.38", categories: ["automation"], icon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, priority: 2e4, description: "\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -11954,6 +13053,14 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     "M3 7h18v13H3ZM8 7V4h8v3M3 12h6M15 12h6",
     "M12 9l3 3-3 3-3-3Z"
   );
+
+  // src/plugins/daily-rewards/return-tasks.js
+  function isReturnTask(task) {
+    const base = task?.baseVo;
+    if (!base) return false;
+    if (base._rewardItem?.ReturnReward || base.rewardItem?.ReturnReward) return true;
+    return [base.name, base.Name, base._name, base.desc, base.Desc, base._desc].some((value) => typeof value === "string" && /\u56DE\u5F52|\u56DE\u6D41|\u8001\u73A9\u5BB6/.test(value));
+  }
 
   // src/plugins/daily-rewards/welfare.js
   var read = (fn) => {
@@ -12447,7 +13554,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   function safeTask(item2, tavern = false) {
     const base = item2?.baseVo;
     const description = [base?.name, base?.Name, base?._name, base?.desc, base?.Desc, base?._desc].filter((value) => typeof value === "string").join(" ");
-    return !!base && item2.CanAward === true && item2.HasAward !== true && item2.HasExpired !== true && item2.hasExpired !== true && (item2.TaskCompeleMax !== true || tavern && base.IsRepect === true) && base.EffectClientTime !== false && base.IsEffectServerTimeStart !== false && !item2.HaveSelectReward && !base.HaveSelectReward && !base.haveSelectReward && !rows(base.taskSelectReward).length && !rows(item2.taskSelectReward).length && !item2.IsBuyTask && !base.IsBuyTask && (tavern || Number(item2.CanRewardCount ?? 1) <= 1 && Number(base.maxComplete ?? base._maxComplete ?? 1) <= 1) && !/\u5151\u6362|\u5151\u53D6|\u6362\u53D6|\u6D88\u8017|\u6263\u9664|\u8D2D\u4E70|\u5408\u6210|\u76F2\u76D2/.test(description) && !rows(item2.TaskConditions ?? item2.taskConditions).some((value) => Number(value?.reqType ?? value?._reqType) === 30);
+    return !!base && !isReturnTask(item2) && item2.CanAward === true && item2.HasAward !== true && item2.HasExpired !== true && item2.hasExpired !== true && (item2.TaskCompeleMax !== true || tavern && base.IsRepect === true) && base.EffectClientTime !== false && base.IsEffectServerTimeStart !== false && !item2.HaveSelectReward && !base.HaveSelectReward && !base.haveSelectReward && !rows(base.taskSelectReward).length && !rows(item2.taskSelectReward).length && !item2.IsBuyTask && !base.IsBuyTask && (tavern || Number(item2.CanRewardCount ?? 1) <= 1 && Number(base.maxComplete ?? base._maxComplete ?? 1) <= 1) && !/\u5151\u6362|\u5151\u53D6|\u6362\u53D6|\u6D88\u8017|\u6263\u9664|\u8D2D\u4E70|\u5408\u6210|\u76F2\u76D2/.test(description) && !rows(item2.TaskConditions ?? item2.taskConditions).some((value) => Number(value?.reqType ?? value?._reqType) === 30);
   }
   function latestHistory(manager) {
     const history = manager?.NewParWeiOriData?.historyDataDic;
@@ -13607,8 +14714,8 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       }
       const unread = current()?.read === 0 || current()?.read === false;
       const legacy = selected.legacyMailAttempts?.[\`mail:\${id}\`];
-      const repair = legacy && typeof token === "string" && token.length > 0;
-      const readKey = repair ? \`mail-read-v2:\${id}:\${Number(legacy.at) || 0}\` : \`mail-read:\${id}\`;
+      const repair = legacy && (!legacy.flowVersion || legacy.flowVersion === 2 && type === 2) && typeof token === "string" && token.length > 0;
+      const readKey = repair ? \`mail-read-v3:\${id}:\${Number(legacy.at) || 0}\` : \`mail-read:\${id}\`;
       let readAcked = false, readSent = false;
       if (unread || repair) {
         if (typeof manager.ReadMail !== "function") {
@@ -13621,11 +14728,11 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
           workflowGroup: "mail-read",
           label: \`\\u8BFB\\u53D6\\u90AE\\u4EF6 \${seen.size}\`,
           manager,
-          flowVersion: 2,
+          flowVersion: 3,
           auxiliary: true,
           rewards: () => mailRewardItems(adapter, current()),
-          eligible: () => live2() && (current()?.read === 0 || current()?.read === false),
-          done: () => current()?.Geted === true || readSent && (unread || readAcked) && (current()?.read === 1 || current()?.read === true),
+          eligible: () => live2() && (repair || current()?.read === 0 || current()?.read === false),
+          done: () => current()?.Geted === true || readSent && (repair ? readAcked : unread || readAcked) && (current()?.read === 1 || current()?.read === true),
           confirmations: [{ manager, event: "READ_MAIL_SUCCESS", accept: (value2) => {
             if (!sameId(value2?.mid, id) || !(current()?.read === 1 || current()?.read === true)) return false;
             readAcked = true;
@@ -13644,7 +14751,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         workflowGroup: \`mail:\${id}\`,
         label: \`\\u90AE\\u4EF6\\u9644\\u4EF6 \${seen.size}\`,
         manager,
-        flowVersion: 2,
+        flowVersion: 3,
         legacyMailRepair: repair ? { readKey, previousAt: Number(legacy.at) || 0 } : void 0,
         rewards: () => mailRewardItems(adapter, current()),
         eligible: () => live2() && current()?.read !== 0 && current()?.read !== false,
@@ -14087,7 +15194,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         const match = /^task:(\\d+)$/.exec(actionKey);
         if (!match) return null;
         const task = read13(() => manager("TaskManager").GetServerTaskDataByTaskID(Number(match[1])));
-        return { label: taskLabel(task, match[1]), reason: task ? taskSkipReason(task) : "" };
+        return { label: taskLabel(task, match[1]), reason: task ? taskSkipReason(task) : "", excluded: isReturnTask(task) };
       },
       goods(id) {
         const root2 = config("sys_gs_dbs_fs_goodsbaseinfo.sgs")?.root;
@@ -14134,9 +15241,9 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     const base = task?.baseVo;
     if (!base || task.CanAward !== true || task.HasAward === true) return "\\u5C1A\\u4E0D\\u53EF\\u9886\\u53D6";
     if (task.HasExpired === true || task.hasExpired === true || base.IsEffectServerTimeStart === false || base.EffectClientTime === false) return "\\u5DF2\\u8FC7\\u671F\\u6216\\u5C1A\\u672A\\u5F00\\u59CB";
+    if (isReturnTask(task)) return "\\u56DE\\u5F52\\u4EFB\\u52A1\\u5DF2\\u6392\\u9664\\uFF0C\\u8BF7\\u5728\\u6E38\\u620F\\u5185\\u624B\\u52A8\\u9886\\u53D6";
     const ordinaryModernRewards = task.IsNewQusetType === true && base.HaveSelectReward === false;
     if (!allowSelection && (task.HaveSelectReward || base.HaveSelectReward || base.haveSelectReward || !ordinaryModernRewards && (rows3(base.TaskSelectReward).length || rows3(base.taskSelectReward).length || rows3(task.taskSelectReward).length))) return "\\u9700\\u8981\\u9009\\u62E9\\u5956\\u52B1\\uFF0C\\u8BF7\\u5728\\u5F85\\u9009\\u5956\\u52B1\\u4E2D\\u9009\\u62E9";
-    if (base._rewardItem?.ReturnReward || base.rewardItem?.ReturnReward) return "\\u56DE\\u5F52\\u5956\\u52B1\\u7684\\u8D26\\u53F7\\u9002\\u7528\\u6761\\u4EF6\\u5C1A\\u672A\\u6838\\u5B9E\\uFF0C\\u8BF7\\u5728\\u6E38\\u620F\\u5185\\u624B\\u52A8\\u9886\\u53D6";
     if (task.IsBuyTask || base.IsBuyTask) return "\\u8D2D\\u4E70\\u4EFB\\u52A1";
     const description = [base.name, base.Name, base.desc, base.Desc, base._name, base._desc].filter((value) => typeof value === "string").join(" ");
     const conditions = rows3(task.TaskConditions || task.taskConditions, 64);
@@ -14571,7 +15678,6 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
 
   // src/plugins/daily-rewards/controller.js
   var defaults = { automatic: false, sign: true, mail: true, tasks: true, welfare: true, activities: true, autoFlip: false, codes: true, serverCodes: true, clipboardCodes: false, shareCodes: false, ...Object.fromEntries(rewardExclusions.map(([key]) => [key, key !== "excludeBeans"])) };
-  var names = { sign: "\\u7B7E\\u5230", mail: "\\u90AE\\u4EF6", tasks: "\\u4EFB\\u52A1", welfare: "\\u798F\\u5229", activities: "\\u6D3B\\u52A8", codes: "\\u5151\\u6362\\u7801" };
   var safely = (fn) => {
     try {
       return fn();
@@ -14635,7 +15741,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       }
       signal?.addEventListener("abort", abort, { once: true });
       interval = setInterval(check, poll);
-      deadline = setTimeout(() => finish({ status: "unconfirmed", text: "\\u672A\\u6536\\u5230\\u6210\\u529F\\u72B6\\u6001\\uFF0C\\u4FDD\\u7559\\u5F85\\u6838\\u5BF9\\uFF1B\\u4E0D\\u4F1A\\u81EA\\u52A8\\u91CD\\u53D1" }), timeout);
+      deadline = setTimeout(() => finish({ status: "unconfirmed", text: "\\u6682\\u672A\\u786E\\u8BA4\\u9886\\u53D6\\uFF0C\\u901A\\u5E38\\u5C1A\\u672A\\u6EE1\\u8DB3\\u9886\\u53D6\\u6761\\u4EF6\\uFF1B\\u4E0D\\u4F1A\\u81EA\\u52A8\\u91CD\\u53D1" }), timeout);
       try {
         if (!valid3() || signal?.aborted) return abort();
         const result = action.send();
@@ -14647,7 +15753,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       }
     });
   }
-  function createRewardsController({ adapter, settings, scope, sources, debug = false, timeout = 8e3, poll = 100, now = () => Date.now() }) {
+  function createRewardsController({ adapter, settings, scope, sources, timeout = 8e3, poll = 100, now = () => Date.now() }) {
     const listeners = /* @__PURE__ */ new Set();
     const pendingActions = /* @__PURE__ */ new Map();
     const serverSession = sources ? sources.serverSession ||= { checked: false, text: "", url: "", promise: null } : null;
@@ -14674,6 +15780,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       };
     }
     state.status = config().automatic ? "\\u81EA\\u52A8\\u9886\\u53D6\\u5DF2\\u5F00\\u542F\\uFF0C\\u7B49\\u5F85\\u68C0\\u67E5" : state.status;
+    const excludedAttempt = (id, entry) => /^(?:task|quest):/.test(id) && (safely(() => adapter.describeAttempt?.(id)?.excluded) === true || isReturnTask({ baseVo: { name: entry?.label } }));
     const snapshot = () => {
       const owner = account(), date = day(), issues = [], codeHistory = [];
       if (owner) {
@@ -14682,6 +15789,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         const permanent = settings.get(key(owner) + "permanent-attempts", {});
         for (const records of [daily, permanent]) for (const [id, entry] of Object.entries(records || {})) {
           if (!uncertainStatuses.has(entry?.status) && entry?.status !== "rejected") continue;
+          if (excludedAttempt(id, entry)) continue;
           const detail = safely(() => adapter.describeAttempt?.(id));
           const history = id.startsWith("code:") && entry.status === "rejected";
           (history ? codeHistory : issues).push({
@@ -14705,7 +15813,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       for (const fn of listeners) fn(snapshot());
     };
     function log(category, text, status = "info") {
-      logs = [{ at: now(), category, text, status }, ...logs].slice(0, debug ? 80 : 12);
+      logs = [{ at: now(), category, text, status }, ...logs].slice(0, 12);
       emit();
     }
     function options(change) {
@@ -14986,7 +16094,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         const selection = () => {
           const selected = source === "clipboard" ? { ...config(), sign: false, mail: false, tasks: false, welfare: false, activities: false } : config();
           if (selected.codeInputVersion !== 1) selected.codeText = "";
-          selected.legacyMailAttempts = Object.fromEntries(Object.entries(ledger.items).filter(([id, entry]) => id.startsWith("mail:") && uncertainStatuses.has(entry?.status) && !entry.flowVersion));
+          selected.legacyMailAttempts = Object.fromEntries(Object.entries(ledger.items).filter(([id, entry]) => id.startsWith("mail:") && uncertainStatuses.has(entry?.status) && (!entry.flowVersion || entry.flowVersion === 2)));
           const parsed = parseCodes(selected.codeText);
           if (!parsed.tooLong && !parsed.overflow) selected.codeText = parsed.codes.filter((code) => !permanent[\`code:\${encodeURIComponent(code)}\`]).join("\\n");
           return selected;
@@ -15004,7 +16112,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
           const plan = inspect(selection());
           for (const action2 of plan.actions) {
             const previous2 = ledger.items[action2.key], repair = action2.legacyMailRepair;
-            if (!repair || !uncertainStatuses.has(previous2?.status) || previous2.flowVersion || (Number(previous2.at) || 0) !== repair.previousAt || ledger.items[repair.readKey]?.status !== "confirmed" || !safely(action2.eligible)) continue;
+            if (!repair || !uncertainStatuses.has(previous2?.status) || previous2.flowVersion && previous2.flowVersion !== 2 || (Number(previous2.at) || 0) !== repair.previousAt || ledger.items[repair.readKey]?.status !== "confirmed" || !safely(action2.eligible)) continue;
             ledger.items[\`mail-legacy:\${action2.key.slice(5)}:\${repair.previousAt}\`] = { ...previous2, priorStatus: previous2.status, status: "superseded", reason: "native-read-first-repair" };
             delete ledger.items[action2.key];
             write();
@@ -15018,9 +16126,9 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
           }
           const blockedGroups = /* @__PURE__ */ new Set();
           for (const records2 of [ledger.items, permanent]) for (const [actionKey, entry] of Object.entries(records2)) {
-            if (uncertainStatuses.has(entry?.status)) blockedGroups.add(rewardWorkflowGroup({ key: actionKey, workflowGroup: entry.workflowGroup }));
+            if (!excludedAttempt(actionKey, entry) && uncertainStatuses.has(entry?.status)) blockedGroups.add(rewardWorkflowGroup({ key: actionKey, workflowGroup: entry.workflowGroup }));
           }
-          unresolved = Object.values(ledger.items).filter((entry) => uncertainStatuses.has(entry?.status)).length + newPermanentUnresolved.size;
+          unresolved = Object.entries(ledger.items).filter(([id, entry]) => !excludedAttempt(id, entry) && uncertainStatuses.has(entry?.status)).length + newPermanentUnresolved.size;
           const retryable = (item2) => {
             const prior = record(item2)[item2.key];
             return prior?.status === "rejected" && Number.isInteger(item2.maxRejectedAttempts) && item2.maxRejectedAttempts > 1 && item2.maxRejectedAttempts <= 3 && (Number(prior.attempts) || 1) < item2.maxRejectedAttempts;
@@ -15087,7 +16195,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
           }
         }
         if (!valid3()) state.status = "\\u672C\\u8F6E\\u5DF2\\u505C\\u6B62\\uFF1B\\u8D26\\u53F7\\u6216\\u65E5\\u671F\\u53D8\\u5316\\u3001\\u505C\\u7528\\u540E\\u4E0D\\u518D\\u53D1\\u9001\\u8BF7\\u6C42";
-        else if (state.status.startsWith("\\u6B63\\u5728")) state.status = unresolved ? \`\\u5DF2\\u786E\\u8BA4 \${state.confirmed} \\u9879\\uFF1B\${unresolved} \\u9879\\u672A\\u6536\\u5230\\u6210\\u529F\\u72B6\\u6001\\uFF0C\\u5F85\\u6838\\u5BF9\\u4E14\\u672A\\u91CD\\u53D1\` : \`\\u672C\\u8F6E\\u5B8C\\u6210\\uFF0C\\u5DF2\\u786E\\u8BA4\\u9886\\u53D6 \${state.confirmed} \\u9879\`;
+        else if (state.status.startsWith("\\u6B63\\u5728")) state.status = unresolved ? \`\\u5DF2\\u786E\\u8BA4 \${state.confirmed} \\u9879\\uFF1B\${unresolved} \\u9879\\u6682\\u672A\\u786E\\u8BA4\\u9886\\u53D6\\uFF08\\u901A\\u5E38\\u5C1A\\u672A\\u6EE1\\u8DB3\\u9886\\u53D6\\u6761\\u4EF6\\uFF0C\\u672A\\u91CD\\u53D1\\uFF09\` : \`\\u672C\\u8F6E\\u5B8C\\u6210\\uFF0C\\u5DF2\\u786E\\u8BA4\\u9886\\u53D6 \${state.confirmed} \\u9879\`;
         if (valid3() && rejected) state.status += \`\\uFF1B\${rejected} \\u9879\\u5931\\u8D25\\uFF1A\${lastFailure}\`;
         if (count >= 200) state.status = \`\\u672C\\u8F6E\\u5DF2\\u8FBE 200 \\u9879\\u4E0A\\u9650\\uFF0C\\u5DF2\\u786E\\u8BA4 \${state.confirmed} \\u9879\`;
         return snapshot();
@@ -15244,10 +16352,10 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     manifest: {
       id: "daily-rewards",
       name: "\\u65E5\\u5E38\\u9886\\u5956",
-      version: "0.7.26",
+      version: "0.7.33",
       apiVersion: 1,
       contractVersion: 1,
-      releaseNotes: "\\u8865\\u5168\\u6597\\u5730\\u4E3B\\u4E0E\\u5355\\u9A91\\u8FDE\\u80DC\\u5956\\u52B1\\u9886\\u53D6\\uFF0C\\u907F\\u514D\\u540C\\u4E00\\u5B9D\\u7BB1\\u91CD\\u590D\\u8BF7\\u6C42\\uFF1B\\u4F18\\u5316\\u5956\\u52B1\\u8BF4\\u660E\\u548C\\u72B6\\u6001\\u663E\\u793A\\u3002\\u81EA\\u52A8\\u9886\\u53D6\\u4ECD\\u9ED8\\u8BA4\\u5173\\u95ED\\uFF0C\\u5151\\u6362\\u53EF\\u80FD\\u6D88\\u8017\\u6B22\\u4E50\\u8C46\\uFF0C\\u5171\\u4EAB\\u5151\\u6362\\u7801\\u4ECD\\u9700\\u5355\\u72EC\\u5F00\\u542F\\u4E14\\u53EA\\u4E0A\\u4F20\\u6E38\\u620F\\u660E\\u786E\\u6210\\u529F\\u7684\\u7801\\u53CA\\u8D26\\u53F7\\u6458\\u8981\\u3002",
+      releaseNotes: "\\u6392\\u9664\\u56DE\\u5F52\\u3001\\u56DE\\u6D41\\u53CA\\u8001\\u73A9\\u5BB6\\u4EFB\\u52A1\\uFF0C\\u672A\\u786E\\u8BA4\\u9879\\u76EE\\u663E\\u793A\\u540D\\u79F0\\u4E0E\\u4EFB\\u52A1\\u7F16\\u53F7\\uFF1B\\u4FEE\\u590D\\u90E8\\u5206\\u5DF2\\u8BFB\\u672A\\u9886\\u90AE\\u4EF6\\u65E0\\u6CD5\\u6062\\u590D\\u9886\\u53D6\\u7684\\u95EE\\u9898\\uFF0C\\u7CBE\\u7B80\\u6392\\u67E5\\u4FE1\\u606F\\u3002\\u4FDD\\u7559\\u5DF2\\u6709\\u9632\\u91CD\\u590D\\u9886\\u53D6\\u8BB0\\u5F55\\u3002\\u81EA\\u52A8\\u9886\\u53D6\\u4ECD\\u9ED8\\u8BA4\\u5173\\u95ED\\uFF0C\\u5151\\u6362\\u53EF\\u80FD\\u6D88\\u8017\\u6B22\\u4E50\\u8C46\\uFF1B\\u5171\\u4EAB\\u5151\\u6362\\u7801\\u9700\\u5355\\u72EC\\u5F00\\u542F\\uFF0C\\u53EA\\u4E0A\\u4F20\\u6E38\\u620F\\u660E\\u786E\\u6210\\u529F\\u7684\\u7801\\u53CA\\u8D26\\u53F7\\u6458\\u8981\\u3002",
       minCoreVersion: "0.6.38",
       categories: ["automation"],
       icon: PLUGIN_ICONS["daily-rewards"],
@@ -15255,9 +16363,8 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       description: "\\u81EA\\u52A8\\u9886\\u53D6\\u7B7E\\u5230\\u3001\\u4EFB\\u52A1\\u3001\\u90AE\\u4EF6\\u4E0E\\u6D3B\\u52A8\\u5956\\u52B1\\uFF0C\\u6309\\u8D26\\u53F7\\u8BB0\\u5F55"
     },
     activate(ctx) {
-      const debug = ctx.window.__SGS_TOOLBOX_DEMO__?.onlyPlugin === "daily-rewards";
       const native = createNativeAdapter(ctx);
-      const controller = createRewardsController({ adapter: native, settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window, { core: ctx.core }), debug });
+      const controller = createRewardsController({ adapter: native, settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window, { core: ctx.core }) });
       const exchangeAdapter = createExchangeAdapter(ctx, native);
       const exchange = createExchangeController({ adapter: exchangeAdapter, settings: ctx.settings, enabled: () => controller.snapshot().config.automatic });
       const exchangeUI = createExchangeUI(ctx, exchange, exchangeAdapter);
@@ -15362,21 +16469,13 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         const status = el("p", void 0, "muted reward-status");
         status.setAttribute("role", "status");
         status.dataset.rewardsStatus = "";
-        root2.append(style, heading, excluded, codes, status);
-        let list3, notes, sourceStatus;
-        if (debug) {
-          const details = el("details", void 0, "sgs-fold"), summary = el("summary", "\\u5F00\\u53D1\\u8C03\\u8BD5");
-          notes = el("p");
-          sourceStatus = el("p");
-          sourceStatus.dataset.codesSourceStatus = "";
-          list3 = el("div");
-          list3.dataset.rewardsLog = "";
-          const refresh2 = el("button", "\\u68C0\\u67E5\\u72B6\\u6001");
-          refresh2.dataset.rewardsRefresh = "";
-          refresh2.addEventListener("click", controller.refresh);
-          details.append(summary, refresh2, sourceStatus, notes, list3);
-          root2.append(details);
-        }
+        const pending = el("div", void 0, "reward-pending");
+        pending.dataset.rewardsUnconfirmed = "";
+        pending.hidden = true;
+        pending.setAttribute("aria-label", "\\u672A\\u786E\\u8BA4\\u9886\\u53D6\\u7684\\u9879\\u76EE");
+        const pendingStyle = el("style");
+        pendingStyle.textContent = ".reward-pending{margin:4px 0 10px;padding-left:9px;border-left:2px solid var(--sgs-border);font-size:11px;line-height:1.7;color:var(--sgs-muted)}.reward-pending p{margin:3px 0;white-space:pre-wrap;overflow-wrap:anywhere}.reward-pending[hidden]{display:none}";
+        root2.append(style, pendingStyle, heading, excluded, codes, status, pending);
         container.append(root2);
         const render = (state) => {
           for (const [key, input] of Object.entries(inputs)) {
@@ -15394,11 +16493,12 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
           status.classList.toggle("is-error", !!state.sourceError);
           status.textContent = state.sourceError ? \`\${state.status}\\uFF1B\${state.sourceError}\` : state.status;
           status.title = state.sourceError || state.sourceStatus;
-          if (list3) {
-            sourceStatus.textContent = state.sourceStatus;
-            notes.textContent = state.capabilities.map((item2) => \`\${names[item2.category] || "\\u72B6\\u6001"}\\uFF1A\${item2.text}\`).join("\\uFF1B");
-            list3.replaceChildren(...state.logs.slice(0, 24).map((item2) => el("p", \`\${new Date(item2.at).toLocaleTimeString()} \\xB7 \${names[item2.category] || "\\u72B6\\u6001"} \\xB7 \${item2.text}\`)));
-          }
+          const uncertainTasks = state.issues.filter((item2) => ["pending", "unconfirmed", "interrupted"].includes(item2.status));
+          pending.hidden = !uncertainTasks.length;
+          pending.replaceChildren(...uncertainTasks.map((item2) => {
+            const id = /^(?:task|quest):(\\d+)/.exec(item2.key)?.[1];
+            return el("p", \`\\u672A\\u786E\\u8BA4\\uFF1A\${item2.label === item2.key ? "\\u672A\\u547D\\u540D\\u9886\\u5956\\u9879\\u76EE" : item2.label}\${id && !item2.label.includes(\`\\u4EFB\\u52A1 \${id}\`) ? \`\\uFF08\\u4EFB\\u52A1 \${id}\\uFF09\` : ""}\`);
+          }));
         };
         controller.refresh();
         render(controller.snapshot());
@@ -15421,8 +16521,8 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E38\u9886\u5956","version":"0.7.26","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8865\u5168\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u8FDE\u80DC\u5956\u52B1\u9886\u53D6\uFF0C\u907F\u514D\u540C\u4E00\u5B9D\u7BB1\u91CD\u590D\u8BF7\u6C42\uFF1B\u4F18\u5316\u5956\u52B1\u8BF4\u660E\u548C\u72B6\u6001\u663E\u793A\u3002\u81EA\u52A8\u9886\u53D6\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF0C\u5171\u4EAB\u5151\u6362\u7801\u4ECD\u9700\u5355\u72EC\u5F00\u542F\u4E14\u53EA\u4E0A\u4F20\u6E38\u620F\u660E\u786E\u6210\u529F\u7684\u7801\u53CA\u8D26\u53F7\u6458\u8981\u3002","minCoreVersion":"0.6.38","categories":["automation"],"icon":{"paths":["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13","M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"]},"priority":20000,"description":"\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55"}};
-`, sha256: "6f59de9834013c80aed60953b4f4471d2471ee4e8496ea0495ca2c4b24ca1cfa" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "seckill", name: "\u81EA\u52A8\u79D2\u6740", version: "0.1.3", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u81EA\u52A8\u8D2D\u4E70\u754C\u9762\uFF0C\u7EDF\u4E00\u5546\u54C1\u9009\u62E9\u4E0E\u5F00\u5173\u5916\u89C2\uFF1B\u81EA\u52A8\u8D2D\u4E70\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5F00\u542F\u540E\u4F1A\u6D88\u8017\u5BF9\u5E94\u6E38\u620F\u8D27\u5E01\uFF0C\u7ED3\u679C\u672A\u786E\u8BA4\u65F6\u4ECD\u4FDD\u7559\u6838\u5BF9\u72B6\u6001\u3002", minCoreVersion: "0.6.37", description: "\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4", icon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E38\u9886\u5956","version":"0.7.33","apiVersion":1,"contractVersion":1,"releaseNotes":"\u6392\u9664\u56DE\u5F52\u3001\u56DE\u6D41\u53CA\u8001\u73A9\u5BB6\u4EFB\u52A1\uFF0C\u672A\u786E\u8BA4\u9879\u76EE\u663E\u793A\u540D\u79F0\u4E0E\u4EFB\u52A1\u7F16\u53F7\uFF1B\u4FEE\u590D\u90E8\u5206\u5DF2\u8BFB\u672A\u9886\u90AE\u4EF6\u65E0\u6CD5\u6062\u590D\u9886\u53D6\u7684\u95EE\u9898\uFF0C\u7CBE\u7B80\u6392\u67E5\u4FE1\u606F\u3002\u4FDD\u7559\u5DF2\u6709\u9632\u91CD\u590D\u9886\u53D6\u8BB0\u5F55\u3002\u81EA\u52A8\u9886\u53D6\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF1B\u5171\u4EAB\u5151\u6362\u7801\u9700\u5355\u72EC\u5F00\u542F\uFF0C\u53EA\u4E0A\u4F20\u6E38\u620F\u660E\u786E\u6210\u529F\u7684\u7801\u53CA\u8D26\u53F7\u6458\u8981\u3002","minCoreVersion":"0.6.38","categories":["automation"],"icon":{"paths":["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13","M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"]},"priority":20000,"description":"\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55"}};
+`, sha256: "b0d3c11d10b7991d7a95b396f4739ec10fb44f01c6451fc604832cef5a73c24f" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "seckill", name: "\u81EA\u52A8\u79D2\u6740", version: "0.1.3", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u81EA\u52A8\u8D2D\u4E70\u754C\u9762\uFF0C\u7EDF\u4E00\u5546\u54C1\u9009\u62E9\u4E0E\u5F00\u5173\u5916\u89C2\uFF1B\u81EA\u52A8\u8D2D\u4E70\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5F00\u542F\u540E\u4F1A\u6D88\u8017\u5BF9\u5E94\u6E38\u620F\u8D27\u5E01\uFF0C\u7ED3\u679C\u672A\u786E\u8BA4\u65F6\u4ECD\u4FDD\u7559\u6838\u5BF9\u72B6\u6001\u3002", minCoreVersion: "0.6.37", description: "\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4", icon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -22158,7 +23258,7 @@ return {...SGSPlugin.default, manifest:{"id":"themes","name":"\u96C5\u8272\u4E3B
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u6218\u529F","version":"0.1.7","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4F18\u5316\u6218\u529F\u8FDB\u5EA6\u5C55\u793A\u3001\u767B\u5F55\u7B49\u5F85\u63D0\u793A\u4E0E\u7B5B\u9009\u64CD\u4F5C\uFF0C\u4FDD\u7559\u5F53\u524D\u8D26\u53F7\u8BB0\u5F55\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4","M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"]},"priority":31000,"description":"\u67E5\u770B\u5F53\u524D\u8D26\u53F7\u767E\u80DC\u8FDB\u5EA6\u3001\u5B8C\u6210\u65E5\u671F\u4E0E\u6280\u80FD\u6218\u529F\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A"}};
-`, sha256: "5b336ee55f25706ef864e2667e0f855a855981805b6b25383dece16a930b0802" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "appearances", name: "\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1", version: "0.4.19", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8BE6\u60C5\u6539\u4E3A\u6E38\u620F\u5185\u7F6E\u9762\u677F\uFF0C\u4FEE\u590D\u5FAE\u7AEF\u6253\u5F00\u8BE6\u60C5\u65F6\u51FA\u73B0\u7CFB\u7EDF\u94FE\u63A5\u63D0\u793A\u7684\u95EE\u9898\uFF1B\u4FDD\u7559\u7B5B\u9009\u3001\u5BF9\u5C40\u5386\u53F2\u548C\u624B\u52A8\u5BFC\u5165\u5DE5\u5177\u7BB1 JSON \u5907\u4EFD\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M9 21H3V3h18v9", "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1", "M12 21 16 17l3 2 3-5M19 14h3v3"] }, priority: 32e3, description: "\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2" }, code: `var SGSPlugin = (() => {
+`, sha256: "5b336ee55f25706ef864e2667e0f855a855981805b6b25383dece16a930b0802" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "appearances", name: "\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1", version: "0.4.20", apiVersion: 1, contractVersion: 1, releaseNotes: "\u968F\u516C\u5171\u56FE\u6807\u8D44\u6E90\u66F4\u65B0\uFF0C\u7EDF\u8BA1\u3001\u7B5B\u9009\u3001\u5386\u53F2\u8BB0\u5F55\u4E0E\u5BFC\u5165\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M9 21H3V3h18v9", "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1", "M12 21 16 17l3 2 3-5M19 14h3v3"] }, priority: 32e3, description: "\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -23983,6 +25083,7 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
     effects: PLUGIN_ICONS.effects,
     skins: PLUGIN_ICONS.skins,
     palette: PLUGIN_ICONS.themes,
+    typography: '<path d="M3 19 9 5l6 14M5 14h8M16 9h6M19 9v10M16 19h6"/>',
     toolbox: TOOLBOX_ICON,
     map: PLUGIN_ICONS.shanhetu,
     tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
@@ -24342,10 +25443,10 @@ main{box-sizing:border-box;position:relative;width:100%;max-width:1100px;min-wid
   var manifest = {
     id: "appearances",
     name: "\\u51FA\\u6846\\u4E0E\\u80DC\\u7387\\u7EDF\\u8BA1",
-    version: "0.4.19",
+    version: "0.4.20",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u8BE6\\u60C5\\u6539\\u4E3A\\u6E38\\u620F\\u5185\\u7F6E\\u9762\\u677F\\uFF0C\\u4FEE\\u590D\\u5FAE\\u7AEF\\u6253\\u5F00\\u8BE6\\u60C5\\u65F6\\u51FA\\u73B0\\u7CFB\\u7EDF\\u94FE\\u63A5\\u63D0\\u793A\\u7684\\u95EE\\u9898\\uFF1B\\u4FDD\\u7559\\u7B5B\\u9009\\u3001\\u5BF9\\u5C40\\u5386\\u53F2\\u548C\\u624B\\u52A8\\u5BFC\\u5165\\u5DE5\\u5177\\u7BB1 JSON \\u5907\\u4EFD\\u3002",
+    releaseNotes: "\\u968F\\u516C\\u5171\\u56FE\\u6807\\u8D44\\u6E90\\u66F4\\u65B0\\uFF0C\\u7EDF\\u8BA1\\u3001\\u7B5B\\u9009\\u3001\\u5386\\u53F2\\u8BB0\\u5F55\\u4E0E\\u5BFC\\u5165\\u65B9\\u5F0F\\u4FDD\\u6301\\u4E0D\\u53D8\\u3002",
     minCoreVersion: "0.6.37",
     categories: ["info"],
     icon: PLUGIN_ICONS["appearances"],
@@ -24356,8 +25457,8 @@ main{box-sizing:border-box;position:relative;width:100%;max-width:1100px;min-wid
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1","version":"0.4.19","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8BE6\u60C5\u6539\u4E3A\u6E38\u620F\u5185\u7F6E\u9762\u677F\uFF0C\u4FEE\u590D\u5FAE\u7AEF\u6253\u5F00\u8BE6\u60C5\u65F6\u51FA\u73B0\u7CFB\u7EDF\u94FE\u63A5\u63D0\u793A\u7684\u95EE\u9898\uFF1B\u4FDD\u7559\u7B5B\u9009\u3001\u5BF9\u5C40\u5386\u53F2\u548C\u624B\u52A8\u5BFC\u5165\u5DE5\u5177\u7BB1 JSON \u5907\u4EFD\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M9 21H3V3h18v9","M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1","M12 21 16 17l3 2 3-5M19 14h3v3"]},"priority":32000,"description":"\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2"}};
-`, sha256: "4ea01e0496266bd6a718b5ea9d10fe0a0c979aa2f5dc288fa22b7ed0b5d9e614" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "ledger", name: "\u8D26\u672C", version: "0.3.6", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4FEE\u590D\u767B\u5F55\u65F6\u5143\u5B9D\u4F59\u989D\u5C1A\u672A\u52A0\u8F7D\u5B8C\u6574\u5C31\u8BEF\u62A5\u5927\u91CF\u6D88\u8017\u7684\u95EE\u9898\uFF1B\u4FEE\u590D\u90E8\u5206\u5FAE\u7AEF\u7269\u54C1\u51CF\u5C11\u63D0\u9192\u5F39\u7A97\u504F\u79FB\u3001\u5185\u5BB9\u8D85\u51FA\u7A97\u53E3\u7684\u95EE\u9898\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, priority: 3e4, description: "\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1","version":"0.4.20","apiVersion":1,"contractVersion":1,"releaseNotes":"\u968F\u516C\u5171\u56FE\u6807\u8D44\u6E90\u66F4\u65B0\uFF0C\u7EDF\u8BA1\u3001\u7B5B\u9009\u3001\u5386\u53F2\u8BB0\u5F55\u4E0E\u5BFC\u5165\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M9 21H3V3h18v9","M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1","M12 21 16 17l3 2 3-5M19 14h3v3"]},"priority":32000,"description":"\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2"}};
+`, sha256: "2781a716e79711e114c602910bc2b0b2ad24802699087ad6a8d3c3d3e732790e" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "ledger", name: "\u8D26\u672C", version: "0.3.6", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4FEE\u590D\u767B\u5F55\u65F6\u5143\u5B9D\u4F59\u989D\u5C1A\u672A\u52A0\u8F7D\u5B8C\u6574\u5C31\u8BEF\u62A5\u5927\u91CF\u6D88\u8017\u7684\u95EE\u9898\uFF1B\u4FEE\u590D\u90E8\u5206\u5FAE\u7AEF\u7269\u54C1\u51CF\u5C11\u63D0\u9192\u5F39\u7A97\u504F\u79FB\u3001\u5185\u5BB9\u8D85\u51FA\u7A97\u53E3\u7684\u95EE\u9898\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, priority: 3e4, description: "\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -27707,13 +28808,18 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
     userID: ["UserID", "userId"],
     CastSeatID: ["castSeatId"],
     ItemID: ["itemId"],
-    ItemParams: ["param"]
+    ItemParams: ["param"],
+    IsSpell: ["isSpell", "is_spell"],
+    DataID: ["DataId", "dataId", "data_id"],
+    MurSeatID: ["MurSeatId", "murSeatId", "MurderSeatID"],
+    MData: ["mData"],
+    MsgID: ["MsgId", "msgId", "msg_id"]
   };
   for (let key of ["FromZone", "ToZone", "FromPosition", "ToPosition", "FromZoneParam", "ToZoneParam", "MoveType"])
     aliases[key] = [key[0].toLowerCase() + key.slice(1), key.replace(/[A-Z]/g, (char, index) => (index ? "_" : "") + char.toLowerCase())];
   var schemas = {
     MsgGamePlayCardNtf: ["CardList", "IsResume", "SeatID"],
-    PubGsCMoveCard: ["FromID", "FromZone", "FromPosition", "FromZoneParam", "ToID", "ToZone", "ToPosition", "ToZoneParam", "MoveType", "CardIDs", "CardCount", "SpellID"],
+    PubGsCMoveCard: ["FromID", "FromZone", "FromPosition", "FromZoneParam", "ToID", "ToZone", "ToPosition", "ToZoneParam", "MoveType", "CardIDs", "CardCount", "SpellID", "SrcSeatID"],
     PubGsCUseCard: ["SeatID", "CardID", "CardIDs", "SpellID", "useType"],
     MsgNtfUseCardType: ["CastSeatID", "SpellID", "useType"],
     decodeRogueLikeItemEffectNtf: ["ItemID", "ItemParams", "error_id"],
@@ -27730,11 +28836,13 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
     GsCGuoZhanSetCharacter: ["SeatID", "GeneralData"],
     GsCRoleOptTargetNtf: ["SpellID", "SeatID", "SrcSeatID", "TargetSeatID", "Type", "Param", "Params"],
     CGsRoleSpellOptRep: ["SpellID", "SeatID", "Type", "Datas"],
-    SmsgGamePlayerDead: ["SeatID"],
+    SmsgGamePlayerDead: ["SeatID", "MurSeatID"],
+    GsCUpdateRoleDataExNtf: ["SeatID", "IsSpell", "DataID", "Datas"],
+    MsgClientOperateInGameNtf: ["SeatID", "Type", "MsgID", "MData"],
     MsgGameOver: [],
     ClientLeavetableRep: [],
     ClientLoginRep: ["userID"]
-  }, lists = /* @__PURE__ */ new Set(["CardList", "CardIDs", "DestSeatIDs", "list_card_id", "Infos", "GeneralData", "Params", "Datas", "ItemParams"]), wrappers = ["Protocol", "protocol", "ProtoObj", "protoObj", "Data", "data", "msg", "Msg"], isObservedMessage = (type) => typeof type == "string" && Object.hasOwn(schemas, type), get = (object2, key) => {
+  }, lists = /* @__PURE__ */ new Set(["CardList", "CardIDs", "DestSeatIDs", "list_card_id", "Infos", "GeneralData", "Params", "Datas", "ItemParams", "MData"]), wrappers = ["Protocol", "protocol", "ProtoObj", "protoObj", "Data", "data", "msg", "Msg"], isObservedMessage = (type) => typeof type == "string" && Object.hasOwn(schemas, type), get = (object2, key) => {
     try {
       return object2?.[key];
     } catch {
@@ -28569,7 +29677,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.52", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.62", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
@@ -29071,6 +30179,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
     effects: PLUGIN_ICONS.effects,
     skins: PLUGIN_ICONS.skins,
     palette: PLUGIN_ICONS.themes,
+    typography: '<path d="M3 19 9 5l6 14M5 14h8M16 9h6M19 9v10M16 19h6"/>',
     toolbox: TOOLBOX_ICON,
     map: PLUGIN_ICONS.shanhetu,
     tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
@@ -30991,6 +32100,29 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     };
   }
 
+  // src/core/market-display.js
+  var servers = [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL];
+  function marketServerLabel(baseUrl) {
+    let index = servers.indexOf(String(baseUrl).replace(/\/+$/, ""));
+    return index < 0 ? "\u81EA\u5B9A\u4E49\u670D\u52A1\u5668" : `\u670D\u52A1\u5668 ${index + 1}`;
+  }
+  function userErrorMessage(error) {
+    let message = String(error?.message ?? error ?? "\u64CD\u4F5C\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5\u3002");
+    message = message.replace(/(?:https?|wss?):\/\/[^\s<>"'，。；）)]+/gi, (value) => {
+      try {
+        let index = servers.findIndex((url) => new URL(url).hostname === new URL(value).hostname);
+        return index < 0 ? "\u7F51\u7EDC\u5730\u5740" : `\u670D\u52A1\u5668 ${index + 1}`;
+      } catch {
+        return "\u7F51\u7EDC\u5730\u5740";
+      }
+    });
+    for (let [index, url] of servers.entries()) {
+      let host = new URL(url).hostname;
+      message = message.split(url).join(`\u670D\u52A1\u5668 ${index + 1}`).split(host).join(`\u670D\u52A1\u5668 ${index + 1}`);
+    }
+    return message.replace(/(?:https?|wss?):\/\/[^\s<>"'，。；）)]+/gi, "\u7F51\u7EDC\u5730\u5740").replace(/\b(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z][a-z0-9-]*(?::\d+)?\b/gi, "\u7F51\u7EDC\u5730\u5740").replace(/\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b/g, "\u7F51\u7EDC\u5730\u5740").replace(/\[?[a-f0-9]*:(?:[a-f0-9]*:)+[a-f0-9:.]+\]?(?::\d+)?/gi, "\u7F51\u7EDC\u5730\u5740");
+  }
+
   // src/market/client.js
   var PACKAGE_FORMAT2 = "sgs-toolbox-plugin-v1", ID = /^[a-z][a-z0-9._-]{0,95}$/, VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/, DIGEST = /^[0-9a-f]{64}$/i, DEFAULT_MAX_BYTES = 8 * 1024 * 1024, MarketError = class extends Error {
     constructor(code, message, details = {}) {
@@ -31117,11 +32249,28 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 
   // src/core/market-connection.js
   var LOCAL_MARKET_URL = "http://127.0.0.1:17321", PublicMarketClient = class {
-    constructor(fetchImpl, { sources = [GITHUB_MARKET_URL, OSS_MARKET_URL], ...options } = {}) {
-      this.clients = sources.map((baseUrl) => new MarketClient({ ...options, baseUrl, fetchImpl })), this.active = this.clients[0];
+    constructor(fetchImpl, { sources = [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL], session = {}, probeTimeoutMs = 2500, ...options } = {}) {
+      this.clients = sources.map((baseUrl) => new MarketClient({ ...options, baseUrl, fetchImpl })), this.active = this.clients[0], this.session = session, this.probeTimeoutMs = probeTimeoutMs, this.fetchImpl = fetchImpl, this.options = options;
     }
     get baseUrl() {
       return this.active.baseUrl;
+    }
+    start() {
+      return this.clients.some((client) => client.baseUrl === GITHUB_MARKET_URL) ? this.session.probe ||= (async () => {
+        try {
+          await new MarketClient({
+            ...this.options,
+            baseUrl: GITHUB_MARKET_URL,
+            fetchImpl: this.fetchImpl,
+            timeoutMs: Math.min(this.probeTimeoutMs, this.options.timeoutMs || this.probeTimeoutMs)
+          }).getCatalog();
+        } catch {
+          this.session.githubPoor = !0;
+        }
+      })() : Promise.resolve();
+    }
+    eligible() {
+      return this.clients.filter((client) => !(this.session.githubPoor && client.baseUrl === GITHUB_MARKET_URL));
     }
     async attempt(clients, action) {
       let failures = [];
@@ -31130,19 +32279,20 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           let result = await action(client);
           return this.active = client, result;
         } catch (error) {
-          failures.push(`${client.baseUrl === GITHUB_MARKET_URL ? "GitHub" : client.baseUrl === OSS_MARKET_URL ? "OSS" : "\u672C\u5730"}\uFF1A${error.message}`);
+          client.baseUrl === GITHUB_MARKET_URL && (this.session.githubPoor = !0), failures.push(`${marketServerLabel(client.baseUrl)}\uFF1A${userErrorMessage(error)}`);
         }
       throw new Error(`\u63D2\u4EF6\u5E02\u573A\u6682\u65F6\u65E0\u6CD5\u8FDE\u63A5\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002
 ` + failures.join(`
 `));
     }
-    getCatalog() {
-      return this.attempt(this.clients, (client) => client.getCatalog());
+    async getCatalog() {
+      return await this.session.probe, this.attempt(this.eligible(), (client) => client.getCatalog());
     }
     async health() {
       return await this.getCatalog(), { ok: !0, service: "sgs-toolbox-market", schemaVersion: 1 };
     }
-    getPackage(entry) {
+    async getPackage(entry) {
+      await this.session.probe;
       let source = this.clients.find((client) => {
         try {
           return client.resolvePackageUrl(entry.packageUrl), !0;
@@ -31151,34 +32301,36 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         }
       });
       if (!source) return Promise.reject(new Error("\u63D2\u4EF6\u5305\u5FC5\u987B\u6765\u81EA\u53D1\u5E03\u76EE\u5F55\u7684 packages \u76EE\u5F55\u3002"));
-      let path = source.resolvePackageUrl(entry.packageUrl).slice(source.baseUrl.length + 1), order = [this.active, ...this.clients.filter((client) => client !== this.active)];
+      let path = source.resolvePackageUrl(entry.packageUrl).slice(source.baseUrl.length + 1), order = this.eligible();
       return this.attempt(order, async (client) => verifyPackage(await client.getPackage({ ...entry, packageUrl: path })));
     }
   };
   function createMarketConnection(settings, fetchImpl, onError = () => {
   }, { development = !1 } = {}) {
+    let session = {};
     if (!development) {
-      let client2 = new PublicMarketClient(fetchImpl);
-      return { get: () => client2, set() {
+      let client2 = new PublicMarketClient(fetchImpl, { session });
+      return { get: () => client2, start: () => client2.start(), set() {
         throw new Error("\u516C\u5F00\u7248\u81EA\u52A8\u8FDE\u63A5\u63D2\u4EF6\u5E02\u573A\u3002");
       } };
     }
-    let create = (baseUrl) => baseUrl === "" ? null : baseUrl.replace(/\/+$/, "") === LOCAL_MARKET_URL ? new PublicMarketClient(fetchImpl, { sources: [LOCAL_MARKET_URL, GITHUB_MARKET_URL, OSS_MARKET_URL] }) : new MarketClient({ baseUrl, fetchImpl }), client;
+    let create = (baseUrl) => baseUrl === "" ? null : new MarketClient({ baseUrl, fetchImpl }), client;
     try {
-      client = create(settings.get("marketUrl", LOCAL_MARKET_URL));
+      let saved = settings.get("marketUrl", LOCAL_MARKET_URL);
+      [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL].includes(String(saved).replace(/\/+$/, "")) && settings.get("marketCustomUrl", "") !== saved && (saved = LOCAL_MARKET_URL, settings.set("marketUrl", saved)), client = create(saved);
     } catch {
       client = create(LOCAL_MARKET_URL), settings.set("marketUrl", client.baseUrl), onError("\u4FDD\u5B58\u7684\u5E02\u573A\u5730\u5740\u65E0\u6548\uFF0C\u5DF2\u6062\u590D\u672C\u673A\u9ED8\u8BA4\u5730\u5740\u3002");
     }
-    return { get: () => client, set(value) {
+    return { get: () => client, start: () => Promise.resolve(), set(value) {
       let next = create(String(value).trim()), url = next?.baseUrl || "";
-      return settings.set("marketUrl", url), client = next, url;
+      return settings.set("marketUrl", url), settings.set("marketCustomUrl", url), client = next, url;
     } };
   }
 
   // src/core/snapshots.js
   var RESYNC = /* @__PURE__ */ new Set(["MsgGamePlayCardNtf", "MsgReconnectGame", "MsgReconnectGameHand", "SmsgGameSetCharacter", "GsCGuoZhanSetCharacter"]);
   function attachSessionSnapshots({ journal, game, scope, settled = () => Promise.resolve() }) {
-    let generation = 0, lastSignature = "", pending = !1, timers = /* @__PURE__ */ new Set();
+    let generation = 0, lastSignature = "", pending = !1, deckIds = [], timers = /* @__PURE__ */ new Set();
     function cancel() {
       for (let timer of timers) clearTimeout(timer);
       timers.clear();
@@ -31205,6 +32357,20 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           } catch {
             data = {};
           }
+          if (game.getCardMeta && deckIds.length) {
+            data.cardMeta = {};
+            for (let id of deckIds) {
+              let value;
+              try {
+                value = game.getCardMeta(id);
+              } catch {
+                continue;
+              }
+              if (!value || value.unknown) continue;
+              let suit = Number(value.suit), number3 = Number(value.number), type = Number(value.type);
+              suit >= 1 && suit <= 4 && number3 >= 1 && number3 <= 13 && (data.cardMeta[id] = { suit, number: number3, type: Number.isInteger(type) ? type : 0 });
+            }
+          }
           let signature = JSON.stringify([journal.sessionId, data]);
           signature !== lastSignature && (lastSignature = signature, journal.push("toolbox:snapshot", data));
           let ready = Number.isInteger(data.selfSeatId) && Array.isArray(data.seats) && data.seats.length > 0, delays = [50, 250, 1e3, 2e3];
@@ -31219,7 +32385,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       })));
     }
     return scope.add(journal.subscribe((event) => {
-      RESYNC.has(event.type) && request();
+      event.type === "MsgGamePlayCardNtf" && (deckIds = (event.payload?.CardList || []).map(Number).filter((id) => Number.isInteger(id) && id > 0).slice(0, 2048)), (event.type === "ClientLeavetableRep" || event.type === "ClientLoginRep") && (deckIds = []), RESYNC.has(event.type) && request();
     })), scope.add(game.onSceneChange(request)), scope.add(() => {
       generation++, cancel();
     }), request(), { request };
@@ -31265,8 +32431,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     "list_card_id",
     "error_id",
     "Infos",
-    "GeneralData"
-  ], ARRAYS = /* @__PURE__ */ new Set(["CardList", "CardIDs", "DestSeatIDs", "list_card_id", "Params", "Infos", "GeneralData"]), REQUIRED = {
+    "GeneralData",
+    "Datas",
+    "IsSpell",
+    "DataID",
+    "MsgID",
+    "MData",
+    "MurSeatID"
+  ], ARRAYS = /* @__PURE__ */ new Set(["CardList", "CardIDs", "DestSeatIDs", "list_card_id", "Params", "Infos", "GeneralData", "Datas", "MData"]), REQUIRED = {
     MsgGamePlayCardNtf: [["CardList"]],
     PubGsCMoveCard: [["FromID"], ["ToID"], ["FromZone"], ["ToZone"], ["CardCount"], ["CardIDs"]],
     PubGsCUseCard: [["SeatID"], ["CardID", "CardIDs"]],
@@ -31409,6 +32581,84 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       },
       dispose
     };
+  }
+
+  // src/market/updates.js
+  var numeric = (a, b) => (a = a.replace(/^0+(?=\d)/, ""), b = b.replace(/^0+(?=\d)/, ""), Math.sign(a.length - b.length) || (a === b ? 0 : a > b ? 1 : -1));
+  function parse(version) {
+    let match = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(version);
+    return match && { core: match.slice(1, 4), pre: match[4]?.split(".") || [] };
+  }
+  function compareVersions2(a, b) {
+    let left = parse(a), right = parse(b);
+    if (!left || !right) throw new Error("\u63D2\u4EF6\u7248\u672C\u683C\u5F0F\u65E0\u6548\u3002");
+    for (let i = 0; i < 3; i++) {
+      let order = numeric(left.core[i], right.core[i]);
+      if (order) return order;
+    }
+    if (!left.pre.length || !right.pre.length) return Math.sign(right.pre.length) - Math.sign(left.pre.length);
+    for (let i = 0; i < Math.max(left.pre.length, right.pre.length); i++) {
+      let x = left.pre[i], y = right.pre[i];
+      if (x === void 0 || y === void 0) return x === void 0 ? -1 : 1;
+      if (x === y) continue;
+      let xn = /^\d+$/.test(x), yn = /^\d+$/.test(y), order = xn && yn ? numeric(x, y) : xn !== yn ? xn ? -1 : 1 : x > y ? 1 : -1;
+      if (order) return order;
+    }
+    return 0;
+  }
+  function findPluginUpdates(installed, entries) {
+    let latest = /* @__PURE__ */ new Map();
+    for (let entry of entries) {
+      if (!/^\d+\.\d+\.\d+$/.test(entry.version)) continue;
+      let previous = latest.get(entry.id);
+      (!previous || compareVersions2(entry.version, previous.version) > 0) && latest.set(entry.id, entry);
+    }
+    return installed.map((plugin) => {
+      let entry = latest.get(plugin.id), order = entry ? compareVersions2(entry.version, plugin.version) : null;
+      return { id: plugin.id, entry, status: order === null ? "unavailable" : order > 0 ? "update" : order < 0 ? "newer" : "current" };
+    });
+  }
+
+  // src/market/dependencies.js
+  function planDependencies(target, installed, catalog) {
+    let existing = new Map(installed.map((item) => [item.id, item])), latest = /* @__PURE__ */ new Map();
+    for (let item of catalog)
+      /^\d+\.\d+\.\d+$/.test(item.version) && (!latest.has(item.id) || compareVersions2(item.version, latest.get(item.id).version) > 0) && latest.set(item.id, item);
+    let done = /* @__PURE__ */ new Set(), visiting = /* @__PURE__ */ new Set(), result = [];
+    function visit(item) {
+      if (visiting.has(item.id)) throw new Error("\u524D\u7F6E\u63D2\u4EF6\u5FAA\u73AF\u4F9D\u8D56\uFF1A" + item.id);
+      if (!done.has(item.id)) {
+        visiting.add(item.id);
+        for (let id of item.dependencies || []) {
+          let current = existing.get(id);
+          if (current) {
+            if (!current.enabled || !current.active || current.error) throw new Error("\u524D\u7F6E\u63D2\u4EF6\u300C" + current.name + "\u300D\u5DF2\u5B89\u88C5\u4F46\u672A\u6B63\u5E38\u8FD0\u884C\uFF0C\u8BF7\u5148\u5728\u5DF2\u5B89\u88C5\u63D2\u4EF6\u4E2D\u542F\u7528\u6216\u4FEE\u590D\u3002");
+            continue;
+          }
+          let dependency = latest.get(id);
+          if (!dependency) throw new Error("\u5E02\u573A\u6682\u65E0\u524D\u7F6E\u63D2\u4EF6\u300C" + id + "\u300D\u7684\u6B63\u5F0F\u7248\uFF0C\u8BF7\u5237\u65B0\u76EE\u5F55\u6216\u624B\u52A8\u5BFC\u5165\u3002");
+          visit(dependency);
+        }
+        visiting.delete(item.id), done.add(item.id), item !== target && result.push(item);
+      }
+    }
+    return visit(target), result;
+  }
+
+  // src/market/official.js
+  var officialPluginIds = Object.freeze(["social", "player-info", "native-cards", "yjcm-cards", "dafeiyu-cards", "backgrounds", "gold-cards", "shanhetu", "cards", "play-assist", "daily-rewards", "seckill", "gaizhu", "effects", "skins", "wish-progress", "themes", "baisheng", "appearances", "ledger", "recharge"]);
+  function planOfficialPlugins(installed, catalog) {
+    let latest = /* @__PURE__ */ new Map();
+    for (let entry of catalog)
+      !officialPluginIds.includes(entry.id) || !/^\d+\.\d+\.\d+$/.test(entry.version) || (!latest.has(entry.id) || compareVersions2(entry.version, latest.get(entry.id).version) > 0) && latest.set(entry.id, entry);
+    let result = /* @__PURE__ */ new Map(), existing = new Set(installed.map((item) => item.id));
+    for (let id of officialPluginIds) {
+      if (existing.has(id)) continue;
+      let entry = latest.get(id);
+      if (!entry) throw new Error("\u5E02\u573A\u7F3A\u5C11\u5B98\u65B9\u63D2\u4EF6\uFF1A" + id);
+      for (let item of [...planDependencies(entry, installed, [...latest.values()]), entry]) result.set(item.id, item);
+    }
+    return [...result.values()];
   }
 
   // src/ui/game-viewport.js
@@ -32236,68 +33486,6 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), { capture };
   }
 
-  // src/market/updates.js
-  var numeric = (a, b) => (a = a.replace(/^0+(?=\d)/, ""), b = b.replace(/^0+(?=\d)/, ""), Math.sign(a.length - b.length) || (a === b ? 0 : a > b ? 1 : -1));
-  function parse(version) {
-    let match = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(version);
-    return match && { core: match.slice(1, 4), pre: match[4]?.split(".") || [] };
-  }
-  function compareVersions2(a, b) {
-    let left = parse(a), right = parse(b);
-    if (!left || !right) throw new Error("\u63D2\u4EF6\u7248\u672C\u683C\u5F0F\u65E0\u6548\u3002");
-    for (let i = 0; i < 3; i++) {
-      let order = numeric(left.core[i], right.core[i]);
-      if (order) return order;
-    }
-    if (!left.pre.length || !right.pre.length) return Math.sign(right.pre.length) - Math.sign(left.pre.length);
-    for (let i = 0; i < Math.max(left.pre.length, right.pre.length); i++) {
-      let x = left.pre[i], y = right.pre[i];
-      if (x === void 0 || y === void 0) return x === void 0 ? -1 : 1;
-      if (x === y) continue;
-      let xn = /^\d+$/.test(x), yn = /^\d+$/.test(y), order = xn && yn ? numeric(x, y) : xn !== yn ? xn ? -1 : 1 : x > y ? 1 : -1;
-      if (order) return order;
-    }
-    return 0;
-  }
-  function findPluginUpdates(installed, entries) {
-    let latest = /* @__PURE__ */ new Map();
-    for (let entry of entries) {
-      if (!/^\d+\.\d+\.\d+$/.test(entry.version)) continue;
-      let previous = latest.get(entry.id);
-      (!previous || compareVersions2(entry.version, previous.version) > 0) && latest.set(entry.id, entry);
-    }
-    return installed.map((plugin) => {
-      let entry = latest.get(plugin.id), order = entry ? compareVersions2(entry.version, plugin.version) : null;
-      return { id: plugin.id, entry, status: order === null ? "unavailable" : order > 0 ? "update" : order < 0 ? "newer" : "current" };
-    });
-  }
-
-  // src/market/dependencies.js
-  function planDependencies(target, installed, catalog) {
-    let existing = new Map(installed.map((item) => [item.id, item])), latest = /* @__PURE__ */ new Map();
-    for (let item of catalog)
-      /^\d+\.\d+\.\d+$/.test(item.version) && (!latest.has(item.id) || compareVersions2(item.version, latest.get(item.id).version) > 0) && latest.set(item.id, item);
-    let done = /* @__PURE__ */ new Set(), visiting = /* @__PURE__ */ new Set(), result = [];
-    function visit(item) {
-      if (visiting.has(item.id)) throw new Error("\u524D\u7F6E\u63D2\u4EF6\u5FAA\u73AF\u4F9D\u8D56\uFF1A" + item.id);
-      if (!done.has(item.id)) {
-        visiting.add(item.id);
-        for (let id of item.dependencies || []) {
-          let current = existing.get(id);
-          if (current) {
-            if (!current.enabled || !current.active || current.error) throw new Error("\u524D\u7F6E\u63D2\u4EF6\u300C" + current.name + "\u300D\u5DF2\u5B89\u88C5\u4F46\u672A\u6B63\u5E38\u8FD0\u884C\uFF0C\u8BF7\u5148\u5728\u5DF2\u5B89\u88C5\u63D2\u4EF6\u4E2D\u542F\u7528\u6216\u4FEE\u590D\u3002");
-            continue;
-          }
-          let dependency = latest.get(id);
-          if (!dependency) throw new Error("\u5E02\u573A\u6682\u65E0\u524D\u7F6E\u63D2\u4EF6\u300C" + id + "\u300D\u7684\u6B63\u5F0F\u7248\uFF0C\u8BF7\u5237\u65B0\u76EE\u5F55\u6216\u624B\u52A8\u5BFC\u5165\u3002");
-          visit(dependency);
-        }
-        visiting.delete(item.id), done.add(item.id), item !== target && result.push(item);
-      }
-    }
-    return visit(target), result;
-  }
-
   // src/core/game-view.js
   var SHANHE_MAP_SCENES = /* @__PURE__ */ new Set(["RogueLikeBigMapScene", "RogueSmallMapScene"]);
   function gameViewForScene(scene) {
@@ -32309,7 +33497,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
 
   // src/ui/shell.js
-  var categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], style = `
+  var categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix, size) => `${prefix}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
 /* A moving perimeter marker keeps the folded HUD easy to locate without covering controls. */
 .hud-locator{display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible;color:var(--sgs-accent)}
 .hud-locator rect{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;x:1px;y:1px;width:calc(100% - 2px);height:calc(100% - 2px);rx:10px;stroke-dasharray:18 8 3 71;animation:hud-locator-flow 3.6s linear infinite,hud-locator-breathe 2.4s ease-in-out infinite}
@@ -32329,8 +33517,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 
 .plugin-body .skin-entry{margin:0;padding:0;border:0;background:none}.plugin-body .skin-entry>h3{display:none}.plugin-body .reward-heading h3 .sgs-line-icon{display:none}.plugin-body .reward-heading h3,.plugin-body .sgs-effects h3{font-size:11px;font-weight:400;color:var(--sgs-muted)}
 :host{all:initial;position:fixed;top:72px;right:24px;width:280px;min-width:248px;max-width:420px;z-index:2147483000;color:var(--sgs-text);font:13px/1.55 var(--sgs-font);color-scheme:var(--sgs-scheme,dark)}
-*{box-sizing:border-box}button,input,select{font:inherit}button{cursor:pointer}button:disabled{cursor:wait;opacity:.5}button,input,select{color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 9px}button:hover{background:var(--sgs-raised);border-color:var(--sgs-accent)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}a{color:var(--sgs-accent)}
-.shell{background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:var(--sgs-radius);box-shadow:0 16px 48px #0006;overflow:hidden;resize:horizontal;min-width:248px;max-width:420px;width:100%}
+*{box-sizing:border-box}button,input,select{font:inherit}button{white-space:nowrap} :host{-webkit-text-size-adjust:100%;text-size-adjust:100%}.settings-group .actions{align-items:center}.settings-group .actions>span{display:inline-flex;flex:none}.settings-group label.row>span{flex-shrink:1}button{cursor:pointer}button:disabled{cursor:wait;opacity:.5}button,input,select{color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 9px}button:hover{background:var(--sgs-raised);border-color:var(--sgs-accent)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}a{color:var(--sgs-accent)}
+.edge-tab{display:none}:host([data-mobile][data-edge-hidden]){transform:translateX(calc(100% - 28px))}:host([data-mobile][data-edge-hidden]) .edge-tab{display:block;position:absolute;left:0;top:0;z-index:20;width:28px;height:64px;padding:0;border-radius:7px 0 0 7px;background:var(--sgs-bg);color:var(--sgs-accent);font-size:26px;touch-action:manipulation}.shell{background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:var(--sgs-radius);box-shadow:0 16px 48px #0006;overflow:hidden;resize:horizontal;min-width:248px;max-width:420px;width:100%}
 .content.has-plugin-panels{min-height:0}.plugin-group{min-width:0}.plugin-group+.plugin-group{border-top:1px solid var(--sgs-border);margin-top:10px;padding-top:10px}.plugin-heading{margin:0;font-size:13px}.plugin-heading .plugin-toggle{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;padding:6px 3px;border:0;border-radius:6px;background:transparent;box-shadow:none;text-align:left;color:var(--sgs-accent)}.plugin-heading .plugin-toggle:hover{background:color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.plugin-toggle svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.plugin-toggle .plugin-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;letter-spacing:.5px}.plugin-toggle .plugin-chevron{width:15px;height:15px;color:var(--sgs-muted);transition:transform .16s}.plugin-toggle[aria-expanded=false] .plugin-chevron{transform:rotate(-90deg)}.plugin-body{padding:9px 2px 2px}.plugin-body[hidden]{display:none!important}:host([data-edge-docked]){left:auto!important;right:0!important;transition:transform 180ms ease;transform:translateX(0)}:host([data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 5px));background:var(--sgs-bg);border-left:1px solid var(--sgs-accent);border-radius:5px 0 0 5px}:host([data-edge-hidden]) .shell{visibility:hidden}:host([data-edge-fixed]){transition:none;top:0!important;bottom:0!important;height:100vh;height:100dvh}:host([data-edge-fixed]) .shell{display:flex;flex-direction:column;height:100%;border-radius:0}:host([data-edge-fixed]) .shell>.brand,:host([data-edge-fixed]) .shell>.status,:host([data-edge-fixed]) .shell>.nav,:host([data-edge-fixed]) .shell>.footer,:host([data-edge-fixed]) .shell>.compact{flex-shrink:0}:host([data-edge-fixed]) .content{flex:1;min-height:0;max-height:none}.edge-resizer{display:none;position:absolute;left:0;bottom:0;width:22px;height:22px;z-index:12;color:var(--sgs-muted);cursor:ew-resize;touch-action:none;user-select:none;align-items:center;justify-content:center}.edge-resizer svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round}.edge-resizer:hover{color:var(--sgs-accent)}.edge-resizer:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:-3px}:host([data-edge-docked]) .shell{resize:none}:host([data-edge-docked]:not([data-collapsed]):not([data-edge-hidden])) .edge-resizer{display:flex}:host([data-edge-docked]) .footer{padding-left:25px}:host([data-edge-docked]:focus-visible){outline:2px solid var(--sgs-accent);outline-offset:-2px}
 @media(prefers-reduced-motion:reduce){.plugin-toggle .plugin-chevron{transition:none}}
 .brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand strong{letter-spacing:1px;font-size:13px}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
@@ -32349,7 +33537,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 :host([data-theme-scheme=light][data-collapsed]) .shell{background:linear-gradient(165deg,var(--sgs-surface),var(--sgs-bg) 65%);box-shadow:0 3px 8px #0002,0 8px 20px #0001,inset 0 1px #fff8}
 ${CONTROL_STYLES}
 button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%,var(--sgs-surface)),var(--sgs-surface));border-color:color-mix(in srgb,var(--sgs-border) 60%,transparent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 4%,transparent);transition:background 140ms,border-color 140ms,color 140ms}button:active:not(:disabled){background:var(--sgs-bg)}button:disabled{cursor:not-allowed}.nav button,.footer button{box-shadow:none}.tabs{gap:2px;padding:3px;border-radius:8px;background:var(--sgs-surface);box-shadow:inset 0 1px 3px #0004}.tabs button{border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);padding:6px 2px}.tabs button.active{background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 17%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent);color:var(--sgs-accent)}
-.settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 0 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
+.settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 1 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
+.font-preview{margin-top:12px;padding:12px 0 12px 10px;border-left:2px solid var(--sgs-accent);line-height:1.6}.font-preview strong{font-size:13px}.font-preview p{font-size:12px;margin:5px 0}.font-settings .sgs-segments button{min-width:0;flex:1;padding:6px 2px}.brand{gap:6px}.brand-name{min-width:0;flex:1}.brand strong{white-space:nowrap;letter-spacing:0;font-size:13px}.brand small{font-size:9px}.brand .mark{flex:none}.brand [data-collapse]{flex:none;margin-left:0}.brand-name strong{display:block;overflow:hidden;text-overflow:ellipsis}.brand [data-update-hint]{display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 7px;border:1px solid color-mix(in srgb,var(--sgs-accent) 48%,var(--sgs-border));border-radius:7px;background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 20%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 10%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 20%,transparent),0 2px 4px #0002;color:var(--sgs-accent);font-size:11px;font-weight:600;line-height:18px;cursor:pointer;white-space:nowrap;transition:background 140ms,border-color 140ms,box-shadow 140ms,transform 140ms}.brand [data-update-hint] svg{width:13px;height:13px;flex:none;stroke-width:1.8}.brand [data-update-hint][hidden]{display:none}.brand [data-update-hint]:hover{border-color:var(--sgs-accent);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 30%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 17%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 28%,transparent),0 3px 7px #0003;transform:translateY(-1px)}.brand [data-update-hint]:active{transform:translateY(0);box-shadow:inset 0 1px 3px #0003}.brand [data-update-hint]:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}
+
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
   function createShell({ window: win, document: doc, settings, scope }) {
@@ -32360,7 +33550,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         if (typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ != "function") throw new Error("\u5F53\u524D\u5FAE\u7AEF\u63A5\u5165\u5C42\u5C1A\u4E0D\u652F\u6301\u811A\u672C\u66F4\u65B0\uFF0C\u8BF7\u5148\u5347\u7EA7\u63A5\u5165\u5C42\u4E00\u6B21\u3002");
         microUpdate = await win.__SGS_TOOLBOX_SCRIPT_UPDATE__(action), action === "check" && microUpdate.current && compareVersions2(microUpdate.current, CORE_VERSION) > 0 && (microUpdate = { ...microUpdate, version: microUpdate.current, pending: !0 }), microUpdate.pending && notify("\u811A\u672C\u5DF2\u4FDD\u5B58\uFF0C\u4E0B\u6B21\u6253\u5F00\u6E38\u620F\u65F6\u751F\u6548\uFF1B\u5F53\u524D\u724C\u5C40\u4E0D\u53D7\u5F71\u54CD\u3002");
       } catch (error) {
-        microUpdateError = error.message;
+        microUpdateError = userErrorMessage(error);
       } finally {
         microUpdateBusy = !1, render();
       }
@@ -32370,11 +33560,37 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     let gameView = "battle", renderedKey = "", viewScroll = /* @__PURE__ */ new Map(), host = doc.createElement("div");
     host.dataset.sgsToolbox = "core";
     let shadow = host.attachShadow({ mode: "open" });
-    shadow.innerHTML = `<style>${style}</style><section class="shell"><svg class="hud-locator" aria-hidden="true" focusable="false"><rect pathLength="100"/></svg><div class="compact" data-count-state="unknown"><span class="slash" title="\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528\uFF1B\u53CC\u51FB\u5C55\u5F00\uFF0C\u6309\u4F4F\u62D6\u52A8"><span class="slash-seal" aria-hidden="true">\u6740</span><span class="slash-reading"><span class="slash-label">\u5269\u4F59</span><b data-slash aria-label="\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528">\u2014</b></span></span><div class="compact-actions"><button data-screenshot title="\u622A\u56FE\u5E76\u590D\u5236" aria-label="\u622A\u56FE\u5E76\u590D\u5236"></button><button data-expand title="\u653E\u5927\u9762\u677F" aria-label="\u653E\u5927\u9762\u677F"></button></div></div><div class="compact-summary" aria-label="\u5173\u6CE8\u5361\u724C\u672A\u89C1\u5F20\u6570"></div><header class="brand"><div class="mark" aria-hidden="true"></div><div><strong>\u4E09\u56FD\u6740 OL \u5DE5\u5177\u7BB1</strong><small>${EDITION.toUpperCase()} \xB7 ${CORE_VERSION}</small></div><button title="\u6298\u53E0\u9762\u677F" aria-label="\u6298\u53E0\u9762\u677F"></button></header><div class="status"><i class="dot"></i><span>\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6</span></div><nav class="nav" role="tablist">${categories.map(([id, title]) => `<button data-category="${id}" role="tab" aria-label="${title}" aria-selected="false"><span>${title}</span></button>`).join("")}</nav><main class="content" role="tabpanel"></main><footer class="footer"><span>${EDITION === "dev" ? "\u5F00\u53D1\u7248" : EDITION === "lite" ? "\u8F7B\u91CF\u7248" : "\u5B8C\u6574\u7248"} ${CORE_VERSION}</span><button data-open-market title="\u6253\u5F00\u63D2\u4EF6\u5E02\u573A" aria-label="\u6253\u5F00\u63D2\u4EF6\u5E02\u573A">\u63D2\u4EF6\u5E02\u573A</button></footer></section>`;
-    for (let [selector, name] of [[".mark", "toolbox"], ["[data-screenshot]", "camera"], ["[data-expand]", "expand"], [".brand button", "collapse"], ["[data-open-market]", "package"]])
-      shadow.querySelector(selector).append(createIcon(doc, name));
+    shadow.innerHTML = `<style>${scaleFonts(style)} .brand,.compact{--sgs-font-offset:0px}</style><section class="shell"><svg class="hud-locator" aria-hidden="true" focusable="false"><rect pathLength="100"/></svg><div class="compact" data-count-state="unknown"><span class="slash" title="\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528\uFF1B\u53CC\u51FB\u5C55\u5F00\uFF0C\u6309\u4F4F\u62D6\u52A8"><span class="slash-seal" aria-hidden="true">\u6740</span><span class="slash-reading"><span class="slash-label">\u5269\u4F59</span><b data-slash aria-label="\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528">\u2014</b></span></span><div class="compact-actions"><button data-screenshot title="\u622A\u56FE\u5E76\u590D\u5236" aria-label="\u622A\u56FE\u5E76\u590D\u5236"></button><button data-expand title="\u653E\u5927\u9762\u677F" aria-label="\u653E\u5927\u9762\u677F"></button></div></div><div class="compact-summary" aria-label="\u5173\u6CE8\u5361\u724C\u672A\u89C1\u5F20\u6570"></div><header class="brand"><div class="mark" aria-hidden="true"></div><div class="brand-name"><strong title="\u4E09\u56FD\u6740 OL \u5DE5\u5177\u7BB1">\u4E09\u56FD\u6740 OL \u5DE5\u5177\u7BB1</strong><small>${EDITION.toUpperCase()} \xB7 ${CORE_VERSION}</small></div><button data-update-hint hidden title="\u6709\u66F4\u65B0\u53EF\u7528\uFF0C\u70B9\u51FB\u524D\u5F80\u66F4\u65B0" aria-label="\u6709\u66F4\u65B0\u53EF\u7528\uFF0C\u70B9\u51FB\u524D\u5F80\u66F4\u65B0"><span>\u66F4\u65B0</span></button><button data-collapse title="\u6298\u53E0\u9762\u677F" aria-label="\u6298\u53E0\u9762\u677F"></button></header><div class="status"><i class="dot"></i><span>\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6</span></div><nav class="nav" role="tablist">${categories.map(([id, title]) => `<button data-category="${id}" role="tab" aria-label="${title}" aria-selected="false"><span>${title}</span></button>`).join("")}</nav><main class="content" role="tabpanel"></main><footer class="footer"><span>${EDITION === "dev" ? "\u5F00\u53D1\u7248" : EDITION === "lite" ? "\u8F7B\u91CF\u7248" : "\u5B8C\u6574\u7248"} ${CORE_VERSION}</span><button data-open-market title="\u6253\u5F00\u63D2\u4EF6\u5E02\u573A" aria-label="\u6253\u5F00\u63D2\u4EF6\u5E02\u573A">\u63D2\u4EF6\u5E02\u573A</button></footer></section>`;
+    for (let [selector, name] of [[".mark", "toolbox"], ["[data-screenshot]", "camera"], ["[data-expand]", "expand"], ["[data-collapse]", "collapse"], ["[data-update-hint]", "refresh"], ["[data-open-market]", "package"]])
+      shadow.querySelector(selector).prepend(createIcon(doc, name));
     for (let [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
-    let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, pluginSearch = "", onlyUninstalled = settings.get("marketOnlyUninstalled", !0) === !0, marketState = {}, marketRequest = 0, installing = /* @__PURE__ */ new Set(), dependencyPrompts = /* @__PURE__ */ new Map();
+    let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, applyFontSize = () => {
+      let choice = FONT_SIZES.find(([id]) => id === settings.get("fontSize", "standard")) || FONT_SIZES[2];
+      host.style.setProperty("--sgs-font-offset", `${choice[2]}px`);
+    };
+    applyFontSize();
+    let scaleSheet = (node) => {
+      if (node.nodeType === 1)
+        for (let sheet of [...node.matches("style") ? [node] : [], ...node.querySelectorAll("style")]) {
+          let scaled = scaleFonts(sheet.textContent);
+          scaled !== sheet.textContent && (sheet.textContent = scaled);
+        }
+    };
+    if (win.MutationObserver) {
+      let observer = new win.MutationObserver((records) => {
+        for (let record of records) {
+          record.target.nodeType === 1 && record.target.matches("style") && scaleSheet(record.target);
+          for (let node of record.addedNodes) scaleSheet(node);
+        }
+      });
+      observer.observe(shadow, { childList: !0, subtree: !0 }), scope.add(() => observer.disconnect());
+    }
+    scope.listen(shadow.querySelector("[data-update-hint]"), "click", () => {
+      active = "manage", management = "market", settings.set("category", active), render(), content.scrollTop = 0;
+      let target = content.querySelector("[data-core-upgrade].has-update, .plugin-card.has-update");
+      target?.scrollIntoView({ block: "nearest" }), target?.setAttribute("tabindex", "-1"), target?.focus({ preventScroll: !0 });
+    });
+    let pluginSearch = "", officialBusy = !1, officialStatus = "", onlyUninstalled = settings.get("marketOnlyUninstalled", !0) === !0, marketState = {}, marketRequest = 0, installing = /* @__PURE__ */ new Set(), dependencyPrompts = /* @__PURE__ */ new Map();
     function currentMarketState() {
       let client = handlers.market?.();
       return marketState.client !== client && (marketRequest++, marketState = { client }), marketState;
@@ -32389,7 +33605,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         try {
           await fn();
         } catch (e) {
-          notify(e.message);
+          notify(userErrorMessage(e));
         } finally {
           n.disabled = !1;
         }
@@ -32442,13 +33658,13 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
           let address = normalize2(input.value);
           settings.set("userscriptDashboardAddress", address), input.value = address, hint.textContent = "\u5DF2\u4FDD\u5B58\u5230\u5F53\u524D\u6D4F\u89C8\u5668\uFF0C\u5DF2\u79FB\u9664\u6E38\u620F\u94FE\u63A5\u7B49\u53C2\u6570\u3002";
         } catch (error) {
-          hint.textContent = error.message;
+          hint.textContent = userErrorMessage(error);
         }
       }), button("\u590D\u5236\u5730\u5740", async () => {
         try {
           input.value = normalize2(input.value);
         } catch (error) {
-          hint.textContent = error.message;
+          hint.textContent = userErrorMessage(error);
           return;
         }
         try {
@@ -32462,6 +33678,33 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     }
     function renderAppearance(cleanups) {
       content.classList.add("appearance-page");
+      let sizeGroup = el("section", void 0, "plugin-group appearance-section font-settings"), sizeHeading = el("h3", void 0, "plugin-heading"), sizeToggle = el("button", void 0, "plugin-toggle");
+      sizeToggle.type = "button", sizeToggle.append(createIcon(doc, "typography"), el("span", "\u754C\u9762\u5B57\u53F7", "plugin-title"), createIcon(doc, "chevron", "plugin-chevron"));
+      let sizeBody = el("div", void 0, "plugin-body");
+      sizeBody.id = "core-font-settings", sizeToggle.setAttribute("aria-controls", sizeBody.id);
+      let applySizeFold = (collapsed) => {
+        sizeBody.hidden = collapsed, sizeToggle.setAttribute("aria-expanded", String(!collapsed)), sizeToggle.title = `${collapsed ? "\u5C55\u5F00" : "\u6536\u8D77"}\u754C\u9762\u5B57\u53F7`, sizeToggle.setAttribute("aria-label", sizeToggle.title);
+      };
+      applySizeFold(settings.get("fontSettingsCollapsed", !1)), sizeToggle.onclick = () => {
+        let collapsed = !sizeBody.hidden;
+        settings.set("fontSettingsCollapsed", collapsed), applySizeFold(collapsed);
+      }, sizeHeading.append(sizeToggle), sizeGroup.append(sizeHeading, sizeBody);
+      let sizes = el("div", void 0, "sgs-segments");
+      sizes.setAttribute("role", "group"), sizes.setAttribute("aria-label", "\u754C\u9762\u5B57\u53F7");
+      let selected = FONT_SIZES.some(([id]) => id === settings.get("fontSize", "standard")) ? settings.get("fontSize", "standard") : "standard";
+      for (let [id, label] of FONT_SIZES) {
+        let option = button(label, () => {
+          let previous = FONT_SIZES.find(([key]) => key === settings.get("fontSize", "standard")) || FONT_SIZES[2], next = FONT_SIZES.find(([key]) => key === id), width = parseFloat(host.style.width) || 280;
+          if (settings.set("fontSize", id), applyFontSize(), !host.hasAttribute("data-collapsed")) {
+            let adjusted = applyEdgeWidth(width + (next[2] - previous[2]) * 10);
+            settings.set("width", adjusted), host.style.left && (host.style.left = Math.max(0, Math.min(win.innerWidth - adjusted, parseFloat(host.style.left))) + "px");
+          }
+          for (let node of sizes.children) node.setAttribute("aria-pressed", String(node.dataset.fontSize === id));
+        });
+        option.dataset.fontSize = id, option.setAttribute("aria-pressed", String(selected === id)), sizes.append(option);
+      }
+      let preview = el("div", void 0, "font-preview");
+      preview.setAttribute("aria-label", "\u5B57\u53F7\u9884\u89C8"), preview.append(el("strong", "\u5B57\u53F7\u9884\u89C8 \xB7 \u4E09\u56FD\u6740 OL"), el("p", "\u9009\u62E9\u9002\u5408\u4F60\u7684\u9605\u8BFB\u5927\u5C0F"), el("span", "\u5269\u4F59\u6B21\u6570 12 \xB7 \u5DF2\u542F\u7528", "muted")), sizeBody.append(sizes, preview, el("p", "\u5373\u65F6\u751F\u6548\u5E76\u4FDD\u5B58\uFF1B\u4EC5\u8C03\u6574\u5DE5\u5177\u7BB1\u754C\u9762\uFF0C\u4E0D\u6539\u53D8\u6E38\u620F\u5185\u6587\u5B57\u3002", "muted")), content.append(sizeGroup);
       let themeHeading = el("h3", void 0, "plugin-heading"), themeToggle = el("button", void 0, "plugin-toggle");
       themeToggle.type = "button", themeToggle.append(createIcon(doc, "palette"), el("span", "\u4E3B\u9898\u5DE5\u574A", "plugin-title"), createIcon(doc, "chevron", "plugin-chevron"));
       let workshop = el("div", void 0, "plugin-body");
@@ -32480,7 +33723,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     }
     function renderSettings(cleanups) {
       let first = content.children.length;
-      if (!mobileDevice()) {
+      {
         let edgeHeading = el("h3", "HUD \u9760\u8FB9\u884C\u4E3A");
         content.append(edgeHeading);
         let choices = el("div", void 0, "sgs-segments");
@@ -32491,9 +33734,9 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
             let atEdge = host.hasAttribute("data-edge-docked") || host.getBoundingClientRect().right >= win.innerWidth - 12;
             setEdgeDocked(atEdge), render();
           });
-          choice.dataset.edgeBehavior = value, choice.setAttribute("aria-pressed", String(edgeBehavior() === value)), choices.append(choice), !1;
+          choice.dataset.edgeBehavior = value, choice.setAttribute("aria-pressed", String(edgeBehavior() === value)), choices.append(choice), mobileDevice() && value === "fixed" && (choice.disabled = !0, choice.title = "\u79FB\u52A8\u7AEF\u6682\u4E0D\u652F\u6301\u56FA\u5B9A\u4FA7\u680F"), !1;
         }
-        content.append(choices), edgeHeading.append(helpTip(doc, "\u62D6\u5230\u53F3\u8FB9\u7F18\u65F6\uFF1A\u65E0\u64CD\u4F5C\u4FDD\u6301\u60AC\u6D6E\uFF1B\u6536\u8D77\u5728\u9F20\u6807\u79FB\u5F00\u540E\u9690\u85CF\uFF1B\u56FA\u5B9A\u4E3A\u4FA7\u680F\u5E76\u4E3A\u6E38\u620F\u753B\u5E03\u7559\u51FA\u7A7A\u95F4\u3002"));
+        content.append(choices), edgeHeading.append(helpTip(doc, mobileDevice() ? "\u62D6\u5230\u53F3\u8FB9\u7F18\u540E\u6536\u8D77\u81F3\u53F3\u4FA7\uFF1B\u70B9\u51FB\u8FB9\u6761\u5C55\u5F00\uFF0C\u70B9\u51FB\u9762\u677F\u5916\u518D\u6B21\u6536\u8D77\u3002\u79FB\u52A8\u7AEF\u6682\u4E0D\u652F\u6301\u56FA\u5B9A\u4FA7\u680F\u3002" : "\u62D6\u5230\u53F3\u8FB9\u7F18\u65F6\uFF1A\u65E0\u64CD\u4F5C\u4FDD\u6301\u60AC\u6D6E\uFF1B\u6536\u8D77\u5728\u9F20\u6807\u79FB\u5F00\u540E\u9690\u85CF\uFF1B\u56FA\u5B9A\u4E3A\u4FA7\u680F\u5E76\u4E3A\u6E38\u620F\u753B\u5E03\u7559\u51FA\u7A7A\u95F4\u3002"));
       }
       content.append(el("h3", "\u622A\u56FE"));
       let cleanRow = el("label", void 0, "row");
@@ -32545,7 +33788,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         let actions = el("div", void 0, "actions");
         actions.append(iconButton("\u91CD\u65B0\u68C0\u6D4B", "reload", () => {
           handlers.compat?.scan(), render();
-        }, "icon-action"), button("\u70B9\u9009\u9690\u85CF\u65E7\u9762\u677F", () => startPicker())), content.append(actions), content.append(helpTip(doc, "\u9690\u85CF UI \u4E0D\u4EE3\u8868\u540E\u53F0\u903B\u8F91\u5DF2\u505C\u6B62\u3002\u65E0\u6CD5\u9000\u51FA\u7684\u811A\u672C\u4ECD\u9700\u5728 Tampermonkey \u4E2D\u505C\u7528\uFF1B\u5DF2\u9000\u51FA\u811A\u672C\u9700\u5237\u65B0\u9875\u9762\u624D\u80FD\u6062\u590D\u3002"));
+        }, "icon-action"), button("\u70B9\u9009\u9690\u85CF\u65E7\u9762\u677F", () => startPicker())), content.append(actions), actions.append(helpTip(doc, "\u9690\u85CF UI \u4E0D\u4EE3\u8868\u540E\u53F0\u903B\u8F91\u5DF2\u505C\u6B62\u3002\u65E0\u6CD5\u9000\u51FA\u7684\u811A\u672C\u4ECD\u9700\u5728 Tampermonkey \u4E2D\u505C\u7528\uFF1B\u5DF2\u9000\u51FA\u811A\u672C\u9700\u5237\u65B0\u9875\u9762\u624D\u80FD\u6062\u590D\u3002"));
       }
       if (!1) {
         content.append(el("h3", "\u63D2\u4EF6\u5E02\u573A\u76EE\u5F55\u5730\u5740"));
@@ -32553,8 +33796,8 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         input.value = settings.get("marketUrl", LOCAL_MARKET_URL), input.setAttribute("aria-label", "\u5E02\u573A\u5730\u5740");
         let sources = el("div", void 0, "sgs-segments");
         sources.setAttribute("role", "group"), sources.setAttribute("aria-label", "\u5E02\u573A\u8FDE\u63A5\u65B9\u5F0F");
-        let selected = input.value === "" ? "\u79BB\u7EBF" : input.value === LOCAL_MARKET_URL ? "\u672C\u673A" : input.value === GITHUB_MARKET_URL ? "GitHub" : input.value === OSS_MARKET_URL ? "OSS" : "\u81EA\u5B9A\u4E49";
-        for (let [label, url] of [["\u79BB\u7EBF", ""], ["\u672C\u673A", LOCAL_MARKET_URL], ["GitHub", GITHUB_MARKET_URL], ["OSS", OSS_MARKET_URL], ["\u81EA\u5B9A\u4E49", null]]) {
+        let selected = input.value === "" ? "\u79BB\u7EBF" : input.value === LOCAL_MARKET_URL ? "\u672C\u673A" : "\u81EA\u5B9A\u4E49";
+        for (let [label, url] of [["\u79BB\u7EBF", ""], ["\u672C\u673A", LOCAL_MARKET_URL], ["\u81EA\u5B9A\u4E49", null]]) {
           let choice = button(label, () => {
             if (url === null) {
               input.disabled = !1, input.focus(), input.select();
@@ -32566,7 +33809,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         }
         input.disabled = selected === "\u79BB\u7EBF", content.append(sources, input, button("\u4FDD\u5B58\u5730\u5740", () => {
           handlers.setMarketUrl(input.value), render(), notify("\u5E02\u573A\u5730\u5740\u5DF2\u4FDD\u5B58");
-        }), helpTip(doc, "\u5E02\u573A\u8FDE\u63A5\u53EF\u9009\uFF1B\u4EC5\u624B\u52A8\u8FDE\u63A5\u6216\u68C0\u6D4B\u66F4\u65B0\u65F6\u8054\u7F51\uFF0C\u79BB\u7EBF\u4ECD\u53EF\u5BFC\u5165\u63D2\u4EF6\u5305\u3002"));
+        }), helpTip(doc, "\u5F00\u53D1\u7248\u4EC5\u8FDE\u63A5\u672C\u5730\u5E02\u573A\uFF0C\u4E0D\u81EA\u52A8\u8FDE\u63A5\u8FDC\u7A0B\u6765\u6E90\uFF1B\u53EF\u624B\u52A8\u4FDD\u5B58\u81EA\u5B9A\u4E49\u5730\u5740\uFF0C\u79BB\u7EBF\u4ECD\u53EF\u5BFC\u5165\u63D2\u4EF6\u5305\u3002"));
       }
       let diagnosticHeading = el("h3", "\u8BB0\u724C\u8BCA\u65AD");
       diagnosticHeading.append(helpTip(doc, "\u5BFC\u51FA\u672C\u5C40\u6700\u8FD1\u7684\u5361\u724C\u8BB0\u5F55\u4E0E\u6D88\u606F\u7C7B\u578B\uFF0C\u7528\u4E8E\u6392\u67E5\u660E\u724C\u9057\u6F0F\u3002\u6587\u4EF6\u4E0D\u542B\u8D26\u53F7\u3001\u6635\u79F0\u6216\u5B8C\u6574\u767B\u5F55\u6570\u636E\uFF0C\u53EA\u4FDD\u5B58\u5230\u672C\u673A\u3002")), content.append(diagnosticHeading, button("\u5BFC\u51FA\u8BB0\u724C\u8BCA\u65AD", exportDiagnostics));
@@ -32640,7 +33883,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         if (actions.append(iconButton(item.enabled ? "\u505C\u7528" : "\u542F\u7528", item.enabled ? "pause" : "play", () => handlers.manager.enable(item.id, !item.enabled), item.enabled ? "" : "is-enable"), iconButton("\u91CD\u8F7D", "reload", () => handlers.manager.reload(item.id))), item.hasPrevious && actions.append(iconButton("\u56DE\u9000", "rollback", () => handlers.manager.rollback(item.id))), actions.append(iconButton("\u5378\u8F7D", "trash", () => handlers.manager.uninstall(item.id), "is-destructive")), maintenance) for (let action of actions.children) action.disabled = !0;
         if (bottom.append(actions), card.append(bottom), failed) {
           let details = el("details", void 0, "plugin-error"), summary = el("summary");
-          summary.append(svgIcon("alert"), el("span", "\u63D2\u4EF6\u8FD0\u884C\u5F02\u5E38")), details.append(summary, el("pre", item.error || "\u63D2\u4EF6\u672A\u80FD\u6FC0\u6D3B\uFF0C\u8BF7\u5C1D\u8BD5\u91CD\u8F7D\u3002")), card.append(details);
+          summary.append(svgIcon("alert"), el("span", "\u63D2\u4EF6\u8FD0\u884C\u5F02\u5E38")), details.append(summary, el("pre", userErrorMessage(item.error || "\u63D2\u4EF6\u672A\u80FD\u6FC0\u6D3B\uFF0C\u8BF7\u5C1D\u8BD5\u91CD\u8F7D\u3002"))), card.append(details);
         }
         if (update?.status === "update") {
           let notice = el("div", void 0, "plugin-update"), info = el("div", void 0, "plugin-update-info");
@@ -32653,12 +33896,12 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     }
     async function installEntry(entry, updateOnly = !1, confirmed = !1) {
       let client = handlers.market();
-      if (installing.has(entry.id)) return;
+      if (officialBusy || installing.has(entry.id)) return;
       let dependencies;
       try {
         dependencies = planDependencies(entry, handlers.manager.list(), currentMarketState().catalog?.plugins || []);
       } catch (error) {
-        dependencyPrompts.set(entry.id, { entry, error: error.message, updateOnly }), render();
+        dependencyPrompts.set(entry.id, { entry, error: userErrorMessage(error), updateOnly }), render();
         return;
       }
       let previous = dependencyPrompts.get(entry.id), signature = JSON.stringify(dependencies.map((item) => [item.id, item.version, item.sha256]));
@@ -32691,7 +33934,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         }
         await handlers.manager.install(pkg), notify(`${entry.name} ${entry.version} \u5DF2\u5B89\u88C5`);
       } catch (error) {
-        throw scope.closed || dependencyPrompts.set(entry.id, { entry, error: error.message, updateOnly }), error;
+        throw scope.closed || dependencyPrompts.set(entry.id, { entry, error: userErrorMessage(error), updateOnly }), error;
       } finally {
         for (let id of locked) installing.delete(id);
         scope.closed || render();
@@ -32702,7 +33945,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       if (!prompt || prompt.entry.version !== entry.version) return;
       let box = el("div", void 0, "plugin-update");
       box.dataset.dependencyPrompt = entry.id, box.setAttribute("role", "status");
-      let message = el("div", prompt.error || "\u9700\u8981\u5148\u5B89\u88C5\u5E76\u542F\u7528\uFF1A" + prompt.dependencies.map((item) => `${item.name} ${item.version}`).join("\u3001") + "\u3002\u662F\u5426\u7EE7\u7EED\uFF1F");
+      let message = el("div", (prompt.error ? userErrorMessage(prompt.error) : "") || "\u9700\u8981\u5148\u5B89\u88C5\u5E76\u542F\u7528\uFF1A" + prompt.dependencies.map((item) => `${item.name} ${item.version}`).join("\u3001") + "\u3002\u662F\u5426\u7EE7\u7EED\uFF1F");
       message.style.overflowWrap = "anywhere", box.append(message), prompt.error || box.append(button("\u5B89\u88C5\u524D\u7F6E\u5E76\u7EE7\u7EED", () => installEntry(entry, prompt.updateOnly, !0))), box.append(button(prompt.error ? "\u5173\u95ED\u63D0\u793A" : "\u53D6\u6D88", () => {
         dependencyPrompts.delete(entry.id), render();
       })), card.append(box);
@@ -32718,7 +33961,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         state.catalog = catalog, state.checkedAt = /* @__PURE__ */ new Date();
       } catch (e) {
         if (scope.closed || request !== marketRequest || handlers.market() !== state.client) return;
-        state.catalog = null, state.checkedAt = null, state.error = e.message;
+        state.catalog = null, state.checkedAt = null, state.error = userErrorMessage(e);
       } finally {
         state.loading = !1, !scope.closed && request === marketRequest && render();
       }
@@ -32740,7 +33983,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         pluginSearch = search.value, filterPlugins();
       }), content.append(search);
       let empty2 = el("div", "\u6CA1\u6709\u5339\u914D\u7684\u63D2\u4EF6", "notice plugin-search-empty");
-      if (empty2.setAttribute("role", "status"), empty2.hidden = !0, content.append(empty2), !state.client) content.append(el("div", "\u5E02\u573A\u8FDE\u63A5\u5DF2\u5173\u95ED\uFF0C\u53EF\u5728\u8BBE\u7F6E\u4E2D\u9009\u62E9\u672C\u673A\u3001OSS \u6216\u81EA\u5B9A\u4E49\u5730\u5740\u3002", "notice"));
+      if (empty2.setAttribute("role", "status"), empty2.hidden = !0, content.append(empty2), !state.client) content.append(el("div", "\u5E02\u573A\u8FDE\u63A5\u5DF2\u5173\u95ED\uFF0C\u53EF\u5728\u8BBE\u7F6E\u4E2D\u9009\u62E9\u672C\u673A\u6216\u81EA\u5B9A\u4E49\u5730\u5740\u3002", "notice"));
       else if (state.error) content.append(el("div", `\u68C0\u6D4B\u5931\u8D25\uFF1A${state.error}`, "notice error"));
       else if (state.catalog) {
         let results = findPluginUpdates(handlers.manager.list(), state.catalog.plugins), count = results.filter((item) => item.status === "update").length;
@@ -32779,7 +34022,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         let bottom = el("div", void 0, "plugin-bottom"), status = el("span", current ? `\u5DF2\u5B89\u88C5${same ? "\u6B64\u7248\u672C" : " " + current.version}` : "\u672A\u5B89\u88C5", "plugin-status");
         status.title = status.textContent, status.style.whiteSpace = "normal", bottom.append(status);
         let busy = installing.has(entry.id), install2 = button(busy ? "\u6B63\u5728\u5B89\u88C5\u2026" : same ? "\u5DF2\u5B89\u88C5" : current ? "\u66FF\u6362\u6B64\u7248\u672C" : "\u5B89\u88C5\u6B64\u7248\u672C", () => installEntry(entry));
-        install2.disabled = busy || same, install2.style.marginLeft = "auto", install2.style.flexShrink = "0", busy && card.setAttribute("aria-busy", "true"), bottom.append(install2), card.append(bottom, ...releaseNotesBlock(entry)), renderDependencyPrompt(card, entry), markSearchable(card, entry), container.append(card);
+        install2.disabled = officialBusy || busy || same, install2.style.marginLeft = "auto", install2.style.flexShrink = "0", busy && card.setAttribute("aria-busy", "true"), bottom.append(install2), card.append(bottom, ...releaseNotesBlock(entry)), renderDependencyPrompt(card, entry), markSearchable(card, entry), container.append(card);
       }
     }
     function coreUpdateStatus() {
@@ -32823,8 +34066,40 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       }
       content.append(card);
     }
+    async function completeOfficialPlugins() {
+      if (officialBusy || installing.size) return;
+      let client = handlers.market();
+      officialBusy = !0, officialStatus = "\u6B63\u5728\u51C6\u5907\u5B98\u65B9\u63D2\u4EF6\u5957\u88C5\u2026", render();
+      let completed = 0;
+      try {
+        let catalog = await client.getCatalog(), plan = planOfficialPlugins(handlers.manager.list(), catalog.plugins);
+        for (let entry of plan) {
+          if (scope.closed) return;
+          if (handlers.market() !== client) throw new Error("\u5E02\u573A\u5730\u5740\u5DF2\u6539\u53D8\uFF0C\u8BF7\u91CD\u65B0\u8FDE\u63A5\u540E\u91CD\u8BD5\u3002");
+          if (handlers.manager.list().some((item) => item.id === entry.id)) continue;
+          officialStatus = `\u6B63\u5728\u5B89\u88C5 ${completed + 1}/${plan.length}\uFF1A${entry.name}`, render(), planDependencies(entry, handlers.manager.list(), catalog.plugins);
+          let pkg = await client.getPackage(entry);
+          if (scope.closed) return;
+          if (handlers.market() !== client) throw new Error("\u5E02\u573A\u5730\u5740\u5DF2\u6539\u53D8\uFF0C\u8BF7\u91CD\u65B0\u8FDE\u63A5\u540E\u91CD\u8BD5\u3002");
+          handlers.manager.list().some((item) => item.id === entry.id) || (planDependencies(entry, handlers.manager.list(), catalog.plugins), await handlers.manager.install(pkg), completed++);
+        }
+        officialStatus = completed ? `\u5DF2\u8865\u9F50 ${completed} \u4E2A\u5B98\u65B9\u63D2\u4EF6` : "\u5B98\u65B9\u63D2\u4EF6\u5DF2\u9F50\u5168";
+      } catch (error) {
+        officialStatus = `\u5DF2\u5B89\u88C5 ${completed} \u4E2A\uFF0C\u8865\u9F50\u672A\u5B8C\u6210\uFF1A${userErrorMessage(error)}`;
+      } finally {
+        officialBusy = !1, scope.closed || render();
+      }
+    }
     function renderMarket() {
-      renderCoreUpgrade(), updateControls(), pluginCards(), content.append(el("h3", "\u63D2\u4EF6\u76EE\u5F55"));
+      renderCoreUpgrade();
+      let pack = el("section", void 0, "card");
+      pack.append(el("strong", "\u5B98\u65B9\u63D2\u4EF6\u5957\u88C5"), el("div", `\u4E00\u952E\u8865\u9F50 ${officialPluginIds.length} \u4E2A\u5B98\u65B9\u63D2\u4EF6\uFF1B\u4FDD\u7559\u5DF2\u6709\u7248\u672C\u3001\u8BBE\u7F6E\u548C\u505C\u7528\u72B6\u6001\u3002`, "notice"));
+      let complete = button(officialBusy ? "\u6B63\u5728\u8865\u9F50\u2026" : "\u4E00\u952E\u8865\u9F50\u5B98\u65B9\u63D2\u4EF6", completeOfficialPlugins);
+      if (complete.disabled = officialBusy || !!installing.size || !currentMarketState().client, pack.append(complete), officialStatus) {
+        let status = el("div", officialStatus, "notice");
+        status.setAttribute("role", "status"), pack.append(status);
+      }
+      content.append(pack), updateControls(), pluginCards(), content.append(el("h3", "\u63D2\u4EF6\u76EE\u5F55"));
       let catalog = el("div"), actions = el("div", void 0, "actions"), refresh = button("\u8FDE\u63A5 / \u5237\u65B0\u5E02\u573A", fetchCatalog);
       refresh.disabled = !currentMarketState().client || !!currentMarketState().loading, actions.append(refresh, button("\u5BFC\u5165\u63D2\u4EF6\u5305", () => {
         let file = doc.createElement("input");
@@ -32833,10 +34108,10 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
             if (!file.files[0]) return;
             await handlers.manager.install(JSON.parse(await file.files[0].text())), notify("\u63D2\u4EF6\u5305\u5DF2\u5B89\u88C5");
           } catch (e) {
-            notify(e.message);
+            notify(userErrorMessage(e));
           }
         }, file.click();
-      })), handlers.manager?.builtins?.has("cards") && !handlers.manager.list().some((p) => p.id === "cards") && actions.append(button("\u6062\u590D\u5185\u7F6E\u5361\u724C", () => handlers.manager.restoreBuiltin("cards"))), !1, content.append(actions, catalog), catalogCards(catalog);
+      })), handlers.manager?.builtins?.has("cards") && !handlers.manager.list().some((p) => p.id === "cards") && actions.append(button("\u6062\u590D\u5185\u7F6E\u5361\u724C", () => handlers.manager.restoreBuiltin("cards"))), handlers.market?.() && content.append(el("div", "\u4E0B\u8F7D\u6765\u6E90\uFF1A" + marketServerLabel(handlers.market().baseUrl), "muted")), content.append(actions, catalog), catalogCards(catalog);
     }
     function renderManagement(cleanups) {
       let tabs = el("div", void 0, "tabs management-tabs");
@@ -32875,7 +34150,9 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       };
       let installed = handlers.manager?.list() || [], market = currentMarketState(), failures = installed.filter((item) => !item.maintenance && (item.error || item.enabled && !item.active)).length, upgrades = market.catalog ? findPluginUpdates(installed, market.catalog.plugins).filter((item) => item.status === "update").length : 0, manage = shadow.querySelector('[data-category="manage"]');
       manage.querySelector(".nav-alert")?.remove();
-      let coreUpgrade = coreUpdateStatus()?.order > 0, alerts = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", failures && `${failures} \u4E2A\u63D2\u4EF6\u5F02\u5E38`, upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`].filter(Boolean).join(" \xB7 ");
+      let coreUpgrade = coreUpdateStatus()?.order > 0, updateHint = shadow.querySelector("[data-update-hint]");
+      updateHint.hidden = !coreUpgrade && !upgrades, updateHint.title = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`, "\u70B9\u51FB\u524D\u5F80\u66F4\u65B0"].filter(Boolean).join(" \xB7 ");
+      let alerts = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", failures && `${failures} \u4E2A\u63D2\u4EF6\u5F02\u5E38`, upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`].filter(Boolean).join(" \xB7 ");
       if (manage.title = alerts || "\u7BA1\u7406", alerts) {
         let badge = el("i", String(failures || upgrades + Number(coreUpgrade)), `nav-alert${failures ? " is-error" : ""}`);
         badge.setAttribute("aria-label", alerts), manage.append(badge);
@@ -32915,7 +34192,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
           let clean2 = panel.render(section);
           typeof clean2 == "function" && cleanups.push(clean2);
         } catch (e) {
-          section.append(el("div", "\u9762\u677F\u52A0\u8F7D\u5931\u8D25\uFF1A" + e.message, "error"));
+          section.append(el("div", "\u9762\u677F\u52A0\u8F7D\u5931\u8D25\uFF1A" + userErrorMessage(e), "error"));
         }
       }
       restoreScroll();
@@ -32938,7 +34215,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       }
       host.toggleAttribute("data-collapsed", value), settings.set("collapsed", value), typeof syncGameViewport == "function" && syncGameViewport();
     };
-    host.toggleAttribute("data-collapsed", settings.get("collapsed", !1)), scope.listen(shadow.querySelector(".brand button"), "click", () => setCollapsed(!0));
+    host.toggleAttribute("data-collapsed", settings.get("collapsed", !1)), scope.listen(shadow.querySelector("[data-collapse]"), "click", () => setCollapsed(!0));
     let expandHUD = () => {
       setCollapsed(!1), host.style.left && (host.style.left = Math.max(0, Math.min(win.innerWidth - (parseFloat(host.style.width) || 280), parseFloat(host.style.left))) + "px");
     };
@@ -32946,10 +34223,26 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       event.target.closest("button") || (event.preventDefault(), expandHUD());
     }), scope.listen(shadow.querySelector("[data-screenshot]"), "click", () => handlers.screenshot?.());
     let mobileDevice = () => !!1 && (!!win.navigator.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(win.navigator.userAgent || "") || win.navigator.platform === "MacIntel" && win.navigator.maxTouchPoints > 1 || !!win.matchMedia?.("(pointer: coarse)").matches);
-    !1;
+    !1, host.toggleAttribute("data-mobile", mobileDevice());
+    let edgeTab = doc.createElement("button");
+    edgeTab.className = "edge-tab", edgeTab.textContent = "\u2039", edgeTab.setAttribute("aria-label", "\u5C55\u5F00\u5DE5\u5177\u7BB1\u4FA7\u680F"), shadow.append(edgeTab), scope.listen(edgeTab, "click", () => revealEdge());
+    let touchTip = doc.createElement("div");
+    touchTip.setAttribute("popover", "manual"), touchTip.setAttribute("role", "tooltip"), touchTip.style.cssText = "position:fixed;inset:auto;margin:0;max-width:min(300px,calc(100vw - 24px));padding:9px 12px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-raised);color:var(--sgs-text);font:12px/1.7 var(--sgs-font);overflow-wrap:anywhere;pointer-events:none;box-shadow:0 6px 24px #0004", shadow.append(touchTip);
+    let touchTipTimer, closeTouchTip = () => {
+      clearTimeout(touchTipTimer), touchTip.matches(":popover-open") && touchTip.hidePopover();
+    };
+    scope.listen(shadow, "click", (event) => {
+      if (!mobileDevice()) return;
+      closeTouchTip();
+      let target = event.target.closest?.("[title]");
+      if (!target?.title || target.hasAttribute("data-help-tip") || !touchTip.showPopover) return;
+      touchTip.textContent = target.title, touchTip.showPopover();
+      let box = target.getBoundingClientRect(), bounds = touchTip.getBoundingClientRect();
+      touchTip.style.left = Math.max(12, Math.min(box.left, win.innerWidth - bounds.width - 12)) + "px", touchTip.style.top = Math.max(12, box.bottom + bounds.height + 8 < win.innerHeight ? box.bottom + 6 : box.top - bounds.height - 6) + "px", touchTipTimer = setTimeout(closeTouchTip, 3500);
+    }), scope.listen(doc, "pointerdown", closeTouchTip), scope.listen(content, "scroll", closeTouchTip), scope.add(closeTouchTip);
     let edgeBehavior = () => {
       let value = settings.get("hudEdgeBehavior", "fixed");
-      return mobileDevice() ? "none" : ["none", "hide", "fixed"].includes(value) ? value : "fixed";
+      return mobileDevice() ? value === "none" ? "none" : "hide" : ["none", "hide", "fixed"].includes(value) ? value : "fixed";
     }, gameViewport = createGameViewport({ window: win, document: doc, scope }), syncGameViewport = () => gameViewport.reserve(host.hasAttribute("data-edge-fixed") ? host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280 : 0), edgeHideTimer, draggingHUD = !1, revealEdge = () => {
       clearTimeout(edgeHideTimer), host.removeAttribute("data-edge-hidden");
     }, hasKeyboardFocus = () => host.matches(":focus-visible") || !!shadow.activeElement?.matches(":focus-visible"), hideEdge = () => {
@@ -32980,10 +34273,16 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     }), scope.listen(win, "pointerup", finishEdgeResize), scope.listen(win, "pointercancel", finishEdgeResize), scope.listen(edgeResizer, "keydown", (event) => {
       let current = parseFloat(host.style.width) || 280, next = { ArrowLeft: current + 8, ArrowRight: current - 8, Home: 248, End: 420 }[event.key];
       next !== void 0 && (event.preventDefault(), settings.set("width", applyEdgeWidth(next)));
-    }), scope.listen(host, "pointerenter", revealEdge), scope.listen(host, "pointerleave", hideEdge), scope.listen(host, "focusin", revealEdge), scope.listen(host, "focusout", () => {
+    }), scope.listen(host, "pointerdown", revealEdge), scope.listen(doc, "pointerdown", (event) => {
+      mobileDevice() && !event.composedPath().includes(host) && hideEdge();
+    }), scope.listen(host, "pointerenter", (event) => {
+      event.pointerType !== "touch" && !mobileDevice() && revealEdge();
+    }), scope.listen(host, "pointerleave", (event) => {
+      event.pointerType !== "touch" && hideEdge();
+    }), scope.listen(host, "focusin", revealEdge), scope.listen(host, "focusout", () => {
       host.matches(":hover") || hideEdge();
     }), scope.listen(win, "resize", () => {
-      mobileDevice() && (setEdgeDocked(!1), active === "manage" && render()), host.style.left && (host.style.left = Math.max(0, Math.min(win.innerWidth - (host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280), parseFloat(host.style.left))) + "px");
+      host.toggleAttribute("data-mobile", mobileDevice()), mobileDevice() && (setEdgeDocked(host.hasAttribute("data-edge-docked"), host.hasAttribute("data-edge-hidden")), active === "manage" && render()), host.style.left && (host.style.left = Math.max(0, Math.min(win.innerWidth - (host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280), parseFloat(host.style.left))) + "px");
     }), scope.add(() => clearTimeout(edgeHideTimer)), setEdgeDocked(settings.get("edgeDocked", !1), !0);
     let position = settings.get("position", null);
     if (position && (host.style.left = Math.max(0, Math.min(win.innerWidth - 248, position.x)) + "px", host.style.top = Math.max(0, Math.min(win.innerHeight - 50, position.y)) + "px", host.style.right = "auto"), host.style.width = Math.max(248, Math.min(420, settings.get("width", 280))) + "px", edgeResizer.setAttribute("aria-valuenow", String(parseFloat(host.style.width))), syncGameViewport(), win.ResizeObserver) {
@@ -33004,7 +34303,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       let dx = e.clientX - rect.left, dy = e.clientY - rect.top, cleanup = () => {
         snapHint.hidden = !0, win.removeEventListener("pointermove", move, !0), win.removeEventListener("pointerup", up, !0), win.removeEventListener("pointercancel", up, !0), win.removeEventListener("blur", up), handle.removeEventListener("lostpointercapture", up), handle.hasPointerCapture?.(e.pointerId) && handle.releasePointerCapture(e.pointerId);
       }, up = (event) => {
-        finished || event?.pointerId !== void 0 && event.pointerId !== e.pointerId || (event?.type === "pointerup" && updatePosition(event), finished = !0, cleanup(), draggingHUD = !1, !scope.closed && (settings.set("position", { x: host.offsetLeft, y: host.offsetTop }), moved && event?.type !== "pointercancel" && edgeBehavior() !== "none" && snapReady && (setEdgeDocked(!0), host.matches(":hover") || hideEdge())));
+        finished || event?.pointerId !== void 0 && event.pointerId !== e.pointerId || (event?.type === "pointerup" && updatePosition(event), finished = !0, cleanup(), draggingHUD = !1, !scope.closed && (settings.set("position", { x: host.offsetLeft, y: host.offsetTop }), moved && event?.type !== "pointercancel" && edgeBehavior() !== "none" && snapReady && (setEdgeDocked(!0), (mobileDevice() || !host.matches(":hover")) && hideEdge())));
       }, updatePosition = (event) => {
         moved ||= Math.abs(event.clientX - e.clientX) > 3 || Math.abs(event.clientY - e.clientY) > 3, host.style.left = Math.max(0, Math.min(win.innerWidth - rect.width, event.clientX - dx)) + "px", host.style.top = Math.max(0, Math.min(win.innerHeight - 45, event.clientY - dy)) + "px", host.style.right = "auto";
         let gap = win.innerWidth - Math.max(event.clientX, event.clientX - dx + rect.width);
@@ -33056,7 +34355,12 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       let label = value === 1 / 0 ? "\u51FA\u6740\u6B21\u6570\u4E0D\u9650" : known ? `\u5269\u4F59\u51FA\u6740\u6B21\u6570\uFF1A${text2}` : "\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528";
       count.setAttribute("aria-label", label), shadow.querySelector(".slash").title = label + "\uFF1B\u53CC\u51FB\u5C55\u5F00\uFF0C\u6309\u4F4F\u62D6\u52A8";
     }, setHandlers(value) {
-      handlers = value, render();
+      let first = !handlers.manager;
+      handlers = value, render(), first && handlers.market?.() && scope.timeout(() => {
+        scope.closed || fetchCatalog();
+      }, 1500), first && !1 && typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ == "function" && scope.timeout(() => {
+        scope.closed || runMicroUpdate("check");
+      }, 1500);
     }, setStatusVisible(visible) {
       shadow.querySelector(".status").hidden = !visible;
     }, setStatus(text2) {
@@ -33091,7 +34395,9 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     compat = createCompatibility({ window: win, document: win.document, takeover: settings.get("compatPolicy", "hide"), onStatus: () => {
       bridge.check();
     } }), settings.get("compatPassiveDefaultV1", !1) || (settings.set("compatEnabled", !1), settings.set("compatPassiveDefaultV1", !0)), compat.setEnabled(settings.get("compatEnabled", !1)), compat.start(), scope.add(() => compat.stop());
-    let marketConnection = createMarketConnection(settings, win.fetch.bind(win), shell.notify), manager = new PluginManager({
+    let marketConnection = createMarketConnection(settings, win.fetch.bind(win), shell.notify);
+    marketConnection.start();
+    let manager = new PluginManager({
       journal,
       store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : "sgs-ol-toolbox"),
       settings,

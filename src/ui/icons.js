@@ -7,6 +7,7 @@ const markup = Object.freeze({
   effects: PLUGIN_ICONS.effects,
   skins: PLUGIN_ICONS.skins,
   palette: PLUGIN_ICONS.themes,
+  typography: '<path d="M3 19 9 5l6 14M5 14h8M16 9h6M19 9v10M16 19h6"/>',
   toolbox: TOOLBOX_ICON,
   map: PLUGIN_ICONS.shanhetu,
   tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',

@@ -11,8 +11,8 @@ export const OPTIONS = [
   ['quandaoCount', '权道数量', ''],
   ['rapid', '技能连按', '取消连按间隔'],
 ];
-export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.12', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "长按技能辅助默认开启，保留已有设置；右键长按可记住技能，移动端继续长按也可记住，点按取消。移除统一跨局记忆开关，改为逐技能记忆，并修正部分询问处理。", minCoreVersion: '0.6.37', description: '长按技能辅助、自动确定与询问跳过。',
+export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.16', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "补充强识摸牌与武娘取牌辅助，武娘优先选择可选防具、其他装备，再选择手牌；狂骨按当前体力选择回血或摸牌。仍需开启相应技能辅助，强识前半段选人和展示保留手动。", minCoreVersion: '0.6.37', description: '长按技能辅助、自动确定与询问跳过。',
   icon: { paths: ['M4 5h10v14H4zM7 8h4M7 11h3', 'm17 3-3 8h5l-3 10 7-13h-5l2-5'] }, priority: 12000, categories: ['game'] };
 
 export default { manifest, activate(ctx) {
@@ -49,12 +49,12 @@ export default { manifest, activate(ctx) {
         const support = el('details', null, 'pa-support sgs-fold');
         support.append(el('summary', '支持技能'));
         support.setAttribute('aria-label', '技能辅助支持列表');
-        const regular = el('p'); regular.append(el('strong', '支持：'), ...['苦肉','极奢','忘隙','天辩','迁附','狂骨','良助','清弦','御策','刚烈','连营','双雄','奇制','火计','乱击'].concat(['烈弓','破军','覆载','武圣','武娘','百出','应援','怀远','卫戍','谬焰','合击','伤逝','落英','龙吟']).map((name, i, names) => el('span', name + (i === names.length-1 ? '。' : '、'), 'pa-skill-name')));
+        const regular = el('p'); regular.append(el('strong', '支持：'), ...['苦肉','极奢','忘隙','天辩','迁附','狂骨','良助','清弦','御策','刚烈','连营','双雄','奇制','火计','乱击'].concat(['烈弓','破军','覆载','武圣','武娘','百出','应援','怀远','卫戍','谬焰','合击','伤逝','落英','龙吟','强识']).map((name, i, names) => el('span', name + (i === names.length-1 ? '。' : '、'), 'pa-skill-name')));
         const conditional = el('p'); conditional.append(el('strong', '条件支持：'), doc.createTextNode('鬼才、鬼道（含界版）；需同时拥有洛神或界洛神。'));
-        const versions = el('details', null, 'sgs-fold'); versions.append(el('summary', `版本详情 · ${21 + Object.values(EXTRA_SKILLS).flat().length} + 4`));
+        const versions = el('details', null, 'sgs-fold'); versions.append(el('summary', `版本详情 · ${23 + Object.values(EXTRA_SKILLS).flat().length} + 4`));
         versions.append(el('p', '苦肉 62；极奢 769；忘隙 726 / 3295 / 3310；天辩 792；迁附 3750 / 3753；狂骨 295；良助 250；清弦 784；御策 445；刚烈 49；连营 716；双雄 101 / 3269；奇制 273；火计 97 / 3260；乱击 102 / 891。'));
         versions.append(el('p', '条件技能：鬼才 48 / 719；鬼道 79 / 883。前置技能：洛神 45 / 875。仅支持所列版本，不按同名技能自动扩展。'));
-        versions.append(el('p', '烈弓 71 / 297 / 3264；破军 414 / 3389；覆载 3824；武圣 33 / 878；武娘 3796；百出 3338；应援 384；怀远 3081；卫戍 3084；谬焰 3274；合击 3586；伤逝 419；落英 401；龙吟 446 / 21003。'));
+        versions.append(el('p', '烈弓 71 / 297 / 3264；破军 414 / 3389；覆载 3824；武圣 33 / 878；武娘 3796；百出 3338；应援 384；怀远 3081；卫戍 3084；谬焰 3274；合击 3586；伤逝 419；落英 401；龙吟 446 / 21003；强识 484 / 3876（仅自动确定摸牌，展示手牌手动）。'));
         support.append(regular, conditional, versions); root.append(support);
       }
     }

@@ -35,8 +35,8 @@ function setup() {
   const cardUis = cardModels.map((Card, index) => ({ ...anchor(100 + index * 80, 500), Card, selected: index === 1, setSelected(value) { this.selected = value; } }));
   let layouts = 0, inhibited = false;
   const container = Object.assign(new Sprite(), { ...anchor(0, 480), parent: { visible: true }, HandCardRect: { x: 163 }, NORMAL_Y: 32,
-    cardUis, seat: { HandCards: cardModels.slice() }, invalidateLayoutHandCard() { layouts++; },
-    SortNormalCards() { this.cardUis.sort((a, b) => a.Card.CardType - b.Card.CardType); this.invalidateLayoutHandCard(); } });
+    cardUis, seat: { HandCards: cardModels.slice(), SortHandCardsCompare(a, b) { return a.CardType - b.CardType; } }, invalidateLayoutHandCard() { layouts++; },
+    SortNormalCards() { this.seat.HandCards.sort(this.seat.SortHandCardsCompare.bind(this.seat)); this.cardUis.sort((a, b) => this.seat.SortHandCardsCompare(a.Card, b.Card)); this.invalidateLayoutHandCard(); } });
   const self = { ...anchor(100, 500), seatID: 0, cardContainer: container,
     seat: { index: 0, HasSkill(id) { return inhibited && id === SORT_INHIBITOR_SKILL; } },
     sortCardBtn: { ...anchor(550, 600), enabled: true, alpha: 1, mouseEnabled: true },
@@ -103,13 +103,32 @@ test('cards panel retains settings and queries without duplicating external disp
     for (const label of ['最近用牌', '牌堆结构', '本回合弃牌', '他人明牌', '卡牌组合查询', '来源标签', '四色花色', '出牌读秒']) {
       assert.ok(env.document.querySelector('main').textContent.includes(label), label);
     }
-    assert.deepEqual([...env.document.querySelectorAll('main h3')].map(node => node.textContent), ['牌堆结构', '手牌推断']);
+    assert.deepEqual([...env.document.querySelectorAll('main h3')].map(node => node.textContent), ['牌堆结构', '手牌推断', '技能提示']);
+    assert.equal(env.document.querySelector('[data-card-skill-hints]').hidden, true, 'irrelevant hints stay hidden');
     assert.doesNotMatch(env.document.querySelector('main').textContent, /未知归属/);
     assert.equal(env.document.querySelector('main .sgs-card-seat-row'), null, 'confirmed hands appear only beside portraits');
     assert.equal(env.document.querySelectorAll('main .sgs-card-controls').length, 1, 'only deck composition grouping remains');
     assert.equal(env.document.querySelector('[data-sgs-toolbox="cards"]').style.getPropertyValue('--sgs-accent'), '#d0b050');
     assert.equal(env.overlay.querySelectorAll('.sgs-card-seat-reveal').length, 1);
     assert.equal(env.self.countdownTimer.getChildByName('sgs-toolbox-countdown').text, '14');
+  } finally { env.close(); }
+});
+
+test('skill hints appear for native skills, react to settings and release on disposal', () => {
+  const env = setup();
+  try {
+    env.self.seat.HasSkill = id => id === 4007;
+    env.activate();
+    const hints = env.document.querySelector('[data-card-skill-hints]');
+    assert.equal(hints.hidden, false);
+    assert.match(hints.textContent, /夏晟.*黑色 1.*红色 2/);
+    const toggle = env.document.querySelector('[data-setting="skillHints"]');
+    toggle.checked = false; toggle.dispatchEvent(new env.window.Event('change'));
+    assert.equal(hints.hidden, true);
+    toggle.checked = true; toggle.dispatchEvent(new env.window.Event('change'));
+    assert.equal(hints.hidden, false);
+    env.stop();
+    assert.equal(env.document.querySelector('[data-card-skill-hints]'), null);
   } finally { env.close(); }
 });
 
@@ -349,7 +368,8 @@ test('type, suit and number sorting use native card objects and preserve selecte
     assert.equal(sortHand(env.game, 'number'), true);
     assert.deepEqual(env.container.cardUis.map(ui => ui.Card.CardId), [2, 3, 1]);
     assert.equal(sortHand(env.game, 'type'), true);
-    assert.deepEqual(env.container.cardUis.map(ui => ui.Card.CardType), [1, 1, 2]);
+    assert.deepEqual(env.container.cardUis.map(ui => ui.Card.CardName), ['杀', '闪', '桃']);
+    assert.deepEqual(env.container.seat.HandCards.map(card => card.CardName), ['杀', '闪', '桃']);
     env.inhibited = true;
     const before = env.layouts;
     assert.equal(sortHand(env.game, 'number', { automatic: true }), false);

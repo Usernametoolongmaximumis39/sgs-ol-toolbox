@@ -2,6 +2,7 @@ import { singleRiderShopVisible } from '../../shared/native-shop.js';
 import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
 import { initialState, reduce, observedHandCandidates, handCandidates, zoneKey, metadata, sortCards, queryCards, deckComposition, ZONE_NAMES, REFERENCE, seatLabel } from './model.js';
 import { createNativeEnhancements, roundInfoBounds } from './native.js';
+import { skillHints, SKILL_HINT_GROUPS } from './skill-hints.js';
 
 export { initialState, reduce } from './model.js';
 
@@ -48,6 +49,7 @@ const STYLES = `
 .sgs-card-seat-reveal .sgs-card-mini{height:54px;pointer-events:auto}.sgs-card-seat-reveal .sgs-card-mini:hover{transform:translateY(-5px);z-index:1}
 .sgs-card-possible-count,.sgs-card-overflow{font-size:10px;color:var(--sgs-muted,#b7aa8c);padding:2px}
 .sgs-card-source-label{background:var(--sgs-bg,#201e1a);border:1px solid var(--sgs-border,#665b42);border-radius:3px;padding:1px 4px;font-size:10px;max-width:90px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.sgs-card-skill-hint{padding:7px 0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 30%,transparent);overflow-wrap:anywhere}.sgs-card-skill-hint:last-child{border-bottom:0}.sgs-card-skill-hint strong{display:block;color:var(--sgs-accent);font-size:12px;margin-bottom:3px}.sgs-card-skill-hint p{margin:0;color:var(--sgs-text);font-size:12px;line-height:1.65}
 
 .sgs-card-setting-grid{grid-template-columns:1fr;gap:0;margin:4px 0 0}.sgs-card-setting{justify-content:space-between;gap:12px;min-height:37px;padding:7px 2px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent);font-size:12px;cursor:pointer}.sgs-card-setting:last-child{border:0}.sgs-card-setting span{min-width:0;color:var(--sgs-text,#eee3cc)}.sgs-card-settings{padding:0 10px;margin-top:10px;border-radius:9px;background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-accent,#dbba70) 5%,transparent),#00000018);border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 40%,transparent)}.sgs-cards .sgs-fold>summary{padding:10px 0}.sgs-cards .sgs-segments{flex-wrap:nowrap;gap:2px}.sgs-cards .sgs-segments>button{border:0;background:transparent;font-size:11px;border-radius:5px;padding:4px 6px;color:var(--sgs-muted,#b7aa8c)}.sgs-cards .sgs-segments>button.is-active,.sgs-cards .sgs-segments>button[aria-pressed=true]{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent);color:var(--sgs-accent,#dbba70)}.sgs-cards select.sgs-select{padding:5px 27px 5px 9px;background-color:var(--sgs-bg,#201e1a);border-color:color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);font-size:11px}.sgs-card-section{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 45%,transparent)}.sgs-card-composition th,.sgs-card-composition td{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent)}.sgs-card-hud .sgs-card-hud-recent{background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-raised,#383327) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions{gap:3px;padding:2px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);border-radius:7px;background:linear-gradient(color-mix(in srgb,var(--sgs-surface,#2c2922) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions>button{border:0;background:transparent;padding:0 3px;font-size:14px;color:var(--sgs-muted,#b7aa8c)}.sgs-card-hud-actions>button[aria-expanded=true]{color:var(--sgs-accent,#dbba70);background:color-mix(in srgb,var(--sgs-accent,#dbba70) 10%,transparent);box-shadow:inset 0 -1px color-mix(in srgb,var(--sgs-accent,#dbba70) 50%,transparent)}.sgs-card-hud-list{border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:0 8px 24px #0004}
 @media(prefers-reduced-motion:no-preference){.sgs-cards button{transition:background 140ms,border-color 140ms}}
@@ -71,11 +73,12 @@ const QUERY_PRIORITY = ['桃', '闪', '无懈可击', '酒', '乐不思蜀', '�
   '杀', '普通杀', '火杀', '雷杀', '冰杀', '红杀', '黑杀', '决斗', '南蛮入侵', '万箭齐发', '铁索连环', '诸葛连弩'];
 const SETTINGS = [['recent', '最近用牌', true], ['deck', '牌堆顶底', true], ['discard', '本回合弃牌', true],
   ['reveals', '他人明牌', true], ['labels', '来源标签', true], ['fourColors', '四色花色', false],
-  ['handSort', '扩展理牌', true], ['countdown', '出牌读秒', true], ['skillCounts', '显示技能次数', true]];
+  ['handSort', '扩展理牌', true], ['countdown', '出牌读秒', true], ['skillCounts', '显示技能次数', true], ['skillHints', '技能提示', true]];
 
 export function activate(ctx) {
   const { document, window, scope, settings } = ctx;
   const panelRefreshers = new Set();
+  const hintRefreshers = new Set();
   let disposed = false, native = null, activeHudList = null, hoverHudList = null, heldKey = null;
   let discardMode = settings.get('discardMode', 'time'), recentMode = settings.get('recentMode', 'player'), deckGroup = settings.get('deckGroup', 'name');
   const pinnedDeckRows = new Set();
@@ -288,6 +291,38 @@ export function activate(ctx) {
     const compositionHint = element('p', 'sgs-card-reason');
     compositionSection.body.append(deckSummary, deckControls, compositionTable, compositionHint);
     const inferenceSection = section('手牌推断');
+    const hintSection = section('技能提示');
+    hintSection.wrap.dataset.cardSkillHints = 'true';
+    let hintSignature = '';
+    function updateHints() {
+      if (disposed) return;
+      const state = currentState(), skills = [];
+      const allowed = state.active && setting('skillHints') && !singleRiderShopVisible(window, ctx.game);
+      if (allowed) {
+        try {
+          const knownIds = [...new Set(Object.values(SKILL_HINT_GROUPS).flatMap(group => group.ids))];
+          for (const ui of ctx.game.getSeatUIs?.() || []) {
+            if (ui.destroyed || ui.seat?.IsDead) continue;
+            for (const id of knownIds) if (ui.seat?.HasSkill?.(id)) skills.push(id);
+            for (const item of ui.skillItems || []) {
+              const skill = item.Skill;
+              if (skill) skills.push({ SkillId: skill.SkillId, name: skill.SkillName ?? skill.Name ?? skill.name ?? '' });
+            }
+          }
+        } catch { /* Scene transitions may remove a seat between reads. */ }
+      }
+      const rows = allowed ? skillHints(state, { skills, getMeta }) : [];
+      hintSection.wrap.hidden = !rows.length;
+      const signature = JSON.stringify(rows);
+      if (signature === hintSignature) return;
+      hintSignature = signature; hintSection.body.replaceChildren();
+      for (const row of rows) {
+        const item = element('div', 'sgs-card-skill-hint'); item.dataset.skillHint = row.id;
+        item.append(element('strong', '', row.title), element('p', '', row.text));
+        hintSection.body.append(item);
+      }
+    }
+    hintRefreshers.add(updateHints);
     const querySection = element('details', 'sgs-card-section sgs-card-query-section sgs-fold');
     querySection.append(element('summary', '', '卡牌组合查询')); root.append(querySection);
     querySection.open = setting('queryExpanded', false);
@@ -345,6 +380,7 @@ export function activate(ctx) {
     function update() {
       if (disposed) return;
       const state = currentState();
+      updateHints();
       inputs.forEach(([key, fallback, input]) => { input.checked = setting(key, fallback); });
       for (const node of [status, compositionSection.wrap, inferenceSection.wrap, querySection, diagnostics]) node.hidden = !state.active;
       if (!state.active) {
@@ -422,7 +458,7 @@ export function activate(ctx) {
       updateQuery();
     }
     panelRefreshers.add(update); update();
-    return () => { panelRefreshers.delete(update); root.remove(); };
+    return () => { panelRefreshers.delete(update); hintRefreshers.delete(updateHints); root.remove(); };
   }
   const unregister = ctx.ui.registerPanel({ id: 'cards', title: '卡牌', category: 'game', priority: 32768, render: renderPanel });
   native = createNativeEnhancements(ctx, overlay, makeCard, refresh);
@@ -433,18 +469,18 @@ export function activate(ctx) {
   });
   const releaseTheme = ctx.themes?.subscribe?.(applyTheme);
   applyTheme();
-  scope.interval(() => { if (!releaseTheme) applyTheme(); updateHud(); }, 1000);
+  scope.interval(() => { if (!releaseTheme) applyTheme(); updateHud(); hintRefreshers.forEach(update => update()); }, 1000);
   refresh();
   return () => {
     if (disposed) return;
     disposed = true; unsubscribe?.(); releaseTheme?.(); unregister?.(); native?.dispose();
-    panelRefreshers.clear(); overlayHost.remove();
+    panelRefreshers.clear(); hintRefreshers.clear(); overlayHost.remove();
   };
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.62', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "补充司契、劼力展示牌堆信息的记录，调整牌堆顺序提示；单骑商店打开时收起相关悬浮信息，减少遮挡。", minCoreVersion: '0.6.37', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.66', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "新增多种技能的公开卡牌记录与只读技能提示，修复界强识明牌记录；优化手牌排序和分组间距，修复选牌时分组标签跳动。仅使用客户端已知信息，无法确认的归属和顺序保留未知，提示不代为出牌。", minCoreVersion: '0.6.62', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
     description: '记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数' },
   initialState, reduce, activate,
 };
