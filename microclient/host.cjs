@@ -162,3 +162,44 @@ ipcMain.on('sgs-toolbox:source:v1', event => {
   const topLevel = !event.senderFrame || !event.senderFrame.parent;
   event.returnValue = isGameURL(url) && topLevel ? (loadUpdate()?.current.source || code) : '';
 });
+
+// Read only the official cashier endpoints; never forward cookies or execute HTML.
+function cashierURL(value, initial = true) {
+  const u = new URL(value);
+  const gateway = u.origin === 'https://openapi.alipay.com' && u.pathname === '/gateway.do';
+  const cashier = u.origin === 'https://excashier.alipay.com' && u.pathname === '/standard/auth.htm';
+  const assignment = u.origin === 'https://unitradeprod.alipay.com' && u.pathname === '/appAssign.htm';
+  const method = u.searchParams.get('method');
+  // Redirects may return to the gateway without repeating the original method.
+  // Keep the initiating request strict and validate every redirect endpoint.
+  if (u.username || u.password || !(gateway || cashier || assignment) || (initial && (!gateway || method !== 'alipay.trade.page.pay')) || (gateway && method && method !== 'alipay.trade.page.pay')) {
+    const host = u.hostname.replace(/[^a-z0-9.-]/gi, '').slice(0, 100);
+    const route = u.pathname.replace(/[^a-z0-9/_.-]/gi, '_').slice(0, 100);
+    throw Error('支付宝收银台' + (initial ? '入口' : '跳转') + '地址异常（域名：' + host + '；路径：' + route + '）');
+  }
+  return u.href;
+}
+function readCashier(value, redirects = 0) {
+  const url = cashierURL(value, redirects === 0);
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, res => {
+      if ([301,302,303,307,308].includes(res.statusCode)) {
+        res.resume();
+        if (redirects >= 4) return reject(Error('支付宝跳转次数过多'));
+        try { resolve(readCashier(new URL(res.headers.location, url).href, redirects + 1)); } catch (e) { reject(e); }
+        return;
+      }
+      if (res.statusCode !== 200) { res.resume(); reject(Error('支付宝收银台 HTTP ' + res.statusCode)); return; }
+      const chunks = []; let size = 0;
+      res.on('data', chunk => { size += chunk.length; if (size > 2 * 1024 * 1024) req.destroy(Error('支付宝收银台内容过大')); else chunks.push(chunk); });
+      res.on('error', reject);
+      res.on('end', () => resolve({status:200, finalUrl:url, responseText:Buffer.concat(chunks).toString('utf8')}));
+    });
+    req.setTimeout(12000, () => req.destroy(Error('支付宝收银台读取超时')));
+    req.on('error', reject);
+  });
+}
+ipcMain.handle('sgs-toolbox:alipay:v1', (event, url) => {
+  if (!allowed(event)) throw Error('仅允许官方游戏主页面解析付款码');
+  return readCashier(url);
+});

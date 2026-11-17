@@ -47,5 +47,33 @@
     "toolboxSha256": "13a7bb6314da4e35691930128501a55fc25eee8fe21ca49beb06bb189e955c36",
     "hostSha256": "df9d2b3cb9f06599c3faee2e40f8792379cce9a213c6694dbff62df9f7459625",
     "preloadSha256": "9f00cec3ae9e783c8c67219b1347545d789afc333c266f02e36e6ba5932c6c42"
+  },
+  {
+    "version": "0.6.51",
+    "edition": "lite",
+    "toolboxSha256": "31d409d127b55e3e4ce16f67958d5ee6e26388fc3e18842f8393a4ac1aff6f2b",
+    "hostSha256": "df9d2b3cb9f06599c3faee2e40f8792379cce9a213c6694dbff62df9f7459625",
+    "preloadSha256": "9f00cec3ae9e783c8c67219b1347545d789afc333c266f02e36e6ba5932c6c42"
+  },
+  {
+    "version": "0.6.76",
+    "edition": "lite",
+    "toolboxSha256": "ca1d8dc6c97d0bca1001a15f181ab668b41ecb5b65eac8df1c562a0a90986d74",
+    "hostSha256": "235f7804f7509c8747c864f4668e7d114ac405cc2feaa941df11abbe08587fc0",
+    "preloadSha256": "10e8018ee21b66a23a533d1ad36e996c7d0ddf3c32328598d772ff9d73134c6f"
+  },
+  {
+    "version": "0.6.77",
+    "edition": "lite",
+    "toolboxSha256": "e5a6e5ac0b7bc2beeba6cd6b2c2f18bda0e4f7dac4169256429c2b61f40851e8",
+    "hostSha256": "235f7804f7509c8747c864f4668e7d114ac405cc2feaa941df11abbe08587fc0",
+    "preloadSha256": "23f1bf4d851ccdebd880df120b024817e3d07180355695556d9f66930551485e"
+  },
+  {
+    "version": "0.6.78",
+    "edition": "lite",
+    "toolboxSha256": "13808f05cc1b9ca4d03843c5c24722650570551fb6e96938d8d1f043526338ea",
+    "hostSha256": "95c6dbb39047195514dbf9b633540598c2fd694b2cec9c73362980466ce96c03",
+    "preloadSha256": "23f1bf4d851ccdebd880df120b024817e3d07180355695556d9f66930551485e"
   }
 ]
