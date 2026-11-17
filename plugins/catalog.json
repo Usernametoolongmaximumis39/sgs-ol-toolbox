@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.52"
+    "version": "0.6.62"
   },
   "plugins": [
     {
@@ -168,7 +168,7 @@
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.62",
+      "version": "0.1.66",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -180,17 +180,17 @@
         "game"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.37",
+      "minCoreVersion": "0.6.62",
       "apiVersion": 1,
       "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
-      "releaseNotes": "补充司契、劼力展示牌堆信息的记录，调整牌堆顺序提示；单骑商店打开时收起相关悬浮信息，减少遮挡。",
-      "packageUrl": "packages/cards/0.1.62.json",
-      "sha256": "2dace0ba531e64648999028a7943e60594a75193389d6146b2ce1a89c3a0c460"
+      "releaseNotes": "新增多种技能的公开卡牌记录与只读技能提示，修复界强识明牌记录；优化手牌排序和分组间距，修复选牌时分组标签跳动。仅使用客户端已知信息，无法确认的归属和顺序保留未知，提示不代为出牌。",
+      "packageUrl": "packages/cards/0.1.66.json",
+      "sha256": "214c41b08aef5bf021f853deae8ec0f52f3d559c5bbb60325dc7366cc868237d"
     },
     {
       "id": "play-assist",
       "name": "出牌辅助",
-      "version": "0.2.12",
+      "version": "0.2.16",
       "icon": {
         "paths": [
           "M4 5h10v14H4zM7 8h4M7 11h3",
@@ -205,14 +205,14 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "长按技能辅助、自动确定与询问跳过。",
-      "releaseNotes": "长按技能辅助默认开启，保留已有设置；右键长按可记住技能，移动端继续长按也可记住，点按取消。移除统一跨局记忆开关，改为逐技能记忆，并修正部分询问处理。",
-      "packageUrl": "packages/play-assist/0.2.12.json",
-      "sha256": "31e156875a0ff0f21a0fc47ee577fdd8580ecc047035d0ff57bcc0fbd2c7a3a1"
+      "releaseNotes": "补充强识摸牌与武娘取牌辅助，武娘优先选择可选防具、其他装备，再选择手牌；狂骨按当前体力选择回血或摸牌。仍需开启相应技能辅助，强识前半段选人和展示保留手动。",
+      "packageUrl": "packages/play-assist/0.2.16.json",
+      "sha256": "c8964e440113d571e229b4a20458181c3f233a133c51423d48f03613804dedd9"
     },
     {
       "id": "daily-rewards",
       "name": "日常领奖",
-      "version": "0.7.26",
+      "version": "0.7.33",
       "icon": {
         "paths": [
           "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -227,9 +227,9 @@
       "minCoreVersion": "0.6.38",
       "apiVersion": 1,
       "description": "自动领取签到、任务、邮件与活动奖励，按账号记录",
-      "releaseNotes": "补全斗地主与单骑连胜奖励领取，避免同一宝箱重复请求；优化奖励说明和状态显示。自动领取仍默认关闭，兑换可能消耗欢乐豆，共享兑换码仍需单独开启且只上传游戏明确成功的码及账号摘要。",
-      "packageUrl": "packages/daily-rewards/0.7.26.json",
-      "sha256": "6f59de9834013c80aed60953b4f4471d2471ee4e8496ea0495ca2c4b24ca1cfa"
+      "releaseNotes": "排除回归、回流及老玩家任务，未确认项目显示名称与任务编号；修复部分已读未领邮件无法恢复领取的问题，精简排查信息。保留已有防重复领取记录。自动领取仍默认关闭，兑换可能消耗欢乐豆；共享兑换码需单独开启，只上传游戏明确成功的码及账号摘要。",
+      "packageUrl": "packages/daily-rewards/0.7.33.json",
+      "sha256": "b0d3c11d10b7991d7a95b396f4739ec10fb44f01c6451fc604832cef5a73c24f"
     },
     {
       "id": "seckill",
@@ -385,7 +385,7 @@
     {
       "id": "appearances",
       "name": "出框与胜率统计",
-      "version": "0.4.19",
+      "version": "0.4.20",
       "icon": {
         "paths": [
           "M9 21H3V3h18v9",
@@ -401,9 +401,9 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "本机统计正式排位、斗地主与单骑无双的出框、选取、胜率及对局历史",
-      "releaseNotes": "详情改为游戏内置面板，修复微端打开详情时出现系统链接提示的问题；保留筛选、对局历史和手动导入工具箱 JSON 备份。",
-      "packageUrl": "packages/appearances/0.4.19.json",
-      "sha256": "4ea01e0496266bd6a718b5ea9d10fe0a0c979aa2f5dc288fa22b7ed0b5d9e614"
+      "releaseNotes": "随公共图标资源更新，统计、筛选、历史记录与导入方式保持不变。",
+      "packageUrl": "packages/appearances/0.4.20.json",
+      "sha256": "2781a716e79711e114c602910bc2b0b2ad24802699087ad6a8d3c3d3e732790e"
     },
     {
       "id": "ledger",
