@@ -1,4 +1,5 @@
 import { installRefreshReentry } from './refresh-reentry.js';
+import { installTouchPreview } from './touch-preview.js';
 import { DEVELOPMENT, EDITION, MICROCLIENT } from './distribution.js';
 import { installMicroCompatibility } from './micro-compatibility.js';
 import { bundledPackages } from './bundled-plugins.js';
@@ -26,6 +27,7 @@ export function boot(win = window) {
 async function initialize(win, api) {
   if (!MICROCLIENT && installRefreshReentry(win)) return api;
   const scope = api.scope;
+  if (!MICROCLIENT) installTouchPreview(win, scope);
   if (MICROCLIENT) installMicroCompatibility(win, scope);
   const onlyPlugin = DEVELOPMENT && ['daily-rewards', 'effects', 'skins', 'wish-progress', 'shanhetu', 'themes', 'baisheng', 'appearances', 'seckill', 'gaizhu', 'ledger', 'recharge'].includes(win.__SGS_TOOLBOX_DEMO__?.onlyPlugin)
     && win.location?.hostname === '127.0.0.1' ? win.__SGS_TOOLBOX_DEMO__.onlyPlugin : null;

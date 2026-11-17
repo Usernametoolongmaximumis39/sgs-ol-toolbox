@@ -479,8 +479,8 @@ export function activate(ctx) {
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.66', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "新增多种技能的公开卡牌记录与只读技能提示，修复界强识明牌记录；优化手牌排序和分组间距，修复选牌时分组标签跳动。仅使用客户端已知信息，无法确认的归属和顺序保留未知，提示不代为出牌。", minCoreVersion: '0.6.62', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.67', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "他人明牌根据头像大小、相邻位置与屏幕空间自动换行，改善移动端多张明牌挤在一行、遮挡相邻位置的问题；空间不足时可滚动查看。", minCoreVersion: '0.6.62', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
     description: '记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数' },
   initialState, reduce, activate,
 };

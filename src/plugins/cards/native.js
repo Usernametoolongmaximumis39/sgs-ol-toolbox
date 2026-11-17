@@ -315,9 +315,26 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
         possible.forEach(id => box.append(makeCard(id, true, true, true)));
         box.tabIndex = 0;
         position(box, anchor);
-        const revealWidth = Math.min(8, known.length + possible.length) * 42 + 8;
+        // Work in rendered CSS pixels, so canvas scale and device size both
+        // affect wrapping. Keep each reveal beneath its own portrait.
+        const left = Math.max(0, anchor.x - 20);
+        const avatar = ui.seatAvatar ?? ui.SeatAvatar;
+        const clip = avatar?.scrollRect;
+        const right = avatar && nativeAnchor(window, avatar,
+          (Number(clip?.x) || 0) + Number(clip?.width ?? avatar.width),
+          (Number(clip?.y) || 0) + Number(clip?.height ?? avatar.height));
+        let available = window.innerWidth - left - 4;
+        if (right && right.x > anchor.x) available = Math.min(available, right.x - anchor.x + 20);
+        for (const other of seats) {
+          if (other === ui || !nativeSeatOccupied(other)) continue;
+          const next = seatRevealAnchor(window, other);
+          if (next && next.x > anchor.x && Math.abs(next.y - anchor.y) < 54)
+            available = Math.min(available, next.x - anchor.x - 4);
+        }
+        const revealWidth = Math.max(1, Math.min(344, available, (known.length + possible.length) * 42 - 2));
         box.style.width = revealWidth + 'px';
-        box.style.left = Math.max(0, Math.min(window.innerWidth - revealWidth, anchor.x - 20)) + 'px';
+        box.style.left = Math.max(0, Math.min(window.innerWidth - revealWidth - 4, left)) + 'px';
+        box.style.maxHeight = Math.max(0, Math.min(166, window.innerHeight - anchor.y - 4)) + 'px';
         seatLayer.append(box); box.scrollTop = revealScroll.get(String(seatId)) || 0;
       });
     }

@@ -1,17 +1,19 @@
 {
-  "version": "0.6.62",
+  "version": "0.6.63",
   "editions": {
     "full": {
       "bytes": 3142520,
       "plugins": 21,
       "updatesTo": "full",
-      "toolboxUpdatesTo": "lite"
+      "toolboxUpdatesTo": "lite",
+      "version": "0.6.62"
     },
     "lite": {
-      "bytes": 407272,
+      "bytes": 412796,
       "plugins": 0,
       "updatesTo": "lite",
-      "toolboxUpdatesTo": "lite"
+      "toolboxUpdatesTo": "lite",
+      "version": "0.6.63"
     }
   },
   "plugins": [
@@ -57,8 +59,8 @@
     },
     {
       "id": "cards",
-      "version": "0.1.66",
-      "sha256": "214c41b08aef5bf021f853deae8ec0f52f3d559c5bbb60325dc7366cc868237d"
+      "version": "0.1.67",
+      "sha256": "57d7e3aa6b92772e19919e47a2e8937d76d7ba0e6d1b46d69c26e82bfcbd291b"
     },
     {
       "id": "play-assist",
