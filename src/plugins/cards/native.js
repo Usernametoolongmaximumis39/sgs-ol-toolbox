@@ -282,9 +282,11 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
     if (disposed) return;
     const state = ctx.getState();
     if (!state) return;
-    const revealScroll = new Map([...seatLayer.children].map(box => [box.dataset.seatId, box.scrollTop]));
-    seatLayer.replaceChildren(); labelLayer.replaceChildren();
+    const revealBoxes = new Map([...seatLayer.children].map(box => [box.dataset.seatId, box]));
+    const visibleReveals = new Set();
+    labelLayer.replaceChildren();
     if (!state.active) {
+      seatLayer.replaceChildren();
       seatLayer.style.clipPath = '';
       countdowns.clear(); skillCounts.clear(); sortControls.hide(); handGrouping.detach(); releaseOriginal();
       restoreSelectionWindow?.(); restoreSelectionWindow = null; patchedSelectionPrototype = null;
@@ -308,36 +310,47 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
         if (!known.length && !possible.length) return;
         const anchor = seatRevealAnchor(window, ui);
         if (!anchor) return;
-        const box = node('div', 'sgs-card-seat-reveal');
+        const box = revealBoxes.get(String(seatId)) ?? node('div', 'sgs-card-seat-reveal');
+        visibleReveals.add(box);
         box.dataset.seatId = String(seatId);
         box.setAttribute('aria-label', `${seatLabel(state, seatId)}手牌：确定有 ${known.length} 张，可能有 ${possible.length} 张`);
-        known.forEach(id => box.append(makeCard(id, false, true, true)));
-        possible.forEach(id => box.append(makeCard(id, true, true, true)));
+        const signature = JSON.stringify([known, possible, settings.get('fourColors', false), state.lastSeq]);
+        if (box.dataset.cards !== signature) {
+          box.replaceChildren();
+          known.forEach(id => box.append(makeCard(id, false, true, true)));
+          possible.forEach(id => box.append(makeCard(id, true, true, true)));
+          box.dataset.cards = signature;
+        }
         box.tabIndex = 0;
         position(box, anchor);
-        // Work in rendered CSS pixels, so canvas scale and device size both
-        // affect wrapping. Keep each reveal beneath its own portrait.
-        const left = Math.max(0, anchor.x - 20);
         const avatar = ui.seatAvatar ?? ui.SeatAvatar;
         const clip = avatar?.scrollRect;
+        const top = avatar && nativeAnchor(window, avatar, Number(clip?.x) || 0, Number(clip?.y) || 0);
+        // A standard native portrait is 172 game units high. Use its visible
+        // height in CSS pixels, including per-seat and canvas scaling.
+        const scale = top && anchor.y > top.y ? (anchor.y - top.y) / 172 : 1;
+        box.style.setProperty('--sgs-reveal-scale', String(scale));
+        const left = Math.max(0, anchor.x - 20 * scale);
         const right = avatar && nativeAnchor(window, avatar,
           (Number(clip?.x) || 0) + Number(clip?.width ?? avatar.width),
           (Number(clip?.y) || 0) + Number(clip?.height ?? avatar.height));
         let available = window.innerWidth - left - 4;
-        if (right && right.x > anchor.x) available = Math.min(available, right.x - anchor.x + 20);
+        if (right && right.x > anchor.x) available = Math.min(available, right.x - anchor.x + 40 * scale);
         for (const other of seats) {
           if (other === ui || !nativeSeatOccupied(other)) continue;
           const next = seatRevealAnchor(window, other);
-          if (next && next.x > anchor.x && Math.abs(next.y - anchor.y) < 54)
+          if (next && next.x > anchor.x && Math.abs(next.y - anchor.y) < 54 * scale)
             available = Math.min(available, next.x - anchor.x - 4);
         }
-        const revealWidth = Math.max(1, Math.min(344, available, (known.length + possible.length) * 42 - 2));
+        const revealWidth = Math.max(1, Math.min(344 * scale, available, ((known.length + possible.length) * 42 - 2) * scale));
         box.style.width = revealWidth + 'px';
         box.style.left = Math.max(0, Math.min(window.innerWidth - revealWidth - 4, left)) + 'px';
-        box.style.maxHeight = Math.max(0, Math.min(166, window.innerHeight - anchor.y - 4)) + 'px';
-        seatLayer.append(box); box.scrollTop = revealScroll.get(String(seatId)) || 0;
+        // Two full rows plus half of the third hint at the scrollable content.
+        box.style.maxHeight = Math.max(0, Math.min(139 * scale, window.innerHeight - anchor.y - 4)) + 'px';
+        if (box.parentNode !== seatLayer) seatLayer.append(box);
       });
     }
+    for (const box of revealBoxes.values()) if (!visibleReveals.has(box)) box.remove();
     if (settings.get('labels', true)) {
       for (const ui of self?.cardContainer?.cardUis || []) {
         const id = ui.Card?.CardId ?? ui.Card?.cardId;

@@ -26,6 +26,7 @@ try {
  });
  const host=page.locator('[data-sgs-toolbox="core"]');
  await page.waitForFunction(()=>window[Symbol.for('sgs.ol.toolbox.core')].manager.slots.get('cards').state.seats[3]?.position===3);
+ await host.locator('.sgs-card-seat-heading').first().waitFor({state:'visible'});
  assert.deepEqual(await host.locator('.sgs-card-seat-heading').allTextContents(),['2号位','3号位']);
  assert.equal(await host.locator('.sgs-card-seat-row').count(),2);
  const summary=host.locator('.sgs-card-possibilities summary').first();

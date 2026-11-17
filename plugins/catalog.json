@@ -168,7 +168,7 @@
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.67",
+      "version": "0.1.68",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -183,9 +183,9 @@
       "minCoreVersion": "0.6.62",
       "apiVersion": 1,
       "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
-      "releaseNotes": "他人明牌根据头像大小、相邻位置与屏幕空间自动换行，改善移动端多张明牌挤在一行、遮挡相邻位置的问题；空间不足时可滚动查看。",
-      "packageUrl": "packages/cards/0.1.67.json",
-      "sha256": "57d7e3aa6b92772e19919e47a2e8937d76d7ba0e6d1b46d69c26e82bfcbd291b"
+      "releaseNotes": "他人明牌随头像大小同步缩放，显示两行半并支持滚动；改善查看多张明牌时的滚动体验，隐藏滚动条。",
+      "packageUrl": "packages/cards/0.1.68.json",
+      "sha256": "0422914b6c6e0e602f7712b1dcce9ca9341d204751c959c9fe455c423fd4a759"
     },
     {
       "id": "play-assist",

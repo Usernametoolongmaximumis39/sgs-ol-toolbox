@@ -251,14 +251,14 @@ test('revealed miniature cards follow model seat identity through reordered nati
     assert.equal(boxes.length, 2);
     const cardsAt = seat => boxes.find(box => box.dataset.seatId === String(seat));
     assert.equal(cardsAt(5).querySelector('.sgs-card-mini').dataset.cardId, '4');
-    assert.equal(cardsAt(5).style.left, '480px');
+    assert.equal(cardsAt(5).style.left, `${500 - 20 * (100 / 172)}px`);
     assert.equal(cardsAt(3).querySelector('.sgs-card-mini').dataset.cardId, '5');
-    assert.equal(cardsAt(3).style.left, '40px');
+    assert.equal(cardsAt(3).style.left, `${60 - 20 * (100 / 172)}px`);
     assert.equal(env.overlay.querySelector('.sgs-card-possible-count'), null);
     // Native seat rotation/reuse moves each player's cards along with its model.
     env.other.Seat = { Index: 3 }; otherTarget.Seat = { Index: 5 };
     env.send('MsgGameTurnNtf', { SeatID: 0 });
-    assert.equal(env.overlay.querySelector('[data-seat-id="5"]').style.left, '40px');
+    assert.equal(env.overlay.querySelector('[data-seat-id="5"]').style.left, `${60 - 20 * (100 / 172)}px`);
   } finally { env.close(); }
 });
 
@@ -277,7 +277,7 @@ test('detached native seat controllers anchor through the rendered scaled avatar
     assert.deepEqual(seatRevealAnchor(env.window, env.other), { x: 760, y: 425 });
     assert.notDeepEqual(nativeAnchor(env.window, env.other, 0, env.other.height), { x: 760, y: 425 }, 'old controller conversion demonstrably misses the layer and seat scales');
     env.activate();
-    assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.left, '740px');
+    assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.left, '745px');
     assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.top, '425px');
     layer.scale = 1; layer.x = 20; layer.y = 30; avatar.scale = .5;
     env.send('MsgGameTurnNtf', { SeatID: 0 });
@@ -312,7 +312,7 @@ test('spectator double-general cards align with the visible cropped portrait ins
     assert.deepEqual(seatRevealAnchor(env.window,env.other),{x:720,y:368});
     assert.ok(Math.abs(nativeAnchor(env.window,avatar,0,172).x-720+57.6)<.001,'reproduce the 36-native-unit crop error');
     env.activate();
-    assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.left,'700px');
+    assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.left,`${720 - 20 * (256 / 172)}px`);
     assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.top,'368px');
     avatar.displayedInStage=false;
     assert.equal(seatRevealAnchor(env.window,env.other),null);

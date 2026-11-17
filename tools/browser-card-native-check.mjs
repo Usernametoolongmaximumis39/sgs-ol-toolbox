@@ -114,7 +114,8 @@ try {
       const revealed=document.querySelector('[data-sgs-cards-overlay]').shadowRoot.querySelector('.sgs-card-seat-reveal');
       if(!revealed)return false;
       const actual=revealed.getBoundingClientRect();
-      return Math.abs(actual.x-Math.max(0,expected.x-20))<.1&&Math.abs(actual.y-expected.y)<.1;
+      const top=avatar.parent.localToGlobal(new Laya.Point(avatar.x,avatar.y),true);
+      return Math.abs(actual.x-Math.max(0,expected.x-20*(expected.y-top.y)/172))<.1&&Math.abs(actual.y-expected.y)<.1;
     });
     assert.equal(await page.evaluate(()=>!!nativeCheck.staleTimer.getChildByName('sgs-toolbox-countdown')),false);
     assert.equal(await page.locator('[data-sgs-cards-overlay]').locator('.sgs-card-countdown').count(),0);
@@ -126,13 +127,56 @@ try {
     assert.deepEqual(await page.evaluate(() => nativeCheck.hand.cardUis.map(ui => ui.Card.CardNumber)), [3, 7, 9]);
     assert.equal(await page.evaluate(() => nativeCheck.hand.cardUis.find(ui => ui.Card.CardNumber === 3).selected), true);
   }
+  // Six revealed cards must wrap with the rendered portrait, including resize.
+  for (const [width, portraitWidth, scale] of [[640,140,.65],[900,140,1],[1280,140,1.6]]) {
+    await page.setViewportSize({width,height:800});
+    await page.evaluate(({portraitWidth,scale}) => {
+      nativeCheck.gameLayer.scale(scale,scale);
+      nativeCheck.avatar.pos(200,30);
+      nativeCheck.avatar.scrollRect.width=portraitWidth;
+      nativeCheck.avatar.graphics.clear();
+      nativeCheck.avatar.graphics.drawRect(36,0,portraitWidth,172,'#587550','#dbba70',2);
+      nativeCheck.state.cards={};
+      for(let id=4;id<17;id++) nativeCheck.state.cards[id]={id,locations:['5:1'],tags:[],lastSeq:1,seen:true};
+    }, {portraitWidth,scale});
+    await page.waitForTimeout(350);
+    const layout=await page.locator('[data-sgs-cards-overlay]').locator('.sgs-card-seat-reveal').evaluate(box=>{
+      const rect=box.getBoundingClientRect(), cards=[...box.children].map(n=>n.getBoundingClientRect());
+      return {right:rect.right,width:rect.width,height:rect.height,cardWidth:cards[0].width,cardHeight:cards[0].height,rows:new Set(cards.map(r=>r.top)).size,inside:cards.every(r=>r.left>=rect.left&&r.right<=rect.right+.1)};
+    });
+    assert.ok(layout.rows>1); assert.ok(layout.inside); assert.ok(layout.right<=width);
+    assert.ok(layout.width<=(portraitWidth+40)*scale+.1);
+    assert.ok(Math.abs(layout.cardWidth-40*scale)<.1);
+    assert.ok(Math.abs(layout.cardHeight-54*scale)<.1);
+    assert.ok(Math.abs(layout.height-139*scale)<.1,'two and a half visible rows');
+    const reveal=page.locator('[data-sgs-cards-overlay]').locator('.sgs-card-seat-reveal');
+    await reveal.evaluate(box=>{box.scrollTop=0;window.revealBeforeScroll=box;});
+    await page.screenshot({path:path.join(output,`card-reveal-wrap-${width}.png`)});
+    await reveal.hover();await page.mouse.wheel(0,100);
+    await page.waitForFunction(()=>document.querySelector('[data-sgs-cards-overlay]').shadowRoot.querySelector('.sgs-card-seat-reveal').scrollTop>0);
+    await page.waitForTimeout(300);
+    assert.equal(await reveal.evaluate(box=>box===window.revealBeforeScroll&&box.scrollTop>0),true,'refresh preserves scroll container and offset');
+    if(width===640){
+      await reveal.evaluate(box=>{box.scrollTop=0;});
+      const r=await reveal.boundingBox(), session=await page.context().newCDPSession(page);
+      await session.send('Emulation.setTouchEmulationEnabled',{enabled:true});
+      const x=r.x+r.width/2,y=r.y+r.height-8;
+      await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+      for(let dy=8;dy<=48;dy+=8){await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-dy}]});await page.waitForTimeout(25);}
+      await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      await page.waitForFunction(()=>window.revealBeforeScroll.scrollTop>0);
+      await session.send('Emulation.setTouchEmulationEnabled',{enabled:false});await session.detach();
+    }
+  }
+  await page.setViewportSize({width:1100,height:800});
+  await page.evaluate(()=>{nativeCheck.avatar.pos(400,30);nativeCheck.avatar.scrollRect.width=73;nativeCheck.gameLayer.scale(1.6,1.6);});
   await page.evaluate(() => { for(let id=4;id<37;id++) nativeCheck.state.cards[id]={id,locations:id%2?['5:1','5:2']:['5:1'],tags:[],lastSeq:1,seen:true}; });
   await page.waitForFunction(()=>document.querySelector('[data-sgs-cards-overlay]').shadowRoot.querySelectorAll('.sgs-card-seat-reveal .sgs-card-mini').length===33);
   assert.deepEqual(await page.evaluate(()=>{
     const box=document.querySelector('[data-sgs-cards-overlay]').shadowRoot.querySelector('.sgs-card-seat-reveal');
     const cards=[...box.children].map(c=>c.getBoundingClientRect());
     return {columns:cards.filter(c=>c.y===cards[0].y).length,wrapped:cards[8].y>cards[0].y,scroll:box.scrollHeight>box.clientHeight};
-  }),{columns:8,wrapped:true,scroll:true});
+  }),{columns:2,wrapped:true,scroll:true});
   const bounds = await measure();
   await page.screenshot({path:path.join(output,'toolbox-spectator-reveals.png'),clip:{x:600,y:20,width:400,height:540}});
   // A native dialog must cover only the intersecting part of the HTML reveals.

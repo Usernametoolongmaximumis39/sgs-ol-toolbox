@@ -46,7 +46,8 @@ const STYLES = `
 .sgs-card-hud-list{pointer-events:auto;grid-column:1/-1;grid-row:3;padding:8px;background:var(--sgs-bg,#201e1a);border:1px solid var(--sgs-border,#665b42);border-radius:6px;max-height:240px;overflow:auto;min-width:0}
 .sgs-card-hud-caption{font-size:11px;color:var(--sgs-muted,#b7aa8c);margin:0 0 6px}
 .sgs-card-seat-layer{position:absolute;inset:0;pointer-events:none}.sgs-card-seat-reveal,.sgs-card-source-label{position:absolute}.sgs-card-seat-reveal{display:flex;gap:2px;align-items:center;width:344px;max-width:calc(100vw - 8px);max-height:166px;overflow-y:auto;overflow-x:hidden;align-content:flex-start;scrollbar-width:thin;pointer-events:auto;flex-wrap:wrap}
-.sgs-card-seat-reveal .sgs-card-mini{height:54px;pointer-events:auto}.sgs-card-seat-reveal .sgs-card-mini:hover{transform:translateY(-5px);z-index:1}
+.sgs-card-seat-reveal{gap:calc(2px * var(--sgs-reveal-scale,1));scrollbar-width:none;touch-action:pan-y;overscroll-behavior:contain}.sgs-card-seat-reveal::-webkit-scrollbar{display:none}
+.sgs-card-seat-reveal .sgs-card-mini{width:calc(40px * var(--sgs-reveal-scale,1));height:calc(54px * var(--sgs-reveal-scale,1));pointer-events:auto}.sgs-card-seat-reveal .sgs-card-suit,.sgs-card-seat-reveal .sgs-card-name{font-size:calc(16px * var(--sgs-reveal-scale,1))}.sgs-card-seat-reveal .sgs-card-mini:hover{z-index:1}
 .sgs-card-possible-count,.sgs-card-overflow{font-size:10px;color:var(--sgs-muted,#b7aa8c);padding:2px}
 .sgs-card-source-label{background:var(--sgs-bg,#201e1a);border:1px solid var(--sgs-border,#665b42);border-radius:3px;padding:1px 4px;font-size:10px;max-width:90px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .sgs-card-skill-hint{padding:7px 0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 30%,transparent);overflow-wrap:anywhere}.sgs-card-skill-hint:last-child{border-bottom:0}.sgs-card-skill-hint strong{display:block;color:var(--sgs-accent);font-size:12px;margin-bottom:3px}.sgs-card-skill-hint p{margin:0;color:var(--sgs-text);font-size:12px;line-height:1.65}
@@ -479,8 +480,8 @@ export function activate(ctx) {
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.67', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "他人明牌根据头像大小、相邻位置与屏幕空间自动换行，改善移动端多张明牌挤在一行、遮挡相邻位置的问题；空间不足时可滚动查看。", minCoreVersion: '0.6.62', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.68', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "他人明牌随头像大小同步缩放，显示两行半并支持滚动；改善查看多张明牌时的滚动体验，隐藏滚动条。", minCoreVersion: '0.6.62', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
     description: '记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数' },
   initialState, reduce, activate,
 };
