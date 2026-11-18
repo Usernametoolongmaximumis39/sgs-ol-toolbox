@@ -1,107 +1,5 @@
-// 三国杀OL工具箱 · 微端 LITE · 0.6.79
+// 三国杀OL工具箱 · 微端 LITE · 0.6.91
 (() => {
-  var MESSAGE = "sgs-toolbox-alipay-final-qr-v1";
-  function finalAlipayURL(value) {
-    let url = new URL(value);
-    if (url.origin !== "https://qr.alipay.com" || url.username || url.password || !/^\/[a-z\d]+$/i.test(url.pathname)) throw Error("\u652F\u4ED8\u5B9D\u6700\u7EC8\u4ED8\u6B3E\u7801\u5730\u5740\u5F02\u5E38");
-    return url.href;
-  }
-  function readAlipayCashier(doc) {
-    if (typeof (doc == null ? void 0 : doc.querySelector) != "function") throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u6587\u6863\u4E0D\u53EF\u8BFB\u53D6");
-    let input = doc.querySelector("input#J_qrCode");
-    if (!(input != null && input.value)) throw Error("\u6536\u94F6\u53F0\u5C1A\u672A\u63D0\u4F9B\u6700\u7EC8\u4ED8\u6B3E\u7801");
-    return finalAlipayURL(input.value);
-  }
-  function installAlipayCashierBridge(win) {
-    if (!(win.location.origin === "https://openapi.alipay.com" && win.location.pathname === "/gateway.do") && !(win.location.origin === "https://excashier.alipay.com" && win.location.pathname === "/standard/auth.htm")) return !1;
-    if (win.parent === win) return !0;
-    let observer = null, timer = null, release = () => {
-      observer == null || observer.disconnect(), observer = null, win.clearTimeout(timer);
-    };
-    return win.addEventListener("message", (event) => {
-      var _a2;
-      if (event.source !== win.parent || event.origin !== "https://web.sanguosha.com" || ((_a2 = event.data) == null ? void 0 : _a2.type) !== MESSAGE || typeof event.data.nonce != "string" || event.data.nonce.length > 100) return;
-      release();
-      let send = () => {
-        try {
-          let url = readAlipayCashier(win.document);
-          win.parent.postMessage({ type: MESSAGE, nonce: event.data.nonce, url }, event.origin), release();
-        } catch {
-        }
-      };
-      observer = new win.MutationObserver(send), observer.observe(win.document, { childList: !0, subtree: !0, attributes: !0 }), timer = win.setTimeout(release, 15e3), send();
-    }), win.addEventListener("pagehide", release, { once: !0 }), !0;
-  }
-  function resolveAlipayCashier(win, value, signal, request = null) {
-    let url = new URL(value);
-    return url.hostname === "qr.alipay.com" ? Promise.resolve(finalAlipayURL(value)) : url.origin !== "https://openapi.alipay.com" || url.pathname !== "/gateway.do" || url.username || url.password || url.searchParams.get("method") !== "alipay.trade.page.pay" ? Promise.reject(Error("\u4E0D\u662F\u53EF\u89E3\u6790\u7684\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u5730\u5740")) : request ? new Promise((resolve, reject) => {
-      if (signal.aborted) return reject(Error("\u89E3\u6790\u5DF2\u53D6\u6D88"));
-      let handle = null, done = !1, finish = (error, result) => {
-        done || (done = !0, win.clearTimeout(timer), signal.removeEventListener("abort", cancel), error ? reject(error) : resolve(result));
-      }, cancel = () => {
-        finish(Error("\u89E3\u6790\u5DF2\u53D6\u6D88")), handle == null || handle.abort();
-      }, timer = win.setTimeout(() => {
-        finish(Error("\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801\u89E3\u6790\u8D85\u65F6\uFF0C\u53EF\u91CD\u8BD5\u89E3\u6790\u540C\u4E00\u8BA2\u5355")), handle == null || handle.abort();
-      }, 15e3);
-      signal.addEventListener("abort", cancel, { once: !0 });
-      try {
-        handle = request({
-          method: "GET",
-          url: url.href,
-          anonymous: !0,
-          timeout: 15e3,
-          responseType: "text",
-          onload(response) {
-            if (!done)
-              try {
-                if (response.status !== 200) throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0 HTTP " + response.status);
-                let final = new URL(response.finalUrl || url.href);
-                if (!(final.origin === "https://openapi.alipay.com" && final.pathname === "/gateway.do" || final.origin === "https://excashier.alipay.com" && final.pathname === "/standard/auth.htm")) throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u8DF3\u8F6C\u5730\u5740\u5F02\u5E38");
-                if (typeof response.responseText != "string" || response.responseText.length > 2 * 1024 * 1024) throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u5185\u5BB9\u5F02\u5E38");
-                let template = win.document.createElement("template");
-                template.innerHTML = response.responseText, finish(null, readAlipayCashier(template.content));
-              } catch (error) {
-                finish(error);
-              }
-          },
-          onerror: (error) => {
-            let reason = typeof (error == null ? void 0 : error.message) == "string" ? error.message.replace(/https?:\/\/\S+/g, "[\u6536\u94F6\u53F0\u5730\u5740]").replace(/[\r\n]+/g, " ").slice(0, 240) : "";
-            finish(Error("\u65E0\u6CD5\u8BFB\u53D6\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0" + (reason ? "\uFF1A" + reason : "\uFF0C\u53EF\u91CD\u8BD5\u89E3\u6790\u540C\u4E00\u8BA2\u5355")));
-          },
-          ontimeout: () => finish(Error("\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801\u89E3\u6790\u8D85\u65F6\uFF0C\u53EF\u91CD\u8BD5\u89E3\u6790\u540C\u4E00\u8BA2\u5355")),
-          onabort: () => finish(Error("\u89E3\u6790\u5DF2\u53D6\u6D88"))
-        }), done && signal.aborted && (handle == null || handle.abort());
-      } catch (error) {
-        finish(error);
-      }
-    }) : new Promise((resolve, reject) => {
-      var _a2, _b2;
-      if (signal.aborted) return reject(Error("\u89E3\u6790\u5DF2\u53D6\u6D88"));
-      let frame = win.document.createElement("iframe"), nonce = ((_b2 = (_a2 = win.crypto).randomUUID) == null ? void 0 : _b2.call(_a2)) || String(Date.now()) + ":" + Math.random();
-      frame.title = "\u89E3\u6790\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801", frame.style.cssText = "position:fixed;width:1px;height:1px;left:-10000px;top:0;border:0;visibility:hidden", frame.referrerPolicy = "no-referrer", frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
-      let settled = !1, finish = (error, result) => {
-        settled || (settled = !0, win.clearTimeout(timer), win.removeEventListener("message", receive), signal.removeEventListener("abort", cancel), frame.remove(), error ? reject(error) : resolve(result));
-      }, cancel = () => finish(Error("\u89E3\u6790\u5DF2\u53D6\u6D88")), receive = (event) => {
-        var _a3;
-        if (!(event.source !== frame.contentWindow || !["https://openapi.alipay.com", "https://excashier.alipay.com"].includes(event.origin) || ((_a3 = event.data) == null ? void 0 : _a3.type) !== MESSAGE || event.data.nonce !== nonce))
-          try {
-            finish(null, finalAlipayURL(event.data.url));
-          } catch (error) {
-            finish(error);
-          }
-      }, timer = win.setTimeout(() => finish(Error("\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801\u89E3\u6790\u8D85\u65F6\uFF0C\u8BF7\u66F4\u65B0\u6838\u5FC3\u540E\u91CD\u8BD5\u89E3\u6790")), 15e3);
-      win.addEventListener("message", receive), signal.addEventListener("abort", cancel, { once: !0 }), frame.onload = () => {
-        var _a3, _b3;
-        try {
-          let result = readAlipayCashier(frame.contentDocument);
-          finish(null, result);
-          return;
-        } catch {
-        }
-        (_a3 = frame.contentWindow) == null || _a3.postMessage({ type: MESSAGE, nonce }, url.origin), (_b3 = frame.contentWindow) == null || _b3.postMessage({ type: MESSAGE, nonce }, "https://excashier.alipay.com");
-      }, frame.src = url.href, win.document.body.append(frame);
-    });
-  }
   function installRefreshReentry() {
     return !1;
   }
@@ -1350,7 +1248,7 @@
         this.restore(), this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
       }
     }
-  }, CORE_VERSION = "0.6.79", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
+  }, CORE_VERSION = "0.6.91", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
     "43a4cbff657c319e8b7b1bf2ec7689e0a557fc9bb17a9090d24a2163d1857dda",
@@ -1404,7 +1302,7 @@
   ]), REPLACED_SKIN_PACKAGES = Object.freeze(["b990b29b6a9eafbe50ea3f820c2dd9753187de6a95aed91191786532cafd1b27", "d8065ccacfd2da8c39e1cf1eded8f743a85de717d6589833f679153ada9d89fa", "36a6458a5cc9c58ece0cedad1df6315e82aafb21ebe4a057e10db17c703a5827", "a9890597c627c6c703bcef0a79339fc6b8472d71f37e05b522117dcf6ac2481d", "d268def49f6f9fbd4b989545594e336886d1a86053d63b1bbdf3f638d1acf002", "5edda81bdbd06ad5ab60b8e564f554e10b1f9d13fa13d983f60ae734867d343c", "a257743d4091e677520f307b6df5a7f2938af7261183b2d57609dc4df41cdd8a", "bfcff0007de23af7439cfc60adbc0cf660bc84a094df360c6bf6f0a5fc812672", "b1b4516b854575ccb02219bd8cdf89332845263e8cced8f9c8738b6e7259eb1b"]), REPLACED_SHANHETU_PACKAGES = Object.freeze(["27d9af46ff339493cbb5bcc0b9e49e648661d9ed7becaf5704a75d0a3b83beae", "437a1ffb64a930e87264e69bcf91a856a1e82c066d732408c884182b4ce6e450", "523473559db6aa12043bb0bd0b22e0a232045d9defede4a2a6a9f3d562ad2133", "5577c02f3922100a434db7c45af19dc3db115866a1a841fc7218083f396b0acf", "ea751303a3e7ecd030d2c5a12a13dd125612f6b64ab41c641116fb763579b421", "55340baa7b51c8d97bdfbedc17209be719c2f05105501390b4028c47554cceeb", "980c908196ff62ac529ab2bfbdade42bef76930f43f534b1b075ead306c10fe2", "9017d32206a5b0e4e2eeede12e390767620579836ed7037e1e223f7ab0c52483", "dfc56a7a02dc4ab17e2f34e3e76862f615f5bf344c534921e8424498fd27b11b", "4d8aaf1df389a0420dfc65c4d5762757c2fe454cc0fbb127fe269b88c5a19af5", "e9f7b5ee0383a29799057f19f16e68e34d57fb7310066dc5d3af45456c7f0445", "997bcf58c5567e0e99829798b855c411d5e51ccad7b5f80e81c9ae84add2656d", "f304bd28030950096503a45d96013c3d7a9e2297ca6143b639b83dcb2d3e197a", "f2739ea490ecf8bee75b1dd6ae0050cc0ad0bc558515c30dbb3c6260e80eaa2f", "332272cc92d11796d8dd7d304560129277acd353726feed7cd1e5a5b6578937a", "bf4207ca6d84501c75f6ec24d094aca952224ce60367196482d6bd6815ca3423", "23d6e6f7bae844ee58a9239bb739fb0ab8d2e64b7766629bca492421bd07f400", "f226d8a8d247ce48c0664ba057ad9f961e7c953291ab7f805714979b7ea35825", "56d82efb93d6eaa0b24c0d5deb8693030f49a0b2fb5af0da49ef6f008943ee65", "674efd3ed6e5719ef9cdabea702b4d6d4394560b18aa5f1ad189486f7467910e", "8de4a53accd1548f58266d9854642462b4fdb089a9a0afcc0561ca725930966d", "95c5bf19558e19c3ef192f2f2022aff19908350e882885cf7855cfe9051801c0", "71fc7d79a3b8014d5f80edda50ea7f7dbba80589ec9c7a8f77bd080056d45175", "151c6e9a3651f5a2c6b7b52321a09c294220400a40385e248d47cb6bb46976c2", "6907320aa5d5e23403c5324926cabf8f48ad23df23afd9925ff5b63e96e87cc6", "4f23cce4d4372a13895716d47d9141acd4c9f13c2be199afff5599148e8349ae", "67362c2dee033a700472210cafc14cc1df351e9a5413273d04e3ff2ce566ce66", "fa6474a1c5170c9ba285f9487031e4b205245d527c97b5ba5f26d68f9bf889ff", "a1f400ad8c8d60f2e4c0b0f981acc8c2be2ab61d1fd6a45ef10b7a3621b05918", "a7595aeaee8cd16ad03b5871310fd7375ea73be7b3d6a1466e8770f9d052fc24", "b6be2108829186604d4a11fb00d63d08e081a1f13f950a715441146c07d26a47", "23077a7742fabceb968d15a85b20c292c37e7a4d6099cf5b9f40a43e59c5fb8a", "2f7654ffde27bed353412a69eb9c5f449270a5e94ff492531e61189825ec560d", "e58c1543240d60a88d2fa92a58ff06ffd30bb4f0d2e75a4a18ba5efad4316d20", "742b76de181ca851dfd0df036a282a3bdee634c61012e687574b7e50216e62e6", "16d2e6a72fbb2258cb1dd69359c34b6753eca73c061b1610d7764ec00068c571", "a78a544feab74eb6d9ddbe6af6662d012a43cd85b698698f4cbadec9dada824d", "d5ad4b8005751bfdfe8301c060e8ab460a2ebd3eb2196112c534e8c44647ba6f", "31ad175296a119402b4a4e90bec5a16cad8a85e9eca2f79e3ee3edf745f27fba", "15366eddcf79bd76dd0f11fa2fb1f393faec512502f0ca01bb9ab13d54238490", "438b0292399649be12f2c42723242d73915a381f8a9c42713b25815c29e57e8b", "44ba81e10e40db62f039946b7e0e18ae162d98e95a350b6ed7eedc2cf8df37ba", "2ff778bd021f4d83971551126ea532ea215ad30e9b0b3dfc0450a88a0de9781c", "6ebf9ca6499f5fbf9b46f4e918990924369359c1191fb62b9026519724ac88cc", "20dac8ad2d3873f7779e2add9d89eb19927b5db6c553563edb69a72afe593624"]), REPLACED_THEME_PACKAGES = Object.freeze(["fabfb9cfc1c6f4c9eeeb69fcc4c9bc319f17d5c964624a616bd15b863c18c5aa", "db376fc6d5b9b878a2dd9bb6642f5d7a24dd5b226c658801aeead6249bc98094", "3589cd781d192c53790071a1775924d4a8ccab648272961a991e6e3bf6034abd"]), REPLACED_BACKGROUND_PACKAGES = Object.freeze(["488b63b7fb2c1d88ddee7bc4a858a09f1a5a7f1271be6f012d612936431cbebc", "7aa96fde03bf1a9d1f5d287c63d86f1c11365bf5fb980bfd9d812b76f9543dd5", "1ebfbcaa2a4e5a2b3112f37aa0d48ce66b355d4a0934b1ff5310916427555b60", "f52fec744b48f472e3db4aa9cbf9e03864d996ba299aed70925d721477fdb2aa"]);
   function nativeEffect(layer, spine) {
     var _a2;
-    let method = spine ? layer.SetBgLiveEffect : layer.wt;
+    let method = spine ? layer.SetBgLiveEffect : layer.Ci ?? layer.wt;
     if (typeof method != "function") throw new Error("\u6E38\u620F\u52A8\u753B\u52A0\u8F7D\u5668\u5C1A\u672A\u5C31\u7EEA");
     let effect, init, play, host = {
       beforeStart() {
@@ -1508,6 +1406,65 @@
     }
     return result;
   }
+  function imageType(bytes) {
+    let data = new DataView(bytes), tag = (offset) => data.getUint32(offset);
+    if (bytes.byteLength >= 8 && tag(0) === 2303741511 && tag(4) === 218765834) {
+      for (let offset = 8; offset + 12 <= bytes.byteLength; ) {
+        let chunk = tag(offset + 4);
+        if (chunk === 1633899596) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301 APNG");
+        if (chunk === 1229209940) return "image/png";
+        offset += 12 + tag(offset);
+      }
+      throw new Error("PNG \u56FE\u7247\u5185\u5BB9\u4E0D\u5B8C\u6574");
+    }
+    if (bytes.byteLength >= 21 && tag(0) === 1380533830 && tag(8) === 1464156752) {
+      if (tag(12) === 1448097880 && data.getUint8(20) & 2) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301\u52A8\u6001 WebP");
+      return "image/webp";
+    }
+    if (bytes.byteLength >= 3 && data.getUint16(0) === 65496 && data.getUint8(2) === 255) return "image/jpeg";
+    if (bytes.byteLength >= 14 && data.getUint16(0) === 16973) return "image/bmp";
+    throw new Error("\u8BF7\u9009\u62E9 PNG\u3001JPG\u3001WebP \u6216 BMP \u9759\u6001\u56FE\u7247");
+  }
+  async function readLocalBackground(win, file) {
+    var _a2;
+    if (!(file != null && file.size) || file.size > 20971520) throw new Error("\u8BF7\u9009\u62E9\u4E0D\u8D85\u8FC7 20 MB \u7684\u56FE\u7247\u6587\u4EF6");
+    if (typeof file.arrayBuffer != "function" || !((_a2 = win.URL) != null && _a2.createObjectURL) || !win.Image) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u8BFB\u53D6\u672C\u5730\u56FE\u7247");
+    let bytes = await file.arrayBuffer(), type = imageType(bytes), url = win.URL.createObjectURL(new win.Blob([bytes], { type }));
+    try {
+      let image = new win.Image();
+      await new Promise((resolve, reject) => {
+        image.onload = resolve, image.onerror = () => reject(new Error("\u65E0\u6CD5\u6253\u5F00\u56FE\u7247\uFF0C\u6587\u4EF6\u53EF\u80FD\u5DF2\u635F\u574F")), image.src = url;
+      });
+      let { naturalWidth: width, naturalHeight: height } = image;
+      if (!(width > 0 && height > 0)) throw new Error("\u56FE\u7247\u5C3A\u5BF8\u65E0\u6548");
+      let scale = 4096 / Math.max(width, height);
+      if (scale >= 1) return { bytes, type };
+      let canvas = win.document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(width * scale)), canvas.height = Math.max(1, Math.round(height * scale)), canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+      let resized = await new Promise((resolve, reject) => canvas.toBlob(
+        (resized2) => resized2 ? resolve(resized2) : reject(new Error("\u65E0\u6CD5\u7F29\u5C0F\u8FD9\u5F20\u56FE\u7247")),
+        type === "image/jpeg" ? "image/jpeg" : "image/png"
+      ));
+      return { bytes: await resized.arrayBuffer(), type: resized.type };
+    } finally {
+      win.URL.revokeObjectURL(url);
+    }
+  }
+  async function localBackgroundImage(win, mode, operation) {
+    if (!win.indexedDB) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u4FDD\u5B58\u672C\u5730\u56FE\u7247");
+    let db = await new Promise((resolve, reject) => {
+      let request = win.indexedDB.open("sgs-toolbox-backgrounds", 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("images", { autoIncrement: !0 }), request.onsuccess = () => resolve(request.result), request.onerror = () => reject(request.error);
+    });
+    try {
+      return await new Promise((resolve, reject) => {
+        let tx = db.transaction("images", mode), request = operation(tx.objectStore("images"));
+        tx.oncomplete = () => resolve(request.result), tx.onabort = () => reject(tx.error || new Error("\u672C\u5730\u56FE\u7247\u5B58\u50A8\u64CD\u4F5C\u5DF2\u4E2D\u6B62"));
+      });
+    } finally {
+      db.close();
+    }
+  }
   function containBackground(width, height, viewportWidth, viewportHeight) {
     if (![width, height, viewportWidth, viewportHeight].every((n) => Number.isFinite(n) && n > 0)) return null;
     let scale = Math.min(viewportWidth / width, viewportHeight / height);
@@ -1518,11 +1475,17 @@
     for (let i2 = 0; i2 < queue.length && i2 < 4e3; i2++) {
       let node = queue[i2];
       if (!(!node || node.destroyed)) {
-        if (node.bgSprite && typeof node.updateBgSize == "function" && typeof node.bgLoadComplete == "function" && typeof node.O == "function") return node;
+        if (node.bgSprite && typeof node.updateBgSize == "function" && typeof node.bgLoadComplete == "function" && typeof node.SetBgLiveEffect == "function") return node;
         Array.isArray(node._children) && queue.push(...node._children);
       }
     }
     return null;
+  }
+  function backgroundViewport(layer, win) {
+    let viewport = layer.scrollRect;
+    if ((viewport == null ? void 0 : viewport.width) > 0 && viewport.height > 0) return viewport;
+    let { gameWidth: width, gameHeight: height } = win.SystemContext || {};
+    return { width, height };
   }
   function backgroundSpec(value) {
     if (!value || typeof value.name != "string" || !value.name.trim() || value.name.length > 160) throw new Error("\u80CC\u666F\u540D\u79F0\u65E0\u6548");
@@ -1546,7 +1509,14 @@
   var BackgroundRegistry = class {
     constructor({ window: window2, game, settings, scope }) {
       Object.assign(this, { window: window2, game, settings, scope }), this.providers = /* @__PURE__ */ new Set(), this.listeners = /* @__PURE__ */ new Set(), this.binding = null, this.ready = null, this.loading = null, this.failed = null, this.ticket = 0, this.status = "\u8DDF\u968F\u6E38\u620F\u80CC\u666F", scope.interval(() => this.refresh(), 500), scope.add(() => {
-        this.detach(!0), this.ticket++, this.listeners.clear();
+        this.importing = null, this.ticket++, this.listeners.clear();
+        try {
+          this.detach(!0);
+        } finally {
+          this.dropLocalImage();
+        }
+      }), window2.addEventListener && settings.prefix && scope.listen(window2, "storage", (event) => {
+        event.storageArea === settings.storage && (event.key === settings.prefix + "battleBackground" || event.key === null) && this.selectionChanged();
       });
     }
     get current() {
@@ -1570,13 +1540,75 @@
       this.providers.add(owner), this.refresh();
       let active = !0;
       return () => {
-        active && (active = !1, this.providers.delete(owner), this.retryAt = 0, this.loadAttempts = 0, this.refresh());
+        var _a2;
+        active && (active = !1, this.providers.delete(owner), ((_a2 = this.importing) == null ? void 0 : _a2.owner) === owner && (this.importing = null), this.retryAt = 0, this.loadAttempts = 0, this.refresh());
       };
     }
     select(owner, spec) {
-      var _a2;
       if (!this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
-      this.yieldedScene = (_a2 = this.binding) != null && _a2.yielded ? this.binding.scene : this.yieldedScene, this.settings.set("battleBackground", spec ? { ...backgroundSpec(spec), owner } : null), this.ticket++, this.ready = this.loading = this.failed = null, this.retryAt = 0, this.loadAttempts = 0, this.detach(!0), this.refresh(), this.emit();
+      this.saveSelection(spec ? { ...backgroundSpec(spec), owner } : null);
+    }
+    async selectLocal(owner, file) {
+      var _a2;
+      if (this.scope.closed || !this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
+      let pending = this.importing = { owner }, id;
+      try {
+        let image = await readLocalBackground(this.window, file);
+        if (this.importing !== pending || (id = await localBackgroundImage(this.window, "readwrite", (store) => store.add(image)), this.importing !== pending)) return;
+        let name = ((_a2 = file.name) == null ? void 0 : _a2.trim().slice(0, 160)) || "\u672C\u5730\u56FE\u7247";
+        this.saveSelection({ name, localImageId: id, owner, animated: !1, dynamic: null }), id = void 0;
+      } catch (error) {
+        if (this.importing === pending) throw error;
+      } finally {
+        this.importing === pending && (this.importing = null), this.removeLocalImage(id);
+      }
+    }
+    removeLocalImage(id) {
+      Number.isSafeInteger(id) && id > 0 && localBackgroundImage(this.window, "readwrite", (store) => store.delete(id)).catch(() => {
+      });
+    }
+    saveSelection(choice) {
+      var _a2;
+      let previousId = (_a2 = this.current) == null ? void 0 : _a2.localImageId;
+      this.settings.set("battleBackground", choice), this.selectionChanged(), this.removeLocalImage(previousId);
+    }
+    selectionChanged() {
+      var _a2;
+      this.importing = null, this.yieldedScene = (_a2 = this.binding) != null && _a2.yielded ? this.binding.scene : this.yieldedScene, this.ticket++, this.ready = this.loading = this.failed = null, this.retryAt = 0, this.loadAttempts = 0;
+      try {
+        this.detach(!0);
+      } catch {
+      }
+      this.dropLocalImage(), this.refresh(), this.emit();
+    }
+    dropLocalImage() {
+      var _a2, _b2;
+      let asset = this.localImage;
+      if (this.localImage = null, !!(asset != null && asset.url)) {
+        this.imageTexture = this.imageSize = null;
+        try {
+          (_b2 = (_a2 = asset.loader) == null ? void 0 : _a2.clearRes) == null || _b2.call(_a2, asset.url);
+        } catch {
+        } finally {
+          this.window.URL.revokeObjectURL(asset.objectUrl);
+        }
+      }
+    }
+    localUrl(id) {
+      var _a2;
+      if (((_a2 = this.localImage) == null ? void 0 : _a2.id) !== id) {
+        this.dropLocalImage();
+        let asset = this.localImage = { id };
+        localBackgroundImage(this.window, "readonly", (store) => store.get(id)).then((image) => {
+          if (this.localImage !== asset) return;
+          if (!image) throw new Error("\u672C\u5730\u56FE\u7247\u5DF2\u4E22\u5931\uFF0C\u8BF7\u91CD\u65B0\u9009\u62E9");
+          let blob = image instanceof this.window.Blob ? image : new this.window.Blob([image.bytes], { type: image.type });
+          asset.objectUrl = this.window.URL.createObjectURL(blob), asset.url = asset.objectUrl.includes("://") ? asset.objectUrl : asset.objectUrl + "#://", this.refresh();
+        }).catch((error) => {
+          this.localImage === asset && (asset.error = (error == null ? void 0 : error.message) || String(error), this.refresh());
+        });
+      }
+      return this.localImage.url || this.state(this.localImage.error || "\u6B63\u5728\u8BFB\u53D6\u672C\u5730\u56FE\u7247"), this.localImage.url;
     }
     detach(restore) {
       let b = this.binding;
@@ -1602,11 +1634,19 @@
       var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j, _k;
       let choice = this.current;
       if (!choice || !this.providers.has(choice.owner)) {
-        this.ticket++, this.ready = this.loading = null, this.detach(!0), this.state(choice ? "\u80CC\u666F\u63D2\u4EF6\u5DF2\u505C\u7528\uFF0C\u8DDF\u968F\u6E38\u620F\u80CC\u666F" : "\u8DDF\u968F\u6E38\u620F\u80CC\u666F");
+        this.ticket++, this.ready = this.loading = null;
+        try {
+          this.detach(!0);
+        } finally {
+          this.dropLocalImage();
+        }
+        this.state(choice ? "\u80CC\u666F\u63D2\u4EF6\u5DF2\u505C\u7528\uFF0C\u8DDF\u968F\u6E38\u620F\u80CC\u666F" : "\u8DDF\u968F\u6E38\u620F\u80CC\u666F");
         return;
       }
+      let localId2 = choice.localImageId;
       try {
-        backgroundSpec(choice);
+        if (localId2 === void 0) backgroundSpec(choice);
+        else if (!Number.isSafeInteger(localId2) || localId2 < 1) throw new Error("\u672C\u5730\u56FE\u7247\u7F16\u53F7\u65E0\u6548");
       } catch (error) {
         this.detach(!0), this.state("\u80CC\u666F\u914D\u7F6E\u65E0\u6548\uFF1A" + error.message);
         return;
@@ -1617,6 +1657,11 @@
         return;
       }
       let laya = this.window.Laya;
+      if (localId2 !== void 0) {
+        let url = this.localUrl(localId2);
+        if (!url) return;
+        choice = { name: choice.name, url };
+      }
       if (this.failed === choice.url && (this.failed = null), this.ready !== choice.url) {
         if (this.loading === choice.url) return;
         if (!((_c = laya == null ? void 0 : laya.loader) != null && _c.load) || !((_d = laya.Handler) != null && _d.create)) {
@@ -1628,14 +1673,18 @@
           ticket !== this.ticket || this.loading !== choice.url || this.loadFailed(choice.url, "\u80CC\u666F\u52A0\u8F7D\u8D85\u65F6");
         }, 2e4);
         try {
-          laya.loader.load(choice.url, laya.Handler.create(null, (texture) => {
-            if (!(ticket !== this.ticket || this.scope.closed)) {
-              if (this.loading = null, !texture) {
-                this.loadFailed(choice.url, "\u80CC\u666F\u52A0\u8F7D\u5931\u8D25");
-                return;
-              }
-              this.loadAttempts = 0, this.retryAt = 0, this.imageSize = { width: texture.sourceWidth || texture.width, height: texture.sourceHeight || texture.height }, this.imageTexture = texture, this.ready = choice.url, this.refresh();
+          let asset = localId2 === void 0 ? null : this.localImage;
+          asset && (asset.loader = laya.loader), laya.loader.load(choice.url, laya.Handler.create(null, (texture) => {
+            var _a3, _b3;
+            if (ticket !== this.ticket || this.scope.closed) {
+              asset && this.localImage !== asset && ((_b3 = (_a3 = asset.loader).clearRes) == null || _b3.call(_a3, choice.url));
+              return;
             }
+            if (this.loading = null, !texture) {
+              this.loadFailed(choice.url, "\u80CC\u666F\u52A0\u8F7D\u5931\u8D25");
+              return;
+            }
+            this.loadAttempts = 0, this.retryAt = 0, this.imageSize = { width: texture.sourceWidth || texture.width, height: texture.sourceHeight || texture.height }, this.imageTexture = texture, this.ready = choice.url, this.refresh();
           }), null, ((_e = laya.Loader) == null ? void 0 : _e.IMAGE) || "image");
         } catch (error) {
           this.loadFailed(choice.url, "\u80CC\u666F\u52A0\u8F7D\u5931\u8D25\uFF1A" + error.message);
@@ -1643,8 +1692,8 @@
         return;
       }
       if (!this.binding) {
-        let layer = findBackgroundLayer(laya == null ? void 0 : laya.stage), context = this.window.SystemContext;
-        if (!layer || !laya.Sprite || !laya.Rectangle || !((context == null ? void 0 : context.gameWidth) > 0 && (context == null ? void 0 : context.gameHeight) > 0)) {
+        let layer = findBackgroundLayer(laya == null ? void 0 : laya.stage), viewport = layer && backgroundViewport(layer, this.window);
+        if (!(laya != null && laya.Sprite) || !laya.Rectangle || !((viewport == null ? void 0 : viewport.width) > 0 && viewport.height > 0)) {
           this.state("\u7B49\u5F85\u6E38\u620F\u80CC\u666F\u5C42\u4E0E\u5E03\u5C40\u5C31\u7EEA");
           return;
         }
@@ -1668,10 +1717,10 @@
             var _a3;
             let result = Reflect.apply(original, this, args);
             if (fill.visible = eligible() && ((_a3 = this.bg) == null ? void 0 : _a3.skin) === choice.url, b2.syncMotion(), !fill.visible) return result;
-            let size = registry.imageSize, context2 = registry.window.SystemContext, fit = containBackground(size == null ? void 0 : size.width, size == null ? void 0 : size.height, context2 == null ? void 0 : context2.gameWidth, context2 == null ? void 0 : context2.gameHeight);
+            let size = registry.imageSize, { width: w, height: h } = backgroundViewport(this, registry.window), fit = containBackground(size == null ? void 0 : size.width, size == null ? void 0 : size.height, w, h);
             if (!fit)
               return fill.visible = !1, result;
-            let w = context2.gameWidth, h = context2.gameHeight, key = `${w}:${h}`;
+            let key = `${w}:${h}`;
             if (key !== fillKey) {
               fillKey = key;
               let scale = Math.max(w / fit.width, h / fit.height), dw = fit.width * scale, dh = fit.height * scale;
@@ -1685,6 +1734,10 @@
           return (_a3 = b2.hideFill) == null || _a3.call(b2), Reflect.apply(original, this, args);
         });
         let apply = () => {
+          if (localId2 !== void 0 && laya.loader.getRes && !laya.loader.getRes(choice.url)) {
+            this.detach(!1), this.ready = null, this.refresh();
+            return;
+          }
           b2.writing = !0;
           try {
             scene.SetWallPaperByUrl(choice.url), b2.applied = !0, layer == null || layer.updateBgSize();
@@ -2324,7 +2377,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var PluginManager = class {
     constructor({ journal, store, settings, context, onChange = () => {
     } }) {
-      Object.assign(this, { journal, store, settings, context, onChange }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.unsubscribe = journal.subscribe((event) => {
+      Object.assign(this, { journal, store, settings, context, onChange }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.priorityPlayActions = /* @__PURE__ */ new Set(), this.unsubscribe = journal.subscribe((event) => {
         let changed = !1;
         for (let slot of this.slots.values())
           try {
@@ -2456,6 +2509,24 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           let off = () => slot.listeners.delete(fn);
           return scope.add(off), off;
         },
+        playActions: {
+          registerPriority: (fn) => {
+            let action = (scene, self) => {
+              if (scope.closed) return !1;
+              try {
+                return fn(scene, self) === !0;
+              } catch (error) {
+                return ctx.reportError(error), !0;
+              }
+            };
+            return this.priorityPlayActions.add(action), scope.add(() => this.priorityPlayActions.delete(action));
+          },
+          runPriority: (scene, self) => {
+            if (scope.closed) return !1;
+            for (let action of this.priorityPlayActions) if (action(scene, self)) return !0;
+            return !1;
+          }
+        },
         reportError: (value) => {
           if (scope.closed) return;
           let message = value == null ? "" : String((value == null ? void 0 : value.stack) || value);
@@ -2507,6 +2578,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           } : scope.add(this.context.backgrounds.register(id)),
           select: (spec) => {
             scope.closed || this.context.backgrounds.select(id, spec);
+          },
+          selectLocal: (file) => {
+            if (!scope.closed) return this.context.backgrounds.selectLocal(id, file);
           },
           subscribe: (fn) => scope.closed ? () => {
           } : scope.add(this.context.backgrounds.subscribe(fn)),
@@ -3347,7 +3421,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function getScene() {
       let nextStage = read4(() => win.Laya.stage) || null;
       stage !== nextStage && (stage = nextStage, dispatcher = dispatcherOwner = null, providers = /* @__PURE__ */ new Set());
-      let demo = read4(() => win.__SGS_TOOLBOX_DEMO__.scene), manager = demo ? null : eventCaller("SWITCH_SCENE", (value) => "CurrentScene" in value), managerScene = read4(() => manager.CurrentScene), rendered = demo ? null : stageScene(), next = alive(demo) ? demo : rendered || (alive(managerScene) && read4(() => managerScene.visible) !== !1 ? managerScene : null) || walk((node) => read4(() => node.visible) !== !1 && (GAME_SCENE.test(sceneName(node)) || isGameScene(node)));
+      let demo = read4(() => win.__SGS_TOOLBOX_DEMO__.scene), manager2 = demo ? null : eventCaller("SWITCH_SCENE", (value) => "CurrentScene" in value), managerScene = read4(() => manager2.CurrentScene), rendered = demo ? null : stageScene(), next = alive(demo) ? demo : rendered || (alive(managerScene) && read4(() => managerScene.visible) !== !1 ? managerScene : null) || walk((node) => read4(() => node.visible) !== !1 && (GAME_SCENE.test(sceneName(node)) || isGameScene(node)));
       if (next !== current) {
         current = next || null, providers = /* @__PURE__ */ new Set(), dispatcher = dispatcherOwner = null;
         for (let fn of [...listeners])
@@ -3384,8 +3458,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function getServerProxy() {
       let scene = getScene(), direct = read4(() => scene.proxy) || read4(() => scene.serverProxy);
       if (alive(direct)) return direct;
-      let manager = eventCaller("HIDE_WINDOW", (value) => object(value.proxy));
-      return object(read4(() => manager.proxy)) || existingSingleton("ServerProxy");
+      let manager2 = eventCaller("HIDE_WINDOW", (value) => object(value.proxy));
+      return object(read4(() => manager2.proxy)) || existingSingleton("ServerProxy");
     }
     function existingSingleton(name) {
       let registered = getClass(name);
@@ -4965,7 +5039,60 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let selected = view === "shanhe" && panels.some((panel) => panel.gameView === "shanhe") ? "shanhe" : "battle";
     return panels.filter((panel) => !panel.gameView || panel.gameView === selected);
   }
-  var categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix, size) => `${prefix}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
+  var FEEDBACK_URL = "https://redeem.3gs.xyz/feedback", FEEDBACK_STYLES = `
+.feedback-form{display:grid;gap:7px;min-width:0}
+.feedback-form textarea{box-sizing:border-box;width:100%;min-height:76px;resize:vertical;padding:8px 9px;border:1px solid var(--sgs-border);border-radius:7px;background:var(--sgs-surface);color:var(--sgs-text);font:13px/1.5 var(--sgs-font,sans-serif)}
+.feedback-form textarea::placeholder{color:var(--sgs-muted)}
+.feedback-form textarea:focus{outline:1px solid var(--sgs-accent);outline-offset:1px;border-color:var(--sgs-accent)}
+.feedback-form .actions{align-items:center;margin-top:0}
+.feedback-form .actions button{padding-inline:10px;white-space:nowrap}
+.feedback-form .actions button:enabled{color:var(--sgs-accent);border-color:var(--sgs-accent)}
+.feedback-form .actions button:disabled{opacity:.55}
+.feedback-status:empty{display:none}
+.feedback-form .feedback-status.error{color:var(--sgs-danger)}
+`;
+  function createFeedbackForm(win, doc, scope, getAccount = () => ({})) {
+    let form = doc.createElement("form");
+    form.className = "feedback-form", form.innerHTML = `
+    <textarea name="message" aria-label="\u53CD\u9988\u5185\u5BB9" aria-describedby="feedback-disclosure" maxlength="2000" rows="3" placeholder="\u63CF\u8FF0\u9047\u5230\u7684\u95EE\u9898\u6216\u60F3\u8981\u7684\u529F\u80FD" required></textarea>
+    <span id="feedback-disclosure" class="muted">\u63D0\u4EA4\u65F6\u53D1\u9001\u53CD\u9988\u5185\u5BB9\u3001\u5DE5\u5177\u7BB1\u7248\u672C\u53CA\u53EF\u8BFB\u53D6\u7684\u6E38\u620F ID \u548C\u6635\u79F0\u3002\u670D\u52A1\u5668\u4F1A\u8BB0\u5F55\u8FDE\u63A5 IP\u3002\u8BF7\u52FF\u586B\u5199\u5BC6\u7801\u3002</span>
+    <div class="actions"><button type="submit" disabled>\u63D0\u4EA4\u53CD\u9988</button></div>
+    <span class="feedback-status muted" role="status"></span>`;
+    let input = form.elements.message, submit = form.querySelector("button"), status = form.querySelector("[role=status]"), attempt, showStatus = (message, error = !1) => {
+      status.classList.toggle("error", error), status.textContent = message;
+    };
+    return input.addEventListener("input", () => {
+      input.readOnly || (submit.disabled = !input.value.trim(), showStatus(""));
+    }), form.addEventListener("submit", async (event) => {
+      var _a2, _b2;
+      event.preventDefault();
+      let message = input.value.trim();
+      if (!message || input.readOnly || scope.closed) return;
+      let account2 = getAccount(), userId = /^[1-9][0-9]{0,31}$/.test(account2.id) ? account2.id : null, nickname = userId && Array.from(((_a2 = account2.nickname) == null ? void 0 : _a2.trim()) || "").slice(0, 128).join("") || null;
+      ((attempt == null ? void 0 : attempt.message) !== message || attempt.userId !== userId || attempt.nickname !== nickname) && (attempt = { id: Array.from(win.crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join(""), message, version: `${CORE_VERSION}-${EDITION}`, userId, nickname });
+      let controller = new win.AbortController(), timeout = win.setTimeout(() => controller.abort(), 1e4), release = scope.add(() => {
+        win.clearTimeout(timeout), controller.abort();
+      });
+      input.readOnly = !0, submit.disabled = !0, showStatus("\u6B63\u5728\u63D0\u4EA4\u2026");
+      try {
+        let response = await win.fetch(FEEDBACK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(attempt),
+          credentials: "omit",
+          redirect: "error",
+          referrerPolicy: "no-referrer",
+          signal: controller.signal
+        });
+        response.status === 429 ? showStatus("\u63D0\u4EA4\u8FC7\u4E8E\u9891\u7E41\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", !0) : response.ok && ((_b2 = await response.json()) == null ? void 0 : _b2.ok) === !0 ? (input.value = "", attempt = void 0, showStatus("\u53CD\u9988\u5DF2\u6536\u5230\uFF0C\u611F\u8C22\u63D0\u4F9B\u610F\u89C1\u3002")) : showStatus("\u63D0\u4EA4\u5931\u8D25\uFF0C\u5185\u5BB9\u5DF2\u4FDD\u7559\u3002\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", !0);
+      } catch {
+        scope.closed || showStatus("\u6682\u65F6\u65E0\u6CD5\u786E\u8BA4\u9001\u8FBE\uFF0C\u5185\u5BB9\u5DF2\u4FDD\u7559\u3002\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", !0);
+      } finally {
+        release(), input.readOnly = !1, submit.disabled = !input.value.trim();
+      }
+    }), form;
+  }
+  var feedbackIcon = { paths: ["M20 16h-8l-5 4v-4H4V4h16z", "M8 8h8M8 12h6"] }, categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix, size) => `${prefix}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
 /* A moving perimeter marker keeps the folded HUD easy to locate without covering controls. */
 .hud-locator{display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible;color:var(--sgs-accent)}
 .hud-locator rect{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;x:1px;y:1px;width:calc(100% - 2px);height:calc(100% - 2px);rx:10px;stroke-dasharray:18 8 3 71;animation:hud-locator-flow 3.6s linear infinite,hud-locator-breathe 2.4s ease-in-out infinite}
@@ -5008,9 +5135,15 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
 .settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 1 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
 .font-preview{margin-top:12px;padding:12px 0 12px 10px;border-left:2px solid var(--sgs-accent);line-height:1.6}.font-preview strong{font-size:13px}.font-preview p{font-size:12px;margin:5px 0}.font-settings .sgs-segments button{min-width:0;flex:1;padding:6px 2px}.brand{gap:6px}.brand-name{min-width:0;flex:1}.brand strong{white-space:nowrap;letter-spacing:0;font-size:13px}.brand small{font-size:9px}.brand .mark{flex:none}.brand [data-collapse]{flex:none;margin-left:0}.brand-name strong{display:block;overflow:hidden;text-overflow:ellipsis}.brand [data-update-hint]{display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 7px;border:1px solid color-mix(in srgb,var(--sgs-accent) 48%,var(--sgs-border));border-radius:7px;background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 20%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 10%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 20%,transparent),0 2px 4px #0002;color:var(--sgs-accent);font-size:11px;font-weight:600;line-height:18px;cursor:pointer;white-space:nowrap;transition:background 140ms,border-color 140ms,box-shadow 140ms,transform 140ms}.brand [data-update-hint] svg{width:13px;height:13px;flex:none;stroke-width:1.8}.brand [data-update-hint][hidden]{display:none}.brand [data-update-hint]:hover{border-color:var(--sgs-accent);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 30%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 17%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 28%,transparent),0 3px 7px #0003;transform:translateY(-1px)}.brand [data-update-hint]:active{transform:translateY(0);box-shadow:inset 0 1px 3px #0003}.brand [data-update-hint]:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}
 
+.brand [data-feedback]{display:flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 6px;background:transparent;box-shadow:none;color:var(--sgs-muted);font-size:11px;line-height:18px;white-space:nowrap}
+.brand [data-feedback] svg{width:14px;height:14px}
+.brand [data-feedback]:hover,.brand [data-feedback]:focus-visible{color:var(--sgs-accent);border-color:var(--sgs-accent);background:var(--sgs-surface)}
+.brand small{white-space:nowrap;letter-spacing:.6px}
+:host([data-tight-brand]) .brand.has-update .mark{display:none}
+${FEEDBACK_STYLES}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
-  function createShell({ window: win, document: doc, settings, scope }) {
+  function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount }) {
     let microUpdate = null, microUpdateBusy = !1, microUpdateError = "";
     async function runMicroUpdate(action) {
       microUpdateBusy = !0, microUpdateError = "", render();
@@ -5032,7 +5165,11 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     for (let [selector, name] of [[".mark", "toolbox"], ["[data-screenshot]", "camera"], ["[data-expand]", "expand"], ["[data-collapse]", "collapse"], ["[data-update-hint]", "refresh"], ["[data-open-market]", "package"]])
       shadow.querySelector(selector).prepend(createIcon(doc, name));
     for (let [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
-    let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, applyFontSize = () => {
+    let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, feedbackForm = createFeedbackForm(win, doc, scope, getFeedbackAccount), feedbackButton = doc.createElement("button");
+    feedbackButton.type = "button", feedbackButton.dataset.feedback = "", feedbackButton.title = "\u524D\u5F80\u53CD\u9988", feedbackButton.append(createIcon(doc, feedbackIcon), doc.createTextNode("\u53CD\u9988")), shadow.querySelector("[data-update-hint]").before(feedbackButton), scope.listen(feedbackButton, "click", () => {
+      (active !== "manage" || management !== "settings") && (active = "manage", management = "settings", settings.set("category", active), render()), content.scrollTop = 0, feedbackForm.elements.message.focus({ preventScroll: !0 });
+    });
+    let applyFontSize = () => {
       let choice = FONT_SIZES.find(([id]) => id === settings.get("fontSize", "standard")) || FONT_SIZES[2];
       host.style.setProperty("--sgs-font-offset", `${choice[2]}px`);
     };
@@ -5156,6 +5293,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     function renderSettings(cleanups) {
       var _a2;
       let first = content.children.length;
+      content.append(el("h3", "\u53CD\u9988"), feedbackForm);
       {
         let edgeHeading = el("h3", "HUD \u9760\u8FB9\u884C\u4E3A");
         content.append(edgeHeading);
@@ -5558,7 +5696,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       let installed = ((_a2 = handlers.manager) == null ? void 0 : _a2.list()) || [], market = currentMarketState(), failures = installed.filter((item) => !item.maintenance && (item.error || item.enabled && !item.active)).length, upgrades = market.catalog ? findPluginUpdates(installed, market.catalog.plugins).filter((item) => item.status === "update").length : 0, manage = shadow.querySelector('[data-category="manage"]');
       (_b2 = manage.querySelector(".nav-alert")) == null || _b2.remove();
       let coreUpgrade = !!(microUpdate != null && microUpdate.newer) && !(microUpdate != null && microUpdate.pending), updateHint = shadow.querySelector("[data-update-hint]");
-      updateHint.hidden = !coreUpgrade && !upgrades, updateHint.title = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`, "\u70B9\u51FB\u524D\u5F80\u66F4\u65B0"].filter(Boolean).join(" \xB7 ");
+      updateHint.hidden = !coreUpgrade && !upgrades, updateHint.parentElement.classList.toggle("has-update", !updateHint.hidden), updateHint.title = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`, "\u70B9\u51FB\u524D\u5F80\u66F4\u65B0"].filter(Boolean).join(" \xB7 ");
       let alerts = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", failures && `${failures} \u4E2A\u63D2\u4EF6\u5F02\u5E38`, upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`].filter(Boolean).join(" \xB7 ");
       if (manage.title = alerts || "\u7BA1\u7406", alerts) {
         let badge = el("i", String(failures || upgrades + Number(coreUpgrade)), `nav-alert${failures ? " is-error" : ""}`);
@@ -5714,7 +5852,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         var _a2, _b2;
         if (host.hasAttribute("data-collapsed")) return;
         let width = Math.round(((_b2 = (_a2 = entries[0].borderBoxSize) == null ? void 0 : _a2[0]) == null ? void 0 : _b2.inlineSize) || shadow.querySelector(".shell").getBoundingClientRect().width);
-        width < 248 || (host.style.width = width + "px", edgeResizer.setAttribute("aria-valuenow", String(width)), syncGameViewport(), clearTimeout(saveWidth), saveWidth = setTimeout(() => settings.set("width", width), 200));
+        host.toggleAttribute("data-tight-brand", width < 300), !(width < 248) && (host.style.width = width + "px", edgeResizer.setAttribute("aria-valuenow", String(width)), syncGameViewport(), clearTimeout(saveWidth), saveWidth = setTimeout(() => settings.set("width", width), 200));
       });
       observer.observe(shadow.querySelector(".shell")), scope.add(() => {
         observer.disconnect(), clearTimeout(saveWidth);
@@ -5802,6 +5940,30 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       };
     } };
   }
+  var read5 = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return;
+    }
+  };
+  function account(ctx) {
+    let login = manager(ctx, "LoginManager", "error", (m) => "IsOnLine" in m || "IsAccountLoggingOut" in m);
+    if (read5(() => login.IsAccountLoggingOut) === !0 || read5(() => login.IsOnLine) === !1) return { id: "", nickname: "" };
+    let self = read5(() => ctx.game.getSelf()), id = read5(() => self.ClientId) ?? read5(() => self.clientId);
+    return { id: /^(?:[1-9]\d*)$/.test(String(id)) ? String(id) : "", nickname: String(read5(() => self.NickName) ?? read5(() => self.nickname) ?? "") };
+  }
+  function manager(ctx, name, event, guard) {
+    let type = read5(() => ctx.game.getClass(name)), valid = (value) => value && read5(() => value.destroyed) !== !0 && read5(() => guard(value));
+    if (valid(type)) return type;
+    for (let key of ["instance", "_instance", "Instance", "s_instance"]) {
+      let descriptor = read5(() => Object.getOwnPropertyDescriptor(type, key));
+      if (descriptor && "value" in descriptor && valid(descriptor.value)) return descriptor.value;
+    }
+    let handlers = read5(() => ctx.game.getServerProxy()._events[event]);
+    for (let handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) if (valid(read5(() => handler.caller))) return handler.caller;
+    return null;
+  }
   function boot(win = window) {
     return startOwnedRuntime(win, EDITION, (api) => initialize(win, api));
   }
@@ -5811,14 +5973,14 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     installMicroCompatibility(win, scope);
     let onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
     Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
-    let shell = createShell({ window: win, document: win.document, settings, scope }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), game = createGameAdapter(win, scope), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope });
+    let game = createGameAdapter(win, scope), shell = createShell({ window: win, document: win.document, settings, scope, getFeedbackAccount: () => account({ game }) }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope });
     scope.add(game.onSceneChange((scene) => shell.setGameView(gameViewForScene(scene)))), shell.setGameView(gameViewForScene(game.getScene()));
     let screenshot = createScreenshotController({ window: win, game, settings, scope, notify: shell.notify }), bridge = installMessageBridge(win, journal, scope, (message) => shell.setStatus(message), {
       getTargets: game.getMessageTargets,
       observeType: diagnostics.observeType
     }), compat, mounted = !1, legacyWarned = !1, marketConnection = createMarketConnection(settings, win.fetch.bind(win), shell.notify);
     marketConnection.start();
-    let manager = new PluginManager({
+    let manager2 = new PluginManager({
       journal,
       store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : "sgs-ol-toolbox"),
       settings,
@@ -5831,14 +5993,11 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         themes,
         cardStyles,
         backgrounds,
-        payments: Object.freeze({ resolveAlipayCashier: (url, signal) => resolveAlipayCashier(win, url, signal, win.__SGS_TOOLBOX_ALIPAY_REQUEST__ || (() => {
-          throw Error("\u8BF7\u91CD\u65B0\u5B89\u88C5\u65B0\u7248\u5FAE\u7AEF\u63A5\u5165\u5C42\u540E\u89E3\u6790\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801");
-        })) }),
         notify: shell.notify
       },
       onChange: () => shell.render()
     });
-    scope.add(() => manager.dispose());
+    scope.add(() => manager2.dispose());
     let replacements = {
       cards: REPLACED_CARD_PACKAGES,
       backgrounds: REPLACED_BACKGROUND_PACKAGES,
@@ -5850,10 +6009,10 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       baisheng: REPLACED_BAISHENG_PACKAGES,
       appearances: REPLACED_APPEARANCE_PACKAGES
     };
-    for (let pkg of bundledPackages) if ((!onlyPlugin || pkg.manifest.id === onlyPlugin || onlyPlugin === "gaizhu" && pkg.manifest.id === "baisheng") && (await manager.registerBundled(pkg, replacements[pkg.manifest.id] || []), scope.closed))
+    for (let pkg of bundledPackages) if ((!onlyPlugin || pkg.manifest.id === onlyPlugin || onlyPlugin === "gaizhu" && pkg.manifest.id === "baisheng") && (await manager2.registerBundled(pkg, replacements[pkg.manifest.id] || []), scope.closed))
       return null;
     shell.setHandlers({
-      manager,
+      manager: manager2,
       themes,
       cardStyles,
       compat,
@@ -5873,10 +6032,9 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       shell.host.style.display = ready ? "" : "none", ready && !mounted && (mounted = !0, snapshots.request());
       let capture = bridge.getStatus();
       shell.setStatus(bridge.error || (ready ? capture.received ? `\u5DF2\u6536 ${capture.received} \u6761\u6D88\u606F \xB7 ${journal.incomplete ? "\u7F3A\u5C11\u5F00\u5C40\u8BB0\u5F55" : "\u672C\u5C40\u8BB0\u5F55\u4E2D"}` : capture.targets.length ? "\u6D88\u606F\u5165\u53E3\u5DF2\u8FDE\u63A5 \xB7 \u7B49\u5F85\u6536\u5305" : "\u672A\u63A5\u5165\u6E38\u620F\u6D88\u606F \xB7 \u4EC5\u539F\u751F\u663E\u793A\u53EF\u7528" : "\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6"));
-    }, 500), !win.__SGS_TOOLBOX_DEMO__ && !((_c = win.Laya) != null && _c.stage) && (shell.host.style.display = "none"), await manager.init(), scope.closed ? null : (Object.assign(api, { manager, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager.errors.length && shell.notify(manager.errors.join("\uFF1B")), api);
+    }, 500), !win.__SGS_TOOLBOX_DEMO__ && !((_c = win.Laya) != null && _c.stage) && (shell.host.style.display = "none"), await manager2.init(), scope.closed ? null : (Object.assign(api, { manager: manager2, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager2.errors.length && shell.notify(manager2.errors.join("\uFF1B")), api);
   }
-  var pageWindow = window;
-  installAlipayCashierBridge(pageWindow) || boot(pageWindow).catch((error) => {
+  boot(window).catch((error) => {
     console.error("[\u4E09\u56FD\u6740OL\u5DE5\u5177\u7BB1]", error);
   });
 })();

@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.75"
+    "version": "0.6.91"
   },
   "plugins": [
     {
       "id": "social",
       "name": "好友与聊天",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "icon": {
         "paths": [
           "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
@@ -24,8 +24,8 @@
       "apiVersion": 1,
       "description": "好友置顶、改名与将灯新增提醒、公屏一键进房与聊天官阶补全",
       "releaseNotes": "优化好友将灯变化横幅，补充好友消失提示；本机主动删除成功后清除对应本地记录，好友消失不能判断由哪一方删除。首次读取仍只建立基准。",
-      "packageUrl": "packages/social/0.1.14.json",
-      "sha256": "9836d97ec7bf0d6c2fe1016e6afd18bc3803e2874c2078b70dc8150e9d993e71"
+      "packageUrl": "packages/social/0.1.15.json",
+      "sha256": "b304c0684ea85708af0cdec01fea078404045e5ef60b4b777751936f4c31823b"
     },
     {
       "id": "player-info",
@@ -107,7 +107,7 @@
     {
       "id": "backgrounds",
       "name": "自定义背景",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "icon": {
         "paths": [
           "M3 4h18v16H3Z",
@@ -120,15 +120,15 @@
         "appearance"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.37",
+      "minCoreVersion": "0.6.88",
       "apiVersion": 1,
       "dependencies": [
         "skins"
       ],
-      "description": "将皮肤原画或动态用作牌局背景，保留天气与武将技能背景",
+      "description": "将本地图片或游戏皮肤用作牌局背景，保留天气与武将技能背景",
       "releaseNotes": "精简背景设置说明，统一开关与帮助提示的外观，保留已有背景和动态播放选择。",
-      "packageUrl": "packages/backgrounds/0.2.5.json",
-      "sha256": "859c0003a48b25ed30212abea63b1f208c7041d92d887e851ea3238aa7ff7a21"
+      "packageUrl": "packages/backgrounds/0.2.6.json",
+      "sha256": "bce340d0965179e592d06861f65bf548c2a89a9188e07c0e3cf621559a3c2dbc"
     },
     {
       "id": "gold-cards",
@@ -170,7 +170,7 @@
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.72",
+      "version": "0.1.79",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -182,17 +182,17 @@
         "game"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.62",
+      "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
       "releaseNotes": "新增手牌组间留空快捷开关，保留排序方式与已有选择；改善卡牌面板在低高度下的滚动和内容显示。",
-      "packageUrl": "packages/cards/0.1.72.json",
-      "sha256": "cbfb48da95ab967acc27b26715f374f177f4567b0764d7458b5ad7e66ad0103a"
+      "packageUrl": "packages/cards/0.1.79.json",
+      "sha256": "3623974bec8a56f9d04da48faee5c11c932d78da6eddf8b5bce455258c09c249"
     },
     {
       "id": "play-assist",
       "name": "出牌辅助",
-      "version": "0.2.16",
+      "version": "0.2.18",
       "icon": {
         "paths": [
           "M4 5h10v14H4zM7 8h4M7 11h3",
@@ -204,17 +204,17 @@
         "game"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.37",
+      "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "长按技能辅助、自动确定与询问跳过。",
       "releaseNotes": "补充强识摸牌与武娘取牌辅助，武娘优先选择可选防具、其他装备，再选择手牌；狂骨按当前体力选择回血或摸牌。仍需开启相应技能辅助，强识前半段选人和展示保留手动。",
-      "packageUrl": "packages/play-assist/0.2.16.json",
-      "sha256": "c8964e440113d571e229b4a20458181c3f233a133c51423d48f03613804dedd9"
+      "packageUrl": "packages/play-assist/0.2.18.json",
+      "sha256": "1b8d5173592aa42233b32467223b0697772c188b6af5a6a6297181c9913b0602"
     },
     {
       "id": "daily-rewards",
       "name": "日常领奖",
-      "version": "0.7.34",
+      "version": "0.7.38",
       "icon": {
         "paths": [
           "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -230,8 +230,8 @@
       "apiVersion": 1,
       "description": "自动领取签到、任务、邮件与活动奖励，按账号记录",
       "releaseNotes": "调整活动奖励领取，避免发送多余的领取请求。自动领取仍默认关闭，兑换可能消耗欢乐豆；共享兑换码需单独开启，只上传游戏明确成功的码及账号摘要。",
-      "packageUrl": "packages/daily-rewards/0.7.34.json",
-      "sha256": "4b88f8df18eb2f1930f4aeb52cad91d96db273a4e21c0d6523f2eed2eeb8f07f"
+      "packageUrl": "packages/daily-rewards/0.7.38.json",
+      "sha256": "4a03af7f4f390d053f91df829ab4428a04549bac1fe6a39211a47005cdc57cbc"
     },
     {
       "id": "seckill",
@@ -258,7 +258,7 @@
     {
       "id": "gaizhu",
       "name": "盖主速刷",
-      "version": "0.1.16",
+      "version": "0.1.18",
       "icon": {
         "paths": [
           "M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0",
@@ -278,8 +278,8 @@
       ],
       "description": "支持盖主速刷、反贼房主单人百胜和单骑人机训练；单人对局优先接受小杀助手提示，超时本地处理与托管兜底。",
       "releaseNotes": "新增反贼房主单人百胜和单骑人机训练，优先使用小杀助手提示，并提供取消无懈选项。需手动开始；点将可能消耗道具，单骑训练自动选购可能消耗局内货币。",
-      "packageUrl": "packages/gaizhu/0.1.16.json",
-      "sha256": "9850f093bec013649ee2bdb7ca403d2f3a0b22b88384fde5975e627abe7bc50c"
+      "packageUrl": "packages/gaizhu/0.1.18.json",
+      "sha256": "1dd15420cb1f69de0ff6c7869a0507ce7a745d4dc5fc8f37099b9cee01333bcd"
     },
     {
       "id": "effects",
@@ -306,7 +306,7 @@
     {
       "id": "skins",
       "name": "皮肤收集",
-      "version": "0.4.9",
+      "version": "0.4.10",
       "icon": {
         "paths": [
           "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
@@ -320,8 +320,8 @@
       "apiVersion": 1,
       "description": "筛选、查找皮肤，查看收藏与动态状态",
       "releaseNotes": "精简皮肤原画下载按钮的样式加载，原有筛选和静态原画下载方式保持不变。",
-      "packageUrl": "packages/skins/0.4.9.json",
-      "sha256": "9da7d9716fc8637e399ed6c9fd662b7c86a19c229a7ebd36a51d8ac6b55269e6"
+      "packageUrl": "packages/skins/0.4.10.json",
+      "sha256": "0c00d577aab56021af5d994c9a17489fa81f2b87ac0b3605e2d5a2fff665dc69"
     },
     {
       "id": "wish-progress",
@@ -410,7 +410,7 @@
     {
       "id": "ledger",
       "name": "账本",
-      "version": "0.3.7",
+      "version": "0.3.8",
       "icon": {
         "paths": [
           "M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18",
@@ -426,13 +426,13 @@
       "apiVersion": 1,
       "description": "重要物品余额、登录收支与祈愿记录，背包道具搜索和抵价券满减角标",
       "releaseNotes": "随公共界面资源更新，账本统计、登录余额判断与物品提醒方式保持不变。",
-      "packageUrl": "packages/ledger/0.3.7.json",
-      "sha256": "10c7edaf11b31208d51f9148dc4662510c93eb67914fdc1b92996b8f02b54a25"
+      "packageUrl": "packages/ledger/0.3.8.json",
+      "sha256": "4150b1bad5420ab0cc4d17603676aa0501d02ba9670e2105cf8c81c3b48cd5ac"
     },
     {
       "id": "recharge",
-      "name": "95折充值与旧卡",
-      "version": "0.1.13",
+      "name": "旧周月卡",
+      "version": "0.1.15",
       "icon": {
         "paths": [
           "M3 6h18v14H3Z",
@@ -448,10 +448,10 @@
       "contractVersion": 1,
       "minCoreVersion": "0.6.72",
       "apiVersion": 1,
-      "description": "官服微信／支付宝充值及旧周月卡原生直购入口，操作前请阅读风险",
-      "releaseNotes": "将95折开关移到游戏充值按钮左侧，新增自定义元宝输入并修复入口定位和付款码显示。仍默认关闭；创建订单会向官方支付服务发送账号及订单信息，需核对账号、数量和风险后确认，付款须手动完成，不保证折扣或到账。",
-      "packageUrl": "packages/recharge/0.1.13.json",
-      "sha256": "5fcb83f361d29fe92f3837bb1e68824a460b49efa81259150081e5f03d077088"
+      "description": "查询旧周卡与旧月卡状态、设置到期提醒并打开游戏直购",
+      "releaseNotes": "移除工具箱内的 95 折充值入口。旧周卡和旧月卡仍可查询状态、设置到期提醒，并在核对商品后打开游戏直购，购买需手动确认。",
+      "packageUrl": "packages/recharge/0.1.15.json",
+      "sha256": "d4854914f2c9d076a6a530c492d77ac8740e3b29ebbcbda573de0e7bcb2cdc7d"
     }
   ]
 }

@@ -1,123 +1,21 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.75
+// @version      0.6.91
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  完整版：工具箱核心与全部插件
 // @match        https://web.sanguosha.com/*
 // @match        http://web.sanguosha.com/*
-// @match        https://openapi.alipay.com/gateway.do*
-// @match        https://excashier.alipay.com/standard/auth.htm*
 // @updateURL    https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/full/toolbox.meta.js
 // @downloadURL  https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/full/toolbox.user.js
 // @exclude      *://web.sanguosha.com/10/*
 // @exclude      *://web.sanguosha.com/10th/*
 // @run-at       document-start
-// @grant        unsafeWindow
-// @grant        GM_xmlhttpRequest
-// @connect      openapi.alipay.com
-// @connect      excashier.alipay.com
+// @grant        none
 // ==/UserScript==
 
 (() => {
-  // src/shared/alipay-cashier.js
-  var MESSAGE = "sgs-toolbox-alipay-final-qr-v1";
-  function finalAlipayURL(value) {
-    let url = new URL(value);
-    if (url.origin !== "https://qr.alipay.com" || url.username || url.password || !/^\/[a-z\d]+$/i.test(url.pathname)) throw Error("\u652F\u4ED8\u5B9D\u6700\u7EC8\u4ED8\u6B3E\u7801\u5730\u5740\u5F02\u5E38");
-    return url.href;
-  }
-  function readAlipayCashier(doc) {
-    if (typeof doc?.querySelector != "function") throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u6587\u6863\u4E0D\u53EF\u8BFB\u53D6");
-    let input = doc.querySelector("input#J_qrCode");
-    if (!input?.value) throw Error("\u6536\u94F6\u53F0\u5C1A\u672A\u63D0\u4F9B\u6700\u7EC8\u4ED8\u6B3E\u7801");
-    return finalAlipayURL(input.value);
-  }
-  function installAlipayCashierBridge(win) {
-    if (!(win.location.origin === "https://openapi.alipay.com" && win.location.pathname === "/gateway.do") && !(win.location.origin === "https://excashier.alipay.com" && win.location.pathname === "/standard/auth.htm")) return !1;
-    if (win.parent === win) return !0;
-    let observer = null, timer = null, release = () => {
-      observer?.disconnect(), observer = null, win.clearTimeout(timer);
-    };
-    return win.addEventListener("message", (event) => {
-      if (event.source !== win.parent || event.origin !== "https://web.sanguosha.com" || event.data?.type !== MESSAGE || typeof event.data.nonce != "string" || event.data.nonce.length > 100) return;
-      release();
-      let send = () => {
-        try {
-          let url = readAlipayCashier(win.document);
-          win.parent.postMessage({ type: MESSAGE, nonce: event.data.nonce, url }, event.origin), release();
-        } catch {
-        }
-      };
-      observer = new win.MutationObserver(send), observer.observe(win.document, { childList: !0, subtree: !0, attributes: !0 }), timer = win.setTimeout(release, 15e3), send();
-    }), win.addEventListener("pagehide", release, { once: !0 }), !0;
-  }
-  function resolveAlipayCashier(win, value, signal, request = null) {
-    let url = new URL(value);
-    return url.hostname === "qr.alipay.com" ? Promise.resolve(finalAlipayURL(value)) : url.origin !== "https://openapi.alipay.com" || url.pathname !== "/gateway.do" || url.username || url.password || url.searchParams.get("method") !== "alipay.trade.page.pay" ? Promise.reject(Error("\u4E0D\u662F\u53EF\u89E3\u6790\u7684\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u5730\u5740")) : request ? new Promise((resolve, reject) => {
-      if (signal.aborted) return reject(Error("\u89E3\u6790\u5DF2\u53D6\u6D88"));
-      let handle = null, done = !1, finish = (error, result) => {
-        done || (done = !0, win.clearTimeout(timer), signal.removeEventListener("abort", cancel), error ? reject(error) : resolve(result));
-      }, cancel = () => {
-        finish(Error("\u89E3\u6790\u5DF2\u53D6\u6D88")), handle?.abort();
-      }, timer = win.setTimeout(() => {
-        finish(Error("\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801\u89E3\u6790\u8D85\u65F6\uFF0C\u53EF\u91CD\u8BD5\u89E3\u6790\u540C\u4E00\u8BA2\u5355")), handle?.abort();
-      }, 15e3);
-      signal.addEventListener("abort", cancel, { once: !0 });
-      try {
-        handle = request({
-          method: "GET",
-          url: url.href,
-          anonymous: !0,
-          timeout: 15e3,
-          responseType: "text",
-          onload(response) {
-            if (!done)
-              try {
-                if (response.status !== 200) throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0 HTTP " + response.status);
-                let final = new URL(response.finalUrl || url.href);
-                if (!(final.origin === "https://openapi.alipay.com" && final.pathname === "/gateway.do" || final.origin === "https://excashier.alipay.com" && final.pathname === "/standard/auth.htm")) throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u8DF3\u8F6C\u5730\u5740\u5F02\u5E38");
-                if (typeof response.responseText != "string" || response.responseText.length > 2 * 1024 * 1024) throw Error("\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\u5185\u5BB9\u5F02\u5E38");
-                let template = win.document.createElement("template");
-                template.innerHTML = response.responseText, finish(null, readAlipayCashier(template.content));
-              } catch (error) {
-                finish(error);
-              }
-          },
-          onerror: () => finish(Error("\u65E0\u6CD5\u8BFB\u53D6\u652F\u4ED8\u5B9D\u6536\u94F6\u53F0\uFF0C\u53EF\u91CD\u8BD5\u89E3\u6790\u540C\u4E00\u8BA2\u5355")),
-          ontimeout: () => finish(Error("\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801\u89E3\u6790\u8D85\u65F6\uFF0C\u53EF\u91CD\u8BD5\u89E3\u6790\u540C\u4E00\u8BA2\u5355")),
-          onabort: () => finish(Error("\u89E3\u6790\u5DF2\u53D6\u6D88"))
-        }), done && signal.aborted && handle?.abort();
-      } catch (error) {
-        finish(error);
-      }
-    }) : new Promise((resolve, reject) => {
-      if (signal.aborted) return reject(Error("\u89E3\u6790\u5DF2\u53D6\u6D88"));
-      let frame = win.document.createElement("iframe"), nonce = win.crypto.randomUUID?.() || String(Date.now()) + ":" + Math.random();
-      frame.title = "\u89E3\u6790\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801", frame.style.cssText = "position:fixed;width:1px;height:1px;left:-10000px;top:0;border:0;visibility:hidden", frame.referrerPolicy = "no-referrer", frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
-      let settled = !1, finish = (error, result) => {
-        settled || (settled = !0, win.clearTimeout(timer), win.removeEventListener("message", receive), signal.removeEventListener("abort", cancel), frame.remove(), error ? reject(error) : resolve(result));
-      }, cancel = () => finish(Error("\u89E3\u6790\u5DF2\u53D6\u6D88")), receive = (event) => {
-        if (!(event.source !== frame.contentWindow || !["https://openapi.alipay.com", "https://excashier.alipay.com"].includes(event.origin) || event.data?.type !== MESSAGE || event.data.nonce !== nonce))
-          try {
-            finish(null, finalAlipayURL(event.data.url));
-          } catch (error) {
-            finish(error);
-          }
-      }, timer = win.setTimeout(() => finish(Error("\u652F\u4ED8\u5B9D\u4ED8\u6B3E\u7801\u89E3\u6790\u8D85\u65F6\uFF0C\u8BF7\u66F4\u65B0\u6838\u5FC3\u540E\u91CD\u8BD5\u89E3\u6790")), 15e3);
-      win.addEventListener("message", receive), signal.addEventListener("abort", cancel, { once: !0 }), frame.onload = () => {
-        try {
-          let result = readAlipayCashier(frame.contentDocument);
-          finish(null, result);
-          return;
-        } catch {
-        }
-        frame.contentWindow?.postMessage({ type: MESSAGE, nonce }, url.origin), frame.contentWindow?.postMessage({ type: MESSAGE, nonce }, "https://excashier.alipay.com");
-      }, frame.src = url.href, win.document.body.append(frame);
-    });
-  }
-
   // src/core/refresh-reentry.js
   var KEY = "sgstoolbox:refresh-reentry:v1";
   var GAME_PATH = /^\/220\/h5_2\/index(?:_\d+)?\.php$/, INSTALLED = Symbol.for("sgs.ol.toolbox.refresh-reentry");
@@ -375,7 +273,7 @@
   }
 
   // src/core/bundled-plugins.js
-  var bundledPackages = [{ format: "sgs-toolbox-plugin-v1", manifest: { id: "social", name: "\u597D\u53CB\u4E0E\u804A\u5929", version: "0.1.14", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4F18\u5316\u597D\u53CB\u5C06\u706F\u53D8\u5316\u6A2A\u5E45\uFF0C\u8865\u5145\u597D\u53CB\u6D88\u5931\u63D0\u793A\uFF1B\u672C\u673A\u4E3B\u52A8\u5220\u9664\u6210\u529F\u540E\u6E05\u9664\u5BF9\u5E94\u672C\u5730\u8BB0\u5F55\uFF0C\u597D\u53CB\u6D88\u5931\u4E0D\u80FD\u5224\u65AD\u7531\u54EA\u4E00\u65B9\u5220\u9664\u3002\u9996\u6B21\u8BFB\u53D6\u4ECD\u53EA\u5EFA\u7ACB\u57FA\u51C6\u3002", minCoreVersion: "0.6.37", description: "\u597D\u53CB\u7F6E\u9876\u3001\u6539\u540D\u4E0E\u5C06\u706F\u65B0\u589E\u63D0\u9192\u3001\u516C\u5C4F\u4E00\u952E\u8FDB\u623F\u4E0E\u804A\u5929\u5B98\u9636\u8865\u5168", icon: { paths: ["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", "M2 21v-3a6 6 0 0 1 12 0v3", "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"] }, priority: 30300, categories: ["tools"] }, code: `var SGSPlugin = (() => {
+  var bundledPackages = [{ format: "sgs-toolbox-plugin-v1", manifest: { id: "social", name: "\u597D\u53CB\u4E0E\u804A\u5929", version: "0.1.15", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4F18\u5316\u597D\u53CB\u5C06\u706F\u53D8\u5316\u6A2A\u5E45\uFF0C\u8865\u5145\u597D\u53CB\u6D88\u5931\u63D0\u793A\uFF1B\u672C\u673A\u4E3B\u52A8\u5220\u9664\u6210\u529F\u540E\u6E05\u9664\u5BF9\u5E94\u672C\u5730\u8BB0\u5F55\uFF0C\u597D\u53CB\u6D88\u5931\u4E0D\u80FD\u5224\u65AD\u7531\u54EA\u4E00\u65B9\u5220\u9664\u3002\u9996\u6B21\u8BFB\u53D6\u4ECD\u53EA\u5EFA\u7ACB\u57FA\u51C6\u3002", minCoreVersion: "0.6.37", description: "\u597D\u53CB\u7F6E\u9876\u3001\u6539\u540D\u4E0E\u5C06\u706F\u65B0\u589E\u63D0\u9192\u3001\u516C\u5C4F\u4E00\u952E\u8FDB\u623F\u4E0E\u804A\u5929\u5B98\u9636\u8865\u5168", icon: { paths: ["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", "M2 21v-3a6 6 0 0 1 12 0v3", "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"] }, priority: 30300, categories: ["tools"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -429,6 +327,19 @@
     const handlers = read(() => ctx.game.getServerProxy()._events[event]);
     for (const handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) if (valid(read(() => handler.caller))) return handler.caller;
     return null;
+  }
+  function field(packet, key) {
+    for (const node of [
+      packet,
+      read(() => packet.Protocol),
+      read(() => packet.ProtoObj),
+      read(() => packet.protoObj),
+      read(() => packet.data.protoObj),
+      read(() => packet.data.ProtoObj)
+    ]) {
+      const value = read(() => node[key]);
+      if (value !== void 0 && value !== null) return value;
+    }
   }
   function observeNative(ctx, project, consume, gap = () => {
   }) {
@@ -705,6 +616,8 @@
       return void 0;
     }
   };
+  var FRIEND_LIST = "FsCAddFriendsNtf";
+  var USER_BASE_INFO = ["ClientUserbaseinfoRep", "decodeClientUserBaseInfoRep", "21405", "180053"];
   function socialNodes(stage) {
     const queue = stage ? [stage] : [], seen = /* @__PURE__ */ new Set(), result = [];
     for (let i = 0; i < queue.length && i < 2048; i++) {
@@ -718,7 +631,7 @@
   }
   function friendManager(ctx, nodes) {
     const proxy = read2(() => ctx.game.getServerProxy());
-    for (const event of ["FsCAddFriendsNtf", "FsCUpdateUserfriendinfoNtf"]) {
+    for (const event of [FRIEND_LIST, "FsCUpdateUserfriendinfoNtf"]) {
       const h = read2(() => proxy._events[event]);
       for (const e of Array.isArray(h) ? h : [h]) {
         const c = e?.caller;
@@ -735,6 +648,7 @@
     const deletionListeners = /* @__PURE__ */ new Set();
     let deleted = /* @__PURE__ */ new Set(), listStamp = "", listSince = 0;
     let rows = /* @__PURE__ */ new Map(), menus = /* @__PURE__ */ new Map(), menuHosts = /* @__PURE__ */ new Map(), requested = /* @__PURE__ */ new Set(), lastSave = 0, refresh = false;
+    let nextPriorityRequest = 0;
     const currentId = () => userId(account(ctx).id);
     const ctor = () => read2(() => ctx.game.getSelf().constructor);
     function dataFor(f) {
@@ -767,6 +681,7 @@
       deleted.clear();
       listStamp = "";
       listSince = 0;
+      nextPriorityRequest = 0;
       record.pins = [];
       child.dispose();
       restoreOrder();
@@ -924,7 +839,24 @@
       });
       menuHosts.set(host, release);
     }
-    function tick() {
+    function requestFriendInfo(unresolved, knownIds, background, now) {
+      if (!unresolved.size) return;
+      const User = ctor();
+      if (typeof User?.SendUserBaseInfo !== "function") return;
+      const priority = /* @__PURE__ */ new Set();
+      for (const id of record.pins) {
+        const name = record.friends[id]?.name;
+        if (unresolved.has(name) && !knownIds.has(id)) priority.add(name);
+      }
+      if (priority.size && now < nextPriorityRequest) return;
+      const names = priority.size ? [...priority].slice(0, 5) : background ? [unresolved.values().next().value] : [];
+      if (priority.size) nextPriorityRequest = now + 800;
+      for (const name of names) {
+        requested.add(name);
+        read2(() => User.SendUserBaseInfo(name));
+      }
+    }
+    function syncFriends(background) {
       if (root.signal.aborted) return;
       const next = currentId();
       if (next !== account2) reset(next);
@@ -963,52 +895,56 @@
           return value;
         });
         if (typeof manager2.sortFriend === "function") child.patch(manager2, "sortFriend", (original) => function(a, b) {
-          const x = a?.GroupID === 1 && record.pins.includes(idFor(a)), y = b?.GroupID === 1 && record.pins.includes(idFor(b));
-          return x !== y ? Number(y) - Number(x) : original.call(this, a, b);
+          if (record.pins.length) {
+            const x = a?.GroupID === 1 && record.pins.includes(idFor(a));
+            const y = b?.GroupID === 1 && record.pins.includes(idFor(b));
+            if (x !== y && currentId() === account2) return Number(y) - Number(x);
+          }
+          return original.call(this, a, b);
         });
         refresh = true;
       }
       const list = read2(() => manager2.GetGoodFriendsList());
       if (Array.isArray(list)) {
         if (!flushDeleted()) return;
-        const known = [];
-        let sent = false;
+        const known = [], stampEntries = [], unresolved = /* @__PURE__ */ new Set();
         for (const f of list.slice(0, 2e3)) {
           const id = idFor(f), name = f.FriendNickname;
+          stampEntries.push([id, name]);
           if (id) known.push({ id, name });
-          else if (!sent && typeof name === "string" && name && !requested.has(name) && typeof ctor()?.SendUserBaseInfo === "function") {
-            requested.add(name);
-            sent = true;
-            read2(() => ctor().SendUserBaseInfo(name));
-          }
+          else if (typeof name === "string" && name && !requested.has(name)) unresolved.add(name);
         }
-        const stamp = JSON.stringify(list.map((f) => [idFor(f), f.FriendNickname]).sort());
+        const ids = new Set(known.map((f) => f.id)), now = Date.now();
+        requestFriendInfo(unresolved, ids, background, now);
+        const stamp = JSON.stringify(stampEntries.sort());
         if (stamp !== listStamp) {
           listStamp = stamp;
-          listSince = Date.now();
+          listSince = now;
         }
         const complete = manager2?.firstPageCome === true && list.length <= 2e3 && known.length === list.length && Date.now() - listSince >= 5e3;
-        const ids = new Set(known.map((f) => f.id));
         const missing = complete ? Object.entries(record.friends).filter(([id, f]) => !ids.has(id) && !f.missingAt) : [];
         if ((known.length || missing.length) && (missing.length || Date.now() - lastSave >= 6e4 || known.some((f) => record.friends[f.id]?.name !== f.name || record.friends[f.id]?.missingAt))) {
           const captured = captureFriends(record, known);
           for (const [id] of missing) captured.record.friends[id].missingAt = Date.now();
           if (persist(captured.record)) {
             record = captured.record;
-            lastSave = Date.now();
-          } else return;
-          const show = (message) => banner ? banner.showMessage(message) : ctx.notify?.(message);
-          if (captured.changes.length) show(captured.changes.length + "\\u4F4D\\u597D\\u53CB\\u53EF\\u80FD\\u6539\\u540D\\uFF0C\\u524D\\u5F80\\u597D\\u53CB\\u4E0E\\u804A\\u5929\\u67E5\\u770B");
-          if (missing.length) {
-            const messages = missing.map(([id, f]) => \`\\u597D\\u53CB\\u300C\${f.name}\\u300D\\uFF08ID\\uFF1A\${id}\\uFF09\\u6D88\\u5931\\u4E86\\uFF0C\\u53EF\\u80FD\\u4F60\\u5C06\\u5176\\u5220\\u9664\\u4E86\\u6216\\u8005\\u88AB\\u5220\\u9664\\u3002\`);
-            if (banner) messages.forEach(show);
-            else show(messages.join("\\n"));
+            lastSave = now;
+            const show = (message) => banner ? banner.showMessage(message) : ctx.notify?.(message);
+            if (captured.changes.length) show(captured.changes.length + "\\u4F4D\\u597D\\u53CB\\u53EF\\u80FD\\u6539\\u540D\\uFF0C\\u524D\\u5F80\\u597D\\u53CB\\u4E0E\\u804A\\u5929\\u67E5\\u770B");
+            if (missing.length) {
+              const messages = missing.map(([id, f]) => \`\\u597D\\u53CB\\u300C\${f.name}\\u300D\\uFF08ID\\uFF1A\${id}\\uFF09\\u6D88\\u5931\\u4E86\\uFF0C\\u53EF\\u80FD\\u4F60\\u5C06\\u5176\\u5220\\u9664\\u4E86\\u6216\\u8005\\u88AB\\u5220\\u9664\\u3002\`);
+              if (banner) messages.forEach(show);
+              else show(messages.join("\\n"));
+            }
+            refresh = true;
           }
-          refresh = true;
         }
       }
       for (const node of nodes) {
-        if (node.data?.GroupID === 1 && node.data?.FriendNickname && node.vipIcon && node.vipSprite) bindRow(node);
+        if (node.data?.GroupID === 1 && node.data?.FriendNickname && node.vipIcon && node.vipSprite) {
+          if (rows.has(node)) decorateRow(node);
+          else bindRow(node);
+        }
         if (typeof node.updateOptMenu === "function" && typeof node.layoutBtn === "function" && typeof node.getBtn === "function" && Array.isArray(node.showBtnList) && Array.isArray(node.allBtnList)) bindMenu(node);
         if (Array.isArray(node.goodFriendsList) && typeof node.itemResizeHandler === "function") {
           const nativeOrder = [...node.goodFriendsList];
@@ -1021,17 +957,29 @@
         }
       }
       if (refresh) {
-        for (const row of rows.keys()) decorateRow(row);
         for (const menu of menus.keys()) if (menu.parent) read2(() => menu.layoutBtn());
         refresh = false;
       }
     }
+    const tick = () => syncFriends(true);
     root.add(() => {
       record.pins = [];
       child.dispose();
       restoreOrder();
       account2 = null;
       record = normalizeRecord(null);
+    });
+    const projectPinnedProfile = (packet) => {
+      if (!record.pins.length) return null;
+      const id = userId(field(packet, "clientID") ?? field(packet, "nickname_usertempid") ?? read2(() => packet.Protocol.Data.ProtoObj.nickname_usertempid));
+      return record.pins.includes(id) ? true : null;
+    };
+    observeNative({ ...ctx, scope: root }, {
+      [FRIEND_LIST]: () => true,
+      ...Object.fromEntries(USER_BASE_INFO.map((type) => [type, projectPinnedProfile]))
+    }, (type) => {
+      if (type === FRIEND_LIST) listSince = Date.now();
+      syncFriends(false);
     });
     root.interval(tick, 500);
     tick();
@@ -1788,7 +1736,7 @@
   var manifest = {
     id: "social",
     name: "\\u597D\\u53CB\\u4E0E\\u804A\\u5929",
-    version: "0.1.14",
+    version: "0.1.15",
     apiVersion: 1,
     contractVersion: 1,
     releaseNotes: "\\u4F18\\u5316\\u597D\\u53CB\\u5C06\\u706F\\u53D8\\u5316\\u6A2A\\u5E45\\uFF0C\\u8865\\u5145\\u597D\\u53CB\\u6D88\\u5931\\u63D0\\u793A\\uFF1B\\u672C\\u673A\\u4E3B\\u52A8\\u5220\\u9664\\u6210\\u529F\\u540E\\u6E05\\u9664\\u5BF9\\u5E94\\u672C\\u5730\\u8BB0\\u5F55\\uFF0C\\u597D\\u53CB\\u6D88\\u5931\\u4E0D\\u80FD\\u5224\\u65AD\\u7531\\u54EA\\u4E00\\u65B9\\u5220\\u9664\\u3002\\u9996\\u6B21\\u8BFB\\u53D6\\u4ECD\\u53EA\\u5EFA\\u7ACB\\u57FA\\u51C6\\u3002",
@@ -1880,8 +1828,8 @@
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E\u804A\u5929","version":"0.1.14","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4F18\u5316\u597D\u53CB\u5C06\u706F\u53D8\u5316\u6A2A\u5E45\uFF0C\u8865\u5145\u597D\u53CB\u6D88\u5931\u63D0\u793A\uFF1B\u672C\u673A\u4E3B\u52A8\u5220\u9664\u6210\u529F\u540E\u6E05\u9664\u5BF9\u5E94\u672C\u5730\u8BB0\u5F55\uFF0C\u597D\u53CB\u6D88\u5931\u4E0D\u80FD\u5224\u65AD\u7531\u54EA\u4E00\u65B9\u5220\u9664\u3002\u9996\u6B21\u8BFB\u53D6\u4ECD\u53EA\u5EFA\u7ACB\u57FA\u51C6\u3002","minCoreVersion":"0.6.37","description":"\u597D\u53CB\u7F6E\u9876\u3001\u6539\u540D\u4E0E\u5C06\u706F\u65B0\u589E\u63D0\u9192\u3001\u516C\u5C4F\u4E00\u952E\u8FDB\u623F\u4E0E\u804A\u5929\u5B98\u9636\u8865\u5168","icon":{"paths":["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8","M2 21v-3a6 6 0 0 1 12 0v3","M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"]},"priority":30300,"categories":["tools"]}};
-`, sha256: "9836d97ec7bf0d6c2fe1016e6afd18bc3803e2874c2078b70dc8150e9d993e71" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "player-info", name: "\u73A9\u5BB6\u4FE1\u606F", version: "0.4.19", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u6597\u5730\u4E3B\u5C06\u706F\u68C0\u67E5\u4E0E\u5173\u6CE8\u6B66\u5C06\u8BBE\u7F6E\uFF0C\u4F18\u5316\u9009\u5C06\u671F\u95F4\u8D44\u6599\u5361\u906E\u6321\u548C\u63D0\u793A\u5E03\u5C40\u3002\u73A9\u5BB6\u8D44\u6599\u5361\u4E0E\u5C06\u706F\u68C0\u67E5\u9ED8\u8BA4\u5F00\u542F\uFF0C\u4FDD\u7559\u5DF2\u6709\u5173\u95ED\u9009\u62E9\uFF1B\u67E5\u8BE2\u4F1A\u8BBF\u95EE\u6E38\u620F\u670D\u52A1\u5668\u5E76\u6309\u9700\u52A0\u8F7D\u6B66\u5C06\u539F\u753B\uFF0C\u4F53\u9A8C\u5361\u7B49\u4E34\u65F6\u62E5\u6709\u72B6\u6001\u53EF\u80FD\u5F71\u54CD\u5224\u65AD\u3002", minCoreVersion: "0.6.70", description: "\u53EF\u9009\u73A9\u5BB6\u8D44\u6599\u5361\u4E0E\u6597\u5730\u4E3B\u5C06\u706F\u68C0\u67E5\uFF0C\u652F\u6301\u81EA\u5B9A\u4E49\u5173\u6CE8\u6B66\u5C06\u3001\u4EBA\u673A\u63D0\u793A\u4E0E\u81EA\u9009\u8EAB\u4EFD\u8865\u5168", icon: { paths: ["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"] }, priority: 30200, categories: ["game"] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E\u804A\u5929","version":"0.1.15","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4F18\u5316\u597D\u53CB\u5C06\u706F\u53D8\u5316\u6A2A\u5E45\uFF0C\u8865\u5145\u597D\u53CB\u6D88\u5931\u63D0\u793A\uFF1B\u672C\u673A\u4E3B\u52A8\u5220\u9664\u6210\u529F\u540E\u6E05\u9664\u5BF9\u5E94\u672C\u5730\u8BB0\u5F55\uFF0C\u597D\u53CB\u6D88\u5931\u4E0D\u80FD\u5224\u65AD\u7531\u54EA\u4E00\u65B9\u5220\u9664\u3002\u9996\u6B21\u8BFB\u53D6\u4ECD\u53EA\u5EFA\u7ACB\u57FA\u51C6\u3002","minCoreVersion":"0.6.37","description":"\u597D\u53CB\u7F6E\u9876\u3001\u6539\u540D\u4E0E\u5C06\u706F\u65B0\u589E\u63D0\u9192\u3001\u516C\u5C4F\u4E00\u952E\u8FDB\u623F\u4E0E\u804A\u5929\u5B98\u9636\u8865\u5168","icon":{"paths":["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8","M2 21v-3a6 6 0 0 1 12 0v3","M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"]},"priority":30300,"categories":["tools"]}};
+`, sha256: "b304c0684ea85708af0cdec01fea078404045e5ef60b4b777751936f4c31823b" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "player-info", name: "\u73A9\u5BB6\u4FE1\u606F", version: "0.4.19", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u6597\u5730\u4E3B\u5C06\u706F\u68C0\u67E5\u4E0E\u5173\u6CE8\u6B66\u5C06\u8BBE\u7F6E\uFF0C\u4F18\u5316\u9009\u5C06\u671F\u95F4\u8D44\u6599\u5361\u906E\u6321\u548C\u63D0\u793A\u5E03\u5C40\u3002\u73A9\u5BB6\u8D44\u6599\u5361\u4E0E\u5C06\u706F\u68C0\u67E5\u9ED8\u8BA4\u5F00\u542F\uFF0C\u4FDD\u7559\u5DF2\u6709\u5173\u95ED\u9009\u62E9\uFF1B\u67E5\u8BE2\u4F1A\u8BBF\u95EE\u6E38\u620F\u670D\u52A1\u5668\u5E76\u6309\u9700\u52A0\u8F7D\u6B66\u5C06\u539F\u753B\uFF0C\u4F53\u9A8C\u5361\u7B49\u4E34\u65F6\u62E5\u6709\u72B6\u6001\u53EF\u80FD\u5F71\u54CD\u5224\u65AD\u3002", minCoreVersion: "0.6.70", description: "\u53EF\u9009\u73A9\u5BB6\u8D44\u6599\u5361\u4E0E\u6597\u5730\u4E3B\u5C06\u706F\u68C0\u67E5\uFF0C\u652F\u6301\u81EA\u5B9A\u4E49\u5173\u6CE8\u6B66\u5C06\u3001\u4EBA\u673A\u63D0\u793A\u4E0E\u81EA\u9009\u8EAB\u4EFD\u8865\u5168", icon: { paths: ["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"] }, priority: 30200, categories: ["game"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -4795,7 +4743,7 @@ return {...SGSPlugin.default, manifest:{"id":"yjcm-cards","name":"\u4E00\u5C06\u
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A5\u9C7C\u5361\u9762","version":"0.4.1","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.6.9","categories":[],"icon":{"paths":["M3 5h13v16H3Z","M7 2h14v16h-2","M5 12c3-5 6-5 8 0-2 5-5 5-8 0Z","M13 12l2-2v4Z","M8 11v.1"]},"priority":50096,"description":"\u4E09\u500D\u9AD8\u6E05\u5927\u80A5\u9C7C\u5361\u9762\u4E0E\u9CB8\u6D6A\u85CF\u950B\u5361\u80CC\uFF0C\u5171 52 \u79CD\u5361\u9762\uFF0C\u542B\u519B\u4E89\u5361\u7EC4\u4E0E 8 \u5F20\u884D\u751F\u88C5\u5907\u53CA\u5415\u73B2\u7EEE\u56DB\u4EF6\u88C5\u5907\u7CBE\u4FEE\uFF1B\u56FE\u7247\u6309\u9700\u52A0\u8F7D"}};
-`, sha256: "c3ee772bf9bf1e17754145f93999eed01ca4cc042a25a846605b50164e0e7752" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "backgrounds", name: "\u81EA\u5B9A\u4E49\u80CC\u666F", version: "0.2.5", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u80CC\u666F\u8BBE\u7F6E\u8BF4\u660E\uFF0C\u7EDF\u4E00\u5F00\u5173\u4E0E\u5E2E\u52A9\u63D0\u793A\u7684\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u80CC\u666F\u548C\u52A8\u6001\u64AD\u653E\u9009\u62E9\u3002", minCoreVersion: "0.6.37", dependencies: ["skins"], categories: ["appearance"], priority: 31e3, icon: { paths: ["M3 4h18v16H3Z", "M3 16 9 10l4 4 3-3 5 5", "M16 7h1"] }, description: "\u5C06\u76AE\u80A4\u539F\u753B\u6216\u52A8\u6001\u7528\u4F5C\u724C\u5C40\u80CC\u666F\uFF0C\u4FDD\u7559\u5929\u6C14\u4E0E\u6B66\u5C06\u6280\u80FD\u80CC\u666F" }, code: `var SGSPlugin = (() => {
+`, sha256: "c3ee772bf9bf1e17754145f93999eed01ca4cc042a25a846605b50164e0e7752" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "backgrounds", name: "\u81EA\u5B9A\u4E49\u80CC\u666F", version: "0.2.6", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u80CC\u666F\u8BBE\u7F6E\u8BF4\u660E\uFF0C\u7EDF\u4E00\u5F00\u5173\u4E0E\u5E2E\u52A9\u63D0\u793A\u7684\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u80CC\u666F\u548C\u52A8\u6001\u64AD\u653E\u9009\u62E9\u3002", minCoreVersion: "0.6.88", dependencies: ["skins"], categories: ["appearance"], priority: 31e3, icon: { paths: ["M3 4h18v16H3Z", "M3 16 9 10l4 4 3-3 5 5", "M16 7h1"] }, description: "\u5C06\u672C\u5730\u56FE\u7247\u6216\u6E38\u620F\u76AE\u80A4\u7528\u4F5C\u724C\u5C40\u80CC\u666F\uFF0C\u4FDD\u7559\u5929\u6C14\u4E0E\u6B66\u5C06\u6280\u80FD\u80CC\u666F" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -4861,16 +4809,16 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
   var manifest = {
     id: "backgrounds",
     name: "\\u81EA\\u5B9A\\u4E49\\u80CC\\u666F",
-    version: "0.2.5",
+    version: "0.2.6",
     apiVersion: 1,
     contractVersion: 1,
     releaseNotes: "\\u7CBE\\u7B80\\u80CC\\u666F\\u8BBE\\u7F6E\\u8BF4\\u660E\\uFF0C\\u7EDF\\u4E00\\u5F00\\u5173\\u4E0E\\u5E2E\\u52A9\\u63D0\\u793A\\u7684\\u5916\\u89C2\\uFF0C\\u4FDD\\u7559\\u5DF2\\u6709\\u80CC\\u666F\\u548C\\u52A8\\u6001\\u64AD\\u653E\\u9009\\u62E9\\u3002",
-    minCoreVersion: "0.6.37",
+    minCoreVersion: "0.6.88",
     dependencies: ["skins"],
     categories: ["appearance"],
     priority: 31e3,
     icon: { paths: ["M3 4h18v16H3Z", "M3 16 9 10l4 4 3-3 5 5", "M16 7h1"] },
-    description: "\\u5C06\\u76AE\\u80A4\\u539F\\u753B\\u6216\\u52A8\\u6001\\u7528\\u4F5C\\u724C\\u5C40\\u80CC\\u666F\\uFF0C\\u4FDD\\u7559\\u5929\\u6C14\\u4E0E\\u6B66\\u5C06\\u6280\\u80FD\\u80CC\\u666F"
+    description: "\\u5C06\\u672C\\u5730\\u56FE\\u7247\\u6216\\u6E38\\u620F\\u76AE\\u80A4\\u7528\\u4F5C\\u724C\\u5C40\\u80CC\\u666F\\uFF0C\\u4FDD\\u7559\\u5929\\u6C14\\u4E0E\\u6B66\\u5C06\\u6280\\u80FD\\u80CC\\u666F"
   };
   var STYLES = \`
 [data-sgs-backgrounds]{color:var(--sgs-text);font:12px/1.6 "Microsoft YaHei",sans-serif}
@@ -4880,9 +4828,15 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
 [data-sgs-backgrounds] button:disabled{opacity:.45;cursor:default}
 [data-sgs-backgrounds] p{margin:5px 0 12px;overflow-wrap:anywhere}
 [data-sgs-backgrounds] .bg-note{color:var(--sgs-muted)}
+[data-sgs-backgrounds] .bg-error{color:var(--sgs-danger,var(--sgs-text))}
 [data-sgs-backgrounds] .bg-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-[data-sgs-backgrounds] .bg-mode{display:flex;align-items:center;gap:12px;margin:10px 0 8px}
+[data-sgs-backgrounds] .bg-mode{display:flex;align-items:center;gap:6px;margin:10px 0 8px}
 [data-sgs-backgrounds] .bg-mode>span{color:var(--sgs-muted);flex:none}
+[data-sgs-backgrounds] [hidden]{display:none}
+[data-sgs-backgrounds] .bg-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+[data-sgs-backgrounds] .bg-actions button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;padding:5px 8px;white-space:nowrap}
+[data-sgs-backgrounds] .bg-actions .bg-picker{color:var(--sgs-accent);border-color:var(--sgs-accent)}
+[data-sgs-backgrounds] .bg-local-note{margin:6px 0 0}
 [data-sgs-backgrounds] .sgs-segments{flex:1;min-width:0}
 [data-sgs-backgrounds] .sgs-segments>button{border:0;border-radius:5px;background:transparent;padding:6px;color:var(--sgs-muted)}
 [data-sgs-backgrounds] .sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent);background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 18%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent),0 1px 3px #0003}
@@ -4921,7 +4875,10 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
   function activate(ctx) {
     ctx.backgrounds.register();
     const doc = ctx.document;
-    const animated = () => ctx.settings.get("animated", ctx.backgrounds.current?.animated !== false) !== false;
+    const animated = () => {
+      const current = ctx.backgrounds.current;
+      return ctx.settings.get("animated", current?.localImageId ? true : current?.animated !== false) !== false;
+    };
     const element = (tag, text, cls) => {
       const node = doc.createElement(tag);
       if (text) node.textContent = text;
@@ -4944,6 +4901,7 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
       for (const key of ["text", "muted", "accent", "border", "surface"]) floating.style.setProperty("--sgs-" + key, p[key]);
     });
     let owner = null, observed = null;
+    let importing = false, importError = "", updatePanel;
     ctx.scope.add(() => observed?.dispose());
     function refreshButton() {
       try {
@@ -4993,8 +4951,9 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
       refreshButton();
       if (floating.hidden) return;
       try {
-        const vo = owner.skinData.skinBaseVo;
         ctx.backgrounds.select(skinBackgroundSpec(owner, animated()));
+        importError = "";
+        updatePanel?.();
         ctx.notify("\\u5DF2\\u4FDD\\u5B58\\u724C\\u5C40\\u80CC\\u666F\\uFF1B\\u6280\\u80FD\\u80CC\\u666F\\u4FDD\\u6301\\u4F18\\u5148\\u3002");
         refreshButton();
       } catch (error) {
@@ -5012,27 +4971,46 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
       const name = element("div", "", "bg-name"), status = element("p", "", "bg-note");
       status.setAttribute("role", "status");
       const mode = element("div", "", "bg-mode");
-      mode.append(element("span", "\\u80CC\\u666F\\u64AD\\u653E"));
       const segments = element("div", "", "sgs-segments");
       segments.setAttribute("role", "group");
       segments.setAttribute("aria-label", "\\u80CC\\u666F\\u64AD\\u653E");
       const dynamic = element("button", "\\u52A8\\u6001"), still = element("button", "\\u9759\\u6001");
       dynamic.type = still.type = "button";
       segments.append(dynamic, still);
-      mode.append(segments);
-      const hint = ctx.ui.helpTip("\\u9ED8\\u8BA4\\u64AD\\u653E\\u76AE\\u80A4\\u52A8\\u6001\\uFF0C\\u65E0\\u9700\\u62E5\\u6709\\u76AE\\u80A4\\u6216\\u89E3\\u9501\\u52A8\\u6001\\uFF1B\\u6CA1\\u6709\\u52A8\\u6001\\u65F6\\u663E\\u793A\\u539F\\u753B\\u3002\\u4EC5\\u6A2A\\u7248\\u6216 16:9 \\u539F\\u753B\\u53EF\\u9009\\uFF0C\\u6280\\u80FD\\u80CC\\u666F\\u4FDD\\u6301\\u4F18\\u5148\\u3002");
+      const hint = ctx.ui.helpTip("\\u9ED8\\u8BA4\\u64AD\\u653E\\u76AE\\u80A4\\u52A8\\u6001\\uFF0C\\u65E0\\u9700\\u62E5\\u6709\\u76AE\\u80A4\\u6216\\u89E3\\u9501\\u52A8\\u6001\\uFF1B\\u6CA1\\u6709\\u52A8\\u6001\\u65F6\\u663E\\u793A\\u539F\\u753B\\u3002\\u4EC5\\u6A2A\\u7248\\u6216 16:9 \\u539F\\u753B\\u53EF\\u9009\\uFF0C\\u6280\\u80FD\\u80CC\\u666F\\u4FDD\\u6301\\u4F18\\u5148\\u3002", "\\u80CC\\u666F\\u64AD\\u653E\\u8BF4\\u660E");
+      mode.append(element("span", "\\u80CC\\u666F\\u64AD\\u653E"), hint, segments);
       const capability = element("p", "", "bg-note");
       const reset = element("button", "\\u6062\\u590D\\u6E38\\u620F\\u80CC\\u666F");
       reset.type = "button";
+      const picker = element("button", "", "bg-picker");
+      picker.type = "button";
+      picker.title = "\\u652F\\u6301 PNG\\u3001JPG\\u3001WebP \\u548C BMP \\u9759\\u6001\\u56FE\\u7247\\uFF0C\\u6700\\u5927 20 MB";
+      const pickerLabel = element("span", "\\u9009\\u62E9\\u672C\\u5730\\u56FE\\u7247");
+      picker.append(ctx.ui.icon(manifest.icon), pickerLabel);
+      const input = element("input");
+      input.type = "file";
+      input.hidden = true;
+      input.accept = ".png,.jpg,.jpeg,.webp,.bmp,image/png,image/jpeg,image/webp,image/bmp";
+      const actions = element("div", "", "bg-actions");
+      actions.append(picker, reset, input);
+      const localNote = element("p", "\\u56FE\\u7247\\u4EC5\\u4FDD\\u5B58\\u5728\\u6B64\\u8BBE\\u5907", "bg-note bg-local-note");
+      const error = element("p", "", "bg-error");
+      error.setAttribute("role", "alert");
       const update = () => {
         const current = ctx.backgrounds.current;
+        const local = Boolean(current?.localImageId);
         name.textContent = current?.name || "\\u5C1A\\u672A\\u9009\\u62E9\\u80CC\\u666F";
         name.title = name.textContent;
         status.textContent = ctx.backgrounds.status;
-        reset.disabled = !current;
+        reset.disabled = !current || importing;
+        picker.disabled = importing;
+        pickerLabel.textContent = importing ? "\\u6B63\\u5728\\u8BFB\\u53D6\\u56FE\\u7247\\u2026" : "\\u9009\\u62E9\\u672C\\u5730\\u56FE\\u7247";
+        error.textContent = importError;
+        error.hidden = !importError;
+        mode.hidden = capability.hidden = local;
         dynamic.setAttribute("aria-pressed", String(animated()));
         still.setAttribute("aria-pressed", String(!animated()));
-        capability.textContent = !current ? "\\u5728\\u6E38\\u620F\\u76AE\\u80A4\\u8BE6\\u60C5\\u4E2D\\u9009\\u62E9\\u300C\\u4F5C\\u4E3A\\u724C\\u5C40\\u80CC\\u666F\\u300D\\u3002" : current.dynamic ? "\\u6B64\\u76AE\\u80A4\\u652F\\u6301\\u52A8\\u6001\\u80CC\\u666F\\u3002" : current.dynamic === null ? "\\u6B64\\u76AE\\u80A4\\u6CA1\\u6709\\u52A8\\u6001\\uFF0C\\u4F7F\\u7528\\u9759\\u6001\\u539F\\u753B\\u3002" : "\\u5C1A\\u672A\\u8BC6\\u522B\\u6B64\\u80CC\\u666F\\u7684\\u52A8\\u6001\\uFF1B\\u8BF7\\u5728\\u76AE\\u80A4\\u8BE6\\u60C5\\u91CD\\u65B0\\u9009\\u62E9\\u3002";
+        capability.textContent = !current ? "\\u4E5F\\u53EF\\u5728\\u76AE\\u80A4\\u8BE6\\u60C5\\u4E2D\\u9009\\u62E9\\u300C\\u4F5C\\u4E3A\\u724C\\u5C40\\u80CC\\u666F\\u300D\\u3002" : current.dynamic ? "\\u6B64\\u76AE\\u80A4\\u652F\\u6301\\u52A8\\u6001\\u80CC\\u666F\\u3002" : current.dynamic === null ? "\\u6B64\\u76AE\\u80A4\\u6CA1\\u6709\\u52A8\\u6001\\uFF0C\\u4F7F\\u7528\\u9759\\u6001\\u539F\\u753B\\u3002" : "\\u5C1A\\u672A\\u8BC6\\u522B\\u6B64\\u80CC\\u666F\\u7684\\u52A8\\u6001\\uFF1B\\u8BF7\\u5728\\u76AE\\u80A4\\u8BE6\\u60C5\\u91CD\\u65B0\\u9009\\u62E9\\u3002";
       };
       const change = (value) => {
         ctx.settings.set("animated", value);
@@ -5042,19 +5020,44 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
       };
       const chooseDynamic = () => change(true), chooseStill = () => change(false);
       const click = () => {
+        importError = "";
         ctx.backgrounds.select(null);
         refreshButton();
       };
+      const openFile = () => input.click();
+      const importFile = async () => {
+        const file = input.files?.[0];
+        input.value = "";
+        if (!file || importing) return;
+        importing = true;
+        importError = "";
+        update();
+        try {
+          await ctx.backgrounds.selectLocal(file);
+          if (!ctx.scope.closed) refreshButton();
+        } catch (failure) {
+          importError = failure?.message || String(failure);
+        } finally {
+          importing = false;
+          updatePanel?.();
+        }
+      };
       reset.addEventListener("click", click);
+      picker.addEventListener("click", openFile);
+      input.addEventListener("change", importFile);
       dynamic.addEventListener("click", chooseDynamic);
       still.addEventListener("click", chooseStill);
+      updatePanel = update;
       const release = ctx.backgrounds.subscribe(update);
       update();
-      root.append(name, status, mode, capability, hint, reset);
+      root.append(name, status, mode, capability, actions, localNote, error);
       container.append(root);
       return () => {
+        if (updatePanel === update) updatePanel = null;
         release();
         reset.removeEventListener("click", click);
+        picker.removeEventListener("click", openFile);
+        input.removeEventListener("change", importFile);
         dynamic.removeEventListener("click", chooseDynamic);
         still.removeEventListener("click", chooseStill);
         root.remove();
@@ -5065,8 +5068,8 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"backgrounds","name":"\u81EA\u5B9A\u4E49\u80CC\u666F","version":"0.2.5","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7CBE\u7B80\u80CC\u666F\u8BBE\u7F6E\u8BF4\u660E\uFF0C\u7EDF\u4E00\u5F00\u5173\u4E0E\u5E2E\u52A9\u63D0\u793A\u7684\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u80CC\u666F\u548C\u52A8\u6001\u64AD\u653E\u9009\u62E9\u3002","minCoreVersion":"0.6.37","dependencies":["skins"],"categories":["appearance"],"priority":31000,"icon":{"paths":["M3 4h18v16H3Z","M3 16 9 10l4 4 3-3 5 5","M16 7h1"]},"description":"\u5C06\u76AE\u80A4\u539F\u753B\u6216\u52A8\u6001\u7528\u4F5C\u724C\u5C40\u80CC\u666F\uFF0C\u4FDD\u7559\u5929\u6C14\u4E0E\u6B66\u5C06\u6280\u80FD\u80CC\u666F"}};
-`, sha256: "859c0003a48b25ed30212abea63b1f208c7041d92d887e851ea3238aa7ff7a21" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "gold-cards", name: "\u91D1\u8272\u5361\u724C", version: "0.1.0", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.90", categories: [], icon: "cards", priority: 50100, description: "\u91D1\u8272\u5361\u9762\u5E95\u7EB9\u4E0E\u7384\u91D1\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u7684\u5361\u9762\u4E0E\u5361\u80CC\u4E2D\u6210\u5957\u9009\u7528" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"backgrounds","name":"\u81EA\u5B9A\u4E49\u80CC\u666F","version":"0.2.6","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7CBE\u7B80\u80CC\u666F\u8BBE\u7F6E\u8BF4\u660E\uFF0C\u7EDF\u4E00\u5F00\u5173\u4E0E\u5E2E\u52A9\u63D0\u793A\u7684\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u80CC\u666F\u548C\u52A8\u6001\u64AD\u653E\u9009\u62E9\u3002","minCoreVersion":"0.6.88","dependencies":["skins"],"categories":["appearance"],"priority":31000,"icon":{"paths":["M3 4h18v16H3Z","M3 16 9 10l4 4 3-3 5 5","M16 7h1"]},"description":"\u5C06\u672C\u5730\u56FE\u7247\u6216\u6E38\u620F\u76AE\u80A4\u7528\u4F5C\u724C\u5C40\u80CC\u666F\uFF0C\u4FDD\u7559\u5929\u6C14\u4E0E\u6B66\u5C06\u6280\u80FD\u80CC\u666F"}};
+`, sha256: "bce340d0965179e592d06861f65bf548c2a89a9188e07c0e3cf621559a3c2dbc" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "gold-cards", name: "\u91D1\u8272\u5361\u724C", version: "0.1.0", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.90", categories: [], icon: "cards", priority: 50100, description: "\u91D1\u8272\u5361\u9762\u5E95\u7EB9\u4E0E\u7384\u91D1\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u7684\u5361\u9762\u4E0E\u5361\u80CC\u4E2D\u6210\u5957\u9009\u7528" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -9734,7 +9737,7 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56FE","version":"0.2.31","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4FEE\u590D\u5FAE\u7AEF\u6362\u5C06\u5361\u9884\u5224\u6D6E\u5C42\u8D34\u5728\u5DE6\u4E0A\u89D2\u7684\u95EE\u9898\uFF0C\u6539\u4E3A\u5728\u6E38\u620F\u533A\u57DF\u9876\u90E8\u5C45\u4E2D\uFF0C\u5E76\u907F\u5F00\u56FA\u5B9A\u5DE5\u5177\u7BB1\u4FA7\u680F\u3002","minCoreVersion":"0.6.37","categories":["game"],"icon":{"paths":["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z","M6 12 10 7l4 5 3-3 2 3","M6 16c3-3 7 3 12-1"]},"priority":11000,"description":"\u654C\u519B\u3001\u95EE\u53F7\u4E0E\u5546\u5E97\u9884\u89C8\uFF0C\u6362\u5C06\u5361\u9884\u5224\u4E0E\u8DE8\u6A21\u5F0F\u6218\u6CD5\u8BA1\u6570"}};
-`, sha256: "57a4cfd8c4c49dfd5353456041be215dfbbe2ed6ea09d790c626edb2ccf3d663" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "cards", name: "\u5361\u724C", version: "0.1.72", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u624B\u724C\u7EC4\u95F4\u7559\u7A7A\u5FEB\u6377\u5F00\u5173\uFF0C\u4FDD\u7559\u6392\u5E8F\u65B9\u5F0F\u4E0E\u5DF2\u6709\u9009\u62E9\uFF1B\u6539\u5584\u5361\u724C\u9762\u677F\u5728\u4F4E\u9AD8\u5EA6\u4E0B\u7684\u6EDA\u52A8\u548C\u5185\u5BB9\u663E\u793A\u3002", minCoreVersion: "0.6.62", categories: ["game"], icon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, priority: 1e4, description: "\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570" }, code: `var SGSCards = (() => {
+`, sha256: "57a4cfd8c4c49dfd5353456041be215dfbbe2ed6ea09d790c626edb2ccf3d663" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "cards", name: "\u5361\u724C", version: "0.1.79", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u624B\u724C\u7EC4\u95F4\u7559\u7A7A\u5FEB\u6377\u5F00\u5173\uFF0C\u4FDD\u7559\u6392\u5E8F\u65B9\u5F0F\u4E0E\u5DF2\u6709\u9009\u62E9\uFF1B\u6539\u5584\u5361\u724C\u9762\u677F\u5728\u4F4E\u9AD8\u5EA6\u4E0B\u7684\u6EDA\u52A8\u548C\u5185\u5BB9\u663E\u793A\u3002", minCoreVersion: "0.6.87", categories: ["game"], icon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, priority: 1e4, description: "\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570" }, code: `var SGSCards = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -10732,8 +10735,8 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         name: String(source.name ?? source.nickname ?? ""),
         dead: typeof source.dead === "boolean" ? source.dead : state.seats[seatId]?.dead
       };
-      const visible2 = source.knownHandCardIds ?? source.handShowCardIDs ?? source.HandShowCardIDs ?? [];
-      const own = seatId === state.selfSeatId ? source.handCardIds ?? source.handCards ?? visible2 : visible2;
+      const visible3 = source.knownHandCardIds ?? source.handShowCardIDs ?? source.HandShowCardIDs ?? [];
+      const own = seatId === state.selfSeatId ? source.handCardIds ?? source.handCards ?? visible3 : visible3;
       reveal(state, cardIds(own), zoneKey(5, seatId), seq, int(source.handCount), seatId === state.selfSeatId && Array.isArray(source.handCardIds ?? source.handCards));
     }
     if (validSeat(state.selfSeatId) && data.handCardIds) {
@@ -11685,6 +11688,13 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
   }
 
   // src/plugins/cards/sort-controls.js
+  var SORT_WIDTH = 136;
+  var AUTO_WIDTH = 34;
+  var HEIGHT = 24;
+  var LIFT = HEIGHT / 4;
+  function sortControlsOrigin(container) {
+    return { x: container.HandCardRect.x + 70, y: container.NORMAL_Y - 48 - LIFT };
+  }
   function dragBounds(window, container, width, height) {
     const laya = window.Laya ?? window.laya, stage = laya?.stage;
     const hand = container.HandCardRect, rowY = container.NORMAL_Y;
@@ -11702,15 +11712,15 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     const bounds = {
       left: Math.max(hand.x, Math.min(first.x, last.x) + 4),
       right: Math.min(hand.x + handWidth - width, Math.max(first.x, last.x) - width - 4),
-      top: Math.max(rowY - 72, Math.min(first.y, last.y) + 4),
-      bottom: Math.min(rowY - height - 8, Math.max(first.y, last.y) - height - 4)
+      top: Math.max(rowY - 72 - LIFT, Math.min(first.y, last.y) + 4),
+      bottom: Math.min(rowY - height - 8 - LIFT, Math.max(first.y, last.y) - height - 4)
     };
     return bounds.right >= bounds.left && bounds.bottom >= bounds.top ? bounds : null;
   }
-  function createSortControls(ctx, { sort, lock }) {
+  function createSortControls(ctx, { sort, lock, toggleAutoPlay }) {
     const { window, scope, settings } = ctx, theme = getNativeTheme(ctx);
     let root = null, container = null, buttons = [], dragging = null, timer = null;
-    let locked = null, suppressUntil = 0, hint = null;
+    let locked = null, autoMode = null, suppressUntil = 0, hint = null;
     let releaseStageEvents = null, releaseTheme = null;
     let offset = settings.get("nativeSortOffset", { x: 0, y: 0 });
     if (!Number.isFinite(offset?.x) || !Number.isFinite(offset?.y)) offset = { x: 0, y: 0 };
@@ -11728,10 +11738,10 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         root.visible = false;
         return false;
       }
-      const base = { x: container.HandCardRect.x + 70, y: container.NORMAL_Y - 48 };
+      const base = sortControlsOrigin(container);
       const x = Math.max(bounds.left, Math.min(bounds.right, base.x + offset.x));
       const y = Math.max(bounds.top, Math.min(bounds.bottom, base.y + offset.y));
-      offset = { x: x - base.x, y: y - base.y };
+      if (dragging?.started) offset = { x: x - base.x, y: y - base.y };
       root.pos(x, y);
       return true;
     }
@@ -11792,31 +11802,114 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     function paint() {
       if (!root || root.destroyed) return;
       const palette = theme.palette;
+      const focused = (window.Laya ?? window.laya)?.stage?.focus;
+      const spacing = settings.get("handGroupSpacing", true) !== false;
       root.graphics.clear();
-      rounded(root.graphics, 0.5, 0.5, 135, 23, palette.bg, palette.border);
-      root.graphics.drawRect(7, 1, 122, 1, palette.highlight);
-      for (const x of [28, 64, 100]) root.graphics.drawRect(x, 8, 1, 8, palette.borderSoft);
+      rounded(root.graphics, 0.5, 0.5, root.width - 1, HEIGHT - 1, palette.bg, palette.border);
+      root.graphics.drawRect(7, 1, root.width - 14, 1, palette.highlight);
+      for (const item of buttons.slice(1)) root.graphics.drawRect(item.sprite.x, 8, 1, 8, palette.borderSoft);
+      if (hint) hint.visible = false;
       for (const item of buttons) {
-        const spacing = settings.get("handGroupSpacing", true) !== false;
-        const selected = item.mode === "spacing" ? spacing : item.mode === locked;
+        const selected = item.mode === "spacing" ? spacing : item.mode === "auto-play" ? autoMode !== "off" : item.mode === locked;
+        const color2 = selected ? palette.accent : item.hover ? palette.text : palette.muted;
         item.sprite.graphics.clear();
-        if (selected || item.hover) rounded(item.sprite.graphics, 2, 2, item.width - 4, 20, selected ? palette.selected : palette.hover);
+        if (selected || item.hover || item.sprite === focused) rounded(
+          item.sprite.graphics,
+          2,
+          2,
+          item.width - 4,
+          20,
+          selected ? palette.selected : palette.hover,
+          item.sprite === focused ? palette.border : null
+        );
         if (selected) item.sprite.graphics.drawRect(9, 21, item.width - 18, 1, palette.accent);
         if (item.mode === "spacing") {
-          const g = item.sprite.graphics, color2 = item.hover ? palette.text : palette.muted;
+          const g = item.sprite.graphics;
           const left = spacing ? 6 : 9, right = spacing ? 19 : 16;
-          g.drawRect(left, 7, 3, 10, null, color2, 1);
-          g.drawRect(right, 7, 3, 10, null, color2, 1);
-          item.sprite.toolTip = spacing ? "\\u7EC4\\u95F4\\u7559\\u7A7A \\xB7 \\u70B9\\u51FB\\u6536\\u7A84" : "\\u4E0D\\u7559\\u7A7A \\xB7 \\u70B9\\u51FB\\u653E\\u5BBD";
-          item.sprite.accessibilityLabel = item.sprite.toolTip;
-          if (hint) {
-            hint.text = item.sprite.toolTip;
-            hint.visible = item.hover;
-            hint.color = palette.text;
-            hint.bgColor = palette.bg;
+          for (const y of [7, 10, 13]) {
+            g.drawRect(left - 2, y, 5, 1, color2);
+            g.drawRect(right - 1, y, 5, 1, color2);
           }
+          g.drawRect(10, 17, 8, 1, color2);
+          g.drawLines?.(0, 0, [12, 15, 10, 17, 12, 19], color2, 1);
+          g.drawLines?.(0, 0, [16, 15, 18, 17, 16, 19], color2, 1);
+          item.sprite.toolTip = spacing ? "\\u7EC4\\u95F4\\u7559\\u7A7A \\xB7 \\u70B9\\u51FB\\u6536\\u7A84" : "\\u4E0D\\u7559\\u7A7A \\xB7 \\u70B9\\u51FB\\u653E\\u5BBD";
+        } else if (item.mode === "auto-play") {
+          const g = item.sprite.graphics;
+          g.drawLines(0, 0, [7, 14, 7, 5, 8, 4, 16, 4], color2, 1);
+          g.drawLines(0, 0, [15, 18, 11, 18, 10, 17, 10, 8, 11, 7, 18, 7], color2, 1);
+          g.drawPoly(0, 0, [22, 6, 15.5, 13, 19.5, 13, 18, 19, 25, 11, 21, 11], selected ? color2 : null, color2, 1);
+          if (autoMode === "remembered") g.drawLines(0, 0, [27, 9, 27, 4, 31, 4, 31, 9, 29, 7.5, 27, 9], color2, 1);
+          item.sprite.toolTip = autoMode === "remembered" ? "\\u5DF2\\u8BB0\\u4F4F\\u81EA\\u52A8\\u6253\\u724C \\xB7 \\u70B9\\u51FB\\u53D6\\u6D88" : selected ? "\\u81EA\\u52A8\\u6253\\u724C\\u4E2D \\xB7 \\u70B9\\u51FB\\u53D6\\u6D88" : "\\u81EA\\u52A8\\u6253\\u724C \\xB7 \\u70B9\\u51FB\\u5F00\\u542F \\xB7 \\u53F3\\u952E\\u8BB0\\u4F4F";
         }
-        item.label.color = selected ? palette.accent : item.hover ? palette.text : palette.muted;
+        item.sprite.accessibilityLabel = item.sprite.toolTip;
+        if (hint && item.hover && item.sprite.toolTip) {
+          hint.text = item.sprite.toolTip;
+          hint.visible = true;
+          hint.color = palette.text;
+          hint.bgColor = palette.bg;
+          hint.x = Math.max(0, item.sprite.x + item.width - hint.width);
+        }
+        if (item.label) item.label.color = color2;
+      }
+    }
+    function addButton(mode, title, x, width) {
+      const laya = window.Laya ?? window.laya;
+      const sprite = new laya.Sprite();
+      sprite.name = mode;
+      sprite.size(width, HEIGHT);
+      sprite.pos(x, 0);
+      sprite.mouseEnabled = true;
+      sprite.toolTip = title;
+      let label = null;
+      if (title) {
+        label = new laya.Text();
+        label.text = title;
+        label.font = "Microsoft YaHei";
+        label.fontSize = 12;
+        label.bold = false;
+        label.width = width;
+        label.height = HEIGHT;
+        label.align = "center";
+        label.valign = "middle";
+        label.mouseEnabled = false;
+        sprite.addChild(label);
+      }
+      root.addChild(sprite);
+      const item = { mode, sprite, label, width, hover: false };
+      buttons.push(item);
+      sprite.on("mouseover", root, () => {
+        item.hover = true;
+        paint();
+      });
+      sprite.on("mouseout", root, () => {
+        item.hover = false;
+        paint();
+      });
+      sprite.on("click", root, (event) => {
+        event?.stopPropagation?.();
+        if (!root.visible || Date.now() < suppressUntil) return;
+        laya.stage.focus = sprite;
+        if (mode === "spacing") {
+          settings.set("handGroupSpacing", settings.get("handGroupSpacing", true) === false);
+          container?.invalidateLayoutHandCard?.();
+        } else if (mode === "auto-play") autoMode = toggleAutoPlay(false);
+        else sort(mode);
+        paint();
+      });
+      if (mode === "auto-play") {
+        sprite.on("rightclick", root, (event) => {
+          event?.stopPropagation?.();
+          if (!root.visible || Date.now() < suppressUntil) return;
+          laya.stage.focus = sprite;
+          autoMode = toggleAutoPlay(true);
+          paint();
+        });
+      } else if (mode !== "spacing") {
+        sprite.on("doubleclick", root, (event) => {
+          event?.stopPropagation?.();
+          if (root.visible && Date.now() >= suppressUntil) lock(mode);
+        });
       }
     }
     function create() {
@@ -11828,51 +11921,11 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       releaseTheme = null;
       root = new laya.Sprite();
       root.name = "sgs-toolbox-hand-sort";
-      root.size(136, 24);
+      root.size(SORT_WIDTH, HEIGHT);
       root.mouseEnabled = true;
       buttons = [];
-      for (const [index, mode, title, width] of [[-1, "spacing", "", 28], [0, "type", "\\u7C7B\\u578B", 36], [1, "suit", "\\u82B1\\u8272", 36], [2, "number", "\\u70B9\\u6570", 36]]) {
-        const sprite = new laya.Sprite(), label = new laya.Text();
-        sprite.name = mode;
-        sprite.size(width, 24);
-        sprite.pos(index < 0 ? 0 : 28 + index * 36, 0);
-        sprite.mouseEnabled = true;
-        label.text = title;
-        label.font = "Microsoft YaHei";
-        label.fontSize = 12;
-        label.bold = false;
-        label.width = width;
-        label.height = 24;
-        label.align = "center";
-        label.valign = "middle";
-        label.mouseEnabled = false;
-        sprite.addChild(label);
-        root.addChild(sprite);
-        const item = { mode, sprite, label, width, hover: false };
-        buttons.push(item);
-        sprite.on("mouseover", root, () => {
-          item.hover = true;
-          paint();
-        });
-        sprite.on("mouseout", root, () => {
-          item.hover = false;
-          paint();
-        });
-        sprite.on("click", root, (event) => {
-          event?.stopPropagation?.();
-          if (Date.now() < suppressUntil) return;
-          if (mode === "spacing") {
-            laya.stage.focus = sprite;
-            settings.set("handGroupSpacing", settings.get("handGroupSpacing", true) === false);
-            container?.invalidateLayoutHandCard?.();
-            paint();
-          } else sort(mode);
-        });
-        sprite.on("doubleclick", root, (event) => {
-          event?.stopPropagation?.();
-          if (mode !== "spacing" && Date.now() >= suppressUntil) lock(mode);
-        });
-      }
+      addButton("spacing", "", 0, 28);
+      for (const [index, [mode, title]] of [["type", "\\u7C7B\\u578B"], ["suit", "\\u82B1\\u8272"], ["number", "\\u70B9\\u6570"]].entries()) addButton(mode, title, 28 + index * 36, 36);
       hint = new laya.Text();
       hint.font = "Microsoft YaHei";
       hint.fontSize = 12;
@@ -11920,22 +11973,46 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       }, 50);
     });
     scope.listen(window, "blur", () => endDrag());
+    function clearFocus() {
+      const stage = (window.Laya ?? window.laya)?.stage;
+      if (stage && buttons.some((item) => item.sprite === stage.focus)) stage.focus = null;
+    }
     scope.listen(window, "keydown", (event) => {
-      const laya = window.Laya ?? window.laya, button = buttons.find((item) => item.mode === "spacing");
-      if (!root?.visible || !button || laya?.stage?.focus !== button.sprite || !["Enter", " "].includes(event.key) || event.repeat) return;
-      event.preventDefault();
-      button.sprite.event("click", { stopPropagation() {
-      } });
+      const target = event.composedPath?.()[0] ?? event.target;
+      if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey || target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target?.tagName || "")) return;
+      const stage = (window.Laya ?? window.laya)?.stage;
+      const index = buttons.findIndex((item) => item.sprite === stage?.focus);
+      if (!root?.visible || index < 0 || event.repeat) return;
+      if (["Enter", " "].includes(event.key)) {
+        event.preventDefault();
+        buttons[index].sprite.event("click", { stopPropagation() {
+        } });
+      } else if (["ArrowLeft", "ArrowRight"].includes(event.key)) {
+        event.preventDefault();
+        const step = event.key === "ArrowLeft" ? -1 : 1;
+        stage.focus = buttons[(index + step + buttons.length) % buttons.length].sprite;
+        paint();
+      }
     });
     return {
-      update(nextContainer, mode) {
+      update(nextContainer, mode, nextAutoMode = null) {
         if (!nextContainer?.parent || typeof nextContainer.addChild !== "function") return false;
         try {
           if ((!root || root.destroyed) && !create()) return false;
           container = nextContainer;
           if (root.parent !== container) container.addChild(root);
           locked = mode;
+          autoMode = nextAutoMode;
           root.visible = true;
+          const auto = buttons.find((item) => item.mode === "auto-play");
+          if (autoMode && !auto) addButton("auto-play", "", SORT_WIDTH, AUTO_WIDTH);
+          if (!autoMode && auto) {
+            const stage = (window.Laya ?? window.laya)?.stage;
+            if (stage?.focus === auto.sprite) stage.focus = null;
+            auto.sprite.destroy(true);
+            buttons.pop();
+          }
+          root.size(SORT_WIDTH + (autoMode ? AUTO_WIDTH : 0), HEIGHT);
           if (!place()) return false;
           paint();
           return true;
@@ -11952,10 +12029,12 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       },
       hide() {
         endDrag(false);
+        clearFocus();
         if (root && !root.destroyed) root.visible = false;
       },
       dispose() {
         endDrag(false);
+        clearFocus();
         releaseStageEvents?.();
         releaseStageEvents = null;
         releaseTheme?.();
@@ -11967,8 +12046,228 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     };
   }
 
+  // src/shared/info-runtime.js
+  var read2 = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return void 0;
+    }
+  };
+
+  // src/shared/shanhe-scenes.js
+  var SHANHE_MAP_SCENES = /* @__PURE__ */ new Set(["RogueLikeBigMapScene", "RogueSmallMapScene"]);
+  var SHANHE_BATTLE_SCENE = "RogueLikeGameScene";
+
+  // src/plugins/cards/shanhe-auto-play.js
+  var DUEL = 8;
+  var WATCHED_TRICKS = [[DUEL, "\\u51B3\\u6597"], [9, "\\u5357\\u86EE\\u5165\\u4FB5"], [10, "\\u4E07\\u7BAD\\u9F50\\u53D1"]];
+  var TRICKS = WATCHED_TRICKS.map(([id]) => id);
+  var SLASH = [1, 11111, 11112, 11114];
+  var ALL_CARDS = [...TRICKS, ...SLASH];
+  var WATCHED_HAND = [...WATCHED_TRICKS, [1, "\\u6740"]];
+  var YIN_YANG_TACTIC = 2190;
+  var YIN_YANG_SKILL = 13178;
+  var DEAL_PROMPT = "\\u51FA\\u724C\\u9636\\u6BB5\\uFF0C\\u8BF7\\u9009\\u62E9\\u4E00\\u5F20\\u5361\\u724C";
+  var isAccountId = (id) => /^[1-9]\\d*$/.test(String(id));
+  var sceneName = (scene) => scene && !scene.destroyed ? scene.SceneName || scene.sceneName || scene.name || "" : "";
+  function visible(node) {
+    if (!node) return false;
+    for (let parent = node; parent; parent = parent.parent) {
+      if (parent.destroyed || parent.visible === false || parent.alpha === 0) return false;
+    }
+    return true;
+  }
+  function cardSkill(card2) {
+    if (!(Number(card2?.CardId) > 0) || card2.IsVirtualCard || card2.Equipped) return 0;
+    const skill = Number(card2.FirstSkillId ?? card2.FirstSkill?.ID);
+    const base = Number(card2.FirstIndexSkillID ?? skill);
+    return base === skill || SLASH.includes(base) && SLASH.includes(skill) ? skill : 0;
+  }
+  function watchedHand(self) {
+    const counts = Object.fromEntries(WATCHED_HAND.map(([id]) => [id, 0]));
+    const models = read2(() => self.seat.HandCards);
+    let cards = models;
+    if (!Array.isArray(models)) {
+      const uis = read2(() => self.cardContainer.cardUis);
+      if (!Array.isArray(uis)) return null;
+      cards = uis.filter((ui) => !ui?.destroyed).map((ui) => ui?.Card);
+    }
+    const expected = read2(() => self.seat.HandCardCount);
+    const seen = /* @__PURE__ */ new Set();
+    let complete = Array.isArray(models) || Number.isInteger(expected);
+    for (const card2 of cards) {
+      if (card2?.IsVirtualCard || card2?.Equipped) continue;
+      const id = Number(card2?.CardId);
+      if (!Number.isInteger(id) || id <= 0) {
+        complete = false;
+        continue;
+      }
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const base = Number(read2(() => card2.FirstIndexSkillID ?? card2.FirstSkillId ?? card2.FirstSkill?.ID));
+      if (!(base > 0)) {
+        complete = false;
+        continue;
+      }
+      const key = SLASH.includes(base) ? 1 : base;
+      if (Object.hasOwn(counts, key)) counts[key]++;
+    }
+    if (Number.isInteger(expected) && seen.size > expected) return null;
+    if (Number.isInteger(expected) && seen.size < expected) complete = false;
+    return { counts, complete };
+  }
+  function button(bar, name) {
+    return bar.getButton?.(name) ?? bar.btns?.find((item) => item?.name === name);
+  }
+  function enabled(node) {
+    return (node?.enabled ?? node?._enabled) === true && node.disabled !== true;
+  }
+  function ordinaryPlay(self, hand, selection, bar) {
+    if (!visible(hand) || !visible(bar) || (hand.AreChoosingCard ?? hand.areChoosingCard) !== true || selection?.Purpose !== "deal" || Number(selection.SpecifySkillId ?? 0) !== 0 || Number(selection.Skill?.ID ?? selection.Skill?.SkillId ?? 0) !== 0) return false;
+    const prompt = String(selection.Message ?? selection.message ?? "").replace(/<[^>]*>|\\s/g, "");
+    const ordinaryPrompt = prompt === DEAL_PROMPT;
+    const end = button(bar, "btnDiscard");
+    const callback = selection.SelectResultCallback ?? selection.selectResultCallback;
+    const ownPlay = typeof self.PlayCard_Result === "function" && callback === self.PlayCard_Result;
+    return ownPlay || ordinaryPrompt && enabled(end) && Number(selection.CardSelector?.SelectCountMax) === 1;
+  }
+  function yinYangEquipped(self, seat4) {
+    const ids2 = read2(() => seat4.GetAllZhanfaIds());
+    const items = read2(() => self.zhanFaItems);
+    const hasIds = Array.isArray(ids2), hasItems = Array.isArray(items);
+    if (hasIds && ids2.some((id) => Number(id) === YIN_YANG_TACTIC) || hasItems && items.some((item) => item && !item.destroyed && (Number(item.PlotID) === YIN_YANG_TACTIC || Number(item.SkillId) === YIN_YANG_SKILL)) || read2(() => seat4.HasSkill(YIN_YANG_SKILL)) === true) return true;
+    return hasIds && ids2.every((id) => Number(id) > 0) ? false : null;
+  }
+  function viewing(scene) {
+    if (scene?.IsReplay || scene?.isReplay || scene?.replayBar && !scene.replayBar.destroyed) return "\\u56DE\\u653E\\u4E2D";
+    return scene?.IsViewer ? "\\u65C1\\u89C2\\u4E2D" : "";
+  }
+  function createShanheAutoPlay(ctx) {
+    const { game, settings } = ctx;
+    let battle = null;
+    function sync(scene, self, state) {
+      const seat4 = self?.seat;
+      if (sceneName(scene) !== SHANHE_BATTLE_SCENE || !state?.active || state.pending?.roundPassed || viewing(scene) || self?.destroyed || seat4?.IsSelf !== true) {
+        battle = null;
+        return null;
+      }
+      const playerId = seat4.PlayerInfo?.ClientId;
+      const accountId = String(isAccountId(playerId) ? playerId : read2(() => game.getSelf().ClientId) ?? "");
+      if (battle?.scene !== scene || battle.self !== self || battle.seat !== seat4 || battle.accountId !== accountId || battle.sessionId !== state.sessionId || battle.deckStartSeq !== state.deckStartSeq) {
+        const key = isAccountId(accountId) ? \`shanheAutoPlay:\${accountId}\` : null;
+        const mode = key && settings.get(key, false) === true ? "remembered" : "off";
+        battle = { scene, self, seat: seat4, accountId, sessionId: state.sessionId, deckStartSeq: state.deckStartSeq, key, mode, submitted: null };
+      }
+      return battle.mode;
+    }
+    function toggle(remember) {
+      const scene = game.getScene();
+      const self = game.getSelfSeatUI?.() ?? scene?.SelfSeatUi;
+      if (!sync(scene, self, ctx.getState()) || ctx.scope.signal.aborted) return null;
+      if (remember && !battle.key) {
+        ctx.notify?.("\\u5F53\\u524D\\u8D26\\u53F7\\u5C1A\\u672A\\u8BC6\\u522B\\uFF0C\\u6682\\u65F6\\u65E0\\u6CD5\\u8BB0\\u4F4F\\u81EA\\u52A8\\u6253\\u724C");
+        return battle.mode;
+      }
+      try {
+        if (remember || battle.mode === "remembered") settings.set(battle.key, remember);
+      } catch (error) {
+        battle.mode = "off";
+        ctx.reportError?.(error);
+        return battle.mode;
+      }
+      battle.mode = remember ? "remembered" : battle.mode === "off" ? "on" : "off";
+      return battle.mode;
+    }
+    function nextPlay(state, yinYang) {
+      const { self, seat: seat4, submitted } = battle;
+      if (state.connected === false) return { message: "\\u7B49\\u5F85\\u91CD\\u65B0\\u8FDE\\u63A5" };
+      if (seat4.IsDead) return { message: "\\u672C\\u4EBA\\u5DF2\\u9635\\u4EA1" };
+      if (seat4.IsAiControl) return { message: "\\u6E38\\u620F\\u6258\\u7BA1\\u4E2D" };
+      if (seat4.InActiveState !== true) return { message: "\\u7B49\\u5F85\\u672C\\u4EBA\\u56DE\\u5408" };
+      if (self.selectedSkillItem || visible(self.spellSelector)) return { message: "\\u7B49\\u5F85\\u6280\\u80FD\\u7ED3\\u7B97" };
+      const hand = self.cardContainer, selection = hand?.SelectContext ?? hand?.selectCardContext;
+      const bar = self.getButtonBar?.() ?? self.Pt ?? self.buttonBar;
+      if (!bar) return { message: "\\u7B49\\u5F85\\u6E38\\u620F\\u64CD\\u4F5C\\u680F" };
+      if (!ordinaryPlay(self, hand, selection, bar)) return { message: "\\u7B49\\u5F85\\u666E\\u901A\\u51FA\\u724C" };
+      const cards = hand.cardUis, selector = selection.CardSelector;
+      if (!Array.isArray(cards) || !selector || selector.TurnCard) return { message: "\\u7B49\\u5F85\\u666E\\u901A\\u9009\\u724C" };
+      if (submitted) {
+        if (selection === submitted.selection || state.turn === submitted.turn && cards.some((ui) => ui?.Card?.CardId === submitted.cardId)) return { message: "\\u7B49\\u5F85\\u51FA\\u724C\\u7ED3\\u7B97" };
+      }
+      if (yinYang === null) return { message: "\\u7B49\\u5F85\\u8BC6\\u522B\\u9634\\u9633\\u6218\\u6CD5" };
+      const allowed2 = yinYang ? ALL_CARDS : SLASH;
+      const selected = selector.FirstSelectedCard;
+      if (!selected) {
+        if (selector.SelectedCount !== 0 || self.SelectSeatContext || typeof hand.CardUI_Click !== "function") return { message: "\\u7B49\\u5F85\\u5F53\\u524D\\u9009\\u62E9\\u7ED3\\u675F" };
+        const usable = cards.filter((ui) => ui?.Activated === true && ui.Visible !== false && !ui.destroyed && !ui.Card?.Selected);
+        let next;
+        if (yinYang) {
+          for (const id of TRICKS) {
+            next = usable.find((ui) => cardSkill(ui.Card) === id);
+            if (next) break;
+          }
+        }
+        next ??= usable.find((ui) => SLASH.includes(cardSkill(ui.Card)));
+        return next ? { message: "\\u51C6\\u5907\\u9009\\u724C", hand, next } : { message: yinYang ? "\\u6CA1\\u6709\\u53EF\\u51FA\\u7684\\u6307\\u5B9A\\u724C" : "\\u6CA1\\u6709\\u53EF\\u51FA\\u7684\\u6740" };
+      }
+      const skill = cardSkill(selected);
+      if (selector.SelectedCount !== 1 || !allowed2.includes(skill) || !cards.some((ui) => ui && !ui.destroyed && ui.Card === selected)) return { message: "\\u7B49\\u5F85\\u624B\\u52A8\\u64CD\\u4F5C" };
+      if (skill === DUEL || SLASH.includes(skill)) {
+        const target = self.SelectSeatContext;
+        if (target?.Card !== selected || target.SelectComplete !== true || !(target.TargetSelector?.SelectedSeatCount > 0)) return { message: "\\u7B49\\u5F85\\u9009\\u62E9\\u76EE\\u6807" };
+      }
+      const confirm = button(bar, "btnOK");
+      if (!visible(confirm) || !enabled(confirm) || typeof confirm.onClick !== "function") return { message: "\\u7B49\\u5F85\\u786E\\u8BA4\\u6309\\u94AE\\u53EF\\u7528" };
+      return { message: "\\u51C6\\u5907\\u786E\\u8BA4\\u51FA\\u724C", confirm, selection, cardId: selected.CardId };
+    }
+    function update({ scene, self, state, toolbarReady, execute, listeners }) {
+      const on = battle && battle.mode !== "off";
+      if (ctx.scope.signal.aborted || !listeners.size && !(on && execute && toolbarReady)) return;
+      const name = sceneName(scene);
+      const map = SHANHE_MAP_SCENES.has(name);
+      const shanhe = name === SHANHE_BATTLE_SCENE;
+      const view = viewing(scene);
+      const personal = state.active && !map && name && !view && !state.pending?.roundPassed && state.connected !== false && self && !self.destroyed && self.seat?.IsSelf === true;
+      const yinYang = personal ? yinYangEquipped(self, self.seat) : null;
+      let plan = on && toolbarReady ? nextPlay(state, yinYang) : null;
+      if (execute && (plan?.next || plan?.confirm) && ctx.playActions?.runPriority(scene, self)) {
+        plan = { message: "\\u7B49\\u5F85\\u6280\\u80FD\\u7ED3\\u7B97" };
+      }
+      if (listeners.size) {
+        let mode;
+        if (view) mode = view;
+        else if (map) mode = "\\u7B49\\u5F85\\u8FDB\\u5165\\u5BF9\\u5C40";
+        else if (!name) mode = "\\u7B49\\u5F85\\u573A\\u666F";
+        else if (!shanhe) mode = "\\u4EC5\\u9650\\u5C71\\u6CB3\\u56FE\\u5BF9\\u5C40";
+        else if (state.pending?.roundPassed || !state.active && state.lastEvent === "MsgGameOver") mode = "\\u672C\\u5C40\\u5DF2\\u7ED3\\u675F";
+        else if (!state.active) mode = "\\u7B49\\u5F85\\u724C\\u5C40\\u540C\\u6B65";
+        else if (!battle) mode = "\\u7B49\\u5F85\\u672C\\u4EBA\\u5EA7\\u4F4D";
+        else mode = { off: "\\u5DF2\\u5173\\u95ED", on: "\\u672C\\u5C40\\u5F00\\u542F", remembered: "\\u5DF2\\u8BB0\\u4F4F" }[battle.mode];
+        const status = map || shanhe || state.active ? {
+          scene: map ? "\\u5C71\\u6CB3\\u56FE\\u5730\\u56FE" : shanhe ? "\\u5C71\\u6CB3\\u56FE\\u5BF9\\u5C40" : name && self ? "\\u5176\\u4ED6\\u5BF9\\u5C40" : "\\u5F85\\u8BC6\\u522B",
+          yinYang: map ? "\\u2014" : yinYang === null ? "\\u5F85\\u8BC6\\u522B" : yinYang ? "\\u5DF2\\u88C5\\u5907" : "\\u672A\\u88C5\\u5907",
+          mode,
+          step: on ? plan?.message || (settings.get("handSort", true) ? "\\u7B49\\u5F85\\u624B\\u724C\\u64CD\\u4F5C\\u680F" : "\\u6269\\u5C55\\u7406\\u724C\\u5DF2\\u5173\\u95ED") : "",
+          handApplicable: !map && !view,
+          hand: personal ? watchedHand(self) : null
+        } : null;
+        for (const listener of listeners) listener(status);
+      }
+      if (!execute || !plan) return;
+      if (plan.next) {
+        battle.submitted = null;
+        plan.hand.CardUI_Click({ CardUi: plan.next, Card: plan.next.Card });
+      } else if (plan.confirm) {
+        battle.submitted = { selection: plan.selection, cardId: plan.cardId, turn: state.turn };
+        plan.confirm.onClick();
+      }
+    }
+    return { sync, toggle, update };
+  }
+
   // src/plugins/cards/countdowns.js
-  function visible(node, stage) {
+  function visible2(node, stage) {
     const seen = /* @__PURE__ */ new Set();
     for (let current = node; current; current = current.parent) {
       if (seen.has(current) || seen.size >= 64 || current.destroyed || current.visible === false || current._visible === false || current.alpha === 0 || current.scaleX === 0 || current.scaleY === 0) return false;
@@ -11995,8 +12294,8 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     return {
       clear,
       dispose: clear,
-      update(seats, enabled) {
-        if (!enabled) {
+      update(seats, enabled2) {
+        if (!enabled2) {
           clear();
           return;
         }
@@ -12008,14 +12307,14 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         const queue = [...laya?.stage?._children || []], visited = /* @__PURE__ */ new Set();
         for (let i = 0; i < queue.length && i < 512; i++) {
           const owner = queue[i];
-          if (!owner || visited.has(owner) || !visible(owner, laya.stage) || owner.layerOrder === 2 || owner.LayerOrder === 2) continue;
+          if (!owner || visited.has(owner) || !visible2(owner, laya.stage) || owner.layerOrder === 2 || owner.LayerOrder === 2) continue;
           visited.add(owner);
           if (owner.countdownTimer?.parent) timers.add(owner.countdownTimer);
           if (Array.isArray(owner._children)) queue.push(...owner._children);
         }
         const active = /* @__PURE__ */ new Set();
         for (const timer of timers) {
-          if (!visible(timer, laya?.stage) || !timer.countTween || !Number.isFinite(timer.width) || timer.width <= 0 || !Number.isFinite(timer.height) || timer.height <= 0) continue;
+          if (!visible2(timer, laya?.stage) || !timer.countTween || !Number.isFinite(timer.width) || timer.width <= 0 || !Number.isFinite(timer.height) || timer.height <= 0) continue;
           const remaining = Number(timer.RemainValue);
           if (!Number.isFinite(remaining) || remaining <= 0) continue;
           const text = String(Math.ceil(remaining));
@@ -12086,13 +12385,13 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       if (used === 0 || used === 1 && value >= 2) round = 1;
     }
     const candidates = [];
-    for (const [kind, limit, read2] of [
+    for (const [kind, limit, read3] of [
       ["round", round, () => id === 3090 ? observed() : skill.GetSkillUseCountInRound?.()],
       ["game", skill.TimeLimitGame, () => seat4.GetSkillUseCountInGame?.(id)]
     ]) {
       if (count2(limit) && limit > 1) seen.add(kind);
       if (!seen.has(kind)) continue;
-      const value = result(limit, read2());
+      const value = result(limit, read3());
       if (value.remaining === null) return value;
       candidates.push(value.remaining);
     }
@@ -12115,8 +12414,8 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       seen.clear();
       owner = seat4 = session = null;
     }
-    return { clear, dispose: clear, update(self, state, enabled) {
-      if (!enabled || !state.active || !self?.seat || self.destroyed) {
+    return { clear, dispose: clear, update(self, state, enabled2) {
+      if (!enabled2 || !state.active || !self?.seat || self.destroyed) {
         clear();
         return;
       }
@@ -12447,9 +12746,9 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     }
   }
   function sortHand(game, mode, { automatic = false } = {}) {
-    const self = ownUi(game), container = self?.cardContainer, button = self?.sortCardBtn;
+    const self = ownUi(game), container = self?.cardContainer, button2 = self?.sortCardBtn;
     if (!container || !Array.isArray(container.cardUis)) return false;
-    if (button?.enabled === false || button?._enabled === false || button?.disabled === true) return false;
+    if (button2?.enabled === false || button2?._enabled === false || button2?.disabled === true) return false;
     if (automatic && self?.seat?.HasSkill?.(SORT_INHIBITOR_SKILL)) return false;
     const cards = container.cardUis;
     const selected = new Map(cards.map((ui) => [ui, ui.selected ?? ui.Selected]));
@@ -12504,7 +12803,13 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     }
     return true;
   }
-  function nativeAnchor(window, target, x = 0, y = 0) {
+  function canvasBounds(window, laya) {
+    const rendered = laya?.Render?.canvas;
+    const source = rendered?.source ?? rendered;
+    const canvas = typeof source?.getBoundingClientRect === "function" ? source : window.document.getElementById("layaCanvas") ?? window.document.querySelector("canvas");
+    return canvas?.getBoundingClientRect?.();
+  }
+  function nativeAnchor(window, target, x = 0, y = 0, bounds = canvasBounds) {
     if (!target || target.destroyed || target.visible === false || target._visible === false || typeof target.localToGlobal !== "function") return null;
     try {
       const ancestors = /* @__PURE__ */ new Set();
@@ -12516,10 +12821,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       const point = laya?.Point ? new laya.Point(x, y) : { x, y };
       const global = target.localToGlobal(point, true) ?? point;
       const stage = laya?.stage;
-      const rendered = laya?.Render?.canvas;
-      const source = rendered?.source ?? rendered;
-      const canvas = typeof source?.getBoundingClientRect === "function" ? source : window.document.getElementById("layaCanvas") ?? window.document.querySelector("canvas");
-      const rect = canvas?.getBoundingClientRect?.();
+      const rect = bounds(window, laya);
       if (!rect?.width || !rect?.height || !Number.isFinite(global.x) || !Number.isFinite(global.y)) return null;
       const width = Number(stage?.width) || rect.width, height = Number(stage?.height) || rect.height;
       return { x: rect.left + global.x * rect.width / width, y: rect.top + global.y * rect.height / height };
@@ -12527,7 +12829,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       return null;
     }
   }
-  function seatRevealAnchor(window, ui) {
+  function seatRevealAnchor(window, ui, bounds) {
     if (!ui || ui.destroyed || ui.visible === false || ui._visible === false) return null;
     try {
       const avatar = ui.seatAvatar ?? ui.SeatAvatar;
@@ -12537,11 +12839,11 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         if (avatar.parent === null || avatar.displayedInStage === false || !Number.isFinite(height) || height <= 0 || clip && !(clip.width > 0)) return null;
         const x = Number.isFinite(clip?.x) ? clip.x : 0;
         const y = Number.isFinite(clip?.y) ? clip.y : 0;
-        return nativeAnchor(window, avatar, x, y + height);
+        return nativeAnchor(window, avatar, x, y + height, bounds);
       }
       const { seatBaseSprite, seatX, seatY, ScaledHeight } = ui;
       if (seatBaseSprite && [seatX, seatY, ScaledHeight].every(Number.isFinite) && ScaledHeight > 0) {
-        return nativeAnchor(window, seatBaseSprite, seatX, seatY + ScaledHeight);
+        return nativeAnchor(window, seatBaseSprite, seatX, seatY + ScaledHeight, bounds);
       }
       return null;
     } catch {
@@ -12569,7 +12871,8 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     try {
       const container = self?.cardContainer, rect = container?.HandCardRect;
       if (!container?.parent || !Number.isFinite(rect?.x) || !Number.isFinite(container.NORMAL_Y)) return null;
-      return nativeAnchor(window, container, rect.x + 70, container.NORMAL_Y - 48);
+      const { x, y } = sortControlsOrigin(container);
+      return nativeAnchor(window, container, x, y);
     } catch {
       return null;
     }
@@ -12585,7 +12888,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       return null;
     }
   }
-  function revealWindowClip(window, game) {
+  function revealWindowClip(window, game, bounds) {
     const classes = ["CheckSeatCardWindow", "SelectCardWindow"].flatMap((name) => {
       try {
         const type = game?.getClass?.(name);
@@ -12620,7 +12923,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
           try {
             const b = panel.scrollRect ?? { x: 0, y: 0, width: panel.width, height: panel.height };
             if (!(b.width > 0 && b.height > 0)) continue;
-            const points = [[b.x, b.y], [b.x + b.width, b.y], [b.x + b.width, b.y + b.height], [b.x, b.y + b.height]].map(([x2, y2]) => nativeAnchor(window, panel, x2, y2));
+            const points = [[b.x, b.y], [b.x + b.width, b.y], [b.x + b.width, b.y + b.height], [b.x, b.y + b.height]].map(([x2, y2]) => nativeAnchor(window, panel, x2, y2, bounds));
             if (points.some((p) => !p)) continue;
             const x = Math.min(...points.map((p) => p.x)), right = Math.max(...points.map((p) => p.x));
             const y = Math.min(...points.map((p) => p.y)), bottom = Math.max(...points.map((p) => p.y));
@@ -12639,7 +12942,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     const path = regions.map((r) => "M" + r.x + " " + r.y + "H" + r.right + "V" + r.bottom + "H" + r.x + "Z").join("") || "M0 0Z";
     return 'path("' + path + '")';
   }
-  function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings) {
+  function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings, playStatusListeners = /* @__PURE__ */ new Set()) {
     const { document, window, game, scope, settings } = ctx;
     const node = (tag, className, text) => {
       const element = document.createElement(tag);
@@ -12655,7 +12958,10 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     overlay.append(seatLayer, labelLayer);
     let ownedButton = null, original = null, previousSignature = "", lockedMode = settings.get("lockedSort", null);
     let disposed = false, restoreSelectionWindow = null, patchedSelectionPrototype = null;
+    let lastScene;
+    const autoPlay = createShanheAutoPlay(ctx);
     const sortControls = createSortControls(ctx, {
+      toggleAutoPlay: autoPlay.toggle,
       sort(mode) {
         if (!sortHand(game, mode)) ctx.notify?.("\\u5F53\\u524D\\u624B\\u724C\\u6682\\u4E0D\\u80FD\\u6574\\u7406");
       },
@@ -12709,15 +13015,26 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         return originalMethod.call(this, cards.map((item) => order.has(item?.CardId) ? local[index++] : item), ...args);
       });
     }
-    function update() {
+    function update(allowAutoPlay = false) {
       if (disposed) return;
       const state = ctx.getState();
       if (!state) return;
+      if (state.active || playStatusListeners.size && lastScene === void 0) {
+        try {
+          lastScene = game.getScene?.() ?? null;
+        } catch {
+          lastScene = null;
+        }
+      }
+      const scene = lastScene;
+      const self = state.active && scene ? scene.SelfSeatUi ?? scene.selfSeatUI ?? ownUi(game) : null;
+      const autoPlayMode = autoPlay.sync(scene, self, state);
+      const checkPlay = (toolbarReady) => autoPlay.update({ scene, self, state, toolbarReady, execute: allowAutoPlay, listeners: playStatusListeners });
       const revealBoxes = new Map([...seatLayer.children].map((box) => [box.dataset.seatId, box]));
       const visibleReveals = /* @__PURE__ */ new Set();
-      labelLayer.replaceChildren();
       if (!state.active) {
         seatLayer.replaceChildren();
+        labelLayer.replaceChildren();
         seatLayer.style.clipPath = "";
         countdowns.clear();
         skillCounts.clear();
@@ -12727,68 +13044,111 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         restoreSelectionWindow?.();
         restoreSelectionWindow = null;
         patchedSelectionPrototype = null;
+        checkPlay(false);
         return;
       }
-      const clip = revealWindowClip(window, game);
-      if (seatLayer.style.clipPath !== clip) seatLayer.style.clipPath = clip;
-      const self = ownUi(game);
-      skillCounts.update(self, state, settings.get("skillCounts", true));
       let seats = [];
       try {
         seats = game.getSeatUIs?.() ?? game.getScene?.()?.seatContainer?.seatUIs ?? [];
       } catch {
       }
       if (!Array.isArray(seats)) seats = [];
+      const revealWrites = [];
+      let revealClip = "";
       if (settings.get("reveals", true)) {
+        let rect;
+        let measured = false;
+        const bounds = (win, laya) => {
+          if (!measured) {
+            rect = canvasBounds(win, laya);
+            measured = true;
+          }
+          return rect;
+        };
+        const anchors = /* @__PURE__ */ new Map();
+        const anchorFor = (ui) => {
+          if (!anchors.has(ui)) anchors.set(ui, seatRevealAnchor(window, ui, bounds));
+          return anchors.get(ui);
+        };
+        const { innerWidth, innerHeight } = window;
+        const fourColors = settings.get("fourColors", false);
+        const describe = (id) => {
+          const { locations, tags } = state.cards[id];
+          return [id, tags, locations.map((location) => {
+            const owner = Number(location.split(":")[1]);
+            return [location, owner < 255 ? seatLabel(state, owner) : null];
+          })];
+        };
         seats.forEach((ui) => {
           const seatId = nativeSeatId(ui);
           if (!nativeSeatOccupied(ui) || seatId === void 0 || seatId === state.selfSeatId || ui === self || nativeSeat(ui)?.IsDead || nativeSeat(ui)?.isDead || state.seats[seatId]?.dead) return;
           const known = cardsInZone(state, zoneKey(5, seatId));
           const possible = observedHandCandidates(state, seatId);
           if (!known.length && !possible.length) return;
-          const anchor2 = seatRevealAnchor(window, ui);
+          const anchor2 = anchorFor(ui);
           if (!anchor2) return;
-          const box = revealBoxes.get(String(seatId)) ?? node("div", "sgs-card-seat-reveal");
-          visibleReveals.add(box);
-          box.dataset.seatId = String(seatId);
-          box.setAttribute("aria-label", \`\${seatLabel(state, seatId)}\\u624B\\u724C\\uFF1A\\u786E\\u5B9A\\u6709 \${known.length} \\u5F20\\uFF0C\\u53EF\\u80FD\\u6709 \${possible.length} \\u5F20\`);
-          const signature2 = JSON.stringify([known, possible, settings.get("fourColors", false), state.lastSeq]);
-          if (box.dataset.cards !== signature2) {
-            box.replaceChildren();
-            known.forEach((id) => box.append(makeCard(id, false, true, true)));
-            possible.forEach((id) => box.append(makeCard(id, true, true, true)));
-            box.dataset.cards = signature2;
-          }
-          box.tabIndex = 0;
-          position(box, anchor2);
           const avatar = ui.seatAvatar ?? ui.SeatAvatar;
-          const clip2 = avatar?.scrollRect;
-          const top = avatar && nativeAnchor(window, avatar, Number(clip2?.x) || 0, Number(clip2?.y) || 0);
+          const clip = avatar?.scrollRect;
+          const top = avatar && nativeAnchor(window, avatar, Number(clip?.x) || 0, Number(clip?.y) || 0, bounds);
           const scale = Math.min(1, top && anchor2.y > top.y ? (anchor2.y - top.y) / 172 : 1);
-          box.style.setProperty("--sgs-reveal-scale", String(scale));
           const left = Math.max(0, anchor2.x - 20 * scale);
           const right = avatar && nativeAnchor(
             window,
             avatar,
-            (Number(clip2?.x) || 0) + Number(clip2?.width ?? avatar.width),
-            (Number(clip2?.y) || 0) + Number(clip2?.height ?? avatar.height)
+            (Number(clip?.x) || 0) + Number(clip?.width ?? avatar.width),
+            (Number(clip?.y) || 0) + Number(clip?.height ?? avatar.height),
+            bounds
           );
-          let available = window.innerWidth - left - 4;
+          let available = innerWidth - left - 4;
           if (right && right.x > anchor2.x) available = Math.min(available, right.x - anchor2.x + 40 * scale);
           for (const other of seats) {
             if (other === ui || !nativeSeatOccupied(other)) continue;
-            const next = seatRevealAnchor(window, other);
+            const next = anchorFor(other);
             if (next && next.x > anchor2.x && Math.abs(next.y - anchor2.y) < 54 * scale)
               available = Math.min(available, next.x - anchor2.x - 4);
           }
           const revealWidth = Math.max(1, Math.min(344 * scale, available, ((known.length + possible.length) * 42 - 2) * scale));
-          box.style.width = revealWidth + "px";
-          box.style.left = Math.max(0, Math.min(window.innerWidth - revealWidth - 4, left)) + "px";
-          box.style.maxHeight = Math.max(0, Math.min(139 * scale, window.innerHeight - anchor2.y - 4)) + "px";
-          if (box.parentNode !== seatLayer) seatLayer.append(box);
+          revealWrites.push(() => {
+            const key = String(seatId);
+            const box = revealBoxes.get(key) ?? node("div", "sgs-card-seat-reveal");
+            visibleReveals.add(box);
+            if (!box.parentNode) {
+              box.dataset.seatId = key;
+              box.tabIndex = 0;
+            }
+            const label = \`\${seatLabel(state, seatId)}\\u624B\\u724C\\uFF1A\\u786E\\u5B9A\\u6709 \${known.length} \\u5F20\\uFF0C\\u53EF\\u80FD\\u6709 \${possible.length} \\u5F20\`;
+            if (box.getAttribute("aria-label") !== label) box.setAttribute("aria-label", label);
+            const signature2 = JSON.stringify([state.sessionId, fourColors, known.map(describe), possible.map(describe)]);
+            if (box.dataset.cards !== signature2) {
+              box.replaceChildren(
+                ...known.map((id) => makeCard(id, false, true, true)),
+                ...possible.map((id) => makeCard(id, true, true, true))
+              );
+              box.dataset.cards = signature2;
+            }
+            const revealScale = String(scale);
+            if (box.style.getPropertyValue("--sgs-reveal-scale") !== revealScale) box.style.setProperty("--sgs-reveal-scale", revealScale);
+            const layout = {
+              width: revealWidth,
+              left: Math.max(0, Math.min(innerWidth - revealWidth - 4, left)),
+              top: Math.max(0, Math.min(innerHeight - 24, anchor2.y)),
+              // Two full rows plus half of the third hint at the scrollable content.
+              maxHeight: Math.max(0, Math.min(139 * scale, innerHeight - anchor2.y - 4))
+            };
+            for (const [property, pixels] of Object.entries(layout)) {
+              const value = pixels + "px";
+              if (box.style[property] !== value) box.style[property] = value;
+            }
+            if (!box.parentNode) seatLayer.append(box);
+          });
         });
+        if (revealWrites.length) revealClip = revealWindowClip(window, game, bounds);
       }
+      if (seatLayer.style.clipPath !== revealClip) seatLayer.style.clipPath = revealClip;
+      revealWrites.forEach((write) => write());
       for (const box of revealBoxes.values()) if (!visibleReveals.has(box)) box.remove();
+      labelLayer.replaceChildren();
+      skillCounts.update(self, state, settings.get("skillCounts", true));
       if (settings.get("labels", true)) {
         for (const ui of self?.cardContainer?.cardUis || []) {
           const id = ui.Card?.CardId ?? ui.Card?.cardId;
@@ -12807,28 +13167,37 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       countdowns.update([...new Set([self, ...seats].filter(Boolean))], settings.get("countdown", true));
       updateSelectionOrder();
       handGrouping.update(settings.get("handSort", true) ? self?.cardContainer : null);
-      const button = self?.sortCardBtn;
+      const button2 = self?.sortCardBtn;
       const anchor = settings.get("handSort", true) ? handSortAnchor(window, self) : null;
-      if (!anchor || !button || button.enabled === false || button._enabled === false || button.disabled === true || !sortControls.update(self.cardContainer, lockedMode)) {
+      const canReplaceSort = button2 && button2.enabled !== false && button2._enabled !== false && button2.disabled !== true;
+      if (!anchor || !canReplaceSort && !autoPlayMode || !sortControls.update(self.cardContainer, lockedMode, autoPlayMode)) {
         sortControls.hide();
         releaseOriginal();
+        checkPlay(false);
         return;
       }
-      if (button !== ownedButton) {
+      if (!canReplaceSort) releaseOriginal();
+      else if (button2 !== ownedButton) {
         releaseOriginal();
-        ownedButton = button;
-        original = { alpha: button.alpha ?? 1, mouseEnabled: button.mouseEnabled ?? true };
+        ownedButton = button2;
+        original = { alpha: button2.alpha ?? 1, mouseEnabled: button2.mouseEnabled ?? true };
       }
-      button.alpha = 0;
-      button.mouseEnabled = false;
+      if (canReplaceSort) {
+        button2.alpha = 0;
+        button2.mouseEnabled = false;
+      }
       const nextSignature = signature(self.cardContainer);
       if (nextSignature !== previousSignature) {
         if (lockedMode) sortHand(game, lockedMode, { automatic: true });
         previousSignature = nextSignature;
       }
+      checkPlay(true);
     }
-    scope.interval(update, 250);
-    const sceneUnsubscribe = game.onSceneChange?.(update);
+    scope.interval(() => update(true), 250);
+    const sceneUnsubscribe = game.onSceneChange?.((scene) => {
+      lastScene = scene;
+      update();
+    });
     if (typeof sceneUnsubscribe === "function") scope.add(sceneUnsubscribe);
     update();
     return { update, dispose() {
@@ -12855,6 +13224,13 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
 .sgs-cards h3{font-size:13px;font-weight:600;letter-spacing:.06em;margin:0 0 9px;color:var(--sgs-accent,#dbba70)}
 .sgs-card-section{padding:13px 0;border-bottom:1px solid var(--sgs-border,#665b42)}.sgs-card-section:last-child{border-bottom:0}
 .sgs-card-status{font-size:11px;color:var(--sgs-muted,#b7aa8c);margin:0 0 8px}.sgs-card-status.is-partial{color:var(--sgs-accent,#dbba70)}
+.sgs-play-facts,.sgs-play-hand{margin:0;font-size:12px;font-variant-numeric:tabular-nums}
+.sgs-play-facts>div,.sgs-play-hand>div{display:flex;align-items:baseline;justify-content:space-between;gap:.5em;min-width:0}
+.sgs-play-facts dt,.sgs-play-hand dt{color:var(--sgs-muted,#b7aa8c);white-space:nowrap}
+.sgs-play-facts dd,.sgs-play-hand dd{margin:0;text-align:right;overflow-wrap:anywhere}
+.sgs-play-hand-title{font-size:11px;color:var(--sgs-muted,#b7aa8c);border-top:1px solid var(--sgs-border,#665b42);margin:7px 0 3px;padding-top:5px}
+.sgs-play-hand{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,max(8em,calc(50% - .5em))),1fr));gap:2px 1em}
+.sgs-play-hand dd.has-cards{color:var(--sgs-accent,#dbba70);font-weight:600}
 .sgs-card-muted,.sgs-card-empty{font-size:12px;color:var(--sgs-muted,#b7aa8c)}.sgs-card-empty{padding:6px 0}
 .sgs-card-grid{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.sgs-card-grid+.sgs-card-grid{margin-top:7px}
 .sgs-card-chip{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;border:1px solid var(--sgs-border,#665b42);border-radius:5px;background:var(--sgs-raised,#383327);padding:3px 6px;line-height:1.5;font-size:12px;max-width:100%}
@@ -12986,6 +13362,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
   function activate(ctx) {
     const { document, window, scope, settings } = ctx;
     const panelRefreshers = /* @__PURE__ */ new Set();
+    const playStatusListeners = /* @__PURE__ */ new Set();
     const hintRefreshers = /* @__PURE__ */ new Set();
     let disposed = false, native = null, activeHudList = null, hoverHudList = null, heldKey = null;
     let discardMode = settings.get("discardMode", "time"), recentMode = settings.get("recentMode", "player"), deckGroup = settings.get("deckGroup", "name");
@@ -13089,22 +13466,22 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     const hudButtons = {};
     hud.append(recentButton, hudActions);
     for (const [key, title, shortcut] of [["top", "\\u724C\\u5806\\u9876", "1"], ["bottom", "\\u724C\\u5806\\u5E95", "2"], ["discard", "\\u5F03\\u724C", "3"]]) {
-      const button = element("button", "", title);
-      button.type = "button";
-      button.title = \`\\u70B9\\u51FB\\u56FA\\u5B9A\\u67E5\\u770B\\uFF1B\\u6309\\u4F4F \${shortcut} \\u4E34\\u65F6\\u67E5\\u770B\`;
-      scope.listen(button, "click", () => {
+      const button2 = element("button", "", title);
+      button2.type = "button";
+      button2.title = \`\\u70B9\\u51FB\\u56FA\\u5B9A\\u67E5\\u770B\\uFF1B\\u6309\\u4F4F \${shortcut} \\u4E34\\u65F6\\u67E5\\u770B\`;
+      scope.listen(button2, "click", () => {
         heldKey = null;
         hoverHudList = null;
         activeHudList = activeHudList === key ? null : key;
         updateHud();
       });
-      scope.listen(button, "pointerenter", (event) => {
+      scope.listen(button2, "pointerenter", (event) => {
         if (event.pointerType === "touch") return;
         hoverHudList = key;
         updateHud();
       });
-      hudButtons[key] = button;
-      hudActions.append(button);
+      hudButtons[key] = button2;
+      hudActions.append(button2);
     }
     scope.listen(hud, "pointerleave", () => {
       if (hoverHudList) {
@@ -13155,7 +13532,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       if (activeHudList === "discard" ? !setting("discard") : activeHudList && !setting("deck")) activeHudList = null;
       if (hoverHudList === "discard" ? !setting("discard") : hoverHudList && !setting("deck")) hoverHudList = null;
       const shownList = activeHudList || hoverHudList;
-      for (const [key, button] of Object.entries(hudButtons)) button.setAttribute("aria-expanded", String(key === shownList));
+      for (const [key, button2] of Object.entries(hudButtons)) button2.setAttribute("aria-expanded", String(key === shownList));
       hudList.hidden = !shownList;
       if (shownList) {
         const caption = { top: "\\u724C\\u5806\\u9876 \\xB7 \\u6700\\u9876\\u5728\\u5DE6", bottom: "\\u724C\\u5806\\u5E95 \\xB7 \\u6700\\u5E95\\u5728\\u53F3", discard: \`\\u672C\\u56DE\\u5408\\u5F03\\u724C \\xB7 \${discardMode === "time" ? "\\u65B0\\u7684\\u5728\\u53F3" : { suit: "\\u82B1\\u8272\\u987A\\u5E8F", type: "\\u7C7B\\u578B\\u987A\\u5E8F", number: "\\u70B9\\u6570\\u987A\\u5E8F" }[discardMode]}\` }[shownList];
@@ -13170,15 +13547,15 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
           const controls = element("div", "sgs-card-controls sgs-segments");
           controls.setAttribute("aria-label", "\\u5F03\\u724C\\u6392\\u5E8F");
           for (const [mode, title] of [["time", "\\u65F6\\u95F4"], ["suit", "\\u82B1\\u8272"], ["type", "\\u7C7B\\u578B"], ["number", "\\u70B9\\u6570"]]) {
-            const button = element("button", discardMode === mode ? "is-active" : "", title);
-            button.type = "button";
-            button.setAttribute("aria-pressed", String(discardMode === mode));
-            button.addEventListener("click", () => {
+            const button2 = element("button", discardMode === mode ? "is-active" : "", title);
+            button2.type = "button";
+            button2.setAttribute("aria-pressed", String(discardMode === mode));
+            button2.addEventListener("click", () => {
               discardMode = mode;
               settings.set("discardMode", mode);
               updateHud();
             });
-            controls.append(button);
+            controls.append(button2);
           }
           hudList.append(controls);
         }
@@ -13281,19 +13658,55 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         root.append(wrap);
         return { wrap, body };
       }
+      const playSection = section("\\u81EA\\u52A8\\u6253\\u724C\\u5224\\u5B9A");
+      playSection.wrap.hidden = true;
+      const facts = element("dl", "sgs-play-facts"), hand = element("dl", "sgs-play-hand");
+      const handTitle = element("p", "sgs-play-hand-title", "\\u672C\\u4EBA\\u624B\\u724C");
+      hand.setAttribute("aria-label", "\\u672C\\u4EBA\\u624B\\u724C\\u5F20\\u6570");
+      hand.title = "\\u6309\\u624B\\u724C\\u539F\\u724C\\u540D\\u7EDF\\u8BA1\\uFF0C\\u542B\\u6682\\u65F6\\u4E0D\\u53EF\\u51FA\\u7684\\u724C\\u3002\\u6740\\u5305\\u542B\\u666E\\u901A\\u6740\\u3001\\u706B\\u6740\\u3001\\u96F7\\u6740\\u548C\\u51B0\\u6740\\u3002";
+      function fact(list2, title) {
+        const row = element("div"), value = element("dd");
+        row.append(element("dt", "", title), value);
+        list2.append(row);
+        return value;
+      }
+      const sceneValue = fact(facts, "\\u5F53\\u524D\\u573A\\u666F"), tactic = fact(facts, "\\u9634\\u9633\\u6218\\u6CD5");
+      const mode = fact(facts, "\\u81EA\\u52A8\\u6253\\u724C"), step = fact(facts, "\\u5F53\\u524D\\u64CD\\u4F5C");
+      const watched = WATCHED_HAND.map(([id, label]) => [id, fact(hand, label)]);
+      playSection.body.append(facts, handTitle, hand);
+      let lastPlayStatus;
+      function showPlayStatus(value) {
+        const signature2 = JSON.stringify(value);
+        if (signature2 === lastPlayStatus) return;
+        lastPlayStatus = signature2;
+        playSection.wrap.hidden = !value;
+        if (!value) return;
+        sceneValue.textContent = value.scene;
+        tactic.textContent = value.yinYang;
+        mode.textContent = value.mode;
+        step.textContent = value.step;
+        step.parentNode.hidden = !value.step;
+        for (const [id, field] of watched) {
+          const count3 = value.hand?.counts[id];
+          field.textContent = value.hand?.complete ? count3 + " \\u5F20" : count3 ? "\\u2265" + count3 + " \\u5F20" : "\\u672A\\u77E5";
+          field.classList.toggle("has-cards", count3 > 0);
+        }
+        hand.hidden = handTitle.hidden = value.handApplicable === false;
+      }
+      playStatusListeners.add(showPlayStatus);
       const compositionSection = section("\\u724C\\u5806\\u7ED3\\u6784");
       const deckSummary = element("p", "sgs-card-deck-summary"), deckControls = element("div", "sgs-card-controls sgs-segments");
       const deckGroupButtons = [];
       for (const [value, title] of [["name", "\\u724C\\u540D"], ["suit", "\\u82B1\\u8272"], ["number", "\\u70B9\\u6570"]]) {
-        const button = element("button", "", title);
-        button.type = "button";
-        button.addEventListener("click", () => {
+        const button2 = element("button", "", title);
+        button2.type = "button";
+        button2.addEventListener("click", () => {
           deckGroup = value;
           settings.set("deckGroup", value);
           refresh();
         });
-        deckGroupButtons.push([value, button]);
-        deckControls.append(button);
+        deckGroupButtons.push([value, button2]);
+        deckControls.append(button2);
       }
       const compositionTable = element("div", "sgs-card-composition-scroll");
       const compositionHint = element("p", "sgs-card-reason");
@@ -13442,9 +13855,9 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         }
         const composition = deckComposition(state, deckGroup, getMeta);
         deckSummary.textContent = composition.available ? "\\u5DF2\\u89C1 " + composition.seen + " \\xB7 \\u5F00\\u5C40 " + composition.total : "\\u5F00\\u5C40\\u724C\\u8868\\u672A\\u77E5";
-        deckGroupButtons.forEach(([value, button]) => {
-          button.classList.toggle("is-active", value === deckGroup);
-          button.setAttribute("aria-pressed", String(value === deckGroup));
+        deckGroupButtons.forEach(([value, button2]) => {
+          button2.classList.toggle("is-active", value === deckGroup);
+          button2.setAttribute("aria-pressed", String(value === deckGroup));
         });
         const compositionScrollTop = compositionTable.scrollTop;
         compositionTable.replaceChildren();
@@ -13461,11 +13874,11 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
             const tr = element("tr", [row.unseen === 0 ? "is-empty" : "", row.subgroup ? "is-subgroup" : "", pinned ? "is-pinned" : ""].filter(Boolean).join(" "));
             tr.dataset.cardCategory = key;
             const title = deckGroup === "suit" ? { 1: "\\u2665 \\u7EA2\\u6843", 2: "\\u2666 \\u65B9\\u5757", 3: "\\u2660 \\u9ED1\\u6843", 4: "\\u2663 \\u6885\\u82B1" }[row.key] || "\\u672A\\u77E5\\u82B1\\u8272" : deckGroup === "number" ? { 0: "\\u672A\\u77E5\\u70B9\\u6570", 1: "A", 11: "J", 12: "Q", 13: "K" }[row.key] || row.key : row.key;
-            const nameCell = element("td"), button = element("button", "sgs-card-category", title);
-            button.type = "button";
-            button.setAttribute("aria-label", "\\u67E5\\u770B\\u7C7B\\u522B " + title);
-            button.setAttribute("aria-expanded", String(expandedDeckRow === key));
-            nameCell.append(button);
+            const nameCell = element("td"), button2 = element("button", "sgs-card-category", title);
+            button2.type = "button";
+            button2.setAttribute("aria-label", "\\u67E5\\u770B\\u7C7B\\u522B " + title);
+            button2.setAttribute("aria-expanded", String(expandedDeckRow === key));
+            nameCell.append(button2);
             tr.addEventListener("click", () => {
               expandedDeckRow = expandedDeckRow === key ? null : key;
               update();
@@ -13529,14 +13942,16 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       }
       panelRefreshers.add(update);
       update();
+      native?.update();
       return () => {
         panelRefreshers.delete(update);
         hintRefreshers.delete(updateHints);
+        playStatusListeners.delete(showPlayStatus);
         root.remove();
       };
     }
     const unregister = ctx.ui.registerPanel({ id: "cards", title: "\\u5361\\u724C", category: "game", priority: 32768, render: renderPanel });
-    native = createNativeEnhancements(ctx, overlay, makeCard, refresh);
+    native = createNativeEnhancements(ctx, overlay, makeCard, refresh, playStatusListeners);
     let lastRenderedState = ctx.getState();
     const unsubscribe = ctx.subscribe((state) => {
       if (state === lastRenderedState) return;
@@ -13560,6 +13975,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       native?.dispose();
       panelRefreshers.clear();
       hintRefreshers.clear();
+      playStatusListeners.clear();
       overlayHost.remove();
     };
   }
@@ -13567,11 +13983,11 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     manifest: {
       id: "cards",
       name: "\\u5361\\u724C",
-      version: "0.1.72",
+      version: "0.1.79",
       apiVersion: 1,
       contractVersion: 1,
       releaseNotes: "\\u65B0\\u589E\\u624B\\u724C\\u7EC4\\u95F4\\u7559\\u7A7A\\u5FEB\\u6377\\u5F00\\u5173\\uFF0C\\u4FDD\\u7559\\u6392\\u5E8F\\u65B9\\u5F0F\\u4E0E\\u5DF2\\u6709\\u9009\\u62E9\\uFF1B\\u6539\\u5584\\u5361\\u724C\\u9762\\u677F\\u5728\\u4F4E\\u9AD8\\u5EA6\\u4E0B\\u7684\\u6EDA\\u52A8\\u548C\\u5185\\u5BB9\\u663E\\u793A\\u3002",
-      minCoreVersion: "0.6.62",
+      minCoreVersion: "0.6.87",
       categories: ["game"],
       icon: PLUGIN_ICONS["cards"],
       priority: 1e4,
@@ -13584,8 +14000,8 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","version":"0.1.72","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u624B\u724C\u7EC4\u95F4\u7559\u7A7A\u5FEB\u6377\u5F00\u5173\uFF0C\u4FDD\u7559\u6392\u5E8F\u65B9\u5F0F\u4E0E\u5DF2\u6709\u9009\u62E9\uFF1B\u6539\u5584\u5361\u724C\u9762\u677F\u5728\u4F4E\u9AD8\u5EA6\u4E0B\u7684\u6EDA\u52A8\u548C\u5185\u5BB9\u663E\u793A\u3002","minCoreVersion":"0.6.62","categories":["game"],"icon":{"paths":["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z","M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"]},"priority":10000,"description":"\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570"}};
-`, sha256: "cbfb48da95ab967acc27b26715f374f177f4567b0764d7458b5ad7e66ad0103a" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "play-assist", name: "\u51FA\u724C\u8F85\u52A9", version: "0.2.16", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8865\u5145\u5F3A\u8BC6\u6478\u724C\u4E0E\u6B66\u5A18\u53D6\u724C\u8F85\u52A9\uFF0C\u6B66\u5A18\u4F18\u5148\u9009\u62E9\u53EF\u9009\u9632\u5177\u3001\u5176\u4ED6\u88C5\u5907\uFF0C\u518D\u9009\u62E9\u624B\u724C\uFF1B\u72C2\u9AA8\u6309\u5F53\u524D\u4F53\u529B\u9009\u62E9\u56DE\u8840\u6216\u6478\u724C\u3002\u4ECD\u9700\u5F00\u542F\u76F8\u5E94\u6280\u80FD\u8F85\u52A9\uFF0C\u5F3A\u8BC6\u524D\u534A\u6BB5\u9009\u4EBA\u548C\u5C55\u793A\u4FDD\u7559\u624B\u52A8\u3002", minCoreVersion: "0.6.37", description: "\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002", icon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] }, priority: 12e3, categories: ["game"] }, code: `var SGSPlugin = (() => {
+return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","version":"0.1.79","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u624B\u724C\u7EC4\u95F4\u7559\u7A7A\u5FEB\u6377\u5F00\u5173\uFF0C\u4FDD\u7559\u6392\u5E8F\u65B9\u5F0F\u4E0E\u5DF2\u6709\u9009\u62E9\uFF1B\u6539\u5584\u5361\u724C\u9762\u677F\u5728\u4F4E\u9AD8\u5EA6\u4E0B\u7684\u6EDA\u52A8\u548C\u5185\u5BB9\u663E\u793A\u3002","minCoreVersion":"0.6.87","categories":["game"],"icon":{"paths":["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z","M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"]},"priority":10000,"description":"\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570"}};
+`, sha256: "3623974bec8a56f9d04da48faee5c11c932d78da6eddf8b5bce455258c09c249" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "play-assist", name: "\u51FA\u724C\u8F85\u52A9", version: "0.2.18", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8865\u5145\u5F3A\u8BC6\u6478\u724C\u4E0E\u6B66\u5A18\u53D6\u724C\u8F85\u52A9\uFF0C\u6B66\u5A18\u4F18\u5148\u9009\u62E9\u53EF\u9009\u9632\u5177\u3001\u5176\u4ED6\u88C5\u5907\uFF0C\u518D\u9009\u62E9\u624B\u724C\uFF1B\u72C2\u9AA8\u6309\u5F53\u524D\u4F53\u529B\u9009\u62E9\u56DE\u8840\u6216\u6478\u724C\u3002\u4ECD\u9700\u5F00\u542F\u76F8\u5E94\u6280\u80FD\u8F85\u52A9\uFF0C\u5F3A\u8BC6\u524D\u534A\u6BB5\u9009\u4EBA\u548C\u5C55\u793A\u4FDD\u7559\u624B\u52A8\u3002", minCoreVersion: "0.6.87", description: "\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002", icon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] }, priority: 12e3, categories: ["game"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -13749,6 +14165,9 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
     }
   }
 
+  // src/shared/shanhe-scenes.js
+  var SHANHE_BATTLE_SCENE = "RogueLikeGameScene";
+
   // src/core/seat.js
   var read2 = (fn) => {
     try {
@@ -13878,10 +14297,9 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
       }
       return false;
     }
-    function run(s, context, message, source, currentSeat, gc) {
+    function run(s, context, currentMessage, source, currentSeat, gc) {
       if (windows(s)) return true;
       const selector = s.self.spellSelector, targetContext = s.scene.seatContainer?.selectContext;
-      const currentMessage = s.self.Pt?.txtOptMsg?._innerHTML || s.self.buttonBar?.txtOptMsg?._innerHTML || message;
       const ids = [selector?.visible ? id(selector.spell) : 0, id(context?.Skill), Number(context?.SpecifySkillId), id(targetContext?.Skill)];
       const active = (api.hasKind("wuniang") && /^\u662F\u5426\u5931\u53BB1\u70B9\u4F53\u529B\u91CD\u7F6E\u9547\u5357[\uFF1F?]?$/.test(text(currentMessage)) ? 3796 : 0) || ids.find((n) => EXTRA_IDS.includes(n) && api.locked(n)) || EXTRA_IDS.find((n) => api.locked(n) && text(currentMessage).startsWith("\\u662F\\u5426\\u53D1\\u52A8" + EXTRA_NAMES[skillKind(n)]));
       if (selector?.visible) {
@@ -13959,6 +14377,7 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
   var isWuxie = (ui) => Number(ui?.Card?.FirstSkillId ?? ui?.Card?.FirstSkill?.ID) === 13;
   var QIANGZHI_IDS = [484, 3876];
   var QIANFU_IDS = [3750, 3753];
+  var SKILL_REPEAT_MS = 510;
   var CONDITIONAL_SKILL_IDS = Object.freeze([48, 719, 79, 883]);
   function supported(item) {
     const id2 = Number(item?.Skill?.SkillId);
@@ -13969,7 +14388,7 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
     for (let p = node, i = 0; p && i < 32; p = p.parent, i++) if (p.visible === false || p.destroyed) return false;
     return true;
   };
-  var buttonBar = (self) => read(() => self.Pt) || read(() => self.buttonBar) || null;
+  var buttonBar = (self) => read(() => self.getButtonBar()) || [read(() => self.Ai), read(() => self.Pt), read(() => self.buttonBar)].find((bar) => Array.isArray(read(() => bar.btns))) || null;
   var enabled = (node) => visible(node) && node._enabled === true && node.disabled !== true;
   var list2 = (value) => Array.isArray(value) ? value.slice(0, 128) : [];
   function nativeClick(node, type = "click") {
@@ -13990,7 +14409,7 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
   function createRuntime(ctx, getSettings, onChange = () => {
   }) {
     const quandao = createQuandaoDisplay();
-    let state = null, disposed = false, proxy = null, proxyCleanup = [], ended = false, currentSeat = null, phase = null, sourceCard = null, wuxie = null, judgementFlower = null;
+    let state = null, disposed = false, proxy = null, proxyCleanup = [], ended = false, currentSeat = null, sourceCard = null, wuxie = null, judgementFlower = null;
     const remembered = new Set(list2(ctx.settings.get("rememberedSkillIds", [])).map(Number));
     let locks = new Set(remembered);
     const releases = [], tracked = (fn) => {
@@ -14024,6 +14443,7 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
         locks.delete(id2);
         remembered.delete(id2);
       } else locks.add(id2);
+      state.priorityAction = null;
       persist();
       paint();
       schedule(state);
@@ -14053,7 +14473,7 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
       s.pending = true;
       later(() => {
         s.pending = false;
-        if (alive(s)) run(s);
+        processActions(s);
       }, 0);
     }
     function bindSkill(s, item) {
@@ -14199,7 +14619,6 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
     }
     function resetRound() {
       currentSeat = null;
-      phase = null;
       sourceCard = null;
       wuxie = null;
       judgementFlower = null;
@@ -14241,9 +14660,13 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
     }
     function button(s, name) {
       const bar = buttonBar(s.self), btn = list2(bar?.btns).find((b) => b.name === name);
-      if (!alive(s) || !visible(bar) || s.submittedBar === s.bar || !enabled(btn) || !["onMouse", "onClick", "event"].some((key) => typeof btn[key] === "function")) return false;
+      if (!alive(s) || !visible(bar) || s.submittedBar === s.bar || !enabled(btn)) return false;
+      const hasBarHandler = typeof bar.Button_Click === "function";
+      if (!hasBarHandler && !["onMouse", "onClick", "event"].some((key) => typeof btn[key] === "function")) return false;
       s.submittedBar = s.bar;
-      return nativeClick(btn);
+      if (!hasBarHandler) return nativeClick(btn);
+      bar.Button_Click(btn);
+      return true;
     }
     function choice(s, predicate) {
       const selector = s.self.spellSelector;
@@ -14267,7 +14690,7 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
       return true;
     }
     function clickSkill(s, item) {
-      if (!alive(s) || !item.activated || item.Selected || !visible(item) || !getSettings().rapid && Date.now() - s.lastSkill < 510) return false;
+      if (!alive(s) || !item.activated || item.Selected || !visible(item) || !getSettings().rapid && Date.now() - s.lastSkill < SKILL_REPEAT_MS) return false;
       s.lastSkill = Date.now();
       s.automatic = true;
       try {
@@ -14379,10 +14802,20 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
       }
       return false;
     }
-    function run(s) {
-      if (!alive(s)) return;
-      const opt = getSettings(), self = s.self, context = self.cardContainer?.selectCardContext, gc = gameContext();
-      const message = String(context?.message || buttonBar(self)?.txtOptMsg?._innerHTML || "").replace(/<[^>]*>/g, "");
+    function processActions(s, priorityOnly = false) {
+      if (!alive(s)) return false;
+      const hand = s.self.cardContainer;
+      const context = hand?.selectCardContext ?? hand?.SelectContext;
+      const { bar, selector, priorityAction } = s;
+      if (priorityOnly && priorityAction && priorityAction.context === context && priorityAction.bar === bar && priorityAction.selector === selector && Date.now() < priorityAction.until) return true;
+      if (!run(s, context, priorityOnly)) return false;
+      s.priorityAction = { context, bar, selector, until: Date.now() + SKILL_REPEAT_MS };
+      return true;
+    }
+    function run(s, context, priorityOnly) {
+      const opt = getSettings(), self = s.self, gc = gameContext();
+      const barMessage = buttonBar(self)?.txtOptMsg?._innerHTML;
+      const message = String(context?.message || context?.Message || barMessage || "").replace(/<[^>]*>/g, "");
       const specify = Number(context?.SpecifySkillId), skill = Number(context?.Skill?.SkillId), selection = self.spellSelector?.visible ? Number(self.spellSelector.spell?.SkillId) : 0;
       if (opt.skillLock && QIANGZHI_IDS.some((id2) => locks.has(id2))) {
         const selector = self.spellSelector;
@@ -14390,35 +14823,33 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
         const involved = [specify, skill, selection, Number(s.scene.seatContainer?.selectContext?.Skill?.SkillId)].some((id2) => QIANGZHI_IDS.includes(id2) && locks.has(id2));
         if (selector?.visible && QIANGZHI_IDS.includes(selection) && locks.has(selection)) {
           if (prompt === "\\u662F\\u5426\\u6478\\u4E00\\u5F20\\u724C") choice(s, (d) => !d.callBack && Number(d.sendData) === 1);
-          return;
+          return true;
         }
-        if (!selector?.visible && prompt === "\\u662F\\u5426\\u53D1\\u52A8\\u5F3A\\u8BC6\\uFF0C\\u6478\\u4E00\\u5F20\\u724C") {
-          button(s, "btnOK");
-          return;
-        }
-        if (involved || /\u5F3A\u8BC6/.test(prompt)) return;
+        if (!selector?.visible && prompt === "\\u662F\\u5426\\u53D1\\u52A8\\u5F3A\\u8BC6\\uFF0C\\u6478\\u4E00\\u5F20\\u724C") return button(s, "btnOK");
+        if (involved || /\u5F3A\u8BC6/.test(prompt)) return true;
       }
-      if (declineQianfuFollowup(s, context)) return;
-      if (opt.skillLock && locks.size && extended.run(s, context, message, sourceCard, currentSeat, gc)) return;
+      if (declineQianfuFollowup(s, context)) return true;
+      if (opt.skillLock && locks.size && extended.run(s, context, barMessage || message, sourceCard, currentSeat, gc)) return true;
       if (opt.skillLock && locks.has(62) && Number(self.seat?.Hp) <= 0 && specify === 3 && Number(gc?.NextSpellTargets?.[0]) === Number(self.seat?.Index)) {
         if (!self.spellSelector?.visible && chooseCard(s, (c) => [3, 82].includes(Number(c.Card?.FirstSkillId)))) button(s, "btnOK");
-        return;
+        return true;
       }
       if ([specify, skill, selection].includes(13)) {
-        const shanhe = Boolean(gc?.IsRoguelike1v1 || gc?.IsRogueLike || /Rogue/.test(String(s.scene.SceneName)));
-        if (opt.skipWuxie && (!shanhe || currentSeat === Number(self.seat.Index) && phase === 4 && wuxie?.seat === Number(self.seat.Index) && wuxie?.spell !== 13 && wuxie?.type === 2)) cancel(s);
+        if (!opt.skipWuxie) return;
+        const shanhe = isShanhe(s.scene, gc) || gc?.IsPveRoguelike || s.scene.name === SHANHE_BATTLE_SCENE;
+        if (!shanhe) return cancel(s);
+        const mine = Number(self.seat.Index), inquiry = wuxie;
+        const ownTurn = currentSeat === null ? read(() => self.seat.InOwnRound2) === true : currentSeat === mine;
+        if (ownTurn && inquiry && [mine, 250, 255].includes(inquiry.recipient) && cancel(s)) {
+          if (wuxie === inquiry) wuxie = null;
+          return true;
+        }
         return;
       }
       const asking = list2(s.scene.seatContainer?.seatUIs).filter((x) => x.seat?.IsAskingTao);
       const target = Number(gc?.NextSpellTargets?.[0] ?? (asking.length === 1 ? asking[0].seat.Index : NaN));
-      if (specify === 3 && opt.skipTao && Number.isInteger(target) && target >= 0 && target < 255 && target !== Number(self.seat?.Index)) {
-        cancel(s);
-        return;
-      }
-      if (opt.skipAssist && list2(buttonBar(self)?.btns).some((b) => b.name === "btnOK" && String(b.label).replace(/\\s/g, "") === "\\u52A9\\u6218")) {
-        cancel(s);
-        return;
-      }
+      if (specify === 3 && opt.skipTao && Number.isInteger(target) && target >= 0 && target < 255 && target !== Number(self.seat?.Index)) return cancel(s);
+      if (opt.skipAssist && list2(buttonBar(self)?.btns).some((b) => b.name === "btnOK" && String(b.label).replace(/\\s/g, "") === "\\u52A9\\u6218")) return cancel(s);
       if (opt.fireAttack && Number(self.seat?.LastAttackByTheSkill?.ID) === 83 && (message.includes("\\u8BF7\\u9009\\u62E9\\u4E00\\u5F20\\u5361\\u724C\\u7528\\u4E8E\\u5C55\\u793A") || message.includes("\\u8272\\u7684\\u624B\\u724C\\uFF0C\\u5BF9"))) {
         if (read(() => self.seat.HasSkill(3744)) && message.includes("\\u8272\\u7684\\u624B\\u724C\\uFF0C\\u5BF9")) {
           const convert = list2(self.skillItems).find((x) => Number(x.Skill?.SkillId) === 3744);
@@ -14441,10 +14872,10 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
         }
         chooseCard(s);
         if (!button(s, "btnOK")) button(s, "btnCancel");
-        return;
+        return true;
       }
-      if (lockedAction(s, context, message, gc)) return;
-      if (!opt.autoConfirm || self.spellSelector?.visible || !message || /\u624B\u6C14\u5361|\u66F4\u6362\u624B\u724C|\u66FF\u6362\u73B0\u6709\u7684\u624B\u724C|\u8FDE\u73AF|\u4E1A\u708E/.test(message)) return;
+      if (lockedAction(s, context, message, gc)) return true;
+      if (priorityOnly || !opt.autoConfirm || self.spellSelector?.visible || !message || /\u624B\u6C14\u5361|\u66F4\u6362\u624B\u724C|\u66FF\u6362\u73B0\u6709\u7684\u624B\u724C|\u8FDE\u73AF|\u4E1A\u708E/.test(message)) return;
       const targets = s.scene.seatContainer?.selectContext;
       if (skill === 85 || Number(targets?.Skill?.SkillId) === 85 || Number(context?.SelectCountMax) > 1) return;
       const cards = list2(self.cardContainer?.cardUis), seats = list2(s.scene.seatContainer?.seatUIs);
@@ -14459,6 +14890,7 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
       proxyCleanup.forEach((fn) => fn());
       proxyCleanup = [];
       proxy = next;
+      resetRound();
       if (typeof proxy?.on !== "function" || typeof proxy?.off !== "function") return;
       const owner = {}, bind2 = (event, fn) => {
         proxy.on(event, owner, fn);
@@ -14491,21 +14923,24 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
       bind2("MsgGameTurnNtf", (packet) => {
         const id2 = Number(field(packet, "SeatID"));
         currentSeat = Number.isInteger(id2) && id2 >= 0 && id2 < 255 ? id2 : null;
+        wuxie = null;
       });
       bind2("GsCGamephaseNtf", (packet) => {
-        const value = Number(field(packet, "Round")), seat = Number(field(packet, "SeatID"));
-        phase = Number.isFinite(value) ? value : null;
+        const seat = Number(field(packet, "SeatID"));
         if (Number.isInteger(seat) && seat >= 0 && seat < 255) currentSeat = seat;
         wuxie = null;
       });
+      bind2("GsCTriggerSpellEnq", () => {
+        wuxie = null;
+      });
       bind2("PubGsCUseCard", (packet) => {
+        wuxie = null;
         const id2 = Number(field(packet, "CardID")), meta = read(() => ctx.game.getCardMeta(id2));
         const rawSpell = Number(field(packet, "spellID") ?? field(packet, "SpellID") ?? field(packet, "spellId"));
         const spell = rawSpell === 0 && (meta?.name === "\\u6740" || meta?.cardClass === "Sha") ? 1 : rawSpell;
         sourceCard = {
           seat: Number(field(packet, "SeatID")),
           spell,
-          type: Number(meta?.type),
           suit: Number(meta?.suit),
           castId: rawSpell,
           redMaterials: [1, 2].includes(Number(meta?.suit)),
@@ -14513,6 +14948,7 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
         };
       });
       bind2("PubGsCUseSpell", (packet) => {
+        wuxie = null;
         const ids = field(packet, "CardIDs");
         if (!Array.isArray(ids) || !ids.length || ids.length > 128) return;
         const metas = ids.map((id2) => read(() => ctx.game.getCardMeta(Number(id2))));
@@ -14522,18 +14958,19 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
           seat: Number(field(packet, "SeatID")),
           spell,
           castId: spell,
-          type: NaN,
           suit: metas.length === 1 ? Number(metas[0]?.suit) : metas.every((m) => [1, 2].includes(Number(m?.suit))) ? 1 : NaN,
           redMaterials: metas.every((m) => [1, 2].includes(Number(m?.suit))),
           mayBeSha: spell === 1 || read(() => native.IsThis(1)) === true
         };
       });
       bind2("GsCTriggerSpellNew", (packet) => {
-        const trigger = field(packet, "FirstTriggerParam") || field(packet, "TriggerSpellData")?.[0];
-        const spell = Number(field(packet, "SrcSpellID")), seat = Number(trigger?.SeatId);
-        const triggers = [field(packet, "FirstTriggerParam"), ...field(packet, "TriggerSpellData") || []].filter(Boolean);
+        const data = list2(field(packet, "TriggerSpellData"));
+        const first = field(packet, "FirstTriggerParam");
+        const trigger = first || data[0];
+        const spell = Number(field(packet, "SrcSpellID"));
+        wuxie = Number(trigger?.SpellId) === 13 && trigger.Datas?.[0] === 0 && spell !== 13 ? { recipient: Number(field(packet, "TriggerSeatId")) } : null;
+        const triggers = [first, ...data].filter(Boolean);
         if (sourceCard?.redMaterials && Number(field(packet, "SrcSpellCasterSeat")) === sourceCard.seat && triggers.some((t) => [446, 21003].includes(Number(t.SpellId))) && (spell === sourceCard.castId || spell === 1 && sourceCard.mayBeSha)) sourceCard.spell = 1;
-        wuxie = Number(trigger?.SpellId) === 13 ? { spell, seat, type: sourceCard?.spell === spell && sourceCard?.seat === seat ? sourceCard.type : null } : null;
       });
       bind2("PubGsCMoveCard", (packet) => {
         if (Number(field(packet, "FromZone")) === 3 && Number(field(packet, "FromID")) === 255) judgementFlower = null;
@@ -14551,23 +14988,28 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
         notify();
       });
     }
+    function syncState() {
+      observe();
+      const scene = ctx.game.getScene(), self = scene?.SelfSeatUi;
+      if (state && (state.scene !== scene || state.self !== self || state.seat !== self?.seat)) {
+        clear();
+        ended = false;
+        resetRound();
+      }
+      if (!self?.seat || !self.cardContainer) {
+        clear();
+        resetRound();
+        return;
+      }
+      if (!state && !ended) bind(scene, self);
+      if (state) syncBar(state);
+      return self;
+    }
     function tick() {
       if (disposed || ctx.scope.signal.aborted) return;
       try {
-        observe();
-        const scene = ctx.game.getScene(), self = scene?.SelfSeatUi;
-        if (state && (state.scene !== scene || state.self !== self || state.seat !== self?.seat)) {
-          clear();
-          ended = false;
-          resetRound();
-        }
-        if (!self?.seat || !self.cardContainer) {
-          clear();
-          resetRound();
-          return;
-        }
-        if (!state && !ended) bind(scene, self);
-        if (state) syncBar(state);
+        const self = syncState();
+        if (!self) return;
         quandao.update(self, Boolean(getSettings().quandaoCount) && alive());
         if (!alive()) return;
         const current = list2(self.skillItems).filter((item) => !item.destroyed && (supported(item) || getSettings().rapid));
@@ -14595,6 +15037,11 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
       releases.splice(0).reverse().forEach((fn) => fn());
     }
     tracked(dispose);
+    if (ctx.playActions) releases.push(ctx.playActions.registerPriority((scene, self) => {
+      syncState();
+      if (state?.scene !== scene || state?.self !== self) return false;
+      return processActions(state, true);
+    }));
     const interval = setInterval(tick, 160);
     tracked(() => clearInterval(interval));
     tick();
@@ -14615,11 +15062,11 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
   var manifest = {
     id: "play-assist",
     name: "\\u51FA\\u724C\\u8F85\\u52A9",
-    version: "0.2.16",
+    version: "0.2.18",
     apiVersion: 1,
     contractVersion: 1,
     releaseNotes: "\\u8865\\u5145\\u5F3A\\u8BC6\\u6478\\u724C\\u4E0E\\u6B66\\u5A18\\u53D6\\u724C\\u8F85\\u52A9\\uFF0C\\u6B66\\u5A18\\u4F18\\u5148\\u9009\\u62E9\\u53EF\\u9009\\u9632\\u5177\\u3001\\u5176\\u4ED6\\u88C5\\u5907\\uFF0C\\u518D\\u9009\\u62E9\\u624B\\u724C\\uFF1B\\u72C2\\u9AA8\\u6309\\u5F53\\u524D\\u4F53\\u529B\\u9009\\u62E9\\u56DE\\u8840\\u6216\\u6478\\u724C\\u3002\\u4ECD\\u9700\\u5F00\\u542F\\u76F8\\u5E94\\u6280\\u80FD\\u8F85\\u52A9\\uFF0C\\u5F3A\\u8BC6\\u524D\\u534A\\u6BB5\\u9009\\u4EBA\\u548C\\u5C55\\u793A\\u4FDD\\u7559\\u624B\\u52A8\\u3002",
-    minCoreVersion: "0.6.37",
+    minCoreVersion: "0.6.87",
     description: "\\u957F\\u6309\\u6280\\u80FD\\u8F85\\u52A9\\u3001\\u81EA\\u52A8\\u786E\\u5B9A\\u4E0E\\u8BE2\\u95EE\\u8DF3\\u8FC7\\u3002",
     icon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] },
     priority: 12e3,
@@ -14739,8 +15186,8 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\u8F85\u52A9","version":"0.2.16","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8865\u5145\u5F3A\u8BC6\u6478\u724C\u4E0E\u6B66\u5A18\u53D6\u724C\u8F85\u52A9\uFF0C\u6B66\u5A18\u4F18\u5148\u9009\u62E9\u53EF\u9009\u9632\u5177\u3001\u5176\u4ED6\u88C5\u5907\uFF0C\u518D\u9009\u62E9\u624B\u724C\uFF1B\u72C2\u9AA8\u6309\u5F53\u524D\u4F53\u529B\u9009\u62E9\u56DE\u8840\u6216\u6478\u724C\u3002\u4ECD\u9700\u5F00\u542F\u76F8\u5E94\u6280\u80FD\u8F85\u52A9\uFF0C\u5F3A\u8BC6\u524D\u534A\u6BB5\u9009\u4EBA\u548C\u5C55\u793A\u4FDD\u7559\u624B\u52A8\u3002","minCoreVersion":"0.6.37","description":"\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002","icon":{"paths":["M4 5h10v14H4zM7 8h4M7 11h3","m17 3-3 8h5l-3 10 7-13h-5l2-5"]},"priority":12000,"categories":["game"]}};
-`, sha256: "c8964e440113d571e229b4a20458181c3f233a133c51423d48f03613804dedd9" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "daily-rewards", name: "\u65E5\u5E38\u9886\u5956", version: "0.7.34", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8C03\u6574\u6D3B\u52A8\u5956\u52B1\u9886\u53D6\uFF0C\u907F\u514D\u53D1\u9001\u591A\u4F59\u7684\u9886\u53D6\u8BF7\u6C42\u3002\u81EA\u52A8\u9886\u53D6\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF1B\u5171\u4EAB\u5151\u6362\u7801\u9700\u5355\u72EC\u5F00\u542F\uFF0C\u53EA\u4E0A\u4F20\u6E38\u620F\u660E\u786E\u6210\u529F\u7684\u7801\u53CA\u8D26\u53F7\u6458\u8981\u3002", minCoreVersion: "0.6.38", categories: ["automation"], icon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, priority: 2e4, description: "\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\u8F85\u52A9","version":"0.2.18","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8865\u5145\u5F3A\u8BC6\u6478\u724C\u4E0E\u6B66\u5A18\u53D6\u724C\u8F85\u52A9\uFF0C\u6B66\u5A18\u4F18\u5148\u9009\u62E9\u53EF\u9009\u9632\u5177\u3001\u5176\u4ED6\u88C5\u5907\uFF0C\u518D\u9009\u62E9\u624B\u724C\uFF1B\u72C2\u9AA8\u6309\u5F53\u524D\u4F53\u529B\u9009\u62E9\u56DE\u8840\u6216\u6478\u724C\u3002\u4ECD\u9700\u5F00\u542F\u76F8\u5E94\u6280\u80FD\u8F85\u52A9\uFF0C\u5F3A\u8BC6\u524D\u534A\u6BB5\u9009\u4EBA\u548C\u5C55\u793A\u4FDD\u7559\u624B\u52A8\u3002","minCoreVersion":"0.6.87","description":"\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002","icon":{"paths":["M4 5h10v14H4zM7 8h4M7 11h3","m17 3-3 8h5l-3 10 7-13h-5l2-5"]},"priority":12000,"categories":["game"]}};
+`, sha256: "1b8d5173592aa42233b32467223b0697772c188b6af5a6a6297181c9913b0602" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "daily-rewards", name: "\u65E5\u5E38\u9886\u5956", version: "0.7.38", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8C03\u6574\u6D3B\u52A8\u5956\u52B1\u9886\u53D6\uFF0C\u907F\u514D\u53D1\u9001\u591A\u4F59\u7684\u9886\u53D6\u8BF7\u6C42\u3002\u81EA\u52A8\u9886\u53D6\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF1B\u5171\u4EAB\u5151\u6362\u7801\u9700\u5355\u72EC\u5F00\u542F\uFF0C\u53EA\u4E0A\u4F20\u6E38\u620F\u660E\u786E\u6210\u529F\u7684\u7801\u53CA\u8D26\u53F7\u6458\u8981\u3002", minCoreVersion: "0.6.38", categories: ["automation"], icon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, priority: 2e4, description: "\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -15144,6 +15591,44 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     if (!Number.isFinite(now)) return null;
     return list2(root(adapter)?.[field]).find((row) => positive2(row.id) && positive2(row.reward) && time(row.stime) < now && now < time(row.etime));
   }
+  function confirmedJieyueAttempt(adapter, key) {
+    const tier = /^activity:new-jd:tier:(\\d+):(\\d+):([01])$/.exec(key);
+    if (!tier || Number(currentSeason(adapter, "newbp")?.id) !== Number(tier[1])) return false;
+    const activity = adapter.manager("ActivityManager");
+    return has(tier[3] === "1" ? activity?.NewJDHaveRewardList_bp : activity?.NewJDHaveRewardList, Number(tier[2]));
+  }
+  async function syncJieyueLists(activity, { signal, valid: valid3, timeout = 2500 }) {
+    if (typeof activity?.SendGetNewJDInfoReq !== "function") return { free: false, premium: false };
+    const free = activity.NewJDHaveRewardList, premium = activity.NewJDHaveRewardList_bp;
+    return new Promise((resolve) => {
+      const caller = {};
+      const fresh = (current, previous) => Array.isArray(current) && current !== previous;
+      const result = () => ({
+        free: fresh(activity.NewJDHaveRewardList, free),
+        premium: fresh(activity.NewJDHaveRewardList_bp, premium)
+      });
+      const finish = () => {
+        clearTimeout(timer);
+        activity.off?.("NEW_JD_INFO_SUC", caller, check);
+        signal?.removeEventListener("abort", finish);
+        resolve(result());
+      };
+      const check = () => {
+        const state = result();
+        if (!valid3() || state.free && (!activity.hadBuyNewJD || state.premium)) finish();
+      };
+      const timer = setTimeout(finish, timeout);
+      signal?.addEventListener("abort", finish, { once: true });
+      activity.on?.("NEW_JD_INFO_SUC", caller, check);
+      if (signal?.aborted || !valid3()) return finish();
+      try {
+        activity.SendGetNewJDInfoReq();
+        check();
+      } catch {
+        finish();
+      }
+    });
+  }
   function rewards(adapter, field, group) {
     const config = root(adapter), source = config?.[field];
     if (!Array.isArray(source)) return [];
@@ -15198,13 +15683,17 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         if (!read2(eligible)) continue;
         actions.push({
           key: \`activity:\${kind}:tier:\${seasonId}:\${id}:\${Number(high)}\`,
-          workflowGroup: \`activity:\${kind}\`,
           category: "activities",
           label: \`\${label}\\u7B2C \${id} \\u6863\${high ? "\\u8C6A\\u534E" : "\\u514D\\u8D39"}\\u5956\\u52B1\`,
           manager: activity,
           rewards: () => item(current()?.[rewardField]),
           eligible,
           done: () => sameSeason() && has(activity[field], id),
+          ...kind === "new-jd" && typeof activity.SendGetNewJDInfoReq === "function" ? {
+            refreshClaimState: () => {
+              if (sameSeason()) activity.SendGetNewJDInfoReq();
+            }
+          } : {},
           send: () => eligible() ? activity[send](id, high, false) : false
         });
       }
@@ -16183,8 +16672,35 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     }).filter((item2) => item2.IsInSellTime());
   }
 
-  // src/plugins/daily-rewards/free-welfare.js
+  // src/plugins/daily-rewards/native-method.js
   var read9 = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return void 0;
+    }
+  };
+  function nativeMethod(object, name, signatures = []) {
+    if (name && typeof read9(() => object[name]) === "function") return (...args) => object[name](...args);
+    if (!object || !signatures.length) return null;
+    const found = /* @__PURE__ */ new Set();
+    for (const owner of [object, read9(() => Object.getPrototypeOf(object))]) {
+      if (!owner) continue;
+      for (const key of Object.getOwnPropertyNames(owner).slice(0, 512)) {
+        if (key === "constructor") continue;
+        const fn = Object.getOwnPropertyDescriptor(owner, key)?.value;
+        if (typeof fn !== "function") continue;
+        const text = Function.prototype.toString.call(fn);
+        if (text.length <= 24e3 && signatures.every((signature) => text.includes(signature))) found.add(fn);
+      }
+    }
+    if (found.size !== 1) return null;
+    const [method2] = found;
+    return (...args) => Reflect.apply(method2, object, args);
+  }
+
+  // src/plugins/daily-rewards/free-welfare.js
+  var read10 = (fn) => {
     try {
       return fn();
     } catch {
@@ -16193,7 +16709,8 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   };
   var positive4 = (value) => Number.isSafeInteger(Number(value)) && Number(value) > 0;
   var valid2 = (adapter) => !adapter.signal?.aborted && adapter.valid?.() !== false;
-  var flag = (owner, name) => read9(() => typeof owner?.[name] === "function" ? owner[name]() : owner?.[name]) === true;
+  var flag = (owner, name) => read10(() => typeof owner?.[name] === "function" ? owner[name]() : owner?.[name]) === true;
+  var purchaseSender = (proxy) => nativeMethod(proxy, null, [".OldProtocalToPb()", ".addProtocolToCacheList(", ".CACHE_TYPE_SEND"]);
   var managerSpecs6 = {
     Shop_json: { events: [], guard: (value) => typeof value.GetTargetSaleConfigs === "function" && typeof value.GetTargetSaleGoods === "function" },
     BlessManager: { events: ["ClientQifuRankRep", "ClientUserDataCounterNtf", 21471], guard: (value) => "CanFreeBless" in value && "FreeBlessEndTime" in value },
@@ -16208,35 +16725,35 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   function freeShopEntries(adapter) {
     const shop = adapter.manager("GameShopManager");
     if (!shop || shop.destroyed === true) return [];
-    const entries2 = rows2(read9(() => shop.GetShopDataByType?.(4)));
-    const sales = read9(() => adapter.manager("Shop_json"));
-    if (sales?.destroyed !== true) entries2.push(...rows2(read9(() => sales?.GetTargetSaleConfigs?.())));
+    const entries2 = rows2(read10(() => shop.GetShopDataByType?.(4)));
+    const sales = read10(() => adapter.manager("Shop_json"));
+    if (sales?.destroyed !== true) entries2.push(...rows2(read10(() => sales?.GetTargetSaleConfigs?.())));
     entries2.push(...configuredDailyFreeGift(adapter, shop));
-    const handlers = read9(() => shop._events?.GOODS_HAVE_BUY_COUNT);
+    const handlers = read10(() => shop._events?.GOODS_HAVE_BUY_COUNT);
     for (const handler of (Array.isArray(handlers) ? handlers : [handlers]).slice(0, 32)) {
-      const caller = read9(() => handler?.caller);
+      const caller = read10(() => handler?.caller);
       const targetPage = positive4(caller?.pageType) && positive4(caller?.chapter);
-      const activityPage = positive4(caller?.barId) && positive4(caller?.taskVO?.id) && Number(caller?.taskVO?.activitytype) === 8 && read9(() => caller.taskVO.IsInTime) === true;
+      const activityPage = positive4(caller?.barId) && positive4(caller?.taskVO?.id) && Number(caller?.taskVO?.activitytype) === 8 && read10(() => caller.taskVO.IsInTime) === true;
       if (!caller || caller.destroyed === true || !targetPage && !activityPage || !Array.isArray(caller.originList) || !Array.isArray(caller.dataList) || typeof caller.updateItems !== "function" && typeof caller.updateList !== "function") continue;
       entries2.push(...rows2(caller.originList));
     }
     const seen = /* @__PURE__ */ new Set();
     return entries2.filter((item2) => {
-      const id = Number(read9(() => item2.goodsinfo.ID));
+      const id = Number(read10(() => item2.goodsinfo.ID));
       if (!positive4(id) || seen.has(id)) return false;
       seen.add(id);
       return true;
     });
   }
   function zeroCost(item2) {
-    const goods = read9(() => item2.goodsinfo);
+    const goods = read10(() => item2.goodsinfo);
     if (!goods || !positive4(goods.ID) || goods.yuanbao === void 0 || goods.tongqian === void 0 || Number(goods.yuanbao) !== 0 || Number(goods.tongqian) !== 0) return false;
     if (Number(goods.pricetype) > 2 && Number(goods.pricetype) !== 140) return false;
     return !["lotteryPrice", "glory", "gouyu", "mentor", "Bless", "exchangeCount", "ConsumeItemCount"].some((key) => Number(goods[key]) > 0);
   }
   function ready(shop, item2) {
-    const goods = read9(() => item2.goodsinfo);
-    return shop?.destroyed !== true && shop?.IsDataReady === true && zeroCost(item2) && typeof shop.IsTargetSaleCountReady === "function" && read9(() => shop.IsTargetSaleCountReady(goods)) === true && typeof shop.CheckGoodsLimit === "function" && read9(() => shop.CheckGoodsLimit(goods)) === false && typeof item2?.IsInSellTime === "function" && read9(() => item2.IsInSellTime()) === true && read9(() => item2.CanBuy) === true && (typeof shop.IsTargetSaleGoodsRed !== "function" || read9(() => shop.IsTargetSaleGoodsRed(item2)) === true) && (typeof shop.IsDailyFreeGoodsCanBuy !== "function" || read9(() => shop.IsDailyFreeGoodsCanBuy(goods.ID)) === true);
+    const goods = read10(() => item2.goodsinfo);
+    return shop?.destroyed !== true && shop?.IsDataReady === true && zeroCost(item2) && typeof shop.IsTargetSaleCountReady === "function" && read10(() => shop.IsTargetSaleCountReady(goods)) === true && typeof shop.CheckGoodsLimit === "function" && read10(() => shop.CheckGoodsLimit(goods)) === false && typeof item2?.IsInSellTime === "function" && read10(() => item2.IsInSellTime()) === true && read10(() => item2.CanBuy) === true && (typeof shop.IsTargetSaleGoodsRed !== "function" || read10(() => shop.IsTargetSaleGoodsRed(item2)) === true) && (typeof shop.IsDailyFreeGoodsCanBuy !== "function" || read10(() => shop.IsDailyFreeGoodsCanBuy(goods.ID)) === true);
   }
   function buildFreeShopMessage(shop, id, priceType = 2) {
     if (![2, 140].includes(priceType)) return null;
@@ -16255,7 +16772,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     await Promise.allSettled(["sys_h5_shop.sgs", "sys_gs_dbs_fs_goodsbaseinfo.sgs"].map((name) => adapter.loadConfig?.(name)));
     if (!valid2(adapter)) return;
     if (!shop || shop.IsDataReady !== true || typeof shop.SendCcGoodsHaveBuyCountReqV2 !== "function" || typeof shop.IsTargetSaleCountReady !== "function" || typeof shop.on !== "function" || typeof shop.off !== "function") return;
-    const ids = freeShopEntries(adapter).filter((item2) => zeroCost(item2) && read9(() => item2.IsInSellTime()) === true && read9(() => shop.IsTargetSaleCountReady(item2.goodsinfo)) === false).map((item2) => Number(item2.goodsinfo.ID)).slice(0, 100);
+    const ids = freeShopEntries(adapter).filter((item2) => zeroCost(item2) && read10(() => item2.IsInSellTime()) === true && read10(() => shop.IsTargetSaleCountReady(item2.goodsinfo)) === false).map((item2) => Number(item2.goodsinfo.ID)).slice(0, 100);
     if (!ids.length || !valid2(adapter)) return;
     await new Promise((resolve) => {
       const caller = {};
@@ -16264,7 +16781,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         if (ended) return;
         ended = true;
         clearTimeout(timer);
-        read9(() => shop.off("GOODS_HAVE_BUY_COUNT", caller, check));
+        read10(() => shop.off("GOODS_HAVE_BUY_COUNT", caller, check));
         adapter.signal?.removeEventListener("abort", finish);
         resolve();
       };
@@ -16289,8 +16806,8 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     const actions = [], notes = [];
     if (!selected.welfare) return { actions, notes };
     const bless = adapter.manager("BlessManager"), goodsManager = adapter.manager("GameGoodsManager");
-    const freeTime = Number(read9(() => bless.FreeBlessEndTime));
-    const freeBless = () => valid2(adapter) && adapter.manager("BlessManager") === bless && adapter.manager("GameGoodsManager") === goodsManager && bless?.destroyed !== true && goodsManager?.destroyed !== true && freeTime >= 0 && Number.isFinite(freeTime) && Number(read9(() => bless.FreeBlessEndTime)) === freeTime && flag(bless, "FreeBlessItemEnough") && flag(bless, "IsInBlessTime") && flag(bless, "CanFreeBless") && typeof goodsManager?.SendClientQifuReq === "function";
+    const freeTime = Number(read10(() => bless.FreeBlessEndTime));
+    const freeBless = () => valid2(adapter) && adapter.manager("BlessManager") === bless && adapter.manager("GameGoodsManager") === goodsManager && bless?.destroyed !== true && goodsManager?.destroyed !== true && freeTime >= 0 && Number.isFinite(freeTime) && Number(read10(() => bless.FreeBlessEndTime)) === freeTime && flag(bless, "FreeBlessItemEnough") && flag(bless, "IsInBlessTime") && flag(bless, "CanFreeBless") && typeof goodsManager?.SendClientQifuReq === "function";
     if (freeBless()) actions.push({
       key: \`welfare:free-bless:\${freeTime}\`,
       category: "welfare",
@@ -16299,15 +16816,15 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       workflowGroup: "free-bless",
       exclusionMode: "free-draw",
       eligible: freeBless,
-      done: () => Number(read9(() => bless.FreeBlessEndTime)) > freeTime && !flag(bless, "CanFreeBless"),
+      done: () => Number(read10(() => bless.FreeBlessEndTime)) > freeTime && !flag(bless, "CanFreeBless"),
       send: () => freeBless() ? goodsManager.SendClientQifuReq(0) : false
     });
     const newBless = adapter.manager("NewBlessManager");
-    const ids = rows2(read9(() => newBless.InfoIds), 128).map(Number).filter(positive4);
+    const ids = rows2(read10(() => newBless.InfoIds), 128).map(Number).filter(positive4);
     for (const id of [...new Set(ids)]) {
-      const current = () => read9(() => newBless.GetChangeInfoById(id));
+      const current = () => read10(() => newBless.GetChangeInfoById(id));
       const before = Number(current()?.lastFreeTime ?? 0);
-      const eligible = () => valid2(adapter) && adapter.manager("NewBlessManager") === newBless && newBless?.destroyed !== true && Number.isFinite(before) && before >= 0 && !!current() && Number(current()?.lastFreeTime ?? 0) === before && flag(newBless, "FreeBlessItemEnough") && read9(() => newBless.IsInDrawTime(id)) === true && read9(() => newBless.CanFreeBless(id)) === true && typeof newBless.sendQifuDrawReq === "function";
+      const eligible = () => valid2(adapter) && adapter.manager("NewBlessManager") === newBless && newBless?.destroyed !== true && Number.isFinite(before) && before >= 0 && !!current() && Number(current()?.lastFreeTime ?? 0) === before && flag(newBless, "FreeBlessItemEnough") && read10(() => newBless.IsInDrawTime(id)) === true && read10(() => newBless.CanFreeBless(id)) === true && typeof newBless.sendQifuDrawReq === "function";
       if (!eligible()) continue;
       actions.push({
         key: \`welfare:free-bless-round:\${id}:\${before}\`,
@@ -16317,20 +16834,21 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         workflowGroup: \`free-bless:\${id}\`,
         exclusionMode: "free-draw",
         eligible,
-        done: () => Number(current()?.lastFreeTime ?? 0) > before && read9(() => newBless.CanFreeBless(id)) === false,
+        done: () => Number(current()?.lastFreeTime ?? 0) > before && read10(() => newBless.CanFreeBless(id)) === false,
         send: () => eligible() ? newBless.sendQifuDrawReq(id, 1) : false
       });
     }
     const shop = adapter.manager("GameShopManager");
-    if (!shop || typeof shop.GetBuyMsg !== "function" || typeof shop.proxy?.L !== "function") return { actions, notes };
+    const transport = shop?.proxy;
+    if (typeof shop?.GetBuyMsg !== "function" || !purchaseSender(transport)) return { actions, notes };
     for (const item2 of freeShopEntries(adapter)) {
       if (!ready(shop, item2)) continue;
-      const goods = item2.goodsinfo, id = Number(goods.ID), before = Number(read9(() => shop.GetLimitGoodsBuyCount(id)));
+      const goods = item2.goodsinfo, id = Number(goods.ID), before = Number(read10(() => shop.GetLimitGoodsBuyCount(id)));
       if (!Number.isSafeInteger(before) || before < 0) continue;
-      const current = () => freeShopEntries(adapter).find((entry) => Number(read9(() => entry.goodsinfo.ID)) === id);
-      const eligible = () => valid2(adapter) && adapter.manager("GameShopManager") === shop && ready(shop, current()) && Number(shop.GetLimitGoodsBuyCount(id)) === before;
+      const current = () => freeShopEntries(adapter).find((entry) => Number(read10(() => entry.goodsinfo.ID)) === id);
+      const eligible = () => valid2(adapter) && adapter.manager("GameShopManager") === shop && shop.proxy === transport && ready(shop, current()) && Number(shop.GetLimitGoodsBuyCount(id)) === before;
       const response = (event) => event?.Protocol;
-      const proxy = adapter.proxy?.() || shop.proxy;
+      const proxy = adapter.proxy?.() || transport;
       actions.push({
         key: \`welfare:free-shop:\${id}:\${before}\`,
         category: "welfare",
@@ -16339,12 +16857,14 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         workflowGroup: \`free-shop:\${id}\`,
         rewards: [{ ItemID: id, ItemName: String(goods.name || "\\u514D\\u8D39\\u793C\\u76D2") }, ...rows2(goods.ReturnGoodsArr)],
         eligible,
-        done: () => Number(read9(() => shop.GetLimitGoodsBuyCount(id))) > before,
+        done: () => Number(read10(() => shop.GetLimitGoodsBuyCount(id))) > before,
         flowVersion: 2,
         send: () => {
           if (!eligible()) return false;
+          const send = purchaseSender(transport);
+          if (!send) return false;
           const message = buildFreeShopMessage(shop, id, Number(current()?.goodsinfo?.pricetype) === 140 ? 140 : 2);
-          return message && eligible() ? shop.proxy.L(message) : false;
+          return message && eligible() ? send(message) : false;
         },
         confirmations: [
           { manager: shop, event: "SHOP_BUY_ITEM", accept: (value) => Number(Array.isArray(value) ? value[0] : value) === id },
@@ -16357,7 +16877,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   }
 
   // src/plugins/daily-rewards/mail-rewards.js
-  var read10 = (fn) => {
+  var read11 = (fn) => {
     try {
       return fn();
     } catch {
@@ -16367,15 +16887,15 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   var positive5 = (value) => Number.isSafeInteger(Number(value)) && Number(value) > 0;
   var giftIndexes = /* @__PURE__ */ new WeakMap();
   function mailRewardItems(adapter, mail) {
-    const ids = read10(() => mail.attachment.getStringKey("id"));
+    const ids = read11(() => mail.attachment.getStringKey("id"));
     if (!Array.isArray(ids) || !ids.length || ids.length > 1e3) return void 0;
     if (Number(mail.AttachmentType) === 2) {
-      const counts = read10(() => mail.attachment.getStringKey("ctn"));
+      const counts = read11(() => mail.attachment.getStringKey("ctn"));
       if (!Array.isArray(counts) || counts.length !== ids.length || !ids.every(positive5) || !counts.every(positive5)) return void 0;
       return ids.map((id, index2) => ({ ItemID: Number(id), ItemNum: Number(counts[index2]) }));
     }
     if (Number(mail.AttachmentType) !== 1 || ids.length !== 1 || !positive5(ids[0])) return void 0;
-    const config = read10(() => adapter.config("gn_dbs_giftbag.sgs"));
+    const config = read11(() => adapter.config("gn_dbs_giftbag.sgs"));
     if (!config || typeof config !== "object") return void 0;
     let index = giftIndexes.get(config);
     if (!index) {
@@ -16396,7 +16916,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   }
 
   // src/plugins/daily-rewards/mail-claims.js
-  var read11 = (fn) => {
+  var read12 = (fn) => {
     try {
       return fn();
     } catch {
@@ -16405,12 +16925,12 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   };
   var sameId = (a, b) => a !== void 0 && b !== void 0 && String(a) !== "" && String(a) === String(b);
   var proxyFor = (adapter, manager) => {
-    const own = read11(() => manager.proxy);
+    const own = read12(() => manager.proxy);
     return typeof own?.on === "function" && typeof own?.off === "function" ? own : adapter.proxy?.();
   };
   function confirmedMailAttempt(adapter, actionKey) {
     if (!actionKey.startsWith("mail:")) return false;
-    const id = actionKey.slice(5), manager = read11(() => adapter.manager("MailManager"));
+    const id = actionKey.slice(5), manager = read12(() => adapter.manager("MailManager"));
     return [...manager?.systemMailList || [], ...manager?.friendMailList || []].some((mail) => sameId(mail?.mid, id) && mail.Geted === true);
   }
   function planMailClaims(adapter, selected, rows4) {
@@ -16432,8 +16952,8 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         note("\\u751F\\u65E5\\u90AE\\u4EF6\\u4FDD\\u7559\\u624B\\u52A8\\u5904\\u7406");
         continue;
       }
-      const value = (key) => read11(() => mail.attachment.getStringKey(key)?.[0]);
-      const token = value("key"), opt = read11(() => mail.attachment.getStringKey("opt")), type = Number(mail.AttachmentType);
+      const value = (key) => read12(() => mail.attachment.getStringKey(key)?.[0]);
+      const token = value("key"), opt = read12(() => mail.attachment.getStringKey("opt")), type = Number(mail.AttachmentType);
       if (opt === "sys" || Array.isArray(opt) && opt.includes("sys")) {
         note("\\u9886\\u53D6\\u540E\\u4F1A\\u88AB\\u6E38\\u620F\\u81EA\\u52A8\\u5220\\u9664\\u7684\\u7279\\u6B8A\\u90AE\\u4EF6\\u5DF2\\u8DF3\\u8FC7");
         continue;
@@ -16719,7 +17239,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   }
 
   // src/plugins/daily-rewards/exchange-native.js
-  var read12 = (fn) => {
+  var read13 = (fn) => {
     try {
       return fn();
     } catch {
@@ -16743,21 +17263,21 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       return Number(config?.VicBean) === 1 ? Number(config.BeanChange) : 0;
     };
     function snapshot() {
-      const m = manager(), goods = native.manager("GameGoodsManager"), date = read12(() => native.manager("TimerManager").ServerDate);
+      const m = manager(), goods = native.manager("GameGoodsManager"), date = read13(() => native.manager("TimerManager").ServerDate);
       return {
         ready: readyDay === native.day() && !!m?.IsDdzShopListGeneralPoolListReady && !!date && !(date.getDay() === 1 && date.getHours() === 0 && date.getMinutes() < 10),
         currency: currency(),
-        balance: read12(() => goods.GetGoodsNumByFourID(Math.floor(LANDLORD_BEAN / 100))),
+        balance: read13(() => goods.GetGoodsNumByFourID(Math.floor(LANDLORD_BEAN / 100))),
         rows: (Array.isArray(m?.DdzShopSortList) ? m.DdzShopSortList : []).slice(0, 1024).map((row) => {
-          const meta = native.goods?.(row.ItemID), owned = read12(() => m.isGoodsOwned(row));
+          const meta = native.goods?.(row.ItemID), owned = read13(() => m.isGoodsOwned(row));
           const permanentBackground = Number(meta?.TypeID) === 172 && Number(meta?.period) === 31536e4;
-          const backgroundOwned = permanentBackground ? read12(() => goods.HasForeverGoods(row.ItemID)) : false;
+          const backgroundOwned = permanentBackground ? read13(() => goods.HasForeverGoods(row.ItemID)) : false;
           return {
             id: row.ItemID,
             price: row.Price,
             limit: row.MaxBuyCount,
             period: row.MaxBuyType,
-            bought: read12(() => m.GetDdzHasBuyCountByItemID(row.ItemID)),
+            bought: read13(() => m.GetDdzHasBuyCountByItemID(row.ItemID)),
             name: meta?.name || meta?.Name || row.name || row.Name || \`\\u5546\\u54C1 \${row.ItemID}\`,
             owned: !meta || typeof owned !== "boolean" || typeof backgroundOwned !== "boolean" ? void 0 : owned || backgroundOwned,
             unlocked: Number.isFinite(m.DdzZgsWinCtn) && m.DdzZgsWinCtn >= row.winCount
@@ -16830,7 +17350,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   }
 
   // src/plugins/daily-rewards/native.js
-  var read13 = (fn) => {
+  var read14 = (fn) => {
     try {
       return fn();
     } catch {
@@ -16851,87 +17371,71 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     MailManager: (value) => Array.isArray(value.systemMailList),
     TaskManager: (value) => typeof value.GetServerTaskDataByTaskID === "function",
     GiftManager: (value) => typeof value.SendMySingleGift === "function",
-    TimerManager: (value) => read13(() => value.ServerDate) instanceof Date,
+    TimerManager: (value) => read14(() => value.ServerDate) instanceof Date,
     TianTiManager: (value) => typeof value.reqDailyReward === "function"
   };
   for (const specs of [managerSpecs, managerSpecs2, managerSpecs3, managerSpecs4, managerSpecs5, managerSpecs6, managerSpecs7]) for (const [name, spec] of Object.entries(specs)) {
     events[name] = [.../* @__PURE__ */ new Set([...events[name] || [], ...spec.events || []])];
     const previous = guards[name];
-    guards[name] = (value) => Boolean(read13(() => previous?.(value)) || read13(() => spec.guard(value)));
+    guards[name] = (value) => Boolean(read14(() => previous?.(value)) || read14(() => spec.guard(value)));
   }
   function rows3(value, limit = 2048) {
     if (Array.isArray(value)) return value.slice(0, limit);
     const found = [];
-    const map = read13(() => value._maps);
+    const map = read14(() => value._maps);
     if (map && typeof map === "object") found.push(...Object.keys(map).slice(0, limit).flatMap((key) => Array.isArray(map[key]) ? map[key].slice(0, limit) : [map[key]]));
     for (const key of ["datum", "_objDatum"]) {
-      const list3 = read13(() => value[key]);
+      const list3 = read14(() => value[key]);
       if (Array.isArray(list3)) found.push(...list3.slice(0, limit));
     }
     return [...new Set(found)].filter((item2) => item2 !== void 0 && item2 !== null).slice(0, limit);
   }
-  function nativeMethod(object, name, signatures = []) {
-    if (typeof read13(() => object[name]) === "function") return (...args) => object[name](...args);
-    if (!object || !signatures.length) return null;
-    const found = [];
-    for (const owner of [object, read13(() => Object.getPrototypeOf(object))]) {
-      if (!owner) continue;
-      for (const key of Object.getOwnPropertyNames(owner).slice(0, 512)) {
-        if (key === "constructor") continue;
-        const fn = Object.getOwnPropertyDescriptor(owner, key)?.value;
-        if (typeof fn !== "function") continue;
-        const text = Function.prototype.toString.call(fn);
-        if (text.length <= 24e3 && signatures.every((signature) => text.includes(signature)) && !found.some((item2) => item2.fn === fn)) found.push({ fn, key });
-      }
-    }
-    return found.length === 1 ? (...args) => Reflect.apply(found[0].fn, object, args) : null;
-  }
   function createNativeAdapter(ctx) {
     let goodsRoot, goodsIndex = /* @__PURE__ */ new Map();
     function manager(name) {
-      const validate = (value) => live(value) && typeof value === "object" && read13(() => guards[name](value));
-      const type = read13(() => ctx.game.getClass(name));
+      const validate = (value) => live(value) && typeof value === "object" && read14(() => guards[name](value));
+      const type = read14(() => ctx.game.getClass(name));
       if (validate(type)) return type;
       for (const key of ["instance", "_instance", "s_instance", "Instance"]) {
         const d = type && Object.getOwnPropertyDescriptor(type, key);
         if (d && "value" in d && validate(d.value)) return d.value;
       }
-      const proxy = read13(() => ctx.game.getServerProxy());
+      const proxy = read14(() => ctx.game.getServerProxy());
       for (const event of events[name] || []) {
-        const entry = read13(() => proxy._events[event]);
-        for (const handler of Array.isArray(entry) ? entry.slice(0, 32) : [entry]) if (validate(read13(() => handler.caller))) return handler.caller;
+        const entry = read14(() => proxy._events[event]);
+        for (const handler of Array.isArray(entry) ? entry.slice(0, 32) : [entry]) if (validate(read14(() => handler.caller))) return handler.caller;
       }
       return null;
     }
     function account() {
       const login = manager("LoginManager");
-      if (read13(() => login.IsAccountLoggingOut) || read13(() => login.IsOnLine) === false) return "";
-      const self = read13(() => ctx.game.getSelf?.()) || read13(() => ctx.game.getClass("UserData").Self);
-      const value = read13(() => self.ClientId) || read13(() => login.LoginUserName);
+      if (read14(() => login.IsAccountLoggingOut) || read14(() => login.IsOnLine) === false) return "";
+      const self = read14(() => ctx.game.getSelf?.()) || read14(() => ctx.game.getClass("UserData").Self);
+      const value = read14(() => self.ClientId) || read14(() => login.LoginUserName);
       return typeof value === "number" || typeof value === "string" ? String(value).slice(0, 128) : "";
     }
     function day() {
-      const date = read13(() => manager("TimerManager").ServerDate);
+      const date = read14(() => manager("TimerManager").ServerDate);
       if (!(date instanceof Date) || !Number.isFinite(date.getTime())) return "";
       return \`\${date.getFullYear()}-\${String(date.getMonth() + 1).padStart(2, "0")}-\${String(date.getDate()).padStart(2, "0")}\`;
     }
     function config(file) {
-      const shared = read13(() => ctx.game.getConfigData?.(file.replace(/\\.sgs$/, "")));
+      const shared = read14(() => ctx.game.getConfigData?.(file.replace(/\\.sgs$/, "")));
       if (shared) return shared;
       for (const owner of [ctx.window.CtrUtil, ctx.window.SystemContext]) for (const key of ["AllDatas", "allDatas"]) {
-        const value = read13(() => owner[key][file]);
+        const value = read14(() => owner[key][file]);
         if (value) return value;
       }
       return null;
     }
     function signRows() {
-      const direct = read13(() => config("gn_zonghe.sgs").root.bigprize);
+      const direct = read14(() => config("gn_zonghe.sgs").root.bigprize);
       if (Array.isArray(direct) && direct.length) return direct.slice(0, 400);
-      const login = manager("LoginManager"), SignView = read13(() => ctx.game.getClass("DailySignNewView"));
+      const login = manager("LoginManager"), SignView = read14(() => ctx.game.getClass("DailySignNewView"));
       for (const key of ["GET_LOGIN_REWARD", "GET_LOGIN_REWARD_NEW", "LOGIN_SIGN_DATA_UPDATE"]) {
-        const handlers = read13(() => login._events[key]);
+        const handlers = read14(() => login._events[key]);
         for (const entry of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) {
-          const view = read13(() => entry.caller);
+          const view = read14(() => entry.caller);
           if (live(view) && typeof SignView === "function" && view instanceof SignView && Array.isArray(view.rewardList)) return view.rewardList.slice(0, 40);
         }
       }
@@ -16947,12 +17451,13 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       sendMilitaryQuietly,
       confirmedAttempt: (actionKey) => {
         const task = /^task:(\\d+)$/.exec(actionKey);
-        return task ? read13(() => manager("TaskManager").GetServerTaskDataByTaskID(Number(task[1])).HasAward) === true : confirmedMailAttempt(adapter, actionKey);
+        if (task) return read14(() => manager("TaskManager").GetServerTaskDataByTaskID(Number(task[1])).HasAward) === true;
+        return confirmedJieyueAttempt(adapter, actionKey) || confirmedMailAttempt(adapter, actionKey);
       },
       describeAttempt(actionKey) {
         const match = /^task:(\\d+)$/.exec(actionKey);
         if (!match) return null;
-        const task = read13(() => manager("TaskManager").GetServerTaskDataByTaskID(Number(match[1])));
+        const task = read14(() => manager("TaskManager").GetServerTaskDataByTaskID(Number(match[1])));
         return { label: taskLabel(task, match[1]), reason: task ? taskSkipReason(task) : "", excluded: isReturnTask(task) };
       },
       goods(id) {
@@ -16968,11 +17473,11 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         }
         return goodsIndex.get(id) || null;
       },
-      class: (name) => read13(() => ctx.game.getClass(name)),
-      proxy: () => read13(() => ctx.game.getServerProxy()),
+      class: (name) => read14(() => ctx.game.getClass(name)),
+      proxy: () => read14(() => ctx.game.getServerProxy()),
       signal: ctx.scope?.signal,
       loadConfig: (name) => ctx.game.loadConfigData?.(name.replace(/\\.sgs$/, "")),
-      self: () => read13(() => ctx.game.getSelf?.()) || read13(() => ctx.game.getClass("UserData").Self),
+      self: () => read14(() => ctx.game.getSelf?.()) || read14(() => ctx.game.getClass("UserData").Self),
       async prepare(selected, context = {}) {
         const preparation = { ...adapter, signal: context.signal || adapter.signal, valid: context.valid || (() => !adapter.signal?.aborted) };
         const results = await Promise.allSettled([
@@ -17081,7 +17586,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
             if (initial.CanAward === true && initial.HasAward !== true) note("tasks", \`\${taskLabel(initial, id)}\\uFF1A\${reason}\`);
             continue;
           }
-          const proxy = read13(() => manager.proxy) || adapter.proxy?.();
+          const proxy = read14(() => manager.proxy) || adapter.proxy?.();
           const failure = (event) => {
             const p = event?.Protocol;
             return Number(p?.TaskID) === id && Number.isInteger(p?.ErrorCode) ? p : null;
@@ -17140,7 +17645,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       if (!exclusionsEnabled || action.category === "codes" || action.exclusionMode === "free-draw") return true;
       if (action.key === "free-general-pack") return !selected.excludeRecruit;
       if ((action.key.startsWith("free-beans:") || action.key.startsWith("activity:ddz-tll:") || action.key === "officer:day") && selected.excludeBeans) return false;
-      const rewards2 = read13(() => typeof action.rewards === "function" ? action.rewards() : action.rewards);
+      const rewards2 = read14(() => typeof action.rewards === "function" ? action.rewards() : action.rewards);
       const reason = rewards2 == null ? "\\u5956\\u52B1\\u660E\\u7EC6\\u672A\\u5C31\\u7EEA" : excludedReward(adapter, selected, rewards2);
       if (reason) note(action.category, \`\${action.label}\\uFF1A\\u5DF2\\u8DF3\\u8FC7\\uFF08\${reason}\\uFF09\`);
       return !reason;
@@ -17153,7 +17658,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   }
 
   // src/plugins/daily-rewards/choice-rewards.js
-  var read14 = (fn) => {
+  var read15 = (fn) => {
     try {
       return fn();
     } catch {
@@ -17164,39 +17669,39 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   var ownershipTypes = /* @__PURE__ */ new Set([25, 36, 11, 12, 13, 14, 124, 172]);
   function planChoiceRewards(adapter, { rows: rows4, nativeMethod: nativeMethod2, taskSkipReason: taskSkipReason2 }) {
     const result = [], seen = /* @__PURE__ */ new Set();
-    const ordinary = read14(() => adapter.manager("TaskManager"));
+    const ordinary = read15(() => adapter.manager("TaskManager"));
     for (const kind of ["ActivityQuestManager", "TaskManager"]) {
-      const manager = read14(() => adapter.manager(kind));
+      const manager = read15(() => adapter.manager(kind));
       if (!manager) continue;
       const modern = kind === "ActivityQuestManager";
       const owner = ordinary || manager;
       const request = nativeMethod2(owner, "RequestTaskAward", ordinary ? ["TaskRewardSelectWindow"] : ["quest_id:", "reward_idx:", "CLIENT_QUEST_OP_REQ"]);
       for (const task of rows4(manager.allTasks)) {
-        if (task?.IsNewQusetType === true && read14(() => task.baseVo.HaveSelectReward) === false) continue;
-        const id = Number(read14(() => task.id ?? task._id)), before = Number(read14(() => task.completeTimes ?? 0));
+        if (task?.IsNewQusetType === true && read15(() => task.baseVo.HaveSelectReward) === false) continue;
+        const id = Number(read15(() => task.id ?? task._id)), before = Number(read15(() => task.completeTimes ?? 0));
         if (!positive6(id) || seen.has(id) || !Number.isSafeInteger(before) || before < 0) continue;
-        const current = () => read14(() => manager.GetServerTaskDataByTaskID(id));
+        const current = () => read15(() => manager.GetServerTaskDataByTaskID(id));
         const options = () => {
-          const list3 = read14(() => current().baseVo.TaskSelectReward);
+          const list3 = read15(() => current().baseVo.TaskSelectReward);
           if (!Array.isArray(list3) || !list3.length || list3.length > 64) return [];
           const ids = /* @__PURE__ */ new Set();
           const values = list3.map((v) => ({ id: Number(v.Id), item: Number(v.ItemID), count: Number(v.ItemNum) }));
           if (values.some((v) => !positive6(v.id) || !positive6(v.item) || !positive6(v.count) || ids.has(v.id) || !ids.add(v.id))) return [];
           return values;
         };
-        if (read14(() => task.CanAward) !== true || read14(() => task.HasAward) === true || !options().length) continue;
+        if (read15(() => task.CanAward) !== true || read15(() => task.HasAward) === true || !options().length) continue;
         seen.add(id);
         const base = task.baseVo;
         const fingerprint = JSON.stringify([id, before, options()]);
         const key = modern ? \`quest:\${id}:\${before}\` : \`task:\${id}\`;
-        const safe = () => read14(() => {
+        const safe = () => read15(() => {
           const value = current();
           if (!request || adapter.manager(kind) !== manager || manager.destroyed || ordinary && adapter.manager("TaskManager") !== ordinary || owner.destroyed || !value || modern && value.HasServerData !== true || value.IsFromServer === false || Number(value.completeTimes ?? 0) !== before || taskSkipReason2(value, { allowSelection: true })) return false;
           const prev = Number(value.baseVo.prevTask);
           return (!prev || manager.GetServerTaskDataByTaskID(prev)?.HasAward === true || ordinary?.GetServerTaskDataByTaskID(prev)?.HasAward === true) && JSON.stringify([id, before, options()]) === fingerprint;
         }) === true;
         const describe = (v) => {
-          const goods = read14(() => adapter.goods(v.item));
+          const goods = read15(() => adapter.goods(v.item));
           const type = Number(goods?.TypeID ?? goods?.type);
           let reason = !goods || !Number.isInteger(type) ? "\\u7269\\u54C1\\u8D44\\u6599\\u672A\\u5C31\\u7EEA\\uFF0C\\u8BF7\\u5237\\u65B0\\u5217\\u8868" : "";
           if (!reason && ownershipTypes.has(type)) reason = "\\u9700\\u5728\\u6E38\\u620F\\u539F\\u751F\\u9009\\u5956\\u7A97\\u53E3\\u6838\\u5BF9\\u62E5\\u6709\\u72B6\\u6001";
@@ -17229,7 +17734,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
               manager,
               workflowGroup: modern ? \`quest:\${id}\` : key,
               eligible,
-              done: () => adapter.manager(kind) === manager && read14(() => current()?.HasAward === true || Number(current()?.completeTimes) > before) === true,
+              done: () => adapter.manager(kind) === manager && read15(() => current()?.HasAward === true || Number(current()?.completeTimes) > before) === true,
               send: () => eligible() ? request(id, optionId, 0) : false,
               confirmations: modern && proxy ? [{ manager: proxy, event: "decodeUserQuestOpRep", accept: (e) => matches(e) && packet(e)?.result === 0 }] : [],
               rejections: proxy ? [{
@@ -17445,9 +17950,15 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     }
   };
   var uncertainStatuses = /* @__PURE__ */ new Set(["pending", "unconfirmed", "interrupted"]);
+  var unconfirmedClaimText = "\\u5DE5\\u5177\\u7BB1\\u6682\\u672A\\u786E\\u8BA4\\u9886\\u53D6\\u72B6\\u6001\\uFF0C\\u8BF7\\u4EE5\\u6E38\\u620F\\u5185\\u9886\\u53D6\\u8BB0\\u5F55\\u4E3A\\u51C6\\u3002\\u4E0D\\u4F1A\\u81EA\\u52A8\\u91CD\\u53D1\\u3002";
+  function savedAttemptText(entry) {
+    return entry.text === "\\u6682\\u672A\\u786E\\u8BA4\\u9886\\u53D6\\uFF0C\\u901A\\u5E38\\u5C1A\\u672A\\u6EE1\\u8DB3\\u9886\\u53D6\\u6761\\u4EF6\\uFF1B\\u4E0D\\u4F1A\\u81EA\\u52A8\\u91CD\\u53D1" ? unconfirmedClaimText : entry.text;
+  }
+  var militaryTier = /^activity:(jd|new-jd|ddz-tll):tier:\\d+:\\d+:[01]$/;
   function rewardWorkflowGroup(action) {
-    if (typeof action.workflowGroup === "string" && action.workflowGroup) return action.workflowGroup;
     const key = String(action.key || "");
+    if (militaryTier.test(key)) return key;
+    if (typeof action.workflowGroup === "string" && action.workflowGroup) return action.workflowGroup;
     const sign = /^sign:(\\d+):/.exec(key);
     if (sign) return \`sign:\${sign[1]}\`;
     if (key.startsWith("welfare:tree:")) return "welfare:tree";
@@ -17462,7 +17973,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   }
   function awaitClaim(action, { signal, valid: valid3, timeout = 8e3, poll = 100 }) {
     return new Promise((resolve) => {
-      let ended = false, interval, deadline;
+      let ended = false, interval, deadline, refreshTimer;
       const caller = {}, manager = action.manager, bindings = [];
       const events2 = ["GET_LOGIN_REWARD", "GET_LOGIN_REWARD_NEW", "LOGIN_SIGN_DATA_UPDATE", "GET_GIFT_SUCCESS", "READ_MAIL_SUCCESS", "MAIL_LIST_UPDATE", "REWARD_REP", "TASK_HAS_AWARD", "NEWTTRANKDATA_CHANGE"];
       const finish = (result) => {
@@ -17470,6 +17981,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         ended = true;
         clearInterval(interval);
         clearTimeout(deadline);
+        clearTimeout(refreshTimer);
         signal?.removeEventListener("abort", abort);
         for (const event of events2) safely(() => manager?.off?.(event, caller, check));
         for (const [target, event, handler] of bindings) safely(() => target.off(event, caller, handler));
@@ -17500,13 +18012,20 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       }
       signal?.addEventListener("abort", abort, { once: true });
       interval = setInterval(check, poll);
-      deadline = setTimeout(() => finish({ status: "unconfirmed", text: "\\u6682\\u672A\\u786E\\u8BA4\\u9886\\u53D6\\uFF0C\\u901A\\u5E38\\u5C1A\\u672A\\u6EE1\\u8DB3\\u9886\\u53D6\\u6761\\u4EF6\\uFF1B\\u4E0D\\u4F1A\\u81EA\\u52A8\\u91CD\\u53D1" }), timeout);
+      deadline = setTimeout(() => finish({ status: "unconfirmed", text: unconfirmedClaimText }), timeout);
       try {
         if (!valid3() || signal?.aborted) return abort();
         const result = action.send();
         if (result === false) return finish({ status: "rejected", text: "\\u6E38\\u620F\\u62D2\\u7EDD\\u8BF7\\u6C42\\uFF0C\\u672A\\u8BB0\\u4E3A\\u6210\\u529F" });
         if (result && typeof result.then === "function") Promise.resolve(result).catch(() => finish({ status: "unconfirmed", text: "\\u8BF7\\u6C42\\u5F02\\u5E38\\uFF0C\\u7ED3\\u679C\\u672A\\u786E\\u8BA4\\uFF1B\\u4E0D\\u4F1A\\u81EA\\u52A8\\u91CD\\u53D1" }));
         check();
+        if (!ended && action.refreshClaimState) refreshTimer = setTimeout(() => {
+          check();
+          if (!ended) {
+            safely(action.refreshClaimState);
+            check();
+          }
+        }, Math.min(1e3, timeout / 2));
       } catch {
         finish({ status: "unconfirmed", text: "\\u8BF7\\u6C42\\u5F02\\u5E38\\uFF0C\\u7ED3\\u679C\\u672A\\u786E\\u8BA4\\uFF1B\\u4E0D\\u4F1A\\u81EA\\u52A8\\u91CD\\u53D1" });
       }
@@ -17548,6 +18067,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         const permanent = settings.get(key(owner) + "permanent-attempts", {});
         for (const records of [daily, permanent]) for (const [id, entry] of Object.entries(records || {})) {
           if (!uncertainStatuses.has(entry?.status) && entry?.status !== "rejected") continue;
+          if (state.running && entry.status === "pending" && pendingActions.get(id)?.owner === owner && pendingActions.get(id)?.date === date) continue;
           if (excludedAttempt(id, entry)) continue;
           const detail = safely(() => adapter.describeAttempt?.(id));
           const history = id.startsWith("code:") && entry.status === "rejected";
@@ -17556,7 +18076,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
             status: entry.status,
             at: entry.at,
             label: codeAttemptLabel(id) || detail?.label || entry.label || id,
-            text: entry.text || (entry.status === "rejected" ? "\\u5386\\u53F2\\u5151\\u6362\\u672A\\u6210\\u529F\\uFF1B\\u5F53\\u65F6\\u672A\\u4FDD\\u5B58\\u5177\\u4F53\\u7ED3\\u679C\\u7801\\uFF0C\\u4E0D\\u518D\\u81EA\\u52A8\\u5C1D\\u8BD5" : "\\u5386\\u53F2\\u8BF7\\u6C42\\u7ED3\\u679C\\u672A\\u786E\\u8BA4\\uFF1B\\u4E0D\\u4F1A\\u81EA\\u52A8\\u91CD\\u53D1"),
+            text: savedAttemptText(entry) || (entry.status === "rejected" ? "\\u5386\\u53F2\\u5151\\u6362\\u672A\\u6210\\u529F\\uFF1B\\u5F53\\u65F6\\u672A\\u4FDD\\u5B58\\u5177\\u4F53\\u7ED3\\u679C\\u7801\\uFF0C\\u4E0D\\u518D\\u81EA\\u52A8\\u5C1D\\u8BD5" : "\\u5386\\u53F2\\u8BF7\\u6C42\\u7ED3\\u679C\\u672A\\u786E\\u8BA4\\uFF1B\\u4E0D\\u4F1A\\u81EA\\u52A8\\u91CD\\u53D1"),
             reason: detail?.reason || ""
           });
         }
@@ -17564,7 +18084,8 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       const ledger = owner ? settings.get(key(owner) + "attempts", {}) : {};
       const choices = owner && date ? choicePlans().map(({ action, ...item2 }) => {
         const attempt = ledger.day === date ? ledger.items?.[item2.key] : null;
-        return { ...item2, reason: attempt ? attempt.text || (attempt.status === "confirmed" ? "\\u5DF2\\u786E\\u8BA4\\u9886\\u53D6\\uFF0C\\u7B49\\u5F85\\u5217\\u8868\\u5237\\u65B0" : "\\u5DF2\\u6709\\u9886\\u53D6\\u8BB0\\u5F55\\uFF0C\\u8BF7\\u5728\\u6E38\\u620F\\u5185\\u6838\\u5BF9") : item2.reason };
+        if (!attempt) return item2;
+        return { ...item2, reason: attempt.status === "confirmed" ? "\\u5DF2\\u786E\\u8BA4\\u9886\\u53D6\\uFF0C\\u7B49\\u5F85\\u5217\\u8868\\u5237\\u65B0" : savedAttemptText(attempt) || "\\u5DF2\\u6709\\u9886\\u53D6\\u8BB0\\u5F55\\uFF0C\\u8BF7\\u5728\\u6E38\\u620F\\u5185\\u6838\\u5BF9" };
       }) : [];
       return { ...state, choices, date, account: owner, accountReady: !!owner, dateReady: !!date, config: config(), logs: logs.slice(), issues, codeHistory };
     };
@@ -17830,26 +18351,32 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         const noted = /* @__PURE__ */ new Set(), skipped = /* @__PURE__ */ new Set();
         let count = 0, unresolved = 0, rejected = 0, lastFailure = "";
         const newPermanentUnresolved = /* @__PURE__ */ new Set();
-        let reconciled = false;
-        for (const [actionKey, entry] of Object.entries(ledger.items)) {
-          if (uncertainStatuses.has(entry?.status) && safely(() => adapter.confirmedAttempt?.(actionKey, entry)) === true) {
-            ledger.items[actionKey] = { ...entry, status: "confirmed", at: now() };
-            reconciled = true;
+        function reconcile() {
+          let reconciled = false;
+          for (const [actionKey, entry] of Object.entries(ledger.items)) {
+            if (uncertainStatuses.has(entry?.status) && safely(() => adapter.confirmedAttempt?.(actionKey, entry)) === true) {
+              ledger.items[actionKey] = { ...entry, status: "confirmed", at: now() };
+              reconciled = true;
+            }
           }
+          for (const [actionKey, pending] of pendingActions) {
+            if (pending.owner !== owner || pending.date !== date) {
+              pendingActions.delete(actionKey);
+              continue;
+            }
+            const records = record(pending.action), savedRecord = records[actionKey];
+            if (savedRecord?.status === "confirmed") {
+              pendingActions.delete(actionKey);
+              continue;
+            }
+            if (uncertainStatuses.has(savedRecord?.status) && safely(pending.action.done) === true) {
+              records[actionKey] = { ...savedRecord, status: "confirmed", at: now() };
+              pendingActions.delete(actionKey);
+              reconciled = true;
+            }
+          }
+          if (reconciled) write();
         }
-        for (const [actionKey, pending] of pendingActions) {
-          if (pending.owner !== owner || pending.date !== date) {
-            pendingActions.delete(actionKey);
-            continue;
-          }
-          const records = record(pending.action), savedRecord = records[actionKey];
-          if (uncertainStatuses.has(savedRecord?.status) && safely(pending.action.done) === true) {
-            records[actionKey] = { ...savedRecord, status: "confirmed", at: now() };
-            pendingActions.delete(actionKey);
-            reconciled = true;
-          }
-        }
-        if (reconciled) write();
         const selection = () => {
           const selected = source === "clipboard" ? { ...config(), sign: false, mail: false, tasks: false, welfare: false, activities: false } : config();
           if (selected.codeInputVersion !== 1) selected.codeText = "";
@@ -17865,10 +18392,20 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         } catch {
           log("system", "\\u90E8\\u5206\\u5956\\u52B1\\u914D\\u7F6E\\u52A0\\u8F7D\\u5931\\u8D25\\uFF0C\\u4ECD\\u68C0\\u67E5\\u5DF2\\u5C31\\u7EEA\\u7684\\u9886\\u53D6\\u9879\\u76EE");
         }
+        if (valid3()) reconcile();
         const codeTotal = inspect(selection()).actions.filter((item2) => item2.category === "codes").length;
         let codeAttempted = 0;
+        let jieyueManager, jieyueLists = null, waitingForJieyue = false;
+        const isJieyue = (key2) => key2.startsWith("activity:new-jd:");
         while (valid3() && count < 200) {
           const plan = inspect(selection());
+          if (!jieyueLists && config().activities && source !== "clipboard" && (plan.actions.some((item2) => isJieyue(item2.key)) || Object.entries(ledger.items).some(([key2, entry]) => isJieyue(key2) && uncertainStatuses.has(entry?.status)))) {
+            jieyueManager = adapter.manager("ActivityManager");
+            jieyueLists = await syncJieyueLists(jieyueManager, { signal, valid: valid3, timeout: Math.min(timeout, 2500) });
+            if (!valid3()) break;
+            reconcile();
+            continue;
+          }
           for (const action2 of plan.actions) {
             const previous2 = ledger.items[action2.key], repair = action2.legacyMailRepair;
             if (!repair || !uncertainStatuses.has(previous2?.status) || previous2.flowVersion && previous2.flowVersion !== 2 || (Number(previous2.at) || 0) !== repair.previousAt || ledger.items[repair.readKey]?.status !== "confirmed" || !safely(action2.eligible)) continue;
@@ -17884,15 +18421,30 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
             }
           }
           const blockedGroups = /* @__PURE__ */ new Set();
+          const blockedMilitaryBatches = /* @__PURE__ */ new Set();
           for (const records2 of [ledger.items, permanent]) for (const [actionKey, entry] of Object.entries(records2)) {
-            if (!excludedAttempt(actionKey, entry) && uncertainStatuses.has(entry?.status)) blockedGroups.add(rewardWorkflowGroup({ key: actionKey, workflowGroup: entry.workflowGroup }));
+            if (excludedAttempt(actionKey, entry) || !uncertainStatuses.has(entry?.status)) continue;
+            blockedGroups.add(rewardWorkflowGroup({ key: actionKey, workflowGroup: entry.workflowGroup }));
+            const tier = militaryTier.exec(actionKey);
+            if (tier) blockedMilitaryBatches.add(\`activity:\${tier[1]}\`);
           }
           unresolved = Object.entries(ledger.items).filter(([id, entry]) => !excludedAttempt(id, entry) && uncertainStatuses.has(entry?.status)).length + newPermanentUnresolved.size;
           const retryable = (item2) => {
             const prior = record(item2)[item2.key];
             return prior?.status === "rejected" && Number.isInteger(item2.maxRejectedAttempts) && item2.maxRejectedAttempts > 1 && item2.maxRejectedAttempts <= 3 && (Number(prior.attempts) || 1) < item2.maxRejectedAttempts;
           };
-          const action = plan.actions.find((item2) => (!record(item2)[item2.key] || retryable(item2)) && !skipped.has(item2.key) && !blockedGroups.has(rewardWorkflowGroup(item2)) && !(item2.skipAfter && ledger.items[item2.skipAfter]));
+          const action = plan.actions.find((item2) => {
+            const group = rewardWorkflowGroup(item2);
+            const tier = militaryTier.exec(item2.key);
+            if (jieyueLists && isJieyue(item2.key) && !record(item2)[item2.key]) {
+              const premium = tier ? item2.key.endsWith(":1") : item2.manager?.hadBuyNewJD;
+              if (item2.manager !== jieyueManager || !jieyueLists.free || premium && !jieyueLists.premium) {
+                waitingForJieyue = true;
+                return false;
+              }
+            }
+            return (!record(item2)[item2.key] || retryable(item2)) && !skipped.has(item2.key) && !blockedGroups.has(group) && !blockedMilitaryBatches.has(group) && !(tier && blockedGroups.has(\`activity:\${tier[1]}\`)) && !(item2.skipAfter && ledger.items[item2.skipAfter]);
+          });
           if (!action) break;
           if (!valid3() || !config()[action.category]) break;
           const records = record(action);
@@ -17917,10 +18469,10 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
             log("system", state.status, "error");
             break;
           }
+          pendingActions.set(action.key, { action, owner, date });
           count++;
           state.status = action.category === "codes" ? \`\\u6B63\\u5728\\u5151\\u6362 \${++codeAttempted}/\${codeTotal}\\uFF1A\${action.code}\` : \`\\u6B63\\u5728\\u9886\\u53D6\\uFF1A\${action.label}\`;
           emit();
-          pendingActions.set(action.key, { action, owner, date });
           const result = await awaitClaim(action, { signal, valid: valid3, timeout, poll });
           records[action.key] = { status: result.status, at: now(), label: action.label, text: result.text, workflowGroup: rewardWorkflowGroup(action), ...attempts, ...action.flowVersion ? { flowVersion: action.flowVersion } : {} };
           if (!uncertainStatuses.has(result.status)) pendingActions.delete(action.key);
@@ -17954,7 +18506,8 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
           }
         }
         if (!valid3()) state.status = "\\u672C\\u8F6E\\u5DF2\\u505C\\u6B62\\uFF1B\\u8D26\\u53F7\\u6216\\u65E5\\u671F\\u53D8\\u5316\\u3001\\u505C\\u7528\\u540E\\u4E0D\\u518D\\u53D1\\u9001\\u8BF7\\u6C42";
-        else if (state.status.startsWith("\\u6B63\\u5728")) state.status = unresolved ? \`\\u5DF2\\u786E\\u8BA4 \${state.confirmed} \\u9879\\uFF1B\${unresolved} \\u9879\\u6682\\u672A\\u786E\\u8BA4\\u9886\\u53D6\\uFF08\\u901A\\u5E38\\u5C1A\\u672A\\u6EE1\\u8DB3\\u9886\\u53D6\\u6761\\u4EF6\\uFF0C\\u672A\\u91CD\\u53D1\\uFF09\` : \`\\u672C\\u8F6E\\u5B8C\\u6210\\uFF0C\\u5DF2\\u786E\\u8BA4\\u9886\\u53D6 \${state.confirmed} \\u9879\`;
+        else if (state.status.startsWith("\\u6B63\\u5728")) state.status = unresolved ? \`\\u672C\\u8F6E\\u5DF2\\u786E\\u8BA4 \${state.confirmed} \\u9879\\uFF0C\\u53E6\\u6709 \${unresolved} \\u9879\\u5F85\\u6838\\u5BF9\\uFF08\\u672A\\u91CD\\u53D1\\uFF09\\u3002\\u4EE5\\u6E38\\u620F\\u5185\\u9886\\u53D6\\u8BB0\\u5F55\\u4E3A\\u51C6\\u3002\` : \`\\u672C\\u8F6E\\u5B8C\\u6210\\uFF0C\\u5DF2\\u786E\\u8BA4\\u9886\\u53D6 \${state.confirmed} \\u9879\`;
+        if (valid3() && waitingForJieyue) state.status += " \\u7B49\\u5F85\\u6E38\\u620F\\u540C\\u6B65\\u8282\\u94BA\\u4EE4\\u9886\\u53D6\\u8BB0\\u5F55\\u3002";
         if (valid3() && rejected) state.status += \`\\uFF1B\${rejected} \\u9879\\u5931\\u8D25\\uFF1A\${lastFailure}\`;
         if (count >= 200) state.status = \`\\u672C\\u8F6E\\u5DF2\\u8FBE 200 \\u9879\\u4E0A\\u9650\\uFF0C\\u5DF2\\u786E\\u8BA4 \${state.confirmed} \\u9879\`;
         return snapshot();
@@ -18111,7 +18664,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     manifest: {
       id: "daily-rewards",
       name: "\\u65E5\\u5E38\\u9886\\u5956",
-      version: "0.7.34",
+      version: "0.7.38",
       apiVersion: 1,
       contractVersion: 1,
       releaseNotes: "\\u8C03\\u6574\\u6D3B\\u52A8\\u5956\\u52B1\\u9886\\u53D6\\uFF0C\\u907F\\u514D\\u53D1\\u9001\\u591A\\u4F59\\u7684\\u9886\\u53D6\\u8BF7\\u6C42\\u3002\\u81EA\\u52A8\\u9886\\u53D6\\u4ECD\\u9ED8\\u8BA4\\u5173\\u95ED\\uFF0C\\u5151\\u6362\\u53EF\\u80FD\\u6D88\\u8017\\u6B22\\u4E50\\u8C46\\uFF1B\\u5171\\u4EAB\\u5151\\u6362\\u7801\\u9700\\u5355\\u72EC\\u5F00\\u542F\\uFF0C\\u53EA\\u4E0A\\u4F20\\u6E38\\u620F\\u660E\\u786E\\u6210\\u529F\\u7684\\u7801\\u53CA\\u8D26\\u53F7\\u6458\\u8981\\u3002",
@@ -18231,7 +18784,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         const pending = el("div", void 0, "reward-pending");
         pending.dataset.rewardsUnconfirmed = "";
         pending.hidden = true;
-        pending.setAttribute("aria-label", "\\u672A\\u786E\\u8BA4\\u9886\\u53D6\\u7684\\u9879\\u76EE");
+        pending.setAttribute("aria-label", "\\u9886\\u53D6\\u72B6\\u6001\\u5F85\\u6838\\u5BF9\\u7684\\u9879\\u76EE");
         const pendingStyle = el("style");
         pendingStyle.textContent = ".reward-pending{margin:4px 0 10px;padding-left:9px;border-left:2px solid var(--sgs-border);font-size:11px;line-height:1.7;color:var(--sgs-muted)}.reward-pending p{margin:3px 0;white-space:pre-wrap;overflow-wrap:anywhere}.reward-pending[hidden]{display:none}";
         root2.append(style, pendingStyle, heading, excluded, codes, status, pending);
@@ -18256,7 +18809,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
           pending.hidden = !uncertainTasks.length;
           pending.replaceChildren(...uncertainTasks.map((item2) => {
             const id = /^(?:task|quest):(\\d+)/.exec(item2.key)?.[1];
-            return el("p", \`\\u672A\\u786E\\u8BA4\\uFF1A\${item2.label === item2.key ? "\\u672A\\u547D\\u540D\\u9886\\u5956\\u9879\\u76EE" : item2.label}\${id && !item2.label.includes(\`\\u4EFB\\u52A1 \${id}\`) ? \`\\uFF08\\u4EFB\\u52A1 \${id}\\uFF09\` : ""}\`);
+            return el("p", \`\\u5F85\\u6838\\u5BF9 \\xB7 \${item2.label === item2.key ? "\\u672A\\u547D\\u540D\\u9886\\u5956\\u9879\\u76EE" : item2.label}\${id && !item2.label.includes(\`\\u4EFB\\u52A1 \${id}\`) ? \`\\uFF08\\u4EFB\\u52A1 \${id}\\uFF09\` : ""}\`);
           }));
         };
         controller.refresh();
@@ -18280,8 +18833,8 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E38\u9886\u5956","version":"0.7.34","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8C03\u6574\u6D3B\u52A8\u5956\u52B1\u9886\u53D6\uFF0C\u907F\u514D\u53D1\u9001\u591A\u4F59\u7684\u9886\u53D6\u8BF7\u6C42\u3002\u81EA\u52A8\u9886\u53D6\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF1B\u5171\u4EAB\u5151\u6362\u7801\u9700\u5355\u72EC\u5F00\u542F\uFF0C\u53EA\u4E0A\u4F20\u6E38\u620F\u660E\u786E\u6210\u529F\u7684\u7801\u53CA\u8D26\u53F7\u6458\u8981\u3002","minCoreVersion":"0.6.38","categories":["automation"],"icon":{"paths":["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13","M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"]},"priority":20000,"description":"\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55"}};
-`, sha256: "4b88f8df18eb2f1930f4aeb52cad91d96db273a4e21c0d6523f2eed2eeb8f07f" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "seckill", name: "\u81EA\u52A8\u79D2\u6740", version: "0.1.3", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u81EA\u52A8\u8D2D\u4E70\u754C\u9762\uFF0C\u7EDF\u4E00\u5546\u54C1\u9009\u62E9\u4E0E\u5F00\u5173\u5916\u89C2\uFF1B\u81EA\u52A8\u8D2D\u4E70\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5F00\u542F\u540E\u4F1A\u6D88\u8017\u5BF9\u5E94\u6E38\u620F\u8D27\u5E01\uFF0C\u7ED3\u679C\u672A\u786E\u8BA4\u65F6\u4ECD\u4FDD\u7559\u6838\u5BF9\u72B6\u6001\u3002", minCoreVersion: "0.6.37", description: "\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4", icon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E38\u9886\u5956","version":"0.7.38","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8C03\u6574\u6D3B\u52A8\u5956\u52B1\u9886\u53D6\uFF0C\u907F\u514D\u53D1\u9001\u591A\u4F59\u7684\u9886\u53D6\u8BF7\u6C42\u3002\u81EA\u52A8\u9886\u53D6\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF1B\u5171\u4EAB\u5151\u6362\u7801\u9700\u5355\u72EC\u5F00\u542F\uFF0C\u53EA\u4E0A\u4F20\u6E38\u620F\u660E\u786E\u6210\u529F\u7684\u7801\u53CA\u8D26\u53F7\u6458\u8981\u3002","minCoreVersion":"0.6.38","categories":["automation"],"icon":{"paths":["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13","M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"]},"priority":20000,"description":"\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55"}};
+`, sha256: "4a03af7f4f390d053f91df829ab4428a04549bac1fe6a39211a47005cdc57cbc" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "seckill", name: "\u81EA\u52A8\u79D2\u6740", version: "0.1.3", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u81EA\u52A8\u8D2D\u4E70\u754C\u9762\uFF0C\u7EDF\u4E00\u5546\u54C1\u9009\u62E9\u4E0E\u5F00\u5173\u5916\u89C2\uFF1B\u81EA\u52A8\u8D2D\u4E70\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5F00\u542F\u540E\u4F1A\u6D88\u8017\u5BF9\u5E94\u6E38\u620F\u8D27\u5E01\uFF0C\u7ED3\u679C\u672A\u786E\u8BA4\u65F6\u4ECD\u4FDD\u7559\u6838\u5BF9\u72B6\u6001\u3002", minCoreVersion: "0.6.37", description: "\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4", icon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -19075,7 +19628,7 @@ return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E3
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D2\u6740","version":"0.1.3","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7CBE\u7B80\u81EA\u52A8\u8D2D\u4E70\u754C\u9762\uFF0C\u7EDF\u4E00\u5546\u54C1\u9009\u62E9\u4E0E\u5F00\u5173\u5916\u89C2\uFF1B\u81EA\u52A8\u8D2D\u4E70\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5F00\u542F\u540E\u4F1A\u6D88\u8017\u5BF9\u5E94\u6E38\u620F\u8D27\u5E01\uFF0C\u7ED3\u679C\u672A\u786E\u8BA4\u65F6\u4ECD\u4FDD\u7559\u6838\u5BF9\u72B6\u6001\u3002","minCoreVersion":"0.6.37","description":"\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4","icon":{"paths":["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2","M13 10 9 15h3l-1 4 5-6h-4Z"]},"priority":21000,"categories":["automation"]}};
-`, sha256: "d1b63c66d392854b0636f4a9179798654418d82329560fbd2da4597fbeae5057" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "gaizhu", name: "\u76D6\u4E3B\u901F\u5237", version: "0.1.16", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u53CD\u8D3C\u623F\u4E3B\u5355\u4EBA\u767E\u80DC\u548C\u5355\u9A91\u4EBA\u673A\u8BAD\u7EC3\uFF0C\u4F18\u5148\u4F7F\u7528\u5C0F\u6740\u52A9\u624B\u63D0\u793A\uFF0C\u5E76\u63D0\u4F9B\u53D6\u6D88\u65E0\u61C8\u9009\u9879\u3002\u9700\u624B\u52A8\u5F00\u59CB\uFF1B\u70B9\u5C06\u53EF\u80FD\u6D88\u8017\u9053\u5177\uFF0C\u5355\u9A91\u8BAD\u7EC3\u81EA\u52A8\u9009\u8D2D\u53EF\u80FD\u6D88\u8017\u5C40\u5185\u8D27\u5E01\u3002", minCoreVersion: "0.6.37", dependencies: ["baisheng"], description: "\u652F\u6301\u76D6\u4E3B\u901F\u5237\u3001\u53CD\u8D3C\u623F\u4E3B\u5355\u4EBA\u767E\u80DC\u548C\u5355\u9A91\u4EBA\u673A\u8BAD\u7EC3\uFF1B\u5355\u4EBA\u5BF9\u5C40\u4F18\u5148\u63A5\u53D7\u5C0F\u6740\u52A9\u624B\u63D0\u793A\uFF0C\u8D85\u65F6\u672C\u5730\u5904\u7406\u4E0E\u6258\u7BA1\u515C\u5E95\u3002", icon: { paths: ["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0", "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3", "M2 21h6"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
+`, sha256: "d1b63c66d392854b0636f4a9179798654418d82329560fbd2da4597fbeae5057" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "gaizhu", name: "\u76D6\u4E3B\u901F\u5237", version: "0.1.18", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u53CD\u8D3C\u623F\u4E3B\u5355\u4EBA\u767E\u80DC\u548C\u5355\u9A91\u4EBA\u673A\u8BAD\u7EC3\uFF0C\u4F18\u5148\u4F7F\u7528\u5C0F\u6740\u52A9\u624B\u63D0\u793A\uFF0C\u5E76\u63D0\u4F9B\u53D6\u6D88\u65E0\u61C8\u9009\u9879\u3002\u9700\u624B\u52A8\u5F00\u59CB\uFF1B\u70B9\u5C06\u53EF\u80FD\u6D88\u8017\u9053\u5177\uFF0C\u5355\u9A91\u8BAD\u7EC3\u81EA\u52A8\u9009\u8D2D\u53EF\u80FD\u6D88\u8017\u5C40\u5185\u8D27\u5E01\u3002", minCoreVersion: "0.6.37", dependencies: ["baisheng"], description: "\u652F\u6301\u76D6\u4E3B\u901F\u5237\u3001\u53CD\u8D3C\u623F\u4E3B\u5355\u4EBA\u767E\u80DC\u548C\u5355\u9A91\u4EBA\u673A\u8BAD\u7EC3\uFF1B\u5355\u4EBA\u5BF9\u5C40\u4F18\u5148\u63A5\u53D7\u5C0F\u6740\u52A9\u624B\u63D0\u793A\uFF0C\u8D85\u65F6\u672C\u5730\u5904\u7406\u4E0E\u6258\u7BA1\u515C\u5E95\u3002", icon: { paths: ["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0", "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3", "M2 21h6"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -19383,6 +19936,8 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
   };
   var usable = (node) => shown(node) && read(() => node.disabled) !== true && read(() => node.enabled) !== false && read(() => node._enabled) !== false;
   function selfButtonBar(self) {
+    const current = read(() => self.getButtonBar());
+    if (current) return shown(current) ? current : null;
     const bars = [read(() => self.Pt), read(() => self.buttonBar)];
     return bars.find((bar) => shown(bar) && Array.isArray(read(() => bar.btns))) || bars.find((bar) => shown(bar)) || null;
   }
@@ -19484,7 +20039,8 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         let id = Number(info.itemId ?? info.ItemID ?? info.itemID ?? info.generalId ?? info.GeneralID ?? info.generalid ?? ui.CardID ?? ui.cardId ?? ui.generalId ?? ui.GeneralID ?? ui.GeneralId ?? ui.itemId ?? ui.ItemID);
         const name = String(info.itemName ?? info.ItemName ?? info.generalName ?? info.GeneralName ?? info.CardName ?? info.name ?? info.Name ?? ui.CardName ?? ui.generalName ?? ui.GeneralName ?? ui.itemName ?? names[id] ?? ui.name ?? "").trim();
         if (!(id > 0) && name) id = Number(Object.keys(names).find((key) => names[key] === name));
-        return { ui, id, name };
+        const quality = Number(info.quality ?? info.Quality ?? 0);
+        return { ui, id, name, quality: Number.isFinite(quality) ? quality : 0 };
       }).filter((c) => c.id > 0 || c.name);
     }
     function choose(win, card) {
@@ -19534,6 +20090,19 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         return true;
       }
       return false;
+    }
+    function seatAi(view, seat, strong) {
+      view.showBtns(seat);
+      if (view.currentSeat !== seat) return "";
+      const tiers = [
+        { button: view.addAiSBtn, type: 3, name: "\\u738B\\u8005\\u5C0F\\u6740" },
+        { button: view.addAiMBtn, type: 2, name: "\\u9AD8\\u7EA7\\u5C0F\\u6740" },
+        { button: view.addAiBtn, type: 1, name: "\\u666E\\u901A\\u5C0F\\u6740" }
+      ];
+      const tier = tiers.find(({ button, type }) => (strong || type === 1) && read(() => button.visible) === true && usable(button));
+      if (!tier) return "";
+      view.addAiHandler(tier.type, seat);
+      return tier.name;
     }
     function mulligan() {
       const windowPattern = /ShouQiKa|\u624B\u6C14\u5361|Mulligan|FirstHand/i;
@@ -19608,6 +20177,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       choose,
       confirm,
       confirmAi,
+      seatAi,
       mulligan,
       continueResult,
       dj,
@@ -20169,13 +20739,18 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
   var TRAINING_SHOP_IDS = /* @__PURE__ */ new Set([2009, 2021, 2036, 2037, 2042, 2043, 2048, 2049, 2051, 2059, 2060, 2069, 2070, 2076, 2077, 2078, 2088, 2093, 2094, 2095, 2096, 2098, 2099, 2100, 2101, 2103, 2104, 2120, 2121, 2122, 2143, 2150, 2154, 2162, 2163, 2164, 2165, 2174, 2196, 2197, 2198, 2209, 2210, 2226, 2227, 2249, 2250, 2251, 2261, 2262, 2263, 2287, 2288, 2289, 2294, 2295, 2297, 2315, 2317, 2319, 2320, 3022, 3030, 3048, 3082, 3095, 3148, 3176, 3180, 3219, 3230, 3292]);
 
   // src/plugins/gaizhu/room-settings.js
+  function roomMode(ctx) {
+    const proto = read(() => ctx.game.getClass("CreateTableWindow").prototype);
+    const getter = read(() => Object.getOwnPropertyDescriptor(proto, "curModeVo").get);
+    return read(() => getter.call({})) || read(() => ctx.game.getClass("GameContext").GetModeVO());
+  }
+  var isIdentityPractice = (mode) => Number(mode?.ModeID) === 74 && Number(mode?.RuleTypeID) === 1;
   function inspectHostRoom(ctx, scene) {
     const rc = read(() => scene.startUI.rc);
     const proto = read(() => ctx.game.getClass("CreateTableWindow").prototype);
-    const modeGetter = read(() => Object.getOwnPropertyDescriptor(proto, "curModeVo").get);
-    const mode = read(() => modeGetter.call({}));
+    const mode = roomMode(ctx);
     if (!mode) return { error: "\\u65E0\\u6CD5\\u786E\\u8BA4\\u5F53\\u524D\\u623F\\u95F4\\u6A21\\u5F0F\\uFF0C\\u5DF2\\u505C\\u6B62\\uFF1B\\u8BF7\\u5728\\u8EAB\\u4EFD\\u6F14\\u6B66\\u7B49\\u5F85\\u623F\\u95F4\\u542F\\u52A8" };
-    if (mode.ModeID !== 74 || mode.RuleTypeID !== 1) return { error: "\\u623F\\u95F4\\u4E0D\\u662F\\u8EAB\\u4EFD\\u6F14\\u6B66\\uFF08\\u5E94\\u53D8\\u6216\\u519B\\u4E89\\uFF09\\uFF0C\\u5DF2\\u505C\\u6B62" };
+    if (!isIdentityPractice(mode)) return { error: "\\u623F\\u95F4\\u4E0D\\u662F\\u8EAB\\u4EFD\\u6F14\\u6B66\\uFF08\\u5E94\\u53D8\\u6216\\u519B\\u4E89\\uFF09\\uFF0C\\u5DF2\\u505C\\u6B62" };
     if (read(() => rc.MasterIsSelf) !== true) return { error: "\\u76D6\\u4E3B\\uFF08\\u5C0F\\u53F7\\uFF09\\u5FC5\\u987B\\u7531\\u5F53\\u524D\\u623F\\u95F4\\u623F\\u4E3B\\u8FD0\\u884C\\uFF0C\\u5DF2\\u505C\\u6B62" };
     const rule = read(() => rc.TableSetting);
     if (!rule || typeof rule.Password !== "string" || typeof rule.BuildHandCard !== "boolean" || typeof rule.CanDianJiang !== "boolean" || !Number.isInteger(rule.RandMode)) {
@@ -20190,7 +20765,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     };
     if (Object.entries(patch).every(([key, value]) => rule[key] === value)) return { rc, password };
     const proxy = ctx.game.getServerProxy();
-    if (typeof proto.createModifyRuleMsg !== "function" || typeof proxy?.L !== "function" || typeof rc.on !== "function" || typeof rc.off !== "function") return { error: "\\u623F\\u95F4\\u8BBE\\u7F6E\\u63D0\\u4EA4\\u63A5\\u53E3\\u4E0D\\u53EF\\u7528\\uFF0C\\u5DF2\\u505C\\u6B62" };
+    if (typeof proto?.createModifyRuleMsg !== "function" || typeof proxy?.L !== "function" || typeof rc.on !== "function" || typeof rc.off !== "function") return { error: "\\u623F\\u95F4\\u8BBE\\u7F6E\\u63D0\\u4EA4\\u63A5\\u53E3\\u4E0D\\u53EF\\u7528\\uFF0C\\u5DF2\\u505C\\u6B62" };
     return { rc, password, submit() {
       const clone = () => Object.assign(Object.create(Object.getPrototypeOf(rule)), rule);
       const packet = proto.createModifyRuleMsg.call({
@@ -20207,6 +20782,54 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     } };
   }
 
+  // src/plugins/gaizhu/shield.js
+  function disableCompletedGenerals(ctx, mode, rows) {
+    const completed = new Set(rows.filter((row) => row.completed === true && row.owned === true).map((row) => row.id));
+    if (!completed.size) return 0;
+    const shield = manager(ctx, "GameShieldGeneralManager", "decodeUserFreeGeneralInfoRep", (mgr) => [
+      "GetNewGeneralPoolComplianceByModeIdAndSection",
+      "GetShieldGeneralGameModelNodeByIndex",
+      "GetShieldGeneralState",
+      "InShieldCloseGeneral",
+      "SendClientShieldGeneralBatchReq"
+    ].every((method) => typeof mgr[method] === "function"));
+    if (!shield) return 0;
+    const section = Number(mode.Section ?? read(() => ctx.game.getClass("GameContext").GetGroupID()));
+    if (!Number.isInteger(section) || section < 0) return 0;
+    const { pool, all } = shield.GetNewGeneralPoolComplianceByModeIdAndSection.call({
+      GetNewGeneralPoolCompliance: (pool2, all2) => ({ pool: pool2, all: all2 })
+    }, Number(mode.ModeID), section) || {};
+    const poolIds = all ? pool?.InFactAllGeneralList : pool?.InFactGeneralList;
+    if (!Array.isArray(poolIds) || pool.OnlyShowInfo) return 0;
+    const scheme = shield.GetShieldGeneralGameModelNodeByIndex(pool.Id);
+    const schemeId = Number(scheme?.scheme_id ?? scheme?.schemeId);
+    const minOpen = Number(pool.MinGOpen), maxLimitedClosed = Number(pool.CanCloseBfAllCnt);
+    if (!Number.isSafeInteger(schemeId) || schemeId <= 0 || !Number.isInteger(minOpen) || minOpen < 0 || !Number.isInteger(maxLimitedClosed) || maxLimitedClosed < 0) return 0;
+    const generals = manager(ctx, "GameGeneralManager", "ClientGeneralFromRep", (mgr) => typeof mgr.HasGeneral === "function");
+    if (!generals) return 0;
+    const protectedIds = new Set((pool.CantCloseGeneralList || []).map(Number));
+    const limited = new Set((pool.BfGListInShowPool || []).map(Number));
+    const owned = [.../* @__PURE__ */ new Set([...poolIds.map(Number), ...protectedIds])].filter((id) => generals.HasGeneral(id));
+    const closed = owned.filter((id) => !protectedIds.has(id) && shield.GetShieldGeneralState(id, schemeId));
+    const closedSet = new Set(closed);
+    let remaining = owned.length - closed.length - minOpen;
+    let limitedRemaining = maxLimitedClosed - closed.filter((id) => limited.has(id) && shield.InShieldCloseGeneral(id)).length;
+    const ids = [];
+    for (const id of owned) {
+      if (remaining <= 0) break;
+      if (!completed.has(id) || protectedIds.has(id) || closedSet.has(id) || !shield.InShieldCloseGeneral(id)) continue;
+      if (limited.has(id) && limitedRemaining <= 0) continue;
+      ids.push(id);
+      remaining--;
+      if (limited.has(id)) limitedRemaining--;
+    }
+    if (ids.length) {
+      shield.ShieldGeneralBatchState = 0;
+      shield.SendClientShieldGeneralBatchReq(schemeId, ids, []);
+    }
+    return ids.length;
+  }
+
   // src/plugins/gaizhu/runtime.js
   function createGaiZhu(ctx) {
     const native = createNative(ctx), listeners = /* @__PURE__ */ new Set();
@@ -20215,6 +20838,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     let roomCheck = null, roomPassword = "", settingsRelease = null;
     let seq = 0, round = {}, rounds = 0, log = [], general = null;
     let defs = [], names = {}, progress = null, pendingAch = null, configLoading = false, lastQuery = -Infinity;
+    let startBan = null;
     let solo = false, training = false, assistant = createAssistant({ cancelWuxie: () => options.cancelWuxie, getCardMeta: (id) => read(() => ctx.game.getCardMeta(id)), getSkill: (id) => read(() => ctx.game.getClass("Skill").GetInstance(id)), canOperate: () => read(() => ctx.game.getClass("GameContext").CanOperationInGame()) });
     let djRelease = null, stopped = false, configSeq = 0, synced = false;
     const now = () => typeof ctx.now === "function" ? ctx.now() : Date.now();
@@ -20244,6 +20868,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       djRelease?.();
       djRelease = null;
       pendingAch = null;
+      startBan = null;
       round = {};
       general = null;
       configLoading = false;
@@ -20337,6 +20962,22 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     function rows() {
       const gm = manager(ctx, "GameGeneralManager", "ClientGeneralFromRep", (m) => typeof m.HasGeneral === "function");
       return evaluate(defs, progress, names, (id) => gm ? read(() => gm.HasGeneral(id)) ?? null : null);
+    }
+    function tryStartBan(scene) {
+      if (!startBan) return;
+      if (scene !== startBan.scene || now() >= startBan.until) {
+        startBan = null;
+        return;
+      }
+      if (!progress || !defs.some((def) => def.flags === 2048)) return;
+      const { mode } = startBan;
+      startBan = null;
+      try {
+        const count2 = disableCompletedGenerals(ctx, mode, rows());
+        if (count2) note(\`\\u5DF2\\u8BF7\\u6C42\\u7981\\u7528 \${count2} \\u540D\\u5DF2\\u6EE1\\u767E\\u80DC\\u6B66\\u5C06\`);
+      } catch (error2) {
+        note(\`\\u7981\\u5C06\\u8BF7\\u6C42\\u5931\\u8D25\\uFF0C\\u7EE7\\u7EED\\u901F\\u5237\\uFF1A\${String(error2?.message || error2)}\`);
+      }
     }
     function resetPhase(phase) {
       if (phase === "game") assistant = createAssistant({ cancelWuxie: () => options.cancelWuxie, getCardMeta: (id) => read(() => ctx.game.getCardMeta(id)), getSkill: (id) => read(() => ctx.game.getClass("Skill").GetInstance(id)), canOperate: () => read(() => ctx.game.getClass("GameContext").CanOperationInGame()) });
@@ -20482,6 +21123,18 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         if (!card && elapsed >= 5e3) card = cards.find((c) => !bannedGeneral(c.id, c.name || names[c.id]));
         if (!card && elapsed >= 2e4) {
           state("\\u9009\\u5C06\\u5217\\u8868\\u65E0\\u53EF\\u7528\\u76EE\\u6807\\uFF0C\\u7B49\\u5F85\\u6E38\\u620F\\u5904\\u7406");
+          return true;
+        }
+      } else if (solo) {
+        if (!progress || !defs.some((def) => def.flags === 2048)) {
+          if (!progress) queryAchievements();
+          state("\\u9009\\u5C06\\u6846\\u7B49\\u5F85\\u767E\\u80DC\\u6570\\u636E");
+          return true;
+        }
+        const unfinished = new Set(rows().filter((row) => row.completed === false).map((row) => row.id));
+        card = cards.filter((c) => c.ui.CanSelect !== false && unfinished.has(c.id) && !bannedGeneral(c.id, c.name || names[c.id])).reduce((best, c) => !best || c.quality > best.quality ? c : best, null);
+        if (!card) {
+          state("\\u9009\\u5C06\\u6846\\u6CA1\\u6709\\u53EF\\u786E\\u8BA4\\u7684\\u672A\\u5B8C\\u6210\\u767E\\u80DC\\u6B66\\u5C06");
           return true;
         }
       } else {
@@ -20650,8 +21303,30 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         fail("\\u4E3B\\u516C\\u70B9\\u5C06\\u69FD\\u4E3A\\u7A7A\\u3001\\u4E0D\\u53EF\\u8BFB\\u6216\\u4E0D\\u662F\\u9EC4\\u76D6\\uFF0C\\u5DF2\\u963B\\u6B62\\u6DFB\\u52A0\\u4EBA\\u673A\\u548C\\u5F00\\u59CB");
         return;
       }
-      const seats = read(() => scene.seatListView.seatList);
-      const empty = Array.isArray(seats) ? seats.slice(0, 16).some((s) => !(s?.waitInfo || s?.WaitInfo)) : false;
+      const view = read(() => scene.seatListView), entries = read(() => view.seatList);
+      const seats = Array.isArray(entries) ? entries.slice(0, 16) : [];
+      const perSeat = single && typeof read(() => view.showBtns) === "function" && typeof read(() => view.addAiHandler) === "function";
+      if (perSeat) {
+        const seat = seats.find((item) => item && !(item.waitInfo || item.WaitInfo) && Number(item.SeatStatus ?? item.seatStatus ?? 0) === 0);
+        if (seat) {
+          if (now() - round.aiAt < 1200) return;
+          const id = Number(seat.SeatId ?? seat.seatId ?? seats.indexOf(seat));
+          const firstRebel = read(() => scene.startUI.rc.TableSetting.DoubleNeiJian) ? 5 : 4;
+          if (round.aiTries < 12) {
+            round.aiAt = now();
+            round.aiTries++;
+            const tier = native.seatAi(view, seat, id >= firstRebel && id < 8);
+            if (tier) {
+              note(\`\\u5DF2\\u8BF7\\u6C42\\u5728 \${id + 1} \\u53F7\\u4F4D\\u6DFB\\u52A0\${tier}\`);
+              state(\`\\u7B49\\u5F85\${tier}\\u5165\\u5EA7\`);
+              return;
+            }
+          }
+          state("\\u7B49\\u5F85\\u53EF\\u7528\\u7684\\u5C0F\\u6740\\u5165\\u5EA7");
+          return;
+        }
+      }
+      const empty = !perSeat && seats.some((s) => !(s?.waitInfo || s?.WaitInfo));
       if (!empty) round.aiConfirm = false;
       if (empty && native.confirmAi()) {
         round.aiConfirm = false;
@@ -20988,6 +21663,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         }
         if (!frame.game && role === "host" && !checkHostSettings(frame.scene)) return;
         loadConfigs();
+        tryStartBan(frame.scene);
         if (pendingAch && now() - pendingAch.at >= 8e3) {
           pendingAch = null;
           round.achFailures = (round.achFailures || 0) + 1;
@@ -21048,6 +21724,11 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
               fail("\\u767B\\u5F55\\u5F53\\u524D\\u8D26\\u53F7\\u540E\\u624D\\u80FD\\u5F00\\u59CB");
               return;
             }
+            if (role === "rebel" && options.pick === "off") {
+              const scene = read(() => ctx.game.getScene());
+              const mode = nodeName(scene) === "TableScene" ? roomMode(ctx) : null;
+              if (isIdentityPractice(mode)) startBan = { scene, mode, until: now() + 8e3 };
+            }
             note(role === "off" ? "\\u5DF2\\u505C\\u6B62\\u901F\\u5237" : \`\\u5F00\\u59CB\\u8FD0\\u884C\\uFF1A\${role === "host" ? "\\u76D6\\u4E3B\\uFF08\\u5C0F\\u53F7\\uFF09" : "\\u53CD\\u8D3C\\uFF08\\u5927\\u53F7\\uFF09"}\`);
             ctx.reportError?.("");
           }
@@ -21067,6 +21748,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         pendingAch = null;
         round.achFailures = 0;
         note("\\u5DF2\\u6536\\u5230\\u5F53\\u524D\\u8D26\\u53F7\\u767E\\u80DC\\u5FEB\\u7167");
+        if (startBan) tryStartBan(read(() => ctx.game.getScene()));
         notify();
       } else if (type !== "MsgGameOver") {
         if (data.run === seq) assistant.observe(type, data);
@@ -21105,7 +21787,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
   var manifest = {
     id: "gaizhu",
     name: "\\u76D6\\u4E3B\\u901F\\u5237",
-    version: "0.1.16",
+    version: "0.1.18",
     apiVersion: 1,
     contractVersion: 1,
     releaseNotes: "\\u65B0\\u589E\\u53CD\\u8D3C\\u623F\\u4E3B\\u5355\\u4EBA\\u767E\\u80DC\\u548C\\u5355\\u9A91\\u4EBA\\u673A\\u8BAD\\u7EC3\\uFF0C\\u4F18\\u5148\\u4F7F\\u7528\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A\\uFF0C\\u5E76\\u63D0\\u4F9B\\u53D6\\u6D88\\u65E0\\u61C8\\u9009\\u9879\\u3002\\u9700\\u624B\\u52A8\\u5F00\\u59CB\\uFF1B\\u70B9\\u5C06\\u53EF\\u80FD\\u6D88\\u8017\\u9053\\u5177\\uFF0C\\u5355\\u9A91\\u8BAD\\u7EC3\\u81EA\\u52A8\\u9009\\u8D2D\\u53EF\\u80FD\\u6D88\\u8017\\u5C40\\u5185\\u8D27\\u5E01\\u3002",
@@ -21193,7 +21875,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       const button = el("button", title);
       button.type = "button";
       button.dataset.pick = pick;
-      button.title = pick === "order" ? "\\u6280\\u80FD\\u6218\\u529F\\u5DF2\\u5B8C\\u6210\\u4F18\\u5148\\uFF0C\\u518D\\u6309\\u767E\\u80DC\\u8FDB\\u5EA6\\u6392\\u5E8F" : pick === "random" ? "\\u5728\\u5DF2\\u62E5\\u6709\\u3001\\u767E\\u80DC\\u672A\\u5B8C\\u6210\\u7684\\u6B66\\u5C06\\u4E2D\\u968F\\u673A\\u8F6E\\u6362" : "\\u4E0D\\u8BBE\\u7F6E\\u53CD\\u8D3C\\u70B9\\u5C06\\u69FD\\uFF0C\\u6309\\u5F00\\u5C40\\u5019\\u9009\\u9009\\u5C06";
+      button.title = pick === "order" ? "\\u6280\\u80FD\\u6218\\u529F\\u5DF2\\u5B8C\\u6210\\u4F18\\u5148\\uFF0C\\u518D\\u6309\\u767E\\u80DC\\u8FDB\\u5EA6\\u6392\\u5E8F" : pick === "random" ? "\\u5728\\u5DF2\\u62E5\\u6709\\u3001\\u767E\\u80DC\\u672A\\u5B8C\\u6210\\u7684\\u6B66\\u5C06\\u4E2D\\u968F\\u673A\\u8F6E\\u6362" : "\\u4ECE\\u5F00\\u5C40\\u5019\\u9009\\u9009\\u5C06\\uFF0C\\u5355\\u4EBA\\u4F18\\u5148\\u54C1\\u8D28\\u9AD8\\u7684\\u672A\\u6EE1\\u767E\\u80DC\\u6B66\\u5C06";
       listen(button, "click", () => controller.setOptions({ pick }));
       pickButtons.set(pick, button);
       pickGroup.append(button);
@@ -21273,7 +21955,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       waitInput.checked = Boolean(s.wait);
       waitInput.disabled = !s.account;
       waitState.textContent = s.wait ? "\\u5DF2\\u5F00\\u542F" : "\\u5DF2\\u5173\\u95ED";
-      caution.textContent = s.training ? "\\u4F18\\u5148\\u6267\\u884C\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A\\uFF0C\\u8D85\\u65F6\\u672C\\u5730\\u5904\\u7406\\u5E76\\u6258\\u7BA1\\u515C\\u5E95\\uFF0C\\u62D2\\u7EDD\\u624B\\u6C14\\u5361\\u5E76\\u81EA\\u52A8\\u7EED\\u5C40\\u3002\\u5546\\u5E97\\u6CBF\\u7528\\u9009\\u8D2D\\u89C4\\u5219\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u5C40\\u5185\\u8D27\\u5E01\\uFF1B\\u70B9\\u5C06\\u8BBE\\u7F6E\\u4E0D\\u751F\\u6548\\u3002" : draftRole === "host" ? "\\u5F00\\u59CB\\u540E\\u81EA\\u52A8\\u8865\\u666E\\u901A\\u5C0F\\u6740\\u3001\\u70B9\\u5C06\\u9EC4\\u76D6\\u5E76\\u82E6\\u8089\\u6C42\\u6B7B\\u3002\\u623F\\u95F4\\u70B9\\u5C06\\u53EF\\u80FD\\u6D88\\u8017\\u70B9\\u5C06\\u8D44\\u6E90\\u3002" : s.pick === "off" ? "\\u62D2\\u7EDD\\u624B\\u6C14\\u5361\\u3002\\u53CC\\u4EBA\\u65F6\\u81EA\\u52A8\\u51C6\\u5907\\u3001\\u9009\\u5C06\\u5E76\\u6258\\u7BA1\\uFF1B\\u53CD\\u8D3C\\u623F\\u4E3B\\u5355\\u4EBA\\u65F6\\u8865\\u5C0F\\u6740\\u5F00\\u5C40\\uFF0C\\u4F18\\u5148\\u6267\\u884C\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A\\uFF0C\\u8D85\\u65F6\\u672C\\u5730\\u5904\\u7406\\u5E76\\u6258\\u7BA1\\u515C\\u5E95\\u3002\\u5355\\u9A91\\u8BAD\\u7EC3\\u81EA\\u52A8\\u9009\\u8D2D\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u5C40\\u5185\\u8D27\\u5E01\\u3002" : "\\u6309\\u6240\\u9009\\u65B9\\u5F0F\\u70B9\\u5C06\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u6E38\\u620F\\u70B9\\u5C06\\u5361\\u7B49\\u8D44\\u6E90\\u3002\\u53CC\\u4EBA\\u65F6\\u6258\\u7BA1\\uFF1B\\u5355\\u4EBA\\u623F\\u4E3B\\u4F18\\u5148\\u6267\\u884C\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A\\uFF0C\\u8D85\\u65F6\\u672C\\u5730\\u5904\\u7406\\u5E76\\u6258\\u7BA1\\u515C\\u5E95\\u3002\\u5355\\u9A91\\u8BAD\\u7EC3\\u81EA\\u52A8\\u9009\\u8D2D\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u5C40\\u5185\\u8D27\\u5E01\\u3002";
+      caution.textContent = s.training ? "\\u4F18\\u5148\\u6267\\u884C\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A\\uFF0C\\u8D85\\u65F6\\u672C\\u5730\\u5904\\u7406\\u5E76\\u6258\\u7BA1\\u515C\\u5E95\\uFF0C\\u62D2\\u7EDD\\u624B\\u6C14\\u5361\\u5E76\\u81EA\\u52A8\\u7EED\\u5C40\\u3002\\u5546\\u5E97\\u6CBF\\u7528\\u9009\\u8D2D\\u89C4\\u5219\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u5C40\\u5185\\u8D27\\u5E01\\uFF1B\\u70B9\\u5C06\\u8BBE\\u7F6E\\u4E0D\\u751F\\u6548\\u3002" : draftRole === "host" ? "\\u5F00\\u59CB\\u540E\\u81EA\\u52A8\\u8865\\u666E\\u901A\\u5C0F\\u6740\\u3001\\u70B9\\u5C06\\u9EC4\\u76D6\\u5E76\\u82E6\\u8089\\u6C42\\u6B7B\\u3002\\u623F\\u95F4\\u70B9\\u5C06\\u53EF\\u80FD\\u6D88\\u8017\\u70B9\\u5C06\\u8D44\\u6E90\\u3002" : s.pick === "off" ? "\\u8EAB\\u4EFD\\u6F14\\u6B66\\u542F\\u52A8\\u65F6\\u5C1D\\u8BD5\\u5C06\\u5DF2\\u6EE1\\u767E\\u80DC\\u6B66\\u5C06\\u5199\\u5165\\u6E38\\u620F\\u7981\\u5C06\\u65B9\\u6848\\u3002\\u5355\\u4EBA\\u4F18\\u5148\\u4E3A\\u53CD\\u8D3C\\u961F\\u53CB\\u8865\\u738B\\u8005\\u6216\\u9AD8\\u7EA7\\u5C0F\\u6740\\u3002\\u62D2\\u7EDD\\u624B\\u6C14\\u5361\\u3002\\u5355\\u9A91\\u8BAD\\u7EC3\\u81EA\\u52A8\\u9009\\u8D2D\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u5C40\\u5185\\u8D27\\u5E01\\u3002" : "\\u6309\\u6240\\u9009\\u65B9\\u5F0F\\u70B9\\u5C06\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u6E38\\u620F\\u70B9\\u5C06\\u5361\\u7B49\\u8D44\\u6E90\\u3002\\u53CC\\u4EBA\\u65F6\\u6258\\u7BA1\\uFF1B\\u5355\\u4EBA\\u623F\\u4E3B\\u4F18\\u5148\\u6267\\u884C\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A\\uFF0C\\u8D85\\u65F6\\u672C\\u5730\\u5904\\u7406\\u5E76\\u6258\\u7BA1\\u515C\\u5E95\\u3002\\u5355\\u9A91\\u8BAD\\u7EC3\\u81EA\\u52A8\\u9009\\u8D2D\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u5C40\\u5185\\u8D27\\u5E01\\u3002";
       action.disabled = !s.account && !running;
       action.classList.toggle("is-running", running);
       actionText.textContent = running ? "\\u505C\\u6B62\\u901F\\u5237" : "\\u5F00\\u59CB\\u901F\\u5237";
@@ -21316,8 +21998,8 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F\u5237","version":"0.1.16","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u53CD\u8D3C\u623F\u4E3B\u5355\u4EBA\u767E\u80DC\u548C\u5355\u9A91\u4EBA\u673A\u8BAD\u7EC3\uFF0C\u4F18\u5148\u4F7F\u7528\u5C0F\u6740\u52A9\u624B\u63D0\u793A\uFF0C\u5E76\u63D0\u4F9B\u53D6\u6D88\u65E0\u61C8\u9009\u9879\u3002\u9700\u624B\u52A8\u5F00\u59CB\uFF1B\u70B9\u5C06\u53EF\u80FD\u6D88\u8017\u9053\u5177\uFF0C\u5355\u9A91\u8BAD\u7EC3\u81EA\u52A8\u9009\u8D2D\u53EF\u80FD\u6D88\u8017\u5C40\u5185\u8D27\u5E01\u3002","minCoreVersion":"0.6.37","dependencies":["baisheng"],"description":"\u652F\u6301\u76D6\u4E3B\u901F\u5237\u3001\u53CD\u8D3C\u623F\u4E3B\u5355\u4EBA\u767E\u80DC\u548C\u5355\u9A91\u4EBA\u673A\u8BAD\u7EC3\uFF1B\u5355\u4EBA\u5BF9\u5C40\u4F18\u5148\u63A5\u53D7\u5C0F\u6740\u52A9\u624B\u63D0\u793A\uFF0C\u8D85\u65F6\u672C\u5730\u5904\u7406\u4E0E\u6258\u7BA1\u515C\u5E95\u3002","icon":{"paths":["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0","M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3","M2 21h6"]},"priority":21000,"categories":["automation"]}};
-`, sha256: "9850f093bec013649ee2bdb7ca403d2f3a0b22b88384fde5975e627abe7bc50c" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "effects", name: "\u7279\u6548\u5C4F\u853D", version: "0.5.11", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7EDF\u4E00\u8BBE\u7F6E\u4E2D\u7684\u5E2E\u52A9\u56FE\u6807\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u7279\u6548\u5C4F\u853D\u9009\u62E9\u3002", minCoreVersion: "0.6.37", categories: ["tools"], icon: { paths: ["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2", "M3 3 21 21M19 3v4M17 5h4"] }, priority: 2e4, description: "\u6309\u9700\u5C4F\u853D\u5BF9\u5C40\u7279\u6548\u4E0E\u754C\u9762\u63D0\u9192\uFF0C\u8BA9\u753B\u9762\u66F4\u6E05\u723D" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F\u5237","version":"0.1.18","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u53CD\u8D3C\u623F\u4E3B\u5355\u4EBA\u767E\u80DC\u548C\u5355\u9A91\u4EBA\u673A\u8BAD\u7EC3\uFF0C\u4F18\u5148\u4F7F\u7528\u5C0F\u6740\u52A9\u624B\u63D0\u793A\uFF0C\u5E76\u63D0\u4F9B\u53D6\u6D88\u65E0\u61C8\u9009\u9879\u3002\u9700\u624B\u52A8\u5F00\u59CB\uFF1B\u70B9\u5C06\u53EF\u80FD\u6D88\u8017\u9053\u5177\uFF0C\u5355\u9A91\u8BAD\u7EC3\u81EA\u52A8\u9009\u8D2D\u53EF\u80FD\u6D88\u8017\u5C40\u5185\u8D27\u5E01\u3002","minCoreVersion":"0.6.37","dependencies":["baisheng"],"description":"\u652F\u6301\u76D6\u4E3B\u901F\u5237\u3001\u53CD\u8D3C\u623F\u4E3B\u5355\u4EBA\u767E\u80DC\u548C\u5355\u9A91\u4EBA\u673A\u8BAD\u7EC3\uFF1B\u5355\u4EBA\u5BF9\u5C40\u4F18\u5148\u63A5\u53D7\u5C0F\u6740\u52A9\u624B\u63D0\u793A\uFF0C\u8D85\u65F6\u672C\u5730\u5904\u7406\u4E0E\u6258\u7BA1\u515C\u5E95\u3002","icon":{"paths":["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0","M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3","M2 21h6"]},"priority":21000,"categories":["automation"]}};
+`, sha256: "1dd15420cb1f69de0ff6c7869a0507ce7a745d4dc5fc8f37099b9cee01333bcd" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "effects", name: "\u7279\u6548\u5C4F\u853D", version: "0.5.11", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7EDF\u4E00\u8BBE\u7F6E\u4E2D\u7684\u5E2E\u52A9\u56FE\u6807\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u7279\u6548\u5C4F\u853D\u9009\u62E9\u3002", minCoreVersion: "0.6.37", categories: ["tools"], icon: { paths: ["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2", "M3 3 21 21M19 3v4M17 5h4"] }, priority: 2e4, description: "\u6309\u9700\u5C4F\u853D\u5BF9\u5C40\u7279\u6548\u4E0E\u754C\u9762\u63D0\u9192\uFF0C\u8BA9\u753B\u9762\u66F4\u6E05\u723D" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -22584,7 +23266,7 @@ return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4F\u853D","version":"0.5.11","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7EDF\u4E00\u8BBE\u7F6E\u4E2D\u7684\u5E2E\u52A9\u56FE\u6807\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u7279\u6548\u5C4F\u853D\u9009\u62E9\u3002","minCoreVersion":"0.6.37","categories":["tools"],"icon":{"paths":["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2","M3 3 21 21M19 3v4M17 5h4"]},"priority":20000,"description":"\u6309\u9700\u5C4F\u853D\u5BF9\u5C40\u7279\u6548\u4E0E\u754C\u9762\u63D0\u9192\uFF0C\u8BA9\u753B\u9762\u66F4\u6E05\u723D"}};
-`, sha256: "bfa1078addcc398d8c3c96a0929b4abf1aac79e91e1e12dd00f1ca9b0d1934cc" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "skins", name: "\u76AE\u80A4\u6536\u96C6", version: "0.4.9", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u76AE\u80A4\u539F\u753B\u4E0B\u8F7D\u6309\u94AE\u7684\u6837\u5F0F\u52A0\u8F7D\uFF0C\u539F\u6709\u7B5B\u9009\u548C\u9759\u6001\u539F\u753B\u4E0B\u8F7D\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002", minCoreVersion: "0.5.101", categories: [], icon: { paths: ["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z", "M8 3l8 9M16 3l-6 7M8 16h8"] }, priority: 3e4, description: "\u7B5B\u9009\u3001\u67E5\u627E\u76AE\u80A4\uFF0C\u67E5\u770B\u6536\u85CF\u4E0E\u52A8\u6001\u72B6\u6001" }, code: `var SGSPlugin = (() => {
+`, sha256: "bfa1078addcc398d8c3c96a0929b4abf1aac79e91e1e12dd00f1ca9b0d1934cc" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "skins", name: "\u76AE\u80A4\u6536\u96C6", version: "0.4.10", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u76AE\u80A4\u539F\u753B\u4E0B\u8F7D\u6309\u94AE\u7684\u6837\u5F0F\u52A0\u8F7D\uFF0C\u539F\u6709\u7B5B\u9009\u548C\u9759\u6001\u539F\u753B\u4E0B\u8F7D\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002", minCoreVersion: "0.5.101", categories: [], icon: { paths: ["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z", "M8 3l8 9M16 3l-6 7M8 16h8"] }, priority: 3e4, description: "\u7B5B\u9009\u3001\u67E5\u627E\u76AE\u80A4\uFF0C\u67E5\u770B\u6536\u85CF\u4E0E\u52A8\u6001\u72B6\u6001" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -23017,8 +23699,6 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
   // src/ui/native-theme.js
   var colorKeys = ["bg", "surface", "raised", "text", "muted", "accent", "border", "danger"];
   var contexts = /* @__PURE__ */ new WeakMap();
-  var textureCaches = /* @__PURE__ */ new WeakMap();
-  var destruction = /* @__PURE__ */ new WeakMap();
   var channel = (n) => Math.max(0, Math.min(255, Math.round(n)));
   var hex = (values) => "#" + values.map((n) => channel(n).toString(16).padStart(2, "0")).join("");
   function parseHex(value) {
@@ -23075,314 +23755,127 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     });
   }
   var DEFAULT_NATIVE_PALETTE = resolveNativePalette();
-  function onDestroy(target, callback) {
-    if (!target || typeof target.destroy !== "function") return () => {
-    };
-    let entry = destruction.get(target);
-    if (!entry || target.destroy !== entry.wrapper) {
-      const original = target.destroy, own = Object.getOwnPropertyDescriptor(target, "destroy");
-      entry = { callbacks: /* @__PURE__ */ new Set(), own, original };
-      entry.wrapper = function(...args) {
-        try {
-          return original.apply(this, args);
-        } finally {
-          for (const fn of [...entry.callbacks]) fn();
-        }
-      };
-      try {
-        target.destroy = entry.wrapper;
-      } catch {
-        return () => {
-        };
+
+  // src/plugins/skins/game-chrome.js
+  var skinWindowInk = Object.freeze({ text: "#faedd9", muted: "#c7b99b", accent: "#e4d5a0", shadow: "#14110e" });
+  var buttonSkins = {
+    button: ["win_noborder_btn_normal", "win_noborder_btn_over"],
+    segment: ["search_bg9", "win_noborder_btn_over"]
+  };
+  var tabSkins = ["tab_select_no_normal", "tab_select_no_over", "tab_select_yes_normal"];
+  var searchSkins = ["serachbtn2_over", "serachbtn2_up"];
+  var grid = [5, 5, 5, 5, 0];
+  var searchGrid = [8, 10, 8, 10, 0];
+  var comboGrid = [1, 24, 1, 15, 0];
+  function createSkinGameChrome(win, owner) {
+    const laya = win.Laya ?? win.laya, drawn = /* @__PURE__ */ new WeakMap(), comboFrames = /* @__PURE__ */ new Map();
+    const textures = /* @__PURE__ */ new Map();
+    function getTexture(key) {
+      if (!key) return null;
+      if (!textures.has(key)) {
+        const texture = read(() => win.RES?.GetRes?.(key));
+        textures.set(key, texture && !texture.destroyed && texture.width > 0 && texture.height > 0 && (typeof texture.getIsReady !== "function" || texture.getIsReady()) ? texture : null);
       }
-      if (target.destroy !== entry.wrapper) return () => {
-      };
-      destruction.set(target, entry);
+      return textures.get(key);
     }
-    entry.callbacks.add(callback);
-    return () => {
-      entry.callbacks.delete(callback);
-      if (!entry.callbacks.size) {
-        if (target.destroy === entry.wrapper) {
-          if (entry.own) Object.defineProperty(target, "destroy", entry.own);
-          else delete target.destroy;
-        }
-        if (destruction.get(target) === entry) destruction.delete(target);
+    function draw(node, texture, {
+      y = 0,
+      height = node.height,
+      x = 0,
+      width = node.width,
+      slice = null,
+      fill = "",
+      border = ""
+    } = {}) {
+      const previous = drawn.get(node);
+      const style = [x, y, width, height, slice, fill, border].join("|");
+      if (previous?.texture === texture && previous.style === style) return;
+      drawn.set(node, { texture, style });
+      const g = node.graphics;
+      g.clear();
+      if (texture && slice && typeof g.draw9Grid === "function" && texture.width > slice[1] + slice[3] && texture.height > slice[0] + slice[2]) {
+        g.draw9Grid(texture, x, y, width, height, slice);
+      } else if (texture) {
+        g.drawTexture(texture, x, y, width, height);
+      } else if (fill) {
+        g.drawRect(x + 0.5, y + 0.5, width - 1, height - 1, fill, border || null, 1);
       }
-    };
-  }
-  function cacheFor(laya) {
-    let cache = textureCaches.get(laya);
-    if (!cache) textureCaches.set(laya, cache = /* @__PURE__ */ new Map());
-    return cache;
-  }
-  function prune(cache, laya) {
-    for (const [key, entry] of cache) {
-      if (cache.size <= 128) break;
-      if (entry.pending || entry.refs) continue;
-      cache.delete(key);
-      laya.loader.clearRes?.(entry.uri);
     }
-  }
-  function surfaceSVG(p, width, height, { kind, selected, hover, disabled }) {
-    const panel = kind === "panel", option = kind === "option", tab = kind === "tab" || kind === "segment";
-    const active = selected && !disabled, over = hover && !disabled;
-    const radius = panel ? 6 : option ? 3 : 5, accent = disabled ? p.muted : p.accent;
-    let body;
-    if (option || tab) {
-      body = \`<defs><linearGradient id="wash"><stop stop-color="\${accent}" stop-opacity="\${active ? ".23" : ".09"}"/><stop offset="1" stop-color="\${accent}" stop-opacity="0"/></linearGradient></defs>\` + (active || over ? \`<rect x="1" y="1" width="\${width - 2}" height="\${height - 2}" rx="\${radius}" fill="url(#wash)"/>\` : "") + (active ? \`<rect x="1" y="\${option ? 7 : height - 2}" width="\${option ? 2 : width - 2}" height="\${option ? Math.max(1, height - 14) : 1}" rx="1" fill="\${accent}"/>\` : "");
-    } else {
-      body = \`<defs><linearGradient id="base" x2="0" y2="1"><stop stop-color="\${active ? p.selected : over ? p.hover : p.raised}"/><stop offset=".46" stop-color="\${active ? mixNativeColors(p.surface, p.accent, 0.16) : p.surface}"/><stop offset="1" stop-color="\${panel ? p.shadow : p.bg}"/></linearGradient><linearGradient id="rim" x2="0" y2="1"><stop stop-color="\${active ? accent : p.border}"/><stop offset=".5" stop-color="\${p.borderSoft}"/><stop offset="1" stop-color="\${p.shadow}"/></linearGradient></defs><rect x="1" y="2" width="\${width - 2}" height="\${height - 3}" rx="\${radius}" fill="#000" fill-opacity=".3"/><rect x=".5" y=".5" width="\${width - 1}" height="\${height - 2}" rx="\${radius}" fill="url(#base)" stroke="url(#rim)"/><path d="M\${radius + 1} 2H\${width - radius - 1}" stroke="\${p.highlight}" stroke-opacity="\${panel ? ".16" : ".21"}"/>\` + (active ? \`<path d="M8 \${height - 3}H\${width - 8}" stroke="\${accent}" stroke-opacity=".6"/>\` : "");
-    }
-    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(\`<svg xmlns="http://www.w3.org/2000/svg" width="\${width}" height="\${height}" viewBox="0 0 \${width} \${height}">\${body}</svg>\`);
-  }
-  function createNativeTheme({ themes, scope, window = {}, document = window.document } = {}) {
-    const states = /* @__PURE__ */ new WeakMap();
-    let lastSignature, palette = DEFAULT_NATIVE_PALETTE;
-    function current() {
-      const tokens = themes?.current?.tokens || {}, signature = JSON.stringify([...colorKeys, "scheme"].map((key) => tokens[key]));
-      if (lastSignature !== signature) {
-        lastSignature = signature;
-        palette = resolveNativePalette(tokens, document);
-      }
-      return palette;
-    }
-    function watch(fn, { target } = {}) {
-      if (scope.closed || target?.destroyed) return () => {
-      };
-      let off = () => {
-      }, offDestroy = () => {
-      }, active = true;
-      const release = scope.add(() => {
-        active = false;
-        off();
-        offDestroy();
-      });
-      const update = () => {
-        if (!active || scope.closed) return;
-        if (target?.destroyed) {
-          release();
+    return {
+      begin() {
+        textures.clear();
+      },
+      surface(node, kind, selected = false, hover = false) {
+        const p = DEFAULT_NATIVE_PALETTE;
+        if (kind === "panel") {
+          draw(
+            node,
+            getTexture("cmn_combox_openBg") || getTexture("window_content_bg2"),
+            { slice: grid, fill: p.bg, border: p.borderSoft }
+          );
           return;
         }
-        fn(current());
-      };
-      try {
-        off = themes?.subscribe?.(update) || (() => {
-        });
-        offDestroy = onDestroy(target, release);
-        update();
-      } catch (error) {
-        release();
-        throw error;
-      }
-      return release;
-    }
-    function bind(target, properties) {
-      if (!target || scope.closed || target.destroyed) return () => {
-      };
-      const saved = /* @__PURE__ */ new Map(), applied = /* @__PURE__ */ new Map();
-      let disposed = false;
-      for (const key of Object.keys(properties)) {
-        const own = Object.getOwnPropertyDescriptor(target, key);
-        let inherited;
-        for (let parent = Object.getPrototypeOf(target); parent && !inherited; parent = Object.getPrototypeOf(parent)) inherited = Object.getOwnPropertyDescriptor(parent, key);
-        saved.set(key, { own, setter: !!(own || inherited)?.set, value: target[key] });
-      }
-      const restoreFields = () => {
-        if (target.destroyed) return;
-        for (const [key, old] of saved) if (applied.has(key) && target[key] === applied.get(key)) {
-          applied.delete(key);
-          if (old.setter) target[key] = old.value;
-          else if (old.own) Object.defineProperty(target, key, old.own);
-          else delete target[key];
+        const skins = buttonSkins[kind];
+        if (!skins) {
+          draw(node, null, { fill: selected ? p.selected : hover ? p.hover : "" });
+          return;
         }
-      };
-      const restore = scope.add(() => {
-        disposed = true;
-        restoreFields();
-      });
-      let unwatch;
-      try {
-        unwatch = watch((p) => {
-          for (const [key, value] of Object.entries(properties)) {
-            if (typeof value !== "function" && !Object.hasOwn(p, value)) throw new Error(\`\\u672A\\u77E5\\u539F\\u751F\\u4E3B\\u9898\\u989C\\u8272\\uFF1A\${value}\`);
-            const next = typeof value === "function" ? value(p) : p[value];
-            if (disposed || scope.closed || target.destroyed) return;
-            applied.set(key, next);
-            target[key] = next;
-            if (target.destroyed) return;
-            applied.set(key, target[key]);
-            if (disposed || scope.closed) {
-              restoreFields();
-              return;
-            }
-          }
-        }, { target });
-      } catch (error) {
-        restore();
-        throw error;
-      }
-      if (scope.closed || target.destroyed) {
-        unwatch();
-        restore();
-        return () => {
-        };
-      }
-      let offDestroy = () => {
-      };
-      const release = scope.add(() => {
-        unwatch();
-        restore();
-        offDestroy();
-      });
-      if (!scope.closed && !target.destroyed) offDestroy = onDestroy(target, release);
-      return release;
-    }
-    function surface(node, options = {}) {
-      if (scope.closed || node?.destroyed || !node?.graphics) return;
-      const p = current(), width = Number(options.width ?? node.width), height = Number(options.height ?? node.height);
-      if (!Number.isFinite(width) || !Number.isFinite(height) || width < 4 || height < 4 || width > 4096 || height > 4096) return;
-      const config = { kind: options.kind || "button", selected: !!options.selected, hover: !!options.hover, disabled: !!options.disabled };
-      const uri = surfaceSVG(p, width, height, config), laya = window.Laya ?? window.laya;
-      let state = states.get(node);
-      if (state?.key === uri && state.entry && (state.entry.texture || state.entry.pending)) return;
-      if (!state) {
-        state = { key: "", entry: null, cancel: () => {
-        }, active: true };
-        states.set(node, state);
-        let offDestroy = () => {
-        };
-        const release = scope.add(() => {
-          state.active = false;
-          state.cancel();
-          if (state.entry) {
-            state.entry.refs--;
-            if (!node.destroyed && node._sgsNativeSurfaceKey === state.key) node.graphics.clear();
-            if (laya) prune(cacheFor(laya), laya);
-          }
-          offDestroy();
-          states.delete(node);
+        const texture = (selected || hover ? getTexture(skins[1]) : null) || getTexture(skins[0]);
+        draw(node, texture, {
+          slice: kind === "segment" && !selected && !hover ? searchGrid : grid,
+          fill: selected ? p.selected : hover ? p.hover : p.surface,
+          border: selected ? p.accent : p.borderSoft
         });
-        offDestroy = onDestroy(node, release);
-      }
-      state.cancel();
-      node.graphics.clear();
-      if (state.entry) state.entry.refs--;
-      state.entry = null;
-      state.key = uri;
-      node._sgsNativeSurfaceKey = uri;
-      node._sgsNativeSurfaceAppliedKey = "";
-      if (!["option", "tab", "segment"].includes(config.kind)) node.graphics.drawRect(1, 1, width - 2, height - 2, p.surface);
-      if (!laya?.loader?.load || !laya?.Handler?.create) return;
-      const cache = cacheFor(laya);
-      let entry = cache.get(uri);
-      if (entry) {
-        cache.delete(uri);
-        cache.set(uri, entry);
-      } else {
-        entry = { uri, refs: 0, pending: true, texture: null, waiters: /* @__PURE__ */ new Set() };
-        cache.set(uri, entry);
-      }
-      state.entry = entry;
-      entry.refs++;
-      const draw = (texture) => {
-        if (!texture || scope.closed || !state.active || node.destroyed || state.key !== uri || node._sgsNativeSurfaceKey !== uri) return;
-        state.cancel();
-        node.graphics.clear();
-        node.graphics.drawTexture(texture, 0, 0, width, height);
-        node._sgsNativeSurfaceAppliedKey = uri;
-      };
-      if (entry.texture) {
-        draw(entry.texture);
-        prune(cache, laya);
-        return;
-      }
-      entry.waiters.add(draw);
-      state.cancel = () => entry.waiters.delete(draw);
-      if (entry.started) return;
-      entry.started = true;
-      try {
-        laya.loader.load(uri, laya.Handler.create(null, (texture) => {
-          entry.pending = false;
-          entry.texture = texture;
-          for (const waiter of [...entry.waiters]) waiter(texture);
-          entry.waiters.clear();
-          if (!texture) cache.delete(uri);
-          prune(cache, laya);
-        }), null, laya.Loader?.IMAGE);
-      } catch (error) {
-        entry.pending = false;
-        cache.delete(uri);
-        entry.waiters.clear();
-        throw error;
-      }
-    }
-    return Object.freeze({
-      get palette() {
-        return current();
       },
-      watch,
-      bind,
-      surface,
-      chevron(node, x, y, open, ink = current().accent) {
-        if (scope.closed || node?.destroyed) return;
-        node.graphics.clear();
-        node.graphics.drawLines(x, y, open ? [0, 3, 3, 0, 6, 3] : [0, 0, 3, 3, 6, 0], ink, 1.2);
+      dropdown(node, selected, hover) {
+        const sheet = getTexture("cmn_combox_skin"), height = sheet?.height / 3;
+        if (Number.isInteger(height) && height >= 12 && sheet.width > 39 && laya.Texture?.createFromTexture) {
+          if (!comboFrames.has(sheet)) {
+            comboFrames.set(sheet, Array.from({ length: 3 }, (_, index) => laya.Texture.createFromTexture(sheet, 0, index * height, sheet.width, height)));
+          }
+          const frame = comboFrames.get(sheet)[selected ? 2 : hover ? 1 : 0];
+          if (frame) {
+            draw(node, frame, { slice: comboGrid });
+            return true;
+          }
+        }
+        const p = DEFAULT_NATIVE_PALETTE;
+        draw(node, getTexture("search_bg9"), {
+          slice: searchGrid,
+          fill: selected ? p.selected : p.surface,
+          border: selected ? p.accent : p.borderSoft
+        });
+        return false;
       },
-      get cacheStats() {
-        const laya = window.Laya ?? window.laya, entries = laya ? [...cacheFor(laya).values()] : [];
-        return { entries: entries.length, pending: entries.filter((e) => e.pending).length, live: entries.reduce((n, e) => n + e.refs, 0) };
+      tab(node, value, selected, hover) {
+        const skins = value == null ? null : read(() => owner.tabGroup.GetButtonByValue(value)?.skins);
+        const index = selected ? 4 : hover ? 1 : 0;
+        const artwork = getTexture(skins?.[index]) || getTexture(skins?.[0]);
+        const texture = artwork || getTexture(tabSkins[selected ? 2 : hover ? 1 : 0]) || getTexture(tabSkins[0]);
+        const y = selected || hover ? 0 : 6;
+        const p = DEFAULT_NATIVE_PALETTE;
+        draw(node, texture, {
+          y,
+          height: node.height - y,
+          fill: selected ? p.selected : hover ? p.hover : p.surface,
+          border: selected ? p.accent : p.borderSoft
+        });
+        return Boolean(artwork);
+      },
+      search(node, hover) {
+        const skins = owner.searchView.searchBtn?.skins ?? searchSkins;
+        const texture = getTexture(skins[Number(hover)]) || getTexture(skins[0]);
+        if (!texture) return false;
+        const scale = Math.min(1, (node.width - 4) / texture.width, (node.height - 4) / texture.height);
+        const width = texture.width * scale, height = texture.height * scale;
+        draw(node, texture, { x: (node.width - width) / 2, y: (node.height - height) / 2, width, height });
+        return true;
+      },
+      dispose() {
+        for (const frames of comboFrames.values()) for (const frame of frames) frame?.destroy();
+        comboFrames.clear();
       }
-    });
-  }
-  var fallbacks = /* @__PURE__ */ new WeakMap();
-  function getNativeTheme(ctx) {
-    if (ctx.ui?.nativeTheme) return ctx.ui.nativeTheme;
-    let theme = fallbacks.get(ctx);
-    if (!theme) {
-      theme = createNativeTheme(ctx);
-      fallbacks.set(ctx, theme);
-    }
-    return theme;
-  }
-
-  // src/plugins/skins/art.js
-  var caches = /* @__PURE__ */ new WeakMap();
-  function load(laya, uri, apply) {
-    let cache = caches.get(laya);
-    if (!cache) caches.set(laya, cache = /* @__PURE__ */ new Map());
-    let entry = cache.get(uri);
-    if (entry?.texture) {
-      apply(entry.texture);
-      return;
-    }
-    if (entry) {
-      entry.waiters.push(apply);
-      return;
-    }
-    entry = { texture: null, waiters: [apply] };
-    cache.set(uri, entry);
-    laya.loader.load(uri, laya.Handler.create(null, (texture) => {
-      entry.texture = texture;
-      for (const callback of entry.waiters.splice(0)) if (texture) callback(texture);
-    }), null, laya.Loader.IMAGE);
-  }
-  var svg = (w, h, content) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(\`<svg xmlns="http://www.w3.org/2000/svg" width="\${w}" height="\${h}" viewBox="0 0 \${w} \${h}">\${content}</svg>\`);
-  function paintArtwork(laya, node, key, uri, width, height) {
-    if (node._skinSurfaceKey === key) return;
-    node._skinSurfaceKey = key;
-    load(laya, uri, (texture) => {
-      if (node.destroyed || node._skinSurfaceKey !== key) return;
-      node.graphics.clear();
-      node.graphics.drawTexture(texture, 0, 0, width, height);
-    });
-  }
-  function paintClassicTab(laya, node, width, height, selected, hover, palette = DEFAULT_NATIVE_PALETTE) {
-    const active = selected || hover, y = active ? 1 : 6, h = height - y - 1;
-    const p = palette;
-    const content = \`<defs><linearGradient id="metal" x2="0" y2="1"><stop stop-color="\${active ? p.highlight : p.border}"/><stop offset=".2" stop-color="\${p.border}"/><stop offset=".55" stop-color="\${p.borderSoft}"/><stop offset="1" stop-color="\${p.shadow}"/></linearGradient><linearGradient id="base" x2="0" y2="1"><stop stop-color="\${active ? p.selected : p.raised}"/><stop offset=".52" stop-color="\${active ? p.hover : p.surface}"/><stop offset="1" stop-color="\${p.bg}"/></linearGradient><radialGradient id="glow" cx=".5" cy=".4" r=".65"><stop stop-color="\${p.accent}" stop-opacity=".22"/><stop offset=".6" stop-color="\${p.accent}" stop-opacity=".08"/><stop offset="1" stop-color="\${p.accent}" stop-opacity="0"/></radialGradient></defs><rect x=".5" y="\${y}" width="\${width - 1}" height="\${h}" fill="\${p.shadow}" stroke="\${p.shadow}"/><rect x="2" y="\${y + 1}" width="\${width - 4}" height="\${h - 1}" fill="url(#metal)"/><rect x="4" y="\${y + 3}" width="\${width - 8}" height="\${h - 4}" fill="url(#base)" stroke="\${p.shadow}" stroke-width="1"/>\` + (active ? \`<rect x="5" y="\${y + 4}" width="\${width - 10}" height="\${h - 6}" fill="url(#glow)"/><path d="M6 \${y + 4}H\${width - 6}" stroke="\${p.accent}" stroke-opacity=".65"/>\` : "") + \`<path d="M2 \${y + 6}V\${y + 1}H8M\${width - 8} \${y + 1}H\${width - 2}V\${y + 6}" fill="none" stroke="\${p.highlight}" stroke-opacity=".65"/>\`;
-    const colors = [p.highlight, p.border, p.borderSoft, p.shadow, p.selected, p.raised, p.hover, p.surface, p.bg, p.accent].join(":");
-    paintArtwork(laya, node, \`classic:\${width}:\${height}:\${selected}:\${hover}:\${colors}\`, svg(width, height, content), width, height);
+    };
   }
 
   // src/plugins/skins/controls.js
@@ -23412,23 +23905,19 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     return root;
   }
   function createSkinControls(ctx, owner, state, changed, markAllRead) {
-    const laya = ctx.window.Laya ?? ctx.window.laya, theme = getNativeTheme(ctx);
+    const laya = ctx.window.Laya ?? ctx.window.laya, chrome = createSkinGameChrome(ctx.window, owner);
     const root = new laya.Sprite();
     root.name = "sgs-toolbox-skin-controls";
     root.zOrder = 40;
     root.mouseEnabled = true;
     root.mouseThrough = true;
     owner.addChild(root);
-    const footer = new laya.Sprite();
-    footer.name = "skin-footer-surface";
-    footer.pos(324, 485);
-    footer.size(514, 53);
-    footer.mouseEnabled = false;
-    root.addChild(footer);
-    const buttons = [], popups = [], themedLabels = [];
+    const stage = laya.stage;
+    const buttons = [], popups = [];
     const caption = (text, x, y, width, height, role = "muted", size = 11) => {
-      const label = textNode(laya, text, x, y, width, height, theme.palette[role], size);
-      themedLabels.push({ label, role });
+      const label = textNode(laya, text, x, y, width, height, skinWindowInk[role], size);
+      label.stroke = 1;
+      label.strokeColor = skinWindowInk.shadow;
       return label;
     };
     const button = (name, title, x, y, width, action, selected = () => false, parent = root, options = {}) => {
@@ -23437,7 +23926,7 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
       node.size(width, height);
       node.pos(x, y);
       node.mouseEnabled = true;
-      const label = textNode(laya, title, options.kind === "option" ? 15 : 0, 0, width - (options.kind === "option" ? 30 : 0), height, theme.palette.muted, 12);
+      const label = textNode(laya, title, options.kind === "option" ? 15 : 0, 0, width - (options.kind === "option" ? 30 : 0), height, skinWindowInk.muted, 12);
       if (options.kind === "option") label.align = "left";
       node.addChild(label);
       parent.addChild(node);
@@ -23448,6 +23937,7 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
       buttons.push(item);
       node.on("click", root, (event) => {
         event?.stopPropagation?.();
+        if (stage) stage.focus = node;
         action();
         paint();
       });
@@ -23473,6 +23963,7 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
       return p;
     };
     const closeMenus = () => popups.forEach((p) => {
+      if (stage?.focus?.parent === p) stage.focus = p.trigger;
       p.visible = false;
     });
     const grouping = popup(714, 44, 118, 77);
@@ -23490,7 +23981,8 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
       const next = !grouping.visible;
       closeMenus();
       grouping.visible = next;
-    });
+    }, () => grouping.visible, root, { kind: "dropdown" });
+    grouping.trigger = groupBtn;
     const groupArrow = new laya.Sprite();
     groupBtn.addChild(groupArrow);
     const categoryNav = new laya.Sprite();
@@ -23499,28 +23991,28 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     categoryNav.size(404, 38);
     root.addChild(categoryNav);
     const tabs = [];
-    const tab = (name, title, index, mode, action, selected, count = () => 0) => {
+    const tab = (name, title, index, mode, action, selected, count = () => 0, nativeValue = null) => {
       const node = new laya.Sprite();
       node.name = name;
       node.size(69, 38);
       node.pos(index * 67, 0);
       node.mouseEnabled = true;
       categoryNav.addChild(node);
-      const label = textNode(laya, title, 4, 6, 61, 31, theme.palette.muted, title.length === 1 ? 25 : 20);
+      const label = textNode(laya, title, 4, 6, 61, 31, skinWindowInk.muted, title.length === 1 ? 23 : 18);
       label.font = "KaiTi";
       label.bold = true;
-      label.stroke = 1;
-      label.strokeColor = theme.palette.shadow;
+      label.strokeColor = skinWindowInk.shadow;
       node.addChild(label);
       const mark = new laya.Sprite();
       mark.mouseEnabled = false;
       node.addChild(mark);
       const number = textNode(laya, "", 54, 0, 13, 13, "#ffedc6", 8);
       node.addChild(number);
-      const item = { node, label, mark, number, mode, selected, count, hover: false };
+      const item = { node, label, mark, number, mode, selected, count, nativeValue, hover: false };
       tabs.push(item);
       node.on("click", root, (event) => {
         event?.stopPropagation?.();
+        if (stage) stage.focus = node;
         closeMenus();
         action();
         changed();
@@ -23543,7 +24035,8 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
         owner.tabGroup.SelectedValue = owner.NEW_TYPE_VALUE;
       },
       () => owner.tabGroup.SelectedValue === owner.NEW_TYPE_VALUE,
-      () => read(() => owner.gsm.SkinNewRedNode) ? -1 : 0
+      () => read(() => owner.gsm.SkinNewRedNode) ? -1 : 0,
+      owner.NEW_TYPE_VALUE
     );
     for (const [i, title, value] of [[1, "\\u9B4F", 1], [2, "\\u8700", 2], [3, "\\u5434", 3], [4, "\\u7FA4", 4]]) {
       tab(
@@ -23555,7 +24048,8 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
           owner.tabGroup.SelectedValue = value;
         },
         () => owner.tabGroup.SelectedValue === value,
-        () => read(() => owner.gsm.GetNewSkinNumInCountry(value)) || 0
+        () => read(() => owner.gsm.GetNewSkinNumInCountry(value)) || 0,
+        value
       );
     }
     ["\\u666E\\u901A", "\\u7A00\\u6709", "\\u53F2\\u8BD7", "\\u4F20\\u8BF4", "\\u9650\\u5B9A"].forEach((title, i) => {
@@ -23590,21 +24084,17 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
       const next = !craftMenu.visible;
       closeMenus();
       craftMenu.visible = next;
-    }, () => state.craft !== "all");
+    }, () => state.craft !== "all" || craftMenu.visible, root, { height: 24 });
+    craftMenu.trigger = craftBtn;
     const readBtn = button("skin-read-all", "\\u4E00\\u952E\\u5DF2\\u8BFB", 440, 11, 90, () => markAllRead?.());
-    const rail = new laya.Sprite();
-    rail.pos(362, 489);
-    rail.size(150, 30);
-    rail.mouseEnabled = false;
-    root.addChild(rail);
-    button("skin-missing", "\\u672A\\u62E5\\u6709", 365, 492, 70, () => {
+    button("skin-missing", "\\u672A\\u62E5\\u6709", 367, 491, 70, () => {
       state.missing = !state.missing;
       changed();
-    }, () => state.missing, root, { height: 24, segment: true });
-    button("skin-owned", "\\u5DF2\\u62E5\\u6709", 439, 492, 70, () => {
+    }, () => state.missing, root, { height: 24, kind: "segment" });
+    button("skin-owned", "\\u5DF2\\u62E5\\u6709", 441, 491, 70, () => {
       state.owned = !state.owned;
       changed();
-    }, () => state.owned, root, { height: 24, segment: true });
+    }, () => state.owned, root, { height: 24, kind: "segment" });
     root.addChild(caption("\\u52A8\\u6001", 548, 491, 34, 25));
     const menuHeight = 62 + DYNAMIC_GROUPS.reduce((height, group) => height + 27 + Math.ceil(group.options.length / 2) * 26, 0);
     const dynamicMenu = popup(546, 484 - menuHeight, 286, menuHeight);
@@ -23615,7 +24105,8 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
       const next = !dynamicMenu.visible;
       closeMenus();
       dynamicMenu.visible = next;
-    }, () => dynamicFilterCount(state.dynamic) > 0);
+    }, () => dynamicFilterCount(state.dynamic) > 0 || dynamicMenu.visible, root, { kind: "dropdown" });
+    dynamicMenu.trigger = dynamicBtn;
     const dynamicArrow = new laya.Sprite();
     dynamicBtn.addChild(dynamicArrow);
     button("skin-dynamic-all", "\\u91CD\\u7F6E", 219, 7, 53, () => {
@@ -23647,70 +24138,123 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     const backgroundBtn = button("skin-background-only", "\\u53EF\\u4F5C\\u4E3A\\u724C\\u5C40\\u80CC\\u666F", 684, 518, 148, () => {
       state.backgroundOnly = !state.backgroundOnly;
       changed();
-    }, () => state.backgroundOnly, root, { height: 21, segment: true });
+    }, () => state.backgroundOnly, root, { height: 21, kind: "segment" });
+    function arrow(node, x, y, open) {
+      node.graphics.clear();
+      node.graphics.drawLines(x, y, open ? [0, 3, 3, 0, 6, 3] : [0, 0, 3, 3, 6, 0], skinWindowInk.accent, 1.2);
+    }
+    let keyboardFocus = false;
+    function drawFocus(node, graphics) {
+      if (keyboardFocus && stage?.focus === node) {
+        graphics.drawRect(1, 1, node.width - 2, node.height - 2, null, skinWindowInk.accent, 1.5);
+      }
+    }
     function paint() {
       if (root.destroyed) return;
+      chrome.begin();
       backgroundBtn.visible = ctx.backgrounds?.isInstalled?.() === true;
       stats.width = backgroundBtn.visible ? 350 : 502;
       readBtn.visible = owner.tabGroup.SelectedValue === owner.NEW_TYPE_VALUE && !state.searchOpen;
       const craft = buttons.find((b) => b.node === craftBtn);
       craft.label.text = state.craft === "yes" ? "\\u53EF\\u5236" : state.craft === "no" ? "\\u4E0D\\u53EF\\u5236" : "\\u5236\\u4F5C";
-      const palette = theme.palette;
-      footer.visible = ctx.themes?.current?.tokens.scheme === "light";
-      if (footer.visible) theme.surface(footer, { width: footer.width, height: footer.height, kind: "panel" });
-      for (const { label, role } of themedLabels) label.color = palette[role];
-      for (const popup2 of popups) theme.surface(popup2, { width: popup2.width, height: popup2.height, kind: "panel" });
-      theme.surface(rail, { width: 150, height: 30, kind: "panel" });
-      searchIcon.graphics.clear();
-      searchIcon.graphics.drawCircle(12, 11, 4, null, palette.accent, 1.3);
-      searchIcon.graphics.drawLine(15, 14, 19, 18, palette.accent, 1.6);
+      for (const popup2 of popups) if (popup2.visible) chrome.surface(popup2, "panel");
       for (const item of buttons) {
-        const selected = item.selected(), { options } = item;
-        theme.surface(item.node, { width: item.width, height: item.height, kind: options.segment ? "segment" : options.kind || "button", selected, hover: item.hover });
-        item.label.color = selected ? palette.accent : item.hover ? palette.text : palette.muted;
+        const { node, options } = item, selected = item.selected(), kind = options.kind || "button";
+        const nativeSearch = node === searchBtn && chrome.search(node, item.hover);
+        if (node === searchBtn) searchIcon.visible = !nativeSearch;
+        if (kind === "dropdown") {
+          const hasNativeArrow = chrome.dropdown(node, selected, item.hover);
+          (node === groupBtn ? groupArrow : dynamicArrow).visible = !hasNativeArrow;
+        } else if (!nativeSearch) chrome.surface(node, kind, selected, item.hover);
+        item.label.color = selected ? skinWindowInk.accent : item.hover ? skinWindowInk.text : skinWindowInk.muted;
         const g = item.marker.graphics;
         g.clear();
-        if (options.kind === "option" && selected) {
-          g.drawLines(item.width - 21, item.height / 2 - 1, [0, 0, 3, 3, 9, -3], palette.accent, 1.3);
+        if (selected) {
+          if (kind === "option") g.drawLine(4, 7, 4, item.height - 7, skinWindowInk.accent, 2);
+          else if (kind === "tab" || kind === "segment" || node === craftBtn || node === searchBtn) {
+            g.drawLine(7, item.height - 2, item.width - 7, item.height - 2, skinWindowInk.accent, 1);
+          }
         }
+        drawFocus(node, g);
       }
       const group = buttons.find((b) => b.node === groupBtn);
       group.label.text = \`\${state.group === "country" ? "\\u52BF\\u529B" : "\\u54C1\\u8D28"}\\u5206\\u7C7B\`;
       group.label.width = 89;
-      theme.chevron(groupArrow, 92, 12, grouping.visible);
+      arrow(groupArrow, 92, 12, grouping.visible);
       tabs.forEach((item) => {
         item.node.visible = !item.mode || item.mode === state.group;
         if (!item.node.visible) return;
         const active = item.selected();
-        paintClassicTab(laya, item.node, 69, 38, active, item.hover, palette);
-        item.label.color = active ? palette.accent : item.hover ? palette.text : palette.muted;
-        item.label.strokeColor = palette.shadow;
+        const artwork = chrome.tab(item.node, item.nativeValue, active, item.hover);
+        item.label.visible = !artwork;
+        item.label.color = active ? skinWindowInk.accent : item.hover ? skinWindowInk.text : skinWindowInk.muted;
+        item.label.stroke = 1;
         item.label.y = active || item.hover ? 2 : 6;
         const count = item.count(), g = item.mark.graphics;
         g.clear();
         item.number.visible = count > 0;
         if (count) {
-          g.drawCircle(60, 7, count > 0 ? 7 : 3.5, "#7c2420", palette.border, 0.8);
+          g.drawCircle(60, 7, count > 0 ? 7 : 3.5, "#7c2420", skinWindowInk.accent, 0.8);
           item.number.text = count > 99 ? "99" : String(count);
         }
+        drawFocus(item.node, g);
       });
       const names = DYNAMIC_GROUPS.flatMap((group2) => group2.options.filter(([key]) => state.dynamic[group2.id].includes(key)).map(([, label]) => label));
       const dynamic = buttons.find((b) => b.node === dynamicBtn);
       dynamic.label.text = names.length > 2 ? \`\\u5DF2\\u9009 \${names.length} \\u9879\\u52A8\\u6001\\u6761\\u4EF6\` : names.length ? names.join(" / ") : "\\u5168\\u90E8\\u52A8\\u6001\\u72B6\\u6001";
       dynamic.label.width = 224;
-      theme.chevron(dynamicArrow, 226, 12, dynamicMenu.visible);
+      arrow(dynamicArrow, 226, 12, dynamicMenu.visible);
     }
+    searchIcon.graphics.drawCircle(12, 11, 4, null, skinWindowInk.accent, 1.3);
+    searchIcon.graphics.drawLine(15, 14, 19, 18, skinWindowInk.accent, 1.6);
+    const ownsFocus = () => [root, categoryNav, ...popups].includes(stage?.focus?.parent);
     const outside = (event) => {
-      for (let p = event?.target; p; p = p.parent) if (p === root) return;
+      keyboardFocus = false;
+      for (let p = event?.target; p; p = p.parent) if (p === root) {
+        paint();
+        return;
+      }
+      if (ownsFocus()) stage.focus = null;
       closeMenus();
       paint();
     };
-    laya.stage?.on("mousedown", root, outside);
-    const offTheme = theme.watch(paint, { target: root });
+    function keydown(event) {
+      const target = event.composedPath?.()[0] ?? event.target;
+      if (event.ctrlKey || event.altKey || event.metaKey || event.repeat || target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target?.tagName || "")) return;
+      const focused = stage?.focus;
+      for (let node = owner; node; node = node.parent) if (!node.visible || node.destroyed) return;
+      if (!owner.parent || !ownsFocus()) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        keyboardFocus = true;
+        focused.event("click");
+      } else if (event.key === "Escape" && popups.some((p) => p.visible)) {
+        event.preventDefault();
+        closeMenus();
+        paint();
+      } else if (event.key === "Tab") {
+        const menu = popups.find((p) => p.visible), items = [...tabs, ...buttons].map((item) => item.node).filter((node) => node.visible && (menu ? node.parent === menu : node.parent === root || node.parent === categoryNav)).map((node) => ({ node, x: node.x + node.parent.x, y: node.y + node.parent.y })).sort((a, b) => a.y - b.y || a.x - b.x);
+        const index = items.findIndex((item) => item.node === focused);
+        const next = index < 0 ? event.shiftKey ? items.at(-1) : items[0] : items[index + (event.shiftKey ? -1 : 1)];
+        if (next) {
+          event.preventDefault();
+          stage.focus = next.node;
+          keyboardFocus = true;
+        } else {
+          stage.focus = menu?.trigger ?? null;
+          keyboardFocus = false;
+        }
+        paint();
+      }
+    }
+    stage?.on("mousedown", root, outside);
+    const offKeys = ctx.scope.listen(ctx.window, "keydown", keydown);
     return { root, paint, closeMenus, stats, dispose() {
-      offTheme();
-      laya.stage?.off("mousedown", root, outside);
+      offKeys();
+      stage?.off("mousedown", root, outside);
+      if (ownsFocus()) stage.focus = null;
       root.destroy(true);
+      chrome.dispose();
     } };
   }
 
@@ -23741,7 +24285,7 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     return null;
   }
   function enhanceSkinWindow(ctx, owner) {
-    const laya = ctx.window.Laya ?? ctx.window.laya, theme = getNativeTheme(ctx);
+    const laya = ctx.window.Laya ?? ctx.window.laya;
     const required = ["showGeneralSkinNew", "onClearPanelItems", "clearLineBackItem", "ShowNewView", "changeView", "onSearchChange", "refreshNewSkinEntryState"];
     if (!required.every((key) => typeof owner[key] === "function") || typeof owner.searchView?.on !== "function") throw new Error("\\u5F53\\u524D\\u76AE\\u80A4\\u7BA1\\u7406\\u63A5\\u53E3\\u4E0D\\u517C\\u5BB9");
     const releases = [], decorations = [], itemPatches = [];
@@ -23813,19 +24357,16 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
       for (const item of decorations.splice(0)) if (alive(item)) item.destroy(true);
     }
     function addTitle(panel, title, y) {
-      const node = virtualNode(sectionTitle(laya, title, 790, theme.palette));
+      const node = virtualNode(sectionTitle(laya, title));
       node.pos(25, y);
       panel.addChild(node);
       decorations.push(node);
       return node;
     }
     function emptyHint(panel, x, y, width, height, size = 12) {
-      const node = virtualNode(textNode(laya, "\\u6682\\u65E0\\u7B26\\u5408\\u6761\\u4EF6\\u7684\\u76AE\\u80A4", x, y, width, height, theme.palette.muted, size));
-      node.paintTheme = (palette) => {
-        node.color = palette.muted;
-        node.bgColor = palette.bg;
-      };
-      node.paintTheme(theme.palette);
+      const node = virtualNode(textNode(laya, "\\u6682\\u65E0\\u7B26\\u5408\\u6761\\u4EF6\\u7684\\u76AE\\u80A4", x, y, width, height, skinWindowInk.muted, size));
+      node.stroke = 1;
+      node.strokeColor = skinWindowInk.shadow;
       panel.addChild(node);
       decorations.push(node);
       return node;
@@ -24036,14 +24577,6 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
       refresh(false);
     }
     controls = createSkinControls(ctx, owner, state, changed, () => markRead(recentIds()));
-    releases.push(theme.watch((palette) => {
-      for (const node of decorations) if (alive(node)) node.paintTheme?.(palette);
-    }, { target: owner }));
-    const searchInput = owner.searchView.searchInput;
-    if (searchInput) {
-      const properties = Object.fromEntries(Object.entries({ color: "text", bgColor: "bg", promptColor: "muted", borderColor: "borderSoft" }).filter(([key]) => key in searchInput));
-      releases.push(theme.bind(searchInput, properties));
-    }
     patch(owner, "selectGenerals", function(value) {
       const all = state.group === "quality" || newPage(), sources = [Reflect.apply(original.selectGenerals, this, [all ? 0 : value])];
       if (all) sources.push(Reflect.apply(original.selectGenerals, this, [4]));
@@ -24219,7 +24752,7 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
 
   // src/plugins/skins/index.js
   var index_default = {
-    manifest: { id: "skins", name: "\\u76AE\\u80A4\\u6536\\u96C6", version: "0.4.9", apiVersion: 1, contractVersion: 1, releaseNotes: "\\u7CBE\\u7B80\\u76AE\\u80A4\\u539F\\u753B\\u4E0B\\u8F7D\\u6309\\u94AE\\u7684\\u6837\\u5F0F\\u52A0\\u8F7D\\uFF0C\\u539F\\u6709\\u7B5B\\u9009\\u548C\\u9759\\u6001\\u539F\\u753B\\u4E0B\\u8F7D\\u65B9\\u5F0F\\u4FDD\\u6301\\u4E0D\\u53D8\\u3002", minCoreVersion: "0.5.101", categories: [], icon: PLUGIN_ICONS["skins"], priority: 3e4, description: "\\u7B5B\\u9009\\u3001\\u67E5\\u627E\\u76AE\\u80A4\\uFF0C\\u67E5\\u770B\\u6536\\u85CF\\u4E0E\\u52A8\\u6001\\u72B6\\u6001" },
+    manifest: { id: "skins", name: "\\u76AE\\u80A4\\u6536\\u96C6", version: "0.4.10", apiVersion: 1, contractVersion: 1, releaseNotes: "\\u7CBE\\u7B80\\u76AE\\u80A4\\u539F\\u753B\\u4E0B\\u8F7D\\u6309\\u94AE\\u7684\\u6837\\u5F0F\\u52A0\\u8F7D\\uFF0C\\u539F\\u6709\\u7B5B\\u9009\\u548C\\u9759\\u6001\\u539F\\u753B\\u4E0B\\u8F7D\\u65B9\\u5F0F\\u4FDD\\u6301\\u4E0D\\u53D8\\u3002", minCoreVersion: "0.5.101", categories: [], icon: PLUGIN_ICONS["skins"], priority: 3e4, description: "\\u7B5B\\u9009\\u3001\\u67E5\\u627E\\u76AE\\u80A4\\uFF0C\\u67E5\\u770B\\u6536\\u85CF\\u4E0E\\u52A8\\u6001\\u72B6\\u6001" },
     activate(ctx) {
       createNativeSkins(ctx);
       createSkinDownload(ctx);
@@ -24228,8 +24761,8 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"skins","name":"\u76AE\u80A4\u6536\u96C6","version":"0.4.9","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7CBE\u7B80\u76AE\u80A4\u539F\u753B\u4E0B\u8F7D\u6309\u94AE\u7684\u6837\u5F0F\u52A0\u8F7D\uFF0C\u539F\u6709\u7B5B\u9009\u548C\u9759\u6001\u539F\u753B\u4E0B\u8F7D\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002","minCoreVersion":"0.5.101","categories":[],"icon":{"paths":["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z","M8 3l8 9M16 3l-6 7M8 16h8"]},"priority":30000,"description":"\u7B5B\u9009\u3001\u67E5\u627E\u76AE\u80A4\uFF0C\u67E5\u770B\u6536\u85CF\u4E0E\u52A8\u6001\u72B6\u6001"}};
-`, sha256: "9da7d9716fc8637e399ed6c9fd662b7c86a19c229a7ebd36a51d8ac6b55269e6" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "wish-progress", name: "\u5FC3\u613F\u8FDB\u5EA6", version: "0.1.1", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.0", description: "\u6E38\u620F\u5FC3\u613F\u7A97\u53E3\u663E\u793A\u6B66\u5C06\u683C\u6570\u3001\u76AE\u80A4\u767E\u5206\u6BD4\u4E0E\u6700\u8FD1\u4E00\u6B21\u62BD\u53D6\u51C0\u53D8\u5316", icon: { paths: ["M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z", "M4 21h9M16 21h4"] }, priority: 30100, categories: [] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"skins","name":"\u76AE\u80A4\u6536\u96C6","version":"0.4.10","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7CBE\u7B80\u76AE\u80A4\u539F\u753B\u4E0B\u8F7D\u6309\u94AE\u7684\u6837\u5F0F\u52A0\u8F7D\uFF0C\u539F\u6709\u7B5B\u9009\u548C\u9759\u6001\u539F\u753B\u4E0B\u8F7D\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002","minCoreVersion":"0.5.101","categories":[],"icon":{"paths":["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z","M8 3l8 9M16 3l-6 7M8 16h8"]},"priority":30000,"description":"\u7B5B\u9009\u3001\u67E5\u627E\u76AE\u80A4\uFF0C\u67E5\u770B\u6536\u85CF\u4E0E\u52A8\u6001\u72B6\u6001"}};
+`, sha256: "0c00d577aab56021af5d994c9a17489fa81f2b87ac0b3605e2d5a2fff665dc69" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "wish-progress", name: "\u5FC3\u613F\u8FDB\u5EA6", version: "0.1.1", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.0", description: "\u6E38\u620F\u5FC3\u613F\u7A97\u53E3\u663E\u793A\u6B66\u5C06\u683C\u6570\u3001\u76AE\u80A4\u767E\u5206\u6BD4\u4E0E\u6700\u8FD1\u4E00\u6B21\u62BD\u53D6\u51C0\u53D8\u5316", icon: { paths: ["M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z", "M4 21h9M16 21h4"] }, priority: 30100, categories: [] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -28112,7 +28645,7 @@ main{box-sizing:border-box;position:relative;width:100%;max-width:1100px;min-wid
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1","version":"0.4.24","apiVersion":1,"contractVersion":1,"releaseNotes":"\u652F\u6301\u7528\u5B98\u65B9\u4E03\u65E5\u6218\u7EE9\u8865\u9F50\u672C\u673A\u5DF2\u91C7\u5230\u5F00\u5C40\u7684\u5BF9\u5C40\uFF0C\u907F\u514D\u91CD\u590D\u7EDF\u8BA1\uFF1B\u7F3A\u5C11\u53EF\u9760\u6A21\u5F0F\u6216\u8EAB\u4EFD\u4F9D\u636E\u65F6\u4E0D\u8865\u8BB0\uFF0C\u4E0D\u8865\u9020\u5386\u53F2\u51FA\u6846\u4E0E\u80DC\u7387\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M9 21H3V3h18v9","M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1","M12 21 16 17l3 2 3-5M19 14h3v3"]},"priority":32000,"description":"\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2"}};
-`, sha256: "bfccea5e37c553b554d7e76af6dc6fa85f5440957f0e79b5d0e56db10b3874f9" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "ledger", name: "\u8D26\u672C", version: "0.3.7", apiVersion: 1, contractVersion: 1, releaseNotes: "\u968F\u516C\u5171\u754C\u9762\u8D44\u6E90\u66F4\u65B0\uFF0C\u8D26\u672C\u7EDF\u8BA1\u3001\u767B\u5F55\u4F59\u989D\u5224\u65AD\u4E0E\u7269\u54C1\u63D0\u9192\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, priority: 3e4, description: "\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807" }, code: `var SGSPlugin = (() => {
+`, sha256: "bfccea5e37c553b554d7e76af6dc6fa85f5440957f0e79b5d0e56db10b3874f9" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "ledger", name: "\u8D26\u672C", version: "0.3.8", apiVersion: 1, contractVersion: 1, releaseNotes: "\u968F\u516C\u5171\u754C\u9762\u8D44\u6E90\u66F4\u65B0\uFF0C\u8D26\u672C\u7EDF\u8BA1\u3001\u767B\u5F55\u4F59\u989D\u5224\u65AD\u4E0E\u7269\u54C1\u63D0\u9192\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, priority: 3e4, description: "\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -28324,10 +28857,17 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
 
   // src/plugins/ledger/model.js
   var YUANBAO = 100016;
-  var ALERT_ITEMS = Object.freeze([100016, 21223901, 21356801, 21337401]);
+  var JADE_SEAL = 21223901;
+  var JADE_SHARDS = 21272501;
+  var JADE_EXCHANGE_IDS = [1620301, 1630701];
+  var ALERT_ITEMS = Object.freeze([YUANBAO, JADE_SEAL, 21356801, 21337401]);
   var canAlert = (id, name) => ALERT_ITEMS.includes(Number(id)) || name === "\\u7948\\u798F\\u706F";
   function defaultThreshold(id, name) {
-    return { 100016: 5e3, 21223901: 10, 21356801: 50, 21337401: 50 }[Number(id)] ?? (name === "\\u7948\\u798F\\u706F" ? 30 : 0);
+    return { [YUANBAO]: 5e3, [JADE_SEAL]: 10, 21356801: 50, 21337401: 50 }[Number(id)] ?? (name === "\\u7948\\u798F\\u706F" ? 30 : 0);
+  }
+  function isOtherJadeSeal(id, name) {
+    const baseId = Number(id);
+    return baseId !== JADE_SEAL && (JADE_EXCHANGE_IDS.includes(baseId) || name === "\\u4F20\\u4E16\\u7389\\u73BA");
   }
   var integer = (n) => Number.isSafeInteger(n) && n >= 0;
   function goodsDefinitions(config) {
@@ -28339,7 +28879,9 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
   }
   function importantItems(defs, activeKnots) {
     const result = [{ ID: YUANBAO, name: "\\u5143\\u5B9D", PicID: 70 }];
-    for (const name of ["\\u4F20\\u4E16\\u7389\\u73BA", "\\u7948\\u798F\\u706F", "\\u7ED8\\u5377\\u6BDB\\u7B14", "\\u79D8\\u94A5", "\\u7389\\u73BA\\u788E\\u7247", "\\u5982\\u610F\\u7ED3"]) {
+    const jade = defs.get(JADE_SEAL);
+    if (jade) result.push(jade);
+    for (const name of ["\\u7948\\u798F\\u706F", "\\u7ED8\\u5377\\u6BDB\\u7B14", "\\u79D8\\u94A5", "\\u7389\\u73BA\\u788E\\u7247", "\\u5982\\u610F\\u7ED3"]) {
       const rows = [...defs.values()].filter((r) => r.name === name || name === "\\u79D8\\u94A5" && r.name === "\\u5BC6\\u94A5");
       for (const row of rows) if (name !== "\\u5982\\u610F\\u7ED3" || activeKnots.has(Number(row.ID))) result.push(row);
     }
@@ -28620,20 +29162,23 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
         }
         if (watch.latest[id]?.count !== count || now - (watch.latest[id]?.at || 0) >= 3e4 || id === YUANBAO && watch.latest[id]?.basis !== "all-yuanbao") watch.latest[id] = { count, at: now, ...id === YUANBAO ? { basis: "all-yuanbao" } : {} };
       }
-      const jade = watch.changes[21223901], shards = watch.changes[21272501];
+      const jade = watch.changes[JADE_SEAL], shards = watch.changes[JADE_SHARDS];
       const combined = jade && shards ? { previous: (jade.previous * 10 + shards.previous) / 10, count: (jade.count * 10 + shards.count) / 10, delta: (jade.delta * 10 + shards.delta) / 10, at: Math.min(jade.at || 0, shards.at || 0) } : null;
       watch.combined = combined;
       for (const row of rows) {
         const id = Number(row.ID);
         if (!canAlert(id, row.name)) continue;
-        const change = id === 21223901 ? combined : watch.changes[id], limit = threshold(id);
+        const change = id === JADE_SEAL ? combined : watch.changes[id], limit = threshold(id);
         const fresh = change && Number.isFinite(change.at) && now >= change.at && now - change.at <= 7 * 864e5;
         if (fresh && Number.isFinite(limit) && limit > 0 && -change.delta >= limit && !watch.warned[id]) {
           watch.warned[id] = true;
-          const message = (id === 21223901 ? "\\u7389\\u73BA\\u5408\\u8BA1\\uFF08\\u542B\\u788E\\u7247\\u6298\\u7B97\\uFF09" : row.name) + "\\u8F83\\u4E0A\\u6B21\\u5728\\u7EBF\\u51CF\\u5C11 " + -change.delta + "\\uFF0C\\u4E0A\\u6B21 " + change.previous + " \\u2192 \\u672C\\u6B21 " + change.count + "\\uFF0C\\u5DF2\\u8FBE\\u5230\\u9608\\u503C " + limit + "\\uFF0C\\u8BF7\\u7ACB\\u5373\\u68C0\\u67E5\\u8D26\\u53F7\\u4E0E\\u7269\\u54C1\\u4F7F\\u7528\\u60C5\\u51B5\\u3002";
+          const message = (id === JADE_SEAL ? "\\u7389\\u73BA\\u5408\\u8BA1\\uFF08\\u542B\\u788E\\u7247\\u6298\\u7B97\\uFF09" : row.name) + "\\u8F83\\u4E0A\\u6B21\\u5728\\u7EBF\\u51CF\\u5C11 " + -change.delta + "\\uFF0C\\u4E0A\\u6B21 " + change.previous + " \\u2192 \\u672C\\u6B21 " + change.count + "\\uFF0C\\u5DF2\\u8FBE\\u5230\\u9608\\u503C " + limit + "\\uFF0C\\u8BF7\\u7ACB\\u5373\\u68C0\\u67E5\\u8D26\\u53F7\\u4E0E\\u7269\\u54C1\\u4F7F\\u7528\\u60C5\\u51B5\\u3002";
           watch.alerts.push(message);
           ctx.notify?.(message);
         }
+      }
+      for (const id of Object.keys(watch.latest)) {
+        if (isOtherJadeSeal(id, defs.get(Number(id))?.name)) delete watch.latest[id];
       }
       const serialized = JSON.stringify(watch.latest);
       if (watch.serialized !== serialized) {
@@ -28701,9 +29246,12 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
       const data = defs.get(id);
       return { id, name: data?.name || (id === YUANBAO ? "\\u5143\\u5B9D" : \`\\u7269\\u54C1 \${id}\`) };
     }
+    const canRecordItem = ({ id, name }) => !isOtherJadeSeal(id, defs.get(Number(id))?.name || name);
     function changes(source, stream, items, extra = {}) {
       if (!items.every((i) => integer(i.id) && i.id > 0 && Number.isSafeInteger(i.delta))) throw new Error("\\u7269\\u54C1\\u53D8\\u52A8\\u5B57\\u6BB5\\u65E0\\u6548\\uFF0C\\u8D26\\u672C\\u53EF\\u80FD\\u6709\\u7F3A\\u53E3");
-      items = items.filter((i) => i.delta && (source === "DbsCUpdatauserYaunbaoNtf" || i.id !== YUANBAO));
+      const tracked = items.filter(canRecordItem);
+      if (items.length && !tracked.length) return null;
+      items = tracked.filter((i) => i.delta && (source === "DbsCUpdatauserYaunbaoNtf" || i.id !== YUANBAO));
       const id = uid(ctx.window), at = Date.now(), result = source === "DbsCUpdatauserYaunbaoNtf" ? { items, changes: [] } : reconcile.accept(stream, items, at, id);
       for (const correction of result.changes) {
         const row = records.find((r) => r.id === correction.recordId);
@@ -28863,7 +29411,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     let loadingConfig = false;
     return {
       setThreshold(id, value) {
-        if (!who.id || !canAlert(id, defs.get(Number(id))?.name) || !(id === 21223901 ? Number.isSafeInteger(Math.round(value * 10)) && Math.abs(value * 10 - Math.round(value * 10)) < 1e-8 : Number.isSafeInteger(value)) || value < 0 || id === 21272501) return false;
+        if (!who.id || !canAlert(id, defs.get(Number(id))?.name) || !(id === JADE_SEAL ? Number.isSafeInteger(Math.round(value * 10)) && Math.abs(value * 10 - Math.round(value * 10)) < 1e-8 : Number.isSafeInteger(value)) || value < 0 || id === JADE_SHARDS) return false;
         ctx.settings?.set("threshold:" + who.id + ":" + id, value);
         checkAssets();
         notify();
@@ -28881,16 +29429,23 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
       view() {
         sync();
         checkAssets();
-        const hydrated = records.map((r) => {
-          const names = (items) => (items || []).map((i) => ({ ...i, name: defs.get(i.id)?.name || i.name || metadata(i.id).name }));
-          if (!r.prayer) return { ...r, items: names(r.items) };
-          const config = prayer?.root?.Common?.find((c) => Number(c.Id) === r.prayer.secId);
-          return { ...r, items: names(r.items), rewards: names(r.rewards), prayer: {
-            ...r.prayer,
-            name: config?.Name || r.prayer.name,
-            itemId: Number(String(config?.Itemid || "").split(",")[0]) || r.prayer.itemId
-          } };
-        });
+        const namedItems = (items) => (items || []).filter(canRecordItem).map((i) => ({ ...i, name: defs.get(i.id)?.name || i.name || metadata(i.id).name }));
+        const hydrated = [];
+        for (const row of records) {
+          const items = namedItems(row.items);
+          if (row.kind === "goods" && row.items?.length && !items.length) continue;
+          const record = { ...row, items };
+          if (row.prayer) {
+            const config = prayer?.root?.Common?.find((c) => Number(c.Id) === row.prayer.secId);
+            record.rewards = namedItems(row.rewards);
+            record.prayer = {
+              ...row.prayer,
+              name: config?.Name || row.prayer.name,
+              itemId: Number(String(config?.Itemid || "").split(",")[0]) || row.prayer.itemId
+            };
+          }
+          hydrated.push(record);
+        }
         const current = hydrated.filter((r) => r.session === session?.id), sum = totals(current), knots = native.knots(qifu, defs);
         return {
           who,
@@ -29019,11 +29574,11 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
         settingsKey = key;
         settingsBody.replaceChildren();
         for (const row of v.items.filter((row2) => canAlert(row2.ID, row2.name))) {
-          const label = el("label", "threshold", Number(row.ID) === 21223901 ? "\\u7389\\u73BA\\u5408\\u8BA1" : row.name === "\\u5982\\u610F\\u7ED3" ? row.name + " \\xB7 " + row.ID : row.name);
+          const label = el("label", "threshold", Number(row.ID) === JADE_SEAL ? "\\u7389\\u73BA\\u5408\\u8BA1" : row.name === "\\u5982\\u610F\\u7ED3" ? row.name + " \\xB7 " + row.ID : row.name);
           const input = el("input", "sgs-input");
           input.type = "number";
           input.min = "0";
-          input.step = Number(row.ID) === 21223901 ? "0.1" : "1";
+          input.step = Number(row.ID) === JADE_SEAL ? "0.1" : "1";
           input.value = row.threshold;
           input.setAttribute("aria-label", row.name + "\\uFF08" + row.ID + "\\uFF09\\u51CF\\u5C11\\u9884\\u8B66\\u9608\\u503C");
           input.oninput = () => input.setCustomValidity("");
@@ -29033,7 +29588,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
               input.reportValidity();
             }
           };
-          const field2 = el("span", "threshold-field"), unit = el("span", "threshold-unit", Number(row.ID) === 21223901 ? "\\u679A" : Number(row.ID) === 100016 ? "\\u5143\\u5B9D" : "\\u4E2A");
+          const field2 = el("span", "threshold-field"), unit = el("span", "threshold-unit", Number(row.ID) === JADE_SEAL ? "\\u679A" : Number(row.ID) === 100016 ? "\\u5143\\u5B9D" : "\\u4E2A");
           input.disabled = !v.who.id;
           field2.append(input, unit);
           label.append(field2);
@@ -29910,7 +30465,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
   var manifest = {
     id: "ledger",
     name: "\\u8D26\\u672C",
-    version: "0.3.7",
+    version: "0.3.8",
     apiVersion: 1,
     contractVersion: 1,
     releaseNotes: "\\u968F\\u516C\\u5171\\u754C\\u9762\\u8D44\\u6E90\\u66F4\\u65B0\\uFF0C\\u8D26\\u672C\\u7EDF\\u8BA1\\u3001\\u767B\\u5F55\\u4F59\\u989D\\u5224\\u65AD\\u4E0E\\u7269\\u54C1\\u63D0\\u9192\\u65B9\\u5F0F\\u4FDD\\u6301\\u4E0D\\u53D8\\u3002",
@@ -29931,8 +30486,8 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"ledger","name":"\u8D26\u672C","version":"0.3.7","apiVersion":1,"contractVersion":1,"releaseNotes":"\u968F\u516C\u5171\u754C\u9762\u8D44\u6E90\u66F4\u65B0\uFF0C\u8D26\u672C\u7EDF\u8BA1\u3001\u767B\u5F55\u4F59\u989D\u5224\u65AD\u4E0E\u7269\u54C1\u63D0\u9192\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18","M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"]},"priority":30000,"description":"\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807"}};
-`, sha256: "10c7edaf11b31208d51f9148dc4662510c93eb67914fdc1b92996b8f02b54a25" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "recharge", name: "95\u6298\u5145\u503C\u4E0E\u65E7\u5361", version: "0.1.13", apiVersion: 1, contractVersion: 1, releaseNotes: "\u5C0695\u6298\u5F00\u5173\u79FB\u5230\u6E38\u620F\u5145\u503C\u6309\u94AE\u5DE6\u4FA7\uFF0C\u65B0\u589E\u81EA\u5B9A\u4E49\u5143\u5B9D\u8F93\u5165\u5E76\u4FEE\u590D\u5165\u53E3\u5B9A\u4F4D\u548C\u4ED8\u6B3E\u7801\u663E\u793A\u3002\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF1B\u521B\u5EFA\u8BA2\u5355\u4F1A\u5411\u5B98\u65B9\u652F\u4ED8\u670D\u52A1\u53D1\u9001\u8D26\u53F7\u53CA\u8BA2\u5355\u4FE1\u606F\uFF0C\u9700\u6838\u5BF9\u8D26\u53F7\u3001\u6570\u91CF\u548C\u98CE\u9669\u540E\u786E\u8BA4\uFF0C\u4ED8\u6B3E\u987B\u624B\u52A8\u5B8C\u6210\uFF0C\u4E0D\u4FDD\u8BC1\u6298\u6263\u6216\u5230\u8D26\u3002", minCoreVersion: "0.6.72", categories: ["tools"], priority: 45e3, icon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] }, description: "\u5B98\u670D\u5FAE\u4FE1\uFF0F\u652F\u4ED8\u5B9D\u5145\u503C\u53CA\u65E7\u5468\u6708\u5361\u539F\u751F\u76F4\u8D2D\u5165\u53E3\uFF0C\u64CD\u4F5C\u524D\u8BF7\u9605\u8BFB\u98CE\u9669" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"ledger","name":"\u8D26\u672C","version":"0.3.8","apiVersion":1,"contractVersion":1,"releaseNotes":"\u968F\u516C\u5171\u754C\u9762\u8D44\u6E90\u66F4\u65B0\uFF0C\u8D26\u672C\u7EDF\u8BA1\u3001\u767B\u5F55\u4F59\u989D\u5224\u65AD\u4E0E\u7269\u54C1\u63D0\u9192\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18","M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"]},"priority":30000,"description":"\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807"}};
+`, sha256: "4150b1bad5420ab0cc4d17603676aa0501d02ba9670e2105cf8c81c3b48cd5ac" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "recharge", name: "\u65E7\u5468\u6708\u5361", version: "0.1.15", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.6.72", categories: ["tools"], priority: 45e3, icon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] }, description: "\u67E5\u8BE2\u65E7\u5468\u5361\u4E0E\u65E7\u6708\u5361\u72B6\u6001\u3001\u8BBE\u7F6E\u5230\u671F\u63D0\u9192\u5E76\u6253\u5F00\u6E38\u620F\u76F4\u8D2D", releaseNotes: "\u79FB\u9664\u5DE5\u5177\u7BB1\u5185\u7684 95 \u6298\u5145\u503C\u5165\u53E3\u3002\u65E7\u5468\u5361\u548C\u65E7\u6708\u5361\u4ECD\u53EF\u67E5\u8BE2\u72B6\u6001\u3001\u8BBE\u7F6E\u5230\u671F\u63D0\u9192\uFF0C\u5E76\u5728\u6838\u5BF9\u5546\u54C1\u540E\u6253\u5F00\u6E38\u620F\u76F4\u8D2D\uFF0C\u8D2D\u4E70\u9700\u624B\u52A8\u786E\u8BA4\u3002" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -29958,982 +30513,6 @@ return {...SGSPlugin.default, manifest:{"id":"ledger","name":"\u8D26\u672C","ver
     default: () => index_default,
     manifest: () => manifest
   });
-
-  // src/plugins/recharge/encoding.js
-  function utf8Bytes(str) {
-    if (typeof TextEncoder === "function") return new TextEncoder().encode(str);
-    var out = [], i, c;
-    for (i = 0; i < str.length; i++) {
-      c = str.charCodeAt(i);
-      if (c < 128) out.push(c);
-      else if (c < 2048) out.push(192 | c >> 6, 128 | c & 63);
-      else if (c >= 55296 && c <= 56319) {
-        var c2 = str.charCodeAt(++i);
-        var cp = 65536 + (c - 55296 << 10) + (c2 - 56320);
-        out.push(240 | cp >> 18, 128 | cp >> 12 & 63, 128 | cp >> 6 & 63, 128 | cp & 63);
-      } else out.push(224 | c >> 12, 128 | c >> 6 & 63, 128 | c & 63);
-    }
-    return new Uint8Array(out);
-  }
-  function md5Bytes(bytes) {
-    var K = new Int32Array(64), S = new Int32Array(64);
-    var sList = [
-      7,
-      12,
-      17,
-      22,
-      7,
-      12,
-      17,
-      22,
-      7,
-      12,
-      17,
-      22,
-      7,
-      12,
-      17,
-      22,
-      5,
-      9,
-      14,
-      20,
-      5,
-      9,
-      14,
-      20,
-      5,
-      9,
-      14,
-      20,
-      5,
-      9,
-      14,
-      20,
-      4,
-      11,
-      16,
-      23,
-      4,
-      11,
-      16,
-      23,
-      4,
-      11,
-      16,
-      23,
-      4,
-      11,
-      16,
-      23,
-      6,
-      10,
-      15,
-      21,
-      6,
-      10,
-      15,
-      21,
-      6,
-      10,
-      15,
-      21,
-      6,
-      10,
-      15,
-      21
-    ];
-    for (var i = 0; i < 64; i++) {
-      K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
-      S[i] = sList[i];
-    }
-    var len = bytes.length, bitLen = len * 8;
-    var withPad = Math.ceil((len + 9) / 64) * 64;
-    var buf = new Uint8Array(withPad);
-    buf.set(bytes);
-    buf[len] = 128;
-    var lo = bitLen >>> 0, hi = Math.floor(bitLen / 4294967296) >>> 0;
-    buf[withPad - 8] = lo & 255;
-    buf[withPad - 7] = lo >>> 8 & 255;
-    buf[withPad - 6] = lo >>> 16 & 255;
-    buf[withPad - 5] = lo >>> 24 & 255;
-    buf[withPad - 4] = hi & 255;
-    buf[withPad - 3] = hi >>> 8 & 255;
-    buf[withPad - 2] = hi >>> 16 & 255;
-    buf[withPad - 1] = hi >>> 24 & 255;
-    var a0 = 1732584193, b0 = 4023233417 | 0, c0 = 2562383102 | 0, d0 = 271733878;
-    var M = new Int32Array(16);
-    for (var off = 0; off < withPad; off += 64) {
-      for (var j = 0; j < 16; j++) {
-        M[j] = buf[off + j * 4] | buf[off + j * 4 + 1] << 8 | buf[off + j * 4 + 2] << 16 | buf[off + j * 4 + 3] << 24;
-      }
-      var A = a0, B = b0, C = c0, D = d0;
-      for (var k = 0; k < 64; k++) {
-        var F, g;
-        if (k < 16) {
-          F = B & C | ~B & D;
-          g = k;
-        } else if (k < 32) {
-          F = D & B | ~D & C;
-          g = (5 * k + 1) % 16;
-        } else if (k < 48) {
-          F = B ^ C ^ D;
-          g = (3 * k + 5) % 16;
-        } else {
-          F = C ^ (B | ~D);
-          g = 7 * k % 16;
-        }
-        F = F + A + K[k] + M[g] | 0;
-        A = D;
-        D = C;
-        C = B;
-        B = B + (F << S[k] | F >>> 32 - S[k]) | 0;
-      }
-      a0 = a0 + A | 0;
-      b0 = b0 + B | 0;
-      c0 = c0 + C | 0;
-      d0 = d0 + D | 0;
-    }
-    return [a0, b0, c0, d0];
-  }
-  function leHex(n) {
-    var s = "";
-    for (var i = 0; i < 4; i++) {
-      var b = (n >>> i * 8 & 255).toString(16);
-      s += b.length < 2 ? "0" + b : b;
-    }
-    return s;
-  }
-  function md5Hex(str) {
-    var h = md5Bytes(utf8Bytes(str));
-    return (leHex(h[0]) + leHex(h[1]) + leHex(h[2]) + leHex(h[3])).toUpperCase();
-  }
-  function qrData(text) {
-    var qrcode = (function() {
-      var module = { exports: {} };
-      var exports = module.exports;
-      var define = void 0;
-      var qrcode2 = (function() {
-        var t = function(t2, r2) {
-          var e2 = t2, n2 = g[r2], o2 = null, i2 = 0, a2 = null, u2 = [], f2 = {}, c2 = function(t3, r3) {
-            o2 = (function(t4) {
-              for (var r4 = new Array(t4), e3 = 0; e3 < t4; e3 += 1) {
-                r4[e3] = new Array(t4);
-                for (var n3 = 0; n3 < t4; n3 += 1) r4[e3][n3] = null;
-              }
-              return r4;
-            })(i2 = 4 * e2 + 17), l2(0, 0), l2(i2 - 7, 0), l2(0, i2 - 7), s2(), h2(), d2(t3, r3), e2 >= 7 && v2(t3), null == a2 && (a2 = p2(e2, n2, u2)), w2(a2, r3);
-          }, l2 = function(t3, r3) {
-            for (var e3 = -1; e3 <= 7; e3 += 1) if (!(t3 + e3 <= -1 || i2 <= t3 + e3)) for (var n3 = -1; n3 <= 7; n3 += 1) r3 + n3 <= -1 || i2 <= r3 + n3 || (o2[t3 + e3][r3 + n3] = 0 <= e3 && e3 <= 6 && (0 == n3 || 6 == n3) || 0 <= n3 && n3 <= 6 && (0 == e3 || 6 == e3) || 2 <= e3 && e3 <= 4 && 2 <= n3 && n3 <= 4);
-          }, h2 = function() {
-            for (var t3 = 8; t3 < i2 - 8; t3 += 1) null == o2[t3][6] && (o2[t3][6] = t3 % 2 == 0);
-            for (var r3 = 8; r3 < i2 - 8; r3 += 1) null == o2[6][r3] && (o2[6][r3] = r3 % 2 == 0);
-          }, s2 = function() {
-            for (var t3 = B.getPatternPosition(e2), r3 = 0; r3 < t3.length; r3 += 1) for (var n3 = 0; n3 < t3.length; n3 += 1) {
-              var i3 = t3[r3], a3 = t3[n3];
-              if (null == o2[i3][a3]) for (var u3 = -2; u3 <= 2; u3 += 1) for (var f3 = -2; f3 <= 2; f3 += 1) o2[i3 + u3][a3 + f3] = -2 == u3 || 2 == u3 || -2 == f3 || 2 == f3 || 0 == u3 && 0 == f3;
-            }
-          }, v2 = function(t3) {
-            for (var r3 = B.getBCHTypeNumber(e2), n3 = 0; n3 < 18; n3 += 1) {
-              var a3 = !t3 && 1 == (r3 >> n3 & 1);
-              o2[Math.floor(n3 / 3)][n3 % 3 + i2 - 8 - 3] = a3;
-            }
-            for (n3 = 0; n3 < 18; n3 += 1) {
-              a3 = !t3 && 1 == (r3 >> n3 & 1);
-              o2[n3 % 3 + i2 - 8 - 3][Math.floor(n3 / 3)] = a3;
-            }
-          }, d2 = function(t3, r3) {
-            for (var e3 = n2 << 3 | r3, a3 = B.getBCHTypeInfo(e3), u3 = 0; u3 < 15; u3 += 1) {
-              var f3 = !t3 && 1 == (a3 >> u3 & 1);
-              u3 < 6 ? o2[u3][8] = f3 : u3 < 8 ? o2[u3 + 1][8] = f3 : o2[i2 - 15 + u3][8] = f3;
-            }
-            for (u3 = 0; u3 < 15; u3 += 1) {
-              f3 = !t3 && 1 == (a3 >> u3 & 1);
-              u3 < 8 ? o2[8][i2 - u3 - 1] = f3 : u3 < 9 ? o2[8][15 - u3 - 1 + 1] = f3 : o2[8][15 - u3 - 1] = f3;
-            }
-            o2[i2 - 8][8] = !t3;
-          }, w2 = function(t3, r3) {
-            for (var e3 = -1, n3 = i2 - 1, a3 = 7, u3 = 0, f3 = B.getMaskFunction(r3), c3 = i2 - 1; c3 > 0; c3 -= 2) for (6 == c3 && (c3 -= 1); ; ) {
-              for (var g2 = 0; g2 < 2; g2 += 1) if (null == o2[n3][c3 - g2]) {
-                var l3 = false;
-                u3 < t3.length && (l3 = 1 == (t3[u3] >>> a3 & 1)), f3(n3, c3 - g2) && (l3 = !l3), o2[n3][c3 - g2] = l3, -1 == (a3 -= 1) && (u3 += 1, a3 = 7);
-              }
-              if ((n3 += e3) < 0 || i2 <= n3) {
-                n3 -= e3, e3 = -e3;
-                break;
-              }
-            }
-          }, p2 = function(t3, r3, e3) {
-            for (var n3 = A.getRSBlocks(t3, r3), o3 = b(), i3 = 0; i3 < e3.length; i3 += 1) {
-              var a3 = e3[i3];
-              o3.put(a3.getMode(), 4), o3.put(a3.getLength(), B.getLengthInBits(a3.getMode(), t3)), a3.write(o3);
-            }
-            var u3 = 0;
-            for (i3 = 0; i3 < n3.length; i3 += 1) u3 += n3[i3].dataCount;
-            if (o3.getLengthInBits() > 8 * u3) throw "code length overflow. (" + o3.getLengthInBits() + ">" + 8 * u3 + ")";
-            for (o3.getLengthInBits() + 4 <= 8 * u3 && o3.put(0, 4); o3.getLengthInBits() % 8 != 0; ) o3.putBit(false);
-            for (; !(o3.getLengthInBits() >= 8 * u3 || (o3.put(236, 8), o3.getLengthInBits() >= 8 * u3)); ) o3.put(17, 8);
-            return (function(t4, r4) {
-              for (var e4 = 0, n4 = 0, o4 = 0, i4 = new Array(r4.length), a4 = new Array(r4.length), u4 = 0; u4 < r4.length; u4 += 1) {
-                var f3 = r4[u4].dataCount, c3 = r4[u4].totalCount - f3;
-                n4 = Math.max(n4, f3), o4 = Math.max(o4, c3), i4[u4] = new Array(f3);
-                for (var g2 = 0; g2 < i4[u4].length; g2 += 1) i4[u4][g2] = 255 & t4.getBuffer()[g2 + e4];
-                e4 += f3;
-                var l3 = B.getErrorCorrectPolynomial(c3), h3 = k(i4[u4], l3.getLength() - 1).mod(l3);
-                for (a4[u4] = new Array(l3.getLength() - 1), g2 = 0; g2 < a4[u4].length; g2 += 1) {
-                  var s3 = g2 + h3.getLength() - a4[u4].length;
-                  a4[u4][g2] = s3 >= 0 ? h3.getAt(s3) : 0;
-                }
-              }
-              var v3 = 0;
-              for (g2 = 0; g2 < r4.length; g2 += 1) v3 += r4[g2].totalCount;
-              var d3 = new Array(v3), w3 = 0;
-              for (g2 = 0; g2 < n4; g2 += 1) for (u4 = 0; u4 < r4.length; u4 += 1) g2 < i4[u4].length && (d3[w3] = i4[u4][g2], w3 += 1);
-              for (g2 = 0; g2 < o4; g2 += 1) for (u4 = 0; u4 < r4.length; u4 += 1) g2 < a4[u4].length && (d3[w3] = a4[u4][g2], w3 += 1);
-              return d3;
-            })(o3, n3);
-          };
-          f2.addData = function(t3, r3) {
-            var e3 = null;
-            switch (r3 = r3 || "Byte") {
-              case "Numeric":
-                e3 = M(t3);
-                break;
-              case "Alphanumeric":
-                e3 = x(t3);
-                break;
-              case "Byte":
-                e3 = m(t3);
-                break;
-              case "Kanji":
-                e3 = L(t3);
-                break;
-              default:
-                throw "mode:" + r3;
-            }
-            u2.push(e3), a2 = null;
-          }, f2.isDark = function(t3, r3) {
-            if (t3 < 0 || i2 <= t3 || r3 < 0 || i2 <= r3) throw t3 + "," + r3;
-            return o2[t3][r3];
-          }, f2.getModuleCount = function() {
-            return i2;
-          }, f2.make = function() {
-            if (e2 < 1) {
-              for (var t3 = 1; t3 < 40; t3++) {
-                for (var r3 = A.getRSBlocks(t3, n2), o3 = b(), i3 = 0; i3 < u2.length; i3++) {
-                  var a3 = u2[i3];
-                  o3.put(a3.getMode(), 4), o3.put(a3.getLength(), B.getLengthInBits(a3.getMode(), t3)), a3.write(o3);
-                }
-                var g2 = 0;
-                for (i3 = 0; i3 < r3.length; i3++) g2 += r3[i3].dataCount;
-                if (o3.getLengthInBits() <= 8 * g2) break;
-              }
-              e2 = t3;
-            }
-            c2(false, (function() {
-              for (var t4 = 0, r4 = 0, e3 = 0; e3 < 8; e3 += 1) {
-                c2(true, e3);
-                var n3 = B.getLostPoint(f2);
-                (0 == e3 || t4 > n3) && (t4 = n3, r4 = e3);
-              }
-              return r4;
-            })());
-          }, f2.createTableTag = function(t3, r3) {
-            t3 = t3 || 2;
-            var e3 = "";
-            e3 += '<table style="', e3 += " border-width: 0px; border-style: none;", e3 += " border-collapse: collapse;", e3 += " padding: 0px; margin: " + (r3 = void 0 === r3 ? 4 * t3 : r3) + "px;", e3 += '">', e3 += "<tbody>";
-            for (var n3 = 0; n3 < f2.getModuleCount(); n3 += 1) {
-              e3 += "<tr>";
-              for (var o3 = 0; o3 < f2.getModuleCount(); o3 += 1) e3 += '<td style="', e3 += " border-width: 0px; border-style: none;", e3 += " border-collapse: collapse;", e3 += " padding: 0px; margin: 0px;", e3 += " width: " + t3 + "px;", e3 += " height: " + t3 + "px;", e3 += " background-color: ", e3 += f2.isDark(n3, o3) ? "#000000" : "#ffffff", e3 += ";", e3 += '"/>';
-              e3 += "</tr>";
-            }
-            return e3 += "</tbody>", e3 += "</table>";
-          }, f2.createSvgTag = function(t3, r3, e3, n3) {
-            var o3 = {};
-            "object" == typeof arguments[0] && (t3 = (o3 = arguments[0]).cellSize, r3 = o3.margin, e3 = o3.alt, n3 = o3.title), t3 = t3 || 2, r3 = void 0 === r3 ? 4 * t3 : r3, (e3 = "string" == typeof e3 ? { text: e3 } : e3 || {}).text = e3.text || null, e3.id = e3.text ? e3.id || "qrcode-description" : null, (n3 = "string" == typeof n3 ? { text: n3 } : n3 || {}).text = n3.text || null, n3.id = n3.text ? n3.id || "qrcode-title" : null;
-            var i3, a3, u3, c3, g2 = f2.getModuleCount() * t3 + 2 * r3, l3 = "";
-            for (c3 = "l" + t3 + ",0 0," + t3 + " -" + t3 + ",0 0,-" + t3 + "z ", l3 += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"', l3 += o3.scalable ? "" : ' width="' + g2 + 'px" height="' + g2 + 'px"', l3 += ' viewBox="0 0 ' + g2 + " " + g2 + '" ', l3 += ' preserveAspectRatio="xMinYMin meet"', l3 += n3.text || e3.text ? ' role="img" aria-labelledby="' + y2([n3.id, e3.id].join(" ").trim()) + '"' : "", l3 += ">", l3 += n3.text ? '<title id="' + y2(n3.id) + '">' + y2(n3.text) + "</title>" : "", l3 += e3.text ? '<description id="' + y2(e3.id) + '">' + y2(e3.text) + "</description>" : "", l3 += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>', l3 += '<path d="', a3 = 0; a3 < f2.getModuleCount(); a3 += 1) for (u3 = a3 * t3 + r3, i3 = 0; i3 < f2.getModuleCount(); i3 += 1) f2.isDark(a3, i3) && (l3 += "M" + (i3 * t3 + r3) + "," + u3 + c3);
-            return l3 += '" stroke="transparent" fill="black"/>', l3 += "</svg>";
-          }, f2.createDataURL = function(t3, r3) {
-            t3 = t3 || 2, r3 = void 0 === r3 ? 4 * t3 : r3;
-            var e3 = f2.getModuleCount() * t3 + 2 * r3, n3 = r3, o3 = e3 - r3;
-            return I(e3, e3, (function(r4, e4) {
-              if (n3 <= r4 && r4 < o3 && n3 <= e4 && e4 < o3) {
-                var i3 = Math.floor((r4 - n3) / t3), a3 = Math.floor((e4 - n3) / t3);
-                return f2.isDark(a3, i3) ? 0 : 1;
-              }
-              return 1;
-            }));
-          }, f2.createImgTag = function(t3, r3, e3) {
-            t3 = t3 || 2, r3 = void 0 === r3 ? 4 * t3 : r3;
-            var n3 = f2.getModuleCount() * t3 + 2 * r3, o3 = "";
-            return o3 += "<img", o3 += ' src="', o3 += f2.createDataURL(t3, r3), o3 += '"', o3 += ' width="', o3 += n3, o3 += '"', o3 += ' height="', o3 += n3, o3 += '"', e3 && (o3 += ' alt="', o3 += y2(e3), o3 += '"'), o3 += "/>";
-          };
-          var y2 = function(t3) {
-            for (var r3 = "", e3 = 0; e3 < t3.length; e3 += 1) {
-              var n3 = t3.charAt(e3);
-              switch (n3) {
-                case "<":
-                  r3 += "&lt;";
-                  break;
-                case ">":
-                  r3 += "&gt;";
-                  break;
-                case "&":
-                  r3 += "&amp;";
-                  break;
-                case '"':
-                  r3 += "&quot;";
-                  break;
-                default:
-                  r3 += n3;
-              }
-            }
-            return r3;
-          };
-          return f2.createASCII = function(t3, r3) {
-            if ((t3 = t3 || 1) < 2) return (function(t4) {
-              t4 = void 0 === t4 ? 2 : t4;
-              var r4, e4, n4, o4, i4, a4 = 1 * f2.getModuleCount() + 2 * t4, u4 = t4, c4 = a4 - t4, g3 = { "\\u2588\\u2588": "\\u2588", "\\u2588 ": "\\u2580", " \\u2588": "\\u2584", "  ": " " }, l4 = { "\\u2588\\u2588": "\\u2580", "\\u2588 ": "\\u2580", " \\u2588": " ", "  ": " " }, h4 = "";
-              for (r4 = 0; r4 < a4; r4 += 2) {
-                for (n4 = Math.floor((r4 - u4) / 1), o4 = Math.floor((r4 + 1 - u4) / 1), e4 = 0; e4 < a4; e4 += 1) i4 = "\\u2588", u4 <= e4 && e4 < c4 && u4 <= r4 && r4 < c4 && f2.isDark(n4, Math.floor((e4 - u4) / 1)) && (i4 = " "), u4 <= e4 && e4 < c4 && u4 <= r4 + 1 && r4 + 1 < c4 && f2.isDark(o4, Math.floor((e4 - u4) / 1)) ? i4 += " " : i4 += "\\u2588", h4 += t4 < 1 && r4 + 1 >= c4 ? l4[i4] : g3[i4];
-                h4 += "\\n";
-              }
-              return a4 % 2 && t4 > 0 ? h4.substring(0, h4.length - a4 - 1) + Array(a4 + 1).join("\\u2580") : h4.substring(0, h4.length - 1);
-            })(r3);
-            t3 -= 1, r3 = void 0 === r3 ? 2 * t3 : r3;
-            var e3, n3, o3, i3, a3 = f2.getModuleCount() * t3 + 2 * r3, u3 = r3, c3 = a3 - r3, g2 = Array(t3 + 1).join("\\u2588\\u2588"), l3 = Array(t3 + 1).join("  "), h3 = "", s3 = "";
-            for (e3 = 0; e3 < a3; e3 += 1) {
-              for (o3 = Math.floor((e3 - u3) / t3), s3 = "", n3 = 0; n3 < a3; n3 += 1) i3 = 1, u3 <= n3 && n3 < c3 && u3 <= e3 && e3 < c3 && f2.isDark(o3, Math.floor((n3 - u3) / t3)) && (i3 = 0), s3 += i3 ? g2 : l3;
-              for (o3 = 0; o3 < t3; o3 += 1) h3 += s3 + "\\n";
-            }
-            return h3.substring(0, h3.length - 1);
-          }, f2.renderTo2dContext = function(t3, r3) {
-            r3 = r3 || 2;
-            for (var e3 = f2.getModuleCount(), n3 = 0; n3 < e3; n3++) for (var o3 = 0; o3 < e3; o3++) t3.fillStyle = f2.isDark(n3, o3) ? "black" : "white", t3.fillRect(n3 * r3, o3 * r3, r3, r3);
-          }, f2;
-        };
-        t.stringToBytes = (t.stringToBytesFuncs = { default: function(t2) {
-          for (var r2 = [], e2 = 0; e2 < t2.length; e2 += 1) {
-            var n2 = t2.charCodeAt(e2);
-            r2.push(255 & n2);
-          }
-          return r2;
-        } }).default, t.createStringToBytes = function(t2, r2) {
-          var e2 = (function() {
-            for (var e3 = S(t2), n3 = function() {
-              var t3 = e3.read();
-              if (-1 == t3) throw "eof";
-              return t3;
-            }, o2 = 0, i2 = {}; ; ) {
-              var a2 = e3.read();
-              if (-1 == a2) break;
-              var u2 = n3(), f2 = n3() << 8 | n3();
-              i2[String.fromCharCode(a2 << 8 | u2)] = f2, o2 += 1;
-            }
-            if (o2 != r2) throw o2 + " != " + r2;
-            return i2;
-          })(), n2 = "?".charCodeAt(0);
-          return function(t3) {
-            for (var r3 = [], o2 = 0; o2 < t3.length; o2 += 1) {
-              var i2 = t3.charCodeAt(o2);
-              if (i2 < 128) r3.push(i2);
-              else {
-                var a2 = e2[t3.charAt(o2)];
-                "number" == typeof a2 ? (255 & a2) == a2 ? r3.push(a2) : (r3.push(a2 >>> 8), r3.push(255 & a2)) : r3.push(n2);
-              }
-            }
-            return r3;
-          };
-        };
-        var r, e, n, o, i, a = 1, u = 2, f = 4, c = 8, g = { L: 1, M: 0, Q: 3, H: 2 }, l = 0, h = 1, s = 2, v = 3, d = 4, w = 5, p = 6, y = 7, B = (r = [[], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50], [6, 30, 54], [6, 32, 58], [6, 34, 62], [6, 26, 46, 66], [6, 26, 48, 70], [6, 26, 50, 74], [6, 30, 54, 78], [6, 30, 56, 82], [6, 30, 58, 86], [6, 34, 62, 90], [6, 28, 50, 72, 94], [6, 26, 50, 74, 98], [6, 30, 54, 78, 102], [6, 28, 54, 80, 106], [6, 32, 58, 84, 110], [6, 30, 58, 86, 114], [6, 34, 62, 90, 118], [6, 26, 50, 74, 98, 122], [6, 30, 54, 78, 102, 126], [6, 26, 52, 78, 104, 130], [6, 30, 56, 82, 108, 134], [6, 34, 60, 86, 112, 138], [6, 30, 58, 86, 114, 142], [6, 34, 62, 90, 118, 146], [6, 30, 54, 78, 102, 126, 150], [6, 24, 50, 76, 102, 128, 154], [6, 28, 54, 80, 106, 132, 158], [6, 32, 58, 84, 110, 136, 162], [6, 26, 54, 82, 110, 138, 166], [6, 30, 58, 86, 114, 142, 170]], e = 1335, n = 7973, i = function(t2) {
-          for (var r2 = 0; 0 != t2; ) r2 += 1, t2 >>>= 1;
-          return r2;
-        }, (o = {}).getBCHTypeInfo = function(t2) {
-          for (var r2 = t2 << 10; i(r2) - i(e) >= 0; ) r2 ^= e << i(r2) - i(e);
-          return 21522 ^ (t2 << 10 | r2);
-        }, o.getBCHTypeNumber = function(t2) {
-          for (var r2 = t2 << 12; i(r2) - i(n) >= 0; ) r2 ^= n << i(r2) - i(n);
-          return t2 << 12 | r2;
-        }, o.getPatternPosition = function(t2) {
-          return r[t2 - 1];
-        }, o.getMaskFunction = function(t2) {
-          switch (t2) {
-            case l:
-              return function(t3, r2) {
-                return (t3 + r2) % 2 == 0;
-              };
-            case h:
-              return function(t3, r2) {
-                return t3 % 2 == 0;
-              };
-            case s:
-              return function(t3, r2) {
-                return r2 % 3 == 0;
-              };
-            case v:
-              return function(t3, r2) {
-                return (t3 + r2) % 3 == 0;
-              };
-            case d:
-              return function(t3, r2) {
-                return (Math.floor(t3 / 2) + Math.floor(r2 / 3)) % 2 == 0;
-              };
-            case w:
-              return function(t3, r2) {
-                return t3 * r2 % 2 + t3 * r2 % 3 == 0;
-              };
-            case p:
-              return function(t3, r2) {
-                return (t3 * r2 % 2 + t3 * r2 % 3) % 2 == 0;
-              };
-            case y:
-              return function(t3, r2) {
-                return (t3 * r2 % 3 + (t3 + r2) % 2) % 2 == 0;
-              };
-            default:
-              throw "bad maskPattern:" + t2;
-          }
-        }, o.getErrorCorrectPolynomial = function(t2) {
-          for (var r2 = k([1], 0), e2 = 0; e2 < t2; e2 += 1) r2 = r2.multiply(k([1, C.gexp(e2)], 0));
-          return r2;
-        }, o.getLengthInBits = function(t2, r2) {
-          if (1 <= r2 && r2 < 10) switch (t2) {
-            case a:
-              return 10;
-            case u:
-              return 9;
-            case f:
-            case c:
-              return 8;
-            default:
-              throw "mode:" + t2;
-          }
-          else if (r2 < 27) switch (t2) {
-            case a:
-              return 12;
-            case u:
-              return 11;
-            case f:
-              return 16;
-            case c:
-              return 10;
-            default:
-              throw "mode:" + t2;
-          }
-          else {
-            if (!(r2 < 41)) throw "type:" + r2;
-            switch (t2) {
-              case a:
-                return 14;
-              case u:
-                return 13;
-              case f:
-                return 16;
-              case c:
-                return 12;
-              default:
-                throw "mode:" + t2;
-            }
-          }
-        }, o.getLostPoint = function(t2) {
-          for (var r2 = t2.getModuleCount(), e2 = 0, n2 = 0; n2 < r2; n2 += 1) for (var o2 = 0; o2 < r2; o2 += 1) {
-            for (var i2 = 0, a2 = t2.isDark(n2, o2), u2 = -1; u2 <= 1; u2 += 1) if (!(n2 + u2 < 0 || r2 <= n2 + u2)) for (var f2 = -1; f2 <= 1; f2 += 1) o2 + f2 < 0 || r2 <= o2 + f2 || 0 == u2 && 0 == f2 || a2 == t2.isDark(n2 + u2, o2 + f2) && (i2 += 1);
-            i2 > 5 && (e2 += 3 + i2 - 5);
-          }
-          for (n2 = 0; n2 < r2 - 1; n2 += 1) for (o2 = 0; o2 < r2 - 1; o2 += 1) {
-            var c2 = 0;
-            t2.isDark(n2, o2) && (c2 += 1), t2.isDark(n2 + 1, o2) && (c2 += 1), t2.isDark(n2, o2 + 1) && (c2 += 1), t2.isDark(n2 + 1, o2 + 1) && (c2 += 1), 0 != c2 && 4 != c2 || (e2 += 3);
-          }
-          for (n2 = 0; n2 < r2; n2 += 1) for (o2 = 0; o2 < r2 - 6; o2 += 1) t2.isDark(n2, o2) && !t2.isDark(n2, o2 + 1) && t2.isDark(n2, o2 + 2) && t2.isDark(n2, o2 + 3) && t2.isDark(n2, o2 + 4) && !t2.isDark(n2, o2 + 5) && t2.isDark(n2, o2 + 6) && (e2 += 40);
-          for (o2 = 0; o2 < r2; o2 += 1) for (n2 = 0; n2 < r2 - 6; n2 += 1) t2.isDark(n2, o2) && !t2.isDark(n2 + 1, o2) && t2.isDark(n2 + 2, o2) && t2.isDark(n2 + 3, o2) && t2.isDark(n2 + 4, o2) && !t2.isDark(n2 + 5, o2) && t2.isDark(n2 + 6, o2) && (e2 += 40);
-          var g2 = 0;
-          for (o2 = 0; o2 < r2; o2 += 1) for (n2 = 0; n2 < r2; n2 += 1) t2.isDark(n2, o2) && (g2 += 1);
-          return e2 += Math.abs(100 * g2 / r2 / r2 - 50) / 5 * 10;
-        }, o), C = (function() {
-          for (var t2 = new Array(256), r2 = new Array(256), e2 = 0; e2 < 8; e2 += 1) t2[e2] = 1 << e2;
-          for (e2 = 8; e2 < 256; e2 += 1) t2[e2] = t2[e2 - 4] ^ t2[e2 - 5] ^ t2[e2 - 6] ^ t2[e2 - 8];
-          for (e2 = 0; e2 < 255; e2 += 1) r2[t2[e2]] = e2;
-          var n2 = { glog: function(t3) {
-            if (t3 < 1) throw "glog(" + t3 + ")";
-            return r2[t3];
-          }, gexp: function(r3) {
-            for (; r3 < 0; ) r3 += 255;
-            for (; r3 >= 256; ) r3 -= 255;
-            return t2[r3];
-          } };
-          return n2;
-        })();
-        function k(t2, r2) {
-          if (void 0 === t2.length) throw t2.length + "/" + r2;
-          var e2 = (function() {
-            for (var e3 = 0; e3 < t2.length && 0 == t2[e3]; ) e3 += 1;
-            for (var n3 = new Array(t2.length - e3 + r2), o2 = 0; o2 < t2.length - e3; o2 += 1) n3[o2] = t2[o2 + e3];
-            return n3;
-          })(), n2 = { getAt: function(t3) {
-            return e2[t3];
-          }, getLength: function() {
-            return e2.length;
-          }, multiply: function(t3) {
-            for (var r3 = new Array(n2.getLength() + t3.getLength() - 1), e3 = 0; e3 < n2.getLength(); e3 += 1) for (var o2 = 0; o2 < t3.getLength(); o2 += 1) r3[e3 + o2] ^= C.gexp(C.glog(n2.getAt(e3)) + C.glog(t3.getAt(o2)));
-            return k(r3, 0);
-          }, mod: function(t3) {
-            if (n2.getLength() - t3.getLength() < 0) return n2;
-            for (var r3 = C.glog(n2.getAt(0)) - C.glog(t3.getAt(0)), e3 = new Array(n2.getLength()), o2 = 0; o2 < n2.getLength(); o2 += 1) e3[o2] = n2.getAt(o2);
-            for (o2 = 0; o2 < t3.getLength(); o2 += 1) e3[o2] ^= C.gexp(C.glog(t3.getAt(o2)) + r3);
-            return k(e3, 0).mod(t3);
-          } };
-          return n2;
-        }
-        var A = (function() {
-          var t2 = [[1, 26, 19], [1, 26, 16], [1, 26, 13], [1, 26, 9], [1, 44, 34], [1, 44, 28], [1, 44, 22], [1, 44, 16], [1, 70, 55], [1, 70, 44], [2, 35, 17], [2, 35, 13], [1, 100, 80], [2, 50, 32], [2, 50, 24], [4, 25, 9], [1, 134, 108], [2, 67, 43], [2, 33, 15, 2, 34, 16], [2, 33, 11, 2, 34, 12], [2, 86, 68], [4, 43, 27], [4, 43, 19], [4, 43, 15], [2, 98, 78], [4, 49, 31], [2, 32, 14, 4, 33, 15], [4, 39, 13, 1, 40, 14], [2, 121, 97], [2, 60, 38, 2, 61, 39], [4, 40, 18, 2, 41, 19], [4, 40, 14, 2, 41, 15], [2, 146, 116], [3, 58, 36, 2, 59, 37], [4, 36, 16, 4, 37, 17], [4, 36, 12, 4, 37, 13], [2, 86, 68, 2, 87, 69], [4, 69, 43, 1, 70, 44], [6, 43, 19, 2, 44, 20], [6, 43, 15, 2, 44, 16], [4, 101, 81], [1, 80, 50, 4, 81, 51], [4, 50, 22, 4, 51, 23], [3, 36, 12, 8, 37, 13], [2, 116, 92, 2, 117, 93], [6, 58, 36, 2, 59, 37], [4, 46, 20, 6, 47, 21], [7, 42, 14, 4, 43, 15], [4, 133, 107], [8, 59, 37, 1, 60, 38], [8, 44, 20, 4, 45, 21], [12, 33, 11, 4, 34, 12], [3, 145, 115, 1, 146, 116], [4, 64, 40, 5, 65, 41], [11, 36, 16, 5, 37, 17], [11, 36, 12, 5, 37, 13], [5, 109, 87, 1, 110, 88], [5, 65, 41, 5, 66, 42], [5, 54, 24, 7, 55, 25], [11, 36, 12, 7, 37, 13], [5, 122, 98, 1, 123, 99], [7, 73, 45, 3, 74, 46], [15, 43, 19, 2, 44, 20], [3, 45, 15, 13, 46, 16], [1, 135, 107, 5, 136, 108], [10, 74, 46, 1, 75, 47], [1, 50, 22, 15, 51, 23], [2, 42, 14, 17, 43, 15], [5, 150, 120, 1, 151, 121], [9, 69, 43, 4, 70, 44], [17, 50, 22, 1, 51, 23], [2, 42, 14, 19, 43, 15], [3, 141, 113, 4, 142, 114], [3, 70, 44, 11, 71, 45], [17, 47, 21, 4, 48, 22], [9, 39, 13, 16, 40, 14], [3, 135, 107, 5, 136, 108], [3, 67, 41, 13, 68, 42], [15, 54, 24, 5, 55, 25], [15, 43, 15, 10, 44, 16], [4, 144, 116, 4, 145, 117], [17, 68, 42], [17, 50, 22, 6, 51, 23], [19, 46, 16, 6, 47, 17], [2, 139, 111, 7, 140, 112], [17, 74, 46], [7, 54, 24, 16, 55, 25], [34, 37, 13], [4, 151, 121, 5, 152, 122], [4, 75, 47, 14, 76, 48], [11, 54, 24, 14, 55, 25], [16, 45, 15, 14, 46, 16], [6, 147, 117, 4, 148, 118], [6, 73, 45, 14, 74, 46], [11, 54, 24, 16, 55, 25], [30, 46, 16, 2, 47, 17], [8, 132, 106, 4, 133, 107], [8, 75, 47, 13, 76, 48], [7, 54, 24, 22, 55, 25], [22, 45, 15, 13, 46, 16], [10, 142, 114, 2, 143, 115], [19, 74, 46, 4, 75, 47], [28, 50, 22, 6, 51, 23], [33, 46, 16, 4, 47, 17], [8, 152, 122, 4, 153, 123], [22, 73, 45, 3, 74, 46], [8, 53, 23, 26, 54, 24], [12, 45, 15, 28, 46, 16], [3, 147, 117, 10, 148, 118], [3, 73, 45, 23, 74, 46], [4, 54, 24, 31, 55, 25], [11, 45, 15, 31, 46, 16], [7, 146, 116, 7, 147, 117], [21, 73, 45, 7, 74, 46], [1, 53, 23, 37, 54, 24], [19, 45, 15, 26, 46, 16], [5, 145, 115, 10, 146, 116], [19, 75, 47, 10, 76, 48], [15, 54, 24, 25, 55, 25], [23, 45, 15, 25, 46, 16], [13, 145, 115, 3, 146, 116], [2, 74, 46, 29, 75, 47], [42, 54, 24, 1, 55, 25], [23, 45, 15, 28, 46, 16], [17, 145, 115], [10, 74, 46, 23, 75, 47], [10, 54, 24, 35, 55, 25], [19, 45, 15, 35, 46, 16], [17, 145, 115, 1, 146, 116], [14, 74, 46, 21, 75, 47], [29, 54, 24, 19, 55, 25], [11, 45, 15, 46, 46, 16], [13, 145, 115, 6, 146, 116], [14, 74, 46, 23, 75, 47], [44, 54, 24, 7, 55, 25], [59, 46, 16, 1, 47, 17], [12, 151, 121, 7, 152, 122], [12, 75, 47, 26, 76, 48], [39, 54, 24, 14, 55, 25], [22, 45, 15, 41, 46, 16], [6, 151, 121, 14, 152, 122], [6, 75, 47, 34, 76, 48], [46, 54, 24, 10, 55, 25], [2, 45, 15, 64, 46, 16], [17, 152, 122, 4, 153, 123], [29, 74, 46, 14, 75, 47], [49, 54, 24, 10, 55, 25], [24, 45, 15, 46, 46, 16], [4, 152, 122, 18, 153, 123], [13, 74, 46, 32, 75, 47], [48, 54, 24, 14, 55, 25], [42, 45, 15, 32, 46, 16], [20, 147, 117, 4, 148, 118], [40, 75, 47, 7, 76, 48], [43, 54, 24, 22, 55, 25], [10, 45, 15, 67, 46, 16], [19, 148, 118, 6, 149, 119], [18, 75, 47, 31, 76, 48], [34, 54, 24, 34, 55, 25], [20, 45, 15, 61, 46, 16]], r2 = function(t3, r3) {
-            var e3 = {};
-            return e3.totalCount = t3, e3.dataCount = r3, e3;
-          }, e2 = {};
-          return e2.getRSBlocks = function(e3, n2) {
-            var o2 = (function(r3, e4) {
-              switch (e4) {
-                case g.L:
-                  return t2[4 * (r3 - 1) + 0];
-                case g.M:
-                  return t2[4 * (r3 - 1) + 1];
-                case g.Q:
-                  return t2[4 * (r3 - 1) + 2];
-                case g.H:
-                  return t2[4 * (r3 - 1) + 3];
-                default:
-                  return;
-              }
-            })(e3, n2);
-            if (void 0 === o2) throw "bad rs block @ typeNumber:" + e3 + "/errorCorrectionLevel:" + n2;
-            for (var i2 = o2.length / 3, a2 = [], u2 = 0; u2 < i2; u2 += 1) for (var f2 = o2[3 * u2 + 0], c2 = o2[3 * u2 + 1], l2 = o2[3 * u2 + 2], h2 = 0; h2 < f2; h2 += 1) a2.push(r2(c2, l2));
-            return a2;
-          }, e2;
-        })(), b = function() {
-          var t2 = [], r2 = 0, e2 = { getBuffer: function() {
-            return t2;
-          }, getAt: function(r3) {
-            var e3 = Math.floor(r3 / 8);
-            return 1 == (t2[e3] >>> 7 - r3 % 8 & 1);
-          }, put: function(t3, r3) {
-            for (var n2 = 0; n2 < r3; n2 += 1) e2.putBit(1 == (t3 >>> r3 - n2 - 1 & 1));
-          }, getLengthInBits: function() {
-            return r2;
-          }, putBit: function(e3) {
-            var n2 = Math.floor(r2 / 8);
-            t2.length <= n2 && t2.push(0), e3 && (t2[n2] |= 128 >>> r2 % 8), r2 += 1;
-          } };
-          return e2;
-        }, M = function(t2) {
-          var r2 = a, e2 = t2, n2 = { getMode: function() {
-            return r2;
-          }, getLength: function(t3) {
-            return e2.length;
-          }, write: function(t3) {
-            for (var r3 = e2, n3 = 0; n3 + 2 < r3.length; ) t3.put(o2(r3.substring(n3, n3 + 3)), 10), n3 += 3;
-            n3 < r3.length && (r3.length - n3 == 1 ? t3.put(o2(r3.substring(n3, n3 + 1)), 4) : r3.length - n3 == 2 && t3.put(o2(r3.substring(n3, n3 + 2)), 7));
-          } }, o2 = function(t3) {
-            for (var r3 = 0, e3 = 0; e3 < t3.length; e3 += 1) r3 = 10 * r3 + i2(t3.charAt(e3));
-            return r3;
-          }, i2 = function(t3) {
-            if ("0" <= t3 && t3 <= "9") return t3.charCodeAt(0) - "0".charCodeAt(0);
-            throw "illegal char :" + t3;
-          };
-          return n2;
-        }, x = function(t2) {
-          var r2 = u, e2 = t2, n2 = { getMode: function() {
-            return r2;
-          }, getLength: function(t3) {
-            return e2.length;
-          }, write: function(t3) {
-            for (var r3 = e2, n3 = 0; n3 + 1 < r3.length; ) t3.put(45 * o2(r3.charAt(n3)) + o2(r3.charAt(n3 + 1)), 11), n3 += 2;
-            n3 < r3.length && t3.put(o2(r3.charAt(n3)), 6);
-          } }, o2 = function(t3) {
-            if ("0" <= t3 && t3 <= "9") return t3.charCodeAt(0) - "0".charCodeAt(0);
-            if ("A" <= t3 && t3 <= "Z") return t3.charCodeAt(0) - "A".charCodeAt(0) + 10;
-            switch (t3) {
-              case " ":
-                return 36;
-              case "$":
-                return 37;
-              case "%":
-                return 38;
-              case "*":
-                return 39;
-              case "+":
-                return 40;
-              case "-":
-                return 41;
-              case ".":
-                return 42;
-              case "/":
-                return 43;
-              case ":":
-                return 44;
-              default:
-                throw "illegal char :" + t3;
-            }
-          };
-          return n2;
-        }, m = function(r2) {
-          var e2 = f, n2 = t.stringToBytes(r2), o2 = { getMode: function() {
-            return e2;
-          }, getLength: function(t2) {
-            return n2.length;
-          }, write: function(t2) {
-            for (var r3 = 0; r3 < n2.length; r3 += 1) t2.put(n2[r3], 8);
-          } };
-          return o2;
-        }, L = function(r2) {
-          var e2 = c, n2 = t.stringToBytesFuncs.SJIS;
-          if (!n2) throw "sjis not supported.";
-          !(function() {
-            var t2 = n2("\\u53CB");
-            if (2 != t2.length || 38726 != (t2[0] << 8 | t2[1])) throw "sjis not supported.";
-          })();
-          var o2 = n2(r2), i2 = { getMode: function() {
-            return e2;
-          }, getLength: function(t2) {
-            return ~~(o2.length / 2);
-          }, write: function(t2) {
-            for (var r3 = o2, e3 = 0; e3 + 1 < r3.length; ) {
-              var n3 = (255 & r3[e3]) << 8 | 255 & r3[e3 + 1];
-              if (33088 <= n3 && n3 <= 40956) n3 -= 33088;
-              else {
-                if (!(57408 <= n3 && n3 <= 60351)) throw "illegal char at " + (e3 + 1) + "/" + n3;
-                n3 -= 49472;
-              }
-              n3 = 192 * (n3 >>> 8 & 255) + (255 & n3), t2.put(n3, 13), e3 += 2;
-            }
-            if (e3 < r3.length) throw "illegal char at " + (e3 + 1);
-          } };
-          return i2;
-        }, D = function() {
-          var t2 = [], r2 = { writeByte: function(r3) {
-            t2.push(255 & r3);
-          }, writeShort: function(t3) {
-            r2.writeByte(t3), r2.writeByte(t3 >>> 8);
-          }, writeBytes: function(t3, e2, n2) {
-            e2 = e2 || 0, n2 = n2 || t3.length;
-            for (var o2 = 0; o2 < n2; o2 += 1) r2.writeByte(t3[o2 + e2]);
-          }, writeString: function(t3) {
-            for (var e2 = 0; e2 < t3.length; e2 += 1) r2.writeByte(t3.charCodeAt(e2));
-          }, toByteArray: function() {
-            return t2;
-          }, toString: function() {
-            var r3 = "";
-            r3 += "[";
-            for (var e2 = 0; e2 < t2.length; e2 += 1) e2 > 0 && (r3 += ","), r3 += t2[e2];
-            return r3 += "]";
-          } };
-          return r2;
-        }, S = function(t2) {
-          var r2 = t2, e2 = 0, n2 = 0, o2 = 0, i2 = { read: function() {
-            for (; o2 < 8; ) {
-              if (e2 >= r2.length) {
-                if (0 == o2) return -1;
-                throw "unexpected end of file./" + o2;
-              }
-              var t3 = r2.charAt(e2);
-              if (e2 += 1, "=" == t3) return o2 = 0, -1;
-              t3.match(/^\\s$/) || (n2 = n2 << 6 | a2(t3.charCodeAt(0)), o2 += 6);
-            }
-            var i3 = n2 >>> o2 - 8 & 255;
-            return o2 -= 8, i3;
-          } }, a2 = function(t3) {
-            if (65 <= t3 && t3 <= 90) return t3 - 65;
-            if (97 <= t3 && t3 <= 122) return t3 - 97 + 26;
-            if (48 <= t3 && t3 <= 57) return t3 - 48 + 52;
-            if (43 == t3) return 62;
-            if (47 == t3) return 63;
-            throw "c:" + t3;
-          };
-          return i2;
-        }, I = function(t2, r2, e2) {
-          for (var n2 = (function(t3, r3) {
-            var e3 = t3, n3 = r3, o3 = new Array(t3 * r3), i3 = { setPixel: function(t4, r4, n4) {
-              o3[r4 * e3 + t4] = n4;
-            }, write: function(t4) {
-              t4.writeString("GIF87a"), t4.writeShort(e3), t4.writeShort(n3), t4.writeByte(128), t4.writeByte(0), t4.writeByte(0), t4.writeByte(0), t4.writeByte(0), t4.writeByte(0), t4.writeByte(255), t4.writeByte(255), t4.writeByte(255), t4.writeString(","), t4.writeShort(0), t4.writeShort(0), t4.writeShort(e3), t4.writeShort(n3), t4.writeByte(0);
-              var r4 = a3(2);
-              t4.writeByte(2);
-              for (var o4 = 0; r4.length - o4 > 255; ) t4.writeByte(255), t4.writeBytes(r4, o4, 255), o4 += 255;
-              t4.writeByte(r4.length - o4), t4.writeBytes(r4, o4, r4.length - o4), t4.writeByte(0), t4.writeString(";");
-            } }, a3 = function(t4) {
-              for (var r4 = 1 << t4, e4 = 1 + (1 << t4), n4 = t4 + 1, i4 = u3(), a4 = 0; a4 < r4; a4 += 1) i4.add(String.fromCharCode(a4));
-              i4.add(String.fromCharCode(r4)), i4.add(String.fromCharCode(e4));
-              var f3, c3, g2, l2 = D(), h2 = (f3 = l2, c3 = 0, g2 = 0, { write: function(t5, r5) {
-                if (t5 >>> r5 != 0) throw "length over";
-                for (; c3 + r5 >= 8; ) f3.writeByte(255 & (t5 << c3 | g2)), r5 -= 8 - c3, t5 >>>= 8 - c3, g2 = 0, c3 = 0;
-                g2 |= t5 << c3, c3 += r5;
-              }, flush: function() {
-                c3 > 0 && f3.writeByte(g2);
-              } });
-              h2.write(r4, n4);
-              var s2 = 0, v2 = String.fromCharCode(o3[s2]);
-              for (s2 += 1; s2 < o3.length; ) {
-                var d2 = String.fromCharCode(o3[s2]);
-                s2 += 1, i4.contains(v2 + d2) ? v2 += d2 : (h2.write(i4.indexOf(v2), n4), i4.size() < 4095 && (i4.size() == 1 << n4 && (n4 += 1), i4.add(v2 + d2)), v2 = d2);
-              }
-              return h2.write(i4.indexOf(v2), n4), h2.write(e4, n4), h2.flush(), l2.toByteArray();
-            }, u3 = function() {
-              var t4 = {}, r4 = 0, e4 = { add: function(n4) {
-                if (e4.contains(n4)) throw "dup key:" + n4;
-                t4[n4] = r4, r4 += 1;
-              }, size: function() {
-                return r4;
-              }, indexOf: function(r5) {
-                return t4[r5];
-              }, contains: function(r5) {
-                return void 0 !== t4[r5];
-              } };
-              return e4;
-            };
-            return i3;
-          })(t2, r2), o2 = 0; o2 < r2; o2 += 1) for (var i2 = 0; i2 < t2; i2 += 1) n2.setPixel(i2, o2, e2(i2, o2));
-          var a2 = D();
-          n2.write(a2);
-          for (var u2 = (function() {
-            var t3 = 0, r3 = 0, e3 = 0, n3 = "", o3 = {}, i3 = function(t4) {
-              n3 += String.fromCharCode(a3(63 & t4));
-            }, a3 = function(t4) {
-              if (t4 < 0) ;
-              else {
-                if (t4 < 26) return 65 + t4;
-                if (t4 < 52) return t4 - 26 + 97;
-                if (t4 < 62) return t4 - 52 + 48;
-                if (62 == t4) return 43;
-                if (63 == t4) return 47;
-              }
-              throw "n:" + t4;
-            };
-            return o3.writeByte = function(n4) {
-              for (t3 = t3 << 8 | 255 & n4, r3 += 8, e3 += 1; r3 >= 6; ) i3(t3 >>> r3 - 6), r3 -= 6;
-            }, o3.flush = function() {
-              if (r3 > 0 && (i3(t3 << 6 - r3), t3 = 0, r3 = 0), e3 % 3 != 0) for (var o4 = 3 - e3 % 3, a4 = 0; a4 < o4; a4 += 1) n3 += "=";
-            }, o3.toString = function() {
-              return n3;
-            }, o3;
-          })(), f2 = a2.toByteArray(), c2 = 0; c2 < f2.length; c2 += 1) u2.writeByte(f2[c2]);
-          return u2.flush(), "data:image/gif;base64," + u2;
-        };
-        return t;
-      })();
-      qrcode2.stringToBytesFuncs["UTF-8"] = function(t) {
-        return (function(t2) {
-          for (var r = [], e = 0; e < t2.length; e++) {
-            var n = t2.charCodeAt(e);
-            n < 128 ? r.push(n) : n < 2048 ? r.push(192 | n >> 6, 128 | 63 & n) : n < 55296 || n >= 57344 ? r.push(224 | n >> 12, 128 | n >> 6 & 63, 128 | 63 & n) : (e++, n = 65536 + ((1023 & n) << 10 | 1023 & t2.charCodeAt(e)), r.push(240 | n >> 18, 128 | n >> 12 & 63, 128 | n >> 6 & 63, 128 | 63 & n));
-          }
-          return r;
-        })(t);
-      }, (function(t) {
-        "function" == typeof define && define.amd ? define([], t) : "object" == typeof exports && (module.exports = t());
-      })((function() {
-        return qrcode2;
-      }));
-      return module.exports;
-    })();
-    if (qrcode && qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs["UTF-8"]) {
-      qrcode.stringToBytes = qrcode.stringToBytesFuncs["UTF-8"];
-    }
-    const qr = qrcode(0, "M");
-    qr.addData(text);
-    qr.make();
-    return qr.createDataURL(4, 16);
-  }
-
-  // src/shared/alipay-cashier.js
-  var MESSAGE = "sgs-toolbox-alipay-final-qr-v1";
-  function finalAlipayURL(value) {
-    const url = new URL(value);
-    if (url.origin !== "https://qr.alipay.com" || url.username || url.password || !/^\\/[a-z\\d]+$/i.test(url.pathname)) throw Error("\\u652F\\u4ED8\\u5B9D\\u6700\\u7EC8\\u4ED8\\u6B3E\\u7801\\u5730\\u5740\\u5F02\\u5E38");
-    return url.href;
-  }
-  function readAlipayCashier(doc) {
-    if (typeof doc?.querySelector !== "function") throw Error("\\u652F\\u4ED8\\u5B9D\\u6536\\u94F6\\u53F0\\u6587\\u6863\\u4E0D\\u53EF\\u8BFB\\u53D6");
-    const input = doc.querySelector("input#J_qrCode");
-    if (!input?.value) throw Error("\\u6536\\u94F6\\u53F0\\u5C1A\\u672A\\u63D0\\u4F9B\\u6700\\u7EC8\\u4ED8\\u6B3E\\u7801");
-    return finalAlipayURL(input.value);
-  }
-  function resolveAlipayCashier(win, value, signal, request = null) {
-    const url = new URL(value);
-    if (url.hostname === "qr.alipay.com") return Promise.resolve(finalAlipayURL(value));
-    if (url.origin !== "https://openapi.alipay.com" || url.pathname !== "/gateway.do" || url.username || url.password || url.searchParams.get("method") !== "alipay.trade.page.pay") return Promise.reject(Error("\\u4E0D\\u662F\\u53EF\\u89E3\\u6790\\u7684\\u652F\\u4ED8\\u5B9D\\u6536\\u94F6\\u53F0\\u5730\\u5740"));
-    if (request) return new Promise((resolve, reject) => {
-      if (signal.aborted) return reject(Error("\\u89E3\\u6790\\u5DF2\\u53D6\\u6D88"));
-      let handle = null, done = false;
-      const finish = (error, result) => {
-        if (done) return;
-        done = true;
-        win.clearTimeout(timer);
-        signal.removeEventListener("abort", cancel);
-        error ? reject(error) : resolve(result);
-      };
-      const cancel = () => {
-        finish(Error("\\u89E3\\u6790\\u5DF2\\u53D6\\u6D88"));
-        handle?.abort();
-      };
-      const timer = win.setTimeout(() => {
-        finish(Error("\\u652F\\u4ED8\\u5B9D\\u4ED8\\u6B3E\\u7801\\u89E3\\u6790\\u8D85\\u65F6\\uFF0C\\u53EF\\u91CD\\u8BD5\\u89E3\\u6790\\u540C\\u4E00\\u8BA2\\u5355"));
-        handle?.abort();
-      }, 15e3);
-      signal.addEventListener("abort", cancel, { once: true });
-      try {
-        handle = request({
-          method: "GET",
-          url: url.href,
-          anonymous: true,
-          timeout: 15e3,
-          responseType: "text",
-          onload(response) {
-            if (done) return;
-            try {
-              if (response.status !== 200) throw Error("\\u652F\\u4ED8\\u5B9D\\u6536\\u94F6\\u53F0 HTTP " + response.status);
-              const final = new URL(response.finalUrl || url.href);
-              if (!(final.origin === "https://openapi.alipay.com" && final.pathname === "/gateway.do" || final.origin === "https://excashier.alipay.com" && final.pathname === "/standard/auth.htm")) throw Error("\\u652F\\u4ED8\\u5B9D\\u6536\\u94F6\\u53F0\\u8DF3\\u8F6C\\u5730\\u5740\\u5F02\\u5E38");
-              if (typeof response.responseText !== "string" || response.responseText.length > 2 * 1024 * 1024) throw Error("\\u652F\\u4ED8\\u5B9D\\u6536\\u94F6\\u53F0\\u5185\\u5BB9\\u5F02\\u5E38");
-              const template = win.document.createElement("template");
-              template.innerHTML = response.responseText;
-              finish(null, readAlipayCashier(template.content));
-            } catch (error) {
-              finish(error);
-            }
-          },
-          onerror: () => finish(Error("\\u65E0\\u6CD5\\u8BFB\\u53D6\\u652F\\u4ED8\\u5B9D\\u6536\\u94F6\\u53F0\\uFF0C\\u53EF\\u91CD\\u8BD5\\u89E3\\u6790\\u540C\\u4E00\\u8BA2\\u5355")),
-          ontimeout: () => finish(Error("\\u652F\\u4ED8\\u5B9D\\u4ED8\\u6B3E\\u7801\\u89E3\\u6790\\u8D85\\u65F6\\uFF0C\\u53EF\\u91CD\\u8BD5\\u89E3\\u6790\\u540C\\u4E00\\u8BA2\\u5355")),
-          onabort: () => finish(Error("\\u89E3\\u6790\\u5DF2\\u53D6\\u6D88"))
-        });
-        if (done && signal.aborted) handle?.abort();
-      } catch (error) {
-        finish(error);
-      }
-    });
-    return new Promise((resolve, reject) => {
-      if (signal.aborted) return reject(Error("\\u89E3\\u6790\\u5DF2\\u53D6\\u6D88"));
-      const frame = win.document.createElement("iframe"), nonce = win.crypto.randomUUID?.() || String(Date.now()) + ":" + Math.random();
-      frame.title = "\\u89E3\\u6790\\u652F\\u4ED8\\u5B9D\\u4ED8\\u6B3E\\u7801";
-      frame.style.cssText = "position:fixed;width:1px;height:1px;left:-10000px;top:0;border:0;visibility:hidden";
-      frame.referrerPolicy = "no-referrer";
-      frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
-      let settled = false;
-      const finish = (error, result) => {
-        if (settled) return;
-        settled = true;
-        win.clearTimeout(timer);
-        win.removeEventListener("message", receive);
-        signal.removeEventListener("abort", cancel);
-        frame.remove();
-        error ? reject(error) : resolve(result);
-      };
-      const cancel = () => finish(Error("\\u89E3\\u6790\\u5DF2\\u53D6\\u6D88"));
-      const receive = (event) => {
-        if (event.source !== frame.contentWindow || !["https://openapi.alipay.com", "https://excashier.alipay.com"].includes(event.origin) || event.data?.type !== MESSAGE || event.data.nonce !== nonce) return;
-        try {
-          finish(null, finalAlipayURL(event.data.url));
-        } catch (error) {
-          finish(error);
-        }
-      };
-      const timer = win.setTimeout(() => finish(Error("\\u652F\\u4ED8\\u5B9D\\u4ED8\\u6B3E\\u7801\\u89E3\\u6790\\u8D85\\u65F6\\uFF0C\\u8BF7\\u66F4\\u65B0\\u6838\\u5FC3\\u540E\\u91CD\\u8BD5\\u89E3\\u6790")), 15e3);
-      win.addEventListener("message", receive);
-      signal.addEventListener("abort", cancel, { once: true });
-      frame.onload = () => {
-        try {
-          const result = readAlipayCashier(frame.contentDocument);
-          finish(null, result);
-          return;
-        } catch {
-        }
-        frame.contentWindow?.postMessage({ type: MESSAGE, nonce }, url.origin);
-        frame.contentWindow?.postMessage({ type: MESSAGE, nonce }, "https://excashier.alipay.com");
-      };
-      frame.src = url.href;
-      win.document.body.append(frame);
-    });
-  }
-
-  // src/plugins/recharge/payment.js
-  var PAY_BASE = "https://ol-payment.sanguosha.com/v1/";
-  function isOfficialServer(win) {
-    try {
-      const allowed = (value) => new URL(value).hostname === "web.sanguosha.com";
-      if (!allowed(win.location.href)) return false;
-      if (win.top && win.top !== win && !allowed(win.top.location.href)) return false;
-      if (Array.from(win.location.ancestorOrigins || []).some((origin) => !allowed(origin))) return false;
-      const params = new URL(win.location.href).searchParams;
-      if (params.has("logout_url") || params.has("cmFlag")) return false;
-      const client = params.get("client");
-      return !client || ["1100", "110074", "210000"].includes(client);
-    } catch {
-      return false;
-    }
-  }
-  var CARDS = Object.freeze({ 2: { id: 12981201, price: 1200, name: "\\u65E7\\u5468\\u5361" }, 3: { id: 12981501, price: 2800, name: "\\u65E7\\u6708\\u5361" } });
-  function buildPayload(form, timestamp = Math.floor(Date.now() / 1e3)) {
-    if (!form.account?.trim() || !/^\\d{6,12}$/.test(form.userId)) throw Error("\\u8BF7\\u6838\\u5BF9\\u767B\\u5F55\\u8D26\\u53F7\\u4E0E6\\u201312\\u4F4D\\u73A9\\u5BB6ID");
-    if (!/^\\d+$/.test(String(form.yb)) || !Number.isSafeInteger(Number(form.yb)) || Number(form.yb) < 1 || Number(form.yb) > 9999999) throw Error("\\u5143\\u5B9D\\u6570\\u91CF\\u987B\\u4E3A1\\u20139999999\\u7684\\u6574\\u6570");
-    const p = { account: form.account.trim(), yb: Number(form.yb), server_id: 1100, channel: "210000", nickname: form.nickname || "", user_id: form.userId };
-    if (form.udid) p.udid = form.udid;
-    Object.assign(p, { device_model: "NoDeviceName", osType: 12, user_level: 200, timestamp });
-    p.sign = md5Hex(Object.keys(p).sort().map((k) => k + "=" + p[k]).join("") + "IqCUMcHyvGTtw4ThpEky5jtjEl8PG0V5");
-    return p;
-  }
-  function paymentResult(kind, response) {
-    if (response?.code !== 0) throw Error(String(response?.msg || response?.message || "\\u652F\\u4ED8\\u63A5\\u53E3\\u8FD4\\u56DE\\u5F02\\u5E38"));
-    const code = response.data?.code_url;
-    if (typeof code !== "string" || !code || code.length > 1e6) throw Error("\\u63A5\\u53E3\\u672A\\u8FD4\\u56DE\\u6709\\u6548\\u4ED8\\u6B3E\\u7801");
-    if (kind === "wechat") {
-      const data = code.startsWith("data:") ? code : "data:image/png;base64," + code;
-      if (!/^data:image\\/(png|jpeg|gif);base64,[a-z\\d+/=\\r\\n]+$/i.test(data)) throw Error("\\u5FAE\\u4FE1\\u4ED8\\u6B3E\\u7801\\u683C\\u5F0F\\u5F02\\u5E38");
-      return { image: data, order: String(response.data.order_id || "") };
-    }
-    const url = new URL(code);
-    if (url.protocol !== "https:" || url.username || url.password || !/(^|\\.)(alipay\\.com|sanguosha\\.com)$/.test(url.hostname)) throw Error("\\u6536\\u94F6\\u53F0\\u5730\\u5740\\u4E0D\\u5728\\u5141\\u8BB8\\u7684\\u652F\\u4ED8\\u57DF\\u540D\\u4E2D");
-    return { url: url.href, order: String(response.data.order_id || "") };
-  }
-  function validateCard(type, info, data) {
-    const expected = CARDS[type], quote = info?.cards?.find((c) => c.cardType === Number(type)), state = data?.datas?.find((c) => c.type === Number(type));
-    if (!expected || data?.code !== 0 || !quote || !state || quote.cardId !== expected.id || quote.payType !== 1 || quote.priceNum !== expected.price) throw Error("\\u65E7\\u5361\\u5546\\u54C1\\u6216\\u62A5\\u4EF7\\u6682\\u4E0D\\u53EF\\u7528\\uFF0C\\u5DF2\\u963B\\u6B62\\u8D2D\\u4E70");
-    if (state.bActive !== false && state.bActive !== 0) throw Error("\\u65E7\\u5361\\u5C1A\\u672A\\u5230\\u671F\\u6216\\u72B6\\u6001\\u672A\\u77E5\\uFF0C\\u5DF2\\u963B\\u6B62\\u91CD\\u590D\\u8D2D\\u4E70");
-    return expected;
-  }
-  function queryCards(proxy, welfare, signal) {
-    return new Promise((resolve, reject) => {
-      if (signal.aborted) return reject(Error("\\u67E5\\u8BE2\\u5DF2\\u53D6\\u6D88"));
-      const caller = {};
-      let info, data, timer;
-      const finish = (error) => {
-        clearTimeout(timer);
-        proxy.off("ClientPrivilegeInfoRep", caller, onInfo);
-        proxy.off("ClientPrivilegeDataRep", caller, onData);
-        signal.removeEventListener("abort", cancel);
-        error ? reject(error) : resolve({ info, data });
-      };
-      const check = () => {
-        if (info && data) finish();
-      };
-      const onInfo = (packet) => {
-        info = packet?.Protocol;
-        check();
-      };
-      const onData = (packet) => {
-        data = packet?.Protocol;
-        check();
-      };
-      const cancel = () => finish(Error("\\u67E5\\u8BE2\\u5DF2\\u53D6\\u6D88"));
-      proxy.on("ClientPrivilegeInfoRep", caller, onInfo);
-      proxy.on("ClientPrivilegeDataRep", caller, onData);
-      signal.addEventListener("abort", cancel, { once: true });
-      timer = setTimeout(() => finish(Error("\\u65E7\\u5361\\u72B6\\u6001\\u67E5\\u8BE2\\u8D85\\u65F6\\uFF0C\\u8BF7\\u7A0D\\u540E\\u91CD\\u8BD5")), 1e4);
-      try {
-        welfare.SendClientPrivilegeInfoReq();
-        welfare.SendClientPrivilegeDataReq();
-      } catch (error) {
-        finish(error);
-      }
-    });
-  }
 
   // src/ui/plugin-icons.js
   var icon = (...paths) => Object.freeze({ paths: Object.freeze(paths) });
@@ -31050,407 +30629,66 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 @media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
 \`;
 
-  // src/plugins/recharge/native-controls.js
-  function rechargeButtonBounds(button, L) {
-    if (!button || button.visible === false || button.renderVisible === false || !button.width || !button.height) return null;
-    if (typeof button.localToGlobal === "function") return [button.localToGlobal(new L.Point(0, 0)), button.localToGlobal(new L.Point(button.width, button.height))];
-    const host = button.render;
-    if (!host || host.destroyed || typeof host.localToGlobal !== "function") return null;
-    const x = button.renderX, y = button.renderY, sx = button.renderScaleX, sy = button.renderScaleY;
-    if (![x, y, sx, sy].every(Number.isFinite)) return null;
-    return [host.localToGlobal(new L.Point(x, y)), host.localToGlobal(new L.Point(x + button.width * sx, y + button.height * sy))];
+  // src/plugins/recharge/legacy-cards.js
+  var CARDS = Object.freeze({ 2: { id: 12981201, price: 1200, name: "\\u65E7\\u5468\\u5361" }, 3: { id: 12981501, price: 2800, name: "\\u65E7\\u6708\\u5361" } });
+  function validateCard(type, info, data) {
+    const expected = CARDS[type], quote = info?.cards?.find((c) => c.cardType === Number(type)), state = data?.datas?.find((c) => c.type === Number(type));
+    if (!expected || data?.code !== 0 || !quote || !state || quote.cardId !== expected.id || quote.payType !== 1 || quote.priceNum !== expected.price) throw Error("\\u65E7\\u5361\\u5546\\u54C1\\u6216\\u62A5\\u4EF7\\u6682\\u4E0D\\u53EF\\u7528\\uFF0C\\u5DF2\\u963B\\u6B62\\u8D2D\\u4E70");
+    if (state.bActive !== false && state.bActive !== 0) throw Error("\\u65E7\\u5361\\u5C1A\\u672A\\u5230\\u671F\\u6216\\u72B6\\u6001\\u672A\\u77E5\\uFF0C\\u5DF2\\u963B\\u6B62\\u91CD\\u590D\\u8D2D\\u4E70");
+    return expected;
   }
-  function createRechargeControls(ctx, enabled, setEnabled, changed) {
-    const entries = /* @__PURE__ */ new Map(), doc = ctx.document;
-    let account = String(ctx.game.getSelf()?.ClientId || "");
-    function remove(owner) {
-      const entry = entries.get(owner);
-      if (!entry) return;
-      entry.releaseTheme();
-      entry.root.remove();
-      entries.delete(owner);
-    }
-    function mount(owner) {
-      const root = doc.createElement("div");
-      root.dataset.sgsRechargeEntry = "";
-      const style = doc.createElement("style");
-      style.textContent = CONTROL_STYLES + \`
-      [data-sgs-recharge-entry]{position:fixed;z-index:10001;width:246px;height:58px;padding:4px 8px;display:flex;align-items:center;gap:12px;color:var(--sgs-text,#eee3cc);background:var(--sgs-bg,#24221e);border:1px solid var(--sgs-border,#665b42);border-radius:8px;box-shadow:0 3px 12px #0003;font:calc(12px + var(--sgs-font-offset,0px))/1.4 sans-serif;box-sizing:border-box}
-      [data-sgs-recharge-entry] *{box-sizing:border-box}
-      [data-sgs-recharge-entry] label{display:flex;align-items:center;gap:7px;white-space:nowrap;margin:0}
-      [data-sgs-recharge-entry] .recharge-custom{display:flex;flex-direction:column;align-items:stretch;gap:3px;min-width:0;flex:1;color:var(--sgs-muted,#b7aa8c);font-size:calc(11px + var(--sgs-font-offset,0px))}
-      [data-sgs-recharge-entry] .sgs-input{appearance:none;-webkit-appearance:none;width:100%;height:29px;border:1px solid var(--sgs-border,#665b42);border-radius:7px;background:var(--sgs-surface,#302d26);color:var(--sgs-text,#eee3cc);font:calc(12px + var(--sgs-font-offset,0px)) sans-serif;padding:4px 7px}
-      [data-sgs-recharge-entry] .sgs-switch{border:1px solid var(--sgs-border,#665b42);background:var(--sgs-surface,#302d26)}
-      [data-sgs-recharge-entry] .sgs-switch::before{background:var(--sgs-muted,#b7aa8c)}
-      [data-sgs-recharge-entry] .sgs-switch:checked{border-color:var(--sgs-accent,#dbba70)}
-      [data-sgs-recharge-entry] .sgs-switch:checked::before{background:var(--sgs-accent,#dbba70)}
-      [data-sgs-recharge-entry] input:disabled{opacity:.45;cursor:not-allowed}
-      [data-sgs-recharge-entry] input[aria-invalid=true]{border-color:var(--sgs-danger,#dc7770)}
-    \`;
-      root.append(style);
-      const label = doc.createElement("label"), toggle = doc.createElement("input"), text = doc.createElement("span");
-      toggle.type = "checkbox";
-      toggle.className = "sgs-switch";
-      toggle.setAttribute("role", "switch");
-      toggle.setAttribute("aria-label", "\\u542F\\u752895\\u6298");
-      text.textContent = "95\\u6298\\u5145\\u503C";
-      label.append(toggle, text);
-      const customLabel = doc.createElement("label"), caption = doc.createElement("span"), input = doc.createElement("input");
-      customLabel.className = "recharge-custom";
-      caption.textContent = "\\u81EA\\u5B9A\\u4E49\\u5143\\u5B9D";
-      input.type = "text";
-      input.inputMode = "numeric";
-      input.className = "sgs-input";
-      input.placeholder = "\\u7559\\u7A7A\\u7528\\u9009\\u4E2D\\u6863\\u4F4D";
-      input.autocomplete = "off";
-      input.setAttribute("aria-label", "\\u81EA\\u5B9A\\u4E49\\u5143\\u5B9D\\u6570\\u91CF");
-      input.title = "\\u8F93\\u51651\\u20139999999\\u7684\\u6574\\u6570\\u5143\\u5B9D\\u6570\\u91CF\\uFF1B\\u7559\\u7A7A\\u4F7F\\u7528\\u5F53\\u524D\\u9009\\u4E2D\\u6863\\u4F4D\\uFF0C\\u4EC595\\u6298\\u542F\\u7528\\u65F6\\u751F\\u6548\\u3002";
-      customLabel.append(caption, input);
-      root.append(label, customLabel);
-      doc.body.append(root);
-      toggle.onchange = () => {
-        setEnabled(toggle.checked);
-        changed();
-        refresh([...entries.keys()]);
+  function queryCards(proxy, welfare, signal) {
+    return new Promise((resolve, reject) => {
+      if (signal.aborted) return reject(Error("\\u67E5\\u8BE2\\u5DF2\\u53D6\\u6D88"));
+      const caller = {};
+      let info, data, timer;
+      const finish = (error) => {
+        clearTimeout(timer);
+        proxy.off("ClientPrivilegeInfoRep", caller, onInfo);
+        proxy.off("ClientPrivilegeDataRep", caller, onData);
+        signal.removeEventListener("abort", cancel);
+        error ? reject(error) : resolve({ info, data });
       };
-      input.oninput = () => {
-        input.setAttribute("aria-invalid", String(!!input.value.trim() && !/^[1-9]\\d{0,6}$/.test(input.value.trim())));
-        changed();
+      const check = () => {
+        if (info && data) finish();
       };
-      const applyTheme = (value) => {
-        for (const [key, color] of Object.entries(value?.tokens || {})) root.style.setProperty("--sgs-" + key, color);
+      const onInfo = (packet) => {
+        info = packet?.Protocol;
+        check();
       };
-      applyTheme(ctx.themes?.current);
-      const releaseTheme = ctx.themes?.subscribe?.(applyTheme) || (() => {
-      });
-      const entry = { root, toggle, input, releaseTheme };
-      entries.set(owner, entry);
-      return entry;
-    }
-    function refresh(owners) {
-      const id = String(ctx.game.getSelf()?.ClientId || "");
-      if (id !== account) {
-        for (const entry of entries.values()) entry.input.value = "";
-        account = id;
-        changed();
-      }
-      const visible = new Set(owners);
-      for (const owner of entries.keys()) if (!visible.has(owner)) remove(owner);
-      for (const owner of owners) {
-        const entry = entries.get(owner) || mount(owner), button = owner.okBtn, L = ctx.window.Laya;
-        entry.toggle.checked = enabled();
-        entry.input.disabled = !enabled();
-        const core = doc.querySelector("[data-sgs-toolbox=core]");
-        const offset = Math.max(-2, Math.min(2, Number.parseFloat(core ? ctx.window.getComputedStyle(core).getPropertyValue("--sgs-font-offset") : "0") || 0));
-        entry.root.style.setProperty("--sgs-font-offset", offset + "px");
-        entry.root.style.height = 58 + offset * 2 + "px";
-        let attached = !!owner.parent && !owner.destroyed && owner.visible !== false && !owner.isQR && owner.isOfficial === true;
-        for (let parent = owner.parent; parent; parent = parent.parent) if (parent.visible === false || parent.destroyed) attached = false;
-        const siblings = owner.parent?._children || [], ownIndex = siblings.indexOf(owner);
-        if (siblings.slice(ownIndex + 1).some((node) => node.visible !== false && !node.destroyed && node.modal === true)) attached = false;
-        const main = L?.Render?.canvas;
-        const canvas = (main?.getBoundingClientRect ? main : main?.source) || [...doc.querySelectorAll("canvas")].filter((node) => node.getBoundingClientRect().width > 0).sort((a2, b2) => b2.clientWidth * b2.clientHeight - a2.clientWidth * a2.clientHeight)[0];
-        const rect = canvas?.getBoundingClientRect?.();
-        const bounds = L?.Point ? rechargeButtonBounds(button, L) : null;
-        if (!attached || !rect?.width || !L?.stage?.width || !bounds) {
-          entry.root.hidden = true;
-          entry.root.style.display = "none";
-          continue;
-        }
-        const [a, b] = bounds;
-        const sx = rect.width / L.stage.width, sy = rect.height / L.stage.height;
-        const left = rect.left + a.x * sx, top = rect.top + a.y * sy, height = (b.y - a.y) * sy;
-        const scale = Math.max(0.65, Math.min(1.35, height / 54));
-        entry.root.hidden = false;
-        entry.root.style.display = "flex";
-        entry.root.style.left = Math.max(rect.left + 4, left - 12 * scale - 246 * scale) + "px";
-        entry.root.style.top = top + (height - (58 + offset * 2) * scale) / 2 + "px";
-        entry.root.style.transformOrigin = "top left";
-        entry.root.style.transform = \`scale(\${scale})\`;
-      }
-    }
-    ctx.scope.add(() => {
-      for (const owner of [...entries.keys()]) remove(owner);
-    });
-    return { refresh, amount: (owner) => entries.get(owner)?.input.value.trim() || "" };
-  }
-
-  // src/plugins/recharge/native-recharge.js
-  function installNativeRecharge(ctx, enabled, setEnabled = (value) => ctx.settings?.set("replaceNativeRecharge", value)) {
-    const patched = /* @__PURE__ */ new WeakSet();
-    let close = () => {
-    }, active = null, stopped = false;
-    const account = () => String(ctx.game.getSelf()?.ClientId || "");
-    const controls = createRechargeControls(ctx, enabled, setEnabled, () => close());
-    function open(owner) {
-      close();
-      const self = ctx.game.getSelf(), id = account();
-      let login = "";
-      for (const key of ["LastUserName", "SGS_LASTLOGIN_ACCOUNT", "SGS_LASTLOGIN_ACCOUNT1"]) {
-        login = ctx.window.localStorage.getItem(key) || "";
-        if (login) break;
-      }
-      const custom = controls.amount(owner), selectedRmb = owner.rmb;
-      const values = { account: login, userId: id, nickname: String(self?.NickName || self?.Nickname || ""), yb: custom || String(Math.round(owner.rmb * 100)) };
+      const onData = (packet) => {
+        data = packet?.Protocol;
+        check();
+      };
+      const cancel = () => finish(Error("\\u67E5\\u8BE2\\u5DF2\\u53D6\\u6D88"));
+      proxy.on("ClientPrivilegeInfoRep", caller, onInfo);
+      proxy.on("ClientPrivilegeDataRep", caller, onData);
+      signal.addEventListener("abort", cancel, { once: true });
+      timer = setTimeout(() => finish(Error("\\u65E7\\u5361\\u72B6\\u6001\\u67E5\\u8BE2\\u8D85\\u65F6\\uFF0C\\u8BF7\\u7A0D\\u540E\\u91CD\\u8BD5")), 1e4);
       try {
-        buildPayload(values);
+        welfare.SendClientPrivilegeInfoReq();
+        welfare.SendClientPrivilegeDataReq();
       } catch (error) {
-        ctx.notify("\\u65E0\\u6CD5\\u66FF\\u6362\\u5145\\u503C\\u51FA\\u7801\\uFF1A" + error.message);
-        return;
+        finish(error);
       }
-      const doc = ctx.document, overlay = doc.createElement("div"), dialog = doc.createElement("section");
-      overlay.dataset.sgsRechargeCashier = "";
-      overlay.append(dialog);
-      doc.body.append(overlay);
-      dialog.setAttribute("role", "dialog");
-      dialog.setAttribute("aria-modal", "true");
-      dialog.setAttribute("aria-label", "95\\u6298\\u5143\\u5B9D\\u76F4\\u5145");
-      dialog.tabIndex = -1;
-      const style = doc.createElement("style");
-      style.textContent = \`
-      [data-sgs-recharge-cashier]{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483646;display:grid;place-items:center;padding:16px;background:#0009;color:var(--sgs-text,#eee3cc);font:14px/1.65 sans-serif}
-      [data-sgs-recharge-cashier] *{box-sizing:border-box}
-      [data-sgs-recharge-cashier] section{width:360px;max-width:100%;max-height:90vh;overflow:auto;background:var(--sgs-bg,#24221e);border:1px solid var(--sgs-border,#665b42);border-radius:14px;padding:20px;box-shadow:0 16px 60px #0008}
-      [data-sgs-recharge-cashier] h3{margin:0 0 12px;font-size:18px;color:var(--sgs-accent,#dbba70)}
-      [data-sgs-recharge-cashier] p{margin:8px 0;overflow-wrap:anywhere;white-space:pre-line}
-      [data-sgs-recharge-cashier] .channels{display:flex;gap:8px;margin:16px 0}
-      [data-sgs-recharge-cashier] button{font:inherit;border:1px solid var(--sgs-border,#665b42);border-radius:8px;background:var(--sgs-surface,#302d26);color:var(--sgs-text,#eee3cc);padding:9px 14px;cursor:pointer;min-height:40px}
-      [data-sgs-recharge-cashier] .channels button{flex:1;white-space:nowrap}
-      [data-sgs-recharge-cashier] button[aria-pressed=true]{border-color:var(--sgs-accent,#dbba70);color:var(--sgs-accent,#dbba70);background:#413927}
-      [data-sgs-recharge-cashier] button:focus-visible,[data-sgs-recharge-cashier] a:focus-visible{outline:2px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-      [data-sgs-recharge-cashier] button:disabled{opacity:.45;cursor:default}
-      [data-sgs-recharge-cashier] img{display:block;width:100%;max-width:280px;margin:12px auto;background:white;padding:10px;border-radius:8px}
-      [data-sgs-recharge-cashier] .cashier-frame{position:relative;overflow:hidden;margin:12px auto;background:white;border-radius:8px;max-width:280px}
-      [data-sgs-recharge-cashier] .cashier-frame iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:white}
-      [data-sgs-recharge-cashier] a{color:var(--sgs-accent,#dbba70)}
-      [data-sgs-recharge-cashier] .note{font-size:12px;color:var(--sgs-muted,#b7aa8c)}
-    \`;
-      overlay.append(style);
-      const add = (tag, text, parent = dialog) => {
-        const el = doc.createElement(tag);
-        el.textContent = text;
-        parent.append(el);
-        return el;
-      };
-      add("h3", "95\\u6298\\u5143\\u5B9D\\u76F4\\u5145");
-      add("p", \`\${values.yb} \\u5143\\u5B9D \\xB7 \\u539F\\u4EF7 \${Number(values.yb) / 100} \\u5143
-\\u73A9\\u5BB6ID \${id}
-\\u8D26\\u53F7 \${login}\`);
-      add("p", "\\u4EC5\\u66FF\\u6362\\u672C\\u6B21\\u5143\\u5B9D\\u76F4\\u5145\\u3002\\u5386\\u53F2\\u901A\\u9053\\u53EF\\u80FD\\u5931\\u6548\\uFF0C\\u5B58\\u5728\\u4E0D\\u5230\\u8D26\\u3001\\u65E0\\u5956\\u52B1\\u6216\\u65E0\\u6CD5\\u9000\\u6B3E\\u98CE\\u9669\\uFF1B\\u6298\\u6263\\u4E0E\\u5B9E\\u4ED8\\u4EE5\\u6536\\u94F6\\u53F0\\u4E3A\\u51C6\\u3002").className = "note";
-      add("p", "\\u51FA\\u7801\\u5C06\\u5411 ol-payment.sanguosha.com \\u53D1\\u9001\\u5F53\\u524D\\u8D26\\u53F7\\u3001\\u73A9\\u5BB6ID\\u3001\\u6635\\u79F0\\u3001\\u5143\\u5B9D\\u6570\\u548C\\u8BBE\\u5907ID\\uFF0C\\u4E0D\\u53D1\\u9001\\u5BC6\\u7801\\u3002\\u4ED8\\u6B3E\\u9700\\u624B\\u52A8\\u5B8C\\u6210\\u3002").className = "note";
-      const channels = add("div", "");
-      channels.className = "channels";
-      let kind = owner.isZfb === false ? "wechat" : "alipay", busy = false, live = true;
-      const buttons = [];
-      for (const [key, name] of [["alipay", "\\u652F\\u4ED8\\u5B9D"], ["wechat", "\\u5FAE\\u4FE1\\u652F\\u4ED8"]]) {
-        const button = add("button", name, channels);
-        button.type = "button";
-        buttons.push([button, key]);
-        button.onclick = () => {
-          kind = key;
-          for (const [el, value] of buttons) el.setAttribute("aria-pressed", String(value === kind));
-        };
-        button.setAttribute("aria-pressed", String(key === kind));
-      }
-      const submit = add("button", "\\u786E\\u8BA4\\u5E76\\u751F\\u621095\\u6298\\u4E8C\\u7EF4\\u7801");
-      submit.type = "button";
-      const status = add("p", "\\u8BF7\\u6838\\u5BF9\\u5F53\\u524D\\u8D26\\u53F7\\u3001\\u91D1\\u989D\\u5E76\\u9009\\u62E9\\u652F\\u4ED8\\u6E20\\u9053\\u3002");
-      status.setAttribute("role", "status");
-      status.className = "note";
-      const output = add("div", "");
-      const dismiss = add("button", "\\u5173\\u95ED");
-      dismiss.type = "button";
-      let request = null, cachedResult = null, releaseFrame = () => {
-      };
-      const applyTheme = (value) => {
-        for (const [key, color] of Object.entries(value?.tokens || {})) overlay.style.setProperty("--sgs-" + key, color);
-      };
-      applyTheme(ctx.themes?.current);
-      const releaseTheme = ctx.themes?.subscribe?.(applyTheme) || (() => {
-      });
-      const previousFocus = doc.activeElement;
-      close = () => {
-        if (!live) return;
-        live = false;
-        request?.abort();
-        releaseFrame();
-        releaseTheme();
-        overlay.remove();
-        doc.removeEventListener("keydown", keydown, true);
-        active = null;
-        previousFocus?.focus?.();
-      };
-      dismiss.onclick = close;
-      function keydown(event) {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          close();
-        }
-        if (event.key === "Tab") {
-          const items = [...dialog.querySelectorAll("button:not(:disabled),a[href]")];
-          const index = items.indexOf(doc.activeElement), next = event.shiftKey ? index <= 0 ? items.length - 1 : index - 1 : (index + 1) % items.length;
-          event.preventDefault();
-          items[next]?.focus();
-        }
-      }
-      doc.addEventListener("keydown", keydown, true);
-      dialog.focus();
-      active = { owner, id, rmb: owner.rmb };
-      const valid = () => live && !stopped && !ctx.scope.signal.aborted && enabled() && account() === id && isOfficialServer(ctx.window) && !owner.destroyed && owner.parent && owner.visible !== false && owner.rmb === selectedRmb && controls.amount(owner) === custom;
-      submit.onclick = async () => {
-        if (busy || !valid()) return;
-        busy = true;
-        submit.disabled = true;
-        buttons.forEach(([el]) => el.disabled = true);
-        output.replaceChildren();
-        status.textContent = "\\u6B63\\u5728\\u751F\\u6210\\u4E8C\\u7EF4\\u7801\\u2026";
-        request = new AbortController();
-        const timer = setTimeout(() => request.abort(), 15e3);
-        try {
-          let udid = "";
-          try {
-            udid = ctx.window.SgsCensus?.GetDeviceID?.() || "";
-          } catch {
-          }
-          if (!cachedResult) {
-            const response = await ctx.window.fetch(PAY_BASE + kind + "/qrcode/order/create", { method: "POST", credentials: "omit", signal: request.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildPayload({ ...values, udid })) });
-            if (!valid()) return;
-            if (!response.ok) throw Error("HTTP " + response.status);
-            const data = await response.json();
-            if (!valid()) return;
-            cachedResult = paymentResult(kind, data);
-          }
-          const result = { ...cachedResult };
-          clearTimeout(timer);
-          if (result.url && new URL(result.url).hostname === "openapi.alipay.com") {
-            status.textContent = "\\u6B63\\u5728\\u89E3\\u6790\\u652F\\u4ED8\\u5B9D\\u6700\\u7EC8\\u4ED8\\u6B3E\\u7801\\u2026";
-            result.url = await (ctx.payments?.resolveAlipayCashier ? ctx.payments.resolveAlipayCashier(result.url, request.signal) : resolveAlipayCashier(ctx.window, result.url, request.signal));
-            if (!valid()) return;
-          }
-          let imageHost = output;
-          if (result.url && new URL(result.url).hostname !== "qr.alipay.com") {
-            const wrap = add("div", "", output);
-            wrap.className = "cashier-frame";
-            const viewport = add("div", "", wrap);
-            viewport.style.cssText = "position:absolute;overflow:hidden;background:white";
-            const frame = add("iframe", "", viewport);
-            frame.title = "\\u652F\\u4ED8\\u5B9D\\u6700\\u7EC8\\u4ED8\\u6B3E\\u7801";
-            frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
-            frame.setAttribute("scrolling", "no");
-            frame.referrerPolicy = "no-referrer";
-            const resize = () => {
-              const size = wrap.clientWidth || 230, padding = Math.max(14, Math.round(size * 0.06)), scale = (size - padding * 2) / 170;
-              wrap.style.height = size + "px";
-              for (const side of ["top", "right", "bottom", "left"]) viewport.style[side] = padding + "px";
-              frame.style.width = Math.ceil((size + 80) / scale) + "px";
-              frame.style.height = Math.ceil((size + 260) / scale) + "px";
-              frame.style.transform = \`scale(\${scale})\`;
-            };
-            frame.src = result.url;
-            resize();
-            const observer = new ctx.window.ResizeObserver(resize);
-            observer.observe(wrap);
-            releaseFrame = () => observer.disconnect();
-            imageHost = add("details", "", output);
-            add("summary", "\\u5907\\u7528\\u8DF3\\u8F6C\\u7801", imageHost);
-          }
-          const image = add("img", "", imageHost);
-          image.alt = kind === "wechat" ? "\\u5FAE\\u4FE1\\u4ED8\\u6B3E\\u4E8C\\u7EF4\\u7801" : "\\u652F\\u4ED8\\u5B9D\\u6700\\u7EC8\\u4ED8\\u6B3E\\u4E8C\\u7EF4\\u7801";
-          image.src = result.image || qrData(result.url);
-          if (result.url) {
-            const link = add("a", "\\u6253\\u5F00\\u652F\\u4ED8\\u5B9D\\u6536\\u94F6\\u53F0", output);
-            link.href = result.url;
-            link.target = "_blank";
-            link.rel = "noopener noreferrer";
-          }
-          status.textContent = "\\u8BF7\\u6838\\u5BF9\\u5B9E\\u4ED8\\u91D1\\u989D\\u548C\\u6536\\u6B3E\\u65B9\\uFF1B\\u51FA\\u7801\\u4E0D\\u4EE3\\u8868\\u4ED8\\u6B3E\\u6216\\u5230\\u8D26\\u3002";
-          submit.hidden = true;
-        } catch (error) {
-          if (valid()) {
-            status.textContent = "\\u51FA\\u7801\\u672A\\u786E\\u8BA4\\uFF1A" + error.message + (cachedResult ? "\\u3002\\u53EF\\u91CD\\u8BD5\\u89E3\\u6790\\u5F53\\u524D\\u8BA2\\u5355\\uFF0C\\u4E0D\\u4F1A\\u91CD\\u65B0\\u4E0B\\u5355\\u3002" : "\\u3002\\u8BF7\\u5148\\u6838\\u5BF9\\u8BA2\\u5355\\uFF0C\\u907F\\u514D\\u91CD\\u590D\\u652F\\u4ED8\\u3002");
-            if (cachedResult?.url) {
-              submit.textContent = "\\u91CD\\u8BD5\\u89E3\\u6790\\u5F53\\u524D\\u8BA2\\u5355";
-              submit.disabled = false;
-              const link = add("a", "\\u6253\\u5F00\\u5F53\\u524D\\u8BA2\\u5355\\u6536\\u94F6\\u53F0", output);
-              link.href = cachedResult.url;
-              link.target = "_blank";
-              link.rel = "noopener noreferrer";
-            }
-          }
-        } finally {
-          clearTimeout(timer);
-          busy = false;
-        }
-      };
-    }
-    const intercept = (original) => function(...args) {
-      if (!enabled() || !isOfficialServer(ctx.window) || this.isOfficial !== true || this.isQR || this.destroyed || this.visible === false) return Reflect.apply(original, this, args);
-      const custom = controls.amount(this);
-      if (custom && !/^[1-9]\\d{0,6}$/.test(custom)) {
-        ctx.notify("\\u81EA\\u5B9A\\u4E49\\u5143\\u5B9D\\u6570\\u91CF\\u987B\\u4E3A1\\u20139999999\\u7684\\u6574\\u6570");
-        return;
-      }
-      if (!custom && (!Number.isFinite(this.rmb) || this.rmb <= 0 || !this.items?.some((item) => item.RMB === this.rmb))) return Reflect.apply(original, this, args);
-      return open(this);
-    };
-    function scan() {
-      if (active && (!enabled() || account() !== active.id || active.owner.destroyed || !active.owner.parent || active.owner.visible === false || active.owner.rmb !== active.rmb || !isOfficialServer(ctx.window))) close();
-      const Type = ctx.game.getClass("RechargeWindow");
-      if (typeof Type !== "function" || typeof Type.prototype.onOKClick !== "function") {
-        controls.refresh([]);
-        return;
-      }
-      if (!patched.has(Type.prototype)) {
-        patched.add(Type.prototype);
-        ctx.scope.patch(Type.prototype, "onOKClick", intercept);
-      }
-      const queue = [ctx.window.Laya?.stage], seen = /* @__PURE__ */ new Set(), owners = [];
-      for (let i = 0; i < queue.length && i < 4e3; i++) {
-        const node = queue[i];
-        if (!node || seen.has(node) || node.destroyed) continue;
-        seen.add(node);
-        if (node instanceof Type) {
-          owners.push(node);
-          const raw = node.okBtn?._events?.click;
-          for (const handler of Array.isArray(raw) ? raw : [raw]) {
-            if (handler?.caller !== node || typeof handler.method !== "function" || patched.has(handler)) continue;
-            patched.add(handler);
-            ctx.scope.patch(handler, "method", intercept);
-          }
-        }
-        if (Array.isArray(node._children)) queue.push(...node._children);
-      }
-      controls.refresh(isOfficialServer(ctx.window) ? owners : []);
-    }
-    scan();
-    ctx.scope.interval(scan, 250);
-    ctx.scope.add(() => {
-      stopped = true;
-      close();
     });
-    return { refresh: scan };
   }
 
   // src/plugins/recharge/index.js
   var manifest = {
     id: "recharge",
-    name: "95\\u6298\\u5145\\u503C\\u4E0E\\u65E7\\u5361",
-    version: "0.1.13",
+    name: "\\u65E7\\u5468\\u6708\\u5361",
+    version: "0.1.15",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u5C0695\\u6298\\u5F00\\u5173\\u79FB\\u5230\\u6E38\\u620F\\u5145\\u503C\\u6309\\u94AE\\u5DE6\\u4FA7\\uFF0C\\u65B0\\u589E\\u81EA\\u5B9A\\u4E49\\u5143\\u5B9D\\u8F93\\u5165\\u5E76\\u4FEE\\u590D\\u5165\\u53E3\\u5B9A\\u4F4D\\u548C\\u4ED8\\u6B3E\\u7801\\u663E\\u793A\\u3002\\u4ECD\\u9ED8\\u8BA4\\u5173\\u95ED\\uFF1B\\u521B\\u5EFA\\u8BA2\\u5355\\u4F1A\\u5411\\u5B98\\u65B9\\u652F\\u4ED8\\u670D\\u52A1\\u53D1\\u9001\\u8D26\\u53F7\\u53CA\\u8BA2\\u5355\\u4FE1\\u606F\\uFF0C\\u9700\\u6838\\u5BF9\\u8D26\\u53F7\\u3001\\u6570\\u91CF\\u548C\\u98CE\\u9669\\u540E\\u786E\\u8BA4\\uFF0C\\u4ED8\\u6B3E\\u987B\\u624B\\u52A8\\u5B8C\\u6210\\uFF0C\\u4E0D\\u4FDD\\u8BC1\\u6298\\u6263\\u6216\\u5230\\u8D26\\u3002",
     minCoreVersion: "0.6.72",
     categories: ["tools"],
     priority: 45e3,
     icon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] },
-    description: "\\u5B98\\u670D\\u5FAE\\u4FE1\\uFF0F\\u652F\\u4ED8\\u5B9D\\u5145\\u503C\\u53CA\\u65E7\\u5468\\u6708\\u5361\\u539F\\u751F\\u76F4\\u8D2D\\u5165\\u53E3\\uFF0C\\u64CD\\u4F5C\\u524D\\u8BF7\\u9605\\u8BFB\\u98CE\\u9669"
+    description: "\\u67E5\\u8BE2\\u65E7\\u5468\\u5361\\u4E0E\\u65E7\\u6708\\u5361\\u72B6\\u6001\\u3001\\u8BBE\\u7F6E\\u5230\\u671F\\u63D0\\u9192\\u5E76\\u6253\\u5F00\\u6E38\\u620F\\u76F4\\u8D2D",
+    releaseNotes: "\\u79FB\\u9664\\u5DE5\\u5177\\u7BB1\\u5185\\u7684 95 \\u6298\\u5145\\u503C\\u5165\\u53E3\\u3002\\u65E7\\u5468\\u5361\\u548C\\u65E7\\u6708\\u5361\\u4ECD\\u53EF\\u67E5\\u8BE2\\u72B6\\u6001\\u3001\\u8BBE\\u7F6E\\u5230\\u671F\\u63D0\\u9192\\uFF0C\\u5E76\\u5728\\u6838\\u5BF9\\u5546\\u54C1\\u540E\\u6253\\u5F00\\u6E38\\u620F\\u76F4\\u8D2D\\uFF0C\\u8D2D\\u4E70\\u9700\\u624B\\u52A8\\u786E\\u8BA4\\u3002"
   };
   function activate(ctx) {
-    let replaceNative = ctx.settings?.get("replaceNativeRecharge", false) === true;
-    installNativeRecharge(ctx, () => replaceNative, (value) => {
-      replaceNative = value;
-      ctx.settings?.set("replaceNativeRecharge", value);
-    });
     const riskKey = Symbol.for("sgs.toolbox.recharge.login-risk");
     const riskSession = ctx.window[riskKey] ||= { account: "", acknowledged: false };
     function syncRiskSession() {
@@ -31521,42 +30759,30 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       [data-sgs-recharge]{font:12px/1.65 var(--sgs-font,sans-serif);color:var(--sgs-text);overflow-wrap:anywhere}
       [data-sgs-recharge] *{box-sizing:border-box}
       [data-sgs-recharge] p{margin:6px 0 10px}
-      [data-sgs-recharge] label{display:block;margin:8px 0;color:var(--sgs-muted)}
-      [data-sgs-recharge] input.sgs-input{display:block;width:100%;margin-top:3px}
+      [data-sgs-recharge] label{display:flex;align-items:center;gap:6px;margin:8px 0;color:var(--sgs-muted)}
+      [data-sgs-recharge] label input{flex-shrink:0}
       [data-sgs-recharge] button{font:inherit;appearance:none;border:1px solid var(--sgs-border);border-radius:7px;padding:6px 9px;background:var(--sgs-surface);color:var(--sgs-text);cursor:pointer}
       [data-sgs-recharge] button:hover{border-color:var(--sgs-accent)}
-      [data-sgs-recharge] button:focus-visible,[data-sgs-recharge] a:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
+      [data-sgs-recharge] button:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
       [data-sgs-recharge] button:disabled{opacity:.45;cursor:default}
       [data-sgs-recharge] .pay-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
       [data-sgs-recharge] .pay-row button{flex:1}
-      [data-sgs-recharge] .pay-presets{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
-      [data-sgs-recharge] .pay-presets button{padding:6px 2px;white-space:nowrap;font-variant-numeric:tabular-nums}
-      [data-sgs-recharge] .pay-presets button[aria-pressed=true]{color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 65%,transparent);background:color-mix(in srgb,var(--sgs-accent) 12%,var(--sgs-surface))}
       [data-sgs-recharge] .pay-primary{color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 50%,var(--sgs-border));background:color-mix(in srgb,var(--sgs-accent) 9%,var(--sgs-surface));font-weight:600}
-      [data-sgs-recharge] .pay-secondary{border-color:transparent;background:transparent;padding:4px 0;color:var(--sgs-muted)}
       [data-sgs-recharge] .pay-risk-box{padding:10px 12px;margin:0 0 12px;border-radius:8px;background:color-mix(in srgb,var(--sgs-danger) 7%,var(--sgs-surface));border-left:2px solid var(--sgs-danger)}
       [data-sgs-recharge] .pay-risk-box strong{color:var(--sgs-danger);font-size:12px}
       [data-sgs-recharge] .pay-risk-box p{color:var(--sgs-muted);margin:6px 0 8px}
       [data-sgs-recharge] .pay-confirm p{white-space:pre-line;margin:0 0 9px;font-variant-numeric:tabular-nums}
       [data-sgs-recharge] label{font-size:11px;letter-spacing:.02em}
       [data-sgs-recharge] .pay-confirm .pay-row{margin:0}
-      [data-sgs-recharge] h4{padding-top:10px;border-top:1px solid var(--sgs-border)}
 
-      [data-sgs-recharge] .pay-risk{border-left:2px solid var(--sgs-danger);padding:5px 0 5px 10px;color:var(--sgs-danger)}
       [data-sgs-recharge] .pay-note{color:var(--sgs-muted)}
-      [data-sgs-recharge] h4{font-size:13px;margin:18px 0 6px}
-      [data-sgs-recharge] img{display:block;width:100%;max-width:280px;margin:8px auto;background:white;padding:8px;border-radius:8px}
-      [data-sgs-recharge] a{color:var(--sgs-accent)}
-      [data-sgs-recharge] .pay-cashier{position:relative;overflow:hidden;width:100%;max-width:280px;aspect-ratio:1;margin:8px auto;background:white;border-radius:8px}
-      [data-sgs-recharge] .pay-cashier iframe{position:absolute;border:0;background:white;transform-origin:0 0}
-      [data-sgs-recharge] .pay-cashier-viewport{position:absolute;overflow:hidden;background:white}
       [data-sgs-recharge] .pay-confirm{padding:10px;background:var(--sgs-raised);border-radius:8px;margin:10px 0}
       [data-sgs-recharge] [hidden]{display:none!important}
     \`;
       root.append(style);
       container.append(root);
-      let alive = true, busy = false, pending = null, result = null, identity = "", sentCards = /* @__PURE__ */ new Set(), releaseResult = () => {
-      };
+      let alive = true, busy = false, pending = null, identity = "";
+      const sentCards = /* @__PURE__ */ new Set();
       const controller = new AbortController();
       const abort = () => controller.abort();
       ctx.scope.signal.addEventListener("abort", abort, { once: true });
@@ -31578,15 +30804,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         listen(el, "click", fn);
         return el;
       };
-      const official = () => isOfficialServer(ctx.window);
-      if (!official()) add("p", "\\u5F53\\u524D\\u670D\\u52A1\\u5668\\u4E0D\\u662F\\u5B98\\u670D\\uFF0C95\\u6298\\u5145\\u503C\\u5DF2\\u88AB\\u7981\\u7528", root, "pay-risk");
-      const payArea = add("div", "", root);
-      payArea.hidden = !official();
-      add("p", "95\\u6298\\u5F00\\u5173\\u4E0E\\u81EA\\u5B9A\\u4E49\\u5143\\u5B9D\\u8F93\\u5165\\u4F4D\\u4E8E\\u6E38\\u620F\\u201C\\u7ACB\\u5373\\u5145\\u503C\\u201D\\u6309\\u94AE\\u5DE6\\u4FA7\\u3002\\u9ED8\\u8BA4\\u5173\\u95ED\\uFF1B\\u81EA\\u5B9A\\u4E49\\u7559\\u7A7A\\u4F7F\\u7528\\u9009\\u4E2D\\u6863\\u4F4D\\u3002\\u6708\\u5361\\u3001\\u519B\\u5178\\u7B49\\u76F4\\u8D2D\\u4E0D\\u66FF\\u6362\\u3002", payArea, "pay-note");
       const riskBox = add("div", "", root, "pay-risk-box");
-      root.insertBefore(riskBox, payArea);
-      add("strong", "\\u5145\\u503C\\u4E0E\\u65E7\\u5361\\u98CE\\u9669\\u63D0\\u793A", riskBox);
-      add("p", "\\u5386\\u53F2\\u901A\\u9053\\u53CA\\u65E7\\u5361\\u53EF\\u80FD\\u5931\\u6548\\uFF0C\\u5B58\\u5728\\u4E0D\\u5230\\u8D26\\u3001\\u65E0\\u6CD5\\u6FC0\\u6D3B\\u3001\\u65E0\\u5956\\u52B1\\u6216\\u65E0\\u6CD5\\u9000\\u6B3E\\u7684\\u98CE\\u9669\\u3002\\u8BF7\\u6838\\u5BF9\\u8D26\\u53F7\\u4E0E\\u6536\\u6B3E\\u91D1\\u989D\\uFF0C\\u5EFA\\u8BAE\\u5148\\u5C0F\\u989D\\u9A8C\\u8BC1\\uFF1B\\u5DE5\\u5177\\u4E0D\\u4FDD\\u8BC1\\u8865\\u507F\\u3002", riskBox);
+      add("strong", "\\u65E7\\u5361\\u8D2D\\u4E70\\u98CE\\u9669\\u63D0\\u793A", riskBox);
+      add("p", "\\u65E7\\u5361\\u53EF\\u80FD\\u65E0\\u6CD5\\u6FC0\\u6D3B\\u3001\\u6CA1\\u6709\\u5956\\u52B1\\u6216\\u65E0\\u6CD5\\u9000\\u6B3E\\u3002\\u4ED8\\u6B3E\\u524D\\u8BF7\\u5728\\u6E38\\u620F\\u6536\\u94F6\\u53F0\\u6838\\u5BF9\\u8D26\\u53F7\\u4E0E\\u91D1\\u989D\\u3002", riskBox);
       button(riskBox, "\\u6211\\u5DF2\\u4E86\\u89E3\\uFF0C\\u672C\\u6B21\\u767B\\u5F55\\u4E0D\\u518D\\u63D0\\u9192", () => {
         if (!riskSession.account) return;
         riskSession.acknowledged = true;
@@ -31597,118 +30817,27 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         riskBox.hidden = !riskSession.account || riskSession.acknowledged;
       }
       updateRisk();
-      const paymentInfo = add("details", "", payArea, "sgs-fold");
-      add("summary", "\\u652F\\u4ED8\\u901A\\u9053\\u8BF4\\u660E", paymentInfo);
-      add("p", "\\u4EC5\\u9650\\u5B98\\u670D\\u3002\\u5411 ol-payment.sanguosha.com \\u53D1\\u9001\\u8D26\\u53F7\\u3001\\u73A9\\u5BB6ID\\u3001\\u6635\\u79F0\\u3001\\u5143\\u5B9D\\u6570\\u53CA\\u8BBE\\u5907ID\\uFF0C\\u4E0D\\u53D1\\u9001\\u5BC6\\u7801\\u3002\\u6298\\u6263\\u4E0E\\u5B9E\\u4ED8\\u4EE5\\u6536\\u94F6\\u53F0\\u4E3A\\u51C6\\uFF0C\\u51FA\\u7801\\u4E0D\\u4EE3\\u8868\\u4ED8\\u6B3E\\u6216\\u5230\\u8D26\\u3002", paymentInfo, "pay-note");
-      const rechargeControls = [];
-      const fields = {};
-      for (const [key, title, value] of [["account", "\\u767B\\u5F55\\u8D26\\u53F7", ""], ["userId", "\\u73A9\\u5BB6ID", ""], ["nickname", "\\u6635\\u79F0", ""], ["yb", "\\u5143\\u5B9D\\u6570\\u91CF", "3000"]]) {
-        const label = add("label", title, payArea), input = doc.createElement("input");
-        input.className = "sgs-input";
-        input.value = value;
-        input.autocomplete = "off";
-        input.setAttribute("aria-label", title);
-        if (["userId", "yb"].includes(key)) input.inputMode = "numeric";
-        label.append(input);
-        fields[key] = input;
-        rechargeControls.push(input);
-        listen(input, "input", () => {
-          clearPending();
-          clearResult();
-          updatePresets();
-        });
-      }
+      const snapshot = () => String(ctx.game.getSelf()?.ClientId || "");
       function clearPending() {
         pending = null;
         confirmation.hidden = true;
       }
-      function clearResult() {
-        releaseResult();
-        releaseResult = () => {
-        };
-        result = null;
-        output.replaceChildren();
-      }
-      const presets = add("div", "", payArea, "pay-row pay-presets");
-      const presetButtons = [];
-      function updatePresets() {
-        for (const el of presetButtons) el.setAttribute("aria-pressed", String(el.textContent === fields.yb.value.trim()));
-      }
-      for (const value of [1, 600, 3e3, 6e3, 12800, 32800, 64800]) {
-        const el = button(presets, String(value), () => {
-          fields.yb.value = String(value);
-          clearPending();
-          clearResult();
-          updatePresets();
-        });
-        presetButtons.push(el);
-        rechargeControls.push(el);
-      }
-      updatePresets();
-      const refreshIdentity = button(payArea, "\\u91CD\\u65B0\\u8BFB\\u53D6\\u8D26\\u53F7", () => {
-        clearPending();
-        clearResult();
-        readIdentity(true);
-      });
-      refreshIdentity.className = "pay-secondary";
-      rechargeControls.push(refreshIdentity);
-      const actions = add("div", "", payArea, "pay-row");
-      const form = () => Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v.value.trim()]));
-      const snapshot = () => String(ctx.game.getSelf()?.ClientId || "");
-      function readIdentity(force = false) {
-        const self = ctx.game.getSelf();
+      function readIdentity() {
         const current = snapshot();
-        if (current !== identity) {
-          identity = current;
-          clearPending();
-          clearResult();
-          fields.account.value = "";
-          fields.userId.value = "";
-          fields.nickname.value = "";
-        }
-        if (!force) return;
-        for (const key of ["LastUserName", "SGS_LASTLOGIN_ACCOUNT", "SGS_LASTLOGIN_ACCOUNT1"]) {
-          const name = ctx.window.localStorage.getItem(key);
-          if (name) {
-            fields.account.value = name;
-            break;
-          }
-        }
-        fields.userId.value = current;
-        fields.nickname.value = String(self?.NickName || self?.Nickname || "");
-        status.textContent = official() ? current ? "\\u5DF2\\u8BFB\\u53D6\\uFF0C\\u8BF7\\u624B\\u52A8\\u6838\\u5BF9\\u8D26\\u53F7\\u4E0E\\u73A9\\u5BB6ID\\u3002" : "\\u5F53\\u524D\\u8D26\\u53F7\\u5C1A\\u672A\\u5C31\\u7EEA\\uFF0C\\u8BF7\\u8FDB\\u5165\\u5927\\u5385\\u540E\\u91CD\\u8BD5\\u3002" : "";
-      }
-      const queuePayment = (kind) => {
-        if (busy) return;
+        if (current === identity) return;
+        identity = current;
         clearPending();
-        clearResult();
-        try {
-          if (!official()) throw Error("\\u4EC5\\u652F\\u6301\\u5B98\\u670D\\u9875\\u9762");
-          const values = form();
-          buildPayload(values);
-          pending = { kind, values, identity: snapshot() };
-          confirmation.hidden = false;
-          confirmText.textContent = \`\\u6838\\u5BF9\\u672C\\u6B21\\u5145\\u503C
-\${values.yb} \\u5143\\u5B9D \\xB7 \${kind === "wechat" ? "\\u5FAE\\u4FE1" : "\\u652F\\u4ED8\\u5B9D"}
-\\u8D26\\u53F7  \${values.account}
-\\u73A9\\u5BB6ID  \${values.userId}
-\\u6635\\u79F0  \${values.nickname || "\\u672A\\u586B\\u5199"}\`;
-        } catch (error) {
-          status.textContent = error.message;
-        }
-      };
-      rechargeControls.push(button(actions, "\\u5FAE\\u4FE1\\u51FA\\u7801", () => queuePayment("wechat")), button(actions, "\\u652F\\u4ED8\\u5B9D\\u51FA\\u7801", () => queuePayment("alipay")));
-      function updateControls() {
-        root.querySelectorAll("button,input").forEach((el) => el.disabled = busy || !official() && rechargeControls.includes(el));
+        status.textContent = current ? "\\u8BF7\\u9009\\u62E9\\u65E7\\u5361\\u67E5\\u8BE2\\u72B6\\u6001\\u3002" : "\\u8BF7\\u8FDB\\u5165\\u6E38\\u620F\\u5927\\u5385\\u540E\\u518D\\u8BD5\\u3002";
       }
-      updateControls();
-      const resultAnchor = add("div", "", root);
-      add("h4", "\\u65E7\\u5468\\u6708\\u5361");
+      function updateControls() {
+        root.querySelectorAll("button,input").forEach((el) => {
+          el.disabled = busy;
+        });
+      }
       const cardsRow = add("div", "", root, "pay-row");
       for (const type of [2, 3]) button(cardsRow, CARDS[type].name, async () => {
         if (busy) return;
         clearPending();
-        clearResult();
         await run(async () => {
           if (!snapshot()) throw Error("\\u8BF7\\u8FDB\\u5165\\u6E38\\u620F\\u5927\\u5385\\u540E\\u518D\\u8BD5");
           const account = snapshot(), proxy = ctx.game.getServerProxy(), welfare = manager("WelfareManger");
@@ -31717,8 +30846,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           if (!valid(account)) return;
           const card = validateCard(type, quote.info, quote.data);
           if (sentCards.has(account + ":" + type)) throw Error("\\u672C\\u6B21\\u5DF2\\u6253\\u5F00\\u8FC7\\u8BE5\\u5361\\u76F4\\u8D2D\\uFF0C\\u8BF7\\u5148\\u5728\\u6E38\\u620F\\u6838\\u5BF9\\u8BA2\\u5355\\u4E0E\\u5361\\u72B6\\u6001\\uFF0C\\u907F\\u514D\\u91CD\\u590D\\u8D2D\\u4E70");
+          status.textContent = "";
           pending = { type, identity: account };
-          confirmText.textContent = \`\\u786E\\u8BA4\\u6253\\u5F00\${card.name}\\u539F\\u751F\\u76F4\\u8D2D \\xB7 \\u4EF7\\u683C\\u5B57\\u6BB5 \${card.price}\\uFF08\\u6700\\u7EC8\\u5E01\\u79CD\\u4E0E\\u91D1\\u989D\\u4EE5\\u6E38\\u620F\\u6536\\u94F6\\u53F0\\u4E3A\\u51C6\\uFF09\\u3002\`;
+          confirmText.textContent = \`\\u786E\\u8BA4\\u6253\\u5F00\${card.name}\\u539F\\u751F\\u76F4\\u8D2D \\xB7 \\u5546\\u54C1\\u62A5\\u4EF7 \${card.price}\\uFF08\\u6700\\u7EC8\\u5E01\\u79CD\\u4E0E\\u91D1\\u989D\\u4EE5\\u6E38\\u620F\\u6536\\u94F6\\u53F0\\u4E3A\\u51C6\\uFF09\\u3002\`;
           confirmation.hidden = false;
         });
       });
@@ -31731,7 +30861,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         input.checked = reminders[type];
         input.setAttribute("aria-label", CARDS[type].name + "\\u5230\\u671F\\u63D0\\u9192");
         label.append(input);
-        reminderLabels[type] = add("span", " " + CARDS[type].name + "\\u5230\\u671F\\u63D0\\u9192 \\xB7 \\u72B6\\u6001\\u672A\\u77E5", label);
+        reminderLabels[type] = add("span", CARDS[type].name + "\\u5230\\u671F\\u63D0\\u9192 \\xB7 \\u72B6\\u6001\\u672A\\u77E5", label);
         listen(input, "change", () => {
           reminders[type] = input.checked;
           ctx.settings?.set(type === 2 ? "remindWeek" : "remindMonth", input.checked);
@@ -31750,109 +30880,22 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         clearPending();
         await run(async () => {
           if (!valid(job.identity)) throw Error("\\u5F53\\u524D\\u8D26\\u53F7\\u5DF2\\u53D8\\u5316\\uFF0C\\u8BF7\\u91CD\\u65B0\\u6838\\u5BF9");
-          if (job.type) {
-            const proxy = ctx.game.getServerProxy(), welfare = manager("WelfareManger");
-            const fresh = await queryCards(proxy, welfare, controller.signal);
-            if (!valid(job.identity)) return;
-            const card = validateCard(job.type, fresh.info, fresh.data);
-            const raw = proxy?._events?.ClientDirectPurchaseRep;
-            const buyer = (Array.isArray(raw) ? raw : [raw]).map((x) => x?.caller).find((x) => typeof x?.WebDirectReq === "function");
-            if (!buyer) throw Error("\\u539F\\u751F\\u76F4\\u8D2D\\u5165\\u53E3\\u672A\\u5C31\\u7EEA\\uFF0C\\u8BF7\\u8FDB\\u5165\\u5927\\u5385");
-            sentCards.add(job.identity + ":" + job.type);
-            buyer.WebDirectReq(card.id, 1);
-            status.textContent = "\\u5DF2\\u8C03\\u7528\\u539F\\u751F\\u76F4\\u8D2D\\u5165\\u53E3\\uFF1B\\u4E0D\\u4EE3\\u8868\\u8D2D\\u4E70\\u6216\\u5230\\u8D26\\u6210\\u529F\\uFF0C\\u8BF7\\u5728\\u6E38\\u620F\\u6838\\u5BF9\\u3002";
-            return;
-          }
-          if (!official()) throw Error("\\u975E\\u5B98\\u670D95\\u6298\\u5145\\u503C\\u5DF2\\u7981\\u7528");
-          if (JSON.stringify(job.values) !== JSON.stringify(form())) throw Error("\\u8868\\u5355\\u5DF2\\u53D8\\u5316\\uFF0C\\u8BF7\\u91CD\\u65B0\\u6838\\u5BF9");
-          let udid = "";
-          try {
-            udid = ctx.window.SgsCensus?.GetDeviceID?.() || "";
-          } catch {
-          }
-          const timeout = setTimeout(() => request.abort(), 15e3), request = new AbortController();
-          const cancel = () => request.abort();
-          controller.signal.addEventListener("abort", cancel, { once: true });
-          try {
-            if (!job.paymentResult) {
-              const response = await ctx.window.fetch(PAY_BASE + job.kind + "/qrcode/order/create", { method: "POST", credentials: "omit", signal: request.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildPayload({ ...job.values, udid })) });
-              if (!response.ok) throw Error("HTTP " + response.status);
-              const responseData = await response.json();
-              if (!valid(job.identity)) return;
-              job.paymentResult = paymentResult(job.kind, responseData);
-            }
-            result = { ...job.paymentResult };
-            clearTimeout(timeout);
-            if (result.url && new URL(result.url).hostname === "openapi.alipay.com") {
-              status.textContent = "\\u6B63\\u5728\\u89E3\\u6790\\u652F\\u4ED8\\u5B9D\\u6700\\u7EC8\\u4ED8\\u6B3E\\u7801\\u2026";
-              result.url = await (ctx.payments?.resolveAlipayCashier ? ctx.payments.resolveAlipayCashier(result.url, request.signal) : resolveAlipayCashier(ctx.window, result.url, request.signal));
-              if (!valid(job.identity)) return;
-            }
-            if (result.url && new URL(result.url).hostname !== "qr.alipay.com") {
-              const wrap = add("div", "", output, "pay-cashier"), viewport = add("div", "", wrap, "pay-cashier-viewport"), frame = doc.createElement("iframe");
-              frame.title = "\\u652F\\u4ED8\\u5B9D\\u6700\\u7EC8\\u4ED8\\u6B3E\\u7801";
-              frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
-              frame.setAttribute("scrolling", "no");
-              frame.referrerPolicy = "no-referrer";
-              const resize = () => {
-                const size = wrap.clientWidth || 230, padding = Math.max(14, Math.round(size * 0.06)), edge = size - padding * 2, scale = edge / 170;
-                wrap.style.height = size + "px";
-                for (const side of ["top", "right", "bottom", "left"]) viewport.style[side] = padding + "px";
-                frame.style.width = Math.ceil((size + 80) / scale) + "px";
-                frame.style.height = Math.ceil((size + 260) / scale) + "px";
-                frame.style.transform = \`scale(\${scale})\`;
-                frame.style.left = "0px";
-                frame.style.top = "0px";
-              };
-              frame.src = result.url;
-              viewport.append(frame);
-              resize();
-              const observer = new ctx.window.ResizeObserver(resize);
-              observer.observe(wrap);
-              releaseResult = () => {
-                observer.disconnect();
-                frame.remove();
-              };
-              add("p", "\\u652F\\u4ED8\\u5B9D\\u6700\\u7EC8\\u4ED8\\u6B3E\\u7801\\uFF1B\\u5982\\u7A7A\\u767D\\u6216\\u65E0\\u6CD5\\u52A0\\u8F7D\\uFF0C\\u8BF7\\u6253\\u5F00\\u6536\\u94F6\\u53F0\\u3002", output, "pay-note");
-              const backup = add("details", "", output, "sgs-fold");
-              add("summary", "\\u5907\\u7528\\u8DF3\\u8F6C\\u7801\\uFF08\\u9700\\u518D\\u8DF3\\u8F6C\\u4E00\\u6B21\\uFF09", backup);
-              const image = doc.createElement("img");
-              image.alt = "\\u652F\\u4ED8\\u5B9D\\u5907\\u7528\\u8DF3\\u8F6C\\u4E8C\\u7EF4\\u7801";
-              image.src = qrData(result.url);
-              backup.append(image);
-            } else {
-              const image = doc.createElement("img");
-              image.alt = job.kind === "wechat" ? "\\u5FAE\\u4FE1\\u4ED8\\u6B3E\\u4E8C\\u7EF4\\u7801" : "\\u652F\\u4ED8\\u5B9D\\u6700\\u7EC8\\u4ED8\\u6B3E\\u4E8C\\u7EF4\\u7801";
-              image.src = result.image || qrData(result.url);
-              output.append(image);
-            }
-            if (result.url) {
-              const link = add("a", "\\u6253\\u5F00\\u652F\\u4ED8\\u5B9D\\u6536\\u94F6\\u53F0", output);
-              link.href = result.url;
-              link.target = "_blank";
-              link.rel = "noopener noreferrer";
-            }
-            add("p", \`\\u8BA2\\u5355 \${result.order || "\\u672A\\u63D0\\u4F9B\\u8BA2\\u5355\\u53F7"} \\xB7 \${job.values.account} / \${job.values.userId} \\xB7 \${job.values.yb}\\u5143\\u5B9D\\u3002\\u4E8C\\u7EF4\\u7801\\u5DF2\\u751F\\u6210\\uFF0C\\u4ED8\\u6B3E\\u53CA\\u5230\\u8D26\\u72B6\\u6001\\u672A\\u77E5\\u3002\`, output);
-            status.textContent = "\\u8BF7\\u6838\\u5BF9\\u6536\\u94F6\\u53F0\\u91D1\\u989D\\u548C\\u6536\\u6B3E\\u65B9\\u540E\\u4ED8\\u6B3E\\uFF1B\\u5982\\u7ED3\\u679C\\u4E0D\\u660E\\uFF0C\\u8BF7\\u52FF\\u91CD\\u590D\\u652F\\u4ED8\\u3002";
-          } catch (error) {
-            if (valid(job.identity) && job.paymentResult?.url && new URL(job.paymentResult.url).hostname === "openapi.alipay.com") {
-              pending = job;
-              confirmText.textContent = "\\u5F53\\u524D\\u8BA2\\u5355\\u89E3\\u6790\\u5931\\u8D25\\uFF0C\\u53EF\\u91CD\\u8BD5\\u89E3\\u6790\\uFF1B\\u4E0D\\u4F1A\\u91CD\\u65B0\\u4E0B\\u5355\\u3002";
-              confirmation.hidden = false;
-            }
-            throw error;
-          } finally {
-            clearTimeout(timeout);
-            controller.signal.removeEventListener("abort", cancel);
-          }
+          const proxy = ctx.game.getServerProxy(), welfare = manager("WelfareManger");
+          const fresh = await queryCards(proxy, welfare, controller.signal);
+          if (!valid(job.identity)) return;
+          const card = validateCard(job.type, fresh.info, fresh.data);
+          const raw = proxy?._events?.ClientDirectPurchaseRep;
+          const buyer = (Array.isArray(raw) ? raw : [raw]).map((x) => x?.caller).find((x) => typeof x?.WebDirectReq === "function");
+          if (!buyer) throw Error("\\u539F\\u751F\\u76F4\\u8D2D\\u5165\\u53E3\\u672A\\u5C31\\u7EEA\\uFF0C\\u8BF7\\u8FDB\\u5165\\u5927\\u5385");
+          sentCards.add(job.identity + ":" + job.type);
+          buyer.WebDirectReq(card.id, 1);
+          status.textContent = "\\u5DF2\\u8C03\\u7528\\u539F\\u751F\\u76F4\\u8D2D\\u5165\\u53E3\\uFF1B\\u4E0D\\u4EE3\\u8868\\u8D2D\\u4E70\\u6216\\u5230\\u8D26\\u6210\\u529F\\uFF0C\\u8BF7\\u5728\\u6E38\\u620F\\u6838\\u5BF9\\u3002";
         });
       });
       confirmButton.className = "pay-primary";
       button(confirmActions, "\\u53D6\\u6D88", clearPending);
-      const status = add("p", "\\u624B\\u52A8\\u51FA\\u7801\\u6216\\u67E5\\u8BE2\\u65E7\\u5361\\uFF0C\\u4E0D\\u4F1A\\u81EA\\u52A8\\u4ED8\\u6B3E\\u3002", root, "pay-note");
+      const status = add("p", "\\u8BF7\\u8FDB\\u5165\\u6E38\\u620F\\u5927\\u5385\\u540E\\u518D\\u8BD5\\u3002", root, "pay-note");
       status.setAttribute("role", "status");
-      const output = add("div", "", root);
-      resultAnchor.append(confirmation, status, output);
       const manager = (name) => {
         const matches = (value) => value && !value.destroyed && typeof value.SendClientPrivilegeInfoReq === "function" && typeof value.SendClientPrivilegeDataReq === "function";
         const type = ctx.game.getClass(name);
@@ -31882,57 +30925,32 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           if (alive) updateControls();
         }
       }
-      readIdentity(true);
+      readIdentity();
       const stop = ctx.scope.interval(() => {
         if (alive) {
           readIdentity();
           updateRisk();
-          for (const type of [2, 3]) reminderLabels[type].textContent = " " + CARDS[type].name + "\\u5230\\u671F\\u63D0\\u9192 \\xB7 " + (cardState[type] === true ? "\\u6709\\u6548" : cardState[type] === false ? "\\u5DF2\\u5230\\u671F\\uFF0F\\u672A\\u5F00\\u901A" : "\\u72B6\\u6001\\u672A\\u77E5");
+          for (const type of [2, 3]) reminderLabels[type].textContent = CARDS[type].name + "\\u5230\\u671F\\u63D0\\u9192 \\xB7 " + (cardState[type] === true ? "\\u6709\\u6548" : cardState[type] === false ? "\\u5DF2\\u5230\\u671F\\uFF0F\\u672A\\u5F00\\u901A" : "\\u72B6\\u6001\\u672A\\u77E5");
         }
       }, 1e3);
       return ctx.scope.add(() => {
         if (!alive) return;
         alive = false;
         abort();
-        releaseResult();
         ctx.scope.signal.removeEventListener("abort", abort);
         clearInterval(stop);
         listeners.splice(0).forEach((fn) => fn());
         root.remove();
         pending = null;
-        result = null;
       });
     } });
   }
   var index_default = { manifest, activate };
   return __toCommonJS(index_exports);
 })();
-/*!
-qrcode-generator v1.4.4
-Copyright (c) 2009 Kazuhiko Arase
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-*/
-
-return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u503C\u4E0E\u65E7\u5361","version":"0.1.13","apiVersion":1,"contractVersion":1,"releaseNotes":"\u5C0695\u6298\u5F00\u5173\u79FB\u5230\u6E38\u620F\u5145\u503C\u6309\u94AE\u5DE6\u4FA7\uFF0C\u65B0\u589E\u81EA\u5B9A\u4E49\u5143\u5B9D\u8F93\u5165\u5E76\u4FEE\u590D\u5165\u53E3\u5B9A\u4F4D\u548C\u4ED8\u6B3E\u7801\u663E\u793A\u3002\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF1B\u521B\u5EFA\u8BA2\u5355\u4F1A\u5411\u5B98\u65B9\u652F\u4ED8\u670D\u52A1\u53D1\u9001\u8D26\u53F7\u53CA\u8BA2\u5355\u4FE1\u606F\uFF0C\u9700\u6838\u5BF9\u8D26\u53F7\u3001\u6570\u91CF\u548C\u98CE\u9669\u540E\u786E\u8BA4\uFF0C\u4ED8\u6B3E\u987B\u624B\u52A8\u5B8C\u6210\uFF0C\u4E0D\u4FDD\u8BC1\u6298\u6263\u6216\u5230\u8D26\u3002","minCoreVersion":"0.6.72","categories":["tools"],"priority":45000,"icon":{"paths":["M3 6h18v14H3Z","M3 10h18","M15 15h3","M6 3h12"]},"description":"\u5B98\u670D\u5FAE\u4FE1\uFF0F\u652F\u4ED8\u5B9D\u5145\u503C\u53CA\u65E7\u5468\u6708\u5361\u539F\u751F\u76F4\u8D2D\u5165\u53E3\uFF0C\u64CD\u4F5C\u524D\u8BF7\u9605\u8BFB\u98CE\u9669"}};
-`, sha256: "5fcb83f361d29fe92f3837bb1e68824a460b49efa81259150081e5f03d077088" }];
+return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u6708\u5361","version":"0.1.15","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.6.72","categories":["tools"],"priority":45000,"icon":{"paths":["M3 6h18v14H3Z","M3 10h18","M15 15h3","M6 3h12"]},"description":"\u67E5\u8BE2\u65E7\u5468\u5361\u4E0E\u65E7\u6708\u5361\u72B6\u6001\u3001\u8BBE\u7F6E\u5230\u671F\u63D0\u9192\u5E76\u6253\u5F00\u6E38\u620F\u76F4\u8D2D","releaseNotes":"\u79FB\u9664\u5DE5\u5177\u7BB1\u5185\u7684 95 \u6298\u5145\u503C\u5165\u53E3\u3002\u65E7\u5468\u5361\u548C\u65E7\u6708\u5361\u4ECD\u53EF\u67E5\u8BE2\u72B6\u6001\u3001\u8BBE\u7F6E\u5230\u671F\u63D0\u9192\uFF0C\u5E76\u5728\u6838\u5BF9\u5546\u54C1\u540E\u6253\u5F00\u6E38\u620F\u76F4\u8D2D\uFF0C\u8D2D\u4E70\u9700\u624B\u52A8\u786E\u8BA4\u3002"}};
+`, sha256: "d4854914f2c9d076a6a530c492d77ac8740e3b29ebbcbda573de0e7bcb2cdc7d" }];
 
   // src/core/resources.js
   var ResourceScope = class {
@@ -32963,7 +31981,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.75", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.91", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
@@ -33019,7 +32037,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
 
   // src/core/background-motion.js
   function nativeEffect(layer, spine) {
-    let method = spine ? layer.SetBgLiveEffect : layer.wt;
+    let method = spine ? layer.SetBgLiveEffect : layer.Ci ?? layer.wt;
     if (typeof method != "function") throw new Error("\u6E38\u620F\u52A8\u753B\u52A0\u8F7D\u5668\u5C1A\u672A\u5C31\u7EEA");
     let effect, init, play, host = {
       beforeStart() {
@@ -33118,6 +32136,66 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
     return result;
   }
 
+  // src/core/background-local.js
+  function imageType(bytes) {
+    let data = new DataView(bytes), tag = (offset) => data.getUint32(offset);
+    if (bytes.byteLength >= 8 && tag(0) === 2303741511 && tag(4) === 218765834) {
+      for (let offset = 8; offset + 12 <= bytes.byteLength; ) {
+        let chunk = tag(offset + 4);
+        if (chunk === 1633899596) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301 APNG");
+        if (chunk === 1229209940) return "image/png";
+        offset += 12 + tag(offset);
+      }
+      throw new Error("PNG \u56FE\u7247\u5185\u5BB9\u4E0D\u5B8C\u6574");
+    }
+    if (bytes.byteLength >= 21 && tag(0) === 1380533830 && tag(8) === 1464156752) {
+      if (tag(12) === 1448097880 && data.getUint8(20) & 2) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301\u52A8\u6001 WebP");
+      return "image/webp";
+    }
+    if (bytes.byteLength >= 3 && data.getUint16(0) === 65496 && data.getUint8(2) === 255) return "image/jpeg";
+    if (bytes.byteLength >= 14 && data.getUint16(0) === 16973) return "image/bmp";
+    throw new Error("\u8BF7\u9009\u62E9 PNG\u3001JPG\u3001WebP \u6216 BMP \u9759\u6001\u56FE\u7247");
+  }
+  async function readLocalBackground(win, file) {
+    if (!file?.size || file.size > 20971520) throw new Error("\u8BF7\u9009\u62E9\u4E0D\u8D85\u8FC7 20 MB \u7684\u56FE\u7247\u6587\u4EF6");
+    if (typeof file.arrayBuffer != "function" || !win.URL?.createObjectURL || !win.Image) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u8BFB\u53D6\u672C\u5730\u56FE\u7247");
+    let bytes = await file.arrayBuffer(), type = imageType(bytes), url = win.URL.createObjectURL(new win.Blob([bytes], { type }));
+    try {
+      let image = new win.Image();
+      await new Promise((resolve, reject) => {
+        image.onload = resolve, image.onerror = () => reject(new Error("\u65E0\u6CD5\u6253\u5F00\u56FE\u7247\uFF0C\u6587\u4EF6\u53EF\u80FD\u5DF2\u635F\u574F")), image.src = url;
+      });
+      let { naturalWidth: width, naturalHeight: height } = image;
+      if (!(width > 0 && height > 0)) throw new Error("\u56FE\u7247\u5C3A\u5BF8\u65E0\u6548");
+      let scale = 4096 / Math.max(width, height);
+      if (scale >= 1) return { bytes, type };
+      let canvas = win.document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(width * scale)), canvas.height = Math.max(1, Math.round(height * scale)), canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+      let resized = await new Promise((resolve, reject) => canvas.toBlob(
+        (resized2) => resized2 ? resolve(resized2) : reject(new Error("\u65E0\u6CD5\u7F29\u5C0F\u8FD9\u5F20\u56FE\u7247")),
+        type === "image/jpeg" ? "image/jpeg" : "image/png"
+      ));
+      return { bytes: await resized.arrayBuffer(), type: resized.type };
+    } finally {
+      win.URL.revokeObjectURL(url);
+    }
+  }
+  async function localBackgroundImage(win, mode, operation) {
+    if (!win.indexedDB) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u4FDD\u5B58\u672C\u5730\u56FE\u7247");
+    let db = await new Promise((resolve, reject) => {
+      let request = win.indexedDB.open("sgs-toolbox-backgrounds", 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("images", { autoIncrement: !0 }), request.onsuccess = () => resolve(request.result), request.onerror = () => reject(request.error);
+    });
+    try {
+      return await new Promise((resolve, reject) => {
+        let tx = db.transaction("images", mode), request = operation(tx.objectStore("images"));
+        tx.oncomplete = () => resolve(request.result), tx.onabort = () => reject(tx.error || new Error("\u672C\u5730\u56FE\u7247\u5B58\u50A8\u64CD\u4F5C\u5DF2\u4E2D\u6B62"));
+      });
+    } finally {
+      db.close();
+    }
+  }
+
   // src/core/backgrounds.js
   function containBackground(width, height, viewportWidth, viewportHeight) {
     if (![width, height, viewportWidth, viewportHeight].every((n) => Number.isFinite(n) && n > 0)) return null;
@@ -33129,11 +32207,17 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
     for (let i = 0; i < queue.length && i < 4e3; i++) {
       let node = queue[i];
       if (!(!node || node.destroyed)) {
-        if (node.bgSprite && typeof node.updateBgSize == "function" && typeof node.bgLoadComplete == "function" && typeof node.O == "function") return node;
+        if (node.bgSprite && typeof node.updateBgSize == "function" && typeof node.bgLoadComplete == "function" && typeof node.SetBgLiveEffect == "function") return node;
         Array.isArray(node._children) && queue.push(...node._children);
       }
     }
     return null;
+  }
+  function backgroundViewport(layer, win) {
+    let viewport = layer.scrollRect;
+    if (viewport?.width > 0 && viewport.height > 0) return viewport;
+    let { gameWidth: width, gameHeight: height } = win.SystemContext || {};
+    return { width, height };
   }
   function backgroundSpec(value) {
     if (!value || typeof value.name != "string" || !value.name.trim() || value.name.length > 160) throw new Error("\u80CC\u666F\u540D\u79F0\u65E0\u6548");
@@ -33157,7 +32241,14 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
   var BackgroundRegistry = class {
     constructor({ window: window2, game, settings, scope }) {
       Object.assign(this, { window: window2, game, settings, scope }), this.providers = /* @__PURE__ */ new Set(), this.listeners = /* @__PURE__ */ new Set(), this.binding = null, this.ready = null, this.loading = null, this.failed = null, this.ticket = 0, this.status = "\u8DDF\u968F\u6E38\u620F\u80CC\u666F", scope.interval(() => this.refresh(), 500), scope.add(() => {
-        this.detach(!0), this.ticket++, this.listeners.clear();
+        this.importing = null, this.ticket++, this.listeners.clear();
+        try {
+          this.detach(!0);
+        } finally {
+          this.dropLocalImage();
+        }
+      }), window2.addEventListener && settings.prefix && scope.listen(window2, "storage", (event) => {
+        event.storageArea === settings.storage && (event.key === settings.prefix + "battleBackground" || event.key === null) && this.selectionChanged();
       });
     }
     get current() {
@@ -33181,12 +32272,69 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
       this.providers.add(owner), this.refresh();
       let active = !0;
       return () => {
-        active && (active = !1, this.providers.delete(owner), this.retryAt = 0, this.loadAttempts = 0, this.refresh());
+        active && (active = !1, this.providers.delete(owner), this.importing?.owner === owner && (this.importing = null), this.retryAt = 0, this.loadAttempts = 0, this.refresh());
       };
     }
     select(owner, spec) {
       if (!this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
-      this.yieldedScene = this.binding?.yielded ? this.binding.scene : this.yieldedScene, this.settings.set("battleBackground", spec ? { ...backgroundSpec(spec), owner } : null), this.ticket++, this.ready = this.loading = this.failed = null, this.retryAt = 0, this.loadAttempts = 0, this.detach(!0), this.refresh(), this.emit();
+      this.saveSelection(spec ? { ...backgroundSpec(spec), owner } : null);
+    }
+    async selectLocal(owner, file) {
+      if (this.scope.closed || !this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
+      let pending = this.importing = { owner }, id;
+      try {
+        let image = await readLocalBackground(this.window, file);
+        if (this.importing !== pending || (id = await localBackgroundImage(this.window, "readwrite", (store) => store.add(image)), this.importing !== pending)) return;
+        let name = file.name?.trim().slice(0, 160) || "\u672C\u5730\u56FE\u7247";
+        this.saveSelection({ name, localImageId: id, owner, animated: !1, dynamic: null }), id = void 0;
+      } catch (error) {
+        if (this.importing === pending) throw error;
+      } finally {
+        this.importing === pending && (this.importing = null), this.removeLocalImage(id);
+      }
+    }
+    removeLocalImage(id) {
+      Number.isSafeInteger(id) && id > 0 && localBackgroundImage(this.window, "readwrite", (store) => store.delete(id)).catch(() => {
+      });
+    }
+    saveSelection(choice) {
+      let previousId = this.current?.localImageId;
+      this.settings.set("battleBackground", choice), this.selectionChanged(), this.removeLocalImage(previousId);
+    }
+    selectionChanged() {
+      this.importing = null, this.yieldedScene = this.binding?.yielded ? this.binding.scene : this.yieldedScene, this.ticket++, this.ready = this.loading = this.failed = null, this.retryAt = 0, this.loadAttempts = 0;
+      try {
+        this.detach(!0);
+      } catch {
+      }
+      this.dropLocalImage(), this.refresh(), this.emit();
+    }
+    dropLocalImage() {
+      let asset = this.localImage;
+      if (this.localImage = null, !!asset?.url) {
+        this.imageTexture = this.imageSize = null;
+        try {
+          asset.loader?.clearRes?.(asset.url);
+        } catch {
+        } finally {
+          this.window.URL.revokeObjectURL(asset.objectUrl);
+        }
+      }
+    }
+    localUrl(id) {
+      if (this.localImage?.id !== id) {
+        this.dropLocalImage();
+        let asset = this.localImage = { id };
+        localBackgroundImage(this.window, "readonly", (store) => store.get(id)).then((image) => {
+          if (this.localImage !== asset) return;
+          if (!image) throw new Error("\u672C\u5730\u56FE\u7247\u5DF2\u4E22\u5931\uFF0C\u8BF7\u91CD\u65B0\u9009\u62E9");
+          let blob = image instanceof this.window.Blob ? image : new this.window.Blob([image.bytes], { type: image.type });
+          asset.objectUrl = this.window.URL.createObjectURL(blob), asset.url = asset.objectUrl.includes("://") ? asset.objectUrl : asset.objectUrl + "#://", this.refresh();
+        }).catch((error) => {
+          this.localImage === asset && (asset.error = error?.message || String(error), this.refresh());
+        });
+      }
+      return this.localImage.url || this.state(this.localImage.error || "\u6B63\u5728\u8BFB\u53D6\u672C\u5730\u56FE\u7247"), this.localImage.url;
     }
     detach(restore) {
       let b = this.binding;
@@ -33211,11 +32359,19 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
     refreshReady() {
       let choice = this.current;
       if (!choice || !this.providers.has(choice.owner)) {
-        this.ticket++, this.ready = this.loading = null, this.detach(!0), this.state(choice ? "\u80CC\u666F\u63D2\u4EF6\u5DF2\u505C\u7528\uFF0C\u8DDF\u968F\u6E38\u620F\u80CC\u666F" : "\u8DDF\u968F\u6E38\u620F\u80CC\u666F");
+        this.ticket++, this.ready = this.loading = null;
+        try {
+          this.detach(!0);
+        } finally {
+          this.dropLocalImage();
+        }
+        this.state(choice ? "\u80CC\u666F\u63D2\u4EF6\u5DF2\u505C\u7528\uFF0C\u8DDF\u968F\u6E38\u620F\u80CC\u666F" : "\u8DDF\u968F\u6E38\u620F\u80CC\u666F");
         return;
       }
+      let localId2 = choice.localImageId;
       try {
-        backgroundSpec(choice);
+        if (localId2 === void 0) backgroundSpec(choice);
+        else if (!Number.isSafeInteger(localId2) || localId2 < 1) throw new Error("\u672C\u5730\u56FE\u7247\u7F16\u53F7\u65E0\u6548");
       } catch (error) {
         this.detach(!0), this.state("\u80CC\u666F\u914D\u7F6E\u65E0\u6548\uFF1A" + error.message);
         return;
@@ -33226,6 +32382,11 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
         return;
       }
       let laya = this.window.Laya;
+      if (localId2 !== void 0) {
+        let url = this.localUrl(localId2);
+        if (!url) return;
+        choice = { name: choice.name, url };
+      }
       if (this.failed === choice.url && (this.failed = null), this.ready !== choice.url) {
         if (this.loading === choice.url) return;
         if (!laya?.loader?.load || !laya.Handler?.create) {
@@ -33237,14 +32398,17 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
           ticket !== this.ticket || this.loading !== choice.url || this.loadFailed(choice.url, "\u80CC\u666F\u52A0\u8F7D\u8D85\u65F6");
         }, 2e4);
         try {
-          laya.loader.load(choice.url, laya.Handler.create(null, (texture) => {
-            if (!(ticket !== this.ticket || this.scope.closed)) {
-              if (this.loading = null, !texture) {
-                this.loadFailed(choice.url, "\u80CC\u666F\u52A0\u8F7D\u5931\u8D25");
-                return;
-              }
-              this.loadAttempts = 0, this.retryAt = 0, this.imageSize = { width: texture.sourceWidth || texture.width, height: texture.sourceHeight || texture.height }, this.imageTexture = texture, this.ready = choice.url, this.refresh();
+          let asset = localId2 === void 0 ? null : this.localImage;
+          asset && (asset.loader = laya.loader), laya.loader.load(choice.url, laya.Handler.create(null, (texture) => {
+            if (ticket !== this.ticket || this.scope.closed) {
+              asset && this.localImage !== asset && asset.loader.clearRes?.(choice.url);
+              return;
             }
+            if (this.loading = null, !texture) {
+              this.loadFailed(choice.url, "\u80CC\u666F\u52A0\u8F7D\u5931\u8D25");
+              return;
+            }
+            this.loadAttempts = 0, this.retryAt = 0, this.imageSize = { width: texture.sourceWidth || texture.width, height: texture.sourceHeight || texture.height }, this.imageTexture = texture, this.ready = choice.url, this.refresh();
           }), null, laya.Loader?.IMAGE || "image");
         } catch (error) {
           this.loadFailed(choice.url, "\u80CC\u666F\u52A0\u8F7D\u5931\u8D25\uFF1A" + error.message);
@@ -33252,8 +32416,8 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
         return;
       }
       if (!this.binding) {
-        let layer = findBackgroundLayer(laya?.stage), context = this.window.SystemContext;
-        if (!layer || !laya.Sprite || !laya.Rectangle || !(context?.gameWidth > 0 && context?.gameHeight > 0)) {
+        let layer = findBackgroundLayer(laya?.stage), viewport = layer && backgroundViewport(layer, this.window);
+        if (!laya?.Sprite || !laya.Rectangle || !(viewport?.width > 0 && viewport.height > 0)) {
           this.state("\u7B49\u5F85\u6E38\u620F\u80CC\u666F\u5C42\u4E0E\u5E03\u5C40\u5C31\u7EEA");
           return;
         }
@@ -33274,10 +32438,10 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
           local.patch(layer, "updateBgSize", (original) => function(...args) {
             let result = Reflect.apply(original, this, args);
             if (fill.visible = eligible() && this.bg?.skin === choice.url, b2.syncMotion(), !fill.visible) return result;
-            let size = registry.imageSize, context2 = registry.window.SystemContext, fit = containBackground(size?.width, size?.height, context2?.gameWidth, context2?.gameHeight);
+            let size = registry.imageSize, { width: w, height: h } = backgroundViewport(this, registry.window), fit = containBackground(size?.width, size?.height, w, h);
             if (!fit)
               return fill.visible = !1, result;
-            let w = context2.gameWidth, h = context2.gameHeight, key = `${w}:${h}`;
+            let key = `${w}:${h}`;
             if (key !== fillKey) {
               fillKey = key;
               let scale = Math.max(w / fit.width, h / fit.height), dw = fit.width * scale, dh = fit.height * scale;
@@ -33290,6 +32454,10 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"95\u6298\u5145\u
           return b2.hideFill?.(), Reflect.apply(original, this, args);
         });
         let apply = () => {
+          if (localId2 !== void 0 && laya.loader.getRes && !laya.loader.getRes(choice.url)) {
+            this.detach(!1), this.ready = null, this.refresh();
+            return;
+          }
           b2.writing = !0;
           try {
             scene.SetWallPaperByUrl(choice.url), b2.applied = !0, layer?.updateBgSize();
@@ -33945,7 +33113,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var PluginManager = class {
     constructor({ journal, store, settings, context, onChange = () => {
     } }) {
-      Object.assign(this, { journal, store, settings, context, onChange }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.unsubscribe = journal.subscribe((event) => {
+      Object.assign(this, { journal, store, settings, context, onChange }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.priorityPlayActions = /* @__PURE__ */ new Set(), this.unsubscribe = journal.subscribe((event) => {
         let changed = !1;
         for (let slot of this.slots.values())
           try {
@@ -34068,6 +33236,24 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           let off = () => slot.listeners.delete(fn);
           return scope.add(off), off;
         },
+        playActions: {
+          registerPriority: (fn) => {
+            let action = (scene, self) => {
+              if (scope.closed) return !1;
+              try {
+                return fn(scene, self) === !0;
+              } catch (error) {
+                return ctx.reportError(error), !0;
+              }
+            };
+            return this.priorityPlayActions.add(action), scope.add(() => this.priorityPlayActions.delete(action));
+          },
+          runPriority: (scene, self) => {
+            if (scope.closed) return !1;
+            for (let action of this.priorityPlayActions) if (action(scene, self)) return !0;
+            return !1;
+          }
+        },
         reportError: (value) => {
           if (scope.closed) return;
           let message = value == null ? "" : String(value?.stack || value);
@@ -34114,6 +33300,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           } : scope.add(this.context.backgrounds.register(id)),
           select: (spec) => {
             scope.closed || this.context.backgrounds.select(id, spec);
+          },
+          selectLocal: (file) => {
+            if (!scope.closed) return this.context.backgrounds.selectLocal(id, file);
           },
           subscribe: (fn) => scope.closed ? () => {
           } : scope.add(this.context.backgrounds.subscribe(fn)),
@@ -34972,7 +34161,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function getScene() {
       let nextStage = read4(() => win.Laya.stage) || null;
       stage !== nextStage && (stage = nextStage, dispatcher = dispatcherOwner = null, providers = /* @__PURE__ */ new Set());
-      let demo = read4(() => win.__SGS_TOOLBOX_DEMO__.scene), manager = demo ? null : eventCaller("SWITCH_SCENE", (value) => "CurrentScene" in value), managerScene = read4(() => manager.CurrentScene), rendered = demo ? null : stageScene(), next = alive(demo) ? demo : rendered || (alive(managerScene) && read4(() => managerScene.visible) !== !1 ? managerScene : null) || walk((node) => read4(() => node.visible) !== !1 && (GAME_SCENE.test(sceneName(node)) || isGameScene(node)));
+      let demo = read4(() => win.__SGS_TOOLBOX_DEMO__.scene), manager2 = demo ? null : eventCaller("SWITCH_SCENE", (value) => "CurrentScene" in value), managerScene = read4(() => manager2.CurrentScene), rendered = demo ? null : stageScene(), next = alive(demo) ? demo : rendered || (alive(managerScene) && read4(() => managerScene.visible) !== !1 ? managerScene : null) || walk((node) => read4(() => node.visible) !== !1 && (GAME_SCENE.test(sceneName(node)) || isGameScene(node)));
       if (next !== current) {
         current = next || null, providers = /* @__PURE__ */ new Set(), dispatcher = dispatcherOwner = null;
         for (let fn of [...listeners])
@@ -35009,8 +34198,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function getServerProxy() {
       let scene = getScene(), direct = read4(() => scene.proxy) || read4(() => scene.serverProxy);
       if (alive(direct)) return direct;
-      let manager = eventCaller("HIDE_WINDOW", (value) => object(value.proxy));
-      return object(read4(() => manager.proxy)) || existingSingleton("ServerProxy");
+      let manager2 = eventCaller("HIDE_WINDOW", (value) => object(value.proxy));
+      return object(read4(() => manager2.proxy)) || existingSingleton("ServerProxy");
     }
     function existingSingleton(name) {
       let registered = getClass(name);
@@ -35229,7 +34418,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   });
 
   // src/compat/index.js
-  var TOOLBOX = "[data-sgs-toolbox]", GAME = "#bgDiv,#layaContainer,#laya_container,#GameDiv,canvas,iframe", FORBIDDEN_TAGS = /* @__PURE__ */ new Set(["HTML", "BODY", "HEAD", "SCRIPT", "STYLE", "LINK", "META"]), FEATURE_LABELS = ["\u5361\u724C", "\u8BB0\u724C", "\u660E\u724C", "\u5C71\u6CB3\u56FE", "\u914D\u7F6E", "\u5DE5\u5177", "\u767E\u80DC\u6218\u529F", "\u76AE\u80A4\u6536\u96C6", "\u6218\u7EE9\u51FA\u6846", "\u804A\u5929\u8868\u60C5", "\u81EA\u52A9\u89C2\u661F", "\u6740\u6279\u8D26\u672C", "95\u6298\u5145\u503C"];
+  var TOOLBOX = "[data-sgs-toolbox]", GAME = "#bgDiv,#layaContainer,#laya_container,#GameDiv,canvas,iframe", FORBIDDEN_TAGS = /* @__PURE__ */ new Set(["HTML", "BODY", "HEAD", "SCRIPT", "STYLE", "LINK", "META"]), FEATURE_LABELS = ["\u5361\u724C", "\u8BB0\u724C", "\u660E\u724C", "\u5C71\u6CB3\u56FE", "\u914D\u7F6E", "\u5DE5\u5177", "\u767E\u80DC\u6218\u529F", "\u76AE\u80A4\u6536\u96C6", "\u6218\u7EE9\u51FA\u6846", "\u804A\u5929\u8868\u60C5", "\u81EA\u52A9\u89C2\u661F", "\u6740\u6279\u8D26\u672C"];
   function createCompatibility({ window: window2, document: document2 = window2?.document, onStatus = () => {
   }, takeover = "hide" } = {}) {
     if (!window2 || !document2) throw new TypeError("Compatibility requires window and document");
@@ -36802,8 +35991,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), { capture };
   }
 
-  // src/core/game-view.js
+  // src/shared/shanhe-scenes.js
   var SHANHE_MAP_SCENES = /* @__PURE__ */ new Set(["RogueLikeBigMapScene", "RogueSmallMapScene"]);
+
+  // src/core/game-view.js
   function gameViewForScene(scene) {
     return SHANHE_MAP_SCENES.has(scene?.SceneName || scene?.sceneName || scene?.name) ? "shanhe" : "battle";
   }
@@ -36812,8 +36003,62 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return panels.filter((panel) => !panel.gameView || panel.gameView === selected);
   }
 
+  // src/ui/feedback.js
+  var FEEDBACK_URL = "https://redeem.3gs.xyz/feedback", FEEDBACK_STYLES = `
+.feedback-form{display:grid;gap:7px;min-width:0}
+.feedback-form textarea{box-sizing:border-box;width:100%;min-height:76px;resize:vertical;padding:8px 9px;border:1px solid var(--sgs-border);border-radius:7px;background:var(--sgs-surface);color:var(--sgs-text);font:13px/1.5 var(--sgs-font,sans-serif)}
+.feedback-form textarea::placeholder{color:var(--sgs-muted)}
+.feedback-form textarea:focus{outline:1px solid var(--sgs-accent);outline-offset:1px;border-color:var(--sgs-accent)}
+.feedback-form .actions{align-items:center;margin-top:0}
+.feedback-form .actions button{padding-inline:10px;white-space:nowrap}
+.feedback-form .actions button:enabled{color:var(--sgs-accent);border-color:var(--sgs-accent)}
+.feedback-form .actions button:disabled{opacity:.55}
+.feedback-status:empty{display:none}
+.feedback-form .feedback-status.error{color:var(--sgs-danger)}
+`;
+  function createFeedbackForm(win, doc, scope, getAccount = () => ({})) {
+    let form = doc.createElement("form");
+    form.className = "feedback-form", form.innerHTML = `
+    <textarea name="message" aria-label="\u53CD\u9988\u5185\u5BB9" aria-describedby="feedback-disclosure" maxlength="2000" rows="3" placeholder="\u63CF\u8FF0\u9047\u5230\u7684\u95EE\u9898\u6216\u60F3\u8981\u7684\u529F\u80FD" required></textarea>
+    <span id="feedback-disclosure" class="muted">\u63D0\u4EA4\u65F6\u53D1\u9001\u53CD\u9988\u5185\u5BB9\u3001\u5DE5\u5177\u7BB1\u7248\u672C\u53CA\u53EF\u8BFB\u53D6\u7684\u6E38\u620F ID \u548C\u6635\u79F0\u3002\u670D\u52A1\u5668\u4F1A\u8BB0\u5F55\u8FDE\u63A5 IP\u3002\u8BF7\u52FF\u586B\u5199\u5BC6\u7801\u3002</span>
+    <div class="actions"><button type="submit" disabled>\u63D0\u4EA4\u53CD\u9988</button></div>
+    <span class="feedback-status muted" role="status"></span>`;
+    let input = form.elements.message, submit = form.querySelector("button"), status = form.querySelector("[role=status]"), attempt, showStatus = (message, error = !1) => {
+      status.classList.toggle("error", error), status.textContent = message;
+    };
+    return input.addEventListener("input", () => {
+      input.readOnly || (submit.disabled = !input.value.trim(), showStatus(""));
+    }), form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      let message = input.value.trim();
+      if (!message || input.readOnly || scope.closed) return;
+      let account2 = getAccount(), userId = /^[1-9][0-9]{0,31}$/.test(account2.id) ? account2.id : null, nickname = userId && Array.from(account2.nickname?.trim() || "").slice(0, 128).join("") || null;
+      (attempt?.message !== message || attempt.userId !== userId || attempt.nickname !== nickname) && (attempt = { id: Array.from(win.crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join(""), message, version: `${CORE_VERSION}-${EDITION}`, userId, nickname });
+      let controller = new win.AbortController(), timeout = win.setTimeout(() => controller.abort(), 1e4), release = scope.add(() => {
+        win.clearTimeout(timeout), controller.abort();
+      });
+      input.readOnly = !0, submit.disabled = !0, showStatus("\u6B63\u5728\u63D0\u4EA4\u2026");
+      try {
+        let response = await win.fetch(FEEDBACK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(attempt),
+          credentials: "omit",
+          redirect: "error",
+          referrerPolicy: "no-referrer",
+          signal: controller.signal
+        });
+        response.status === 429 ? showStatus("\u63D0\u4EA4\u8FC7\u4E8E\u9891\u7E41\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", !0) : response.ok && (await response.json())?.ok === !0 ? (input.value = "", attempt = void 0, showStatus("\u53CD\u9988\u5DF2\u6536\u5230\uFF0C\u611F\u8C22\u63D0\u4F9B\u610F\u89C1\u3002")) : showStatus("\u63D0\u4EA4\u5931\u8D25\uFF0C\u5185\u5BB9\u5DF2\u4FDD\u7559\u3002\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", !0);
+      } catch {
+        scope.closed || showStatus("\u6682\u65F6\u65E0\u6CD5\u786E\u8BA4\u9001\u8FBE\uFF0C\u5185\u5BB9\u5DF2\u4FDD\u7559\u3002\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002", !0);
+      } finally {
+        release(), input.readOnly = !1, submit.disabled = !input.value.trim();
+      }
+    }), form;
+  }
+
   // src/ui/shell.js
-  var categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix, size) => `${prefix}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
+  var feedbackIcon = { paths: ["M20 16h-8l-5 4v-4H4V4h16z", "M8 8h8M8 12h6"] }, categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix, size) => `${prefix}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
 /* A moving perimeter marker keeps the folded HUD easy to locate without covering controls. */
 .hud-locator{display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible;color:var(--sgs-accent)}
 .hud-locator rect{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;x:1px;y:1px;width:calc(100% - 2px);height:calc(100% - 2px);rx:10px;stroke-dasharray:18 8 3 71;animation:hud-locator-flow 3.6s linear infinite,hud-locator-breathe 2.4s ease-in-out infinite}
@@ -36856,9 +36101,15 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
 .settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 1 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
 .font-preview{margin-top:12px;padding:12px 0 12px 10px;border-left:2px solid var(--sgs-accent);line-height:1.6}.font-preview strong{font-size:13px}.font-preview p{font-size:12px;margin:5px 0}.font-settings .sgs-segments button{min-width:0;flex:1;padding:6px 2px}.brand{gap:6px}.brand-name{min-width:0;flex:1}.brand strong{white-space:nowrap;letter-spacing:0;font-size:13px}.brand small{font-size:9px}.brand .mark{flex:none}.brand [data-collapse]{flex:none;margin-left:0}.brand-name strong{display:block;overflow:hidden;text-overflow:ellipsis}.brand [data-update-hint]{display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 7px;border:1px solid color-mix(in srgb,var(--sgs-accent) 48%,var(--sgs-border));border-radius:7px;background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 20%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 10%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 20%,transparent),0 2px 4px #0002;color:var(--sgs-accent);font-size:11px;font-weight:600;line-height:18px;cursor:pointer;white-space:nowrap;transition:background 140ms,border-color 140ms,box-shadow 140ms,transform 140ms}.brand [data-update-hint] svg{width:13px;height:13px;flex:none;stroke-width:1.8}.brand [data-update-hint][hidden]{display:none}.brand [data-update-hint]:hover{border-color:var(--sgs-accent);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 30%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 17%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 28%,transparent),0 3px 7px #0003;transform:translateY(-1px)}.brand [data-update-hint]:active{transform:translateY(0);box-shadow:inset 0 1px 3px #0003}.brand [data-update-hint]:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}
 
+.brand [data-feedback]{display:flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 6px;background:transparent;box-shadow:none;color:var(--sgs-muted);font-size:11px;line-height:18px;white-space:nowrap}
+.brand [data-feedback] svg{width:14px;height:14px}
+.brand [data-feedback]:hover,.brand [data-feedback]:focus-visible{color:var(--sgs-accent);border-color:var(--sgs-accent);background:var(--sgs-surface)}
+.brand small{white-space:nowrap;letter-spacing:.6px}
+:host([data-tight-brand]) .brand.has-update .mark{display:none}
+${FEEDBACK_STYLES}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
-  function createShell({ window: win, document: doc, settings, scope }) {
+  function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount }) {
     let microUpdate = null, microUpdateBusy = !1, microUpdateError = "";
     async function runMicroUpdate(action) {
       microUpdateBusy = !0, microUpdateError = "", render();
@@ -36880,7 +36131,11 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     for (let [selector, name] of [[".mark", "toolbox"], ["[data-screenshot]", "camera"], ["[data-expand]", "expand"], ["[data-collapse]", "collapse"], ["[data-update-hint]", "refresh"], ["[data-open-market]", "package"]])
       shadow.querySelector(selector).prepend(createIcon(doc, name));
     for (let [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
-    let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, applyFontSize = () => {
+    let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, feedbackForm = createFeedbackForm(win, doc, scope, getFeedbackAccount), feedbackButton = doc.createElement("button");
+    feedbackButton.type = "button", feedbackButton.dataset.feedback = "", feedbackButton.title = "\u524D\u5F80\u53CD\u9988", feedbackButton.append(createIcon(doc, feedbackIcon), doc.createTextNode("\u53CD\u9988")), shadow.querySelector("[data-update-hint]").before(feedbackButton), scope.listen(feedbackButton, "click", () => {
+      (active !== "manage" || management !== "settings") && (active = "manage", management = "settings", settings.set("category", active), render()), content.scrollTop = 0, feedbackForm.elements.message.focus({ preventScroll: !0 });
+    });
+    let applyFontSize = () => {
       let choice = FONT_SIZES.find(([id]) => id === settings.get("fontSize", "standard")) || FONT_SIZES[2];
       host.style.setProperty("--sgs-font-offset", `${choice[2]}px`);
     };
@@ -37039,6 +36294,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     }
     function renderSettings(cleanups) {
       let first = content.children.length;
+      content.append(el("h3", "\u53CD\u9988"), feedbackForm);
       {
         let edgeHeading = el("h3", "HUD \u9760\u8FB9\u884C\u4E3A");
         content.append(edgeHeading);
@@ -37469,7 +36725,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       let installed = handlers.manager?.list() || [], market = currentMarketState(), failures = installed.filter((item) => !item.maintenance && (item.error || item.enabled && !item.active)).length, upgrades = market.catalog ? findPluginUpdates(installed, market.catalog.plugins).filter((item) => item.status === "update").length : 0, manage = shadow.querySelector('[data-category="manage"]');
       manage.querySelector(".nav-alert")?.remove();
       let coreUpgrade = coreUpdateStatus()?.order > 0, updateHint = shadow.querySelector("[data-update-hint]");
-      updateHint.hidden = !coreUpgrade && !upgrades, updateHint.title = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`, "\u70B9\u51FB\u524D\u5F80\u66F4\u65B0"].filter(Boolean).join(" \xB7 ");
+      updateHint.hidden = !coreUpgrade && !upgrades, updateHint.parentElement.classList.toggle("has-update", !updateHint.hidden), updateHint.title = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`, "\u70B9\u51FB\u524D\u5F80\u66F4\u65B0"].filter(Boolean).join(" \xB7 ");
       let alerts = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", failures && `${failures} \u4E2A\u63D2\u4EF6\u5F02\u5E38`, upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`].filter(Boolean).join(" \xB7 ");
       if (manage.title = alerts || "\u7BA1\u7406", alerts) {
         let badge = el("i", String(failures || upgrades + Number(coreUpgrade)), `nav-alert${failures ? " is-error" : ""}`);
@@ -37613,7 +36869,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       let saveWidth, observer = new win.ResizeObserver((entries) => {
         if (host.hasAttribute("data-collapsed")) return;
         let width = Math.round(entries[0].borderBoxSize?.[0]?.inlineSize || shadow.querySelector(".shell").getBoundingClientRect().width);
-        width < 248 || (host.style.width = width + "px", edgeResizer.setAttribute("aria-valuenow", String(width)), syncGameViewport(), clearTimeout(saveWidth), saveWidth = setTimeout(() => settings.set("width", width), 200));
+        host.toggleAttribute("data-tight-brand", width < 300), !(width < 248) && (host.style.width = width + "px", edgeResizer.setAttribute("aria-valuenow", String(width)), syncGameViewport(), clearTimeout(saveWidth), saveWidth = setTimeout(() => settings.set("width", width), 200));
       });
       observer.observe(shadow.querySelector(".shell")), scope.add(() => {
         observer.disconnect(), clearTimeout(saveWidth);
@@ -37700,6 +36956,32 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     } };
   }
 
+  // src/shared/info-runtime.js
+  var read5 = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return;
+    }
+  };
+  function account(ctx) {
+    let login = manager(ctx, "LoginManager", "error", (m) => "IsOnLine" in m || "IsAccountLoggingOut" in m);
+    if (read5(() => login.IsAccountLoggingOut) === !0 || read5(() => login.IsOnLine) === !1) return { id: "", nickname: "" };
+    let self = read5(() => ctx.game.getSelf()), id = read5(() => self.ClientId) ?? read5(() => self.clientId);
+    return { id: /^(?:[1-9]\d*)$/.test(String(id)) ? String(id) : "", nickname: String(read5(() => self.NickName) ?? read5(() => self.nickname) ?? "") };
+  }
+  function manager(ctx, name, event, guard) {
+    let type = read5(() => ctx.game.getClass(name)), valid = (value) => value && read5(() => value.destroyed) !== !0 && read5(() => guard(value));
+    if (valid(type)) return type;
+    for (let key of ["instance", "_instance", "Instance", "s_instance"]) {
+      let descriptor = read5(() => Object.getOwnPropertyDescriptor(type, key));
+      if (descriptor && "value" in descriptor && valid(descriptor.value)) return descriptor.value;
+    }
+    let handlers = read5(() => ctx.game.getServerProxy()._events[event]);
+    for (let handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) if (valid(read5(() => handler.caller))) return handler.caller;
+    return null;
+  }
+
   // src/core/main.js
   function boot(win = window) {
     return startOwnedRuntime(win, EDITION, (api) => initialize(win, api));
@@ -37710,7 +36992,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     installTouchPreview(win, scope), !1;
     let onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
     Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
-    let shell = createShell({ window: win, document: win.document, settings, scope }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), game = createGameAdapter(win, scope), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope });
+    let game = createGameAdapter(win, scope), shell = createShell({ window: win, document: win.document, settings, scope, getFeedbackAccount: () => account({ game }) }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope });
     scope.add(game.onSceneChange((scene) => shell.setGameView(gameViewForScene(scene)))), shell.setGameView(gameViewForScene(game.getScene()));
     let screenshot = createScreenshotController({ window: win, game, settings, scope, notify: shell.notify }), bridge = installMessageBridge(win, journal, scope, (message) => shell.setStatus(message), {
       getTargets: game.getMessageTargets,
@@ -37721,7 +37003,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
     } }), settings.get("compatPassiveDefaultV1", !1) || (settings.set("compatEnabled", !1), settings.set("compatPassiveDefaultV1", !0)), compat.setEnabled(settings.get("compatEnabled", !1)), compat.start(), scope.add(() => compat.stop());
     let marketConnection = createMarketConnection(settings, win.fetch.bind(win), shell.notify);
     marketConnection.start();
-    let manager = new PluginManager({
+    let manager2 = new PluginManager({
       journal,
       store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : "sgs-ol-toolbox"),
       settings,
@@ -37734,12 +37016,11 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
         themes,
         cardStyles,
         backgrounds,
-        payments: Object.freeze({ resolveAlipayCashier: (url, signal) => resolveAlipayCashier(win, url, signal, !!1 && typeof GM_xmlhttpRequest == "function" ? GM_xmlhttpRequest : null) }),
         notify: shell.notify
       },
       onChange: () => shell.render()
     });
-    scope.add(() => manager.dispose());
+    scope.add(() => manager2.dispose());
     let replacements = {
       cards: REPLACED_CARD_PACKAGES,
       backgrounds: REPLACED_BACKGROUND_PACKAGES,
@@ -37751,10 +37032,10 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       baisheng: REPLACED_BAISHENG_PACKAGES,
       appearances: REPLACED_APPEARANCE_PACKAGES
     };
-    for (let pkg of bundledPackages) if ((!onlyPlugin || pkg.manifest.id === onlyPlugin || onlyPlugin === "gaizhu" && pkg.manifest.id === "baisheng") && (await manager.registerBundled(pkg, replacements[pkg.manifest.id] || []), scope.closed))
+    for (let pkg of bundledPackages) if ((!onlyPlugin || pkg.manifest.id === onlyPlugin || onlyPlugin === "gaizhu" && pkg.manifest.id === "baisheng") && (await manager2.registerBundled(pkg, replacements[pkg.manifest.id] || []), scope.closed))
       return null;
     shell.setHandlers({
-      manager,
+      manager: manager2,
       themes,
       cardStyles,
       compat,
@@ -37772,10 +37053,9 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
       shell.host.style.display = ready ? "" : "none", !!1 && ready && !legacyWarned && compat.getStatus().sources.length && (legacyWarned = !0, shell.showLegacyWarning()), ready && !mounted && (mounted = !0, snapshots.request());
       let capture = bridge.getStatus();
       shell.setStatus(bridge.error || (ready ? capture.received ? `\u5DF2\u6536 ${capture.received} \u6761\u6D88\u606F \xB7 ${journal.incomplete ? "\u7F3A\u5C11\u5F00\u5C40\u8BB0\u5F55" : "\u672C\u5C40\u8BB0\u5F55\u4E2D"}` : capture.targets.length ? "\u6D88\u606F\u5165\u53E3\u5DF2\u8FDE\u63A5 \xB7 \u7B49\u5F85\u6536\u5305" : "\u672A\u63A5\u5165\u6E38\u620F\u6D88\u606F \xB7 \u4EC5\u539F\u751F\u663E\u793A\u53EF\u7528" : "\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6"));
-    }, 500), !win.__SGS_TOOLBOX_DEMO__ && !win.Laya?.stage && (shell.host.style.display = "none"), await manager.init(), scope.closed ? null : (Object.assign(api, { manager, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager.errors.length && shell.notify(manager.errors.join("\uFF1B")), api);
+    }, 500), !win.__SGS_TOOLBOX_DEMO__ && !win.Laya?.stage && (shell.host.style.display = "none"), await manager2.init(), scope.closed ? null : (Object.assign(api, { manager: manager2, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager2.errors.length && shell.notify(manager2.errors.join("\uFF1B")), api);
   }
-  var pageWindow = !!1 && typeof unsafeWindow < "u" ? unsafeWindow : window;
-  installAlipayCashierBridge(pageWindow) || boot(pageWindow).catch((error) => {
+  boot(window).catch((error) => {
     console.error("[\u4E09\u56FD\u6740OL\u5DE5\u5177\u7BB1]", error);
   });
 })();
