@@ -258,7 +258,7 @@
     {
       "id": "gaizhu",
       "name": "盖主速刷",
-      "version": "0.1.19",
+      "version": "0.1.20",
       "icon": {
         "paths": [
           "M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0",
@@ -277,9 +277,9 @@
         "baisheng"
       ],
       "description": "支持盖主速刷、反贼房主单人百胜和单骑人机训练；单人对局优先接受小杀助手提示，超时本地处理与托管兜底。",
-      "releaseNotes": "房间设置无法自动修正时，速刷会停止并提示检查密码、自选身份、点将权限和手牌构筑。等待 3 秒后可手动强制开始，沿用当前房间规则。",
-      "packageUrl": "packages/gaizhu/0.1.19.json",
-      "sha256": "60c17a2bafc3dc46470a93101b3ba4d4c01597f7679f0d468dd6dbf4dd9405c2"
+      "releaseNotes": "修复单人速刷偶尔因小杀未入座而卡住的问题。添加失败时会先补其他空位，再自动重试。补齐后继续开局，多次重试仍失败会提示具体座位并停止。",
+      "packageUrl": "packages/gaizhu/0.1.20.json",
+      "sha256": "6b1276440ea23324539f83a8a7bc7e898d52bafc4c7f6f95d357f0f3a6fc87c5"
     },
     {
       "id": "effects",
