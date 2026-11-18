@@ -170,7 +170,7 @@
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.79",
+      "version": "0.1.81",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -185,9 +185,9 @@
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
-      "releaseNotes": "新增手牌组间留空快捷开关，保留排序方式与已有选择；改善卡牌面板在低高度下的滚动和内容显示。",
-      "packageUrl": "packages/cards/0.1.79.json",
-      "sha256": "3623974bec8a56f9d04da48faee5c11c932d78da6eddf8b5bce455258c09c249"
+      "releaseNotes": "减少出牌和技能结算时牌堆统计重复刷新造成的短顿。未见张数合并更新，切换分组和置顶时立即显示。移除山河图自动打牌的临时判定面板。",
+      "packageUrl": "packages/cards/0.1.81.json",
+      "sha256": "e5157b9a5b7327a26e912f2b91c9863f671b63f238d17d33c4c93553e768f80b"
     },
     {
       "id": "play-assist",
