@@ -57,6 +57,7 @@ const mainFrames = new Map();
 const crypto = require('crypto');
 const https = require('https');
 const UPDATE_SOURCES = [
+  'https://chk-sgstools-hangzhou.oss-cn-hangzhou.aliyuncs.com/sgs-toolbox/microclient/',
   'https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/microclient/',
   'https://tools.3gs.xyz/sgs-toolbox/microclient/'
 ];
@@ -75,7 +76,7 @@ function saveUpdate(value) {
   try { fs.writeFileSync(temp, JSON.stringify(value), { mode: 0o600 }); fs.renameSync(temp, file); }
   finally { try { fs.unlinkSync(temp); } catch (_) {} }
 }
-function download(url, limit) {
+function download(url, limit, timeout) {
   return new Promise((resolve, reject) => {
     const request = https.get(url, response => {
       if (response.statusCode !== 200) { response.resume(); reject(new Error('更新服务器返回 ' + response.statusCode)); return; }
@@ -84,7 +85,8 @@ function download(url, limit) {
       response.on('end', () => resolve(Buffer.concat(chunks)));
       response.on('error', reject);
     });
-    request.setTimeout(20000, () => request.destroy(new Error('更新下载超时')));
+    const deadline = setTimeout(() => request.destroy(new Error('更新下载超时')), timeout);
+    request.once('close', () => clearTimeout(deadline));
     request.on('error', reject);
   });
 }
@@ -104,17 +106,20 @@ async function updateScript(action) {
     const errors = [];
     for (const base of UPDATE_SOURCES) {
       try {
-        const manifest = JSON.parse((await download(base + 'update.json', 16384)).toString('utf8'));
+        const manifest = JSON.parse((await download(base + 'update.json', 16384, 10000)).toString('utf8'));
         if (manifest.format !== 'sgs-toolbox-script-v1' || manifest.hostApi !== 1 || !/^\d+\.\d+\.\d+$/.test(manifest.version) || !/^[a-f0-9]{64}$/.test(manifest.sha256) || !Number.isInteger(manifest.bytes) || manifest.bytes < 1 || manifest.bytes > 12 * 1024 * 1024) throw new Error('脚本更新清单无效或需要新版接入层');
         const newer = compare(manifest.version, current.version) > 0;
         if (action === 'check' || !newer) return { version: manifest.version, current: current.version, newer, rollback: !!(saved && valid(saved.previous)) };
-        const bytes = await download(base + 'toolbox.js', 12 * 1024 * 1024);
+        const bytes = await download(base + 'toolbox.js', 12 * 1024 * 1024, 20000);
         const next = { version: manifest.version, sha256: manifest.sha256, source: bytes.toString('utf8') };
         if (bytes.length !== manifest.bytes || hash(bytes) !== manifest.sha256 || !valid(next) || !next.source.startsWith('// 三国杀OL工具箱 · 微端 LITE · ')) throw new Error('脚本版本或摘要校验失败');
         new (require('vm').Script)(next.source); // Parse only; never run remote code in the main process.
         saveUpdate({ current: next, previous: current });
         return { version: next.version, pending: true, rollback: true };
-      } catch (error) { errors.push(error.message); }
+      } catch (error) {
+        const detail = error.code === 'ETIMEDOUT' ? '连接超时' : error.message;
+        errors.push(new URL(base).hostname + '（' + detail + '）');
+      }
     }
     throw new Error('脚本更新失败：' + errors.join('；'));
   } finally { updating = false; }
@@ -161,45 +166,4 @@ ipcMain.on('sgs-toolbox:source:v1', event => {
   const url = event.senderFrame ? event.senderFrame.url : navigations.get(event.sender.id) || event.sender.getURL();
   const topLevel = !event.senderFrame || !event.senderFrame.parent;
   event.returnValue = isGameURL(url) && topLevel ? (loadUpdate()?.current.source || code) : '';
-});
-
-// Read only the official cashier endpoints; never forward cookies or execute HTML.
-function cashierURL(value, initial = true) {
-  const u = new URL(value);
-  const gateway = u.origin === 'https://openapi.alipay.com' && u.pathname === '/gateway.do';
-  const cashier = u.origin === 'https://excashier.alipay.com' && u.pathname === '/standard/auth.htm';
-  const assignment = u.origin === 'https://unitradeprod.alipay.com' && u.pathname === '/appAssign.htm';
-  const method = u.searchParams.get('method');
-  // Redirects may return to the gateway without repeating the original method.
-  // Keep the initiating request strict and validate every redirect endpoint.
-  if (u.username || u.password || !(gateway || cashier || assignment) || (initial && (!gateway || method !== 'alipay.trade.page.pay')) || (gateway && method && method !== 'alipay.trade.page.pay')) {
-    const host = u.hostname.replace(/[^a-z0-9.-]/gi, '').slice(0, 100);
-    const route = u.pathname.replace(/[^a-z0-9/_.-]/gi, '_').slice(0, 100);
-    throw Error('支付宝收银台' + (initial ? '入口' : '跳转') + '地址异常（域名：' + host + '；路径：' + route + '）');
-  }
-  return u.href;
-}
-function readCashier(value, redirects = 0) {
-  const url = cashierURL(value, redirects === 0);
-  return new Promise((resolve, reject) => {
-    const req = https.get(url, res => {
-      if ([301,302,303,307,308].includes(res.statusCode)) {
-        res.resume();
-        if (redirects >= 4) return reject(Error('支付宝跳转次数过多'));
-        try { resolve(readCashier(new URL(res.headers.location, url).href, redirects + 1)); } catch (e) { reject(e); }
-        return;
-      }
-      if (res.statusCode !== 200) { res.resume(); reject(Error('支付宝收银台 HTTP ' + res.statusCode)); return; }
-      const chunks = []; let size = 0;
-      res.on('data', chunk => { size += chunk.length; if (size > 2 * 1024 * 1024) req.destroy(Error('支付宝收银台内容过大')); else chunks.push(chunk); });
-      res.on('error', reject);
-      res.on('end', () => resolve({status:200, finalUrl:url, responseText:Buffer.concat(chunks).toString('utf8')}));
-    });
-    req.setTimeout(12000, () => req.destroy(Error('支付宝收银台读取超时')));
-    req.on('error', reject);
-  });
-}
-ipcMain.handle('sgs-toolbox:alipay:v1', (event, url) => {
-  if (!allowed(event)) throw Error('仅允许官方游戏主页面解析付款码');
-  return readCashier(url);
 });
