@@ -1,7 +1,7 @@
 // Let Laya resize its own canvas and input transform together. A CSS-only
 // canvas scale would leave native pointer coordinates out of sync.
-export function createGameViewport({ window: win, document: doc, scope }) {
-  let reserved = 0, stage, original, wrapper, descriptor, appliedWidth = 0, appliedHeight = 0;
+export function createGameViewport({ window: win, document: doc, scope, canReserve = () => true }) {
+  let requested = 0, reserved = 0, stage, original, wrapper, descriptor, appliedWidth = 0, appliedHeight = 0;
   let browser, widthDescriptor, widthGetter;
   const styles = new Map();
   function releaseBrowser() {
@@ -48,6 +48,7 @@ export function createGameViewport({ window: win, document: doc, scope }) {
     stage = original = wrapper = undefined;
   }
   function sync() {
+    reserved = requested && canReserve() ? requested : 0;
     const next = reserved ? win.Laya?.stage : undefined;
     const width = reserved ? Math.max(1, win.innerWidth - reserved) : 0;
     // Official stageResize recalculates SystemContext from Browser.clientWidth.
@@ -86,5 +87,5 @@ export function createGameViewport({ window: win, document: doc, scope }) {
   scope.listen(win, 'resize', sync);
   scope.interval(sync, 500); // The game runtime may arrive after the HUD.
   scope.add(() => { reserved = 0; restoreStyles(); releaseBrowser(); releaseStage(); });
-  return { reserve(width) { reserved = Math.max(0, Number(width) || 0); sync(); } };
+  return { reserve(width) { requested = Math.max(0, Number(width) || 0); sync(); } };
 }

@@ -298,7 +298,7 @@ export function createMapLabels(ctx) {
         : { placements: [], overflow: cards.map(card => ({ id: card.id, reason: '节点几何待就绪' })) };
       const attempts = [{ phase: next.ready ? 'nearby' : 'geometry-pending',
         overflow: result.overflow.map(row => ({ ...row })), diagnostics: result.diagnostics || null }];
-      const needsAlternatives = () => result.overflow.length ||
+      const needsAlternatives = () => result.overflow.length || result.diagnostics?.shopOverlapIds.length ||
         (result.diagnostics?.preferredAboveIds?.length || 0) < knownCards.length;
       const measureAlternatives = function* (targets) {
         let changed = false;
@@ -318,7 +318,8 @@ export function createMapLabels(ctx) {
       };
       if (next.ready && needsAlternatives()) {
         const above = new Set((result.diagnostics?.preferredAboveIds || []).map(key));
-        yield* measureAlternatives(knownCards.filter(card => !above.has(key(card.id))));
+        const shopOverlap = new Set((result.diagnostics?.shopOverlapIds || []).map(key));
+        yield* measureAlternatives(knownCards.filter(card => !above.has(key(card.id)) || shopOverlap.has(key(card.id))));
         const flexible = yield* solve(snapshot);
         attempts.push({ phase: 'measured-widths', overflow: flexible.overflow.map(row => ({ ...row })), diagnostics: flexible.diagnostics });
         if (comparePlacementResults(flexible, result) < 0) result = flexible;
@@ -403,7 +404,7 @@ export function createMapLabels(ctx) {
       }
       cancelWork(); waitForImages(next.pending);
       geometry = { ready: next.ready, controlsComplete: next.controlsComplete, viewport: next.viewport, nodes: next.nodes,
-        controls: next.controls, signature: next.signature, reason: next.reason || null, diagnostics: next.diagnostics || null };
+        controls: next.controls, shop: next.shop, signature: next.signature, reason: next.reason || null, diagnostics: next.diagnostics || null };
       lastSignature = ''; destroyLayer(); removeDrawer();
       if (!next.viewport) {
         lastLayout = null; previous = []; drawerRect = null; overflowIds = []; measuredCards = [];

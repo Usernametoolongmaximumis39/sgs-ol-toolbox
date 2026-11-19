@@ -16,10 +16,20 @@ test('portrait, landscape and square backgrounds preserve the entire image insid
 
 function fixture() {
   const scope = new ResourceScope(), data = new Map(), pending = [];
+  class Seat {
+    events = new Map();
+    on(name, caller, fn) { this.events.set(name, { caller, fn }); }
+    off(name, caller, fn) {
+      const handler = this.events.get(name);
+      if (handler?.caller === caller && handler.fn === fn) this.events.delete(name);
+    }
+    event(name, ...args) { const handler = this.events.get(name); handler?.fn.apply(handler.caller, args); }
+  }
+  const cards = new Map();
   const special = { visible: true, clicks: 0, click() { this.clicks++; } };
   let scene;
   const dispatcher = { _events: {} };
-  const makeScene = () => ({ currentWeatherWallPaper: 0, image: 'personal', special,
+  const makeScene = () => ({ currentWeatherWallPaper: 0, image: 'personal', special, SelfSeatUi: { seat: new Seat() },
     SetWallPaperById(id, url) { this.image = url || `personal-${id}`; },
     SetWallPaperByUrl(url) { this.image = url; },
     OnNormalWallPaperChange() { this.SetWallPaperById(7); },
@@ -28,14 +38,34 @@ function fixture() {
   scene = makeScene();
   const handler = { caller: scene, method: scene.SetWallPaperById };
   dispatcher._events.BACKGROUND_USEDID_GOT = handler;
-  const game = { getScene: () => scene, isInGame: () => Boolean(scene), getDispatcher: () => dispatcher };
+  const game = { getScene: () => scene, isInGame: () => Boolean(scene), getDispatcher: () => dispatcher,
+    getSelfSeatUI: () => scene.SelfSeatUi, getCardMeta: id => cards.get(id) };
   const effects = [];
-  class Sprite { constructor(){this.graphics={clear(){},drawTexture(){},drawRect(){}};} addChild(){} size(){} pos(){} scale(){} destroy(){this.destroyed=true;} }
+  class Sprite {
+    constructor() { this.children=[]; this.visible=true; this.graphics={clear(){},drawTexture(){},drawRect(){}}; }
+    addChild(child) { this.children.push(child); }
+    addChildAt(child, index) { this.children.splice(index, 0, child); }
+    getChildIndex(child) { return this.children.indexOf(child); }
+    size() {} pos() {} scale() {} destroy() { this.destroyed=true; }
+  }
   class Effect extends Sprite {
+    static SPINE_EFFECT_LOAD_COMPLETE = 'spine-ready';
+    AutoStart = true;
     constructor(){super();this.events={};this.plays=0;effects.push(this);}
-    on(event,caller,fn){this.events[event]={caller,fn};} once(...args){this.on(...args);} off(event){delete this.events[event];}
-    InitEffect(url,name,loop){Object.assign(this,{url,name,loop});} playEffect(){this.plays++;} stop(){this.stopped=true;}
-    event(event){const h=this.events[event];if(h)h.fn.call(h.caller,this);}
+    on(event,caller,fn){this.events[event]={caller,fn};}
+    once(event,caller,fn){this.events[event]={caller,fn,once:true};}
+    off(event){delete this.events[event];}
+    InitEffect(url,name,loop){Object.assign(this,{url,name,loop});}
+    playEffect(){this.plays++;this.stopped=false;if(this.templet)this.event('start');}
+    stop(){this.stopped=true;}
+    load(names = ['ChuChang', 'DaiJi']) {
+      if (this.AutoStart) this.event('start');
+      else {
+        this.templet = { skeletonData: { animations: names.map(name => ({ name })) } };
+        this.event(Effect.SPINE_EFFECT_LOAD_COMPLETE);
+      }
+    }
+    event(event){const h=this.events[event];if(h?.once)this.off(event);if(h)h.fn.call(h.caller,this);}
   }
   const layer={bgSprite:{},updateBgSize(){},bgLoadComplete(){},O(){},addChildAt(){},getChildIndex(){return 0;}};
   layer.SetBgLiveEffect=function(url){this.bgLiveEffect=new Effect();this.addChild(this.bgLiveEffect);this.bgLiveEffect.on('start',this,this.beforeLiveStart);this.bgLiveEffect.InitEffect(url,0,true);this.bgLiveEffect.playEffect();this.layoutBgLiveEffect();};
@@ -46,7 +76,7 @@ function fixture() {
     window: { SystemContext:{gameWidth:1200,gameHeight:850}, Laya: { stage, Sprite, Rectangle:class {}, Handler: { create: (_, fn) => fn }, loader: { load: (url, fn) => pending.push({ url, fn }) } } },
   });
   const release = registry.register('backgrounds');
-  return { scope, registry, release, handler, special, stage, layer, pending, effects, get scene() { return scene; },
+  return { scope, registry, release, handler, special, stage, layer, pending, effects, cards, Seat, get scene() { return scene; },
     select: (url = 'res/skin.png') => registry.select('backgrounds', { name: '皮肤', url }),
     finish: (index = pending.length - 1, ok = {}) => pending[index].fn(ok),
     next: () => { scene = makeScene(); registry.refresh(); },
@@ -75,6 +105,13 @@ test('dynamic capability and resource forms never read skin or dynamic ownership
   vo.canUpdateDynamic=()=>false;assert.equal(skinBackgroundSpec(owner).dynamic,null);
   vo.IsManyStateDyskin=true;assert.ok(skinBackgroundSpec(owner).dynamic);
   assert.equal(skinBackgroundSpec(owner,false).animated,false);
+  vo.ResType=3;
+  assert.equal(skinBackgroundSpec(owner).dynamic.attack,true);
+  vo.HasGongJi=false;
+  assert.equal(backgroundSpec(skinBackgroundSpec(owner)).dynamic.attack,false);
+  vo.HasGongJi=true; vo.IsChuChangOnlyDySkin=true;
+  assert.equal(skinBackgroundSpec(owner).dynamic.attack,false);
+  assert.equal(skinBackgroundSpec(owner,true,false).attackEffects,false);
 });
 
 test('dynamic metadata rejects invalid sizes, traversal, duplicate and excessive layers', () => {
@@ -88,15 +125,53 @@ test('dynamic lifecycle loads all layers, pauses for skills and cleans on toggle
     f.layer.bg={skin:'res/skin.png',size(){},posInteger(){},scale(){}};
     f.registry.select('backgrounds',{name:'皮肤',url:'res/skin.png',dynamic});f.finish(undefined,{width:1600,height:900});
     assert.equal(f.effects.length,3);assert.equal(f.layer.bgLiveEffect,undefined,'shared native effect remains untouched');
-    assert.deepEqual(f.effects.map(e=>[e.url,e.name,e.loop]),[['res/animate/skinEffectNew/123/beijing.json',0,true],['res/animate/skinEffectNew/123/daiji.json','DaiJi',true],['res/animate/skinEffectNew/123/qianjing.json','DaiJi',true]]);
+    assert.deepEqual(f.effects.map(e=>[e.url,e.name,e.loop]),[['res/animate/skinEffectNew/123/beijing.json','DaiJi',true],['res/animate/skinEffectNew/123/daiji.json','DaiJi',true],['res/animate/skinEffectNew/123/qianjing.json','DaiJi',true]]);
     assert.match(f.registry.status,/正在加载动态/);
-    for(const e of f.effects)e.event('start');f.registry.refresh();assert.equal(f.registry.status,'动态牌局背景已启用');
+    for(const e of f.effects)e.load();f.registry.refresh();assert.equal(f.registry.status,'动态牌局背景已启用');
     const counts=f.effects.map(e=>e.plays);f.registry.refresh();assert.deepEqual(f.effects.map(e=>e.plays),counts);
     f.scene.SetWallPaperByUrl('res/skill.png');assert.ok(f.effects.every(e=>e.stopped));
     f.registry.select('backgrounds',{...f.registry.current,animated:false});f.finish();assert.equal(f.scene.image,'res/skill.png','switching does not dismiss active skill');
     assert.ok(f.effects.every(e=>e.destroyed));assert.equal(f.registry.binding.motion,undefined);
     f.scene.onWallPaperChange();assert.equal(f.scene.image,'res/skin.png');f.release();assert.equal(f.scene.image,'personal-7');
   }finally{f.scope.dispose();}
+});
+
+test('modern backgrounds use the loaded stable clip and stay hidden when only entrance is available', () => {
+  for (const [clips, expected] of [
+    [['ChuChang', 'DaiJi'], 'DaiJi'],
+    [['ChuChang', 'play'], 'play'],
+    [['beijing'], 'beijing'],
+    [['ChuChang'], undefined],
+  ]) {
+    const f = fixture();
+    try {
+      f.layer.bg = { skin: 'res/skin.png', size() {}, posInteger() {}, scale() {} };
+      f.registry.select('backgrounds', { name: '皮肤', url: 'res/skin.png', dynamic });
+      f.finish();
+      const [background, role, foreground] = f.effects;
+      assert.equal(background.AutoStart, false);
+      f.scene.SetWallPaperByUrl('res/skill.png');
+      background.load(clips);
+      role.load();
+      foreground.load();
+      assert.equal(f.registry.status, '技能背景优先');
+      assert.ok(role.stopped && foreground.stopped);
+      const plays = background.plays;
+      if (expected) {
+        assert.equal(background.name, expected);
+        assert.equal(background.loop, true);
+        assert.ok(background.stopped);
+      } else {
+        assert.equal(background.visible, false);
+        assert.equal(plays, 1, 'only the load request ran');
+      }
+      f.scene.onWallPaperChange();
+      f.registry.refresh();
+      assert.equal(f.registry.status, '动态牌局背景已启用');
+      assert.equal(background.plays, plays + Number(Boolean(expected)));
+      if (expected) assert.equal(background.name, expected);
+    } finally { f.scope.dispose(); }
+  }
 });
 
 test('dynamic load failures keep static background and ignore late animation starts',()=>{
@@ -107,6 +182,103 @@ test('dynamic load failures keep static background and ignore late animation sta
     for(const e of f.effects)e.event('start');assert.match(f.registry.status,/失败/);assert.ok(f.effects.every(e=>e.destroyed));
     f.release();assert.equal(f.scene.image,'personal-7');
   }finally{f.scope.dispose();}
+});
+
+test('native self-seat card use triggers only background attack clips and restores idle layers', async () => {
+  const f = fixture();
+  try {
+    f.layer.bg={skin:'res/skin.png',size(){},posInteger(){},scale(){}};
+    f.cards.set(1, { firstSkillId: 1, name: '杀' });
+    f.cards.set(2, { name: '万箭齐发' });
+    f.cards.set(3, { firstSkillId: 7, name: '杀' });
+    f.registry.select('backgrounds', { name: '皮肤', url: 'res/skin.png', dynamic });
+    f.finish(undefined, { width: 1600, height: 900 });
+    const seat = f.scene.SelfSeatUi.seat;
+    seat.event('USE_CARD', 1, 1);
+    assert.equal(f.effects.length, 3, 'waits for the idle animation to load');
+    const idle = f.effects.slice();
+    for (const effect of idle) effect.load();
+    seat.event('USE_CARD', 1, 2);
+    seat.event('USE_CARD', 3, 1);
+    seat.event('USE_SKILL_CARD', 11112, 2);
+    new f.Seat().event('USE_CARD', 1, 1);
+    assert.equal(f.effects.length, 3);
+
+    seat.event('USE_CARD', 1, 1);
+    const [main, foreground] = f.effects.slice(3);
+    assert.deepEqual([main, foreground].map(e => [e.url.split('/').at(-1), e.name, e.loop]),
+      [['xingxiang.json', 'GongJi', false], ['qianjing.json', 'GongJi', false]]);
+    main.event('start'); foreground.event('start');
+    assert.deepEqual(idle.map(e => e.visible), [true, false, false]);
+    seat.event('USE_CARD', 2, 1);
+    assert.equal(f.effects.length, 5, 'overlapping attacks do not restart a clip');
+    foreground.event('PLAY_NAME_LOSE'); await Promise.resolve();
+    assert.equal(foreground.destroyed, true);
+    assert.deepEqual(idle.map(e => e.visible), [true, false, true]);
+    main.event('stopped'); await Promise.resolve();
+    assert.equal(main.destroyed, true);
+    assert.ok(idle.every(e => e.visible));
+
+    seat.event('USE_CARD', 2, 1);
+    const binding = f.registry.binding;
+    const second = f.effects.at(-1);
+    f.registry.setAttackEffects('backgrounds', false);
+    assert.equal(f.registry.binding, binding, 'toggling keeps the current idle players');
+    assert.equal(second.destroyed, true);
+    assert.equal(seat.events.size, 0);
+    assert.equal(f.registry.current.attackEffects, false);
+    second.event('start');
+    assert.ok(idle.every(e => e.visible));
+
+    f.registry.setAttackEffects('backgrounds', true);
+    seat.event('USE_SKILL_CARD', 11111, 1);
+    assert.equal(f.effects.length, 7);
+    f.scene.SetWallPaperByUrl('res/skill.png');
+    assert.equal(f.effects.at(-1).destroyed, true);
+    seat.event('USE_CARD', 1, 1);
+    assert.equal(f.effects.length, 7);
+    f.scene.onWallPaperChange();
+    f.scene.SelfSeatUi.seat = new f.Seat();
+    seat.event('USE_CARD', 1, 1);
+    assert.equal(f.effects.length, 7);
+    f.registry.refresh();
+    assert.equal(seat.events.size, 0);
+    f.scene.SelfSeatUi.seat.event('USE_SKILL_CARD', 9, 1);
+    assert.equal(f.effects.length, 8);
+    f.release();
+    assert.ok(f.effects.every(e => e.destroyed));
+    assert.equal(f.scene.SelfSeatUi.seat.events.size, 0);
+  } finally { f.scope.dispose(); }
+});
+
+test('current layer uses its clip size and bone factory without legacy globals or setters', () => {
+  const f = fixture();
+  try {
+    delete f.registry.window.SystemContext;
+    delete f.layer.O;
+    f.layer.Ci = f.layer.wt; delete f.layer.wt;
+    f.layer.scrollRect = { width: 1200, height: 850 };
+    const bounds = {};
+    f.layer.bg = {
+      skin: 'res/skin.png',
+      size(width, height) { Object.assign(bounds, { width, height }); },
+      scale(scale) { bounds.scale = scale; },
+      posInteger(x, y) { Object.assign(bounds, { x, y }); },
+    };
+    f.registry.select('backgrounds', { name: '皮肤', url: 'res/skin.png',
+      dynamic: { kind: 'bone', url: 'res/bone', width: 1600, height: 900 } });
+    f.finish(undefined, { width: 800, height: 1200 });
+    assert.equal(f.scene.image, 'res/skin.png');
+    assert.deepEqual(bounds, { width: 800, height: 1200, scale: 850 / 1200, x: (1200 - 800 * (850 / 1200)) / 2, y: 0 });
+    assert.equal(f.effects.length, 1);
+    f.effects[0].event('start'); f.registry.refresh();
+    assert.equal(f.registry.status, '动态牌局背景已启用');
+    f.layer.scrollRect = { width: 900, height: 600 };
+    f.layer.updateBgSize();
+    assert.deepEqual(bounds, { width: 800, height: 1200, scale: 0.5, x: 250, y: 0 });
+    f.release();
+    assert.equal(f.scene.image, 'personal-7');
+  } finally { f.scope.dispose(); }
 });
 
 test('weather begins/ends, direct skill URL yields until normal restoration, disabling during skill does not redraw', () => {

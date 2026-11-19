@@ -1,13 +1,15 @@
 import { createQuandaoDisplay } from './quandao.js';
 import { read, field } from '../../shared/info-runtime.js';
+import { SHANHE_BATTLE_SCENE } from '../../shared/shanhe-scenes.js';
 import { EXTRA_IDS, skillKind } from './strategies.js';
-import { createExtended, redShaOwnTurn } from './extended.js';
+import { createExtended, isShanhe, redShaOwnTurn } from './extended.js';
 
 // Static baseline: 小抄 1.6.75 uO/uE. Conditional judgement skills need 洛神 / 界洛神.
 export const SKILL_IDS = Object.freeze([62,769,726,3295,3310,792,3750,3753,295,250,784,445,49,716,101,3269,273,97,3260,102,891,484,3876,...EXTRA_IDS]);
 const isWuxie = ui => Number(ui?.Card?.FirstSkillId ?? ui?.Card?.FirstSkill?.ID) === 13;
 const QIANGZHI_IDS = [484,3876];
 const QIANFU_IDS = [3750,3753];
+const SKILL_REPEAT_MS = 510;
 export const CONDITIONAL_SKILL_IDS = Object.freeze([48,719,79,883]);
 export function supported(item) {
   const id = Number(item?.Skill?.SkillId);
@@ -19,8 +21,10 @@ const visible = node => {
   for (let p = node, i = 0; p && i < 32; p = p.parent, i++) if (p.visible === false || p.destroyed) return false;
   return true;
 };
-// Pt is the official SelfSeatUi field; buttonBar exists only in legacy hosts.
-const buttonBar = self => read(() => self.Pt) || read(() => self.buttonBar) || null;
+// The accessory fields change between client builds; the native accessor is stable.
+const buttonBar = self => read(() => self.getButtonBar()) ||
+  [read(() => self.Ai), read(() => self.Pt), read(() => self.buttonBar)]
+  .find(bar => Array.isArray(read(() => bar.btns))) || null;
 const enabled = node => visible(node) && node._enabled === true && node.disabled !== true;
 const list = value => Array.isArray(value) ? value.slice(0, 128) : [];
 // Sprite buttons register business handlers on their private dispatcher. The
@@ -34,7 +38,7 @@ function nativeClick(node, type = 'click') {
 
 export function createRuntime(ctx, getSettings, onChange = () => {}) {
   const quandao = createQuandaoDisplay();
-  let state = null, disposed = false, proxy = null, proxyCleanup = [], ended = false, currentSeat = null, phase = null, sourceCard = null, wuxie = null, judgementFlower = null;
+  let state = null, disposed = false, proxy = null, proxyCleanup = [], ended = false, currentSeat = null, sourceCard = null, wuxie = null, judgementFlower = null;
   const remembered = new Set(list(ctx.settings.get('rememberedSkillIds', [])).map(Number));
   let locks = new Set(remembered);
   const releases = [], tracked = fn => { const release = ctx.scope.add(fn); releases.push(release); return release; };
@@ -57,6 +61,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     if (remember) { locks.add(id); remembered.add(id); }
     else if (locks.has(id)) { locks.delete(id); remembered.delete(id); }
     else locks.add(id);
+    state.priorityAction = null;
     persist(); paint(); schedule(state); notify(); return true;
   }
   function getSkills() {
@@ -77,7 +82,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
   function later(fn, ms) { return ctx.scope.timeout(() => { if (!disposed) fn(); }, ms); }
   function schedule(s) {
     if (s.pending) return;
-    s.pending = true; later(() => { s.pending = false; if (alive(s)) run(s); }, 0);
+    s.pending = true; later(() => { s.pending = false; processActions(s); }, 0);
   }
   function bindSkill(s, item) {
     const events = (item.eventDispatcher || item)._events?.click;
@@ -167,7 +172,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     locks = new Set(remembered);
     notify();
   }
-  function resetRound() { currentSeat = null; phase = null; sourceCard = null; wuxie = null; judgementFlower = null; }
+  function resetRound() { currentSeat = null; sourceCard = null; wuxie = null; judgementFlower = null; }
   function bind(scene, self) {
     clear(); const s = state = {scene,self,seat:self.seat,bindings:new Map(),clean:[],bar:0,selector:0,submittedBar:-1,submittedSelector:-1,lastSkill:0,pending:false};
     const patch = (target,key,fn) => { if (typeof target?.[key] === 'function') s.clean.push(ctx.scope.patch(target,key,original => function(...args) { const result = original.apply(this,args); fn(); schedule(s); return result; })); };
@@ -191,8 +196,13 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
   }
   function button(s,name) {
     const bar = buttonBar(s.self), btn = list(bar?.btns).find(b => b.name === name);
-    if (!alive(s) || !visible(bar) || s.submittedBar === s.bar || !enabled(btn) || !['onMouse','onClick','event'].some(key => typeof btn[key] === 'function')) return false;
-    s.submittedBar = s.bar; return nativeClick(btn);
+    if (!alive(s) || !visible(bar) || s.submittedBar === s.bar || !enabled(btn)) return false;
+    const hasBarHandler = typeof bar.Button_Click === 'function';
+    if (!hasBarHandler && !['onMouse','onClick','event'].some(key => typeof btn[key] === 'function')) return false;
+    s.submittedBar = s.bar;
+    if (!hasBarHandler) return nativeClick(btn);
+    bar.Button_Click(btn);
+    return true;
   }
   function choice(s,predicate) {
     const selector = s.self.spellSelector;
@@ -211,7 +221,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     card.setSelected(true); return true;
   }
   function clickSkill(s,item) {
-    if (!alive(s) || !item.activated || item.Selected || !visible(item) || !getSettings().rapid && Date.now() - s.lastSkill < 510) return false;
+    if (!alive(s) || !item.activated || item.Selected || !visible(item) || !getSettings().rapid && Date.now() - s.lastSkill < SKILL_REPEAT_MS) return false;
     s.lastSkill = Date.now(); s.automatic = true;
     try { return nativeClick(item); }
     finally { s.automatic = false; }
@@ -326,10 +336,22 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     }
     return false;
   }
-  function run(s) {
-    if (!alive(s)) return;
-    const opt = getSettings(), self = s.self, context = self.cardContainer?.selectCardContext, gc = gameContext();
-    const message = String(context?.message || buttonBar(self)?.txtOptMsg?._innerHTML || '').replace(/<[^>]*>/g,'');
+  function processActions(s, priorityOnly = false) {
+    if (!alive(s)) return false;
+    const hand = s.self.cardContainer;
+    const context = hand?.selectCardContext ?? hand?.SelectContext;
+    const { bar, selector, priorityAction } = s;
+    if (priorityOnly && priorityAction && priorityAction.context === context && priorityAction.bar === bar &&
+        priorityAction.selector === selector && Date.now() < priorityAction.until) return true;
+    if (!run(s, context, priorityOnly)) return false;
+    // A skill can send an action before the client replaces the ordinary prompt.
+    s.priorityAction = { context, bar, selector, until: Date.now() + SKILL_REPEAT_MS };
+    return true;
+  }
+  function run(s, context, priorityOnly) {
+    const opt = getSettings(), self = s.self, gc = gameContext();
+    const barMessage = buttonBar(self)?.txtOptMsg?._innerHTML;
+    const message = String(context?.message || context?.Message || barMessage || '').replace(/<[^>]*>/g,'');
     const specify = Number(context?.SpecifySkillId), skill = Number(context?.Skill?.SkillId), selection = self.spellSelector?.visible ? Number(self.spellSelector.spell?.SkillId) : 0;
     // Both native versions share the draw response. Keep target/show-hand
     // selection manual, including when generic auto-confirm is enabled.
@@ -339,25 +361,34 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       const involved = [specify,skill,selection,Number(s.scene.seatContainer?.selectContext?.Skill?.SkillId)].some(id => QIANGZHI_IDS.includes(id) && locks.has(id));
       if (selector?.visible && QIANGZHI_IDS.includes(selection) && locks.has(selection)) {
         if (prompt === '是否摸一张牌') choice(s,d => !d.callBack && Number(d.sendData) === 1);
-        return;
+        return true;
       }
-      if (!selector?.visible && prompt === '是否发动强识，摸一张牌') { button(s,'btnOK'); return; }
-      if (involved || /强识/.test(prompt)) return;
+      if (!selector?.visible && prompt === '是否发动强识，摸一张牌') return button(s,'btnOK');
+      if (involved || /强识/.test(prompt)) return true;
     }
-    if (declineQianfuFollowup(s,context)) return;
-    if (opt.skillLock && locks.size && extended.run(s,context,message,sourceCard,currentSeat,gc)) return;
+    if (declineQianfuFollowup(s,context)) return true;
+    // The card context can outlive its prompt. These skills need the current bar text first.
+    if (opt.skillLock && locks.size && extended.run(s,context,barMessage || message,sourceCard,currentSeat,gc)) return true;
     if (opt.skillLock && locks.has(62) && Number(self.seat?.Hp) <= 0 && specify === 3 && Number(gc?.NextSpellTargets?.[0]) === Number(self.seat?.Index)) {
-      if (!self.spellSelector?.visible && chooseCard(s,c => [3,82].includes(Number(c.Card?.FirstSkillId)))) button(s,'btnOK'); return;
+      if (!self.spellSelector?.visible && chooseCard(s,c => [3,82].includes(Number(c.Card?.FirstSkillId)))) button(s,'btnOK');
+      return true;
     }
     if ([specify,skill,selection].includes(13)) {
-      const shanhe = Boolean(gc?.IsRoguelike1v1 || gc?.IsRogueLike || /Rogue/.test(String(s.scene.SceneName)));
-      if (opt.skipWuxie && (!shanhe || currentSeat === Number(self.seat.Index) && phase === 4 && wuxie?.seat === Number(self.seat.Index) && wuxie?.spell !== 13 && wuxie?.type === 2)) cancel(s);
+      if (!opt.skipWuxie) return;
+      const shanhe = isShanhe(s.scene, gc) || gc?.IsPveRoguelike || s.scene.name === SHANHE_BATTLE_SCENE;
+      if (!shanhe) return cancel(s);
+      const mine = Number(self.seat.Index), inquiry = wuxie;
+      const ownTurn = currentSeat === null ? read(() => self.seat.InOwnRound2) === true : currentSeat === mine;
+      if (ownTurn && inquiry && [mine, 250, 255].includes(inquiry.recipient) && cancel(s)) {
+        if (wuxie === inquiry) wuxie = null;
+        return true;
+      }
       return;
     }
     const asking = list(s.scene.seatContainer?.seatUIs).filter(x => x.seat?.IsAskingTao);
     const target = Number(gc?.NextSpellTargets?.[0] ?? (asking.length === 1 ? asking[0].seat.Index : NaN));
-    if (specify === 3 && opt.skipTao && Number.isInteger(target) && target >= 0 && target < 255 && target !== Number(self.seat?.Index)) { cancel(s); return; }
-    if (opt.skipAssist && list(buttonBar(self)?.btns).some(b => b.name === 'btnOK' && String(b.label).replace(/\s/g,'') === '助战')) { cancel(s); return; }
+    if (specify === 3 && opt.skipTao && Number.isInteger(target) && target >= 0 && target < 255 && target !== Number(self.seat?.Index)) return cancel(s);
+    if (opt.skipAssist && list(buttonBar(self)?.btns).some(b => b.name === 'btnOK' && String(b.label).replace(/\s/g,'') === '助战')) return cancel(s);
     if (opt.fireAttack && Number(self.seat?.LastAttackByTheSkill?.ID) === 83 && (message.includes('请选择一张卡牌用于展示') || message.includes('色的手牌，对'))) {
       if (read(() => self.seat.HasSkill(3744)) && message.includes('色的手牌，对')) {
         const convert = list(self.skillItems).find(x => Number(x.Skill?.SkillId) === 3744);
@@ -367,10 +398,10 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
           if (!chooseCard(s) && convert.Selected) { s.automatic = true; try { nativeClick(convert); } finally { s.automatic = false; } }
         }
       }
-      chooseCard(s); if (!button(s,'btnOK')) button(s,'btnCancel'); return;
+      chooseCard(s); if (!button(s,'btnOK')) button(s,'btnCancel'); return true;
     }
-    if (lockedAction(s,context,message,gc)) return;
-    if (!opt.autoConfirm || self.spellSelector?.visible || !message || /手气卡|更换手牌|替换现有的手牌|连环|业炎/.test(message)) return;
+    if (lockedAction(s,context,message,gc)) return true;
+    if (priorityOnly || !opt.autoConfirm || self.spellSelector?.visible || !message || /手气卡|更换手牌|替换现有的手牌|连环|业炎/.test(message)) return;
     const targets = s.scene.seatContainer?.selectContext;
     if (skill === 85 || Number(targets?.Skill?.SkillId) === 85 || Number(context?.SelectCountMax) > 1) return;
     const cards = list(self.cardContainer?.cardUis), seats = list(s.scene.seatContainer?.seatUIs);
@@ -383,50 +414,62 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
   function observe() {
     const next = read(() => ctx.game.getServerProxy()); if (next === proxy) return;
     proxyCleanup.forEach(fn => fn()); proxyCleanup = []; proxy = next;
+    resetRound();
     if (typeof proxy?.on !== 'function' || typeof proxy?.off !== 'function') return;
     const owner = {}, bind = (event,fn) => { proxy.on(event,owner,fn); const p = proxy; proxyCleanup.push(ctx.scope.add(() => p.off(event,owner,fn))); };
     bind('MsgGameOver',() => { ended = true; resetRound(); clear(); notify(); });
     bind('MsgGameRoundNtf',packet => { if (field(packet,'isPassed')) { ended = true; resetRound(); clear(); } });
     bind('ClientLeavetableRep',() => { ended = true; resetRound(); clear(); notify(); });
     bind('MsgGamePlayCardNtf',() => { if (ended) resetRound(); ended = false; });
-    bind('MsgGameTurnNtf',packet => { const id = Number(field(packet,'SeatID')); currentSeat = Number.isInteger(id) && id >= 0 && id < 255 ? id : null; });
+    bind('MsgGameTurnNtf',packet => {
+      const id = Number(field(packet,'SeatID'));
+      currentSeat = Number.isInteger(id) && id >= 0 && id < 255 ? id : null;
+      wuxie = null;
+    });
     bind('GsCGamephaseNtf',packet => {
-      const value = Number(field(packet,'Round')), seat = Number(field(packet,'SeatID'));
-      phase = Number.isFinite(value) ? value : null;
+      const seat = Number(field(packet,'SeatID'));
       if (Number.isInteger(seat) && seat >= 0 && seat < 255) currentSeat = seat;
       wuxie = null;
     });
+    bind('GsCTriggerSpellEnq',() => { wuxie = null; });
     bind('PubGsCUseCard',packet => {
+      wuxie = null;
       const id = Number(field(packet,'CardID')), meta = read(() => ctx.game.getCardMeta(id));
       const rawSpell=Number(field(packet,'spellID') ?? field(packet,'SpellID') ?? field(packet,'spellId'));
       // Native PubGsCUseCard uses lowercase spellID. A normal, unconverted
       // physical card may use zero; recover only an explicitly known Sha.
       const spell=rawSpell === 0 && (meta?.name === '杀' || meta?.cardClass === 'Sha') ? 1 : rawSpell;
-      sourceCard = {seat:Number(field(packet,'SeatID')),spell,type:Number(meta?.type),suit:Number(meta?.suit),
+      sourceCard = {seat:Number(field(packet,'SeatID')),spell,suit:Number(meta?.suit),
         castId:rawSpell,redMaterials:[1,2].includes(Number(meta?.suit)),mayBeSha:spell===1 || read(()=>field(packet,'Spell').IsThis(1))===true};
     });
     bind('PubGsCUseSpell',packet => {
+      wuxie = null;
       const ids=field(packet,'CardIDs');
       if (!Array.isArray(ids) || !ids.length || ids.length>128) return;
       const metas=ids.map(id=>read(()=>ctx.game.getCardMeta(Number(id))));
       const spell=Number(field(packet,'SpellID') ?? field(packet,'spellID'));
       const native=field(packet,'Spell');
-      sourceCard={seat:Number(field(packet,'SeatID')),spell,castId:spell,type:NaN,
+      sourceCard={seat:Number(field(packet,'SeatID')),spell,castId:spell,
         suit:metas.length===1 ? Number(metas[0]?.suit) : metas.every(m=>[1,2].includes(Number(m?.suit))) ? 1 : NaN,
         redMaterials:metas.every(m=>[1,2].includes(Number(m?.suit))),
         mayBeSha:spell===1 || read(()=>native.IsThis(1))===true};
     });
     bind('GsCTriggerSpellNew',packet => {
-      const trigger = field(packet,'FirstTriggerParam') || field(packet,'TriggerSpellData')?.[0];
-      const spell = Number(field(packet,'SrcSpellID')), seat = Number(trigger?.SeatId);
-      const triggers=[field(packet,'FirstTriggerParam'),...(field(packet,'TriggerSpellData') || [])].filter(Boolean);
+      const data = list(field(packet,'TriggerSpellData'));
+      const first = field(packet,'FirstTriggerParam');
+      const trigger = first || data[0];
+      const spell = Number(field(packet,'SrcSpellID'));
+      // The first parameter is the number of nullifications already played
+      // against this trick. Later asks can still name the original trick.
+      wuxie = Number(trigger?.SpellId) === 13 && trigger.Datas?.[0] === 0 && spell !== 13
+        ? {recipient:Number(field(packet,'TriggerSeatId'))} : null;
+      const triggers=[first,...data].filter(Boolean);
       // A native 龙吟 inquiry proves the resulting card is Sha. Bind that
       // proof to the source caster/skill and known red materials, rather than
       // maintaining a whitelist of conversion skills or calling a red 闪 Sha.
       if (sourceCard?.redMaterials && Number(field(packet,'SrcSpellCasterSeat'))===sourceCard.seat &&
         triggers.some(t=>[446,21003].includes(Number(t.SpellId))) &&
         (spell===sourceCard.castId || spell===1 && sourceCard.mayBeSha)) sourceCard.spell=1;
-      wuxie = Number(trigger?.SpellId) === 13 ? {spell,seat,type:sourceCard?.spell === spell && sourceCard?.seat === seat ? sourceCard.type : null} : null;
     });
     // Old journal zone 3 / owner 255 is the public judgement processing area.
     bind('PubGsCMoveCard',packet => {
@@ -438,15 +481,20 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     });
     bind('ClientLoginRep',() => { clear(); resetRound(); locks = new Set(remembered); ended = true; notify(); });
   }
+  function syncState() {
+    observe();
+    const scene = ctx.game.getScene(), self = scene?.SelfSeatUi;
+    if (state && (state.scene !== scene || state.self !== self || state.seat !== self?.seat)) { clear(); ended = false; resetRound(); }
+    if (!self?.seat || !self.cardContainer) { clear(); resetRound(); return; }
+    if (!state && !ended) bind(scene,self);
+    if (state) syncBar(state);
+    return self;
+  }
   function tick() {
     if (disposed || ctx.scope.signal.aborted) return;
     try {
-      observe();
-      const scene = ctx.game.getScene(), self = scene?.SelfSeatUi;
-      if (state && (state.scene !== scene || state.self !== self || state.seat !== self?.seat)) { clear(); ended = false; resetRound(); }
-      if (!self?.seat || !self.cardContainer) { clear(); resetRound(); return; }
-      if (!state && !ended) bind(scene,self);
-      if (state) syncBar(state);
+      const self = syncState();
+      if (!self) return;
       // Pause/temporary operation restrictions suspend execution, not this round's configuration.
       quandao.update(self, Boolean(getSettings().quandaoCount) && alive());
       if (!alive()) return;
@@ -460,6 +508,12 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     } catch (error) { clear(); ctx.reportError?.(error); }
   }
   function dispose() { if (disposed) return; disposed = true; clear(); proxyCleanup.forEach(fn => fn()); releases.splice(0).reverse().forEach(fn => fn()); }
-  tracked(dispose); const interval = setInterval(tick,160); tracked(() => clearInterval(interval)); tick();
+  tracked(dispose);
+  if (ctx.playActions) releases.push(ctx.playActions.registerPriority((scene, self) => {
+    syncState();
+    if (state?.scene !== scene || state?.self !== self) return false;
+    return processActions(state, true);
+  }));
+  const interval = setInterval(tick,160); tracked(() => clearInterval(interval)); tick();
   return {getSkills,toggle,tick,dispose};
 }

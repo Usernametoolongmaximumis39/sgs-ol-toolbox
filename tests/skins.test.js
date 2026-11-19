@@ -5,6 +5,7 @@ import skins from '../src/plugins/skins/index.js';
 import { readCatalogue, readInventory, collectSkins, summarizeSkins, filterSkins } from '../src/plugins/skins/model.js';
 import { createSkinCollection, resolveSkinRuntime } from '../src/plugins/skins/runtime.js';
 import { ResourceScope } from '../src/core/resources.js';
+import { createLocalSkins } from '../src/plugins/skins/local.js';
 
 const config = { root: { manu: { item: [
   { skinID: 10101, name: '千里单骑', skinlevel: '0,3' },
@@ -130,14 +131,102 @@ test('skin config failure is shown without stale totals and repeated refresh rec
   } finally { h.close(); }
 });
 
-test('skin plugin waits for native skin management without reading inventory or loading config', () => {
+test('skin tools panel has independent persisted switches and does not read inventory on mount', () => {
   const h = harness();
   try {
     skins.activate(h.ctx);
-    assert.deepEqual(skins.manifest.categories, []);
+    assert.deepEqual(skins.manifest.categories, ['tools']);
+    const switches = () => [...h.dom.window.document.querySelectorAll('[role=switch]')];
+    h.render();
+    assert.deepEqual(switches().map(input => input.checked), [true, true, true, false, false, false, false]);
+    switches()[1].click();
+    switches()[0].click();
+    assert.deepEqual(switches().slice(0, 3).map(input => [input.checked, input.disabled]), [[false, false], [false, true], [true, true]]);
+    h.unmount(); h.render();
+    switches()[0].click();
+    assert.deepEqual(switches().slice(0, 3).map(input => input.checked), [true, false, true]);
     assert.equal(h.source.loads, 0);
     assert.equal(h.source.reads, 0);
     h.scope.dispose();
+  } finally { h.close(); }
+});
+
+test('local skin selection and automatic animation are independent and preserve the native seat model', () => {
+  const h = harness(), calls = [];
+  function seatUI(index, isSelf) {
+    const General = { SkinId: 0, IsDynamic: false, DySkinType: 1, CardName: isSelf ? '张辽' : '曹操' };
+    return { seat: { Index: index, General, IsSelf: isSelf, IsFull: true, GeneralId: 101,
+      SetGeneralSkin() { assert.fail('seat model must be untouched'); } },
+    seatAvatar: { generalCard: General, skinItemID: 0, SetSkin(id) {
+      calls.push([index, id, this.generalCard.IsDynamic]);
+      this.generalCard.JueXingState = 2;
+      this.skinItemID = id;
+      this.skeleton = this.generalCard.IsDynamic ? {} : null;
+    } } };
+  }
+  const mine = seatUI(0, true), opponent = seatUI(1, false);
+  mine.seat.General.SkinId = mine.seatAvatar.skinItemID = 10101;
+  opponent.seat.General2Id = 102; opponent.seat.General2 = { CardName: '未亮武将' };
+  opponent.seat.IsFaceUp = index => index === 0;
+  const scene = {};
+  h.game.getSeatUIs = () => [mine, opponent];
+  h.game.getSelfSeatUI = () => mine;
+  h.game.getScene = () => scene;
+  h.game.isInGame = () => true;
+  h.source.skin.GetOnlineSKinList = () => [
+    { skinID: 10101, skinname: '已有皮肤', SeatAnimateUrl: 'res/owned.sk' },
+    { skinID: 10102, skinname: '未有皮肤', SeatAnimateUrl: 'res/unowned.sk' },
+  ];
+  try {
+    const local = createLocalSkins(h.ctx);
+    const [self, other] = local.refresh();
+    assert.equal(local.refresh().length, 2);
+    assert.deepEqual(local.options(self), []);
+    h.settings.set('unlockDynamic', true);
+    local.refresh(); local.refresh();
+    assert.deepEqual(calls, [[0, 10101, true]]);
+    assert.equal(h.source.reads, 0);
+    assert.equal(local.has(self), false);
+    assert.deepEqual(local.options(self), []);
+    assert.throws(() => local.select(self, 10102), /不可用/);
+    mine.seatAvatar.SetSkin(10101);
+    delete self.general.JueXingState;
+    local.refresh();
+    assert.deepEqual(calls.slice(-2), [[0, 10101, false], [0, 10101, true]]);
+    h.settings.set('unlockSkin', true);
+    assert.deepEqual(local.options(self).map(x => [x.id, x.owned]), [[0, true], [10101, true], [10102, false]]);
+    h.source.goods.selfBagFinished = false;
+    assert.equal(local.options(self)[2].owned, null);
+    h.source.goods.selfBagFinished = true;
+    assert.equal(local.select(self, 10102).owned, false);
+    assert.equal(self.avatar.skinItemID, 10102);
+    assert.ok(self.avatar.skeleton);
+    assert.equal(self.avatar.generalCard, self.general);
+    assert.equal(self.general.IsDynamic, false);
+    assert.equal(self.general.SkinId, 10101);
+    assert.equal(self.general.JueXingState, undefined);
+    assert.equal(other.avatar.skinItemID, 0);
+    h.settings.set('unlockDynamic', false); local.refresh();
+    assert.equal(self.avatar.skinItemID, 10102);
+    assert.equal(self.avatar.skeleton, null);
+    h.settings.set('unlockDynamic', true); local.refresh();
+    assert.ok(self.avatar.skeleton);
+    h.settings.set('unlockSkin', false); local.refresh();
+    assert.equal(self.avatar.skinItemID, 10101);
+    assert.ok(self.avatar.skeleton);
+    mine.seat.General.SkinId = 10102;
+    mine.seatAvatar.SetSkin(10102);
+    local.refresh();
+    assert.deepEqual(calls.slice(-2), [[0, 10102, false], [0, 10102, true]]);
+    assert.equal(self.general.IsDynamic, false);
+    h.settings.set('otherPlayers', true);
+    local.select(other, 10102);
+    assert.ok(other.avatar.skeleton);
+    other.general.SkinId = 10103; other.avatar.skinItemID = 10103;
+    h.scope.dispose();
+    assert.deepEqual(calls.slice(-2), [[1, 10102, true], [0, 10102, false]]);
+    assert.equal(self.avatar.skeleton, null);
+    assert.equal(other.avatar.skinItemID, 10103);
   } finally { h.close(); }
 });
 

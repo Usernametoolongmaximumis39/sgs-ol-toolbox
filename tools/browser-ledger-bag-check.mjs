@@ -29,14 +29,32 @@ try {
     owner.topSp = new L.Sprite(); owner.topSp.pos(31, 80); owner.addChild(owner.topSp);
     owner.pageCountTxt = text(owner, '', 365, 438, 80); owner.deleteBtn = { selected: false }; owner.tabGroup = { SelectedValue: 1 };
     owner.xNum = 9; owner.yNum = 4; owner.curPage = 1;
-    const rows = Array.from({ length: 87 }, (_, i) => ({ ID: i + 1, BaseID: 1000 + i, Count: i + 1, baseInfo: { name: i % 3 ? '普通道具' + i : '周年抵价券' + i, TypeID: i % 3 ? 1 : 98, usedeffect: 'GType-2;GRmb-1;UTime-1', sortindex: i, toneType: 0 } }));
+    const rows = Array.from({ length: 87 }, (_, i) => ({ ID: i + 1, BaseID: 1000 + i, Count: i === 78 ? 123456 : i % 6 === 0 ? 1 : i + 1, RemainingTime: i % 6 < 2 ? 172800 : 0, baseInfo: { name: i % 3 ? '普通道具' + i : '周年抵价券' + i, TypeID: i % 3 ? 1 : 98, usedeffect: 'GType-2;GRmb-1;UTime-1', sortindex: i, toneType: 0 } }));
     const bottom = new L.Sprite(); bottom.pos(31, 80); owner.addChildAt(bottom, 1);
+    const ribbonCanvas = document.createElement('canvas'); ribbonCanvas.width = 64; ribbonCanvas.height = 17;
+    const ribbonPaint = ribbonCanvas.getContext('2d');
+    ribbonPaint.fillStyle = '#963b2b'; ribbonPaint.beginPath(); ribbonPaint.moveTo(0, 0);
+    ribbonPaint.lineTo(59, 0); ribbonPaint.lineTo(64, 8); ribbonPaint.lineTo(59, 17); ribbonPaint.lineTo(0, 17); ribbonPaint.fill();
+    const ribbonBitmap = new L.Texture2D(64, 17); ribbonBitmap.loadImageSource(ribbonCanvas);
+    const ribbonTexture = new L.Texture(ribbonBitmap);
     owner.bags = Array.from({ length: 36 }, (_, i) => {
-      const art = new L.Sprite(), name = text(art, '', 1, 29, 69, 25, 10), count = text(art, '', 29, 49, 37, 17, 11);
+      const art = new L.Sprite(), name = text(art, '', 1, 25, 69, 20, 10);
+      const count = text(owner.topSp, '', 0, 0, 0, 16, 14); count.align = 'left';
+      const ribbon = new L.Sprite(); ribbon.name = 'remaining-time'; ribbon.texture = ribbonTexture;
+      const caption = text(ribbon, '剩余2天', 0, 2, 0, 13, 12); caption.align = 'left';
+      caption.font = 'SimSun'; owner.topSp.addChild(ribbon);
+      let countLeft = 0;
+      const offset = new L.Point(-3, -5);
       const slot = { _x: 16 + i % 9 * 81, _y: Math.floor(i / 9) * 87, width: 71, height: 70,
-        Move(x, y) { this._x = x; this._y = y; art.pos(x, y); },
+        leftTimeBg: ribbon, leftTimeTxt: caption, countTxt: count, itemPosDict: new Map([[ribbon.name, offset]]),
+        MoveItem(key, x, y) { this.itemPosDict.get(key).setTo(x, y); ribbon.pos(this._x + x, this._y + y); },
+        Move(x, y) { this._x = x; this._y = y; art.pos(x, y); ribbon.pos(x + offset.x, y + offset.y); count.pos(x + countLeft, y + 48); },
         updateItem(row) { this.data = row; this.id = row?.ID; this.baseData = row?.baseInfo; art.graphics.clear(); art.graphics.drawRect(0, 0, 71, 70, '#302a20', '#62523a', 1);
-          if (row) { art.graphics.drawRect(14, 18, 43, 28, row.baseInfo.TypeID === 98 ? '#96742f' : '#3d5659', '#a48b58', 1); name.text = row.baseInfo.TypeID === 98 ? '抵价券' : '道具'; count.text = '×' + row.Count; } else name.text = count.text = ''; },
+          ribbon.visible = Boolean(row?.RemainingTime);
+          caption.x = (ribbon.width - caption.textWidth) >> 1;
+          if (row) { art.graphics.drawRect(14, 16, 43, 34, row.baseInfo.TypeID === 98 ? '#96742f' : '#3d5659', '#a48b58', 1); name.text = row.baseInfo.TypeID === 98 ? '抵价券' : '道具'; count.text = 'x' + row.Count; } else name.text = count.text = '';
+          countLeft = Math.floor(this.width - 5 - count.textWidth); count.pos(this._x + countLeft, this._y + 48);
+        },
         get ID() { return this.id; }, get BaseData() { return this.baseData; }, initData() { this.updateItem(null); } };
       art.mouseEnabled = true; art.size(71, 70); bottom.addChild(art); slot.Move(slot._x, slot._y); return slot;
     });
@@ -57,15 +75,48 @@ try {
     fixture.runtime = BagCheck.createBagEnhancements(ctx);
   });
   const snapshot = () => page.evaluate(() => { const f = bagFixture, o = f.owner; return { page: o.curPage, pages: o.allPage, total: o.bagDatas.length, ids: o.bags.map(b => b.ID || null),
-    texts: o.topSp._children.filter(n => n.visible).map(n => n.text), status: o.getChildByName('sgs-toolbox-bag-search')?.getChildByName('bag-search-status')?.text }; });
+    texts: o.topSp._children.filter(n => n.visible && n.name === 'sgs-toolbox-coupon-amount').map(n => n.text), status: o.getChildByName('sgs-toolbox-bag-search')?.getChildByName('bag-search-status')?.text }; });
   const point = async name => page.evaluate(name => { const root = bagFixture.owner.getChildByName('sgs-toolbox-bag-search'), node = root.getChildByName(name), p = node.localToGlobal(new Laya.Point(node.width / 2, node.height / 2), true); return { x: p.x, y: p.y }; }, name);
   await page.waitForFunction(() => bagFixture.owner.topSp._children.some(n => n.visible && n.text === '7000-2000'));
+  const countdownLayout = () => page.evaluate(() => {
+    const { owner } = bagFixture;
+    return owner.bags.filter(slot => slot.leftTimeBg.visible).map(slot => {
+      const { leftTimeBg: ribbon, _x, _y } = slot;
+      return { x: ribbon.x - _x, y: ribbon.y - _y, width: ribbon.width,
+        captionCentered: slot.leftTimeTxt.x === (64 - slot.leftTimeTxt.textWidth >> 1) };
+    });
+  });
+  const badgeLayout = () => page.evaluate(() => {
+    const { owner } = bagFixture;
+    return owner.topSp._children.filter(node => node.visible && node.name === 'sgs-toolbox-coupon-amount').map(badge => {
+      const slot = owner.bags.find(({ _x, _y, width, height }) => badge.x >= _x && badge.x < _x + width && badge.y >= _y && badge.y < _y + height);
+      if (!slot) return null;
+      const { _x, _y, countTxt } = slot;
+      return { x: badge.x - _x, y: badge.y - _y, right: badge.x + badge.width - _x, bottom: badge.y + badge.height - _y,
+        countX: countTxt.x - _x, countY: countTxt.y - _y, count: countTxt.text, font: badge.fontSize,
+        readable: badge.width >= badge.textWidth, coupon: slot.BaseData?.TypeID === 98 };
+    });
+  });
+  const nativeCountdown = ({ x, y, width, captionCentered }) => x === -3 && y === -5 && width === 64 && captionCentered;
+  const fitsSlot = badge => badge && badge.x === 2 && badge.y > 30 && badge.right <= 69 && badge.bottom <= 68 &&
+    (badge.right < badge.countX || badge.bottom < badge.countY) && badge.font < 11 && badge.readable && badge.coupon;
+  const ribbons = await countdownLayout();
+  assert.ok(ribbons.length > 0 && ribbons.every(nativeCountdown));
+  const badges = await badgeLayout();
+  assert.equal(badges.length, 12);
+  assert.ok(badges.every(fitsSlot));
+  assert.ok(badges.some(badge => badge.count === 'x1' && badge.bottom === 68));
+  assert.ok(badges.some(badge => badge.count === 'x123456' && badge.bottom < badge.countY));
+  checks.push('原生倒计时留在原位；更小的满减角标贴左下角，数量过宽时在格内避让');
   await page.screenshot({ path: path.join(output, 'bag-dark.png') });
+  await page.screenshot({ path: path.join(output, 'coupon-badge-detail.png'), clip: { x: 250, y: 182, width: 257, height: 164 } });
   await page.keyboard.press('Control+f');
   assert.equal(await page.evaluate(() => bagFixture.owner.getChildByName('sgs-toolbox-bag-search').getChildByName('bag-search-input').focus), true);
   let p; await page.keyboard.type('抵价券'); await page.keyboard.press('Enter');
   assert.equal((await snapshot()).pages, 1); assert.equal((await snapshot()).total, 87); assert.equal((await snapshot()).ids.filter(Boolean).length, 29);
   assert.ok((await snapshot()).texts.every(t => t === '7000-2000')); checks.push('真实 Laya 输入/Enter 搜索，原生筛选分页与完整背包并存；抵价券角标');
+  assert.ok((await countdownLayout()).every(nativeCountdown));
+  assert.ok((await badgeLayout()).every(fitsSlot));
   await page.screenshot({ path: path.join(output, 'search-dark.png') });
   // Add 20 matching items through the existing native event identity.
   await page.evaluate(() => { const f = bagFixture, coupon = f.rows.find(r => r.baseInfo.TypeID === 98), rows = Array.from({ length: 20 }, (_, i) => ({ ...coupon, ID: 1000 + i, baseInfo: { ...coupon.baseInfo, sortindex: 1000 + i } })); f.gm._events.BAG_ADD_PROP[0].method.call(f.owner, rows); f.owner.onNextClick(); f.runtime.tick(); });
@@ -81,13 +132,17 @@ try {
   checks.push('零结果、Esc 清空、按钮清空、切分类及格子复用清除旧角标');
   await page.evaluate(() => { bagFixture.owner.updateRadioBtnData(bagFixture.rows); bagFixture.setTheme({ bg: '#f7f1e6', surface: '#eee5d4', raised: '#fffaf1', text: '#352b1c', muted: '#77684f', accent: '#886213', border: '#bdad8e', danger: '#b33328', scheme: 'light', motion: '0s' }); });
   await page.waitForTimeout(200); await page.screenshot({ path: path.join(output, 'bag-light.png') });
-  assert.equal(await page.evaluate(() => bagFixture.owner.topSp._children.find(n => n.visible).color), '#886213');
+  assert.equal(await page.evaluate(() => bagFixture.owner.topSp._children.find(n => n.visible && n.name === 'sgs-toolbox-coupon-amount').color), '#886213');
   await page.evaluate(() => { const f = bagFixture; f.owner.visible = false; f.runtime.tick(); });
   assert.equal(await page.evaluate(() => bagFixture.owner.showBags === bagFixture.original), true);
+  assert.ok((await countdownLayout()).every(nativeCountdown));
   await page.evaluate(() => { bagFixture.owner.visible = true; bagFixture.runtime.tick(); });
-  assert.equal(await page.evaluate(() => bagFixture.owner.topSp._children.length), 36);
+  assert.equal(await page.evaluate(() => bagFixture.owner.topSp._children.filter(n => n.name === 'sgs-toolbox-coupon-amount').length), 36);
+  assert.ok((await countdownLayout()).every(nativeCountdown));
+  assert.ok((await badgeLayout()).every(fitsSlot));
   await page.evaluate(() => { bagFixture.scope.dispose(); });
-  assert.deepEqual(await page.evaluate(() => { const f = bagFixture; return [f.owner.topSp._children.length, f.owner.showBags === f.original, f.gm._events.BAG_ADD_PROP[0].method === f.originalAdd, f.subscribers.size]; }), [0, true, true, 0]);
+  assert.deepEqual(await page.evaluate(() => { const f = bagFixture; return [f.owner.topSp._children.length, f.owner.showBags === f.original, f.gm._events.BAG_ADD_PROP[0].method === f.originalAdd, f.subscribers.size]; }), [72, true, true, 0]);
+  assert.ok((await countdownLayout()).every(nativeCountdown));
   checks.push('浅/深主题即时更新；关闭/重新打开与停用释放节点、监听和原生方法');
   assert.deepEqual(errors, []);
   await writeFile(path.join(output, 'report.json'), JSON.stringify({ checks, errors, clientPath, environment: 'Chrome headless + 本机真实 Laya 引擎，捕获客户端列表/分页/增删方法；合成物品与图像，非官服实局' }, null, 2));

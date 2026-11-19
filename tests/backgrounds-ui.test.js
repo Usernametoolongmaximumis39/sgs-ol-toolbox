@@ -31,7 +31,7 @@ test('background package requires enabled skins and preserves static preference 
   assert.equal(backgrounds.providers.size, 0);
   const skinsBundle = await bundlePlugin('skins'), skins = await makePluginPackage(skinsBundle);
   await manager.install(skins); await manager.disable('skins');
-  await assert.rejects(manager.install(pkg), /皮肤收集.*已停用/);
+  await assert.rejects(manager.install(pkg), /皮肤管理.*已停用/);
   assert.equal(manager.slots.get('skins').record.enabled, false);
   assert.equal(manager.slots.has('backgrounds'), false);
   await manager.enable('skins'); await manager.install(pkg);
@@ -42,10 +42,21 @@ test('background package requires enabled skins and preserves static preference 
   const mode = name => [...dom.window.document.querySelectorAll('button')].find(b => b.textContent === name);
   assert.equal(mode('动态').getAttribute('aria-pressed'), 'true');
   mode('静态').click();
+  backgrounds.select('backgrounds', { name: '皮肤', url: 'res/skin.png', animated: false,
+    dynamic: { kind: 'spine', url: 'res/skin-new', width: 640, height: 360, modern: true } });
+  const attack = () => dom.window.document.querySelector('.bg-attack input');
+  assert.equal(attack().checked, true);
+  assert.equal(attack().disabled, true);
+  mode('动态').click();
+  attack().click();
+  assert.equal(backgrounds.current.attackEffects, false);
+  mode('静态').click();
   const check = () => {
     assert.equal(manager.slots.get('backgrounds').active, true);
     assert.equal(manager.slots.get('skins').active, true);
     assert.equal(mode('静态').getAttribute('aria-pressed'), 'true');
+    assert.equal(attack().checked, false);
+    assert.equal(attack().disabled, true);
     assert.equal(backgrounds.providers.size, 1); assert.equal(backgrounds.listeners.size, 1);
     assert.equal(dom.window.document.querySelectorAll('.bg-skin-action').length, 1);
   };
@@ -57,7 +68,7 @@ test('background package requires enabled skins and preserves static preference 
   assert.equal(backgrounds.providers.size, 0); assert.equal(backgrounds.listeners.size, 0);
   assert.equal(dom.window.document.querySelectorAll('[data-sgs-backgrounds]').length, 0);
   await manager.disable('skins');
-  await assert.rejects(manager.enable('backgrounds'), /皮肤收集.*已停用/);
+  await assert.rejects(manager.enable('backgrounds'), /皮肤管理.*已停用/);
   assert.equal(backgrounds.providers.size, 0);
   assert.equal(manager.slots.get('skins').record.enabled, false);
   await manager.enable('skins');

@@ -1,4 +1,5 @@
 import { findSkinDetail, watchSkinDetail } from '../../shared/skin-detail.js';
+import { advancedSkinOption } from '../../shared/skin-options.js';
 
 export function createSkinDownload(ctx) {
   const doc = ctx.document, win = ctx.window;
@@ -13,6 +14,7 @@ export function createSkinDownload(ctx) {
   ctx.scope.add(() => observed?.dispose());
   function refresh() {
     try {
+      if (!advancedSkinOption(ctx.settings, 'quickDownload')) { root.hidden = true; return; }
       const laya = win.Laya ?? win.laya, next = findSkinDetail(laya?.stage);
       if (next !== owner) { observed?.dispose(); owner = next; observed = owner ? watchSkinDetail(ctx.scope, owner, () => { root.hidden = true; }) : null; }
       const img = owner?.skinImg, canvas = laya?.Render?.canvas || doc.querySelector('#layaCanvas') || doc.querySelector('canvas');
@@ -38,7 +40,7 @@ export function createSkinDownload(ctx) {
       const response = await win.fetch(url.href, { signal: ctx.scope.signal, credentials: 'omit' });
       if (!response.ok) throw Error('原画下载失败：HTTP ' + response.status);
       const blob = await response.blob();
-      if (ctx.scope.signal.aborted) return;
+      if (ctx.scope.signal.aborted || !advancedSkinOption(ctx.settings, 'quickDownload')) return;
       if (!blob.size || (blob.type && !blob.type.startsWith('image/'))) throw Error('官方路径未返回图片文件');
       const ext = /\.(png|jpe?g|webp|gif|avif)$/i.exec(url.pathname)?.[1] || ({'image/png':'png','image/webp':'webp','image/jpeg':'jpg'}[blob.type]) || 'jpg';
       const objectURL = win.URL.createObjectURL(blob), a = doc.createElement('a');
@@ -50,4 +52,5 @@ export function createSkinDownload(ctx) {
     finally { busy = false; button.disabled = false; }
   });
   ctx.scope.interval(refresh, 100); refresh();
+  return refresh;
 }

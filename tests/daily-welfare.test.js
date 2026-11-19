@@ -12,7 +12,7 @@ class Events {
   emit(name, ...args) { for (const { caller, fn } of [...(this.handlers.get(name) || [])]) fn.apply(caller, args); }
   get listenerCount() { return [...this.handlers.values()].reduce((sum, items) => sum + items.length, 0); }
 }
-export function createWelfareFixture() {
+export function createWelfareFixture(transportName = 'L') {
   const calls = [], proxy = new Events(), managers = {}, configs = {};
   const welfare = Object.assign(new Events(), {
     proxy, JbpUserData: { Status: 0, Count: 0, Level: 1 }, PrivilegeCardDatas: [],
@@ -29,7 +29,14 @@ export function createWelfareFixture() {
   managers.GameGoodsManager = { count: 0, GetGoodsNumByBaseID() { return this.count; } };
   managers.BlessManager = { FreeBlessItemEnough: true };
   managers.GameShopManager = Object.assign(new Events(), {
-    proxy: { L(msg) { calls.push(['tree-buy', msg]); managers.GameGoodsManager.count++; } },
+    proxy: {
+      [transportName](msg) {
+        if (this.useNewPB) msg = msg.OldProtocalToPb();
+        if (this.cacheStarted) return this.addProtocolToCacheList(msg, this.CACHE_TYPE_SEND);
+        this.send(msg);
+      },
+      send(msg) { calls.push(['tree-buy', msg]); managers.GameGoodsManager.count++; },
+    },
     GetBuyMsg(id, count, discount, type, price) {
       calls.push(['build', id, count, discount, type, price]);
       return { GoodsCount: 1, BuyType: 1, UsingType: 0, IsSelfBuy: true, GoodsList: [{ ItemID: id, ItemNum: count, Discount: discount, PriceYuanBao: price, PriceTongQian: 0 }] };
@@ -114,6 +121,27 @@ test('tree never sends a changed native message or alternate payment', () => {
     f.managers.GameShopManager.GetBuyMsg = function (...args) { const msg = original.apply(this, args); mutate(msg); return msg; };
     assert.equal(action(f, 'tree:item').send(), false);
     assert.equal(f.calls.some(call => call[0] === 'tree-buy'), false);
+  }
+});
+
+test('tree refuses a changed, unknown or ambiguous purchase transport', () => {
+  for (const change of [
+    shop => { shop.proxy = { L: shop.proxy.G }; },
+    shop => { shop.proxy.G = () => assert.fail('unknown sender'); },
+    shop => { shop.proxy.L = function L() {
+      return this.addProtocolToCacheList(this.OldProtocalToPb(), this.CACHE_TYPE_SEND);
+    }; },
+  ]) {
+    const f = createWelfareFixture('G'); f.welfare.JbpUserData.Status = 1;
+    const shop = f.managers.GameShopManager, build = shop.GetBuyMsg;
+    const item = action(f, 'tree:item'); assert.ok(item);
+    shop.GetBuyMsg = function (...args) {
+      const message = build.apply(this, args);
+      change(this);
+      return message;
+    };
+    assert.equal(item.send(), false);
+    assert.equal(f.managers.GameGoodsManager.count, 0);
   }
 });
 test('anonymous tree award refreshes once and does not claim success without matching state', async () => {
@@ -218,24 +246,35 @@ test('tree paid tool is always included, capped at 200, matches current tree pri
   assert.equal(paid(changed).send(), false); assert.equal(changed.calls.some(x => x[0] === 'tree-buy'), false);
 });
 
-test('tree start/tool/pickup pass unrelated exclusions and paid tool cannot repeat after claim or reload', async t => {
-  const f = createWelfareFixture(), scope = new ResourceScope(); t.after(() => scope.dispose());
+test('new client buys the tool and claims tree gold without opening the window, once per day', async t => {
+  const f = createWelfareFixture('G'), scope = new ResourceScope(); t.after(() => scope.dispose());
   f.welfare.JbpUserData.PeachList = [{ info: [{ goodId: 100011, goodCnt: 280 }] }];
   f.configs['ff_jubaopen.sgs'].root.award[0].needMoney = 200;
   f.configs['sys_gs_dbs_fs_goodsbaseinfo.sgs'].root.goodslist.goods[0].yb = 200;
-  f.adapter.self = () => ({ TotalYuanBao: 500 }); f.adapter.goods = id => id === 100011 ? { name: '元宝' } : null;
-  const original = f.welfare.ReqJbpAwd; f.welfare.ReqJbpAwd = function (id) { original.call(this, id); this.JbpUserData.Status = 0; };
+  let balance = 200;
+  f.adapter.self = () => ({ TotalYuanBao: balance }); f.adapter.goods = id => id === 100011 ? { name: '元宝' } : null;
+  const transport = f.managers.GameShopManager.proxy, send = transport.send;
+  transport.L = () => assert.fail('unrelated client method');
+  transport.send = message => {
+    send(message);
+    balance -= message.GoodsList[0].PriceYuanBao;
+  };
+  const original = f.welfare.ReqJbpAwd;
+  f.welfare.ReqJbpAwd = function (id) { original.call(this, id); this.JbpUserData.Status = 0; balance += 280; };
   const map = new Map(), settings = { get: (k, d) => map.get(k) ?? d, set: (k, v) => map.set(k, structuredClone(v)) };
   const controller = createRewardsController({ adapter: f.adapter, settings, scope, timeout: 40, poll: 1 });
   controller.options({ automatic: true, sign: false, tasks: false, mail: false, activities: false, codes: false, welfare: true, excludeCoupon: true, excludeTrial: true });
   await controller.run();
-  assert.equal(f.calls.filter(x => x === 'tree-start').length, 1);
-  assert.equal(f.calls.filter(x => x[0] === 'tree-buy').length, 1);
-  assert.equal(f.calls.filter(x => x[0] === 'tree-claim').length, 1);
+  assert.deepEqual(f.calls.filter(x => x === 'tree-start' || ['tree-buy', 'tree-claim'].includes(x[0]))
+    .map(x => Array.isArray(x) ? x[0] : x), ['tree-start', 'tree-buy', 'tree-claim']);
+  assert.equal(balance, 280);
   await controller.run(); scope.dispose();
   const scope2 = new ResourceScope(); t.after(() => scope2.dispose());
   const reloaded = createRewardsController({ adapter: f.adapter, settings, scope: scope2, timeout: 40, poll: 1 });
-  await reloaded.run(); assert.equal(f.calls.filter(x => x[0] === 'tree-buy').length, 1);
+  await reloaded.run();
+  assert.equal(f.calls.filter(x => x === 'tree-start').length, 1);
+  assert.equal(f.calls.filter(x => x[0] === 'tree-buy').length, 1);
+  assert.equal(f.calls.filter(x => x[0] === 'tree-claim').length, 1);
 });
 
 test('tree skips locked or sub-200 accounts before cutting; pickup continues after its tool used the balance', () => {

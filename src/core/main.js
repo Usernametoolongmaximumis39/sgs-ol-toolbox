@@ -1,4 +1,3 @@
-import { installAlipayCashierBridge, resolveAlipayCashier } from '../shared/alipay-cashier.js';
 import { installRefreshReentry } from './refresh-reentry.js';
 import { installTouchPreview } from './touch-preview.js';
 import { DEVELOPMENT, EDITION, MICROCLIENT } from './distribution.js';
@@ -8,7 +7,7 @@ import { startOwnedRuntime } from './runtime-owner.js';
 import { Settings, PackageStore } from './storage.js';
 import { SessionJournal, installMessageBridge } from './session.js';
 import { CardStyleRegistry } from './card-styles.js';
-import { REPLACED_BACKGROUND_PACKAGES } from './version.js';
+import { REPLACED_BACKGROUND_PACKAGES, REPLACED_SHANHETU_BETA_PACKAGES } from './version.js';
 import { BackgroundRegistry } from './backgrounds.js';
 import { ThemeRegistry } from './themes.js';
 import { PluginManager } from './plugins.js';
@@ -20,6 +19,7 @@ import { createCardDiagnostics } from './diagnostics.js';
 import { createShell } from '../ui/shell.js';
 import { createScreenshotController } from './screenshot.js';
 import { gameViewForScene } from './game-view.js';
+import { account } from '../shared/info-runtime.js';
 import { CORE_VERSION, REPLACED_CARD_PACKAGES, REPLACED_REWARD_PACKAGES, REPLACED_EFFECT_PACKAGES, REPLACED_SKIN_PACKAGES, REPLACED_SHANHETU_PACKAGES, REPLACED_THEME_PACKAGES, REPLACED_BAISHENG_PACKAGES, REPLACED_APPEARANCE_PACKAGES } from './version.js';
 
 export function boot(win = window) {
@@ -30,14 +30,17 @@ async function initialize(win, api) {
   const scope = api.scope;
   if (!MICROCLIENT) installTouchPreview(win, scope);
   if (MICROCLIENT) installMicroCompatibility(win, scope);
-  const onlyPlugin = DEVELOPMENT && ['daily-rewards', 'effects', 'skins', 'wish-progress', 'shanhetu', 'themes', 'baisheng', 'appearances', 'seckill', 'gaizhu', 'ledger', 'recharge'].includes(win.__SGS_TOOLBOX_DEMO__?.onlyPlugin)
+  const onlyPlugin = DEVELOPMENT && ['daily-rewards', 'effects', 'skins', 'wish-progress', 'shanhetu', 'themes', 'baisheng', 'appearances', 'seckill', 'gaizhu', 'ledger'].includes(win.__SGS_TOOLBOX_DEMO__?.onlyPlugin)
     && win.location?.hostname === '127.0.0.1' ? win.__SGS_TOOLBOX_DEMO__.onlyPlugin : null;
   const settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : 'sgstoolbox:'), journal = new SessionJournal();
   const diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
   Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
-  const shell = createShell({ window: win, document: win.document, settings, scope });
-  const themes = new ThemeRegistry(settings, tokens => shell.applyTheme(tokens));
   const game = createGameAdapter(win, scope);
+  const shell = createShell({ window: win, document: win.document, settings, scope,
+    getFeedbackAccount: () => account({ game }),
+    canReserveGameViewport: () => MICROCLIENT || Boolean(DEVELOPMENT && win.__SGS_TOOLBOX_DEMO__) || game.canReserveViewport(),
+  });
+  const themes = new ThemeRegistry(settings, tokens => shell.applyTheme(tokens));
   const cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope });
   const backgrounds = new BackgroundRegistry({ window: win, game, settings, scope });
   scope.add(game.onSceneChange(scene => shell.setGameView(gameViewForScene(scene))));
@@ -56,12 +59,11 @@ async function initialize(win, api) {
   void marketConnection.start();
   const manager = new PluginManager({ journal, store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : 'sgs-ol-toolbox'), settings,
     context: { core: Object.freeze({ version: CORE_VERSION, distribution: EDITION, platform: MICROCLIENT ? 'microclient' : 'browser' }), window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds,
-      payments: Object.freeze({ resolveAlipayCashier: (url, signal) => resolveAlipayCashier(win, url, signal, !MICROCLIENT && typeof GM_xmlhttpRequest === 'function' ? GM_xmlhttpRequest : null) }),
       notify: shell.notify }, onChange: () => shell.render() });
   scope.add(() => manager.dispose());
   const replacements = { cards: REPLACED_CARD_PACKAGES, backgrounds: REPLACED_BACKGROUND_PACKAGES,
     'daily-rewards': REPLACED_REWARD_PACKAGES, effects: REPLACED_EFFECT_PACKAGES, skins: REPLACED_SKIN_PACKAGES,
-    shanhetu: REPLACED_SHANHETU_PACKAGES, themes: REPLACED_THEME_PACKAGES,
+    shanhetu: REPLACED_SHANHETU_PACKAGES, 'shanhetu-beta': REPLACED_SHANHETU_BETA_PACKAGES, themes: REPLACED_THEME_PACKAGES,
     baisheng: REPLACED_BAISHENG_PACKAGES, appearances: REPLACED_APPEARANCE_PACKAGES };
   for (const pkg of bundledPackages) if (!onlyPlugin || pkg.manifest.id === onlyPlugin || (onlyPlugin === 'gaizhu' && pkg.manifest.id === 'baisheng')) {
     await manager.registerBundled(pkg, replacements[pkg.manifest.id] || []);
@@ -97,5 +99,4 @@ async function initialize(win, api) {
   if (manager.errors.length) shell.notify(manager.errors.join('；'));
   return api;
 }
-const pageWindow = !MICROCLIENT && typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-if (!installAlipayCashierBridge(pageWindow)) boot(pageWindow).catch(error => { console.error('[三国杀OL工具箱]', error); });
+boot(window).catch(error => { console.error('[三国杀OL工具箱]', error); });

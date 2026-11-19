@@ -79,12 +79,12 @@ test('old pending mails already reported received by the native model settle wit
   const f = fixture(t, { read: 1 }); f.mail.Geted = true;
   f.storage.set('account:41:attempts', { day: '2026-11-14', items: { 'mail:1011': { status: 'unconfirmed', at: 10 } } });
   await f.controller.run(); assert.deepEqual(f.trace, []);
-  assert.equal(f.storage.get('account:41:attempts').items['mail:1011'].status, 'confirmed'); assert.doesNotMatch(f.controller.snapshot().status, /暂未确认领取/);
+  assert.equal(f.storage.get('account:41:attempts').items['mail:1011'].status, 'confirmed'); assert.doesNotMatch(f.controller.snapshot().status, /待核对/);
 });
 test('keyless gift legacy intent cannot be repaired by inventing a new redemption', async t => {
   const f = fixture(t, { type: 1, read: 1, token: '' });
   f.storage.set('account:41:attempts', { day: '2026-11-14', items: { 'mail:1011': { status: 'unconfirmed', at: 10 } } });
-  await f.controller.run(); assert.deepEqual(f.trace, []); assert.match(f.controller.snapshot().status, /暂未确认领取/);
+  await f.controller.run(); assert.deepEqual(f.trace, []); assert.match(f.controller.snapshot().status, /待核对（未重发）/);
 });
 test('one uncertain ReadMail blocks other reads from overwriting the native global readMailID', async t => {
   const f = fixture(t); f.manager.systemMailList.push({ ...f.mail, mid: '1012' });

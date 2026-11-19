@@ -24,6 +24,29 @@ test('dynamic limits retain previously counted one-use and zero-use states', () 
   assert.equal(skillCount(skill({ SkillId: 0xe62, Seat: { InDealRound: true, GetSkillBuffInfo: () => [4] } })).remaining, 3);
   assert.equal(skillCount(skill({ SkillId: 0x3d9, TimelimitRound: 2, GetSkillUseCountInRound: () => 0, Seat: { InDealRound: true, GetStateValue: () => 0 } })).remaining, null);
 });
+test('RenChe displays the native play-phase limit from the first use, even at one', () => {
+  let limit = 1, used = 0;
+  const renChe = { ...skill({ SkillId: 4009, SpecialModeDesc: '出牌阶段限X次，你可弃置X张牌。' }),
+    get TimelimitRound() { return limit; }, GetSkillUseCountInRound: () => used };
+  const seen = new Set();
+  const read = () => skillCount(renChe, seen);
+  assert.equal(read().remaining, 1);
+  used = 1;
+  assert.equal(read().remaining, 0);
+  limit = 3;
+  assert.equal(read().remaining, 2);
+  used = 2;
+  limit = 1;
+  assert.equal(read().remaining, 0);
+  assert.equal(skillCount(renChe).remaining, 0);
+  limit = undefined;
+  assert.equal(read().remaining, null);
+  limit = 2;
+  used = undefined;
+  assert.equal(read().remaining, null);
+  renChe.Seat.InDealRound = false;
+  assert.equal(read(), null);
+});
 test('special counters reject partial histories, deduplicate and reset on turn/reconnect', () => {
   let state = initialState(), seq = 0;
   const send = (type, payload) => state = reduce(state, { type, payload, seq: ++seq, sessionId: 's' });

@@ -1,5 +1,6 @@
 import { acquirePluginStyles, mountPluginUI } from '../ui/plugin-ui.js';
 import { ResourceScope } from './resources.js';
+import { advancedSkinOption } from '../shared/skin-options.js';
 import { compilePackage, verifyPackage, validateManifest } from './packages.js';
 import { createNativeTheme } from '../ui/native-theme.js';
 import { normalizePanel, comparePluginOrder } from './plugin-contract.js';
@@ -8,6 +9,7 @@ export class PluginManager {
   constructor({ journal, store, settings, context, onChange = () => {} }) {
     Object.assign(this, { journal, store, settings, context, onChange });
     this.builtins = new Map(); this.slots = new Map(); this.tail = Promise.resolve(); this.errors = []; this.closed = false;
+    this.priorityPlayActions = new Set();
     this.unsubscribe = journal.subscribe(event => {
       let changed = false;
       for (const slot of this.slots.values()) {
@@ -95,6 +97,22 @@ export class PluginManager {
     const id = slot.module.manifest.id;
     const ctx = { ...this.context, scope, settings: this.settings.namespace(id), storage: this.settings.namespace(id), getState: () => slot.state,
       subscribe: fn => { slot.listeners.add(fn); const off = () => slot.listeners.delete(fn); scope.add(off); return off; },
+      playActions: {
+        registerPriority: fn => {
+          const action = (scene, self) => {
+            if (scope.closed) return false;
+            try { return fn(scene, self) === true; }
+            catch (error) { ctx.reportError(error); return true; }
+          };
+          this.priorityPlayActions.add(action);
+          return scope.add(() => this.priorityPlayActions.delete(action));
+        },
+        runPriority: (scene, self) => {
+          if (scope.closed) return false;
+          for (const action of this.priorityPlayActions) if (action(scene, self)) return true;
+          return false;
+        },
+      },
       reportError: value => { if (scope.closed) return; const message = value == null ? '' : String(value?.stack || value); slot.reportedError = message;
         if (message) { if (slot.active) this.runtimeError(slot, value); return; }
         if (slot.error) { slot.error = ''; this.onChange(); } },
@@ -105,16 +123,19 @@ export class PluginManager {
           return items => { if (!scope.closed) this.context.ui.setCompactSummary?.(id, items); };
         },
         registerPanel: spec => { if (scope.closed) return () => {}; const panel = normalizePanel(spec, slot.module.manifest), render = panel.render;
-          panel.render = container => {
+          panel.render = (container, options) => {
             const root = container.getRootNode?.(), release = root?.host ? acquirePluginStyles(root, this.context.document) : () => {};
-            try { const cleanup = render(container); return () => { try { cleanup?.(); } finally { release(); } }; }
+            try { const cleanup = render(container, options); return () => { try { cleanup?.(); } finally { release(); } }; }
             catch (error) { release(); throw error; }
           };
           return scope.add(this.context.ui.registerPanel(panel)); } },
       backgrounds: {
         isInstalled: () => !scope.closed && this.slots.has('backgrounds'),
+        skinShortcutEnabled: () => !scope.closed && advancedSkinOption(this.settings.namespace('skins'), 'backgroundShortcut'),
         register: () => scope.closed ? () => {} : scope.add(this.context.backgrounds.register(id)),
         select: spec => { if (!scope.closed) this.context.backgrounds.select(id, spec); },
+        setAttackEffects: enabled => { if (!scope.closed) this.context.backgrounds.setAttackEffects(id, enabled); },
+        selectLocal: file => { if (!scope.closed) return this.context.backgrounds.selectLocal(id, file); },
         subscribe: fn => scope.closed ? () => {} : scope.add(this.context.backgrounds.subscribe(fn)),
         get current() { return thisContext.backgrounds.current; },
         get status() { return thisContext.backgrounds.status; },

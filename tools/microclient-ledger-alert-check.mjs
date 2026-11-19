@@ -21,7 +21,7 @@ export function run() {
  let alerts=['元宝较上次在线减少 2000，上次 205199 → 本次 203199，已达到阈值 2000，请立即检查账号与物品使用情况。'];
  const ctx={window,document,scope,ui:{},themes:{current:BLACK_GOLD,subscribe:()=>()=>{}}};
  Object.assign(ctx.ui,mountPluginUI(ctx,()=>ctx));
- const controller={view:()=>({alerts}),subscribe:fn=>{listeners.add(fn);return()=>listeners.delete(fn)},dismissAlerts(){alerts=[];for(const fn of listeners)fn()}};
+ const controller={getAlerts:()=>alerts,subscribe:fn=>{listeners.add(fn);return()=>listeners.delete(fn)},dismissAlerts(){alerts=[];for(const fn of listeners)fn()}};
  renderAlerts(ctx,controller);return {scope};
 }` }, bundle: true, write: false, format: 'iife', globalName: 'Check', target: 'chrome85' });
 await writeFile(resolve(out, 'bundle.js'), bundle.outputFiles[0].text);

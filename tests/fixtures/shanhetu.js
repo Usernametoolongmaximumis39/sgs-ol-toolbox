@@ -29,6 +29,20 @@ export function fixtureData() {
     gameData: { money: 980, passChapter: [], itemId: [2091, 2100], myGeneral: { uGeneralId: 27, uMaxHp: 5, uInitHp: 4, uInitCardNum: 5, uDrawNum: 3, uArmor: 0, uExUseShaNum: 0 }, seedData: { seedItem: [] }, maxDamage: 6, accDamage: 18 },
     shopData: { id: 1, bShow: false, itemId: [2100, 3001, 4001, 2101], itemType: [2, 3, 4, 2], boughtIdx: 0, exCurMoney: 0, spellMoney: { exCurMoney: 0 }, cardMoney: { exCurMoney: 0 } } };
 }
+export function fixtureDesperateScore() {
+  const Tactics = [
+    [2162, 300], [2138, 200], [2129, 200], [2314, 700], [2143, 500], [2104, 300],
+    [2360, 200], [2022, 200], [2315, 500], [2317, 300],
+  ].map(([plot, money]) => ({ plot, money }));
+  const Spell = [{ id: 3001, spellid: 985, money: 300 }, { id: 3343, spellid: 3534, money: 300 }];
+  const EXDifficultySelection = [101, 111, 121].map(difID => ({ seasonID: '5', difID, sdif: 6, sdifname: '绝境1' }));
+  return { Tactics, Spell, EXDifficultySelection, samples: [
+    { items: [2162, 2138, 2129, 2314, 2143, 2104, 3001], battle: 0, itemScore: 2500 },
+    { items: [2162, 2360, 2022, 2314, 2315, 2317], battle: 0, itemScore: 2200 },
+    { items: undefined, battle: 0, itemScore: 0 },
+    { items: [2162, 2138, 2022, 2314, 2143, 2104, 3343], battle: 324, itemScore: 2500 },
+  ] };
+}
 export class Emitter {
   constructor() { this._events = {}; }
   on(type, caller, method) { (this._events[type] ||= []).push({ caller, method }); }

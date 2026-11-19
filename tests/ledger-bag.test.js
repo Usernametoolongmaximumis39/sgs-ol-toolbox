@@ -19,7 +19,7 @@ class Node {
 function fixture(rows = Array.from({ length: 7 }, (_, i) => goods(i + 1, i % 2 ? '普通道具' : '抵价券', i % 2 === 0))) {
   const scope = new ResourceScope(), stage = new Node(), owner = new Node(), themes = new Set(); stage.addChild(owner);
   owner.bagDatas = rows; owner.curPage = 1; owner.xNum = 2; owner.yNum = 1; owner.topSp = new Node(); owner.addChild(owner.topSp);
-  owner.bags = Array.from({ length: 2 }, (_, i) => ({ width: 71, _x: i * 81, _y: 0, updateItem(row) { this.data = row; this.baseData = row?.baseInfo; this.id = row?.ID; }, Move(x, y) { this._x = x; this._y = y; } }));
+  owner.bags = Array.from({ length: 2 }, (_, i) => ({ width: 71, height: 70, _x: i * 81, _y: 0, updateItem(row) { this.data = row; this.baseData = row?.baseInfo; this.id = row?.ID; }, Move(x, y) { this._x = x; this._y = y; } }));
   owner.updatePageIdx = function () { this.allPage = Math.max(1, Math.ceil(this.bagDatas.length / 2)); this.curPage = Math.min(this.allPage, Math.max(1, this.curPage)); };
   owner.showBags = function (rows) { this.bagDatas = rows || []; this.bagDatas.sort((a, b) => b.baseInfo.sortindex - a.baseInfo.sortindex); this.bags.forEach((slot, i) => slot.updateItem(this.bagDatas[(this.curPage - 1) * 2 + i])); };
   owner.updateRadioBtnData = function (rows) { this.curPage = 1; this.showBags(rows); this.updatePageIdx(); };
@@ -45,6 +45,21 @@ test('name search trims whitespace and ignores Latin case, including ItemName', 
   const rows = [goods(1, 'ABC道具'), { baseInfo: { ItemName: '周年抵价券' } }, {}];
   assert.deepEqual(filterBag(rows, ' aBc '), [rows[0]]); assert.deepEqual(filterBag(rows, '抵价券'), [rows[1]]); assert.equal(filterBag(rows, ''), rows);
 });
+test('bag discovery ignores scene transitions and hidden branches while looking for profile tabs', () => {
+  const { stage, owner, scope } = fixture();
+  const scene = { layerOrder: 2, get _children() { assert.fail('Scanned the game scene'); } };
+  const hidden = { visible: false, get _children() { assert.fail('Scanned a hidden window'); } };
+  const windows = new Node(), profile = new Node();
+  windows.layerOrder = 4;
+  stage._children.length = 0;
+  stage.addChild(scene);
+  stage.addChild(hidden);
+  stage.addChild(windows);
+  windows.addChild(profile);
+  profile.addChild(owner);
+  assert.deepEqual(findBagViews(stage), [owner]);
+  scope.dispose();
+});
 test('search paginates filtered slots while retaining the complete native inventory', () => {
   const f = fixture(); const original = f.owner.showBags; const e = enhanceBagView(f.ctx, f.owner, () => config);
   e.input.text = '抵价券'; e.input.event('input');
@@ -68,8 +83,15 @@ test('native manager event identities, additions, deletions and category changes
 test('reused slots remove coupon text, follow movement and leave native mouse targets intact', () => {
   const f = fixture(), e = enhanceBagView(f.ctx, f.owner, () => config), slot = f.owner.bags[0], badge = f.owner.topSp._children[0];
   assert.equal(badge.text, '7000-2000'); assert.equal(badge.mouseEnabled, false);
-  slot.Move(110, 40); assert.equal(badge.y, 41); assert.equal(badge.x + badge.width, 181);
-  slot.leftTimeBg = { visible: true }; e.refresh(); assert.equal(badge.y, 55);
+  slot.Move(110, 40);
+  assert.equal(badge.x, 112); assert.equal(badge.y + badge.height, 108); assert.equal(badge.fontSize, 10);
+  slot.leftTimeBg = Object.freeze({ visible: true, x: 107, y: 35, width: 64 });
+  slot.countTxt = Object.freeze({ text: 'x1', x: 159, y: 88 });
+  e.refresh();
+  assert.equal(badge.y + badge.height, 108); assert.ok(badge.x + badge.width < slot.countTxt.x);
+  slot.countTxt = Object.freeze({ text: 'x123456', x: 122, y: 88 });
+  e.refresh();
+  assert.ok(badge.y + badge.height < slot.countTxt.y);
   slot.updateItem(goods(99, '普通', false)); assert.equal(badge.visible, false);
   slot.updateItem(null); assert.equal(badge.visible, false);
   e.dispose(); assert.equal(f.owner.topSp._children.length, 0); f.scope.dispose();

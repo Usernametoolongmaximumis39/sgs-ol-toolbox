@@ -12,7 +12,7 @@ class Events {
   off(event, caller, fn) { this._events[event] = (this._events[event] || []).filter(value => value.caller !== caller || value.fn !== fn); }
   event(event, value) { for (const listener of [...(this._events[event] || [])]) listener.fn.call(listener.caller, value); }
 }
-function fixture() {
+function fixture(sendName = 'L') {
   const sent = [], managers = {}, proxy = new Events();
   const bless = { FreeBlessEndTime: 0, FreeBlessItemEnough: true, IsInBlessTime: true, CanFreeBless: true };
   const goodsManager = { SendClientQifuReq(count) { sent.push(['bless', count]); bless.FreeBlessEndTime = 1760000000; bless.CanFreeBless = false; } };
@@ -25,7 +25,12 @@ function fixture() {
     GetBuyMsg(id, count, discount, priceType, price) { sent.push(['build', id, count, discount, priceType, price]); return { GoodsCount: 1, BuyType: 1, UsingType: 0, IsSelfBuy: true, GoodsList: [{ ItemID: id, ItemNum: count, Discount: discount, PriceYuanBao: price, PriceTongQian: 0, pricetype: priceType === 140 ? 140 : 0 }] }; },
     SendCcGoodsHaveBuyCountReqV2(ids) { sent.push(['counts', ids]); this.countReady = true; this.event('GOODS_HAVE_BUY_COUNT'); },
   });
-  proxy.L = message => { sent.push(['buy', message]); shop.count++; shop.event('SHOP_BUY_ITEM', message.GoodsList[0].ItemID); };
+  proxy[sendName] = function (message) {
+    if (this.useNewPB) message = message.OldProtocalToPb();
+    if (this.cacheStarted) return this.addProtocolToCacheList(message, this.CACHE_TYPE_SEND);
+    assert.equal(this, proxy);
+    sent.push(['buy', message]); shop.count++; shop.event('SHOP_BUY_ITEM', message.GoodsList[0].ItemID);
+  };
   Object.assign(managers, { BlessManager: bless, GameGoodsManager: goodsManager, GameShopManager: shop });
   const adapter = { manager: name => managers[name], proxy: () => proxy, day: () => '2026-11-14' };
   return { adapter, managers, sent, bless, goodsManager, goods, row, shop, proxy };
@@ -172,8 +177,8 @@ test('zero-silver purchase route builds a direct free message without opening a 
 });
 
 // Values observed in official configuration and live native objects on 2026-11-15.
-function officialGiftFixture() {
-  const f = fixture(); f.shop.entries = []; f.bless.CanFreeBless = false;
+function officialGiftFixture(sendName) {
+  const f = fixture(sendName); f.shop.entries = []; f.bless.CanFreeBless = false;
   Object.assign(f.goods, { ID: 11578201, name: '免费礼盒', TypeID: 43, pricetype: 140, maxBuyCount: '1;1', expirytime: '20261231T235959' });
   delete f.goods.maxBuyNum;
   // Native CheckGoodsLimit compares total count directly with maxBuyNum:
@@ -194,6 +199,43 @@ test('official type-140 daily gift is found with no open view or registered Shop
   assert.deepEqual(f.sent[0], ['build', 11578201, 1, 100, 140, 0]);
   assert.equal(f.sent[1][1].GoodsList[0].pricetype, 140);
   assert.equal(shopAction(f), undefined);
+});
+
+test('client 2026111702 free gift uses the new native transport, with only one confirmed zero-cost purchase', async () => {
+  const f = officialGiftFixture('G');
+  f.proxy.L = () => assert.fail('must not use an unrelated minified method');
+  f.shop.countReady = false;
+  assert.equal(shopAction(f), undefined);
+  await prepareFreeWelfare(f.adapter, { welfare: true });
+  const action = shopAction(f);
+  assert.ok(action);
+  assert.equal((await awaitClaim(action, { valid: () => true, timeout: 20, poll: 1 })).status, 'confirmed');
+  assert.deepEqual(f.sent[0], ['counts', [11578201]]);
+  assert.deepEqual(f.sent[1], ['build', 11578201, 1, 100, 140, 0]);
+  assert.equal(f.sent[2][1].GoodsList[0].pricetype, 140);
+  assert.equal(action.send(), false);
+  assert.equal(shopAction(f), undefined);
+  assert.equal(f.sent.length, 3);
+});
+
+test('free gift skips missing or ambiguous native senders and does not send on a replaced proxy', () => {
+  const f = officialGiftFixture('G');
+  const action = shopAction(f);
+  assert.ok(action);
+  f.proxy.L = f.proxy.G.bind(f.proxy);
+  f.proxy.other = function (message) {
+    if (this.useNewPB) message = message.OldProtocalToPb();
+    if (this.cacheStarted) return this.addProtocolToCacheList(message, this.CACHE_TYPE_SEND);
+    assert.fail('ambiguous transport');
+  };
+  assert.equal(action.send(), false);
+  assert.equal(shopAction(f), undefined);
+  delete f.proxy.other;
+  f.shop.proxy = { G: f.proxy.G };
+  assert.equal(action.send(), false);
+  delete f.shop.proxy.G;
+  assert.equal(shopAction(f), undefined);
+  assert.deepEqual(f.sent, []);
 });
 
 test('native free currency marker must survive the builder; unknown currencies stay rejected', () => {

@@ -1,5 +1,8 @@
 import { ResourceScope } from './resources.js';
 import { createBackgroundMotion } from './background-motion.js';
+import { localBackgroundImage, readLocalBackground } from './background-local.js';
+import { nativeSeat } from './seat.js';
+import { supportsSkinBackgroundAttack } from '../shared/skin-detail.js';
 
 export function containBackground(width, height, viewportWidth, viewportHeight) {
   if (![width, height, viewportWidth, viewportHeight].every(n => Number.isFinite(n) && n > 0)) return null;
@@ -12,10 +15,19 @@ function findBackgroundLayer(stage) {
   for (let i = 0; i < queue.length && i < 4000; i++) {
     const node = queue[i];
     if (!node || node.destroyed) continue;
-    if (node.bgSprite && typeof node.updateBgSize === 'function' && typeof node.bgLoadComplete === 'function' && typeof node.O === 'function') return node;
+    if (node.bgSprite && typeof node.updateBgSize === 'function' && typeof node.bgLoadComplete === 'function'
+      && typeof node.SetBgLiveEffect === 'function') return node;
     if (Array.isArray(node._children)) queue.push(...node._children);
   }
   return null;
+}
+
+function backgroundViewport(layer, win) {
+  // The native layer's clipping rectangle already uses unscaled game units.
+  const viewport = layer.scrollRect;
+  if (viewport?.width > 0 && viewport.height > 0) return viewport;
+  const { gameWidth: width, gameHeight: height } = win.SystemContext || {};
+  return { width, height };
 }
 
 export function backgroundSpec(value) {
@@ -31,10 +43,51 @@ export function backgroundSpec(value) {
     const dynamicUrl = backgroundSpec({ name: '动态资源', url: d.url }).url;
     if (![d.width, d.height].every(n => Number.isFinite(n) && n > 0 && n <= 16384)) throw new Error('动态背景尺寸无效');
     if (d.parts != null && (!Array.isArray(d.parts) || d.parts.length > 16 || d.parts.some(p => !/^[\w-]{1,80}$/.test(p)) || new Set(d.parts).size !== d.parts.length || d.parts.includes('beijing'))) throw new Error('动态背景分层无效');
-    result.dynamic = Object.freeze({ kind: d.kind, url: dynamicUrl.replace(/\/$/, ''), width: d.width, height: d.height, modern: d.modern === true, parts: Object.freeze([...(d.parts || [])]) });
+    result.dynamic = Object.freeze({ kind: d.kind, url: dynamicUrl.replace(/\/$/, ''), width: d.width, height: d.height, modern: d.modern === true, parts: Object.freeze([...(d.parts || [])]),
+      ...(typeof d.attack === 'boolean' ? { attack: d.attack } : {}) });
   }
   result.animated = value.animated !== false;
+  result.attackEffects = value.attackEffects !== false;
   return Object.freeze(result);
+}
+
+const ATTACK_SKILL = new Map([[1, 'slash'], [11111, 'slash'], [11112, 'slash'], [11114, 'slash'], [8, 'attack'], [9, 'attack'], [10, 'attack']]);
+const ATTACK_CARDS = new Map([
+  ['杀', 'slash'], ['火杀', 'slash'], ['雷杀', 'slash'], ['冰杀', 'slash'],
+  ['火焰杀', 'slash'], ['雷电杀', 'slash'], ['冰霜杀', 'slash'],
+  ['决斗', 'attack'], ['南蛮入侵', 'attack'], ['万箭齐发', 'attack'],
+]);
+
+function watchBackgroundAttack(game, scene, scope, play) {
+  const currentSeat = () => {
+    const seat = nativeSeat(game.getSelfSeatUI?.());
+    return seat?.IsSelf === false ? null : seat;
+  };
+  let seat, release;
+  const trigger = (kind, useType) => {
+    if (kind === 'attack' || (kind === 'slash' && Number(useType) === 1)) play();
+  };
+  return enabled => {
+    const next = enabled ? currentSeat() : null;
+    if (next === seat) return;
+    release?.(); seat = next;
+    if (typeof seat?.on !== 'function' || typeof seat.off !== 'function') return;
+    const bound = seat;
+    const isCurrent = () => !scope.closed && game.getScene() === scene && game.isInGame() && currentSeat() === bound;
+    // These are the same seat events the game's portrait animator listens to.
+    const card = (id, useType) => {
+      if (!isCurrent()) return;
+      const meta = game.getCardMeta?.(id);
+      trigger(meta?.firstSkillId > 0 ? ATTACK_SKILL.get(meta.firstSkillId) : ATTACK_CARDS.get(meta?.name), useType);
+    };
+    const skillCard = (id, useType) => { if (isCurrent()) trigger(ATTACK_SKILL.get(Number(id)), useType); };
+    release = scope.add(() => {
+      bound.off('USE_CARD', scope, card);
+      bound.off('USE_SKILL_CARD', scope, skillCard);
+    });
+    bound.on('USE_CARD', scope, card);
+    bound.on('USE_SKILL_CARD', scope, skillCard);
+  };
 }
 
 // Only the current battle instance is wrapped. Native weather, URL-based skill
@@ -46,7 +99,13 @@ export class BackgroundRegistry {
     this.ready = null; this.loading = null; this.failed = null; this.ticket = 0;
     this.status = '跟随游戏背景';
     scope.interval(() => this.refresh(), 500);
-    scope.add(() => { this.detach(true); this.ticket++; this.listeners.clear(); });
+    scope.add(() => {
+      this.importing = null; this.ticket++; this.listeners.clear();
+      try { this.detach(true); } finally { this.dropLocalImage(); }
+    });
+    if (window.addEventListener && settings.prefix) scope.listen(window, 'storage', event => {
+      if (event.storageArea === settings.storage && (event.key === settings.prefix + 'battleBackground' || event.key === null)) this.selectionChanged();
+    });
   }
   get current() { return this.settings.get('battleBackground', null); }
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
@@ -56,15 +115,91 @@ export class BackgroundRegistry {
     if (this.providers.has(owner)) throw new Error('背景提供方已注册');
     this.providers.add(owner); this.refresh();
     let active = true;
-    return () => { if (!active) return; active = false; this.providers.delete(owner); this.retryAt = 0; this.loadAttempts = 0; this.refresh(); };
+    return () => {
+      if (!active) return;
+      active = false; this.providers.delete(owner);
+      if (this.importing?.owner === owner) this.importing = null;
+      this.retryAt = 0; this.loadAttempts = 0; this.refresh();
+    };
   }
   select(owner, spec) {
     if (!this.providers.has(owner)) throw new Error('背景提供方未启用');
+    this.saveSelection(spec ? { ...backgroundSpec(spec), owner } : null);
+  }
+  setAttackEffects(owner, enabled) {
+    const choice = this.current;
+    if (choice?.owner !== owner || !this.providers.has(owner) || !supportsSkinBackgroundAttack(choice.dynamic)) return;
+    this.settings.set('battleBackground', { ...choice, attackEffects: enabled === true });
+    if (!enabled) this.binding?.motion?.stopAttack();
+    this.refresh(); this.emit();
+  }
+  async selectLocal(owner, file) {
+    if (this.scope.closed || !this.providers.has(owner)) throw new Error('背景提供方未启用');
+    const pending = this.importing = { owner };
+    let id;
+    try {
+      const image = await readLocalBackground(this.window, file);
+      if (this.importing !== pending) return;
+      // IndexedDB stores the bytes directly for browsers without in-store Blob support.
+      id = await localBackgroundImage(this.window, 'readwrite', store => store.add(image));
+      if (this.importing !== pending) return;
+      const name = file.name?.trim().slice(0, 160) || '本地图片';
+      this.saveSelection({ name, localImageId: id, owner, animated: false, dynamic: null });
+      id = undefined;
+    } catch (error) {
+      if (this.importing === pending) throw error;
+    } finally {
+      if (this.importing === pending) this.importing = null;
+      this.removeLocalImage(id);
+    }
+  }
+  removeLocalImage(id) {
+    if (Number.isSafeInteger(id) && id > 0) void localBackgroundImage(this.window, 'readwrite', store => store.delete(id)).catch(() => {});
+  }
+  saveSelection(choice) {
+    const previousId = this.current?.localImageId;
+    this.settings.set('battleBackground', choice);
+    this.selectionChanged();
+    this.removeLocalImage(previousId);
+  }
+  selectionChanged() {
+    this.importing = null;
     this.yieldedScene = this.binding?.yielded ? this.binding.scene : this.yieldedScene;
-    this.settings.set('battleBackground', spec ? { ...backgroundSpec(spec), owner } : null);
     this.ticket++; this.ready = this.loading = this.failed = null;
     this.retryAt = 0; this.loadAttempts = 0;
-    this.detach(true); this.refresh(); this.emit();
+    try { this.detach(true); } catch { /* The scene can disappear during a switch. */ }
+    this.dropLocalImage(); this.refresh(); this.emit();
+  }
+  dropLocalImage() {
+    const asset = this.localImage;
+    this.localImage = null;
+    if (!asset?.url) return;
+    this.imageTexture = this.imageSize = null;
+    try { asset.loader?.clearRes?.(asset.url); }
+    catch { /* The native loader may already be tearing down. */ }
+    finally { this.window.URL.revokeObjectURL(asset.objectUrl); }
+  }
+  localUrl(id) {
+    if (this.localImage?.id !== id) {
+      this.dropLocalImage();
+      const asset = this.localImage = { id };
+      localBackgroundImage(this.window, 'readonly', store => store.get(id)).then(image => {
+        if (this.localImage !== asset) return;
+        if (!image) throw new Error('本地图片已丢失，请重新选择');
+        const blob = image instanceof this.window.Blob ? image : new this.window.Blob([image.bytes], { type: image.type });
+        asset.objectUrl = this.window.URL.createObjectURL(blob);
+        // The game sends URLs without :// through its resource path formatter.
+        // An inert fragment keeps blob:null URLs local in the file-origin client.
+        asset.url = asset.objectUrl.includes('://') ? asset.objectUrl : asset.objectUrl + '#://';
+        this.refresh();
+      }).catch(error => {
+        if (this.localImage !== asset) return;
+        asset.error = error?.message || String(error);
+        this.refresh();
+      });
+    }
+    if (!this.localImage.url) this.state(this.localImage.error || '正在读取本地图片');
+    return this.localImage.url;
   }
   detach(restore) {
     const b = this.binding; if (!b) return;
@@ -90,12 +225,17 @@ export class BackgroundRegistry {
     this.state(message + '；稍后自动重试');
   }
   refreshReady() {
-    const choice = this.current;
+    let choice = this.current;
     if (!choice || !this.providers.has(choice.owner)) {
-      this.ticket++; this.ready = this.loading = null; this.detach(true);
+      this.ticket++; this.ready = this.loading = null;
+      try { this.detach(true); } finally { this.dropLocalImage(); }
       this.state(choice ? '背景插件已停用，跟随游戏背景' : '跟随游戏背景'); return;
     }
-    try { backgroundSpec(choice); }
+    const localId = choice.localImageId;
+    try {
+      if (localId === undefined) backgroundSpec(choice);
+      else if (!Number.isSafeInteger(localId) || localId < 1) throw new Error('本地图片编号无效');
+    }
     catch (error) { this.detach(true); this.state('背景配置无效：' + error.message); return; }
     const scene = this.game.getScene();
     if (this.binding?.scene !== scene) this.detach(false);
@@ -104,6 +244,11 @@ export class BackgroundRegistry {
       this.detach(false); this.state('已保存，等待进入牌局'); return;
     }
     const laya = this.window.Laya;
+    if (localId !== undefined) {
+      const url = this.localUrl(localId);
+      if (!url) return;
+      choice = { name: choice.name, url };
+    }
     if (this.failed === choice.url) this.failed = null;
     if (this.ready !== choice.url) {
       if (this.loading === choice.url) return;
@@ -114,8 +259,13 @@ export class BackgroundRegistry {
         this.loadFailed(choice.url, '背景加载超时');
       }, 20000);
       try {
+        const asset = localId === undefined ? null : this.localImage;
+        if (asset) asset.loader = laya.loader;
         laya.loader.load(choice.url, laya.Handler.create(null, texture => {
-          if (ticket !== this.ticket || this.scope.closed) return;
+          if (ticket !== this.ticket || this.scope.closed) {
+            if (asset && this.localImage !== asset) asset.loader.clearRes?.(choice.url);
+            return;
+          }
           this.loading = null;
           if (!texture) { this.loadFailed(choice.url, '背景加载失败'); return; }
           this.loadAttempts = 0; this.retryAt = 0;
@@ -128,8 +278,8 @@ export class BackgroundRegistry {
     }
     if (!this.binding) {
       const layer = findBackgroundLayer(laya?.stage);
-      const context = this.window.SystemContext;
-      if (!layer || !laya.Sprite || !laya.Rectangle || !(context?.gameWidth > 0 && context?.gameHeight > 0)) {
+      const viewport = layer && backgroundViewport(layer, this.window);
+      if (!laya?.Sprite || !laya.Rectangle || !(viewport?.width > 0 && viewport.height > 0)) {
         this.state('等待游戏背景层与布局就绪'); return;
       }
       const local = new ResourceScope(), b = { scene, layer, stage: laya.stage, scope: local, applied: false, yielded: this.yieldedScene === scene, writing: false };
@@ -157,13 +307,9 @@ export class BackgroundRegistry {
           b.syncMotion();
           if (!fill.visible) return result;
           const size = registry.imageSize;
-          // Preserve the entire illustration; cover cropping can remove the head.
-          // Native game coordinates already
-          // exclude the root's gameScale. Stage dimensions would scale twice.
-          const context = registry.window.SystemContext;
-          const fit = containBackground(size?.width, size?.height, context?.gameWidth, context?.gameHeight);
+          const { width: w, height: h } = backgroundViewport(this, registry.window);
+          const fit = containBackground(size?.width, size?.height, w, h);
           if (!fit) { fill.visible = false; return result; }
-          const w = context.gameWidth, h = context.gameHeight;
           const key = `${w}:${h}`;
           if (key !== fillKey) {
             fillKey = key;
@@ -187,6 +333,10 @@ export class BackgroundRegistry {
         b.hideFill?.(); return Reflect.apply(original, this, args);
       });
       const apply = () => {
+        if (localId !== undefined && laya.loader.getRes && !laya.loader.getRes(choice.url)) {
+          // Native background changes can evict textures that were unused during a skill.
+          this.detach(false); this.ready = null; this.refresh(); return;
+        }
         b.writing = true;
         try { scene.SetWallPaperByUrl(choice.url); b.applied = true; layer?.updateBgSize(); }
         finally { b.writing = false; }
@@ -233,6 +383,11 @@ export class BackgroundRegistry {
           b.motion = createBackgroundMotion({ window: this.window, layer, spec: choice.dynamic, size: choice.dynamic, scope: motionScope,
             ready: () => { if (!local.closed) this.refresh(); }, fail });
           if (motionScope.closed) b.motion = null;
+          if (b.motion && supportsSkinBackgroundAttack(choice.dynamic)) {
+            b.syncAttackSeat = watchBackgroundAttack(this.game, scene, motionScope, () => {
+              if (eligible() && layer.bg?.skin === choice.url) b.motion?.playAttack?.();
+            });
+          }
           layer.updateBgSize();
         } catch (error) { fail(error?.stack || String(error)); }
       }
@@ -240,6 +395,7 @@ export class BackgroundRegistry {
     if (scene.currentWeatherWallPaper || this.binding.yielded) this.binding.hideFill?.();
     else this.binding.syncMotion();
     const b = this.binding;
+    if (b.motion) b.syncAttackSeat?.(choice.attackEffects !== false);
     this.state(scene.currentWeatherWallPaper || b.yielded ? '技能背景优先'
       : b.motionError ? '动态背景失败，已显示静态原画：' + b.motionError
       : b.motion ? (b.motion.loaded ? '动态牌局背景已启用' : '正在加载动态背景，暂显静态原画')

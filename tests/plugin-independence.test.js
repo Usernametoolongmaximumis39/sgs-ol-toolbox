@@ -28,8 +28,10 @@ for (const id of ['play-assist', 'daily-rewards', 'effects', 'skins', 'wish-prog
   }); t.after(() => manager.dispose());
   await manager.init(); await manager.install(pkg);
   assert.deepEqual(manager.list().map(row => row.id), [id]); assert.equal(manager.list()[0].active, true);
-  const panelCount = ['skins', 'wish-progress'].includes(id) ? 0 : 1;
-  assert.equal(panels.size, panelCount); if (panelCount) assert.ok(dom.window.document.querySelector(id === 'recharge' ? 'h4' : 'h3')?.textContent);
+  const panelCount = id === 'wish-progress' ? 0 : 1;
+  assert.equal(panels.size, panelCount);
+  const content = { recharge: '[data-sgs-recharge] button', skins: '[data-sgs-skin-settings] label' };
+  if (panelCount) assert.ok(dom.window.document.querySelector(content[id] || 'h3')?.textContent);
   const activeScope = manager.slots.get(id).scope;
   await manager.disable(id); assert.equal(activeScope.closed, true); assert.equal(panels.size, 0);
   await manager.enable(id); assert.equal(panels.size, panelCount);

@@ -1,6 +1,7 @@
 import { observedHandCandidates, cardsInZone, metadata, zoneKey, seatLabel } from './model.js';
 import { nativeSeat, nativeSeatId, nativeSeatOccupied } from '../../core/seat.js';
-import { createSortControls } from './sort-controls.js';
+import { createSortControls, sortControlsOrigin } from './sort-controls.js';
+import { createShanheAutoPlay } from './shanhe-auto-play.js';
 import { createCountdowns } from './countdowns.js';
 import { createSkillCounts } from './skill-counts.js';
 import { compareHandTypes } from './hand-order.js';
@@ -72,8 +73,15 @@ export function sortHand(game, mode, { automatic = false } = {}) {
   return true;
 }
 
+function canvasBounds(window, laya) {
+  const rendered = laya?.Render?.canvas;
+  const source = rendered?.source ?? rendered;
+  const canvas = typeof source?.getBoundingClientRect === 'function' ? source : window.document.getElementById('layaCanvas') ?? window.document.querySelector('canvas');
+  return canvas?.getBoundingClientRect?.();
+}
+
 /** Only use established coordinates; a missing transform leaves the panel usable. */
-export function nativeAnchor(window, target, x = 0, y = 0) {
+export function nativeAnchor(window, target, x = 0, y = 0, bounds = canvasBounds) {
   if (!target || target.destroyed || target.visible === false || target._visible === false || typeof target.localToGlobal !== 'function') return null;
   try {
     const ancestors = new Set();
@@ -85,10 +93,7 @@ export function nativeAnchor(window, target, x = 0, y = 0) {
     const point = laya?.Point ? new laya.Point(x, y) : { x, y };
     const global = target.localToGlobal(point, true) ?? point;
     const stage = laya?.stage;
-    const rendered = laya?.Render?.canvas;
-    const source = rendered?.source ?? rendered;
-    const canvas = typeof source?.getBoundingClientRect === 'function' ? source : window.document.getElementById('layaCanvas') ?? window.document.querySelector('canvas');
-    const rect = canvas?.getBoundingClientRect?.();
+    const rect = bounds(window, laya);
     if (!rect?.width || !rect?.height || !Number.isFinite(global.x) || !Number.isFinite(global.y)) return null;
     const width = Number(stage?.width) || rect.width, height = Number(stage?.height) || rect.height;
     return { x: rect.left + global.x * rect.width / width, y: rect.top + global.y * rect.height / height };
@@ -98,7 +103,7 @@ export function nativeAnchor(window, target, x = 0, y = 0) {
 // Native table-seat controllers are NOT added to the display tree. Their
 // portraits are children of seatAvatarSprite, which carries the scene offset
 // and game scale. Converting the controller itself loses that transform.
-export function seatRevealAnchor(window, ui) {
+export function seatRevealAnchor(window, ui, bounds) {
   if (!ui || ui.destroyed || ui.visible === false || ui._visible === false) return null;
   try {
     const avatar = ui.seatAvatar ?? ui.SeatAvatar;
@@ -111,13 +116,13 @@ export function seatRevealAnchor(window, ui) {
       // convert the visible rectangle's corner, not the unclipped (0,height).
       const x = Number.isFinite(clip?.x) ? clip.x : 0;
       const y = Number.isFinite(clip?.y) ? clip.y : 0;
-      return nativeAnchor(window, avatar, x, y + height);
+      return nativeAnchor(window, avatar, x, y + height, bounds);
     }
     // Verified client fallback: GetEffectPos uses seatBaseSprite with seatX/Y;
     // ScaledHeight already includes the portrait's per-seat scale.
     const { seatBaseSprite, seatX, seatY, ScaledHeight } = ui;
     if (seatBaseSprite && [seatX, seatY, ScaledHeight].every(Number.isFinite) && ScaledHeight > 0) {
-      return nativeAnchor(window, seatBaseSprite, seatX, seatY + ScaledHeight);
+      return nativeAnchor(window, seatBaseSprite, seatX, seatY + ScaledHeight, bounds);
     }
     return null;
   } catch { return null; }
@@ -149,7 +154,8 @@ export function handSortAnchor(window, self) {
   try {
     const container = self?.cardContainer, rect = container?.HandCardRect;
     if (!container?.parent || !Number.isFinite(rect?.x) || !Number.isFinite(container.NORMAL_Y)) return null;
-    return nativeAnchor(window, container, rect.x + 70, container.NORMAL_Y - 48);
+    const { x, y } = sortControlsOrigin(container);
+    return nativeAnchor(window, container, x, y);
   } catch { return null; }
 }
 
@@ -167,7 +173,7 @@ export function roundInfoBounds(window, scene) {
 
 // Only native card-interaction windows can cover revealed hands. Never use
 // aggregate child bounds: hidden/offscreen children can enlarge those bounds.
-export function revealWindowClip(window, game) {
+export function revealWindowClip(window, game, bounds) {
   const classes = ['CheckSeatCardWindow', 'SelectCardWindow'].flatMap(name => {
     try { const type = game?.getClass?.(name); return typeof type === 'function' ? [type] : []; }
     catch { return []; }
@@ -196,7 +202,7 @@ export function revealWindowClip(window, game) {
           const b = panel.scrollRect ?? { x: 0, y: 0, width: panel.width, height: panel.height };
           if (!(b.width > 0 && b.height > 0)) continue;
           const points = [[b.x, b.y], [b.x + b.width, b.y], [b.x + b.width, b.y + b.height], [b.x, b.y + b.height]]
-            .map(([x, y]) => nativeAnchor(window, panel, x, y));
+            .map(([x, y]) => nativeAnchor(window, panel, x, y, bounds));
           if (points.some(p => !p)) continue;
           const x = Math.min(...points.map(p => p.x)), right = Math.max(...points.map(p => p.x));
           const y = Math.min(...points.map(p => p.y)), bottom = Math.max(...points.map(p => p.y));
@@ -232,7 +238,10 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
   overlay.append(seatLayer, labelLayer);
   let ownedButton = null, original = null, previousSignature = '', lockedMode = settings.get('lockedSort', null);
   let disposed = false, restoreSelectionWindow = null, patchedSelectionPrototype = null;
+  let lastScene;
+  const autoPlay = createShanheAutoPlay(ctx);
   const sortControls = createSortControls(ctx, {
+    toggleAutoPlay: autoPlay.toggle,
     sort(mode) { if (!sortHand(game, mode)) ctx.notify?.('当前手牌暂不能整理'); },
     lock(mode) {
       lockedMode = lockedMode === mode ? null : mode;
@@ -278,15 +287,21 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
     });
   }
 
-  function update() {
+  function update(allowAutoPlay = false) {
     if (disposed) return;
     const state = ctx.getState();
     if (!state) return;
+    if (state.active) {
+      try { lastScene = game.getScene?.() ?? null; } catch { lastScene = null; }
+    }
+    const scene = lastScene;
+    const self = state.active && scene ? scene.SelfSeatUi ?? scene.selfSeatUI ?? ownUi(game) : null;
+    const autoPlayMode = autoPlay.sync(scene, self, state);
     const revealBoxes = new Map([...seatLayer.children].map(box => [box.dataset.seatId, box]));
     const visibleReveals = new Set();
-    labelLayer.replaceChildren();
     if (!state.active) {
       seatLayer.replaceChildren();
+      labelLayer.replaceChildren();
       seatLayer.style.clipPath = '';
       countdowns.clear(); skillCounts.clear(); sortControls.hide(); handGrouping.detach(); releaseOriginal();
       restoreSelectionWindow?.(); restoreSelectionWindow = null; patchedSelectionPrototype = null;
@@ -294,64 +309,103 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
     }
     // Loading and lobby screens have no card overlays to position. Discovering
     // seats there repeatedly can scan thousands of native UI nodes each tick.
-    const clip = revealWindowClip(window, game);
-    if (seatLayer.style.clipPath !== clip) seatLayer.style.clipPath = clip;
-    const self = ownUi(game);
-    skillCounts.update(self, state, settings.get('skillCounts', true));
     let seats = [];
     try { seats = game.getSeatUIs?.() ?? game.getScene?.()?.seatContainer?.seatUIs ?? []; } catch { /* Scene may be tearing down. */ }
     if (!Array.isArray(seats)) seats = [];
+    const revealWrites = [];
+    let revealClip = '';
     if (settings.get('reveals', true)) {
+      let rect;
+      let measured = false;
+      const bounds = (win, laya) => {
+        if (!measured) {
+          rect = canvasBounds(win, laya);
+          measured = true;
+        }
+        return rect;
+      };
+      const anchors = new Map();
+      const anchorFor = ui => {
+        if (!anchors.has(ui)) anchors.set(ui, seatRevealAnchor(window, ui, bounds));
+        return anchors.get(ui);
+      };
+      const { innerWidth, innerHeight } = window;
+      const fourColors = settings.get('fourColors', false);
+      const describe = id => {
+        const { locations, tags } = state.cards[id];
+        return [id, tags, locations.map(location => {
+          const owner = Number(location.split(':')[1]);
+          return [location, owner < 255 ? seatLabel(state, owner) : null];
+        })];
+      };
       seats.forEach(ui => {
         const seatId = nativeSeatId(ui);
         if (!nativeSeatOccupied(ui) || seatId === undefined || seatId === state.selfSeatId || ui === self || nativeSeat(ui)?.IsDead || nativeSeat(ui)?.isDead || state.seats[seatId]?.dead) return;
         const known = cardsInZone(state, zoneKey(5, seatId));
         const possible = observedHandCandidates(state, seatId);
         if (!known.length && !possible.length) return;
-        const anchor = seatRevealAnchor(window, ui);
+        const anchor = anchorFor(ui);
         if (!anchor) return;
-        const box = revealBoxes.get(String(seatId)) ?? node('div', 'sgs-card-seat-reveal');
-        visibleReveals.add(box);
-        box.dataset.seatId = String(seatId);
-        box.setAttribute('aria-label', `${seatLabel(state, seatId)}手牌：确定有 ${known.length} 张，可能有 ${possible.length} 张`);
-        const signature = JSON.stringify([known, possible, settings.get('fourColors', false), state.lastSeq]);
-        if (box.dataset.cards !== signature) {
-          box.replaceChildren();
-          known.forEach(id => box.append(makeCard(id, false, true, true)));
-          possible.forEach(id => box.append(makeCard(id, true, true, true)));
-          box.dataset.cards = signature;
-        }
-        box.tabIndex = 0;
-        position(box, anchor);
         const avatar = ui.seatAvatar ?? ui.SeatAvatar;
         const clip = avatar?.scrollRect;
-        const top = avatar && nativeAnchor(window, avatar, Number(clip?.x) || 0, Number(clip?.y) || 0);
+        const top = avatar && nativeAnchor(window, avatar, Number(clip?.x) || 0, Number(clip?.y) || 0, bounds);
         // A standard native portrait is 172 game units high. Use its visible
         // height in CSS pixels, including per-seat and canvas scaling. Cap at
         // 40 × 54 CSS pixels per card when desktop portraits grow larger.
         const scale = Math.min(1, top && anchor.y > top.y ? (anchor.y - top.y) / 172 : 1);
-        box.style.setProperty('--sgs-reveal-scale', String(scale));
         const left = Math.max(0, anchor.x - 20 * scale);
         const right = avatar && nativeAnchor(window, avatar,
           (Number(clip?.x) || 0) + Number(clip?.width ?? avatar.width),
-          (Number(clip?.y) || 0) + Number(clip?.height ?? avatar.height));
-        let available = window.innerWidth - left - 4;
+          (Number(clip?.y) || 0) + Number(clip?.height ?? avatar.height), bounds);
+        let available = innerWidth - left - 4;
         if (right && right.x > anchor.x) available = Math.min(available, right.x - anchor.x + 40 * scale);
         for (const other of seats) {
           if (other === ui || !nativeSeatOccupied(other)) continue;
-          const next = seatRevealAnchor(window, other);
+          const next = anchorFor(other);
           if (next && next.x > anchor.x && Math.abs(next.y - anchor.y) < 54 * scale)
             available = Math.min(available, next.x - anchor.x - 4);
         }
         const revealWidth = Math.max(1, Math.min(344 * scale, available, ((known.length + possible.length) * 42 - 2) * scale));
-        box.style.width = revealWidth + 'px';
-        box.style.left = Math.max(0, Math.min(window.innerWidth - revealWidth - 4, left)) + 'px';
-        // Two full rows plus half of the third hint at the scrollable content.
-        box.style.maxHeight = Math.max(0, Math.min(139 * scale, window.innerHeight - anchor.y - 4)) + 'px';
-        if (box.parentNode !== seatLayer) seatLayer.append(box);
+        revealWrites.push(() => {
+          const key = String(seatId);
+          const box = revealBoxes.get(key) ?? node('div', 'sgs-card-seat-reveal');
+          visibleReveals.add(box);
+          if (!box.parentNode) {
+            box.dataset.seatId = key;
+            box.tabIndex = 0;
+          }
+          const label = `${seatLabel(state, seatId)}手牌：确定有 ${known.length} 张，可能有 ${possible.length} 张`;
+          if (box.getAttribute('aria-label') !== label) box.setAttribute('aria-label', label);
+          const signature = JSON.stringify([state.sessionId, fourColors, known.map(describe), possible.map(describe)]);
+          if (box.dataset.cards !== signature) {
+            box.replaceChildren(
+              ...known.map(id => makeCard(id, false, true, true)),
+              ...possible.map(id => makeCard(id, true, true, true)));
+            box.dataset.cards = signature;
+          }
+          const revealScale = String(scale);
+          if (box.style.getPropertyValue('--sgs-reveal-scale') !== revealScale) box.style.setProperty('--sgs-reveal-scale', revealScale);
+          const layout = {
+            width: revealWidth,
+            left: Math.max(0, Math.min(innerWidth - revealWidth - 4, left)),
+            top: Math.max(0, Math.min(innerHeight - 24, anchor.y)),
+            // Two full rows plus half of the third hint at the scrollable content.
+            maxHeight: Math.max(0, Math.min(139 * scale, innerHeight - anchor.y - 4)),
+          };
+          for (const [property, pixels] of Object.entries(layout)) {
+            const value = pixels + 'px';
+            if (box.style[property] !== value) box.style[property] = value;
+          }
+          if (!box.parentNode) seatLayer.append(box);
+        });
       });
+      if (revealWrites.length) revealClip = revealWindowClip(window, game, bounds);
     }
+    if (seatLayer.style.clipPath !== revealClip) seatLayer.style.clipPath = revealClip;
+    revealWrites.forEach(write => write());
     for (const box of revealBoxes.values()) if (!visibleReveals.has(box)) box.remove();
+    labelLayer.replaceChildren();
+    skillCounts.update(self, state, settings.get('skillCounts', true));
     if (settings.get('labels', true)) {
       for (const ui of self?.cardContainer?.cardUis || []) {
         const id = ui.Card?.CardId ?? ui.Card?.cardId;
@@ -370,22 +424,25 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
     handGrouping.update(settings.get('handSort', true) ? self?.cardContainer : null);
     const button = self?.sortCardBtn;
     const anchor = settings.get('handSort', true) ? handSortAnchor(window, self) : null;
-    if (!anchor || !button || button.enabled === false || button._enabled === false || button.disabled === true || !sortControls.update(self.cardContainer, lockedMode)) {
+    const canReplaceSort = button && button.enabled !== false && button._enabled !== false && button.disabled !== true;
+    if (!anchor || (!canReplaceSort && !autoPlayMode) || !sortControls.update(self.cardContainer, lockedMode, autoPlayMode)) {
       sortControls.hide(); releaseOriginal(); return;
     }
-    if (button !== ownedButton) {
+    if (!canReplaceSort) releaseOriginal();
+    else if (button !== ownedButton) {
       releaseOriginal(); ownedButton = button;
       original = { alpha: button.alpha ?? 1, mouseEnabled: button.mouseEnabled ?? true };
     }
-    button.alpha = 0; button.mouseEnabled = false;
+    if (canReplaceSort) { button.alpha = 0; button.mouseEnabled = false; }
     const nextSignature = signature(self.cardContainer);
     if (nextSignature !== previousSignature) {
       if (lockedMode) sortHand(game, lockedMode, { automatic: true });
       previousSignature = nextSignature;
     }
+    if (allowAutoPlay) autoPlay.update({ scene, self, state });
   }
-  scope.interval(update, 250);
-  const sceneUnsubscribe = game.onSceneChange?.(update);
+  scope.interval(() => update(true), 250);
+  const sceneUnsubscribe = game.onSceneChange?.(scene => { lastScene = scene; update(); });
   if (typeof sceneUnsubscribe === 'function') scope.add(sceneUnsubscribe);
   update();
   return { update, dispose() {

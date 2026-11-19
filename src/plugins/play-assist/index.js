@@ -11,8 +11,8 @@ export const OPTIONS = [
   ['quandaoCount', '权道数量', ''],
   ['rapid', '技能连按', '取消连按间隔'],
 ];
-export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.16', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "补充强识摸牌与武娘取牌辅助，武娘优先选择可选防具、其他装备，再选择手牌；狂骨按当前体力选择回血或摸牌。仍需开启相应技能辅助，强识前半段选人和展示保留手动。", minCoreVersion: '0.6.37', description: '长按技能辅助、自动确定与询问跳过。',
+export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.18', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "补充强识摸牌与武娘取牌辅助，武娘优先选择可选防具、其他装备，再选择手牌；狂骨按当前体力选择回血或摸牌。仍需开启相应技能辅助，强识前半段选人和展示保留手动。", minCoreVersion: '0.6.87', description: '长按技能辅助、自动确定与询问跳过。',
   icon: { paths: ['M4 5h10v14H4zM7 8h4M7 11h3', 'm17 3-3 8h5l-3 10 7-13h-5l2-5'] }, priority: 12000, categories: ['game'] };
 
 export default { manifest, activate(ctx) {

@@ -51,9 +51,8 @@ test('default off preserves native methods, listeners and chapter wallpaper', t 
 test('entry reselects through the official registered callback after settling, once per entry', t => {
   const f = fixture(t);
   assert.equal(f.calls, 0); assert.equal(f.image, 24);
-  assert.equal(f.adapter.status, '等待对局背景就绪');
   f.advance(5000); assert.equal(f.calls, 1); assert.equal(f.image, 100001);
-  assert.equal(f.adapter.status, '已触发官方背景重选');
+  assert.equal(f.adapter.error, '');
   for (let i = 0; i < 5; i++) { f.adapter.refresh(); f.advance(5000); }
   assert.equal(f.calls, 1);
   assert.equal(f.battle.onWallPaperChange, f.original.rogue);
@@ -70,7 +69,7 @@ test('same selected ID is reapplied even though the official setter would skip i
 
 test('late official listener registration waits and then reselects', t => {
   const f = fixture(t, { ready: false });
-  f.advance(5000); assert.equal(f.calls, 0); assert.equal(f.adapter.status, '等待官方背景入口');
+  f.advance(5000); assert.equal(f.calls, 0);
   f.attach(); f.battle.onWallPaperChange(); f.adapter.refresh(); f.complete(); f.advance(1000);
   assert.equal(f.calls, 1); assert.equal(f.image, 100001);
 });
@@ -90,7 +89,7 @@ test('a legitimately selected default image never causes a reselect loop', t => 
 
 test('weather defers entry reselect until the normal background is available', t => {
   const f = fixture(t); f.battle.currentWeatherWallPaper = 9;
-  f.advance(5000); assert.equal(f.calls, 0); assert.equal(f.adapter.status, '等待天气背景结束后重选');
+  f.advance(5000); assert.equal(f.calls, 0);
   f.battle.currentWeatherWallPaper = 0; f.adapter.refresh(); f.advance(5000);
   assert.equal(f.calls, 1); assert.equal(f.image, 100001);
 });
@@ -117,7 +116,7 @@ test('reused scene entries and new fight IDs each trigger reselect; duplicate fi
 
 test('official manual background selection cancels the pending automatic reselect', t => {
   const f = fixture(t); f.manual(7); assert.equal(f.image, 7); assert.equal(f.calls, 1);
-  f.advance(10000); assert.equal(f.calls, 1); assert.equal(f.adapter.status, '已收到官方手动背景选择');
+  f.advance(10000); assert.equal(f.calls, 1);
 });
 
 test('account or dispatcher changes cannot execute an old delayed job', t => {
@@ -128,9 +127,10 @@ test('account or dispatcher changes cannot execute an old delayed job', t => {
 
 test('native errors retain full details and a disable/re-enable can retry', t => {
   const f = fixture(t); f.fail = new Error('native wallpaper detail '.repeat(40));
-  f.advance(5000); assert.equal(f.calls, 1); assert.match(f.adapter.status, /native wallpaper detail/);
-  assert.ok(f.adapter.status.length > 700);
+  f.advance(5000); assert.equal(f.calls, 1); assert.match(f.adapter.error, /native wallpaper detail/);
+  assert.ok(f.adapter.error.length > 700);
   f.fail = null; f.settings.set('keepBattleBackground', false); f.adapter.refresh();
   f.settings.set('keepBattleBackground', true); f.adapter.refresh(); f.advance(5000);
   assert.equal(f.calls, 2); assert.equal(f.image, 100001);
+  assert.equal(f.adapter.error, '');
 });

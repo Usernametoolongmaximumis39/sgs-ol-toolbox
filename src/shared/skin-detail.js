@@ -1,3 +1,7 @@
+export function supportsSkinBackgroundAttack(dynamic) {
+  return dynamic?.kind === 'spine' && dynamic.modern === true && dynamic.attack !== false;
+}
+
 export function watchSkinDetail(scope, owner, hide) {
   let closing = false;
   const releases = [];

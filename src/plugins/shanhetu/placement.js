@@ -142,6 +142,7 @@ function prepare(snapshot) {
     }
   }
   for (const r of arrays.controls) if (!validRect(r)) errors.push('invalid-control-geometry');
+  if (snapshot?.shop != null && !validRect(snapshot.shop)) errors.push('invalid-shop-geometry');
   if (snapshot?.drawer !== undefined && snapshot.drawer !== null && !validRect(snapshot.drawer))
     errors.push('invalid-drawer-geometry');
   for (const key of cards.keys()) if (!nodes.has(key)) errors.push(`missing-node:${key}`);
@@ -152,13 +153,14 @@ function prepare(snapshot) {
       protectedRegions: [...new Map(regions.map(r => [`${r.x},${r.y},${r.w},${r.h}`, inflate(r, NODE_GAP)])).values()] };
   });
   const controls = arrays.controls.map(rect);
+  const shop = snapshot.shop ? rect(snapshot.shop) : null;
   const drawer = snapshot.drawer ? rect(snapshot.drawer) : null;
   return {
     errors, rawCards: arrays.cards, nodes: orderedNodes,
     nodeMap: new Map(orderedNodes.map(n => [n.key, n])), cards, cardSizes, previous,
-    viewport: rect(snapshot.viewport), safe: inflate(snapshot.viewport, -MARGIN), controls,
+    viewport: rect(snapshot.viewport), safe: inflate(snapshot.viewport, -MARGIN), controls, shop,
     drawer, protectedDrawer: drawer ? inflate(drawer, CARD_GAP) : null,
-    candidateObstacles: [...orderedNodes.flatMap(n => n.regions), ...controls, ...(drawer ? [drawer] : [])],
+    candidateObstacles: [...orderedNodes.flatMap(n => n.regions), ...controls, ...[shop, drawer].filter(Boolean)],
   };
 }
 
@@ -284,6 +286,11 @@ function preference(ctx, p) {
     && Math.min(right(p), right(owner.anchor)) - Math.max(p.x, owner.anchor.x) > EPS
     && offset <= Math.max(owner.anchor.w / 2, p.w / 3) + EPS;
   const selfOverlay = isSelfOverlay(owner.anchor, p);
+  const shop = ctx.shop;
+  const shopOverlapArea = shop && overlap(p, shop)
+    ? (Math.min(right(p), right(shop)) - Math.max(p.x, shop.x))
+      * (Math.min(bottom(p), bottom(shop)) - Math.max(p.y, shop.y))
+    : 0;
   const intersections = ctx.controls.flatMap(r => {
     const x = Math.max(p.x, r.x), y = Math.max(p.y, r.y);
     const w = Math.min(right(p), right(r)) - x, h = Math.min(bottom(p), bottom(r)) - y;
@@ -299,17 +306,20 @@ function preference(ctx, p) {
   // A taller, narrower card can dilute the same UI overlap across a larger
   // area. A small reflow cost prevents that fractional saving from needlessly
   // worsening wrapping, without outranking card count or above/self placement.
-  return { aboveCount: above ? 1 : 0, aboveCost, selfOverlayCount: selfOverlay ? 1 : 0, selfOverlayCost, uiCost, uiOverlapArea,
+  return { shopOverlapArea, aboveCount: above ? 1 : 0, aboveCost, selfOverlayCount: selfOverlay ? 1 : 0, selfOverlayCost, uiCost, uiOverlapArea,
     reflowCost, cost: aboveCost + selfOverlayCost + uiCost + reflowCost + (above || selfOverlay ? 0 : length), length,
     movement: old ? Math.hypot(p.x - old.x, p.y - old.y) : 0,
     resize: p.w === card.w && p.h === card.h ? 0 : 1, widthChange };
 }
 
-const emptyPreference = () => ({ aboveCount: 0, aboveCost: 0, selfOverlayCount: 0, selfOverlayCost: 0, uiCost: 0, uiOverlapArea: 0,
+const emptyPreference = () => ({ shopOverlapArea: 0, aboveCount: 0, aboveCost: 0, selfOverlayCount: 0, selfOverlayCost: 0, uiCost: 0, uiOverlapArea: 0,
   reflowCost: 0, cost: 0, length: 0, movement: 0, resize: 0, widthChange: 0 });
-const preferenceOrder = (a, b) => b.aboveCount - a.aboveCount || b.selfOverlayCount - a.selfOverlayCount || a.cost - b.cost
+// Within equally complete layouts, clear the shop before preferring overhead cards.
+const preferenceOrder = (a, b) => a.shopOverlapArea - b.shopOverlapArea
+  || b.aboveCount - a.aboveCount || b.selfOverlayCount - a.selfOverlayCount || a.cost - b.cost
   || a.length - b.length || a.movement - b.movement || a.resize - b.resize || a.widthChange - b.widthChange;
-const addPreference = (a, b) => ({ aboveCount: a.aboveCount + b.aboveCount, aboveCost: a.aboveCost + b.aboveCost,
+const addPreference = (a, b) => ({ shopOverlapArea: a.shopOverlapArea + b.shopOverlapArea,
+  aboveCount: a.aboveCount + b.aboveCount, aboveCost: a.aboveCost + b.aboveCost,
   selfOverlayCount: a.selfOverlayCount + b.selfOverlayCount, selfOverlayCost: a.selfOverlayCost + b.selfOverlayCost,
   uiCost: a.uiCost + b.uiCost, uiOverlapArea: a.uiOverlapArea + b.uiOverlapArea, reflowCost: a.reflowCost + b.reflowCost,
   cost: a.cost + b.cost, length: a.length + b.length, movement: a.movement + b.movement,
@@ -491,7 +501,7 @@ export function comparePlacementResults(a, b) {
 function* placementSteps(snapshot) {
   const ctx = prepare(snapshot);
   const diagnostics = { errors: ctx.errors, candidateCounts: [], expansions: 0,
-    searchTruncated: false, verified: false, preference: emptyPreference(), preferredAboveIds: [], selfOverlayIds: [] };
+    searchTruncated: false, verified: false, preference: emptyPreference(), shopOverlapIds: [], preferredAboveIds: [], selfOverlayIds: [] };
   if (ctx.errors.length) return { placements: [],
     overflow: ctx.rawCards.map(c => ({ id: c?.id, reason: 'invalid-snapshot' })), diagnostics };
   const entries = [];
@@ -544,6 +554,7 @@ function* placementSteps(snapshot) {
   for (const p of placements) {
     const score = preference(ctx, p);
     diagnostics.preference = addPreference(diagnostics.preference, score);
+    if (score.shopOverlapArea) diagnostics.shopOverlapIds.push(p.id);
     if (score.aboveCount) diagnostics.preferredAboveIds.push(p.id);
     if (score.selfOverlayCount) diagnostics.selfOverlayIds.push(p.id);
   }
@@ -566,7 +577,7 @@ function copySnapshot(snapshot) {
   const copy = value => value && typeof value === 'object' ? rect(value) : value;
   const size = value => value && typeof value === 'object' ? { w: value.w, h: value.h } : value;
   const array = (value, mapper) => Array.isArray(value) ? value.map(mapper) : value;
-  return { viewport: copy(snapshot.viewport), controls: array(snapshot.controls, copy),
+  return { viewport: copy(snapshot.viewport), controls: array(snapshot.controls, copy), shop: copy(snapshot.shop),
     previous: array(snapshot.previous, value => value && typeof value === 'object' ? { id: value.id, ...rect(value) } : value),
     drawer: copy(snapshot.drawer),
     cards: array(snapshot.cards, card => card && typeof card === 'object'

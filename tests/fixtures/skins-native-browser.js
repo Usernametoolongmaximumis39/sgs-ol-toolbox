@@ -82,6 +82,43 @@ export function setupSkinFixture() {
   return fixture;
 }
 
+// Test the atlas rendering path with textures owned by a synthetic resource manager.
+export async function provideSkinChromeTextures(supplied = {}) {
+  const L = window.Laya, f = window.skinFixture, textures = new Map();
+  const set = (key, source) => {
+    const bitmap = new L.Texture2D(source.width, source.height); bitmap.loadImageSource(source);
+    textures.set(key, new L.Texture(bitmap));
+  };
+  const add = (key, width, height, fill, edge, title) => {
+    const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+    const g = canvas.getContext('2d');
+    g.fillStyle = fill; g.fillRect(0, 0, width, height);
+    g.strokeStyle = edge; g.strokeRect(.5, .5, width - 1, height - 1);
+    if (title) {
+      g.fillStyle = '#f5dca5'; g.font = 'bold 17px KaiTi'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(title, width / 2, height / 2);
+    }
+    set(key, canvas);
+  };
+  add('skin_new_btn_normal', 69, 32, '#3c2920', '#70573b', '新品');
+  add('skin_new_over', 69, 38, '#7e3d26', '#d2a16a', '新品');
+  add('tab_select_no_normal', 69, 32, '#26211e', '#4f453a');
+  add('tab_select_no_over', 69, 38, '#403125', '#806244');
+  add('tab_select_yes_normal', 69, 38, '#4e3d2a', '#9e7851');
+  add('win_noborder_btn_normal', 48, 22, '#443325', '#7e633f');
+  add('win_noborder_btn_over', 48, 22, '#674628', '#bc8d51');
+  add('search_bg9', 48, 24, '#25211d', '#7a664d');
+  add('cmn_combox_skin', 54, 60, '#25211d', '#7a664d');
+  add('cmn_combox_openBg', 48, 32, '#2c2520', '#8c7151');
+  // The search art carries its icon. A distinct frame also detects accidental tinting.
+  add('serachbtn2_over', 22, 22, '#473828', '#96784c', '⌕');
+  for (const [key, uri] of Object.entries(supplied)) {
+    const image = new Image(); image.src = uri; await image.decode(); set(key, image);
+  }
+  f.chromeTextures = textures;
+  window.RES = { GetRes: key => textures.get(key) };
+}
+
 export function createSkinFixtureOwner() {
   const L = window.Laya, f = window.skinFixture;
   const owner = new L.Sprite(); owner.name = 'NativeSkinManagementFixture'; owner.size(848, 548); owner.pos(50, 90); owner.scale(1.28, 1.28);
@@ -94,6 +131,13 @@ export function createSkinFixtureOwner() {
   owner.ownRadioBtn = { visible: true, SelectedValue: 0 };
   owner.tabGroup = new L.Sprite(); owner.addChild(owner.tabGroup); owner.tabGroup.SelectedValue = 1;
   owner.tabGroup.SetTabVisableByTabValue = () => {};
+  owner.tabGroup.GetButtonByValue = value => {
+    const faction = ['wei', 'shu', 'wu', 'qun'][value - 1];
+    if (!faction && value !== owner.NEW_TYPE_VALUE) return undefined;
+    const prefix = faction ? `skin_country_${faction}` : 'skin_new';
+    const normal = faction ? `${prefix}_normal` : 'skin_new_btn_normal', over = `${prefix}_over`;
+    return { skins: [normal, over, normal, normal, over] };
+  };
   for (const [index, title] of ['新品', '魏', '蜀', '吴', '群'].entries()) {
     const t = f.label(owner.tabGroup, title, 30 + index * 62, 10, 60, 28, '#e8c187', 20);
     t.mouseEnabled = true; t.on('click', owner, () => { owner.tabGroup.SelectedValue = [99, 1, 2, 3, 4][index]; owner.changeView(index !== 0); if (index === 0) owner.ShowNewView(); else owner.formData(); });

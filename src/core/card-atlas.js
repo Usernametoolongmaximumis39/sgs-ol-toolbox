@@ -43,7 +43,11 @@ export function parseCardFrames(index, pages, descriptor) {
     if (!f || !page || ![f.x, f.y, f.w, f.h, f.idx ?? 0].every(Number.isInteger) || f.x < 0 || f.y < 0
       || f.w !== width || f.h !== height || size?.w !== width || size?.h !== height || offset?.x !== 0 || offset?.y !== 0
       || f.x + f.w > page.width || f.y + f.h > page.height) continue;
-    result.set(key, Object.freeze({ ...f, idx: f.idx ?? 0 }));
+    const { x, y, w, h } = f;
+    const idx = f.idx ?? 0;
+    const label = typeof item.label === 'string' && item.label.length <= 48 && !/[\u0000-\u001f\u007f]/.test(item.label)
+      ? item.label.trim() : '';
+    result.set(key, Object.freeze({ x, y, w, h, idx, ...(label ? { label } : {}) }));
   }
   if (!result.size) throw new Error('图集中没有可用的完整卡图');
   return result;

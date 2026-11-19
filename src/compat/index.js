@@ -3,7 +3,7 @@ import { OFFICIAL_ROOTS, FORK_ROOTS, EXTENSION_ROOTS, SOURCE_NAMES } from './pro
 const TOOLBOX = '[data-sgs-toolbox]';
 const GAME = '#bgDiv,#layaContainer,#laya_container,#GameDiv,canvas,iframe';
 const FORBIDDEN_TAGS = new Set(['HTML', 'BODY', 'HEAD', 'SCRIPT', 'STYLE', 'LINK', 'META']);
-const FEATURE_LABELS = ['卡牌', '记牌', '明牌', '山河图', '配置', '工具', '百胜战功', '皮肤收集', '战绩出框', '聊天表情', '自助观星', '杀批账本', '95折充值'];
+const FEATURE_LABELS = ['卡牌', '记牌', '明牌', '山河图', '配置', '工具', '百胜战功', '皮肤收集', '战绩出框', '聊天表情', '自助观星', '杀批账本'];
 
 /**
  * Hide-only is reversible. exit-known calls verified upstream teardown APIs and

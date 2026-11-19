@@ -3,11 +3,12 @@ import { createChatEnhancements } from './chat.js';
 import { ResourceScope } from '../../core/resources.js';
 import { downloadJSON } from '../../shared/info-runtime.js';
 import { createLampTracking, createLampBanner } from './lamps.js';
+import { installRoomFilter } from './room-filter.js';
 
 export const manifest = {
-  id: 'social', name: '好友与聊天', version: '0.1.14', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "优化好友将灯变化横幅，补充好友消失提示；本机主动删除成功后清除对应本地记录，好友消失不能判断由哪一方删除。首次读取仍只建立基准。", minCoreVersion: '0.6.37',
-  description: '好友置顶、改名与将灯新增提醒、公屏一键进房与聊天官阶补全',
+  id: 'social', name: '好友与聊天', version: '0.1.17', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "大厅房间列表新增「只显示无密码房」，并调整公屏房号识别与进房入口。", minCoreVersion: '0.6.37',
+  description: '好友置顶、改名与将灯提醒、公屏一键进房、官阶补全与无密码房筛选',
   icon: { paths: ['M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 'M2 21v-3a6 6 0 0 1 12 0v3', 'M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1'] },
   priority: 30300, categories: ['tools'],
 };
@@ -17,6 +18,7 @@ export function activate(ctx) {
   const friends = createFriendManagement(ctx, banner);
   const lamps = createLampTracking(ctx, friends, banner);
   createChatEnhancements(ctx);
+  installRoomFilter(ctx);
   ctx.ui.registerPanel({ id: 'history', category: 'tools', render(container) {
     return renderHistory(ctx, container, friends, lamps);
   } });

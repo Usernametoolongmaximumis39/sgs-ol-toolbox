@@ -1,8 +1,11 @@
+import { ResourceScope } from './resources.js';
+
 // Use the client's own effect factories on an isolated receiver. The classes
 // are closure-private; no window construction, class-name lookup or shared
 // weather/skill effect is needed, including after refreshing inside a battle.
 function nativeEffect(layer, spine) {
-  const method = spine ? layer.SetBgLiveEffect : layer.wt;
+  // The bone factory was renamed in the 2026111702 game script.
+  const method = spine ? layer.SetBgLiveEffect : layer.Ci ?? layer.wt;
   if (typeof method !== 'function') throw new Error('游戏动画加载器尚未就绪');
   let effect, init, play;
   const host = {
@@ -23,9 +26,20 @@ function nativeEffect(layer, spine) {
   return effect;
 }
 
+function stableBackgroundClip(animations) {
+  const names = animations?.map(animation => animation.name).filter(Boolean) ?? [];
+  // The native skin player loops the last configured segment. In the skin
+  // resources, ChuChang is the entrance and DaiJi is the stable background.
+  const idle = names.find(name => name.toLowerCase() === 'daiji')
+    ?? names.find(name => name.toLowerCase() === 'play');
+  if (idle) return idle;
+  const remaining = names.filter(name => !/^(ChuChang|GongJi|HuDong|JiNeng)$/i.test(name));
+  return remaining.length === 1 ? remaining[0] : undefined;
+}
+
 export function createBackgroundMotion({ window, layer, spec, size, scope, ready, fail }) {
   const laya = window.Laya, root = new laya.Sprite(), players = [];
-  let loaded = false, failed = false, visible = false, playing = null;
+  let loaded = false, failed = false, visible = false, playing = null, stopAttack;
   root.name = 'sgs-background-motion'; root.mouseEnabled = root.mouseChildren = false;
   root.zOrder = layer.bgSprite.zOrder || 0;
   root.size(size.width, size.height); root.scrollRect = new laya.Rectangle(0, 0, size.width, size.height);
@@ -41,10 +55,12 @@ export function createBackgroundMotion({ window, layer, spec, size, scope, ready
   const complete = () => { if (!scope.closed && !failed) { loaded = true; ready(); } };
   const result = {
     get loaded() { return loaded && !failed; },
+    stopAttack() { stopAttack?.(); },
     layout(fit) { if (scope.closed || !fit) return; root.pos(fit.x, fit.y); root.scale(fit.scale, fit.scale); },
     show(value) {
       if (scope.closed) return;
       visible = value && !failed; root.visible = visible && loaded;
+      if (!visible) stopAttack?.();
       if (playing === visible) return;
       playing = visible;
       for (const player of players) visible ? player.resume() : player.pause();
@@ -87,6 +103,7 @@ export function createBackgroundMotion({ window, layer, spec, size, scope, ready
     video.src = spec.url; video.load();
   } else {
     const parts = spec.kind === 'bone' ? ['beijing', ...spec.parts] : spec.modern ? ['beijing', 'daiji', 'qianjing'] : ['beijing', 'xingxiang'];
+    const idle = new Map();
     let count = 0;
     for (const part of parts) {
       const effect = nativeEffect(layer, spec.kind === 'spine');
@@ -95,13 +112,85 @@ export function createBackgroundMotion({ window, layer, spec, size, scope, ready
       if (spec.kind === 'bone') effect.size(size.width, size.height);
       effect.pos(size.width / 2, size.height / 2);
       effect.AutoReleaseRes = true;
-      const onStart = () => { if (++count === parts.length) { complete(); result.show(visible); } };
+      idle.set(part, effect);
+      let started = false;
+      const partReady = () => { if (++count === parts.length) { complete(); result.show(visible); } };
+      const onStart = () => {
+        if (scope.closed || failed) return;
+        started = true;
+        if (!visible) effect.stop();
+        partReady();
+      };
       effect.once(laya.Event?.START || 'start', effect, onStart);
       effect.once(laya.Event?.ERROR || 'error', effect, error);
-      const animation = spec.modern && part !== 'beijing' ? 'DaiJi' : spec.modern ? 0 : 'play';
-      effect.InitEffect(`${spec.url}/${part}.${spec.kind === 'spine' ? 'json' : 'sk'}`, animation, true, false);
+      players.push({ pause() { if (started) effect.stop(); }, resume() { if (started) effect.playEffect(); } });
+      const url = `${spec.url}/${part}.${spec.kind === 'spine' ? 'json' : 'sk'}`;
+      const modernSpine = spec.kind === 'spine' && spec.modern;
+      const loadEvent = effect.constructor.SPINE_EFFECT_LOAD_COMPLETE;
+      if (modernSpine && part === 'beijing' && loadEvent) {
+        // Load the template without displaying its first clip, which is often
+        // the entrance. Resolve the loop before starting this player.
+        effect.AutoStart = false;
+        effect.once(loadEvent, effect, () => {
+          if (scope.closed || failed) return;
+          const animation = stableBackgroundClip(effect.templet?.skeletonData?.animations);
+          if (!animation) {
+            effect.visible = false;
+            partReady();
+            return;
+          }
+          effect.InitEffect(url, animation, true, false);
+          effect.playEffect();
+        });
+      }
+      effect.InitEffect(url, modernSpine ? 'DaiJi' : 'play', true, false);
       effect.playEffect();
-      players.push({ pause() { effect.stop(); }, resume() { effect.playEffect(); } });
+    }
+    if (spec.kind === 'spine' && spec.modern) {
+      const missing = new Set();
+      result.playAttack = () => {
+        if (scope.closed || !result.loaded || !visible || stopAttack || missing.has('xingxiang')) return;
+        const action = new ResourceScope();
+        const stop = scope.add(() => {
+          stopAttack = null;
+          action.dispose();
+        });
+        stopAttack = stop;
+        action.timeout(stop, 20000);
+        try {
+          for (const [part, idlePart] of [['xingxiang', 'daiji'], ['qianjing', 'qianjing']]) {
+            if (missing.has(part)) continue;
+            const underneath = idle.get(idlePart);
+            const effect = nativeEffect(layer, true);
+            let active = true, ended = false;
+            const release = action.add(() => {
+              active = false;
+              underneath.visible = true;
+              effect.destroy();
+            });
+            effect.visible = effect.mouseEnabled = effect.mouseChildren = false;
+            effect.AutoReleaseRes = true;
+            root.addChildAt(effect, root.getChildIndex(underneath) + 1);
+            effect.pos(size.width / 2, size.height / 2);
+            const finish = () => {
+              ended = true;
+              // Native players finish dispatching before their nodes are destroyed.
+              Promise.resolve().then(part === 'xingxiang' ? stop : release).catch(stop);
+            };
+            effect.once(laya.Event?.START || 'start', effect, () => {
+              if (!active || ended) return;
+              underneath.visible = false;
+              effect.visible = true;
+            });
+            effect.once(laya.Event?.STOPPED || 'stopped', effect, finish);
+            effect.once(laya.Event?.ERROR || 'error', effect, finish);
+            effect.once(effect.constructor.PLAY_NAME_LOSE || 'PLAY_NAME_LOSE', effect, () => { missing.add(part); finish(); });
+            effect.InitEffect(`${spec.url}/${part}.json`, 'GongJi', false, false);
+            effect.playEffect();
+            if (part === 'xingxiang' && ended) break;
+          }
+        } catch { stop(); }
+      };
     }
   }
   return result;

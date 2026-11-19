@@ -27,17 +27,25 @@ export function lossHint(option) {
   const names = option.loss.items.map(row=>row.name+(row.count!==1?`×${row.count}`:'')).join('、');
   return `${option.loss.source === 'server' ? '扣除' : '预计扣除'}：${names}`;
 }
+function impactToken(option) {
+  if (option.camp || !option.impact) return null;
+  const known = option.impact.length > 0;
+  const text = `（${known ? option.impact.join(' · ') : '属性变化待确认'}）`;
+  return { text, atomic: true, impact: known ? 'known' : 'unknown' };
+}
 export function optionSummary(option, index = 0, includeLoss = true) {
   const mark = ['①','②','③'][Number(option.order || index + 1) - 1] || String(index + 1);
   if (option.camp) return `${mark} 营地`;
   const gain = shortReward(option.gain || '').replace('（内容待同步）', option.reveal === 'on-entry' ? '（待揭示）' : '（名称未下发）');
   const target = [gain, option.battle ? '战斗：' + option.battle.generals.map(g=>g.name).join('、') : '', option.note].filter(Boolean).join(' · ') || '内容待同步';
   const money = option.gainDetail?.abandonMoney;
-  return `${mark} ${option.lost ? shortReward(option.lost) + ' → ' : option.costHint && option.costHint !== '免费' ? option.costHint + ' → ' : ''}${target}${money > 0 ? `（可弃换${money}铜钱）` : ''}${includeLoss && lossHint(option) ? `（${lossHint(option)}）` : ''}`;
+  return `${mark} ${option.lost ? shortReward(option.lost) + ' → ' : option.costHint && option.costHint !== '免费' ? option.costHint + ' → ' : ''}${target}${money > 0 ? `（可弃换${money}铜钱）` : ''}${impactToken(option)?.text ?? ''}${includeLoss && lossHint(option) ? `（${lossHint(option)}）` : ''}`;
 }
 export function optionTokens(option,index=0) {
-  const hint=lossHint(option);
-  return [...optionBaseTokens(option,index),...(hint?[{text:hint,breakBefore:true,...(option.loss.source==='unavailable'?{warning:true}:{})}]:[])];
+  const tokens = optionBaseTokens(option, index), impact = impactToken(option), hint = lossHint(option);
+  if (impact) tokens.push(impact);
+  if (hint) tokens.push({ text: hint, breakBefore: true, ...(option.loss.source === 'unavailable' ? { warning: true } : {}) });
+  return tokens;
 }
 function optionBaseTokens(option,index=0) {
   const lost=rewardToken(option.lost),gain=rewardToken(option.gain);

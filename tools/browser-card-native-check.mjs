@@ -3,11 +3,21 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
-import { CARDS_VERSION } from '../src/core/version.js';
+import cards from '../src/plugins/cards/index.js';
+const CARDS_VERSION = cards.manifest.version;
+import { THEMES } from '../src/plugins/themes/palettes.js';
 
 // Use the cached official engine, without loading the game or logging in.
 const engine = process.env.SGS_LAYA_CORE || path.join(process.env.TEMP, 'sgsres/game/laya.core.min.js');
 await readFile(engine);
+const clientSource = await readFile(process.env.SGS_CLIENT_SOURCE || 'test-results/reference/client-static/sgsGame_a.js', 'utf8');
+function nativeSlice(start, end) {
+  const first = clientSource.indexOf(start), last = clientSource.indexOf(end, first + start.length);
+  assert.ok(first >= 0 && last > first && last - first < 5000, start);
+  return clientSource.slice(first, last);
+}
+const selectContextSource = nativeSlice('class yAt{', 'class ');
+const clickCardSource = nativeSlice('CardUI_Click(t){if(V2t.CanOperationInGame())', 'invalidateLayoutHandCardFlag=!1');
 const packet = JSON.parse(await readFile(`release/market/packages/cards/${CARDS_VERSION}.json`, 'utf8'));
 const bundle = await build({ stdin: { contents: "export { mountPluginUI } from './src/ui/plugin-ui.js'; export { ResourceScope } from './src/core/resources.js';", resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'NativeCardCheck' });
 const output = path.resolve('test-results'); await mkdir(output, { recursive: true });
@@ -19,6 +29,18 @@ try {
   await page.addScriptTag({ path: engine });
   await page.addScriptTag({ content: bundle.outputFiles[0].text });
   await page.addScriptTag({ content: `window.NativeCardPlugin = new Function(${JSON.stringify(packet.code)})();` });
+  await page.addScriptTag({ content: `(() => {
+    const GAt = { NONE: 'none' };
+    const F1t = { I: () => ({ ID: 0 }) };
+    const V2t = { CanOperationInGame: () => true };
+    const LKi = { I: () => ({ UpdateCardUseGuideYingBianClickCardUI() {}, UpdateCardUseGuideNewbieClickCardUI() {} }) };
+    class Qqi {}
+    class Qas {}
+    class qqi { constructor(Card) { this.Card = Card; this.Activated = true; } }
+    ${selectContextSource}
+    class CachedHand { ${clickCardSource} }
+    window.ShanheNative = { CardUI: qqi, Selection: yAt, clickCard: CachedHand.prototype.CardUI_Click };
+  })();` });
   await page.evaluate(() => {
     Laya.init(1100, 800); Laya.stage.bgColor = '#172a24';
     class CheckSeatCardWindow extends Laya.Sprite {}
@@ -38,11 +60,14 @@ try {
     self.countdownTimer=staleTimer; // Allocated, positive, but never added to stage.
     self.seat = { index: 0 }; self.seatID = 0;
     self.seat.Index = 0; self.seat.InDealRound = true;
-    self.skillItems = ['正常', '用尽', '无限', '未知'].map((name, index) => {
+    const renChe = { limit: 1, used: 0 };
+    self.skillItems = ['正常', '用尽', '无限', '未知', '刃掣'].map((name, index) => {
       const item = new Laya.Sprite(); item.pos(460 + index * 70, -10); item.size(64, 28);
       item.graphics.drawRect(0, 0, 64, 28, '#302d25', '#82714d', 1);
       const text = new Laya.Text(); text.text = name; text.fontSize = 14; text.color = '#eee3cc'; text.pos(7, 7); item.addChild(text);
-      item.Skill = { SkillId: 100 + index, Seat: self.seat, SpecialModeDesc: '出牌阶段限三次，你可以摸牌。',
+      item.Skill = name === '刃掣' ? { SkillId: 4009, Seat: self.seat, SpecialModeDesc: '出牌阶段限X次，你可弃置X张牌。',
+        get TimelimitRound() { return renChe.limit; }, GetSkillUseCountInRound: () => renChe.used }
+        : { SkillId: 100 + index, Seat: self.seat, SpecialModeDesc: '出牌阶段限三次，你可以摸牌。',
         TimelimitRound: 3, TimeLimitGame: Number.MAX_SAFE_INTEGER,
         GetSkillUseCountInRound: () => [1, 3, 0, undefined][index], hasUnlimitedUses: () => index === 2 };
       self.addChild(item); return item;
@@ -62,11 +87,15 @@ try {
     const state = Object.assign(NativeCardPlugin.initialState(), { active: true, selfSeatId: 0, seats: { 0: {} } });
     state.cards={4:{id:4,locations:['5:1'],tags:[],lastSeq:1,seen:true},5:{id:5,locations:['5:1','5:2'],tags:[],lastSeq:1,seen:true}};
     let clicks = 0;
+    const scene = { SelfSeatUi: self, SceneName: 'GameScene' };
     const dispose = NativeCardPlugin.activate({ document, window, scope, themes,
-      game: { getScene: () => ({ SelfSeatUi: self }), getSelfSeatUI: () => self, getSeatUIs: () => [self,observed], getClass: name => name === 'CheckSeatCardWindow' ? CheckSeatCardWindow : null,
+      game: { getScene: () => scene, getSelfSeatUI: () => self, getSeatUIs: () => [self,observed], getClass: name => name === 'CheckSeatCardWindow' ? CheckSeatCardWindow : null,
         getCardMeta:id=>({name:'杀',suit:id===4?3:4,number:id===4?10:2}) },
       getState: () => state, settings: { get: (key, fallback) => settings.has(key) ? settings.get(key) : fallback, set: (key, value) => settings.set(key, value) },
-      subscribe: () => () => {}, ui: { ...NativeCardCheck.mountPluginUI({document,window,scope}, () => ({document,window,scope})), registerPanel: () => () => {} },
+      subscribe: () => () => {}, ui: { ...NativeCardCheck.mountPluginUI({document,window,scope}, () => ({document,window,scope})), registerPanel(spec) {
+        const main = document.querySelector('main'); main.hidden = true;
+        return spec.render(main);
+      } },
     });
     const enhancement = { dispose };
     let handPresses = 0;
@@ -77,11 +106,11 @@ try {
     const countdown = new Laya.Sprite(); countdown.size(230,12); countdown.pos(155,220); countdown.RemainValue=7.4;countdown.countTween={};
     countdown.graphics.drawRect(0,0,230,12,'#70251c'); modal.addChild(countdown); modal.countdownTimer=countdown;
     modal.on('click', modal, () => clicks++);
-    window.nativeCheck = { themes, themeListeners, state, gameLayer, windowLayer, hand, self, avatar, staleTimer, settings, scope, enhancement, modal, get clicks() { return clicks; }, get handPresses() { return handPresses; } };
+    window.nativeCheck = { themes, themeListeners, state, scene, gameLayer, windowLayer, hand, self, avatar, staleTimer, settings, scope, enhancement, modal, renChe, get clicks() { return clicks; }, get handPresses() { return handPresses; } };
   });
   await page.waitForFunction(() => !!nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort'));
   const counts = () => page.evaluate(() => nativeCheck.self._children.filter(n => n.name === 'sgs-toolbox-skill-count').map(n => n.text));
-  assert.deepEqual(await counts(), ['2', '0', '∞', '?']);
+  assert.deepEqual(await counts(), ['2', '0', '∞', '?', '1']);
   await page.screenshot({ path: path.join(output, 'card-skill-counts.png') });
   await page.evaluate(() => {
     nativeCheck.themes.current.tokens = { bg: '#f6f2e9', accent: '#77581d', muted: '#746752', scheme: 'light' };
@@ -89,13 +118,17 @@ try {
     Laya.stage.bgColor = '#f6f2e9';
     nativeCheck.self.skillItems.forEach(item => { item.graphics.clear(); item.graphics.drawRect(0,0,64,28,'#fffaf1','#c4b492',1); item.getChildAt(0).color='#302b23'; });
   });
-  assert.deepEqual(await page.evaluate(() => nativeCheck.self._children.filter(n => n.name === 'sgs-toolbox-skill-count').map(n => n.color)), ['#77581d','#746752','#77581d','#77581d']);
+  assert.deepEqual(await page.evaluate(() => nativeCheck.self._children.filter(n => n.name === 'sgs-toolbox-skill-count').map(n => n.color)), ['#77581d','#746752','#77581d','#77581d','#77581d']);
   await page.screenshot({ path: path.join(output, 'card-skill-counts-light.png') });
   await page.evaluate(() => { nativeCheck.themes.current.tokens = {}; nativeCheck.themeListeners.forEach(fn => fn()); Laya.stage.bgColor = '#172a24'; });
   await page.evaluate(() => nativeCheck.settings.set('skillCounts', false));
   await page.waitForFunction(() => !nativeCheck.self._children.some(n => n.name === 'sgs-toolbox-skill-count'));
   await page.evaluate(() => nativeCheck.settings.set('skillCounts', true));
-  await page.waitForFunction(() => nativeCheck.self._children.filter(n => n.name === 'sgs-toolbox-skill-count').length === 4);
+  await page.waitForFunction(() => nativeCheck.self._children.filter(n => n.name === 'sgs-toolbox-skill-count').length === 5);
+  for (const [limit, used, remaining] of [[1, 1, '0'], [3, 1, '2'], [1, 2, '0']]) {
+    await page.evaluate(({ limit, used }) => Object.assign(nativeCheck.renChe, { limit, used }), { limit, used });
+    await page.waitForFunction(remaining => nativeCheck.self._children.filter(n => n.name === 'sgs-toolbox-skill-count').at(-1)?.text === remaining, remaining);
+  }
   await page.evaluate(() => nativeCheck.self.skillItems[0].Skill.GetSkillUseCountInRound = () => 2);
   await page.waitForFunction(() => nativeCheck.self._children.find(n => n.name === 'sgs-toolbox-skill-count').text === '1');
   const measure = () => page.evaluate(() => {
@@ -122,6 +155,7 @@ try {
     assert.equal(await page.evaluate(() => nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort').numChildren), 5);
     assert.equal(bounds.fontSize, 12); assert.ok(Math.abs(bounds.height - 24 * scale) < .1);
     assert.ok(Math.abs(bounds.width - 136 * scale) < .1);
+    assert.ok(Math.abs(bounds.y - 278 * scale) < .1, 'toolbar sits one quarter-height above its previous anchor');
     await page.waitForTimeout(350);
     await page.mouse.click(bounds.cx, bounds.cy);
     assert.deepEqual(await page.evaluate(() => nativeCheck.hand.cardUis.map(ui => ui.Card.CardNumber)), [3, 7, 9]);
@@ -173,6 +207,20 @@ try {
   await page.evaluate(()=>{nativeCheck.avatar.pos(400,30);nativeCheck.avatar.scrollRect.width=73;nativeCheck.gameLayer.scale(1.6,1.6);});
   await page.evaluate(() => { for(let id=4;id<37;id++) nativeCheck.state.cards[id]={id,locations:id%2?['5:1','5:2']:['5:1'],tags:[],lastSeq:1,seen:true}; });
   await page.waitForFunction(()=>document.querySelector('[data-sgs-cards-overlay]').shadowRoot.querySelectorAll('.sgs-card-seat-reveal .sgs-card-mini').length===33);
+  const reveal = page.locator('[data-sgs-cards-overlay]').locator('.sgs-card-seat-reveal');
+  await reveal.evaluate(box => {
+    window.unchangedRevealCard = box.firstElementChild;
+    nativeCheck.state.lastSeq++;
+    nativeCheck.avatar.x += 5;
+    window.previousRevealLeft = box.style.left;
+  });
+  await page.waitForFunction(() => window.unchangedRevealCard.parentNode?.style.left !== window.previousRevealLeft);
+  assert.equal(await reveal.evaluate(box => box.firstElementChild === window.unchangedRevealCard), true,
+    'an unrelated sequence change and portrait move preserve card nodes');
+  await page.evaluate(() => { nativeCheck.state.cards[4].tags.push('展示'); });
+  await page.waitForFunction(() => document.querySelector('[data-sgs-cards-overlay]').shadowRoot
+    .querySelector('.sgs-card-seat-reveal [data-card-id="4"]').title.includes('展示'));
+  await page.evaluate(() => { nativeCheck.avatar.x -= 5; });
   assert.deepEqual(await page.evaluate(()=>{
     const box=document.querySelector('[data-sgs-cards-overlay]').shadowRoot.querySelector('.sgs-card-seat-reveal');
     const cards=[...box.children].map(c=>c.getBoundingClientRect());
@@ -246,7 +294,7 @@ try {
       return { x: root.x, y: root.y, width: root.width, height: root.height };
     });
     assert.ok(limited.x >= 163 && limited.x + limited.width <= 700);
-    assert.ok(limited.y >= -40 && limited.y + limited.height <= 24, 'drag must remain in the narrow band above hand cards');
+    assert.ok(limited.y >= -46 && limited.y + limited.height <= 18, 'drag must remain in the raised band above hand cards');
     const drawn = await measure();
     assert.ok(drawn.x >= 0 && drawn.y >= 0 && drawn.x + drawn.width <= 1100 && drawn.y + drawn.height <= 800);
   }
@@ -258,12 +306,174 @@ try {
   });
   await page.setViewportSize({ width: 1100, height: 800 });
   assert.equal(await page.evaluate(() => nativeCheck.handPresses), 0, 'toolbar presses must not leak into hand-card gestures');
+  await page.evaluate(() => {
+    const { scene, self, hand, state } = nativeCheck;
+    scene.SceneName = 'RogueLikeGameScene';
+    Object.assign(self.seat, { IsSelf: true, PlayerInfo: { ClientId: 42 }, InActiveState: false,
+      GetAllZhanfaIds: () => [2190] });
+    state.currentSeatId = 1; // The journal still describes the previous player's turn.
+    hand.areChoosingCard = true;
+    hand.CardUI_Click = ShanheNative.clickCard;
+    self.PlayCard_Result = () => {};
+    const dealPrompt = '出牌阶段，请选择一张卡牌';
+    const wrappedPlay = self.PlayCard_Result.bind(self);
+    const selection = () => Object.assign(new ShanheNative.Selection(), {
+      Purpose: 'deal', Message: dealPrompt, SelectResultCallback: wrappedPlay,
+      CardSelector: { SelectCountMax: 1, SelectedCount: 0, FirstSelectedCard: null, SpecialSkillIDs: [] },
+    });
+    const selected = [], played = [];
+    const ok = { name: 'btnOK', enabled: true, onClick() { played.push(hand.selectCardContext.CardSelector.FirstSelectedCard.FirstSkillId); } };
+    const end = { name: 'btnDiscard', enabled: true };
+    // The updated client stores the bar in Ai and exposes it through getButtonBar().
+    self.Ai = { btns: [ok, end], getButton(name) { return this.btns.find(button => button.name === name); } };
+    self.getButtonBar = function () { return this.Ai; };
+    hand.selectCardContext = selection();
+    const cards = skills => skills.map((skill, index) => {
+      const card = { CardId: 100 + index, FirstSkillId: skill, FirstIndexSkillID: skill === 11111 ? 1 : skill, G(value) {
+        if (!value) throw new Error('Unexpected deselection');
+        selected.push(skill);
+        Object.assign(hand.selectCardContext.CardSelector, { SelectedCount: 1, FirstSelectedCard: this });
+        end.visible = false;
+        if ([1, 8, 11111].includes(skill)) {
+          const count = skill === 1 ? 1 : 0; // Native automatic target on the last 杀.
+          self.SelectSeatContext = { Card: this, SelectComplete: Boolean(count), TargetSelector: { SelectedSeatCount: count } };
+        } else {
+          self.SelectSeatContext = { SelectComplete: true, TargetSelector: { SelectedSeatCount: 0 } };
+        }
+      } };
+      return new ShanheNative.CardUI(card);
+    });
+    hand.cardUis = cards([11111, 10, 5, 9, 8, 9, 1]);
+    nativeCheck.auto = { ok, selected, played, cards, dealPrompt, advance() {
+      const card = hand.selectCardContext.CardSelector.FirstSelectedCard;
+      hand.cardUis = hand.cardUis.filter(ui => ui.Card !== card);
+      hand.selectCardContext = selection();
+      self.SelectSeatContext = null;
+      end.visible = true;
+    }, selectTarget() { self.SelectSeatContext.SelectComplete = true; self.SelectSeatContext.TargetSelector.SelectedSeatCount = 1; } };
+  });
+  const waitAutoIcon = text => page.waitForFunction(expected => {
+    const button = nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort').getChildByName('auto-play');
+    return button?.toolTip === expected && button.accessibilityLabel === expected &&
+      button.numChildren === 0 && button.graphics.cmds?.length >= 3;
+  }, text, { timeout: 5000 });
+  const autoOff = '自动打牌 · 点击开启 · 右键记住', autoOn = '自动打牌中 · 点击取消', autoRemembered = '已记住自动打牌 · 点击取消';
+  const clickAuto = async (button = 'left') => {
+    const center = await page.evaluate(() => {
+      const auto = nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort').getChildByName('auto-play');
+      const point = auto.localToGlobal(new Laya.Point(auto.width / 2, auto.height / 2), true);
+      return { x: point.x, y: point.y };
+    });
+    await page.mouse.click(center.x, center.y, { button });
+  };
+  await waitAutoIcon(autoOff);
+  assert.equal(await page.getByRole('heading', { name: '自动打牌判定', exact: true }).count(), 0);
+  await page.waitForTimeout(220); // Let the previous drag's click suppression expire.
+  await clickAuto();
+  await waitAutoIcon(autoOn);
+  await page.waitForTimeout(300);
+  assert.deepEqual(await page.evaluate(() => nativeCheck.auto.selected), [], 'wait outside own active play');
+  await page.evaluate(() => {
+    nativeCheck.self.seat.InActiveState = true;
+    nativeCheck.hand.selectCardContext.Message = '请选择一张手牌响应技能';
+  });
+  await page.waitForTimeout(300);
+  assert.deepEqual(await page.evaluate(() => nativeCheck.auto.selected), [], 'a skill prompt does not count as ordinary play');
+  await page.evaluate(() => { nativeCheck.hand.selectCardContext.Message = nativeCheck.auto.dealPrompt; });
+  await page.waitForFunction(() => nativeCheck.auto.selected[0] === 8, null, { timeout: 5000 });
+  await page.waitForTimeout(300);
+  assert.deepEqual(await page.evaluate(() => nativeCheck.auto.played), [], 'duel waits for a selected target');
+  await page.evaluate(() => nativeCheck.auto.selectTarget());
+  const waitForPlay = count => page.waitForFunction(n => nativeCheck.auto.played.length === n, count);
+  await waitForPlay(1);
+  await page.waitForTimeout(320);
+  assert.deepEqual(await page.evaluate(() => nativeCheck.auto.played), [8], 'pending confirmation cannot repeat');
+  for (const count of [2, 3, 4]) {
+    await page.evaluate(() => nativeCheck.auto.advance());
+    await waitForPlay(count);
+  }
+  await page.evaluate(() => nativeCheck.auto.advance());
+  await page.waitForFunction(() => nativeCheck.auto.selected.at(-1) === 11111);
+  await page.evaluate(() => { nativeCheck.self.SelectSeatContext.SelectComplete = true; });
+  await page.waitForTimeout(300);
+  assert.deepEqual(await page.evaluate(() => nativeCheck.auto.played), [8, 9, 9, 10], 'a legal but unselected slash target does not submit');
+  await page.evaluate(() => nativeCheck.auto.selectTarget());
+  await waitForPlay(5);
+  await page.evaluate(() => nativeCheck.auto.advance());
+  await waitForPlay(6);
+  await page.evaluate(() => nativeCheck.auto.advance());
+  await page.waitForTimeout(300); // Give the native poll time to reject the remaining card.
+  assert.deepEqual(await page.evaluate(() => nativeCheck.auto.played), [8, 9, 9, 10, 11111, 1]);
+  assert.deepEqual(await page.evaluate(() => nativeCheck.auto.selected), [8, 9, 9, 10, 11111, 1]);
+  await clickAuto('right');
+  await waitAutoIcon(autoRemembered);
+  assert.equal(await page.evaluate(() => nativeCheck.settings.get('shanheAutoPlay:42')), true);
+  const shanheBar = await measure();
+  assert.ok(Math.abs(shanheBar.width - 170 * 1.6) < 0.1);
+  assert.equal(await page.evaluate(() => {
+    const toolbar = nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort');
+    const hint = toolbar._children.find(child => child instanceof Laya.Text && child.visible);
+    return Boolean(hint && hint.textWidth <= hint.width);
+  }), true, 'the icon tooltip fits on one line');
+  await page.screenshot({ path: path.join(output, 'toolbox-hand-sort-shanhe.png'), clip: {
+    x: Math.floor(shanheBar.x) - 10, y: Math.floor(shanheBar.y) - 55, width: 320, height: 110
+  } });
+  await page.setViewportSize({ width: 560, height: 600 });
+  await page.evaluate(tokens => {
+    nativeCheck.themes.current.tokens = tokens;
+    nativeCheck.themeListeners.forEach(fn => fn());
+    Laya.stage.bgColor = '#e5dece';
+  }, THEMES.find(theme => theme.id === 'themes.ricepaper').tokens);
+  await page.waitForFunction(() => {
+    const root = nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort');
+    const end = root.localToGlobal(new Laya.Point(root.width, root.height), true);
+    return root.visible && end.x <= 556 && end.y <= 600;
+  });
+  const narrowBar = await measure();
+  await page.screenshot({ path: path.join(output, 'toolbox-hand-sort-shanhe-light.png'), clip: {
+    x: Math.floor(narrowBar.x) - 4, y: Math.floor(narrowBar.y) - 50, width: 303, height: 105
+  } });
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.evaluate(() => { nativeCheck.scene.SceneName = 'GameScene'; });
+  await page.waitForFunction(() => !nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort').getChildByName('auto-play'));
+  await page.evaluate(() => { nativeCheck.scene.SceneName = 'RogueLikeGameScene'; nativeCheck.self.seat.PlayerInfo.ClientId = 43; });
+  await waitAutoIcon(autoOff);
+  await page.evaluate(() => { nativeCheck.self.seat.PlayerInfo.ClientId = 42; });
+  await waitAutoIcon(autoRemembered);
+  await clickAuto();
+  await waitAutoIcon(autoOff);
+  assert.equal(await page.evaluate(() => nativeCheck.settings.get('shanheAutoPlay:42')), false);
+  await page.evaluate(() => {
+    const { self, hand, auto } = nativeCheck;
+    self.Pt = self.Ai;
+    delete self.Ai;
+    delete self.getButtonBar;
+    self.seat.GetAllZhanfaIds = () => [];
+    hand.cardUis = auto.cards([8, 10, 1, 5]);
+    auto.ok.enabled = false;
+  });
+  await page.keyboard.press('Enter');
+  await waitAutoIcon(autoOn);
+  await page.waitForFunction(() => nativeCheck.auto.selected.length === 7);
+  await page.waitForTimeout(300);
+  assert.deepEqual(await page.evaluate(() => nativeCheck.auto.selected.slice(6)), [1], 'without the tactic only slash is selected');
+  assert.equal(await page.evaluate(() => nativeCheck.auto.played.length), 6, 'disabled confirmation is left alone');
+  await page.evaluate(() => { nativeCheck.auto.ok.enabled = true; });
+  await waitForPlay(7);
+  await page.evaluate(() => { nativeCheck.scene.IsReplay = true; });
+  await page.waitForFunction(() => !nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort').getChildByName('auto-play'));
+  await page.evaluate(() => { nativeCheck.scene.IsReplay = false; });
+  await waitAutoIcon(autoOff);
+  await clickAuto();
+  await waitAutoIcon(autoOn);
+  await page.evaluate(() => { nativeCheck.state.deckStartSeq++; });
+  await waitAutoIcon(autoOff);
   await page.evaluate(() => { nativeCheck.enhancement.dispose(); nativeCheck.scope.dispose(); });
   assert.deepEqual(await counts(), []);
   assert.equal(await page.evaluate(() => nativeCheck.themeListeners.size), 0);
   assert.deepEqual(await page.evaluate(() => ({ toolbar: !!nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort'), alpha: nativeCheck.self.sortCardBtn.alpha, enabled: nativeCheck.self.sortCardBtn.mouseEnabled })), { toolbar: false, alpha: 1, enabled: true });
   assert.deepEqual(errors, []);
-  const result = { scope: '官方缓存Laya引擎2.12.2 + 独立牌局节点演练，非真实账号牌局', packageVersion: CARDS_VERSION, checks: ['无拖动柄；12原生字号、108×24尺寸随1/1.6缩放', '排序及选中状态保留', '双击锁定/解锁', '真实引擎窗口层遮挡及点击归属', '选牌弹窗原生数字读秒8→4，停止/移除后清理', '旁观未挂载及停止计时器不生成数字', '双将scrollRect.x=36，明牌在1/1.6缩放下对齐可见头像左下', '弹窗关闭后恢复', '整排长按拖动；手牌上方限位及画布/视口限制；不触发手牌手势', '卸载移除并恢复原生按钮'], pageErrors: errors };
+  const result = { scope: '官方缓存Laya引擎2.12.2 + 独立牌局节点演练，非真实账号牌局', packageVersion: CARDS_VERSION, checks: ['12原生字号，理牌栏和拖动范围上移6原生像素，随1/1.6缩放', '排序及选中状态保留', '双击锁定/解锁', '真实引擎窗口层遮挡及点击归属', '选牌弹窗原生数字读秒8→4，停止/移除后清理', '旁观未挂载及停止计时器不生成数字', '双将scrollRect.x=36，明牌在1/1.6缩放下对齐可见头像左下', '弹窗关闭后恢复', '整排长按拖动；手牌上方限位及画布/视口限制；不触发手牌手势', '山河图自动打牌图标的三档状态、单行提示、出牌顺序及右键按账号记住', '通过新客户端 getButtonBar 出南蛮入侵，兼容旧操作栏，技能询问不触发自动出牌', '卸载移除并恢复原生按钮'], pageErrors: errors };
   await writeFile(path.join(output, 'browser-card-native-report.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally { await browser.close(); }

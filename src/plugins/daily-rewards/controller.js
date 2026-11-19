@@ -1,6 +1,7 @@
 import { isReturnTask } from './return-tasks.js';
 import { planRewards, rows, nativeMethod, taskSkipReason } from './native.js';
 import { planChoiceRewards } from './choice-rewards.js';
+import { syncJieyueLists } from './military-rewards.js';
 import { DEFAULT_CODE_SERVER, codeServerUrl, mergeCodeText } from './code-sources.js';
 import { rewardExclusions } from './exclusions.js';
 import { shareableCode, reportableCode, parseCodes, parseClipboardCodes, codeAttemptLabel, CLIPBOARD_PARSER_VERSION } from './codes.js';
@@ -9,11 +10,19 @@ const defaults = { automatic: false, sign: true, mail: true, tasks: true, welfar
 const names = { sign: '签到', mail: '邮件', tasks: '任务', welfare: '福利', activities: '活动', codes: '兑换码' };
 const safely = fn => { try { return fn(); } catch { return undefined; } };
 const uncertainStatuses = new Set(['pending', 'unconfirmed', 'interrupted']);
+const unconfirmedClaimText = '工具箱暂未确认领取状态，请以游戏内领取记录为准。不会自动重发。';
+function savedAttemptText(entry) {
+  return entry.text === '暂未确认领取，通常尚未满足领取条件；不会自动重发' ? unconfirmedClaimText : entry.text;
+}
 // Old ledgers have no explicit workflow group. Keep their dependent steps
 // together, while independent task IDs, mails and activity awards can proceed.
+const militaryTier = /^activity:(jd|new-jd|ddz-tll):tier:\d+:\d+:[01]$/;
 export function rewardWorkflowGroup(action) {
-  if (typeof action.workflowGroup === 'string' && action.workflowGroup) return action.workflowGroup;
   const key = String(action.key || '');
+  // Old tier attempts used a pass-wide group. The key still identifies
+  // the exact season, tier and free/premium track.
+  if (militaryTier.test(key)) return key;
+  if (typeof action.workflowGroup === 'string' && action.workflowGroup) return action.workflowGroup;
   const sign = /^sign:(\d+):/.exec(key);
   if (sign) return `sign:${sign[1]}`;
   if (key.startsWith('welfare:tree:')) return 'welfare:tree';
@@ -29,12 +38,12 @@ export function rewardWorkflowGroup(action) {
 
 export function awaitClaim(action, { signal, valid, timeout = 8000, poll = 100 }) {
   return new Promise(resolve => {
-    let ended = false, interval, deadline;
+    let ended = false, interval, deadline, refreshTimer;
     const caller = {}, manager = action.manager, bindings = [];
     const events = ['GET_LOGIN_REWARD', 'GET_LOGIN_REWARD_NEW', 'LOGIN_SIGN_DATA_UPDATE', 'GET_GIFT_SUCCESS', 'READ_MAIL_SUCCESS', 'MAIL_LIST_UPDATE', 'REWARD_REP', 'TASK_HAS_AWARD', 'NEWTTRANKDATA_CHANGE'];
     const finish = result => {
       if (ended) return;
-      ended = true; clearInterval(interval); clearTimeout(deadline);
+      ended = true; clearInterval(interval); clearTimeout(deadline); clearTimeout(refreshTimer);
       signal?.removeEventListener('abort', abort);
       for (const event of events) safely(() => manager?.off?.(event, caller, check));
       for (const [target, event, handler] of bindings) safely(() => target.off(event, caller, handler));
@@ -65,13 +74,17 @@ export function awaitClaim(action, { signal, valid, timeout = 8000, poll = 100 }
     }
     signal?.addEventListener('abort', abort, { once: true });
     interval = setInterval(check, poll);
-    deadline = setTimeout(() => finish({ status: 'unconfirmed', text: '暂未确认领取，通常尚未满足领取条件；不会自动重发' }), timeout);
+    deadline = setTimeout(() => finish({ status: 'unconfirmed', text: unconfirmedClaimText }), timeout);
     try {
       if (!valid() || signal?.aborted) return abort();
       const result = action.send();
       if (result === false) return finish({ status: 'rejected', text: '游戏拒绝请求，未记为成功' });
       if (result && typeof result.then === 'function') Promise.resolve(result).catch(() => finish({ status: 'unconfirmed', text: '请求异常，结果未确认；不会自动重发' }));
       check();
+      if (!ended && action.refreshClaimState) refreshTimer = setTimeout(() => {
+        check();
+        if (!ended) { safely(action.refreshClaimState); check(); }
+      }, Math.min(1000, timeout / 2));
     } catch {
       finish({ status: 'unconfirmed', text: '请求异常，结果未确认；不会自动重发' });
     }
@@ -110,19 +123,21 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
       const permanent = settings.get(key(owner) + 'permanent-attempts', {});
       for (const records of [daily, permanent]) for (const [id, entry] of Object.entries(records || {})) {
         if (!uncertainStatuses.has(entry?.status) && entry?.status !== 'rejected') continue;
+        if (state.running && entry.status === 'pending' && pendingActions.get(id)?.owner === owner && pendingActions.get(id)?.date === date) continue;
         if (excludedAttempt(id, entry)) continue;
         const detail = safely(() => adapter.describeAttempt?.(id));
         const history = id.startsWith('code:') && entry.status === 'rejected';
         (history ? codeHistory : issues).push({ key: id, status: entry.status, at: entry.at,
           label: codeAttemptLabel(id) || detail?.label || entry.label || id,
-          text: entry.text || (entry.status === 'rejected' ? '历史兑换未成功；当时未保存具体结果码，不再自动尝试' : '历史请求结果未确认；不会自动重发'),
+          text: savedAttemptText(entry) || (entry.status === 'rejected' ? '历史兑换未成功；当时未保存具体结果码，不再自动尝试' : '历史请求结果未确认；不会自动重发'),
           reason: detail?.reason || '' });
       }
     }
     const ledger = owner ? settings.get(key(owner) + 'attempts', {}) : {};
     const choices = owner && date ? choicePlans().map(({ action, ...item }) => {
       const attempt = ledger.day === date ? ledger.items?.[item.key] : null;
-      return { ...item, reason: attempt ? (attempt.text || (attempt.status === 'confirmed' ? '已确认领取，等待列表刷新' : '已有领取记录，请在游戏内核对')) : item.reason };
+      if (!attempt) return item;
+      return { ...item, reason: attempt.status === 'confirmed' ? '已确认领取，等待列表刷新' : savedAttemptText(attempt) || '已有领取记录，请在游戏内核对' };
     }) : [];
     return { ...state, choices, date, account: owner, accountReady: !!owner, dateReady: !!date, config: config(), logs: logs.slice(), issues, codeHistory };
   };
@@ -303,21 +318,24 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
       const newPermanentUnresolved = new Set();
       // A late authoritative state update can settle an earlier request in
       // this activation. Never resend it merely to discover its result.
-      let reconciled = false;
-      for (const [actionKey, entry] of Object.entries(ledger.items)) {
-        if (uncertainStatuses.has(entry?.status) && safely(() => adapter.confirmedAttempt?.(actionKey, entry)) === true) {
-          ledger.items[actionKey] = { ...entry, status: 'confirmed', at: now() }; reconciled = true;
+      function reconcile() {
+        let reconciled = false;
+        for (const [actionKey, entry] of Object.entries(ledger.items)) {
+          if (uncertainStatuses.has(entry?.status) && safely(() => adapter.confirmedAttempt?.(actionKey, entry)) === true) {
+            ledger.items[actionKey] = { ...entry, status: 'confirmed', at: now() }; reconciled = true;
+          }
         }
-      }
-      for (const [actionKey, pending] of pendingActions) {
-        if (pending.owner !== owner || pending.date !== date) { pendingActions.delete(actionKey); continue; }
-        const records = record(pending.action), savedRecord = records[actionKey];
-        if (uncertainStatuses.has(savedRecord?.status) && safely(pending.action.done) === true) {
-          records[actionKey] = { ...savedRecord, status: 'confirmed', at: now() };
-          pendingActions.delete(actionKey); reconciled = true;
+        for (const [actionKey, pending] of pendingActions) {
+          if (pending.owner !== owner || pending.date !== date) { pendingActions.delete(actionKey); continue; }
+          const records = record(pending.action), savedRecord = records[actionKey];
+          if (savedRecord?.status === 'confirmed') { pendingActions.delete(actionKey); continue; }
+          if (uncertainStatuses.has(savedRecord?.status) && safely(pending.action.done) === true) {
+            records[actionKey] = { ...savedRecord, status: 'confirmed', at: now() };
+            pendingActions.delete(actionKey); reconciled = true;
+          }
         }
+        if (reconciled) write();
       }
-      if (reconciled) write();
       const selection = () => {
         const selected = source === 'clipboard' ? { ...config(), sign: false, mail: false, tasks: false, welfare: false, activities: false } : config();
         // Pre-fix clipboard queues lack provenance and may contain private prose.
@@ -334,10 +352,21 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
       if (valid() && selection().codes && selection().serverCodes && sources) await importCodes('server', { duringRun: true, signal });
       try { if (valid()) await adapter.prepare?.(selection(), { signal, valid }); }
       catch { log('system', '部分奖励配置加载失败，仍检查已就绪的领取项目'); }
+      if (valid()) reconcile();
       const codeTotal = inspect(selection()).actions.filter(item => item.category === 'codes').length;
       let codeAttempted = 0;
+      let jieyueManager, jieyueLists = null, waitingForJieyue = false;
+      const isJieyue = key => key.startsWith('activity:new-jd:');
       while (valid() && count < 200) {
         const plan = inspect(selection());
+        if (!jieyueLists && config().activities && source !== 'clipboard' &&
+            (plan.actions.some(item => isJieyue(item.key)) || Object.entries(ledger.items).some(([key, entry]) => isJieyue(key) && uncertainStatuses.has(entry?.status)))) {
+          jieyueManager = adapter.manager('ActivityManager');
+          jieyueLists = await syncJieyueLists(jieyueManager, { signal, valid, timeout: Math.min(timeout, 2500) });
+          if (!valid()) break;
+          reconcile();
+          continue; // Re-plan with the refreshed lists before selecting a tier.
+        }
         for (const action of plan.actions) {
           const previous = ledger.items[action.key], repair = action.legacyMailRepair;
           if (!repair || !uncertainStatuses.has(previous?.status) || (previous.flowVersion && previous.flowVersion !== 2) || (Number(previous.at) || 0) !== repair.previousAt ||
@@ -353,8 +382,12 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
           if (!noted.has(id)) { noted.add(id); log(note.category, note.text); }
         }
         const blockedGroups = new Set();
+        const blockedMilitaryBatches = new Set();
         for (const records of [ledger.items, permanent]) for (const [actionKey, entry] of Object.entries(records)) {
-          if (!excludedAttempt(actionKey, entry) && uncertainStatuses.has(entry?.status)) blockedGroups.add(rewardWorkflowGroup({ key: actionKey, workflowGroup: entry.workflowGroup }));
+          if (excludedAttempt(actionKey, entry) || !uncertainStatuses.has(entry?.status)) continue;
+          blockedGroups.add(rewardWorkflowGroup({ key: actionKey, workflowGroup: entry.workflowGroup }));
+          const tier = militaryTier.exec(actionKey);
+          if (tier) blockedMilitaryBatches.add(`activity:${tier[1]}`);
         }
         unresolved = Object.entries(ledger.items).filter(([id, entry]) => !excludedAttempt(id, entry) && uncertainStatuses.has(entry?.status)).length + newPermanentUnresolved.size;
         const retryable = item => {
@@ -362,7 +395,17 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
           return prior?.status === 'rejected' && Number.isInteger(item.maxRejectedAttempts) && item.maxRejectedAttempts > 1 && item.maxRejectedAttempts <= 3 &&
             (Number(prior.attempts) || 1) < item.maxRejectedAttempts;
         };
-        const action = plan.actions.find(item => (!record(item)[item.key] || retryable(item)) && !skipped.has(item.key) && !blockedGroups.has(rewardWorkflowGroup(item)) && !(item.skipAfter && ledger.items[item.skipAfter]));
+        const action = plan.actions.find(item => {
+          const group = rewardWorkflowGroup(item);
+          const tier = militaryTier.exec(item.key);
+          if (jieyueLists && isJieyue(item.key) && !record(item)[item.key]) {
+            const premium = tier ? item.key.endsWith(':1') : item.manager?.hadBuyNewJD;
+            if (item.manager !== jieyueManager || !jieyueLists.free || (premium && !jieyueLists.premium)) { waitingForJieyue = true; return false; }
+          }
+          return (!record(item)[item.key] || retryable(item)) && !skipped.has(item.key) &&
+            !blockedGroups.has(group) && !blockedMilitaryBatches.has(group) &&
+            !(tier && blockedGroups.has(`activity:${tier[1]}`)) && !(item.skipAfter && ledger.items[item.skipAfter]);
+        });
         if (!action) break;
         if (!valid() || !config()[action.category]) break;
         const records = record(action);
@@ -374,10 +417,10 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
         records[action.key] = { status: 'pending', at: now(), label: action.label, workflowGroup: rewardWorkflowGroup(action), ...attempts, ...(action.flowVersion ? { flowVersion: action.flowVersion } : {}) };
         try { write(); }
         catch { state.status = '无法保存领取记录，本轮未继续发送请求'; log('system', state.status, 'error'); break; }
+        pendingActions.set(action.key, { action, owner, date });
         count++; state.status = action.category === 'codes'
           ? `正在兑换 ${++codeAttempted}/${codeTotal}：${action.code}`
           : `正在领取：${action.label}`; emit();
-        pendingActions.set(action.key, { action, owner, date });
         const result = await awaitClaim(action, { signal, valid, timeout, poll });
         records[action.key] = { status: result.status, at: now(), label: action.label, text: result.text, workflowGroup: rewardWorkflowGroup(action), ...attempts, ...(action.flowVersion ? { flowVersion: action.flowVersion } : {}) };
         if (!uncertainStatuses.has(result.status)) pendingActions.delete(action.key);
@@ -400,7 +443,8 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
         }
       }
       if (!valid()) state.status = '本轮已停止；账号或日期变化、停用后不再发送请求';
-      else if (state.status.startsWith('正在')) state.status = unresolved ? `已确认 ${state.confirmed} 项；${unresolved} 项暂未确认领取（通常尚未满足领取条件，未重发）` : `本轮完成，已确认领取 ${state.confirmed} 项`;
+      else if (state.status.startsWith('正在')) state.status = unresolved ? `本轮已确认 ${state.confirmed} 项，另有 ${unresolved} 项待核对（未重发）。以游戏内领取记录为准。` : `本轮完成，已确认领取 ${state.confirmed} 项`;
+      if (valid() && waitingForJieyue) state.status += ' 等待游戏同步节钺令领取记录。';
       if (valid() && rejected) state.status += `；${rejected} 项失败：${lastFailure}`;
       if (count >= 200) state.status = `本轮已达 200 项上限，已确认 ${state.confirmed} 项`;
       return snapshot();

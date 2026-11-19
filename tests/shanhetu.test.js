@@ -100,11 +100,14 @@ test('processed native shop updates override stale raw buy bits and current surc
   const s = projectSnapshot(fixtureData(), { ShopData: { goodList: { 2: [{ goodId: 2100, goodType: 2, isBuyed: true }] }, CurExMoney: { 2: 50 } } });
   assert.equal(s.nativeShop[0].bought, true); assert.equal(shopPreview(config(), s).goods[0].price, 280);
 });
-test('scene routing separates maps, battle, single rider and fallback', () => {
+test('scene routing keeps both panel types in Shanhe battles and separates other scenes', () => {
   const panels = [{ id: 'cards', gameView: 'battle' }, { id: 'sh', gameView: 'shanhe' }, { id: 'other' }];
   for (const name of ['RogueLikeBigMapScene', 'RogueSmallMapScene']) assert.equal(gameViewForScene({ SceneName: name }), 'shanhe');
-  for (const name of ['RogueLikeGameScene', 'RogueLike1v1Scene', 'HallScene', 'GameScene']) assert.equal(gameViewForScene({ SceneName: name }), 'battle');
+  assert.equal(gameViewForScene({ SceneName: 'RogueLikeGameScene' }), 'shanhe-battle');
+  for (const name of ['RogueLike1v1Scene', 'HallScene', 'GameScene']) assert.equal(gameViewForScene({ SceneName: name }), 'battle');
   assert.deepEqual(selectGamePanels(panels, 'shanhe').map(p => p.id), ['sh', 'other']);
+  assert.deepEqual(selectGamePanels(panels, 'shanhe-battle').map(p => p.id), ['cards', 'sh', 'other']);
+  assert.deepEqual(selectGamePanels(panels, 'battle').map(p => p.id), ['cards', 'other']);
   assert.deepEqual(selectGamePanels(panels.filter(p => p.id !== 'sh'), 'shanhe').map(p => p.id), ['cards', 'other']);
 });
 function harness(t, data = fixtureData()) {

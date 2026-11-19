@@ -1,10 +1,11 @@
 import { build, transform } from 'esbuild';
 import { resolve } from 'node:path';
+import { fullBundledPackages } from './plugin-packages.mjs';
 
 export async function bundleCore({ root, edition, packages, microclient = false }) {
   if (!['dev', 'full', 'lite'].includes(edition)) throw new Error('Unknown edition');
   if (microclient && edition === 'dev') throw new Error('Microclient builds support full/lite only');
-  const injected = edition === 'lite' ? [] : packages;
+  const injected = edition === 'lite' ? [] : edition === 'full' ? fullBundledPackages(packages) : packages;
   const result = await build({ absWorkingDir: root, entryPoints: [resolve(root, 'src/core/main.js')], bundle: true,
     format: 'iife', target: microclient ? 'chrome85' : 'es2022', write: false, metafile: true, legalComments: 'inline', minifySyntax: true,
     define: { __SGS_TOOLBOX_DEVELOPMENT__: String(edition === 'dev'), __SGS_TOOLBOX_EDITION__: JSON.stringify(edition), __SGS_TOOLBOX_MICROCLIENT__: String(microclient) },
@@ -35,15 +36,10 @@ export function userscriptHeader({ edition, version, toolboxSvg }) {
 // @description  ${label}：${edition === 'lite' ? '独立核心，按需安装插件并沿用已保存的插件' : '工具箱核心与全部插件'}
 // @match        https://web.sanguosha.com/*
 // @match        http://web.sanguosha.com/*
-// @match        https://openapi.alipay.com/gateway.do*
-// @match        https://excashier.alipay.com/standard/auth.htm*
 ${dev ? '// @match        http://127.0.0.1:17321/dev/*\n' : ''}${update}// @exclude      *://web.sanguosha.com/10/*
 // @exclude      *://web.sanguosha.com/10th/*
 // @run-at       document-start
-// @grant        unsafeWindow
-// @grant        GM_xmlhttpRequest
-// @connect      openapi.alipay.com
-// @connect      excashier.alipay.com
+// @grant        none
 // ==/UserScript==
 
 `;

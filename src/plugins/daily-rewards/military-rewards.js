@@ -16,6 +16,42 @@ function currentSeason(adapter, field) {
   if (!Number.isFinite(now)) return null;
   return list(root(adapter)?.[field]).find(row => positive(row.id) && positive(row.reward) && time(row.stime) < now && now < time(row.etime));
 }
+export function confirmedJieyueAttempt(adapter, key) {
+  const tier = /^activity:new-jd:tier:(\d+):(\d+):([01])$/.exec(key);
+  if (!tier || Number(currentSeason(adapter, 'newbp')?.id) !== Number(tier[1])) return false;
+  const activity = adapter.manager('ActivityManager');
+  return has(tier[3] === '1' ? activity?.NewJDHaveRewardList_bp : activity?.NewJDHaveRewardList, Number(tier[2]));
+}
+
+// The native task page requests both lists. Each list is replaced (even when
+// empty) only after its last information packet; both publish the same event.
+export async function syncJieyueLists(activity, { signal, valid, timeout = 2500 }) {
+  if (typeof activity?.SendGetNewJDInfoReq !== 'function') return { free: false, premium: false };
+  const free = activity.NewJDHaveRewardList, premium = activity.NewJDHaveRewardList_bp;
+  return new Promise(resolve => {
+    const caller = {};
+    const fresh = (current, previous) => Array.isArray(current) && current !== previous;
+    const result = () => ({
+      free: fresh(activity.NewJDHaveRewardList, free),
+      premium: fresh(activity.NewJDHaveRewardList_bp, premium),
+    });
+    const finish = () => {
+      clearTimeout(timer);
+      activity.off?.('NEW_JD_INFO_SUC', caller, check);
+      signal?.removeEventListener('abort', finish);
+      resolve(result());
+    };
+    const check = () => {
+      const state = result();
+      if (!valid() || (state.free && (!activity.hadBuyNewJD || state.premium))) finish();
+    };
+    const timer = setTimeout(finish, timeout);
+    signal?.addEventListener('abort', finish, { once: true });
+    activity.on?.('NEW_JD_INFO_SUC', caller, check);
+    if (signal?.aborted || !valid()) return finish();
+    try { activity.SendGetNewJDInfoReq(); check(); } catch { finish(); }
+  });
+}
 function rewards(adapter, field, group) {
   const config = root(adapter), source = config?.[field];
   if (!Array.isArray(source)) return [];
@@ -66,10 +102,13 @@ export function planMilitaryRewards(adapter, activity) {
           (!high || activity[owned] === true) && !has(activity[field], id);
       };
       if (!read(eligible)) continue;
-      actions.push({ key: `activity:${kind}:tier:${seasonId}:${id}:${Number(high)}`, workflowGroup: `activity:${kind}`,
+      actions.push({ key: `activity:${kind}:tier:${seasonId}:${id}:${Number(high)}`,
         category: 'activities', label: `${label}第 ${id} 档${high ? '豪华' : '免费'}奖励`, manager: activity,
         rewards: () => item(current()?.[rewardField]), eligible,
         done: () => sameSeason() && has(activity[field], id),
+        ...(kind === 'new-jd' && typeof activity.SendGetNewJDInfoReq === 'function' ? {
+          refreshClaimState: () => { if (sameSeason()) activity.SendGetNewJDInfoReq(); },
+        } : {}),
         send: () => eligible() ? activity[send](id, high, false) : false,
       });
     }

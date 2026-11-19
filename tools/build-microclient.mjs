@@ -16,6 +16,10 @@ export async function buildMicroclient({ root = resolve(import.meta.dirname, '..
   for (const id of selected) for (const dep of bundles.find(b => b.manifest.id === id).manifest.dependencies || []) if (!selected.includes(dep)) throw new Error('Microclient Full dependency must be explicitly selected: ' + dep);
   const packages = await Promise.all(selected.map(id => makePluginPackage(bundles.find(b => b.manifest.id === id))));
   const host = await readFile(resolve(root, 'microclient/host.cjs')), preload = await readFile(resolve(root, 'microclient/preload.cjs'));
+  const readme = await readFile(resolve(root, 'public-docs/microclient/README.txt'), 'utf8').catch(error => {
+    if (error.code !== 'ENOENT') throw error;
+    return readFile(resolve(root, 'microclient/README.txt'), 'utf8');
+  });
   const hash = bytes => createHash('sha256').update(bytes).digest('hex');
   const built = {};
   const approved = JSON.parse(await readFile(resolve(root, 'microclient/approved-payloads.json'), 'utf8'));
@@ -42,7 +46,7 @@ export async function buildMicroclient({ root = resolve(import.meta.dirname, '..
       if (name.endsWith('.bat') || name.endsWith('.ps1')) text = text.replace(/\r?\n/g, '\r\n');
       await put(name, text);
     }
-    await put('安装说明.txt', `三国杀OL工具箱 微端 ${edition.toUpperCase()} ${CORE_VERSION}\r\n\r\n` + await readFile(resolve(root, 'microclient/README.txt'), 'utf8'));
+    await put('安装说明.txt', `三国杀OL工具箱 微端 ${edition.toUpperCase()} ${CORE_VERSION}\r\n\r\n` + readme);
     await put('LICENSE', await readFile(resolve(root, 'LICENSE')));
     const manifest = { format: 'sgs-toolbox-microclient-v1', version: CORE_VERSION, edition, plugins: edition === 'lite' ? 0 : packages.length,
       files: files.filter(f => f.path.startsWith('payload/')).map(f => ({ path: f.path.slice(8), sha256: createHash('sha256').update(f.data).digest('hex') })) };

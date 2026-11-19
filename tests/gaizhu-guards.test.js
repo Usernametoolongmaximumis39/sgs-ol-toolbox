@@ -16,12 +16,15 @@ function fixture(skill = 13, extra = {}) {
 }
 const trigger = (source, target, count, spell = 8, single = true) => ({ trigger: 13, source, targets: [target], count, spell, single });
 
-test('guards: cancel-wuxie wins over AI, selected material and every local/own-turn fallback', () => {
+test('guards: a valid official Wuxie hint selects and confirms with or without an existing selection', () => {
   for (const select of [false, true]) {
     const f = fixture(), a = createAssistant(); f.cards[0].selected = select;
     f.self.CurStepHelpData = { cardIds: [13], buttonName: 'btnOK' };
-    for (const now of [0, 1000, 4000, 8000]) a.run(f.frame, now);
-    assert.deepEqual(f.calls, ['btnCancel']); assert.equal(a.isTrustee(), false);
+    a.run(f.frame, 0);
+    if (!select) a.run(f.frame, 250);
+    a.run(f.frame, 1500);
+    assert.deepEqual(f.calls, select ? ['btnOK'] : [['select', 13, true], 'btnOK']);
+    assert.equal(a.isTrustee(), false);
   }
 });
 test('guards: all three native nullification skill locations are protected, missing cancel waits', () => {
@@ -38,26 +41,50 @@ test('guards: old Wuxie parity protects own original trick, preserves defense an
   const cases = [
     [trigger(0, 1, 0), false], [trigger(0, 1, 2), false], [trigger(0, 1, 1), true],
     [trigger(1, 0, 0), true], [trigger(1, 0, 1), false], [trigger(1, 2, 0), false],
-    [trigger(1, 0, 0, 15, false), true], [trigger(1, 0, 0, 84, false), true],
+    [trigger(255, 0, 0, 15, false), true], [trigger(1, 0, 0, 84, false), true],
+    [trigger(1, 0, 0, 4, false), true], [trigger(1, 2, 0, 4, false), false],
     [trigger(1, 0, 0, 8, false), false], [trigger(0, NaN, 1), false],
   ];
   for (const [data, allowed] of cases) {
     const f = fixture(), g = createBattleGuards(); g.observe('GsCTriggerSpellNew', data);
-    assert.equal(g.run(f.frame, { cancelWuxie: false, official: false }) === null, allowed, JSON.stringify(data));
+    assert.equal(Boolean(g.run(f.frame).playWuxie), allowed, JSON.stringify(data));
   }
 });
-test('guards: unknown Wuxie context cancels, optional explicit AI remains usable when switch is off', () => {
+test('guards: unknown Wuxie context cancels without official guidance', () => {
   const f = fixture(), g = createBattleGuards();
-  assert.ok(g.run(f.frame, { cancelWuxie: false, official: false }));
-  assert.equal(g.run(f.frame, { cancelWuxie: false, official: true }).officialOnly, true);
+  assert.equal(g.run(f.frame).acted, true);
+  assert.equal(g.run(f.frame, { official: true }).officialOnly, true);
   g.observe('GsCTriggerSpellNew', trigger(1, 0, 0)); g.observe('GsCGamephaseNtf', {});
-  assert.ok(g.run(f.frame, { cancelWuxie: false, official: false }));
+  f.self.Pt.btns[1].enabled = true;
+  assert.equal(g.run(f.frame).acted, true);
+});
+
+test('guards: an unusable Wuxie hint gives way to protected cancellation', () => {
+  const f = fixture(), assistant = createAssistant();
+  f.self.CurStepHelpData = { cardIds: [99], buttonName: 'btnOK' };
+  assistant.run(f.frame, 0);
+  assistant.run(f.frame, 999);
+  assert.deepEqual(f.calls, []);
+  assistant.run(f.frame, 1000);
+  assert.deepEqual(f.calls, ['btnCancel']);
+});
+
+test('guards: local defense uses a physical Wuxie on self-targeted Snatch and Indulgence', () => {
+  for (const spell of [4, 15]) {
+    const f = fixture(), a = createAssistant();
+    f.self.cardContainer.activatedCardtems.reverse();
+    a.observe('GsCTriggerSpellNew', trigger(1, 0, 0, spell, false));
+    for (const now of [0, 1000, 2000]) a.run(f.frame, now);
+    assert.deepEqual(f.calls, [['select', 13, true], 'btnOK']);
+  }
 });
 test('guards: packet projection copies only bounded relevant fields, then native packet reuse cannot change them', () => {
   const p = { Protocol: { SrcSpellID: 8, SrcSpell: { TargetCountMax: 1 }, FirstTriggerParam: { SpellId: 13, SeatId: 0, Targets: [1], Datas: [0] } } };
   const d = projectBattleGuard(p); p.Protocol.FirstTriggerParam.Targets[0] = 2; p.Protocol.FirstTriggerParam.Datas[0] = 3;
   assert.deepEqual(d.targets, [1]); assert.equal(d.count, 0); assert.equal(d.single, true);
   assert.equal(projectBattleGuard({ CardIDs: Array(129).fill(1) }).cards.length, 0);
+  const incomplete = projectBattleGuard({ FirstTriggerParam: { SpellId: 13, SeatId: null, Targets: [null], Datas: [null] } });
+  assert.ok([incomplete.source, incomplete.targets[0], incomplete.count].every(Number.isNaN));
 });
 test('guards: forced discard selects exact count and preserves Peach/Shan/Wuxie before unlisted cards', () => {
   const f = fixture(0, { message: '需要弃置 2 张卡牌', SelectCountMax: 2 }), g = createBattleGuards();
@@ -151,7 +178,7 @@ test('guards: detached cached special windows are excluded by native frame displ
 
 
 test('guards: a late official Cancel during local Wuxie defense never becomes generic card confirmation', () => {
-  const f=fixture(),a=createAssistant({cancelWuxie:()=>false});
+  const f=fixture(),a=createAssistant();
   a.observe('GsCTriggerSpellNew',trigger(1,0,0));
   f.self.cardContainer.AllSelectHandCards=()=>{};
   a.run(f.frame,0);a.run(f.frame,1000);

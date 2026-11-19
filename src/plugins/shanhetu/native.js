@@ -1,4 +1,5 @@
 import { isShanhe, MAP_SCENES, num } from './model.js';
+import { shanheManager } from '../../shared/shanhe-manager.js';
 const read = fn => { try { return fn(); } catch { return undefined; } };
 const scalar = value => ['string', 'number', 'boolean'].includes(typeof value) ? value : null;
 function fields(object, keys) { if (!object || typeof object !== 'object') return null; return Object.fromEntries(keys.map(key => [key, scalar(read(() => object[key]))])); }
@@ -28,7 +29,7 @@ export function projectSnapshot(data, manager) {
   }
   const gameData = fields(rawGame, ['money', 'accDamage', 'maxDamage', 'maxDealCard']);
   if (gameData) gameData.money ??= 0;
-  if (gameData) Object.assign(gameData, { itemId: array(read(() => rawGame.itemId), 2048), passChapter: array(read(() => rawGame.passChapter), 128),
+  if (gameData) Object.assign(gameData, { itemId: array(read(() => rawGame.itemId), 2048), itemListReady: Array.isArray(read(() => rawGame.itemId)), passChapter: array(read(() => rawGame.passChapter), 128),
     myGeneral: fields(read(() => rawGame.myGeneral), ['uGeneralId', 'uMaxHp', 'uInitHp', 'uInitCardNum', 'uArmor', 'uDrawNum', 'uExUseShaNum']),
     attrInfo: fields(read(() => rawGame.attrInfo), ['rep', 'tro', 'wis', 'mar', 'loy', 'sex', 'ass', 'cha']),
     seedData: { seedItem: array(read(() => rawGame.seedData.seedItem), 256, row => fields(row, ['type', 'attrType', 'goal', 'sub', 'value'])).filter(Boolean) } });
@@ -44,13 +45,16 @@ export function projectSnapshot(data, manager) {
   }
   const nativeShop = [];
   // Purchase replies can update the processed shop without replacing allDatas.
-  const goods = read(() => manager.ShopData.goodList);
+  const processedShop = read(() => manager.ShopData);
+  const goods = read(() => processedShop.goodList);
+  const shopOpen = read(() => processedShop.isShow);
+  if (shopData && typeof shopOpen === 'boolean') shopData.bShow = shopOpen;
   for (const type of [2, 3, 4, 5]) {
     const entries = read(() => goods[type]);
     if (entries == null) continue;
     if (!Array.isArray(entries) || entries.length > 128) throw new Error('商店条目数量异常');
     for (const row of entries) nativeShop.push({ id: num(read(() => row.goodId)), type: num(read(() => row.goodType)), bought: typeof read(() => row.isBuyed) === 'boolean' ? row.isBuyed : null });
-    const current = num(read(() => manager.ShopData.CurExMoney[type]));
+    const current = num(read(() => processedShop.CurExMoney[type]));
     if (shopData && current !== null) { if (type === 2) shopData.exCurMoney = current; else shopData[{ 3: 'spellMoney', 4: 'cardMoney', 5: 'equipMoney' }[type]].exCurMoney = current; }
   }
   return { seasonData, chapterData, gameData, shopData, nativeShop };
@@ -60,18 +64,7 @@ export function createNativeAdapter(ctx) {
   const scene = () => read(() => ctx.game.getScene()) || null;
   const sceneName = () => String(read(() => scene().SceneName) || read(() => scene().sceneName) || read(() => scene().name) || '');
   const account = () => String(read(() => ctx.game.getSelf()?.ClientId) || '');
-  const valid = value => value && value.destroyed !== true && typeof read(() => value.RogueLikeDataReq) === 'function' && ('allDatas' in value || 'AllDatas' in value);
-  function manager() {
-    const proxy = read(() => ctx.game.getServerProxy());
-    for (const type of [102007, 'decodeRogueLikeDataSync']) {
-      const handlers = read(() => proxy._events[type]);
-      for (const handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) if (valid(read(() => handler.caller))) return handler.caller;
-    }
-    const cls = read(() => ctx.game.getClass('RogueLikePveManager'));
-    if (valid(cls)) return cls;
-    for (const key of ['instance', '_instance', 'Instance']) { const descriptor = cls && Object.getOwnPropertyDescriptor(cls, key); if (descriptor && 'value' in descriptor && valid(descriptor.value)) return descriptor.value; }
-    return null;
-  }
+  const manager = () => shanheManager(ctx.game);
   const runKey = data => JSON.stringify([account(), data?.seasonData?.seasonId, data?.seasonData?.roundId,
     data?.seasonData?.uniqueLogId, data?.seasonData?.lastEnterTime, data?.chapterData?.chapterId]);
   function snapshot(m = manager()) {
@@ -91,7 +84,8 @@ export function createNativeAdapter(ctx) {
   function subscribe(m, fn) {
     if (typeof m?.on !== 'function' || typeof m?.off !== 'function') return () => {};
     const caller = {}, events = ['CLIENT_ROGUE_ALL_DATA_REP', 'CLIENT_ROGUE_GET_SHOPINFO_REP', 'CLIENT_ROGUE_BUY_SHOPITEM_REP', 'CLIENT_ROGUE_SEASON_OVER', 'CLIENT_ROGUE_SEASON_REP'];
-    for (const event of events) m.on(event, caller, fn);
+    const handlers = events.map(event => [event, data => fn(event, data)]);
+    for (const [event, handler] of handlers) m.on(event, caller, handler);
     // The client forwards live event choices separately; it does not write the
     // notification back to AllDatas. Reconnect uses curEventData instead.
     const onChoice = raw => {
@@ -111,7 +105,7 @@ export function createNativeAdapter(ctx) {
     m.on('CLIENT_ROGUE_EVENT_SELECT_REP',caller,clearChoice);
     return () => {
       notification = null;
-      for (const event of events) m.off(event, caller, fn);
+      for (const [event, handler] of handlers) m.off(event, caller, handler);
       m.off('CLIENT_ROGUE_EVENT_SELECT_NTF',caller,onChoice); m.off('CLIENT_ROGUE_EVENT_SELECT_REP',caller,clearChoice);
     };
   }

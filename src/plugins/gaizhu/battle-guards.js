@@ -3,7 +3,7 @@ import { usable, selfButtonBar, press, walkNative, clickSkill } from './native.j
 
 const list = v => Array.isArray(v) ? v : [];
 const enabled = v => usable(v) && (v._enabled ?? v.enabled) === true;
-const chosen = v => Boolean(v?.selected || v?.Card?.Selected);
+const chosen = v => Boolean(v?.selected || v?.Selected || v?.Card?.Selected);
 const cardId = v => v?.Card?.CardId;
 const skillId = v => Number(v?.Skill?.SkillId ?? v?.Skill?.ID);
 const legal = v => usable(v) && (v.activated ?? v.Activated ?? v.Skill?.Activated) === true;
@@ -13,8 +13,8 @@ const legal = v => usable(v) && (v.activated ?? v.Activated ?? v.Skill?.Activate
 export function projectBattleGuard(packet) {
   const trigger = field(packet, 'FirstTriggerParam') || field(packet, 'TriggerSpellData')?.[0];
   const targets = list(trigger?.Targets);
-  return { trigger: Number(trigger?.SpellId), source: Number(trigger?.SeatId), spell: Number(field(packet, 'SrcSpellID')),
-    targets: targets.length <= 16 ? targets.map(Number) : [], count: Number(trigger?.Datas?.[0]),
+  return { trigger: Number(trigger?.SpellId), source: Number(trigger?.SeatId ?? NaN), spell: Number(field(packet, 'SrcSpellID')),
+    targets: targets.length <= 16 ? targets.map(target => Number(target ?? NaN)) : [], count: Number(trigger?.Datas?.[0] ?? NaN),
     single: Number(read(() => field(packet, 'SrcSpell').TargetCountMax)) === 1,
     seat: Number(field(packet, 'SeatID')), effect: Number(field(packet, 'EffectIndex')),
     skill: Number(field(packet, 'SpellID')), from: Number(field(packet, 'FromZone')), to: Number(field(packet, 'ToZone')),
@@ -36,16 +36,17 @@ export function createBattleGuards({ getCardMeta = () => null } = {}) {
   }
   function allowsNullification(self) {
     const d = nullification, mine = Number(self.seat?.Index ?? self.seat?.index);
-    if (!d || !Number.isInteger(mine) || !Number.isInteger(d.source) || d.source < 0 || d.source >= 255
-      || !Number.isInteger(d.count) || d.count < 0 || d.targets.length !== 1) return false;
+    if (!d || !Number.isInteger(mine) || !Number.isInteger(d.count) || d.count < 0 || d.targets.length !== 1) return false;
     const even = d.count % 2 === 0, target = d.targets[0];
     if (!Number.isInteger(target) || target < 0 || target >= 255) return false;
-    return even && target === mine && [15, 84].includes(d.spell)
-      || even && d.single && d.source !== mine && target === mine
-      || !even && d.single && d.source === mine;
+    // The effect and its target identify these single-target defenses even
+    // when a delayed trick outlives the player who used it.
+    if (even && target === mine && [4, 15, 84].includes(d.spell)) return true;
+    if (!d.single || !Number.isInteger(d.source) || d.source < 0 || d.source >= 255) return false;
+    return even ? target === mine && d.source !== mine : d.source === mine;
   }
-  function run(frame, { cancelWuxie = true, official = false } = {}) {
-    const self = frame.self, container = self?.cardContainer, context = container?.selectCardContext;
+  function run(frame, { official = false } = {}) {
+    const self = frame.self, container = self?.cardContainer, context = container?.selectCardContext ?? container?.SelectContext;
     if (!self) return null;
     const bar = selfButtonBar(self), selector = usable(self.spellSelector) ? self.spellSelector : null;
     const buttons = usable(bar) ? list(bar.btns) : [];
@@ -63,13 +64,23 @@ export function createBattleGuards({ getCardMeta = () => null } = {}) {
     };
     const ids = [Number(context?.SpecifySkillId), skillId(context), Number(selector?.spell?.SkillId)];
     if (ids.includes(13)) {
-      // Both supported automation modes are outside Shanhetu. This is the
-      // legacy cancelWuxie switch's non-Shanhetu rule, before any auto-confirm.
-      if (cancelWuxie || !official && !allowsNullification(self)) return { acted: cancel(), reason: '已拦截非必要无懈询问' };
       if (official) return { officialOnly: true, reason: '按小杀助手处理无懈询问' };
-      // An allowed defensive/counter-counter trick can follow the normal AI
-      // or local path. Missing source/count/target evidence never grants it.
-      return null;
+      if (!allowsNullification(self)) {
+        const acted = cancel();
+        return { acted, reason: acted ? '已拦截非必要无懈询问' : '等待无懈取消按钮' };
+      }
+      return { playWuxie() {
+        const cards = list(container?.cardUis);
+        const hand = list(container?.activatedCardtems);
+        const isWuxie = ui => Number(ui?.Card?.FirstSkillId ?? ui?.Card?.FirstSkill?.ID) === 13;
+        const selectedCard = [...new Set([...cards, ...hand])].find(chosen);
+        if (selectedCard) return isWuxie(selectedCard) && ok();
+        const card = [...hand, ...cards].find(ui => isWuxie(ui) && legal(ui));
+        if (typeof card?.CardUI_Click === 'function') card.CardUI_Click(null);
+        else if (typeof card?.setSelected === 'function') card.setSelected(true);
+        else return false;
+        return true;
+      } };
     }
     // Jinlan is a dedicated option window, not a generic button bar. Keep
     // its native mouse-down handler arguments rather than clicking a label.

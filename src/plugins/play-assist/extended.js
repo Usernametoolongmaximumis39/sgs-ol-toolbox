@@ -104,12 +104,9 @@ export function createExtended(ctx, api) {
     }
     return false;
   }
-  function run(s, context, message, source, currentSeat, gc) {
+  function run(s, context, currentMessage, source, currentSeat, gc) {
     if (windows(s)) return true;
     const selector=s.self.spellSelector, targetContext=s.scene.seatContainer?.selectContext;
-    // The card context can survive into a subsequent optional prompt. Prefer
-    // the current native operation bar for HP-loss and draw/discard boundaries.
-    const currentMessage=s.self.Pt?.txtOptMsg?._innerHTML || s.self.buttonBar?.txtOptMsg?._innerHTML || message;
     const ids=[selector?.visible ? id(selector.spell) : 0,id(context?.Skill),Number(context?.SpecifySkillId),id(targetContext?.Skill)];
     const active=(api.hasKind('wuniang') && /^是否失去1点体力重置镇南[？?]?$/.test(text(currentMessage)) ? 3796 : 0) || ids.find(n=>EXTRA_IDS.includes(n) && api.locked(n)) ||
       EXTRA_IDS.find(n=>api.locked(n) && text(currentMessage).startsWith('是否发动'+EXTRA_NAMES[skillKind(n)]));

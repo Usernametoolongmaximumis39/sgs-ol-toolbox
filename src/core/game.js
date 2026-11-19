@@ -1,8 +1,10 @@
 // Read-only client adapter. Field paths checked against upstream 1.6.76 and
 // 95chong 1.0.51. Never call ClassUtils.getInstance/new window constructors.
 import { createConfigData } from './config-data.js';
+import { cardFrameName } from './card-atlas.js';
 import { nativeSeat, nativeSeatId, nativeSeatOccupied, nativeSeatPosition } from './seat.js';
 const GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/;
+const STARTUP_SCENE = /(?:^|\.)(?:LoginScene|CreateUserScene|CreateRoleScene|MainNullScene|LoadingScene)$/;
 const read = fn => { try { return fn(); } catch { return undefined; } };
 const object = value => value && (typeof value === 'object' || typeof value === 'function') ? value : null;
 const alive = value => Boolean(object(value) && read(() => value.destroyed) !== true);
@@ -114,6 +116,15 @@ export function createGameAdapter(win, scope) {
     return children(layer).filter(node => node !== layer && alive(node) && read(() => node.visible) !== false).at(-1) || null;
   }
 
+  function canReserveViewport() {
+    const scene = stageScene();
+    // SceneData and the scene name may exist before the native scene is mounted.
+    // The startup and login scenes must complete using the native viewport.
+    const name = read(() => scene.SceneName) || read(() => scene.sceneName);
+    return typeof name === 'string' && name.length > 0 && !STARTUP_SCENE.test(name)
+      && read(() => scene.initialized) !== false;
+  }
+
   function getScene() {
     const nextStage = read(() => win.Laya.stage) || null;
     if (stage !== nextStage) { stage = nextStage; dispatcher = dispatcherOwner = null; providers = new Set(); }
@@ -219,12 +230,15 @@ export function createGameAdapter(win, scope) {
     }
   }
 
-  function getCardDefinition(id) {
+  function* cardDefinitions() {
     // These are public card definitions, NOT the cards included in this game.
     // Never use the complete config table to initialize a session's deck.
-    for (const data of [read(() => win.CtrUtil.AllDatas), read(() => win.CtrUtil.allDatas),
-      read(() => win.SystemContext.AllDatas), read(() => win.SystemContext.allDatas)]) {
-      const config = read(() => data['sys_playcard.sgs']);
+    const containers = [read(() => win.CtrUtil.AllDatas), read(() => win.CtrUtil.allDatas),
+      read(() => win.SystemContext.AllDatas), read(() => win.SystemContext.allDatas),
+      read(() => win.__SGS_TOOLBOX_DEMO__.configs)];
+    const tables = containers.map(data => read(() => data['sys_playcard.sgs']) || read(() => data.sys_playcard));
+    tables.push(configs?.getConfigData('sys_playcard'));
+    for (const config of tables) {
       const rows = read(() => config.GamePlayCards.card);
       if (!Array.isArray(rows)) continue;
       let index = definitionTables.get(rows);
@@ -240,10 +254,42 @@ export function createGameAdapter(win, scope) {
         }
         index = { length: rows.length, records }; definitionTables.set(rows, index);
       }
-      const card = index.records.get(id);
+      yield index;
+    }
+  }
+
+  function getCardDefinition(id) {
+    for (const { records } of cardDefinitions()) {
+      const card = records.get(id);
       if (card) return card;
     }
     return null;
+  }
+
+  function getCardFaceCatalog() {
+    for (const index of cardDefinitions()) {
+      if (!index.faces) {
+        const faces = new Map();
+        for (const { res, name } of index.records.values()) {
+          if (!cardFrameName(res) || typeof name !== 'string' || !name.trim() || faces.has(res)) continue;
+          const label = name === '杀' ? ({ HuoSha: '火杀', LeiSha: '雷杀', BingSha: '冰杀' }[res] || name) : name;
+          faces.set(res, Object.freeze({ res, label }));
+        }
+        index.faces = Object.freeze([...faces.values()].sort((a, b) => a.label.localeCompare(b.label, 'zh-CN')));
+      }
+      if (index.faces.length) return index.faces;
+    }
+    return null;
+  }
+
+  async function loadCardFaceCatalog() {
+    const existing = getCardFaceCatalog();
+    if (existing) return existing;
+    if (!configs) throw new Error('配置读取不可用');
+    await configs.loadConfigData('sys_playcard');
+    const catalog = getCardFaceCatalog();
+    if (!catalog) throw new Error('游戏牌表中没有可换图的牌');
+    return catalog;
   }
 
   function getCardMeta(id) {
@@ -271,6 +317,7 @@ export function createGameAdapter(win, scope) {
     const cardClass = read(() => definition.cardClass) || read(() => card.cardInfo.cardClass) || read(() => card.cardClass)
       || read(() => card.cardInfo.Class) || read(() => card.className) || read(() => card.ClassName)
       || read(() => definition.Class) || read(() => definition.class) || read(() => definition.className);
+    const firstSkillId = number(read(() => card.FirstSkillId));
     return {
       id, name: typeof name === 'string' && name ? name : `牌 #${id}`,
       suit: number(read(() => card.FlowerOnSeat), read(() => card.CardFlower), read(() => card.Flower), read(() => card.suit),
@@ -281,6 +328,7 @@ export function createGameAdapter(win, scope) {
         read(() => definition.type), read(() => definition.CardType), read(() => definition.Type)),
       unknown: !(typeof name === 'string' && name),
       ...(typeof cardClass === 'string' && cardClass ? { cardClass } : {}),
+      ...(firstSkillId > 0 ? { firstSkillId } : {}),
     };
   }
 
@@ -348,8 +396,8 @@ export function createGameAdapter(win, scope) {
   scope?.add(() => { listeners.clear(); providers.clear(); definitionTables = new WeakMap(); dispatcher = dispatcherOwner = current = stage = null; });
   return {
     getScene, getDispatcher, getSelfSeatUI: () => selfUI(getScene()), getSeatUIs: () => seats(getScene()),
-    getCardMeta, getSnapshot, getClass, getServerProxy, getActivityManager, getMessageTargets, getCountdown, getSelf,
-    getRemainingSlash, isInGame: () => isGameScene(getScene()),
+    getCardMeta, getCardFaceCatalog, loadCardFaceCatalog, getSnapshot, getClass, getServerProxy, getActivityManager, getMessageTargets, getCountdown, getSelf,
+    getRemainingSlash, isInGame: () => isGameScene(getScene()), canReserveViewport,
     getConfigData: name => configs?.getConfigData(name) || null,
     loadConfigData: name => configs ? configs.loadConfigData(name) : Promise.reject(new Error('配置读取不可用')),
     onSceneChange(fn) {

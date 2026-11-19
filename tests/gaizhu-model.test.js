@@ -7,13 +7,16 @@ const source = rows => ({ AchievementAll: { Achievement: rows } });
 const reply = changes => ({ requestType: 0, NickName: '账号甲', Achs: [], ...changes });
 const candidate = (id, changes = {}) => ({ id, name: `候选${id}`, owned: true, progress: 1, required: 100, completed: false, skillCompleted: false, ...changes });
 
-test('gaizhu model: persistent schema contains only valid pick/wait/cancelWuxie preferences', () => {
-  assert.equal(cleanOptions({ cancelWuxie: false }).cancelWuxie, false);
-  assert.deepEqual(cleanOptions(), { pick: 'off', wait: false, cancelWuxie: true });
-  assert.deepEqual(cleanOptions(null), { pick: 'off', wait: false, cancelWuxie: true });
-  assert.deepEqual(cleanOptions({ pick: 'order', wait: true, role: 'host' }), { pick: 'order', wait: true, cancelWuxie: true });
-  assert.deepEqual(cleanOptions({ pick: 'invalid', wait: 1 }), { pick: 'off', wait: false, cancelWuxie: true });
-  assert.deepEqual(cleanOptions({ pick: 'random', wait: false, cancelWuxie: true }), { pick: 'random', wait: false, cancelWuxie: true });
+test('gaizhu model: old preferences keep their values and only valid account options persist', () => {
+  const defaults = { pick: 'off', wait: false, autoMode: 'identity', stopMode: 'manual', stopHours: 1 };
+  for (const cancelWuxie of [true, false]) assert.deepEqual(cleanOptions({ cancelWuxie }), defaults);
+  assert.deepEqual(cleanOptions(), defaults);
+  assert.deepEqual(cleanOptions(null), defaults);
+  assert.deepEqual(cleanOptions({ pick: 'order', wait: true, role: 'host', deadline: 999, roomNumber: 333, awaitingConfirmation: true }),
+    { ...defaults, pick: 'order', wait: true });
+  assert.deepEqual(cleanOptions({ pick: 'invalid', wait: 1, autoMode: 'match', stopMode: 'timer', stopHours: -1 }), defaults);
+  assert.deepEqual(cleanOptions({ pick: 'random', autoMode: 'training', stopMode: 'timed', stopHours: '0.25' }),
+    { ...defaults, pick: 'random', autoMode: 'training', stopMode: 'timed', stopHours: 0.25 });
 });
 
 test('gaizhu model: parses official direct/XML attributes and multiple progress criteria', () => {

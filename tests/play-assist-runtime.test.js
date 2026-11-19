@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { PluginManager } from '../src/core/plugins.js';
 import { ResourceScope } from '../src/core/resources.js';
+import { createShanheAutoPlay } from '../src/plugins/cards/shanhe-auto-play.js';
+import { manifest as assistManifest } from '../src/plugins/play-assist/index.js';
 import { EXTRA_IDS, pojunCards, miuyanCard, longyinCard } from '../src/plugins/play-assist/strategies.js';
 import { createRuntime, SKILL_IDS, supported } from '../src/plugins/play-assist/runtime.js';
 import { quandaoCounts } from '../src/plugins/play-assist/quandao.js';
@@ -45,6 +48,66 @@ function fixture(t, options={}) {
   return {runtime,self,item,settings,saved,gc,proxy,ctx,get calls(){return calls;},get skillCalls(){return skillCalls;},setScene:s=>scene=s};
 }
 const flush = () => new Promise(r=>setTimeout(r,15));
+
+test('山河图 gives ready skills priority over selecting and confirming ordinary cards', async t => {
+  const f = fixture(t, { skillLock: true, rapid: true });
+  f.runtime.dispose();
+  const { self, item } = f;
+  const scene = f.ctx.game.getScene(), hand = self.cardContainer, bar = self.buttonBar;
+  scene.SceneName = 'RogueLikeGameScene';
+  Object.assign(self.seat, { IsSelf: true, InActiveState: true, GetAllZhanfaIds: () => [2190] });
+  Object.assign(bar.btns[0], { enabled: true });
+  bar.btns.push({ name: 'btnDiscard', enabled: true });
+  const trick = { CardId: 10, FirstSkillId: 9 };
+  hand.cardUis = [{ Activated: true, Card: trick }];
+  hand.AreChoosingCard = true;
+  function ordinaryPrompt() {
+    hand.selectCardContext = { Purpose: 'deal', Message: '出牌阶段，请选择一张卡牌',
+      CardSelector: { SelectCountMax: 1, SelectedCount: 0, FirstSelectedCard: null } };
+  }
+  ordinaryPrompt();
+  let selected = 0;
+  hand.CardUI_Click = ({ Card }) => {
+    selected++;
+    Object.assign(hand.selectCardContext.CardSelector, { SelectedCount: 1, FirstSelectedCard: Card });
+  };
+  // Model a native submission whose next operation window arrives asynchronously.
+  item.on('click', item, () => { item.activated = false; });
+  const manager = new PluginManager({ journal: { events: [], subscribe: () => () => {} },
+    store: { list: async () => [], put: async () => {} },
+    settings: { namespace: () => f.ctx.settings }, context: f.ctx });
+  t.after(() => manager.dispose());
+  const state = { active: true }, listeners = new Set();
+  let runtime, cards;
+  manager.registerBuiltin({ manifest: { ...assistManifest, id: 'cards' }, initialState: () => state,
+    activate(ctx) { cards = createShanheAutoPlay(ctx); } });
+  manager.registerBuiltin({ manifest: assistManifest,
+    activate(ctx) { runtime = createRuntime(ctx, () => f.settings); return runtime; } });
+  await manager.init();
+  cards.toggle(false);
+  const update = () => cards.update({ scene, self, state, toolbarReady: true, execute: true, listeners });
+
+  runtime.toggle(62);
+  item.activated = true;
+  update(); // Cards tick first, but the skill runs before automatic selection.
+  assert.equal(f.skillCalls, 1);
+  update();
+  assert.equal(selected, 0, 'the same window waits for the skill response');
+  ordinaryPrompt();
+  update();
+  assert.equal(selected, 1, 'a locked but inactive skill lets ordinary play resume');
+
+  item.activated = true;
+  runtime.tick();
+  await flush(); // Skill tick first while the ordinary card is ready to confirm.
+  update();
+  assert.equal(f.skillCalls, 2);
+  assert.equal(f.calls, 0, 'cards must yield before confirming a card too');
+  await manager.disable('play-assist');
+  update();
+  assert.equal(f.calls, 1, 'disabling the plugin releases priority immediately');
+});
+
 test('狂骨 chooses recovery below two HP, including dying, and reevaluates every prompt', async t => {
   const f = fixture(t,{skillLock:true});
   f.item.Skill = {SkillId:295}; f.runtime.tick(); f.runtime.toggle(295);
@@ -97,15 +160,76 @@ test('long press cancels on mouseout, activates at 500ms and suppresses release 
   f.item.event('mouseup');f.item.event('click');assert.equal(f.skillCalls,0);
   f.item.event('mousedown');f.item.event('mouseup');f.item.event('click');assert.equal(f.runtime.getSkills()[0].locked,false);assert.equal(f.skillCalls,0);
 });
-test('ordinary wuxie and assist skip once; shanhe requires the current source trigger',async t=>{
+test('ordinary wuxie and assist still skip once',async t=>{
   const f=fixture(t,{skipWuxie:true,skipAssist:true});f.self.cardContainer.selectCardContext={SpecifySkillId:13};
   f.runtime.tick();await flush();assert.equal(f.calls,1);
-  f.gc.IsRoguelike1v1=true;f.self.buttonBar.Show();await flush();assert.equal(f.calls,1);
-  f.proxy.event('MsgGameTurnNtf',{SeatID:0});f.proxy.event('GsCGamephaseNtf',{Round:4});f.proxy.event('PubGsCUseCard',{SeatID:0,CardID:7,SpellID:8});
-  f.runtime.tick();await flush();assert.equal(f.calls,1,'last card alone is insufficient');
-  f.proxy.event('GsCTriggerSpellNew',{SrcSpellID:8,FirstTriggerParam:{SpellId:13,SeatId:1}});f.runtime.tick();await flush();assert.equal(f.calls,1);
-  f.proxy.event('GsCTriggerSpellNew',{SrcSpellID:8,FirstTriggerParam:{SpellId:13,SeatId:0}});f.runtime.tick();await flush();assert.equal(f.calls,2);
-  f.self.cardContainer.selectCardContext={};f.self.buttonBar.btns[0].label='助战';f.self.buttonBar.Show();await flush();assert.equal(f.calls,3);
+  f.runtime.tick();await flush();assert.equal(f.calls,1);
+  f.self.cardContainer.selectCardContext={};f.self.buttonBar.btns[0].label='助战';f.self.buttonBar.Show();await flush();assert.equal(f.calls,2);
+});
+test('山河图 uses the native Wuxie count across phases and preserves counter inquiries', async t => {
+  const f = fixture(t, {skipWuxie:true});
+  f.ctx.game.getScene().SceneName = 'RogueLikeGameScene';
+  const bar = f.self.Ai = f.self.buttonBar;
+  delete f.self.buttonBar;
+  const clicks = [];
+  bar.btns = [{name:'btnCancel', _enabled:true}];
+  bar.Button_Click = btn => clicks.push(btn.name);
+  f.runtime.tick();
+  const phase = (seat, round) => f.proxy.event('GsCGamephaseNtf', {Protocol:{SeatID:seat, Round:round}});
+  async function ask(count, {source = 8001, recipient = 255, skill = 13} = {}) {
+    f.self.cardContainer.selectCardContext = {SpecifySkillId:skill};
+    bar.Show();
+    f.proxy.event('GsCTriggerSpellNew', {Protocol:{TriggerSeatId:recipient, SrcSpellID:source,
+      SrcSpellCasterSeat:0, TriggerSpellData:[{SpellId:skill, SeatId:1, Datas:count === undefined ? [] : [count]}]}});
+    await flush();
+  }
+  await ask(0);
+  assert.equal(clicks.length, 0, 'unknown turn');
+  phase(0, 2);
+  bar.Show();await flush();
+  assert.equal(clicks.length, 0, 'phase change clears the previous inquiry');
+  await ask(0);
+  assert.deepEqual(clicks, ['btnCancel'], 'first inquiry during judgement, with no physical card metadata');
+  bar.Show();await flush();
+  assert.equal(clicks.length, 1, 'one cancellation per inquiry even if the bar is shown again');
+  phase(0, 4);
+  for (const count of [1, 2, undefined, null, '']) await ask(count);
+  await ask(0, {source:13});
+  await ask(0, {recipient:1});
+  assert.equal(clicks.length, 1, 'counter chains, incomplete data and another seat’s inquiry stay manual');
+  phase(1, 4);
+  await ask(0);
+  assert.equal(clicks.length, 1, 'opponent turn');
+  phase(0, 5);
+  f.settings.skipWuxie = false;
+  await ask(0, {recipient:0});
+  assert.equal(clicks.length, 1, 'disabled switch');
+  f.settings.skipWuxie = true;
+  await ask(0, {recipient:250});
+  assert.deepEqual(clicks, ['btnCancel', 'btnCancel'], 'first inquiry in discard phase');
+});
+test('山河图 reconnect uses the native seat turn state and the Wuxie option cancel', async t => {
+  const f = fixture(t, {skipWuxie:true});
+  f.ctx.game.getScene().name = 'RogueLikeGameScene';
+  const choices = [];
+  Object.assign(f.self.spellSelector, {visible:true, spell:{SkillId:13},
+    btnList:[0, 255].map(sendData => ({_enabled:true, data:{sendData, callBack(){}}})),
+    btnClick(btn){choices.push(btn.data.sendData);}});
+  async function ask(count) {
+    f.self.spellSelector.Show();
+    f.proxy.event('GsCTriggerSpellNew', {Protocol:{TriggerSeatId:0, SrcSpellID:8,
+      FirstTriggerParam:{SpellId:13, Datas:[count]}}});
+    await flush();
+  }
+  f.self.seat.InOwnRound2 = false;
+  await ask(0);
+  assert.deepEqual(choices, []);
+  f.self.seat.InOwnRound2 = true;
+  await ask(1);
+  assert.deepEqual(choices, []);
+  await ask(0);
+  assert.deepEqual(choices, [255]);
+  assert.equal(f.calls, 0, 'uses the selector cancel, not the underlying button bar');
 });
 test('fire attack conversion selects the legal card; selector cancellation submits once',async t=>{
   const f=fixture(t,{fireAttack:true,skipWuxie:true});const convert = new Native();Object.assign(convert,{Skill:{SkillId:3744},activated:true,Selected:false});
@@ -568,10 +692,16 @@ for (const id of [484,3876]) test(`强识 ${id} keeps reveal manual and confirms
  f.runtime.tick();await flush();assert.equal(sent.length,1);
  win.enterWindow();f.runtime.tick();await flush();assert.equal(sent.length,2);
  });
- test('武娘 current reset prompt works without card context',async t=>{
- const f=arm(t,3796);f.self.cardContainer.selectCardContext={};f.self.buttonBar.txtOptMsg={_innerHTML:'是否失去1点体力重置镇南'};
- f.self.buttonBar.Show();await flush();assert.equal(f.cancel,1);
- });
+test('武娘 uses the current native bar prompt ahead of a stale card context',async t=>{
+  const f=arm(t,3796), bar=f.self.buttonBar;
+  f.self.getButtonBar=()=>bar;
+  delete f.self.buttonBar;
+  f.self.cardContainer.selectCardContext={message:'请选择一名角色，弃置其1张牌'};
+  bar.txtOptMsg={_innerHTML:'是否失去1点体力重置镇南'};
+  f.runtime.tick();bar.Show();await flush();
+  assert.equal(f.cancel,1);
+  assert.equal(f.ok,0);
+});
 test('武娘 takes armour before other equipment, then hands; unavailable cards are excluded',async t=>{
  const f=arm(t,3796), sent=[];
  const ui=(id,type,extra={})=>({CanBeSelected:true,Card:{CardId:id,FirstSkill:{Type:type}},...extra});

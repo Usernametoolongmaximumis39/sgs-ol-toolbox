@@ -6,7 +6,7 @@ import { createChatEnhancements, decorateChatHTML, linkedNames, officerIcon, roo
 const link = name => `<a href='ATtextNickname*&amp;.!**.%#${encodeURIComponent(name)}'>${name}</a>`;
 const config = { root: { officer: [{ ID: 1, Officerid: 1 }, { ID: 32, Officerid: 9 }, { ID: 38, Officerid: 10 }] } };
 test('room links cover 1–5 digit runs and never substrings of long IDs', () => {
-  assert.deepEqual(roomNumbers('进1，123，12345。用户123456，1234567890，0，001，1'), ['1', '123', '12345', '001']);
+  assert.deepEqual(roomNumbers('抗金进1，123，12345。用户123456，1234567890，0，001，1'), ['1', '123', '12345', '001']);
   assert.equal(roomTableId('12345', 22, 2), 202212345);
   assert.equal(roomTableId('123456', 22, 2), null);
   assert.equal(roomTableId('1', 0, 2), null);
@@ -23,8 +23,19 @@ test('native shares and link parameters never become room candidates', () => {
     assert.equal(decorateChatHTML(html, { MsgType: 1, chatMsg: text }), html);
   }
   assert.deepEqual(roomNumbers('https://example.com/48?skin=4809&id=2671&v=12#1'), []);
-  assert.deepEqual(roomNumbers('来123，https://example.com/48?v=12 房间1'), ['123', '1']);
-  assert.deepEqual(roomNumbers('来123 <font href="share:4809">皮肤12</font> <img width="48"/>'), ['123']);
+  assert.deepEqual(roomNumbers('国战来123，https://example.com/48?v=12 房间1'), ['123', '1']);
+  assert.deepEqual(roomNumbers('暗流来123 <font href="share:4809">皮肤12</font> <img width="48"/>'), ['123']);
+});
+
+test('short rooms require a chat keyword and native inline face IDs remain opaque', () => {
+  assert.deepEqual(roomNumbers('来1、25、123、1234、12345'), ['1234', '12345']);
+  for (const keyword of ['kj', 'KJ', '抗金', '暗流', '国战', '置顶', '一轮', 'm', 'M', '军']) {
+    assert.deepEqual(roomNumbers(`#25${keyword}1、8、123#69`), ['1', '8', '123']);
+  }
+  assert.deepEqual(roomNumbers('#25#69'), []);
+  assert.deepEqual(roomNumbers('team 25 https://example.com/kj'), []);
+  const html = '<img src="face25.png"/>';
+  assert.equal(decorateChatHTML(html, { MsgType: 1, chatMsg: '#25' }), html);
 });
 
 test('system and all channel user mentions retain links and get exact low-rank/robot icons', () => {

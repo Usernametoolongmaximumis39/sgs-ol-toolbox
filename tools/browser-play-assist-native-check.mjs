@@ -33,9 +33,10 @@ try {
     item.off=(...args)=>item.eventDispatcher.off(...args);
     item.onClick=()=>{};
     item.on('click',item,item.onClick);
-    item.on('click',item,function(){window.clicks++;if(item.activated){item.Selected=true;self.cardContainer.selectCardContext={message:'是否发动苦肉'};self.Pt.Show();}});
+    item.on('click',item,function(){window.clicks++;if(item.activated){item.Selected=true;self.cardContainer.selectCardContext={message:'是否发动苦肉'};self.getButtonBar().Show();}});
     window.confirmations=0;
-    self.skillItems=[item];self.Pt={visible:true,btns:[{name:'btnOK',_enabled:true,onClick(){window.confirmations++;}}],Show(){},Update(){}};self.cardContainer={cardUis:[]};
+    self.skillItems=[item];self.Ai={visible:true,btns:[{name:'btnOK',_enabled:true,onClick(){window.confirmations++;}}],Show(){},Update(){}};self.cardContainer={cardUis:[]};
+    self.getButtonBar=function(){return this.Ai;};
     window.scene={SceneName:'RogueLikeGameScene',SelfSeatUi:self,seatContainer:{seatUIs:[]}};
     window.palette={accent:'#c8ab6a',bg:'#172322'};
     window.runtime=AssistNative.createRuntime({window,document,scope,settings:{get:(k,d)=>values.has(k)?values.get(k):d,set:(k,v)=>values.set(k,v)},game:{getScene:()=>scene,getSnapshot:()=>({inGame:true}),getClass:()=>null},ui:{nativeTheme:{palette,watch:fn=>{fn();return()=>{}}}},notify:()=>{}},()=>config);
@@ -144,7 +145,41 @@ try {
   await page.evaluate(()=>{runtime.dispose();scope.dispose();});
   assert.equal(await page.evaluate(()=>layoutSkills.every(s=>s.getChildByName('sgs-play-assist-lock')===null)),true);
   await page.mouse.click(450,330);assert.equal(await page.evaluate(()=>clicks),3,'original handler restored');
+
+  const wuxieChecks = await page.evaluate(async () => {
+    const scope = new AssistNative.ResourceScope(), proxy = new Laya.EventDispatcher();
+    const self = new Laya.Sprite(), bar = new Laya.Sprite(), cancel = new Laya.Sprite();
+    Laya.stage.addChild(self); self.addChild(bar); bar.addChild(cancel);
+    self.seat = {Index:0}; self.Ai = bar;
+    self.cardContainer = {cardUis:[], selectCardContext:{SpecifySkillId:13}};
+    cancel.name = 'btnCancel'; cancel._enabled = true;
+    bar.btns = [cancel]; bar.Show = () => { bar.visible = true; }; bar.Update = () => {};
+    let cancellations = 0;
+    cancel.on('click', bar, () => { cancellations++; bar.visible = false; });
+    bar.Button_Click = btn => btn.event('click');
+    const scene = {SceneName:'RogueLikeGameScene', SelfSeatUi:self};
+    const assist = AssistNative.createRuntime({window, document, scope, ui:{}, settings:{get:(_key, fallback)=>fallback},
+      game:{getScene:()=>scene, getSnapshot:()=>({inGame:true}), getClass:()=>null, getServerProxy:()=>proxy}}, () => ({skipWuxie:true}));
+    const phase = (seat, round) => proxy.event('GsCGamephaseNtf', {Protocol:{SeatID:seat, Round:round}});
+    async function inquiry(count) {
+      bar.Show();
+      proxy.event('GsCTriggerSpellNew', {Protocol:{TriggerSeatId:255, SrcSpellID:8, SrcSpellCasterSeat:0,
+        TriggerSpellData:[{SpellId:13, SeatId:0, Datas:[count]}]}});
+      await new Promise(resolve => setTimeout(resolve, 30));
+      return {cancellations, visible:bar.visible};
+    }
+    try {
+      phase(0, 2);
+      const first = await inquiry(0), counter = await inquiry(1);
+      phase(1, 4);
+      const opponent = await inquiry(0);
+      return {first, counter, opponent};
+    } finally { scope.dispose(); self.destroy(true); }
+  });
+  assert.deepEqual(wuxieChecks, {
+    first:{cancellations:1, visible:false}, counter:{cancellations:1, visible:true}, opponent:{cancellations:1, visible:true},
+  });
   assert.deepEqual(errors,[]);
-  await writeFile(resolve(output,'native-report.json'),JSON.stringify({checks:['long press / release suppression / unlock / native confirmation','58x26 stacked rows / adjacent skills / multiple locks','badge inside button / dark and light themes','resize / skill reuse / setting toggle','badge click passes through / cleanup restores handler','迁附 native long press owns lock / 驭势 absent'],compactBadges,errors},null,2));
-  console.log('PASS Laya long press / stacked badges / resize / unlock / cleanup');
+  await writeFile(resolve(output,'native-report.json'),JSON.stringify({checks:['long press / release suppression / unlock / native confirmation','58x26 stacked rows / adjacent skills / multiple locks','badge inside button / dark and light themes','resize / skill reuse / setting toggle','badge click passes through / cleanup restores handler','迁附 native long press owns lock / 驭势 absent','山河图 initial Wuxie cancels via Ai; opponent counters and turns stay manual'],compactBadges,wuxieChecks,errors},null,2));
+  console.log('PASS Laya long press / stacked badges / resize / unlock / cleanup / 山河图无懈');
 }finally{await browser.close();}

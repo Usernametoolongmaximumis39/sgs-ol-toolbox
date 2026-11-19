@@ -271,7 +271,34 @@ try {
     });
     if (!legacy) assert.deepEqual(ad, { closed: 1, closedAfterInit: true, modalRemoved: true, opened: 0 });
     popup.ad = ad;
-    assert.deepEqual(errors, []); results.push({ version, panelHeight, compactUI, legacyReproduced: legacy, before, blocked, popup, errors });
+    let recruit = null;
+    if (!legacy) {
+      const draw = host.locator('[data-effect=draw]');
+      await page.evaluate(async () => {
+        const { recruitViewFixture } = await import('/dev/effects-window-fixtures.js');
+        const reveals = [];
+        const classes = recruitViewFixture((...args) => reveals.push(args));
+        const getClass = window.Laya.ClassUtils.getClass;
+        window.Laya.ClassUtils.getClass = name => classes[name] || getClass(name);
+        const views = [new classes.GeneralOpenWindow(), new classes.GeneralOpenNewbieView()];
+        window.recruitCheck = () => {
+          const effects = [views[0].showOpenEffect(true), views[1].showOpenEffect([{ GoodsBaseID: 100 }], 1)];
+          const alphas = effects.map(effect => effect.alpha);
+          for (const effect of effects) { effect.reveal(); effect.stop(); }
+          return { alphas, reveals: reveals.length, stopped: views.every(view => view.zhaoMuEffect === null) };
+        };
+      });
+      const off = await page.evaluate(() => window.recruitCheck());
+      assert.deepEqual(off, { alphas: [1, 1], reveals: 2, stopped: true });
+      await draw.click();
+      const on = await page.evaluate(() => window.recruitCheck());
+      assert.deepEqual(on, { alphas: [0, 0], reveals: 4, stopped: true });
+      await draw.click();
+      const restored = await page.evaluate(() => window.recruitCheck());
+      assert.deepEqual(restored, { alphas: [1, 1], reveals: 6, stopped: true });
+      recruit = { off, on, restored };
+    }
+    assert.deepEqual(errors, []); results.push({ version, panelHeight, compactUI, legacyReproduced: legacy, before, blocked, popup, recruit, errors });
     await context.close();
   }
   await writeFile(path.join(output, 'effects-render-report.json'), JSON.stringify({ passed: true, scope: '原生结构合成画布，不是真实账号实局', results }, null, 2));

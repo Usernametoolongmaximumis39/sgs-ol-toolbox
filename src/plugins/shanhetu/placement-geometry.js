@@ -281,11 +281,16 @@ function collectControls(scene, cityView, diagnostics) {
     const value = nativeRect(item, cityView, owner, diagnostics);
     if (value) result.push(value);
     else { pending.push(item); recordPending(diagnostics, item, field); }
+    return value;
   };
   const top = scene.topProcesserView;
   if (top && visible(top)) for (const key of ['barbg', 'bossicon', 'bossTxtBg', 'bossTxtIcon', 'nameTxt', 'yearTxt', 'monthTxt', 'tongqian']) add(top[key], top, `topProcesserView.${key}`);
   const left = scene.leftView;
-  if (left && visible(left)) for (const key of ['bg', 'titleLeftTex', 'titleTex', 'seedbg', 'seedIcon', 'seedTxt', 'helpBtn', 'shopBtn', 'diffInfoUI']) add(left[key], left, `leftView.${key}`);
+  let shop = null;
+  if (left && visible(left)) {
+    for (const key of ['bg', 'titleLeftTex', 'titleTex', 'seedbg', 'seedIcon', 'seedTxt', 'helpBtn', 'diffInfoUI']) add(left[key], left, `leftView.${key}`);
+    shop = add(left.shopBtn, left, 'leftView.shopBtn') || null;
+  }
   const bottom = scene.bottomView;
   if (bottom && visible(bottom)) {
     for (const key of ['selfSeatUi', 'zhanfaItemTex', 'changeIcon', 'backupPanel', 'matePart', 'btnRefine']) add(bottom[key], bottom, `bottomView.${key}`);
@@ -296,7 +301,7 @@ function collectControls(scene, cityView, diagnostics) {
   if (cityView.raidItem && visible(cityView.raidItem)) {
     for (const key of ['raid', 'nameBg', 'raidName']) add(cityView.raidItem[key], cityView.raidItem, `cityView.raidItem.${key}`);
   }
-  return { controls: result, pending };
+  return { controls: result, shop, pending };
 }
 
 function cityEntries(dictionary) {
@@ -312,14 +317,14 @@ function cityEntries(dictionary) {
 
 function geometrySignature(result) {
   const encodeRect = value => value && [value.x, value.y, value.w, value.h].map(number => Math.round(number * 64) / 64);
-  return JSON.stringify([result.ready, result.reason, result.controlsComplete, encodeRect(result.viewport),
+  return JSON.stringify([result.ready, result.reason, result.controlsComplete, encodeRect(result.viewport), encodeRect(result.shop),
     result.nodes.map(node => [node.id, encodeRect(node.anchor), node.regions.map(encodeRect)]), result.controls.map(encodeRect)]);
 }
 
 /** Pure snapshot; the renderer owns COMPLETE/resize subscriptions and cleanup. */
 export function capturePlacementGeometry(context) {
   const diagnostics = { phase: 'context' };
-  const result = { ready: false, reason: 'not-ready', viewport: null, nodes: [], controls: [], controlsComplete: null,
+  const result = { ready: false, reason: 'not-ready', viewport: null, nodes: [], controls: [], shop: null, controlsComplete: null,
     pending: [], signature: '', diagnostics };
   const finish = reason => {
     result.reason = reason || (result.ready ? 'ready' : 'not-ready');
@@ -404,6 +409,7 @@ export function capturePlacementGeometry(context) {
     diagnostics.phase = 'controls';
     const controls = collectControls(scene, cityView, diagnostics);
     result.controls = controls.controls;
+    result.shop = controls.shop;
     result.controlsComplete = controls.pending.length === 0;
     result.pending.push(...controls.pending);
     // Native UI is now a soft placement cost. Keep unresolved controls in

@@ -200,13 +200,13 @@ test('unrelated reply is not success and timeout never retries after plugin relo
   assert.equal(first, again, 'one in-flight queue');
   await first;
   assert.equal(f.controller.snapshot().confirmed, 0);
-  assert.match(f.controller.snapshot().status, /通常尚未满足领取条件/);
+  assert.equal(f.controller.snapshot().status, '本轮已确认 0 项，另有 1 项待核对（未重发）。以游戏内领取记录为准。');
   assert.equal(f.sent.length, 1);
   const nextScope = new ResourceScope(); t.after(() => nextScope.dispose());
   const next = createRewardsController({ adapter: f.adapter, settings: f.settings, scope: nextScope, timeout: 20, poll: 2 });
   await enable(next).run();
   assert.equal(f.sent.length, 1, 'persisted pending result prevents resend after reload');
-  assert.match(next.snapshot().status, /暂未确认领取/);
+  assert.equal(next.snapshot().status, f.controller.snapshot().status);
 });
 
 test('one unconfirmed workflow does not block independent mail and task rewards', async t => {
@@ -218,7 +218,7 @@ test('one unconfirmed workflow does not block independent mail and task rewards'
   assert.equal(f.sent.filter(row => row[0] === 'task').length, 1);
   assert.equal(f.sent.filter(row => row[0] === 'ranked').length, 2);
   assert.equal(f.controller.snapshot().confirmed, 5);
-  assert.match(f.controller.snapshot().status, /1 项.*暂未确认领取/);
+  assert.match(f.controller.snapshot().status, /1 项待核对（未重发）/);
   await enable(f.controller).run();
   assert.equal(f.sent.length, 6, 'uncertain sign was not resent after checking the independent rewards');
 });
@@ -230,7 +230,7 @@ test('legacy pending ledger only blocks its dependent signup day', async t => {
   f.settings.set('account:41:attempts', { day: '2026-11-13', items: { 'sign:1:1': { status: 'pending' } } });
   await enable(f.controller).run();
   assert.deepEqual(f.sent, [['sign', 2, 1]]);
-  assert.match(f.controller.snapshot().status, /1 项.*暂未确认领取/);
+  assert.match(f.controller.snapshot().status, /1 项待核对（未重发）/);
 });
 
 test('a late authoritative state settles its pending group without another request', async t => {
@@ -426,7 +426,7 @@ test('excluded return attempts stay persisted but disappear from issues and unre
  assert.equal(f.settings.get('account:41:attempts').items['task:101'].status,'unconfirmed');
  // An unrelated historical request must remain visible and counted.
  const ledger=f.settings.get('account:41:attempts');ledger.items['task:998']={status:'unconfirmed',at:3,label:'每日活跃'};f.settings.set('account:41:attempts',ledger);
- await f.controller.run();assert.equal(f.controller.snapshot().issues.length,1);assert.match(f.controller.snapshot().status,/1 项暂未确认领取/);
+ await f.controller.run();assert.equal(f.controller.snapshot().issues.length,1);assert.match(f.controller.snapshot().status,/1 项待核对（未重发）/);
 });
 
 test('release UI names uncertain task and ID with full long text but hides excluded return task', t => {

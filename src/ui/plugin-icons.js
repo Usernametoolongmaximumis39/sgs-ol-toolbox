@@ -12,6 +12,10 @@ export const PLUGIN_ICONS = Object.freeze({
     'M6 12 10 7l4 5 3-3 2 3',
     'M6 16c3-3 7 3 12-1',
   ),
+  'shanhetu-beta': icon(
+    'M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z',
+    'M12 7v8m-4-4h8',
+  ),
   'daily-rewards': icon(
     'M3 8h18v4H3ZM5 12v9h14v-9M12 8v13',
     'M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z',

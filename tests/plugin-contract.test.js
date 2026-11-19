@@ -93,6 +93,11 @@ test('plugin contract: panel placement is declared, priorities are independent, 
   const game = manifest({ categories: ['game'] });
   assert.equal(normalizePanel(panel({ gameView: 'shanhe' }), game).gameView, 'shanhe');
   assert.throws(() => normalizePanel(panel({ gameView: 'other' }), game));
+  assert.throws(() => normalizePanel(panel({ groupWith: 'base' }), game), /前置插件组/);
+  assert.equal(normalizePanel(panel({ groupWith: 'base' }), { ...game, dependencies: ['base'] }).groupWith, 'base');
+  assert.throws(() => normalizePanel(panel({ groupTab: true }), game), /前置插件组/);
+  assert.throws(() => normalizePanel(panel({ groupTabs: true }), { ...game, minCoreVersion: '0.6.120' }), /minCoreVersion/);
+  assert.throws(() => normalizePanel(panel({ groupWith: 'base', groupTabs: true }), { ...game, dependencies: ['base'] }), /承载组内页签/);
 });
 
 test('plugin contract: stable ordering uses numeric priority, ASCII identity, then local panel priority', () => {
@@ -125,6 +130,34 @@ const moduleFor = (m, specs = [panel()]) => ({ manifest: m, activate(ctx) {
     node.dataset.contractPanel = spec.id; node.append(ctx.ui.icon(m.icon || 'package'), ctx.document.createTextNode(spec.id));
   } });
 } });
+
+test('plugin contract: grouped tabs mount once in their host, clean up and fall back in a legacy host', t => {
+  const { dom, shell } = harness(t);
+  const parent = manifest({ id: 'tab-host' }), child = manifest({ id: 'tab-extension', dependencies: [parent.id] });
+  let tab, outlet, loads = 0, cleanups = 0;
+  const removeChild = shell.registerPanel(normalizePanel(panel({ groupWith: parent.id, groupTab: true, render(node) {
+    loads++;
+    node.textContent = '扩展内容';
+    return () => { cleanups++; };
+  } }), child));
+  const removeHost = shell.registerPanel(normalizePanel(panel({ groupTabs: true, render(container, options) {
+    [tab] = options.groupTabs;
+    outlet = container.appendChild(dom.window.document.createElement('div'));
+  } }), parent));
+  assert.equal(loads, 0);
+  assert.throws(() => tab.mount(shell.shadow.querySelector('.content')), /内容容器/);
+  assert.equal(tab.mount(outlet), tab.mount(outlet));
+  assert.equal(outlet.textContent, '扩展内容');
+  assert.equal(loads, 1);
+  removeHost();
+  assert.equal(cleanups, 1);
+  assert.throws(() => tab.mount(outlet), /内容容器/);
+  shell.registerPanel(normalizePanel(panel(), parent));
+  assert.equal(shell.shadow.querySelector('[data-plugin-group=tab-host] [data-panel-id="tab-extension:main"]').textContent, '扩展内容');
+  assert.equal(loads, 2);
+  removeChild();
+  assert.equal(cleanups, 2);
+});
 
 test('plugin contract: real manager and shell keep order and collapse through reload; manage/info panels render', async t => {
   const h = harness(t);

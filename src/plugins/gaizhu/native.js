@@ -13,9 +13,10 @@ export const shown = node => {
 };
 export const usable = node => shown(node) && read(() => node.disabled) !== true
   && read(() => node.enabled) !== false && read(() => node._enabled) !== false;
-// Official self-seat createGameBar stores Xzt in Pt. buttonBar is a legacy
-// alias and is absent when the toolbox runs without the old script.
 export function selfButtonBar(self) {
+  const current = read(() => self.getButtonBar());
+  // A hidden current bar must not expose buttons from a stale legacy alias.
+  if (current) return shown(current) ? current : null;
   const bars = [read(() => self.Pt), read(() => self.buttonBar)];
   return bars.find(bar => shown(bar) && Array.isArray(read(() => bar.btns)))
     || bars.find(bar => shown(bar)) || null;
@@ -44,6 +45,17 @@ export function press(node) {
   if (failures.length) throw new AggregateError(failures.map(item => item.error),
     '原生按钮点击失败：\n' + failures.map(item => `${item.name}: ${String(item.error?.stack || item.error)}`).join('\n'));
   return false;
+}
+
+export function closeGameResult(matching, processed) {
+  const win = matching(/^GameMvpWindow$/)[0] || matching(/^GameResultWindow$/)[0];
+  const result = win?.gameResult;
+  if (!result || typeof result !== 'object' || processed.get(win) === result || typeof win.laterClose !== 'function'
+    || win.loading || win.isClosing || win.closeing) return false;
+  processed.set(win, result);
+  // The native result callback advances settlement without starting another room.
+  win.laterClose();
+  return true;
 }
 
 // Extension 2.6.8 gzUseSkill -> GAME.click (6883-6900, 5140-5153).
@@ -76,6 +88,7 @@ export function createNative(ctx) {
   let nodes = [], scene = null;
   let windowNames = new Map();
   let displayed = new Set();
+  const processedResults = new WeakMap();
   function frame() {
     scene = ctx.game.getScene();
     nodes = walkNative([scene, read(() => ctx.window.Laya.stage)]);
@@ -117,7 +130,8 @@ export function createNative(ctx) {
       const name = String(info.itemName ?? info.ItemName ?? info.generalName ?? info.GeneralName ?? info.CardName ?? info.name ?? info.Name
         ?? ui.CardName ?? ui.generalName ?? ui.GeneralName ?? ui.itemName ?? names[id] ?? ui.name ?? '').trim();
       if (!(id > 0) && name) id = Number(Object.keys(names).find(key => names[key] === name));
-      return { ui, id, name };
+      const quality = Number(info.quality ?? info.Quality ?? 0);
+      return { ui, id, name, quality: Number.isFinite(quality) ? quality : 0 };
     }).filter(c => c.id > 0 || c.name);
   }
   function choose(win, card) {
@@ -166,6 +180,20 @@ export function createNative(ctx) {
     }
     return false;
   }
+  function seatAi(view, seat, strong) {
+    view.showBtns(seat);
+    if (view.currentSeat !== seat) return '';
+    // The native seat menu exposes Wangzhe only when the room and officer rank allow it.
+    const tiers = [
+      { button: view.addAiSBtn, type: 3, name: '王者小杀' },
+      { button: view.addAiMBtn, type: 2, name: '高级小杀' },
+      { button: view.addAiBtn, type: 1, name: '普通小杀' },
+    ];
+    const tier = tiers.find(({ button, type }) => (strong || type === 1) && read(() => button.visible) === true && usable(button));
+    if (!tier) return '';
+    view.addAiHandler(tier.type, seat);
+    return tier.name;
+  }
   function mulligan() {
     const windowPattern = /ShouQiKa|手气卡|Mulligan|FirstHand/i;
     const keyword = /手气卡|更换.{0,4}手牌|替换.{0,6}手牌|换手牌/;
@@ -213,9 +241,13 @@ export function createNative(ctx) {
         throw new AggregateError(errors, '手气卡原生关闭失败');
       } : null };
   }
-  function continueResult() {
-    const text = nodes.find(n => usable(n) && /点击.*(?:空白|继续)|点击任意|任意.*继续/.test(label(n)));
+  function continueResult({ allowCanvas = true } = {}) {
+    if (closeGameResult(matching, processedResults)) return true;
+    if (!allowCanvas && matching(/^Game(Mvp|Result)Window$/).length) return false;
+    const caption = allowCanvas ? /点击.*(?:空白|继续)|点击任意|任意.*继续/ : /^点击(?:(?:空白|任意)[^。]{0,8})?继续[。…]*$/;
+    const text = nodes.find(n => mounted(n) && usable(n) && caption.test(label(n)));
     for (let node = text, i = 0; node && i < 6; node = node.parent, i++) if (press(node)) return true;
+    if (!allowCanvas) return false;
     // The old extension clicks the actual game canvas only after MsgGameOver.
     // Fixed relative points remain inside the canvas and never target the HUD.
     const canvas = read(() => ctx.document.querySelector('#layaCanvas')) || read(() => ctx.document.querySelector('canvas'));
@@ -230,7 +262,7 @@ export function createNative(ctx) {
   const stageNodes = () => walkNative([read(() => ctx.window.Laya.stage)], 4000);
   const djSurfaces = () => [...new Set([...stageNodes().filter(n => /DianJiang/i.test(nodeName(n))
     || typeof read(() => n.sendDianJiang) === 'function'), read(() => scene.dianjiangView)].filter(Boolean))];
-  return { frame, matching, cards, choose, confirm, confirmAi, mulligan, continueResult, dj, findLabel,
+  return { frame, matching, cards, choose, confirm, confirmAi, seatAi, mulligan, continueResult, dj, findLabel,
     openAi() {
       const button = read(() => scene.addAiBtn);
       if (!usable(button)) return false;

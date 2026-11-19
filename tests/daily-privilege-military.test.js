@@ -23,6 +23,11 @@ function fixture() {
   const activity = Object.assign(new Events(), {
     HasJDRewardRed: true, HasNewJDRewardRed: true, JDHaveRewardList: [], JDHaveRewardList_bp: [], NewJDHaveRewardList: [], NewJDHaveRewardList_bp: [], hadBuyJD: true, hadBuyNewJD: true,
     GetFestivalSignData() {},
+    SendGetNewJDInfoReq() {
+      this.NewJDHaveRewardList = [...this.NewJDHaveRewardList];
+      this.NewJDHaveRewardList_bp = [...this.NewJDHaveRewardList_bp];
+      this.emit('NEW_JD_INFO_SUC');
+    },
     SendGetJDRewardReq(id, high, all) { assert.equal(all, false); sent.push(['jd', id, high]); this[high ? 'JDHaveRewardList_bp' : 'JDHaveRewardList'].push(id); },
     SendGetNewJDRewardReq(id, high, all) { assert.equal(all, false); sent.push(['new-jd', id, high]); this[high ? 'NewJDHaveRewardList_bp' : 'NewJDHaveRewardList'].push(id); },
     ReqDrawAllJDRwd() { throw Error('batch must not bypass exclusions'); }, ReqDrawAllNewJDRwd() { throw Error('batch must not bypass exclusions'); },
@@ -118,6 +123,106 @@ test('controller confirms native card replies and per-tier military awards once 
   const controller = make(); controller.options({ ...selected, automatic: true, sign: false, mail: false, tasks: false, codes: false });
   await controller.run(); assert.equal(controller.snapshot().confirmed, 8); assert.equal(f.sent.length, 8);
   await controller.run(); await make().run(); assert.equal(f.sent.length, 8);
+});
+
+test('a saved Jieyue attempt is settled only by the current season and matching reward track', async t => {
+  const f = fixture(), data = new Map(), scope = new ResourceScope(); t.after(() => scope.dispose());
+  const settings = { get: (key, fallback) => data.get(key) ?? fallback, set: (key, value) => data.set(key, structuredClone(value)) };
+  const free = 'activity:new-jd:tier:4:1:0', premium = 'activity:new-jd:tier:4:1:1', otherSeason = 'activity:new-jd:tier:3:1:0';
+  settings.set('account:41:attempts', { day: f.adapter.day(), items: Object.fromEntries([free, premium, otherSeason].map(key => [key, { status: 'unconfirmed' }])) });
+  const controller = createRewardsController({ adapter: f.adapter, settings, scope });
+  controller.options({ automatic: true, sign: false, mail: false, tasks: false, welfare: false, activities: false, codes: false });
+  await controller.run();
+  assert.equal(controller.snapshot().issues.length, 3);
+  f.activity.NewJDHaveRewardList.push(1);
+  await controller.run();
+  assert.equal(settings.get('account:41:attempts').items[free].status, 'confirmed');
+  assert.deepEqual(controller.snapshot().issues.map(issue => issue.key), [premium, otherSeason]);
+  assert.equal(controller.snapshot().confirmed, 0);
+  assert.deepEqual(f.sent, []);
+});
+
+for (const oldLedger of [false, true]) {
+  test(`an unconfirmed military tier leaves other tiers runnable (old ledger: ${oldLedger})`, async t => {
+    const f = fixture(), data = new Map(), scope = new ResourceScope();
+    t.after(() => scope.dispose());
+    const settings = { get: (key, fallback) => data.get(key) ?? fallback, set: (key, value) => data.set(key, structuredClone(value)) };
+    const ledgerKey = 'account:41:attempts', tierKey = 'activity:new-jd:tier:4:11:0';
+    if (oldLedger) settings.set(ledgerKey, { day: f.adapter.day(), items: {
+      [tierKey]: { status: 'unconfirmed', workflowGroup: 'activity:new-jd' },
+    } });
+    const send = f.activity.SendGetNewJDRewardReq;
+    f.activity.SendGetNewJDRewardReq = function (id, high, all) {
+      if (id === 11 && !high) f.sent.push(['no-reply']);
+      else send.call(this, id, high, all);
+    };
+    const controller = createRewardsController({ adapter: f.adapter, settings, scope, timeout: 20, poll: 1 });
+    controller.options({ ...selected, automatic: true, sign: false, mail: false, tasks: false, codes: false });
+    await controller.run();
+    assert.equal(controller.snapshot().confirmed, 7);
+    assert.equal(settings.get(ledgerKey).items[tierKey].status, 'unconfirmed');
+    await controller.run();
+    assert.equal(f.sent.filter(row => row[0] === 'no-reply').length, oldLedger ? 0 : 1);
+    assert.equal(f.sent.length, oldLedger ? 7 : 8);
+    assert.equal(controller.snapshot().running, false);
+  });
+}
+
+function jieyueController(t) {
+  const f = fixture(), data = new Map(), scope = new ResourceScope(); t.after(() => scope.dispose());
+  const settings = { get: (key, fallback) => data.get(key) ?? fallback, set: (key, value) => data.set(key, structuredClone(value)) };
+  f.configs.military.root.newbp[0].reward = 201;
+  f.configs.military.root.newdailyreward = [
+    { a: 201, b: 13, c: 3600, d: '100011,200', e: '21356801,2' },
+    { a: 201, b: 14, c: 3900, d: '9020101,100', e: '21337401,2' },
+    { a: 201, b: 15, c: 4200, d: '8100201,1', e: '111801,500' },
+  ];
+  f.counts.set(11987201, 4200);
+  f.activity.HasJDRewardRed = false;
+  const controller = createRewardsController({ adapter: f.adapter, settings, scope, timeout: 60, poll: 2 });
+  controller.options({ automatic: true, activities: true, sign: false, tasks: false, welfare: false, mail: false, codes: false,
+    excludeCoupon: false, excludeTrial: false, excludeRecruit: false });
+  return { ...f, controller, settings };
+}
+
+test('Jieyue refreshes before claiming and reads back a missing list push without resending', async t => {
+  const f = jieyueController(t), server = [13, 14], key = 'activity:new-jd:tier:4:13:0';
+  f.settings.set('account:41:attempts', { day: f.adapter.day(), items: { [key]: { status: 'unconfirmed' } } });
+  f.activity.hadBuyNewJD = false;
+  f.activity.SendGetNewJDInfoReq = function () {
+    f.sent.push('query'); this.NewJDHaveRewardList = [...server]; this.emit('NEW_JD_INFO_SUC');
+  };
+  f.activity.SendGetNewJDRewardReq = function (id, high, all) {
+    f.sent.push([id, high, all]); server.push(id); this.emit('NEW_JD_REWARD_REP');
+  };
+  const snapshots = []; f.controller.subscribe(state => snapshots.push(state));
+  await f.controller.run();
+  assert.deepEqual(f.sent, ['query', [15, false, false], 'query']);
+  assert.ok(snapshots.some(s => s.status === '正在领取：节钺令第 15 档免费奖励' && s.issues.length === 0));
+  assert.equal(f.controller.snapshot().confirmed, 1); assert.deepEqual(f.controller.snapshot().issues, []);
+  assert.equal(f.settings.get('account:41:attempts').items[key].status, 'confirmed');
+  await f.controller.run(); assert.equal(f.sent.length, 3);
+});
+
+test('Jieyue delays only unsynchronized tracks and never treats a generic event as a list', async t => {
+  for (const mode of ['missing method', 'no list', 'free only', 'both lists']) {
+    const f = jieyueController(t);
+    if (mode === 'missing method') delete f.activity.SendGetNewJDInfoReq;
+    else f.activity.SendGetNewJDInfoReq = function () {
+      if (mode !== 'no list') this.NewJDHaveRewardList = mode === 'free only' ? [13, 14] : [13, 14, 15];
+      if (mode === 'both lists') this.NewJDHaveRewardList_bp = [13, 14];
+      this.emit('NEW_JD_INFO_SUC');
+    };
+    await f.controller.run();
+    if (mode === 'both lists') {
+      assert.deepEqual(f.sent, [['new-jd', 15, true]]);
+      assert.equal(f.controller.snapshot().confirmed, 1);
+    } else {
+      assert.deepEqual(f.sent, mode === 'free only' ? [['new-jd', 15, false]] : []);
+      assert.match(f.controller.snapshot().status, /等待游戏同步节钺令领取记录/);
+    }
+    assert.equal(f.activity._events.NEW_JD_INFO_SUC?.length ?? 0, 0);
+  }
 });
 
 test('屯粮令 claims earned bean tiers despite other exclusions; respects ownership and bean exclusion', async () => {

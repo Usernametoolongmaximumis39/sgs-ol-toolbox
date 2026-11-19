@@ -34,6 +34,21 @@ test('real abbreviated physical slash definitions keep elemental cards out of or
   assert.deepEqual(queryCards(state, { name: '杀', exactName: true }, meta), ids);
 });
 
+test('card face catalog uses exact resource keys and labels elemental slashes separately', () => {
+  const { game, win } = setup(null);
+  assert.equal(game.getCardFaceCatalog(), null);
+  win.CtrUtil = { AllDatas: { 'sys_playcard.sgs': {
+    abbreviation: [{ Short: 'a', Long: 'id' }, { Short: 'b', Long: 'name' }, { Short: 'p', Long: 'res' }],
+    GamePlayCards: { card: [
+      { a: 1, b: '杀', p: 'Sha' }, { a: 2, b: '杀', p: 'Sha' }, { a: 3, b: '杀', p: 'HuoSha' },
+      { a: 4, b: '测试', p: '../invalid' },
+    ] },
+  } } };
+  const catalog = game.getCardFaceCatalog();
+  assert.deepEqual(Object.fromEntries(catalog.map(({ res, label }) => [res, label])), { Sha: '杀', HuoSha: '火杀' });
+  assert.equal(game.getCardFaceCatalog(), catalog);
+});
+
 test('native Seat model wins over UI layout fields; missing identity is never an array offset', () => {
   const own = { seatID: 7, Seat: { Index: 0, HandCards: [1], HandCardCount: 1, IsDead: false } };
   const target = { seatID: 1, actualSeatID: 2, Seat: { Index: 5, HandCardCount: 2, IsDead: false, HandShowCardIDs: [2, 3] } };

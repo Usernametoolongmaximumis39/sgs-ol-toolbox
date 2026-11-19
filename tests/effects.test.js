@@ -6,7 +6,7 @@ import { ResourceScope } from '../src/core/resources.js';
 import effects from '../src/plugins/effects/index.js';
 import { OPTIONS, OTHER_OPTIONS, OPTION_GROUPS, EFFECT_LEVELS, classifyEffect, createEffectController } from '../src/plugins/effects/native.js';
 import { NativeDraw, NativeDictionary, nativeToolbar } from '../dev/effects-native-fixtures.js';
-import { windowFixture } from '../dev/effects-window-fixtures.js';
+import { recruitViewFixture, windowFixture } from '../dev/effects-window-fixtures.js';
 import { NativeRedButton, NativeRedTree, nativeRedFixture } from '../dev/effects-red-fixtures.js';
 
 function setup(initial = {}) {
@@ -402,6 +402,45 @@ for (const [name, category, method] of [['AdPushWindow', 'ad', 'Close'], ['Versi
     } finally { f.dispose(); }
   });
 }
+
+test('effects: draw masks regular and newbie recruit animations while their native result and stop callbacks still run', () => {
+  const f = setup(), revealed = [];
+  const { GeneralOpenWindow, GeneralOpenNewbieView, RecruitView } = recruitViewFixture((...args) => revealed.push(args));
+  const original = RecruitView.prototype.showOpenEffect;
+  try {
+    f.classes.set('GeneralOpenWindow', GeneralOpenWindow);
+    f.classes.set('GeneralOpenNewbieView', GeneralOpenNewbieView);
+    const regular = new GeneralOpenWindow(), newbie = new GeneralOpenNewbieView();
+    const playing = regular.showOpenEffect(true);
+    f.scene._children = [regular];
+    f.controller.setEnabled('prob', true);
+    assert.equal(playing.alpha, 1);
+    f.controller.setEnabled('draw', true);
+    assert.equal(playing.alpha, 0);
+    playing.reveal(); playing.stop();
+    assert.equal(regular.zhaoMuEffect, null);
+    const rewards = [{ GoodsBaseID: 100 }];
+    const normalEffect = regular.showOpenEffect(false), newbieEffect = newbie.showOpenEffect(rewards, 1);
+    assert.equal(normalEffect.alpha, 0);
+    assert.equal(newbieEffect.alpha, 0);
+    assert.equal(new RecruitView().showOpenEffect().alpha, 1);
+    normalEffect.reveal(); normalEffect.stop(); newbieEffect.reveal(); newbieEffect.stop();
+    assert.equal(newbie.zhaoMuEffect, null);
+    assert.deepEqual(revealed, [[true], [false], [rewards, 1]]);
+    const restored = regular.showOpenEffect(false);
+    restored.alpha = 0.7;
+    assert.equal(restored.alpha, 0);
+    f.controller.setEnabled('draw', false);
+    assert.equal(restored.alpha, 0.7);
+    assert.equal(newbie.showOpenEffect(rewards, 1).alpha, 1);
+    assert.equal(GeneralOpenWindow.prototype.showOpenEffect, original);
+    f.controller.setEnabled('draw', true);
+    const uninstalled = newbie.showOpenEffect(rewards, 1);
+    f.dispose();
+    assert.equal(uninstalled.alpha, 1);
+    assert.equal(GeneralOpenNewbieView.prototype.showOpenEffect, original);
+  } finally { f.dispose(); }
+});
 
 test('effects: advertisements hide banners while removed charge/name settings never touch native visuals or layout', () => {
   const f = setup({ recharge: true, names: true }), charge = new NativeDraw(), shop = new NativeDraw();
@@ -831,6 +870,52 @@ test('effects: ad group suppresses only notice contribution and restores current
     assert.equal(menu.values.get(10049), true); assert.equal(notice.NoticeRed, true);
     f.controller.setEnabled('version', true); notice.unread = ad.unread = false; bar.other = false;
     f.dispose(); assert.equal(bar.dot, false); assert.equal(menu.values.get(10049), false);
+  } finally { f.dispose(); }
+});
+
+test('effects: ads suppress private notice managers before the More menu is created', () => {
+  const f = setup();
+  const notice = {
+    unread: true,
+    get NoticeRed() { return this.unread; },
+    set NoticeRed(value) { this.unread = value; },
+  };
+  const ad = { unread: false, get ShowNewAdNoticeRed() { return this.unread; } };
+  f.ctx.game.getServerProxy = () => ({ _events: {
+    decodeSyncGameDataEvent: [{ caller: {} }, { caller: notice }],
+    ClientLobbyAdRep: { caller: ad },
+  } });
+  const bar = { moreView: null, other: false, checkMoreRed() {
+    const value = notice.NoticeRed || ad.ShowNewAdNoticeRed;
+    this.moreView?.UpdateRedPoint(10049, value);
+    return value || this.other;
+  }, moreUpdate() { this.dot = this.checkMoreRed(); } };
+  f.scene.hallToolbar = bar;
+  bar.moreUpdate();
+  try {
+    assert.equal(bar.dot, true);
+    f.controller.setEnabled('ads', true);
+    assert.equal(bar.dot, false);
+    assert.equal(notice.unread, true);
+    notice.NoticeRed = false;
+    ad.unread = true;
+    bar.moreUpdate();
+    assert.equal(bar.dot, false);
+    const menu = { values: new Map(), UpdateRedPoint(id, value) { this.values.set(id, value); } };
+    bar.moreView = menu;
+    bar.moreUpdate();
+    menu.UpdateRedPoint(10049, true);
+    menu.UpdateRedPoint(10050, true);
+    assert.equal(menu.values.get(10049), false);
+    assert.equal(menu.values.get(10050), true);
+    bar.other = true;
+    bar.moreUpdate();
+    assert.equal(bar.dot, true);
+    bar.other = false;
+    f.controller.setEnabled('ads', false);
+    assert.equal(menu.values.get(10049), true);
+    assert.equal(bar.dot, true);
+    assert.equal(ad.ShowNewAdNoticeRed, true);
   } finally { f.dispose(); }
 });
 

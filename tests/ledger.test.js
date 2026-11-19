@@ -4,6 +4,8 @@ import { JSDOM } from 'jsdom';
 import { ResourceScope } from '../src/core/resources.js';
 import { createNative } from '../src/plugins/ledger/native.js';
 import { createController } from '../src/plugins/ledger/controller.js';
+import { renderAlerts } from '../src/plugins/ledger/ui.js';
+import { mountPluginUI } from '../src/ui/plugin-ui.js';
 import { totals, filterRecords, createReconciler, importantItems, goodsDefinitions } from '../src/plugins/ledger/model.js';
 const flush = () => new Promise(r => setTimeout(r, 15));
 const goods = { root: { abbreviation: { field: [{ Short: 'a', Long: 'ID' }, { Short: 'b', Long: 'name' }] }, goodslist: { goods: [
@@ -41,6 +43,23 @@ test('hint/instance reconciliation supports both orders and retains repeated rea
   assert.deepEqual(hint.changes,[{recordId:'a',id:1,delta:-100}]);assert.equal(hint.items[0].delta,-100);
   assert.equal(r.accept('instance',item(-100),9000,'c').items[0].delta,-100);
 });
+test('background warnings render without constructing a ledger view', t => {
+  const settings = new Map([
+    ['balance:41', { 100016: { count: 10500, at: Date.now(), basis: 'all-yuanbao' } }],
+  ]);
+  const { controller, ctx } = fixture(t, settings);
+  ctx.document = ctx.window.document;
+  ctx.themes = { subscribe: () => () => {} };
+  ctx.ui = mountPluginUI(ctx, () => ctx);
+  t.mock.method(controller, 'view', () => assert.fail('Warning rendering must not read ledger history'));
+
+  renderAlerts(ctx, controller);
+  const alert = ctx.document.querySelector('[role="alertdialog"]');
+  assert.equal(alert.hidden, false);
+  assert.match(alert.textContent, /元宝较上次在线减少 10000/);
+  controller.dismissAlerts();
+  assert.equal(alert.hidden, true);
+});
 test('controller baseline, gross currency, instance zero/delete and two-order deduplication', async t => {
   const f=fixture(t),c=f.controller; await c.load();await flush();assert.equal(c.view().records.length,0);
   await f.emit('DbsCUpdatauserYaunbaoNtf',{ChangeYB:100});await f.emit('DbsCUpdatauserYaunbaoNtf',{ChangeYB:-100});
@@ -53,6 +72,46 @@ test('controller baseline, gross currency, instance zero/delete and two-order de
   assert.equal(totals(c.view().records).get(21223901).income,30);
   await f.emit('DbsCcUserDelgoodsNtf',{Result:2,DelList:[{PropID:9}]});assert.equal(totals(c.view().records).get(21223901).expense,100);
   await f.emit('DbsCcUserDelgoodsNtf',{Result:1,DelList:[{PropID:9}]});assert.equal(totals(c.view().records).get(21223901).expense,130);
+});
+test('ledger tracks the main jade seal ID and ignores same-name historical exchanges', async t => {
+  const now = Date.now();
+  const exchanges = [{ id: 1620301, name: '传世玉玺', delta: 3 }, { id: 1630701, name: '物品 1630701', delta: 1 }];
+  const seal = { id: 21223901, name: '传世玉玺', delta: 2 };
+  const shards = { id: 21272501, name: '玉玺碎片', delta: 4 };
+  const settings = new Map([['balance:41', { 1620301: { count: 0, at: now }, 1630701: { count: 0, at: now } }]]);
+  const f = fixture(t, settings), c = f.controller;
+  const base = { account: '41', session: c.view().session.id, at: now };
+  f.db.set('exchange', { ...base, id: 'exchange', kind: 'goods', items: [exchanges[0]] });
+  f.db.set('mixed', { ...base, id: 'mixed', kind: 'goods', items: [exchanges[1], seal, shards] });
+  f.db.set('prayer', { ...base, id: 'prayer', kind: 'prayer', items: [], rewards: [seal, exchanges[0]],
+    prayer: { secId: 4, times: 1, matched: true, name: '周年龙珠' } });
+
+  const hint = (type, items) => f.emit('DbsCcUserGoodshintNtf', {
+    Type: type, GoodsList: items.map(({ id, delta }) => ({ GoodsBaseID: id, ChangeCount: delta })),
+  });
+  await hint(2010, exchanges);
+  assert.equal(f.db.size, 3);
+  assert.ok(exchanges.every(({ id }) => !(id in settings.get('balance:41'))));
+
+  const load = f.ctx.game.loadConfigData;
+  f.ctx.game.loadConfigData = async name => name === 'sys_gs_dbs_fs_goodsbaseinfo' ? { root: {
+    ...goods.root, goodslist: { goods: [...goods.root.goodslist.goods, ...exchanges.map(({ id }) => ({ a: id, b: '传世玉玺' }))] },
+  } } : load(name);
+  await c.load();
+  const view = c.view();
+  assert.deepEqual(view.items.filter(item => item.name === seal.name).map(item => item.ID), [seal.id]);
+  assert.deepEqual(view.records.map(row => row.id), ['mixed', 'prayer']);
+  assert.deepEqual(view.records[0].items, [seal, shards]);
+  assert.deepEqual(view.records[1].rewards, [seal]);
+  assert.deepEqual(f.db.get('mixed').items, [exchanges[1], seal, shards]);
+
+  await f.emit('DbsCcUserGoodslistRep', { GoodsList: [{ ID: 31, BaseID: 1620301, Count: 2 }] });
+  await f.emit('DbsCcUpdategoodsAttribNtf', { GoodsID: 31, Count: 1 });
+  await f.emit('DbsCcUserDelgoodsNtf', { Result: 1, DelList: [{ PropID: 31 }] });
+  assert.equal(f.db.size, 3);
+  await hint(8, [seal, ...exchanges, shards]);
+  assert.deepEqual([...f.db.values()].at(-1).items, [seal, shards]);
+  assert.equal(c.view().items.find(row => row.ID === seal.id).income, 4);
 });
 test('protobuf prayer success, failed response, rewards first/last, and ambiguous batches remain explicit', async t => {
   const f=fixture(t),c=f.controller;await c.load();

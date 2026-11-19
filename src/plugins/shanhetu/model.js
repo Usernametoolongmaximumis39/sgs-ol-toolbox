@@ -1,5 +1,7 @@
 // Pure projections of official configuration and already-decoded own-run data.
 import { cityName } from './city-names.js';
+import { schoolProgress } from './school-progress.js';
+import { attributes, hasOptionImpactData, optionImpact } from '../../shared/shanhe-impact.js';
 export const CONFIG_FILES = ['hd_roguelike', 'cha_spell', 'sys_playcard', 'character'];
 export const MAP_SCENES = new Set(['RogueLikeBigMapScene', 'RogueSmallMapScene']);
 export const isShanhe = name => MAP_SCENES.has(name) || name === 'RogueLikeGameScene';
@@ -46,7 +48,9 @@ export function buildConfig(files) {
   const groups = new Map();
   for (const row of tables.General) { const key = String(row.generalgroup); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(row); }
   const texts = new Map(tables.Text.map(row => [String(row.ID), plain(row.text)]));
-  return { tables, items, spells, cards, generals, groups, texts, text: value => texts.get(String(value)) || plain(value),
+  return { tables, items, spells, cards, generals, groups, texts,
+    schools: expandRows(root.school ?? root.School, raw.root?.abbreviation).map(row => ({ ...row, name: plain(row.name) })),
+    tactics: index(tables.Tactics, 'plot'), text: value => texts.get(String(value)) || plain(value),
     cities: index(tables.Level, 'cityID'), fights: index(tables.Fight, 'fightID'), adventures: index(tables.Adventure, 'ID'), choices: index(tables.Choose, 'effectID') };
 }
 export function difficulty(config, snapshot) {
@@ -186,8 +190,11 @@ export function choiceLoss(config, choice, location, s) {
   // has no eligible item to deduct. Missing IDs/metadata remain unknown above.
   return {source:'unavailable',items:[]};
 }
-export function nodePreview(config, location, s) {
+export function nodePreview(config, location, s, showOptionImpact = true) {
   const city = config.cities.get(String(location.location)), adventure = config.adventures.get(String(location.event)), fight = fightPreview(config, location.event, location, s);
+  const season = s.seasonData?.seasonId;
+  const showImpact = showOptionImpact && (hasOptionImpactData(season)
+    || Object.keys(attributes).some(key => num(s.gameData?.attrInfo?.[key]) !== null));
   const options = [];
   if (adventure) for (let i = 1; i <= 3; i++) {
     const effect = adventure['effect' + i]; if (effect == null) continue;
@@ -207,7 +214,9 @@ export function nodePreview(config, location, s) {
     }).join('、') : '';
     const configuredGain = choice ? reward(config, choice.getitem, choice.getnum) : '';
     const unrevealed = !resolved && Number(choice?.showitem) === 1 && /随机/.test(configuredGain);
-    options.push({ id: effect, order:i, camp: Number(choice?.type) === 3 && Number(choice?.event1) === 2, label: config.text(adventure['option' + i]) || `选项 ${i}`, battle,
+    const camp = Number(choice?.type) === 3 && Number(choice?.event1) === 2;
+    const impact = showImpact && !camp ? optionImpact(season, effect)?.changes ?? [] : null;
+    options.push({ id: effect, order:i, camp, impact, label: config.text(adventure['option' + i]) || `选项 ${i}`, battle,
       reveal: unrevealed ? current && !event?.isSelect ? 'pending' : 'on-entry' : '',
       costHint: plain(adventure['effectvalue' + i]) === '免费' ? '免费' : '',
       gainDetail: choice ? rewardDetail(config,choice.getitem,choice.getnum) : null,
@@ -234,10 +243,11 @@ export function shopPreview(config, s) {
       return { ...definition, id, type, bought, price: priceKnown && extra !== null && definition.money !== null ? Math.ceil((definition.money + extra) * discount) : null };
     }) };
 }
-export function buildView(config, s) {
+export function buildView(config, s, showOptionImpact = true) {
   const chap = chapter(config, s), diff = difficulty(config, s);
   return { chapter: config.text(chap?.chaptername || chap?.cityName) || (s.chapterData?.chapterId ? `章节 #${s.chapterData.chapterId}` : '等待章节'),
     difficulty: config.text(diff?.sdifname || diff?.bdifname) || (s.seasonData?.difficulty ? `难度 ${s.seasonData.difficulty}` : '待同步'),
-    nodes: list(s.chapterData?.locations, 256).map(location => nodePreview(config, location, s)), shop: shopPreview(config, s),
-    owned: list(s.gameData?.itemId, 512).map(id => item(config, id)).filter(item => item.type === 2), snapshot: s };
+    nodes: list(s.chapterData?.locations, 256).map(location => nodePreview(config, location, s, showOptionImpact)), shop: shopPreview(config, s),
+    owned: list(s.gameData?.itemId, 512).map(id => item(config, id)).filter(item => item.type === 2),
+    schools: schoolProgress(config.schools, config.tactics, s.gameData?.itemListReady === false ? null : s.gameData?.itemId, s.seasonData?.seasonId), snapshot: s };
 }

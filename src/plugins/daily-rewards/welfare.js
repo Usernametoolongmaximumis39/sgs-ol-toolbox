@@ -1,3 +1,5 @@
+import { purchaseSender } from './native-method.js';
+
 // Native welfare APIs, audited against the shipped client. No Xiaochao runtime.
 const read = fn => { try { return fn(); } catch { return undefined; } };
 const list = value => Array.isArray(value) ? value.slice(0, 4096) : [];
@@ -150,12 +152,20 @@ export function planWelfare(adapter, selected) {
               if (!refreshed && valid(adapter)) { refreshed = true; welfare.ReqJbpInfo(); }
               return false; // Anonymous success cannot identify the requested item.
             } }], { maxRejectedAttempts: 3, rejections: reject('decodeClientChopTreeRewardRep', 'error'), rewards: () => Array.isArray(tree()?.PeachList) ? list(tree().PeachList).flatMap(peach => list(peach?.info)).map(item => ({ ItemID: item.goodId, ItemNum: item.goodCnt })) : null });
-        } else if (price() !== null && shop && typeof shop.GetBuyMsg === 'function' && typeof shop.proxy?.L === 'function') {
-          const cost = price();
-          add('tree:item', cost ? `获取砍树道具（${cost}元宝，每日限一次）` : '兑换免费砍树道具', shop,
-            () => sameTree(1) && tree()?.HasTriggerEvent !== true && itemCount() === 0 && price() === cost, () => itemCount() > 0,
-            () => { const msg = treeBuyMessage(shop, itemId, cost); if (!msg || price() !== cost || !sameTree(1)) return false; return shop.proxy.L(msg); }, [], { rewards: [] });
-        } else notes.push('发财树道具、领取资格或费用未就绪，今日暂缓');
+        } else {
+          const cost = price(), transport = shop?.proxy;
+          if (cost !== null && typeof shop?.GetBuyMsg === 'function' && purchaseSender(transport)) {
+            const eligible = () => valid(adapter) && adapter.manager('GameShopManager') === shop && shop.proxy === transport &&
+              sameTree(1) && tree()?.HasTriggerEvent !== true && itemCount() === 0 && price() === cost;
+            add('tree:item', cost ? `获取砍树道具（${cost}元宝，每日限一次）` : '兑换免费砍树道具', shop,
+              eligible, () => itemCount() > 0,
+              () => {
+                const msg = treeBuyMessage(shop, itemId, cost);
+                const send = msg && eligible() && purchaseSender(transport);
+                return send ? send(msg) : false;
+              }, [], { rewards: [] });
+          } else notes.push('发财树道具、领取资格或费用未就绪，今日暂缓');
+        }
       } else if (current.Status === 1) notes.push('砍树等级对应的道具配置未就绪');
     }
     for (const type of [2, 3]) {

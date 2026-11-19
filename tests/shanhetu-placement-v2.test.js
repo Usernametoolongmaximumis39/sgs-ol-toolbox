@@ -160,6 +160,41 @@ test('nearby centred above cards remain preferred even when native UI occupies t
   assert.equal(repeated.diagnostics.preference.uiCost, result.diagnostics.preference.uiCost);
 });
 
+test('a nearby card gives the shop priority over its usual position above the node', () => {
+  const shop = { x: 20, y: 160, w: 90, h: 50 };
+  const s = snapshot({ nodes: [node('a', 110, 260)], cards: [{ id: 'a', w: 200, h: 100 }],
+    controls: [shop] });
+  const usual = placeCards(s);
+  assert.deepEqual(usual.diagnostics.preferredAboveIds, ['a']);
+  assert(touching(usual.placements[0], shop));
+
+  const protectedShop = { ...s, shop, previous: usual.placements };
+  const result = placeCards(protectedShop);
+  assert.equal(result.placements.length, 1);
+  assert.equal(touching(result.placements[0], shop), false);
+  assert.deepEqual(result.diagnostics.shopOverlapIds, []);
+  assertInvariants(protectedShop, result);
+});
+
+test('a narrow map minimizes unavoidable shop overlap and can reflow to clear it', () => {
+  const shop = { x: 0, y: 0, w: 64, h: 500 };
+  const card = { id: 'a', w: 200, h: 80 };
+  const s = snapshot({ viewport: { x: 0, y: 0, w: 256, h: 500 },
+    nodes: [node('a', 100, 300)], cards: [card], controls: [shop], shop });
+  const fallback = placeCards(s);
+  assert.equal(fallback.placements.length, 1);
+  assert.equal(fallback.diagnostics.preference.shopOverlapArea, 16 * card.h);
+  assert.deepEqual(fallback.diagnostics.shopOverlapIds, ['a']);
+  assertInvariants(s, fallback);
+
+  const flexible = { ...s, cards: [{ ...card, alternatives: [{ w: 160, h: 100 }] }] };
+  const result = placeCards(flexible);
+  assert.equal(result.placements[0].w, 160);
+  assert.equal(result.diagnostics.preference.shopOverlapArea, 0);
+  assert(comparePlacementResults(result, fallback) < 0);
+  assertInvariants(flexible, result);
+});
+
 test('crowded above-first cards are jointly arranged without any card overlap', () => {
   const s = snapshot({ nodes: [node('a', 150, 300), node('b', 330, 300), node('c', 510, 300)],
     cards: ['a', 'b', 'c'].map(id => ({ id, w: 220, h: 100 })) });

@@ -11,10 +11,13 @@ export function findBagViews(stage) {
   const queue = stage ? [stage] : [], found = [];
   for (let i = 0; i < queue.length && i < 4000; i++) {
     const node = queue[i];
-    if (!node || node.destroyed) continue;
+    if (!node || node.destroyed || node.visible === false) continue;
+    // BagView is a tab of the profile window, outside the native scene layer.
+    if (node.name === 'SceneLayer' || node.layerOrder === 2 || node.LayerOrder === 2) continue;
     if (Array.isArray(node.bags) && node.topSp && typeof node.showBags === 'function'
       && typeof node.updatePageIdx === 'function' && typeof node.updateRadioBtnData === 'function' && visible(node)) found.push(node);
-    if (Array.isArray(node._children)) queue.push(...node._children);
+    const children = node._children;
+    if (Array.isArray(children)) queue.push(...children);
   }
   return found;
 }
@@ -127,10 +130,26 @@ export function enhanceBagView(ctx, owner, getConfig) {
     const text = couponAmounts(slot.BaseData || slot.baseData, getConfig());
     badge.visible = Boolean(text) && slot.visible !== false;
     if (!text) return;
-    badge.text = text; badge.fontSize = 11;
-    while (badge.textWidth > slot.width - 4 && badge.fontSize > 7) badge.fontSize--;
-    badge.size(Math.min(slot.width, badge.textWidth + 5), 16);
-    badge.pos(slot._x + slot.width - badge.width, slot._y + (slot.leftTimeBg?.visible ? 15 : 1));
+
+    const inset = 2;
+    const height = 13;
+    const padding = 4;
+    const frameWidth = slot.width - 2 * inset;
+    const count = slot.countTxt;
+    const countLeft = count?.text ? count.x - slot._x : slot.width;
+    const besideCount = Math.min(frameWidth, countLeft - inset - 2);
+    badge.text = text;
+    badge.fontSize = 10;
+    while (badge.textWidth + padding > besideCount && badge.fontSize > 8) badge.fontSize--;
+
+    let y = slot.height - inset - height;
+    if (count?.text && badge.textWidth + padding > besideCount) {
+      // Keep long amounts inside the slot and clear of the native quantity.
+      y = Math.max(inset, Math.min(y, count.y - slot._y - height - 2));
+    }
+    while (badge.textWidth + padding > frameWidth && badge.fontSize > 7) badge.fontSize--;
+    badge.size(Math.min(frameWidth, Math.ceil(badge.textWidth) + padding), height);
+    badge.pos(slot._x + inset, slot._y + y);
     badge.color = theme.palette.accent; badge.bgColor = theme.palette.bg;
   }
   function syncSlots() {
@@ -140,7 +159,8 @@ export function enhanceBagView(ctx, owner, getConfig) {
       let badge = slots.get(slot);
       if (!badge) {
         badge = new L.Text(); badge.name = 'sgs-toolbox-coupon-amount'; badge.zOrder = 110;
-        Object.assign(badge, { font: 'Arial', bold: true, align: 'center', valign: 'middle', mouseEnabled: false }); owner.topSp.addChild(badge); slots.set(slot, badge);
+        Object.assign(badge, { font: 'Arial', bold: true, align: 'center', valign: 'middle', mouseEnabled: false }); owner.topSp.addChild(badge);
+        slots.set(slot, badge);
         for (const key of ['updateItem', 'Move', 'initData', 'Clear']) if (typeof slot[key] === 'function') patch(slot, key, old => function (...args) {
           const result = old.apply(this, args); if (!showing && !badge.destroyed) updateSlot(slot, badge); return result;
         });
@@ -154,7 +174,9 @@ export function enhanceBagView(ctx, owner, getConfig) {
   let release = ctx.scope.add(() => {
     if (disposed) return; disposed = true;
     for (const off of releases.reverse()) off();
-    input.focus = false; root.destroy(true); empty.destroy(true); for (const badge of slots.values()) badge.destroy(true); slots.clear();
+    input.focus = false; root.destroy(true); empty.destroy(true);
+    for (const badge of slots.values()) badge.destroy(true);
+    slots.clear();
     if (!owner.destroyed && owner.parent) { originalPage.call(owner); originalShow.call(owner, owner.bagDatas); }
   });
   draw(); lastInventory = inventoryKey();

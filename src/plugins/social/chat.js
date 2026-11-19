@@ -19,8 +19,8 @@ function linkName(raw, html='', offset=0) {
   } catch { return ''; }
 }
 
-// The old extension appended a link for 5–6 digits. The user explicitly wants
-// short room numbers too. Match complete numeric runs, never part of a UID.
+const SHORT_ROOM_CONTEXT = /抗金|暗流|国战|置顶|一轮|军|(?:^|[^a-z])(?:kj|m)(?![a-z])/i;
+
 export function roomNumbers(text) {
   const raw = decodeHTML(String(text || ''));
   // Native shares/invitations are MsgType 1 too. SPLITE_SP separates their
@@ -30,9 +30,12 @@ export function roomNumbers(text) {
   const plain = raw
     .replace(/<(a|font)\b[^>]*\bhref\s*=\s*(['"])[\s\S]*?\2[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
-    .replace(/(?:[a-z][a-z\d+.-]*:\/\/|www\.)[^\s<>"'，。！？；、]+/gi, ' ');
+    .replace(/(?:[a-z][a-z\d+.-]*:\/\/|www\.)[^\s<>"'，。！？；、]+/gi, ' ')
+    // The native SM.chatReg1 extracts inline faces such as #25 before rendering.
+    .replace(/#[1-6]\d/g, ' ');
+  const allowShort = SHORT_ROOM_CONTEXT.test(plain);
   return [...new Set([...plain.matchAll(/(?:^|[^\d])(\d{1,5})(?!\d)/g)]
-    .map(match => match[1]).filter(value => Number(value) > 0))].slice(0, 8);
+    .map(match => match[1]).filter(value => Number(value) > 0 && (value.length >= 4 || allowShort)))].slice(0, 8);
 }
 export function roomTableId(room, mode, group) {
   if (!/^\d{1,5}$/.test(String(room)) || Number(room) < 1 || !Number.isInteger(mode) || mode < 1 || mode > 999

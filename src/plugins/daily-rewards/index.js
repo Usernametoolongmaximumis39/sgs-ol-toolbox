@@ -9,8 +9,8 @@ import { createExchangeUI } from './exchange-ui.js';
 
 
 export default {
-  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.34', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "调整活动奖励领取，避免发送多余的领取请求。自动领取仍默认关闭，兑换可能消耗欢乐豆；共享兑换码需单独开启，只上传游戏明确成功的码及账号摘要。", minCoreVersion: '0.6.38', categories: ['automation'], icon: PLUGIN_ICONS['daily-rewards'], priority: 20000,
+  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.41', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "修复部分任务、免费福利和节钺令奖励的状态识别与领取，补充未领取项目的核对提示。自动领取默认关闭，兑换可能消耗欢乐豆，共享兑换码仍需单独开启。", minCoreVersion: '0.6.38', categories: ['automation'], icon: PLUGIN_ICONS['daily-rewards'], priority: 20000,
     description: '自动领取签到、任务、邮件与活动奖励，按账号记录' },
   activate(ctx) {
     const native = createNativeAdapter(ctx);
@@ -93,7 +93,7 @@ export default {
       codes.title = '自动检查完整序列号及4–8字中文短口令，可夹带少量英文数字；中文口令每行一个，无法识别的行会跳过并继续处理其他行。特殊口令可标注“兑换码：口令”。只兑换未尝试的新码；共享默认关闭，开启后仅上报游戏确认成功的单个码。';
       const status = el('p', undefined, 'muted reward-status'); status.setAttribute('role', 'status'); status.dataset.rewardsStatus = '';
       const pending = el('div', undefined, 'reward-pending'); pending.dataset.rewardsUnconfirmed = ''; pending.hidden = true;
-      pending.setAttribute('aria-label', '未确认领取的项目');
+      pending.setAttribute('aria-label', '领取状态待核对的项目');
       const pendingStyle = el('style'); pendingStyle.textContent = '.reward-pending{margin:4px 0 10px;padding-left:9px;border-left:2px solid var(--sgs-border);font-size:11px;line-height:1.7;color:var(--sgs-muted)}.reward-pending p{margin:3px 0;white-space:pre-wrap;overflow-wrap:anywhere}.reward-pending[hidden]{display:none}';
       root.append(style, pendingStyle, heading, excluded, codes, status, pending);
       container.append(root);
@@ -115,7 +115,7 @@ export default {
         pending.hidden = !uncertainTasks.length;
         pending.replaceChildren(...uncertainTasks.map(item => {
           const id = /^(?:task|quest):(\d+)/.exec(item.key)?.[1];
-          return el('p', `未确认：${item.label === item.key ? '未命名领奖项目' : item.label}${id && !item.label.includes(`任务 ${id}`) ? `（任务 ${id}）` : ''}`);
+          return el('p', `待核对 · ${item.label === item.key ? '未命名领奖项目' : item.label}${id && !item.label.includes(`任务 ${id}`) ? `（任务 ${id}）` : ''}`);
         }));
       };
       controller.refresh(); render(controller.snapshot());

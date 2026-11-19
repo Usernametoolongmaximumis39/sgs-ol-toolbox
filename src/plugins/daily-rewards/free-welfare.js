@@ -1,4 +1,5 @@
 import { configuredDailyFreeGift } from './daily-free-gift.js';
+import { purchaseSender } from './native-method.js';
 // Free native welfare rights only. Static evidence: docs/rewards-welfare-evidence.md.
 // No windows/managers are constructed and no paid draw count is used.
 const read = fn => { try { return fn(); } catch { return undefined; } };
@@ -138,21 +139,29 @@ export function planFreeWelfare(adapter, selected = {}) {
     });
   }
   const shop = adapter.manager('GameShopManager');
-  if (!shop || typeof shop.GetBuyMsg !== 'function' || typeof shop.proxy?.L !== 'function') return { actions, notes };
+  const transport = shop?.proxy;
+  if (typeof shop?.GetBuyMsg !== 'function' || !purchaseSender(transport)) return { actions, notes };
   for (const item of freeShopEntries(adapter)) {
     if (!ready(shop, item)) continue;
     const goods = item.goodsinfo, id = Number(goods.ID), before = Number(read(() => shop.GetLimitGoodsBuyCount(id)));
     if (!Number.isSafeInteger(before) || before < 0) continue;
     const current = () => freeShopEntries(adapter).find(entry => Number(read(() => entry.goodsinfo.ID)) === id);
-    const eligible = () => valid(adapter) && adapter.manager('GameShopManager') === shop && ready(shop, current()) && Number(shop.GetLimitGoodsBuyCount(id)) === before;
+    const eligible = () => valid(adapter) && adapter.manager('GameShopManager') === shop && shop.proxy === transport &&
+      ready(shop, current()) && Number(shop.GetLimitGoodsBuyCount(id)) === before;
     const response = event => event?.Protocol;
-    const proxy = adapter.proxy?.() || shop.proxy;
+    const proxy = adapter.proxy?.() || transport;
     actions.push({
       key: `welfare:free-shop:${id}:${before}`, category: 'welfare', label: `免费礼盒 ${goods.name || id}`, manager: shop,
       workflowGroup: `free-shop:${id}`, rewards: [{ ItemID: id, ItemName: String(goods.name || '免费礼盒') }, ...rows(goods.ReturnGoodsArr)],
       eligible, done: () => Number(read(() => shop.GetLimitGoodsBuyCount(id))) > before,
       flowVersion: 2,
-      send: () => { if (!eligible()) return false; const message = buildFreeShopMessage(shop, id, Number(current()?.goodsinfo?.pricetype) === 140 ? 140 : 2); return message && eligible() ? shop.proxy.L(message) : false; },
+      send: () => {
+        if (!eligible()) return false;
+        const send = purchaseSender(transport);
+        if (!send) return false;
+        const message = buildFreeShopMessage(shop, id, Number(current()?.goodsinfo?.pricetype) === 140 ? 140 : 2);
+        return message && eligible() ? send(message) : false;
+      },
       confirmations: [
         { manager: shop, event: 'SHOP_BUY_ITEM', accept: value => Number(Array.isArray(value) ? value[0] : value) === id },
         { manager: proxy, event: 'DbsCBuyShopogoodsRep', accept: event => Number(response(event)?.GoodsBaseID) === id && response(event)?.Result === 1 },

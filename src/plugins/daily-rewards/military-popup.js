@@ -6,13 +6,16 @@ export function createMilitaryPopupGuard(ctx, account, now = Date.now) {
   ctx.scope?.add(() => leases.clear());
   function prepare(activity) {
     const dispatcher = ctx.game.getDispatcher?.();
-    if (dispatcher && typeof dispatcher._ === 'function' && !dispatchers.has(dispatcher)) {
+    if (typeof dispatcher?.event === 'function' && !dispatchers.has(dispatcher)) {
       dispatchers.add(dispatcher);
-      ctx.scope.patch(dispatcher, '_', original => function (name, ...args) {
-        const type = Number(args[2]), lease = leases.get(type);
-        if (name === 'OldbackOneClickDrawAwdWin' && args[1] === true && lease &&
-            !ctx.scope.signal.aborted && lease.owner === account() && now() < lease.until) return;
-        return Reflect.apply(original, this, [name, ...args]);
+      // The native opener is renamed between releases; both emit OPEN_WINDOW.
+      ctx.scope.patch(dispatcher, 'event', original => function (...args) {
+        const [event, data] = args;
+        if (event === 'OPEN_WINDOW' && data?.WindowName === 'OldbackOneClickDrawAwdWin' && data.Data?.[1] === true) {
+          const lease = leases.get(Number(data.Data[2]));
+          if (lease && !ctx.scope.signal.aborted && lease.owner === account() && now() < lease.until) return false;
+        }
+        return Reflect.apply(original, this, args);
       });
     }
     if (activity && !managers.has(activity)) {

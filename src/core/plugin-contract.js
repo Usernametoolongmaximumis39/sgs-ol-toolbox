@@ -44,6 +44,12 @@ export function normalizePanel(spec, manifest) {
   if (!PANEL_CATEGORIES.includes(category) || !declared.includes(category)) throw new Error('面板分类必须在插件 categories 中声明；多分类插件须指定 category。');
   if (spec.priority !== undefined) requirePriority(spec.priority);
   if (spec.gameView !== undefined && (category !== 'game' || !['battle', 'shanhe'].includes(spec.gameView))) throw new Error('gameView 仅用于 game 面板，值为 battle 或 shanhe。');
+  if (spec.groupWith !== undefined && !manifest.dependencies?.includes(spec.groupWith)) throw new Error('面板只能并入已声明的前置插件组。');
+  if (spec.groupTab !== undefined && (spec.groupTab !== true || !spec.groupWith || spec.title === undefined)) throw new Error('组内页签必须声明前置插件组和页签标题。');
+  if (spec.groupTabs !== undefined && (spec.groupTabs !== true || spec.groupWith)) throw new Error('只有独立插件组的面板可以承载组内页签。');
+  if ((spec.groupTab || spec.groupTabs) && (!stableVersion.test(manifest.minCoreVersion || '') || compareVersions(manifest.minCoreVersion, '0.6.121') < 0)) {
+    throw new Error('组内页签要求 minCoreVersion 至少为 0.6.121。');
+  }
   return { ...spec, id: manifest.id + ':' + spec.id, category, priority: spec.priority ?? DEFAULT_PLUGIN_PRIORITY,
     pluginId: manifest.id, pluginName: manifest.name, pluginIcon: manifest.icon ?? 'package',
     pluginPriority: manifest.priority ?? DEFAULT_PLUGIN_PRIORITY };

@@ -1,5 +1,5 @@
 import { downloadJSON } from '../../shared/info-runtime.js';
-import { filterRecords, totals, canAlert } from './model.js';
+import { JADE_SEAL, filterRecords, totals, canAlert } from './model.js';
 const detailPanels = new WeakMap();
 const STYLES = `
 .sgs-ledger .alert-settings{margin:8px 0}.sgs-ledger .alert-settings summary{color:var(--sgs-accent);padding:5px 0}.sgs-ledger .threshold{display:grid;grid-template-columns:minmax(0,1fr) 108px;align-items:center;gap:8px;font-size:10px;color:var(--sgs-muted);margin-top:6px}.sgs-ledger .threshold input{width:100%;min-width:0;padding:5px 32px 5px 9px;text-align:right;appearance:textfield;-moz-appearance:textfield;font-variant-numeric:tabular-nums}.sgs-ledger .threshold input::-webkit-inner-spin-button,.sgs-ledger .threshold input::-webkit-outer-spin-button{appearance:none;margin:0}
@@ -51,7 +51,7 @@ export function renderPanel(ctx, container, controller) {
   let settingsKey = '';
   root.append(account, note, assets, settings, bar, error.node, prayerTitle, prayers, help);
   function draw() {
-    const v = controller.view();
+    const v = controller.view({ currentOnly: true });
     refreshButton.disabled = v.loadingConfig; refreshButton.lastChild.textContent = v.loadingConfig ? '读取中…' : '刷新配置';
     account.hidden = Boolean(v.who.id);
     account.textContent = '等待登录';
@@ -77,12 +77,12 @@ export function renderPanel(ctx, container, controller) {
     if (key !== settingsKey) {
       settingsKey = key; settingsBody.replaceChildren();
       for (const row of v.items.filter(row => canAlert(row.ID, row.name))) {
-        const label = el('label', 'threshold', Number(row.ID) === 21223901 ? '玉玺合计' : row.name === '如意结' ? row.name + ' · ' + row.ID : row.name);
-        const input = el('input', 'sgs-input'); input.type = 'number'; input.min = '0'; input.step = Number(row.ID) === 21223901 ? '0.1' : '1'; input.value = row.threshold;
+        const label = el('label', 'threshold', Number(row.ID) === JADE_SEAL ? '玉玺合计' : row.name === '如意结' ? row.name + ' · ' + row.ID : row.name);
+        const input = el('input', 'sgs-input'); input.type = 'number'; input.min = '0'; input.step = Number(row.ID) === JADE_SEAL ? '0.1' : '1'; input.value = row.threshold;
         input.setAttribute('aria-label', row.name + '（' + row.ID + '）减少预警阈值');
         input.oninput = () => input.setCustomValidity('');
         input.onchange = () => { if (!controller.setThreshold(Number(row.ID), input.value.trim() ? Number(input.value) : NaN)) { input.setCustomValidity('请输入有效的非负数量'); input.reportValidity(); } };
-        const field = el('span', 'threshold-field'), unit = el('span', 'threshold-unit', Number(row.ID) === 21223901 ? '枚' : Number(row.ID) === 100016 ? '元宝' : '个');
+        const field = el('span', 'threshold-field'), unit = el('span', 'threshold-unit', Number(row.ID) === JADE_SEAL ? '枚' : Number(row.ID) === 100016 ? '元宝' : '个');
         input.disabled = !v.who.id; field.append(input, unit); label.append(field); settingsBody.append(label);
       }
     }
@@ -118,7 +118,10 @@ export function openDetails(ctx, controller) {
   const kindControl = ui.segments([['all', '全部日志'], ['goods', '物品流水'], ['prayer', '祈愿台']], kind, v => { kind = v; page = 0; draw(); });
   const bar = el('div', 'bar'), count = el('p', 'muted'), summary = el('div', 'summary-items'), logs = el('div', 'list'), error = errorBlock(ui), nav = el('div', 'bar');
   const prev = ui.button('上一页', null, () => { page--; draw(); }), next = ui.button('下一页', null, () => { page++; draw(); }), pageText = el('span', 'muted'); nav.append(prev, pageText, next);
-  bar.append(ui.button('导出筛选日志', 'download', () => downloadJSON(child, `账本-${controller.view().who.id}.json`, { schema: 1, account: controller.view().who, exportedAt: new Date().toISOString(), records: selected() })),
+  bar.append(ui.button('导出筛选日志', 'download', () => {
+    const v = controller.view();
+    downloadJSON(child, `账本-${v.who.id}.json`, { schema: 1, account: v.who, exportedAt: new Date().toISOString(), records: selected(v) });
+  }),
     ui.button('清除筛选', 'reset', () => {
       from.value = to.value = item.value = ''; period = kind = 'all'; page = 0;
       for (const group of [periodControl, kindControl]) [...group.children].forEach((button, index) => button.setAttribute('aria-pressed', String(index === 0)));
@@ -127,14 +130,13 @@ export function openDetails(ctx, controller) {
   const heading = el('div', 'detail-heading'), close = ui.button('关闭账本', 'close', () => cleanup());
   close.replaceChildren(close.querySelector('svg')); close.title = '关闭账本'; close.setAttribute('aria-label', '关闭账本'); heading.append(title, close);
   root.append(heading, who, status, filters, periodControl, kindControl, bar, error.node, count, summary, logs, nav);
-  function selected() {
-    const v = controller.view();
+  function selected(v) {
     return filterRecords(v.records, { from: from.value ? new Date(from.value).getTime() : 0, to: to.value ? new Date(to.value).getTime() : Infinity,
       item: item.value.trim(), kind, session: period === 'session' ? v.session?.id || 'none' : '' }).filter(r => r.items.length || r.kind !== 'goods' || r.prayerReward);
   }
   function draw() {
     if (!alive || win.closed || ctx.scope.signal.aborted) return;
-    const v = controller.view(), rows = selected().sort((a, b) => b.at - a.at), pages = Math.max(1, Math.ceil(rows.length / 100)); page = Math.max(0, Math.min(page, pages - 1));
+    const v = controller.view(), rows = selected(v).sort((a, b) => b.at - a.at), pages = Math.max(1, Math.ceil(rows.length / 100)); page = Math.max(0, Math.min(page, pages - 1));
     who.textContent = v.who.id ? `${v.who.nickname || '当前账号'} · ${v.who.id} · 仅保存在当前浏览器` : '等待登录';
     status.textContent = `仅记录插件运行期间观察到的流水，首次背包快照不计为收入。${v.session?.incomplete ? '本次登录记录曾中断，收支不完整。' : ''}`;
     error.update(v.error); count.textContent = `${v.loading ? '正在读取本机历史… · ' : ''}筛选结果 ${rows.length} 条 · 收入与消耗分别统计`;
@@ -184,7 +186,14 @@ export function renderAlerts(ctx, controller) {
   ui.root.append(ui.el('h3', '', '重要物品减少预警'), messages, ui.button('知道了，立即检查', 'check', () => controller.dismissAlerts()));
   const theme = current => { for (const [key, value] of Object.entries(current?.tokens || {})) ui.root.style.setProperty('--sgs-' + key, value); };
   theme(ctx.themes.current); const offTheme = ctx.themes.subscribe(theme);
-  const draw = () => { const alerts = controller.view().alerts; ui.root.hidden = !alerts.length; messages.replaceChildren(...alerts.map(text => ui.el('p', '', text))); };
+  let previousAlerts;
+  const draw = () => {
+    const alerts = controller.getAlerts();
+    if (alerts === previousAlerts) return;
+    previousAlerts = alerts;
+    ui.root.hidden = !alerts.length;
+    messages.replaceChildren(...alerts.map(text => ui.el('p', '', text)));
+  };
   const off = controller.subscribe(draw); draw();
   return ctx.scope.add(() => { off(); offTheme(); ui.dispose(); });
 }

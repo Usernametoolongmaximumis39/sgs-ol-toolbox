@@ -1,8 +1,10 @@
-import { account as loginAccount } from '../../shared/info-runtime.js';
+import { account as loginAccount, field, observeNative } from '../../shared/info-runtime.js';
 import { DEFAULT_NATIVE_PALETTE } from '../../ui/native-theme.js';
 import { ResourceScope } from '../../core/resources.js';
 import { userId, normalizeRecord, captureFriends, pinnedFirst } from './model.js';
 const read = fn => { try { return fn(); } catch { return undefined; } };
+const FRIEND_LIST = 'FsCAddFriendsNtf';
+const USER_BASE_INFO = ['ClientUserbaseinfoRep', 'decodeClientUserBaseInfoRep', '21405', '180053'];
 // These are display-tree fields used by native Laya and the client's DrawSprite.
 export function socialNodes(stage) {
   const queue = stage ? [stage] : [], seen = new Set(), result = [];
@@ -15,7 +17,7 @@ export function socialNodes(stage) {
 }
 export function friendManager(ctx, nodes) {
   const proxy = read(() => ctx.game.getServerProxy());
-  for (const event of ['FsCAddFriendsNtf', 'FsCUpdateUserfriendinfoNtf']) {
+  for (const event of [FRIEND_LIST, 'FsCUpdateUserfriendinfoNtf']) {
     const h = read(() => proxy._events[event]);
     for (const e of Array.isArray(h) ? h : [h]) {
       const c = e?.caller;
@@ -31,6 +33,7 @@ export function createFriendManagement(ctx, banner = null) {
   const deletionListeners = new Set();
   let deleted = new Set(), listStamp = '', listSince = 0;
   let rows = new Map(), menus = new Map(), menuHosts=new Map(), requested = new Set(), lastSave = 0, refresh = false;
+  let nextPriorityRequest = 0;
   const currentId = () => userId(loginAccount(ctx).id);
   const ctor = () => read(() => ctx.game.getSelf().constructor);
   function dataFor(f) { const u=read(() => f.userData); return userId(read(()=>u.ClientId)) ? u : read(() => ctor().GetNameInstance(f.FriendNickname)); }
@@ -39,7 +42,7 @@ export function createFriendManagement(ctx, banner = null) {
   function restoreOrder(){for(const n of socialNodes(ctx.window.Laya?.stage))if(Array.isArray(n.goodFriendsList)&&typeof n.itemResizeHandler==='function'&&typeof manager?.sortFriend==='function'){n.goodFriendsList.sort((a,b)=>manager.sortFriend(a.data,b.data));n.itemResizeHandler();}}
   function reset(next) {
     banner?.clear();
-    deleted.clear(); listStamp = ''; listSince = 0;
+    deleted.clear(); listStamp = ''; listSince = 0; nextPriorityRequest = 0;
     record.pins=[]; child.dispose(); restoreOrder(); child = new ResourceScope(); rows = new Map(); menus = new Map(); manager = null; requested.clear(); lastSave = 0;
     menuHosts=new Map();account = next; storageError=null; storageReadable=true; try { record = normalizeRecord(next ? ctx.storage.get('friends:' + next) : null); } catch(error) { record=normalizeRecord(null); storageReadable=false; storageError=String(error?.message || error);ctx.reportError?.(error); } refresh = true;
   }
@@ -126,7 +129,28 @@ export function createFriendManagement(ctx, banner = null) {
       return original.call(this,node,...args);
     });menuHosts.set(host,release);
   }
-  function tick() {
+
+  function requestFriendInfo(unresolved, knownIds, background, now) {
+    if (!unresolved.size) return;
+    const User = ctor();
+    if (typeof User?.SendUserBaseInfo !== 'function') return;
+    const priority = new Set();
+    for (const id of record.pins) {
+      const name = record.friends[id]?.name;
+      // A saved name only prioritizes an existing list entry. Sorting and
+      // persistent records still require the ClientId from the native cache.
+      if (unresolved.has(name) && !knownIds.has(id)) priority.add(name);
+    }
+    if (priority.size && now < nextPriorityRequest) return;
+    const names = priority.size ? [...priority].slice(0, 5) : background ? [unresolved.values().next().value] : [];
+    if (priority.size) nextPriorityRequest = now + 800; // Native queue drains five requests every 800 ms.
+    for (const name of names) {
+      requested.add(name);
+      read(() => User.SendUserBaseInfo(name));
+    }
+  }
+
+  function syncFriends(background) {
     if(root.signal.aborted) return;
     const next=currentId(); if(next!==account)reset(next); if(!account)return;
     const nodes=socialNodes(ctx.window.Laya?.stage), live=new Set(nodes), found=friendManager(ctx,nodes);
@@ -161,41 +185,54 @@ export function createFriendManagement(ctx, banner = null) {
       });
       // Use the manager comparator for the exact native GOODFRIENDS constant,
       // avoiding reliance on its numeric value when GetFriendArr is invoked.
-      if(typeof manager.sortFriend==='function')child.patch(manager,'sortFriend',original=>function(a,b){const x=a?.GroupID===1&&record.pins.includes(idFor(a)),y=b?.GroupID===1&&record.pins.includes(idFor(b));return x!==y?Number(y)-Number(x):original.call(this,a,b);});
+      if (typeof manager.sortFriend === 'function') child.patch(manager, 'sortFriend', original => function(a, b) {
+        if (record.pins.length) {
+          const x = a?.GroupID === 1 && record.pins.includes(idFor(a));
+          const y = b?.GroupID === 1 && record.pins.includes(idFor(b));
+          if (x !== y && currentId() === account) return Number(y) - Number(x);
+        }
+        return original.call(this, a, b);
+      });
       refresh=true;
     }
     const list=read(()=>manager.GetGoodFriendsList());
     if(Array.isArray(list)) {
       if (!flushDeleted()) return;
-      const known=[]; let sent=false;
+      const known = [], stampEntries = [], unresolved = new Set();
       for(const f of list.slice(0,2000)) {
         const id=idFor(f), name=f.FriendNickname;
+        stampEntries.push([id, name]);
         if(id)known.push({id,name});
-        else if(!sent && typeof name==='string' && name && !requested.has(name) && typeof ctor()?.SendUserBaseInfo==='function') { requested.add(name); sent=true; read(()=>ctor().SendUserBaseInfo(name)); }
+        else if(typeof name==='string' && name && !requested.has(name)) unresolved.add(name);
       }
-      const stamp = JSON.stringify(list.map(f => [idFor(f), f.FriendNickname]).sort());
-      if (stamp !== listStamp) { listStamp = stamp; listSince = Date.now(); }
+      const ids = new Set(known.map(f => f.id)), now = Date.now();
+      requestFriendInfo(unresolved, ids, background, now);
+      const stamp = JSON.stringify(stampEntries.sort());
+      if (stamp !== listStamp) { listStamp = stamp; listSince = now; }
       // Friend pages arrive incrementally; never infer absence from unresolved IDs
       // or from the manager's initial empty list before its first response.
       const complete = manager?.firstPageCome === true && list.length <= 2000 && known.length === list.length && Date.now() - listSince >= 5000;
-      const ids = new Set(known.map(f => f.id));
       const missing = complete ? Object.entries(record.friends).filter(([id, f]) => !ids.has(id) && !f.missingAt) : [];
       if((known.length || missing.length) && (missing.length || Date.now()-lastSave>=60000 || known.some(f=>record.friends[f.id]?.name!==f.name || record.friends[f.id]?.missingAt))) {
         const captured=captureFriends(record,known);
         for (const [id] of missing) captured.record.friends[id].missingAt = Date.now();
-        if(persist(captured.record)) {record=captured.record;lastSave=Date.now();}
-        else return;
-        const show = message => banner ? banner.showMessage(message) : ctx.notify?.(message);
-        if(captured.changes.length) show(captured.changes.length+'位好友可能改名，前往好友与聊天查看');
-        if (missing.length) {
-          const messages = missing.map(([id, f]) => `好友「${f.name}」（ID：${id}）消失了，可能你将其删除了或者被删除。`);
-          if (banner) messages.forEach(show); else show(messages.join('\n'));
+        if (persist(captured.record)) {
+          record = captured.record; lastSave = now;
+          const show = message => banner ? banner.showMessage(message) : ctx.notify?.(message);
+          if(captured.changes.length) show(captured.changes.length+'位好友可能改名，前往好友与聊天查看');
+          if (missing.length) {
+            const messages = missing.map(([id, f]) => `好友「${f.name}」（ID：${id}）消失了，可能你将其删除了或者被删除。`);
+            if (banner) messages.forEach(show); else show(messages.join('\n'));
+          }
+          refresh = true;
         }
-        refresh=true;
       }
     }
     for(const node of nodes) {
-      if(node.data?.GroupID===1 && node.data?.FriendNickname && node.vipIcon && node.vipSprite)bindRow(node);
+      if(node.data?.GroupID===1 && node.data?.FriendNickname && node.vipIcon && node.vipSprite) {
+        if (rows.has(node)) decorateRow(node);
+        else bindRow(node);
+      }
       if(typeof node.updateOptMenu==='function' && typeof node.layoutBtn==='function' && typeof node.getBtn==='function' && Array.isArray(node.showBtnList)&&Array.isArray(node.allBtnList))bindMenu(node);
       if(Array.isArray(node.goodFriendsList) && typeof node.itemResizeHandler==='function') {
         const nativeOrder=[...node.goodFriendsList];if(typeof manager?.sortFriend==='function')nativeOrder.sort((a,b)=>manager.sortFriend(a.data,b.data));
@@ -203,9 +240,23 @@ export function createFriendManagement(ctx, banner = null) {
         if(ordered.some((r,i)=>r!==node.goodFriendsList[i])) {node.goodFriendsList.splice(0,node.goodFriendsList.length,...ordered);node.itemResizeHandler();}
       }
     }
-    if(refresh){for(const row of rows.keys())decorateRow(row);for(const menu of menus.keys())if(menu.parent)read(()=>menu.layoutBtn());refresh=false;}
+    if(refresh){for(const menu of menus.keys())if(menu.parent)read(()=>menu.layoutBtn());refresh=false;}
   }
+  const tick = () => syncFriends(true);
   root.add(()=>{record.pins=[];child.dispose();restoreOrder();account=null;record=normalizeRecord(null);});
+  const projectPinnedProfile = packet => {
+    if (!record.pins.length) return null;
+    const id = userId(field(packet, 'clientID') ?? field(packet, 'nickname_usertempid')
+      ?? read(() => packet.Protocol.Data.ProtoObj.nickname_usertempid));
+    return record.pins.includes(id) ? true : null;
+  };
+  observeNative({ ...ctx, scope: root }, {
+    [FRIEND_LIST]: () => true,
+    ...Object.fromEntries(USER_BASE_INFO.map(type => [type, projectPinnedProfile])),
+  }, type => {
+    if (type === FRIEND_LIST) listSince = Date.now();
+    syncFriends(false);
+  });
   root.interval(tick,500); tick();
   root.add(() => deletionListeners.clear());
   return {tick,dispose:()=>root.dispose(),getRecord:()=>structuredClone({...record,accountId:account,savedAt:lastSave,error:storageError}),togglePin,

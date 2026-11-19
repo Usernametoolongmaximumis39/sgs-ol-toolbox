@@ -1,9 +1,17 @@
 export const YUANBAO = 100016;
+export const JADE_SEAL = 21223901;
+export const JADE_SHARDS = 21272501;
+const JADE_EXCHANGE_IDS = [1620301, 1630701];
 // Alert eligibility is independent of seasonal inventory visibility.
-export const ALERT_ITEMS = Object.freeze([100016, 21223901, 21356801, 21337401]);
+export const ALERT_ITEMS = Object.freeze([YUANBAO, JADE_SEAL, 21356801, 21337401]);
 export const canAlert = (id, name) => ALERT_ITEMS.includes(Number(id)) || name === '祈福灯';
 export function defaultThreshold(id, name) {
-  return ({ 100016: 5000, 21223901: 10, 21356801: 50, 21337401: 50 })[Number(id)] ?? (name === '祈福灯' ? 30 : 0);
+  return ({ [YUANBAO]: 5000, [JADE_SEAL]: 10, 21356801: 50, 21337401: 50 })[Number(id)] ?? (name === '祈福灯' ? 30 : 0);
+}
+export function isOtherJadeSeal(id, name) {
+  const baseId = Number(id);
+  // Known exchange IDs can arrive before the goods table is loaded.
+  return baseId !== JADE_SEAL && (JADE_EXCHANGE_IDS.includes(baseId) || name === '传世玉玺');
 }
 export const integer = n => Number.isSafeInteger(n) && n >= 0;
 export function goodsDefinitions(config) {
@@ -13,12 +21,17 @@ export function goodsDefinitions(config) {
     return [Number(data.ID), data];
   }));
 }
-export function importantItems(defs, activeKnots) {
+export function importantItems(defs, activeKnots = null) {
   const result = [{ ID: YUANBAO, name: '元宝', PicID: 70 }];
-  for (const name of ['传世玉玺', '祈福灯', '绘卷毛笔', '秘钥', '玉玺碎片', '如意结']) {
-    const rows = [...defs.values()].filter(r => r.name === name || name === '秘钥' && r.name === '密钥');
-    for (const row of rows) if (name !== '如意结' || activeKnots.has(Number(row.ID))) result.push(row);
+  const jade = defs.get(JADE_SEAL);
+  if (jade) result.push(jade);
+  const groups = new Map(['祈福灯', '绘卷毛笔', '秘钥', '玉玺碎片', '如意结'].map(name => [name, []]));
+  for (const row of defs.values()) {
+    const name = row.name === '密钥' ? '秘钥' : row.name;
+    if (name === '如意结' && activeKnots && !activeKnots.has(Number(row.ID))) continue;
+    groups.get(name)?.push(row);
   }
+  for (const rows of groups.values()) result.push(...rows);
   return result;
 }
 export function totals(records) {

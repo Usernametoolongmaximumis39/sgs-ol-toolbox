@@ -213,10 +213,23 @@ export const pluginQuality = {
     ],
     "tests": [
       "tests/shanhetu.test.js",
-      "tests/shanhetu-placement-v2.test.js"
+      "tests/shanhetu-placement-v2.test.js",
+      "tests/shanhetu-extra.test.js"
     ],
     "browser": [
-      "tools/browser-shanhetu-placement-v2-check.mjs"
+      "tools/browser-shanhetu-placement-v2-check.mjs",
+      "tools/browser-shanhetu-extra-check.mjs"
+    ]
+  },
+  "shanhetu-beta": {
+    "docs": [
+      "docs/shanhetu-placement-v2.md"
+    ],
+    "tests": [
+      "tests/shanhetu-extra.test.js"
+    ],
+    "browser": [
+      "tools/browser-shanhetu-extra-check.mjs"
     ]
   },
   "themes": {
@@ -277,10 +290,7 @@ export const pluginQuality = {
       "tests/recharge.test.js"
     ],
     "browser": [
-      "tools/browser-recharge-check.mjs",
-      "tools/browser-recharge-native-check.mjs",
-      "tools/browser-alipay-resolution-check.mjs",
-      "tools/browser-recharge-tampermonkey-check.mjs"
+      "tools/browser-recharge-check.mjs"
     ]
   }
 };

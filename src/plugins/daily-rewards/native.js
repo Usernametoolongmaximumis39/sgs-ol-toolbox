@@ -8,7 +8,10 @@ import { managerSpecs as flipSpecs, planFreeFlip } from './free-flip.js';
 import { managerSpecs as freeWelfareSpecs, planFreeWelfare, prepareFreeWelfare } from './free-welfare.js';
 import { planMailClaims, confirmedMailAttempt } from './mail-claims.js';
 import { createMilitaryPopupGuard } from './military-popup.js';
+import { confirmedJieyueAttempt } from './military-rewards.js';
 import { managerSpecs as exchangeSpecs } from './exchange-native.js';
+import { nativeMethod } from './native-method.js';
+export { nativeMethod } from './native-method.js';
 // Read only existing client objects. Never instantiate managers or load Xiaochao.
 const read = fn => { try { return fn(); } catch { return undefined; } };
 const live = object => object && object.destroyed !== true;
@@ -40,22 +43,6 @@ export function rows(value, limit = 2048) {
     if (Array.isArray(list)) found.push(...list.slice(0, limit));
   }
   return [...new Set(found)].filter(item => item !== undefined && item !== null).slice(0, limit);
-}
-export function nativeMethod(object, name, signatures = []) {
-  if (typeof read(() => object[name]) === 'function') return (...args) => object[name](...args);
-  if (!object || !signatures.length) return null;
-  const found = [];
-  for (const owner of [object, read(() => Object.getPrototypeOf(object))]) {
-    if (!owner) continue;
-    for (const key of Object.getOwnPropertyNames(owner).slice(0, 512)) {
-      if (key === 'constructor') continue;
-      const fn = Object.getOwnPropertyDescriptor(owner, key)?.value;
-      if (typeof fn !== 'function') continue;
-      const text = Function.prototype.toString.call(fn);
-      if (text.length <= 24000 && signatures.every(signature => text.includes(signature)) && !found.some(item => item.fn === fn)) found.push({ fn, key });
-    }
-  }
-  return found.length === 1 ? (...args) => Reflect.apply(found[0].fn, object, args) : null;
 }
 export function createNativeAdapter(ctx) {
   let goodsRoot, goodsIndex = new Map();
@@ -113,7 +100,8 @@ export function createNativeAdapter(ctx) {
   const adapter = { manager, account, day, config, signRows, sendMilitaryQuietly,
     confirmedAttempt: actionKey => {
       const task = /^task:(\d+)$/.exec(actionKey);
-      return task ? read(() => manager('TaskManager').GetServerTaskDataByTaskID(Number(task[1])).HasAward) === true : confirmedMailAttempt(adapter, actionKey);
+      if (task) return read(() => manager('TaskManager').GetServerTaskDataByTaskID(Number(task[1])).HasAward) === true;
+      return confirmedJieyueAttempt(adapter, actionKey) || confirmedMailAttempt(adapter, actionKey);
     },
     describeAttempt(actionKey) {
       const match = /^task:(\d+)$/.exec(actionKey);
@@ -159,7 +147,7 @@ const taskLabel = (task, id) => {
   const base = task?.baseVo, name = base?.name || base?.Name || base?._name;
   return typeof name === 'string' && name.trim() ? `${name.trim().slice(0, 120)}（任务 ${id}）` : `任务 ${id}`;
 };
-export function taskSkipReason(task, { allowSelection = false } = {}) {
+export function taskSkipReason(task, { allowSelection = false, allowRepeat = false } = {}) {
   const base = task?.baseVo;
   if (!base || task.CanAward !== true || task.HasAward === true) return '尚不可领取';
   if (task.HasExpired === true || task.hasExpired === true || base.IsEffectServerTimeStart === false || base.EffectClientTime === false) return '已过期或尚未开始';
@@ -178,7 +166,7 @@ export function taskSkipReason(task, { allowSelection = false } = {}) {
   // still block the claim, including when they accompany a cumulative title.
   const claimDescription = description.replace(/累计消耗\s*\d+\s*银两/g, '');
   if (/兑换|兑取|换取|消耗|扣除|合成|盲盒/.test(claimDescription) || conditions.some(item => Number(item?.reqType ?? item?._reqType) === 30)) return '兑换或消耗任务';
-  if (Number(task.CanRewardCount) > 1 || Number(base.maxComplete ?? base._maxComplete) > 1) return '多次奖励需手动处理';
+  if (!allowRepeat && (Number(task.CanRewardCount) > 1 || Number(base.maxComplete ?? base._maxComplete) > 1)) return '多次奖励需手动处理';
   if (task.TaskCompeleMax === true) return '任务次数已满';
   if ([97, 98, 126, 127, 161114, 161115, 161116].includes(idOf(task))) return '特殊任务需手动处理';
   return '';

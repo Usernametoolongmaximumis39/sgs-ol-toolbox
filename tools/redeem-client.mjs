@@ -4,7 +4,6 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { pathToFileURL } from 'node:url';
-import { createMarketServer } from './market-server.mjs';
 
 export const CERT_SHA256 = '66bb0c9c83112ab555b53b3b6847db29feb36f9b9655e726af6d2538f30bc450';
 export function rpc(request, { host = 'redeem.3gs.xyz', port = 5900, fingerprint = CERT_SHA256 } = {}) {
@@ -60,10 +59,6 @@ export async function createRedeemBackend({ stateDir = path.join(os.homedir(), '
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  if (process.argv.includes('--health')) console.log(await rpc({ op: 'health' }));
-  else {
-    const running = await createMarketServer({ rewardBackend: await createRedeemBackend() });
-    console.log(`兑换码桥接已启动：${running.url}（仅本机）；公网使用 TLS TCP redeem.3gs.xyz:5900`);
-    for (const event of ['SIGINT', 'SIGTERM']) process.once(event, () => running.close().then(() => process.exit()));
-  }
+  console.error('旧版 TCP 兑换码桥接已停用。请使用 HTTPS 兑换码服务 https://redeem.3gs.xyz。');
+  process.exitCode = 1;
 }

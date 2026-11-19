@@ -44,6 +44,56 @@ test('byte friendID is never persisted; unresolved users are requested once, sto
  assert.equal(run.getRecord().friends['0000000001'],undefined);assert.equal(run.togglePin(1),false);
  f.b.FriendNickname='new';f.ctx.storage.set=()=>{throw Error('disk full')};run.tick();assert.equal(run.getRecord().friends['1000000002'].name,'B');assert.equal(f.messages.length,0);assert.match(run.getRecord().error,/disk full/);f.scope.dispose();
 });
+
+test('login pages prioritize saved pins and the profile reply reorders only the verified friend before polling', t => {
+ t.mock.timers.enable({apis:['setTimeout','setInterval']});
+ const f = fixture(), handlers = new Map();
+ t.after(() => f.scope.dispose());
+ const proxy = f.ctx.game.getServerProxy();
+ proxy.on = (type, _, fn) => handlers.set(type, fn);
+ proxy.off = (type, _, fn) => { if (handlers.get(type) === fn) handlers.delete(type); };
+ f.ctx.game.getServerProxy = () => proxy;
+
+ const a = f.row(f.a), b = f.row(f.b);
+ const reusedName = {...f.b, FriendNickname:'C'};
+ const c = f.row(reusedName);
+ const view = {manager:f.manager, goodFriendsList:[], itemResizeHandler(){}};
+ f.stage._children = [view,a,b,c];
+ let list = [];
+ f.manager.GetGoodFriendsList = () => [...list].sort(f.manager.sortFriend);
+ f.storage.set('friends:1000000000', {
+   version:1, pins:['1000000002','1000000003','1000000004'],
+   friends:{1000000002:{name:'B'},1000000003:{name:'C'},1000000004:{name:'Absent'}}, changes:[],
+ });
+ f.a.userData = f.b.userData = reusedName.userData = null;
+ const runtime = createFriendManagement(f.ctx);
+ assert.deepEqual(f.requests, []);
+
+ list = [f.a,f.b,reusedName];
+ view.goodFriendsList.push(a,b,c);
+ handlers.get('FsCAddFriendsNtf')();
+ t.mock.timers.tick(1);
+ assert.deepEqual(f.requests, ['B','C']);
+ assert.deepEqual(view.goodFriendsList, [a,b,c]);
+
+ f.b.userData = {ClientId:1000000002};
+ reusedName.userData = {ClientId:1000000099};
+ assert.deepEqual(f.manager.GetGoodFriendsList(), [f.b,f.a,reusedName]);
+ handlers.get('decodeClientUserBaseInfoRep')({Protocol:{Data:{ProtoObj:{nickname_usertempid:1000000002}}}});
+ t.mock.timers.tick(1);
+ assert.deepEqual(view.goodFriendsList, [b,a,c]);
+ assert.equal(b.pin.visible, true);
+ assert.equal(c.pin.visible, false);
+ assert.deepEqual(f.requests, ['B','C']);
+
+ t.mock.timers.tick(500);
+ assert.deepEqual(f.requests, ['B','C','A']);
+ f.self.ClientId = 1000000009;
+ assert.deepEqual(f.manager.GetGoodFriendsList(), [f.a,f.b,reusedName]);
+ runtime.dispose();
+ assert.equal(handlers.size, 0);
+});
+
 test('native friend menu adds and removes native pin action with current stable target',()=>{
  const f=fixture();function button(label){return {label,on(e,c,fn){(this.events||={})[e]=fn},off(e,c,fn){if(this.events && this.events[e]===fn)delete this.events[e]},destroy(){this.destroyed=true}}}
  const menu={useType:5,userName:'B',userData:f.b.userData,allBtnList:[],showBtnList:[],getBtn(label){const b=button(label);this.allBtnList.push(b);return b},updateOptMenu(){this.showBtnList=[];this.layoutBtn()},layoutBtn(){this.layout=(this.layout||0)+1},removeSelf(){this.closed=true}};f.stage._children=[menu];

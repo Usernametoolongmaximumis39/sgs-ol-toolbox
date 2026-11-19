@@ -43,3 +43,18 @@ export function windowFixture(paint = () => {}) {
     ShopWindow, BagWindow, MailWindow };
   return { classes, BaseWindow, opened, trace };
 }
+
+export function recruitViewFixture(onResult = () => {}) {
+  class RecruitView {
+    showOpenEffect(...args) {
+      const effect = {
+        alpha: 1, EffectUrl: 'res/assets/animate/hall/generalopen/zhaomuchaibao02.sk',
+        reveal: () => onResult(...args),
+        stop: () => { effect.destroyed = true; this.zhaoMuEffect = null; },
+      };
+      this.zhaoMuEffect = effect;
+      return effect;
+    }
+  }
+  return { GeneralOpenWindow: class extends RecruitView {}, GeneralOpenNewbieView: class extends RecruitView {}, RecruitView };
+}

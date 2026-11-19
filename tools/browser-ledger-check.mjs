@@ -17,7 +17,11 @@ try{
  });
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto(`${server.url}/dev/ledger.html`);
  await page.waitForFunction(()=>window[Symbol.for('sgs.ol.toolbox.core')]?.manager);const host=page.locator('[data-sgs-toolbox="core"]');await host.locator('[data-category=info]').click();const root=host.locator('.sgs-ledger');await root.waitFor();
- await root.getByText('传世玉玺',{exact:true}).waitFor();assert.equal(await root.locator('.asset').count(),8);assert.equal(await root.locator('.asset img').count(),8);
+ const jadeNames = root.locator('.asset').getByText('传世玉玺', { exact: true });
+ await jadeNames.waitFor();
+ assert.deepEqual(await jadeNames.evaluateAll(nodes => nodes.map(node => node.title)), ['传世玉玺 · ID 21223901']);
+ assert.equal(await root.locator('.asset').count(),8);assert.equal(await root.locator('.asset img').count(),8);
+ checks.push('配置含两个历史同名兑换商品时，余额面板只显示传世玉玺 21223901');
  assert.deepEqual(await page.evaluate(()=>window[Symbol.for('sgs.ol.toolbox.core')].manager.list().map(p=>p.id)),['ledger']);
  await page.getByRole('button',{name:'模拟收入与消耗各100',exact:true}).click();await root.locator('.asset').filter({has:page.getByText('元宝',{exact:true})}).getByText('收入 +100',{exact:true}).waitFor();
  assert.ok((await root.innerText()).includes('消耗 −100'));checks.push('净零仍分别显示收入100与消耗100；重要物品与两个同名不同ID如意结');

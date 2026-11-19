@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.91
+// @version      0.6.129
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  轻量版：独立核心，按需安装插件并沿用已保存的插件
@@ -769,7 +769,9 @@
     for (let [key, item] of Object.entries(index.frames)) {
       if (!/^[A-Za-z][A-Za-z0-9_]{0,95}_png\.png$/.test(key) || item.rotated || item.trimmed) continue;
       let f = item.frame, size = item.sourceSize, offset = item.spriteSourceSize, page = pages[f?.idx ?? 0];
-      !f || !page || ![f.x, f.y, f.w, f.h, f.idx ?? 0].every(Number.isInteger) || f.x < 0 || f.y < 0 || f.w !== width || f.h !== height || size?.w !== width || size?.h !== height || offset?.x !== 0 || offset?.y !== 0 || f.x + f.w > page.width || f.y + f.h > page.height || result.set(key, Object.freeze({ ...f, idx: f.idx ?? 0 }));
+      if (!f || !page || ![f.x, f.y, f.w, f.h, f.idx ?? 0].every(Number.isInteger) || f.x < 0 || f.y < 0 || f.w !== width || f.h !== height || size?.w !== width || size?.h !== height || offset?.x !== 0 || offset?.y !== 0 || f.x + f.w > page.width || f.y + f.h > page.height) continue;
+      let { x, y, w, h } = f, idx = f.idx ?? 0, label = typeof item.label == "string" && item.label.length <= 48 && !/[\u0000-\u001f\u007f]/.test(item.label) ? item.label.trim() : "";
+      result.set(key, Object.freeze({ x, y, w, h, idx, ...label ? { label } : {} }));
     }
     if (!result.size) throw new Error("\u56FE\u96C6\u4E2D\u6CA1\u6709\u53EF\u7528\u7684\u5B8C\u6574\u5361\u56FE");
     return result;
@@ -836,8 +838,110 @@
     }
   }
 
+  // src/core/local-images.js
+  var LOCAL_IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/bmp,.png,.jpg,.jpeg,.webp,.bmp";
+  function imageType(bytes) {
+    let data = new DataView(bytes), tag = (offset) => data.getUint32(offset);
+    if (bytes.byteLength >= 8 && tag(0) === 2303741511 && tag(4) === 218765834) {
+      for (let offset = 8; offset + 12 <= bytes.byteLength; ) {
+        let chunk = tag(offset + 4);
+        if (chunk === 1633899596) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301 APNG");
+        if (chunk === 1229209940) return "image/png";
+        offset += 12 + tag(offset);
+      }
+      throw new Error("PNG \u56FE\u7247\u5185\u5BB9\u4E0D\u5B8C\u6574");
+    }
+    if (bytes.byteLength >= 21 && tag(0) === 1380533830 && tag(8) === 1464156752) {
+      if (tag(12) === 1448097880 && data.getUint8(20) & 2) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301\u52A8\u6001 WebP");
+      return "image/webp";
+    }
+    if (bytes.byteLength >= 3 && data.getUint16(0) === 65496 && data.getUint8(2) === 255) return "image/jpeg";
+    if (bytes.byteLength >= 14 && data.getUint16(0) === 16973) return "image/bmp";
+    throw new Error("\u8BF7\u9009\u62E9 PNG\u3001JPG\u3001WebP \u6216 BMP \u9759\u6001\u56FE\u7247");
+  }
+  async function withLocalImage(win, file, process2) {
+    if (!file?.size || file.size > 20971520) throw new Error("\u8BF7\u9009\u62E9\u4E0D\u8D85\u8FC7 20 MB \u7684\u56FE\u7247\u6587\u4EF6");
+    if (typeof file.arrayBuffer != "function" || !win.URL?.createObjectURL || !win.Image) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u8BFB\u53D6\u672C\u5730\u56FE\u7247");
+    let bytes = await file.arrayBuffer(), type = imageType(bytes), url = win.URL.createObjectURL(new win.Blob([bytes], { type }));
+    try {
+      let image = new win.Image();
+      if (await new Promise((resolve, reject) => {
+        image.onload = resolve, image.onerror = () => reject(new Error("\u65E0\u6CD5\u6253\u5F00\u56FE\u7247\uFF0C\u6587\u4EF6\u53EF\u80FD\u5DF2\u635F\u574F")), image.src = url;
+      }), !(image.naturalWidth > 0 && image.naturalHeight > 0)) throw new Error("\u56FE\u7247\u5C3A\u5BF8\u65E0\u6548");
+      return await process2(image, { bytes, type });
+    } finally {
+      win.URL.revokeObjectURL(url);
+    }
+  }
+  async function localImageTransaction(win, database, mode, operation, keyPath) {
+    if (!win.indexedDB) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u4FDD\u5B58\u672C\u5730\u56FE\u7247");
+    let db = await new Promise((resolve, reject) => {
+      let request = win.indexedDB.open(database, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("images", { autoIncrement: !0, keyPath }), request.onsuccess = () => resolve(request.result), request.onerror = () => reject(request.error);
+    });
+    try {
+      return await new Promise((resolve, reject) => {
+        let tx = db.transaction("images", mode), request = operation(tx.objectStore("images"));
+        tx.oncomplete = () => resolve(request.result), tx.onabort = () => reject(tx.error || new Error("\u672C\u5730\u56FE\u7247\u5B58\u50A8\u64CD\u4F5C\u5DF2\u4E2D\u6B62"));
+      });
+    } finally {
+      db.close();
+    }
+  }
+  function readLocalCardImage(win, file, width, height) {
+    return withLocalImage(win, file, (image) => {
+      let ratio = width / height, cropWidth = Math.min(image.naturalWidth, image.naturalHeight * ratio), cropHeight = Math.min(image.naturalHeight, image.naturalWidth / ratio), canvas = win.document.createElement("canvas");
+      canvas.width = width, canvas.height = height;
+      let context = canvas.getContext("2d");
+      context.imageSmoothingQuality = "high", context.drawImage(
+        image,
+        (image.naturalWidth - cropWidth) / 2,
+        (image.naturalHeight - cropHeight) / 2,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        width,
+        height
+      );
+      let url = canvas.toDataURL("image/webp", 0.92);
+      if (!isLocalCardImageUrl(url)) throw new Error("\u65E0\u6CD5\u751F\u6210\u5361\u724C\u56FE\u7247");
+      return { name: file.name?.trim().slice(0, 160) || "\u81EA\u5B9A\u4E49\u56FE\u7247", url };
+    });
+  }
+  function isLocalCardImageUrl(url) {
+    return typeof url == "string" && /^data:image\/(?:png|webp);base64,/.test(url);
+  }
+
+  // src/core/card-back-local.js
+  var LOCAL_BACK_PREFIX = "local-card-back.", LOCAL_BACK_WIDTH = 372, LOCAL_BACK_HEIGHT = 520;
+  function readLocalCardBack(win, file) {
+    return readLocalCardImage(win, file, LOCAL_BACK_WIDTH, LOCAL_BACK_HEIGHT);
+  }
+  function localCardBackTransaction(win, mode, operation) {
+    return localImageTransaction(win, "sgs-toolbox-card-backs", mode, operation, "id");
+  }
+  function localCardBack({ id, name, url }) {
+    return !Number.isSafeInteger(id) || id <= 0 || typeof name != "string" || !isLocalCardImageUrl(url) ? null : Object.freeze({ id: LOCAL_BACK_PREFIX + id, name, localBackImage: url });
+  }
+
   // src/core/card-styles.js
-  var COLOR = /^#[0-9a-f]{6}$/i, own = (node, key) => node && Object.getOwnPropertyDescriptor(node, key)?.value, CARD_LISTS = ["_children", "cardUis", "cardUIs", "cardUiList", "cardUIList", "virtualCardUis", "tempHandCardUis", "additionalCardUis", "muniuCardUis", "stateCardUis", "pileCardUis", "seatUIs"], CARD_NODES = ["cardContainer", "seatContainer", "SelfSeatUi", "selfSeatUI", "desktopCardContainer", "discardCardContainer", "cardUi", "cardUI"], isCardUI = (node) => node && !node.destroyed && node.bmpFace && typeof node.SetCardFace == "function" && typeof node.getCardFaceBaseTexture == "function" && typeof node.updateNewCardFace == "function";
+  var LOCAL_FACE_STYLE = Object.freeze({ id: "local-card-face", name: "\u81EA\u5B9A\u4E49\u5361\u9762", localFace: !0 }), LOCAL_FACE_BACKGROUND_STYLE = Object.freeze({ id: "local-card-face-background", localFaceBackground: !0 }), LOCAL_FACE_WIDTH = 405, LOCAL_FACE_HEIGHT = 570, FACE_BACKGROUND_RECORD = "$background", localFaceKey = (card) => `${LOCAL_FACE_STYLE.id}.${card}`, COLOR = /^#[0-9a-f]{6}$/i, own = (node, key) => node && Object.getOwnPropertyDescriptor(node, key)?.value, CARD_LISTS = ["_children", "cardUis", "cardUIs", "cardUiList", "cardUIList", "virtualCardUis", "tempHandCardUis", "additionalCardUis", "muniuCardUis", "stateCardUis", "pileCardUis", "seatUIs"], CARD_NODES = ["cardContainer", "seatContainer", "SelfSeatUi", "selfSeatUI", "desktopCardContainer", "discardCardContainer", "cardUi", "cardUI"], isCardUI = (node) => node && !node.destroyed && node.bmpFace && typeof node.SetCardFace == "function" && typeof node.getCardFaceBaseTexture == "function" && typeof node.updateNewCardFace == "function", NO_BOOK_FACES = Object.freeze([]);
+  function cardBookFaces(node, listType, detailType) {
+    if (typeof detailType == "function" && node instanceof detailType) {
+      let ui = own(own(node, "cardFace"), "cardUi");
+      return isCardUI(ui) ? [ui] : NO_BOOK_FACES;
+    }
+    if (typeof listType != "function" || !(node instanceof listType)) return NO_BOOK_FACES;
+    let panel = own(node, "panel"), count = panel?.numChildren;
+    if (!Number.isInteger(count) || count < 1 || typeof panel.getChildAt != "function") return NO_BOOK_FACES;
+    let result = [];
+    for (let i = 0; i < Math.min(count, 2048); i++) {
+      let ui = own(own(panel.getChildAt(i), "cardFace"), "cardUi");
+      isCardUI(ui) && result.push(ui);
+    }
+    return result;
+  }
   function findNativeCardTexture(L, name) {
     if (!/^card(?:Face|Back)_\d{1,5}$/.test(name)) return null;
     let valid = (t) => t?.bitmap && !t.destroyed && !t.bitmap.destroyed && t.width > 0 && t.height > 0, direct = L?.loader?.getRes?.(name);
@@ -868,14 +972,15 @@
   }
   var CardStyleRegistry = class {
     constructor({ window: win, document: doc, game, settings, scope }) {
-      Object.assign(this, { win, doc, game, settings, scope }), this.styles = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set(), this.textures = /* @__PURE__ */ new Map(), this.bindings = /* @__PURE__ */ new Map(), this.nativeResources = /* @__PURE__ */ new Map(), this.nativeAttempts = /* @__PURE__ */ new Map(), this.previews = /* @__PURE__ */ new WeakMap(), this.factories = /* @__PURE__ */ new Map(), this.pools = /* @__PURE__ */ new Map(), this.insertions = /* @__PURE__ */ new Map(), this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds = /* @__PURE__ */ new Set(), this.selfHand = null, this.scene = null, this.atlases = /* @__PURE__ */ new Map(), this.backImages = /* @__PURE__ */ new Map(), this.status = "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2", this.closed = !1, scope.interval(() => this.refreshNative(), 400), game.onSceneChange && scope.add(game.onSceneChange(() => this.refreshNative())), scope.add(() => {
-        this.closed = !0, this.restore(), this.clearTextures(), this.nativeResources.clear(), this.nativeAttempts.clear(), this.listeners.clear();
-      });
+      Object.assign(this, { win, doc, game, settings, scope }), this.styles = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set(), this.textures = /* @__PURE__ */ new Map(), this.bindings = /* @__PURE__ */ new Map(), this.nativeResources = /* @__PURE__ */ new Map(), this.nativeAttempts = /* @__PURE__ */ new Map(), this.previews = /* @__PURE__ */ new WeakMap(), this.factories = /* @__PURE__ */ new Map(), this.pools = /* @__PURE__ */ new Map(), this.insertions = /* @__PURE__ */ new Map(), this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds = /* @__PURE__ */ new Set(), this.selfHand = null, this.bookFaces = /* @__PURE__ */ new WeakSet(), this.scene = null, this.atlases = /* @__PURE__ */ new Map(), this.images = /* @__PURE__ */ new Map(), this.previewAtlasId = "", this.localBacks = /* @__PURE__ */ new Map(), this.localFaces = /* @__PURE__ */ new Map(), this.localFaceCatalog = null, this.localFaceCatalogPending = null, this.localFaceCatalogError = "", this.localFaceBackground = null, this.status = "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2", this.closed = !1, scope.interval(() => this.refreshNative(), 400), game.onSceneChange && scope.add(game.onSceneChange(() => this.refreshNative())), scope.add(() => {
+        this.closed = !0, this.restore(), this.clearTextures(), this.nativeResources.clear(), this.nativeAttempts.clear(), this.localBacks.clear(), this.localFaces.clear(), this.localFaceBackground = null, this.listeners.clear();
+      }), this.localBacksReady = win.indexedDB ? this.loadLocalBacks() : Promise.resolve(), this.localFacesReady = win.indexedDB ? this.loadLocalFaces() : Promise.resolve();
     }
     register(style2, owner) {
       if (this.closed) return () => {
       };
       if (!style2?.id?.startsWith(owner + ".") || !/^[a-z][a-z0-9.-]{0,63}$/.test(style2.id) || this.styles.has(style2.id)) throw new Error("\u5361\u724C\u6837\u5F0F ID \u65E0\u6548\u6216\u5DF2\u6CE8\u518C");
+      if (style2.id.startsWith(LOCAL_BACK_PREFIX) || style2.id.startsWith(LOCAL_FACE_STYLE.id + ".")) throw new Error("\u6B64 ID \u4FDD\u7559\u7ED9\u672C\u5730\u5361\u724C\u5916\u89C2");
       if (typeof style2.name != "string" || !style2.name.trim() || style2.name.length > 48) throw new Error("\u5361\u724C\u6837\u5F0F\u540D\u79F0\u65E0\u6548");
       if (style2.backName !== void 0 && (typeof style2.backName != "string" || !style2.backName.trim() || style2.backName.length > 48 || /[\r\n]/.test(style2.backName))) throw new Error("\u5361\u80CC\u540D\u79F0\u65E0\u6548");
       let cleaned = { id: style2.id, name: style2.name, ...style2.backName === void 0 ? {} : { backName: style2.backName } };
@@ -902,16 +1007,121 @@
     list() {
       return [...this.styles.values()];
     }
+    listLocalBacks() {
+      return [...this.localBacks.values()];
+    }
+    async loadLocalBacks() {
+      try {
+        let rows = await localCardBackTransaction(this.win, "readonly", (store) => store.getAll());
+        if (this.closed) return;
+        for (let row of rows) {
+          let style2 = localCardBack(row);
+          style2 && this.localBacks.set(style2.id, style2);
+        }
+      } catch (error) {
+        this.closed || (this.localBackError = "\u8BFB\u53D6\u672C\u5730\u5361\u80CC\u5931\u8D25\uFF1A" + error.message);
+      }
+      this.closed || (this.refreshNative(), this.emit());
+    }
+    async importLocalBack(file) {
+      let image = await readLocalCardBack(this.win, file);
+      if (await this.localBacksReady, this.closed) return;
+      let id = await localCardBackTransaction(this.win, "readwrite", (store) => store.add(image));
+      if (this.closed) return;
+      let style2 = localCardBack({ id, ...image });
+      this.localBacks.set(style2.id, style2);
+      try {
+        this.selectSide("back", style2.id);
+      } catch (error) {
+        throw this.emit(), new Error("\u56FE\u7247\u5DF2\u4FDD\u5B58\uFF0C\u9009\u7528\u5931\u8D25\uFF1A" + error.message);
+      }
+    }
+    async deleteLocalBack(id) {
+      if (this.closed || !this.localBacks.has(id)) return;
+      let key = Number(id.slice(LOCAL_BACK_PREFIX.length));
+      if (await localCardBackTransaction(this.win, "readwrite", (store) => store.delete(key)), !this.closed) {
+        this.localBacks.delete(id);
+        try {
+          this.selection.back === id && this.settings.set("cardBackStyle", "");
+        } finally {
+          this.restore(), this.clearTextures(id), this.refreshNative(), this.emit();
+        }
+      }
+    }
+    localFaceTransaction(mode, operation) {
+      return localImageTransaction(this.win, "sgs-toolbox-card-faces", mode, operation, "card");
+    }
+    async loadLocalFaces() {
+      try {
+        let rows = await this.localFaceTransaction("readonly", (store) => store.getAll());
+        if (this.closed) return;
+        for (let row of rows)
+          typeof row.name != "string" || !isLocalCardImageUrl(row.url) || (row.card === FACE_BACKGROUND_RECORD ? this.localFaceBackground = Object.freeze(row) : cardFrameName(row.card) && typeof row.label == "string" && this.localFaces.set(row.card, Object.freeze(row)));
+      } catch (error) {
+        this.closed || (this.localFaceError = "\u8BFB\u53D6\u672C\u5730\u5361\u9762\u5931\u8D25\uFF1A" + error.message);
+      }
+      this.closed || (this.refreshNative(), this.emit());
+    }
+    listLocalFaces() {
+      return [...this.localFaces.values()];
+    }
+    loadLocalFaceCatalog() {
+      if (this.closed || this.localFaceCatalog || this.localFaceCatalogPending) return;
+      let existing = this.game.getCardFaceCatalog?.();
+      if (existing) {
+        this.localFaceCatalog = existing, this.localFaceCatalogError = "", this.emit();
+        return;
+      }
+      this.game.loadCardFaceCatalog && (this.localFaceCatalogError = "", this.localFaceCatalogPending = this.game.loadCardFaceCatalog().then((catalog) => {
+        !this.closed && !this.localFaceCatalog && (this.localFaceCatalog = catalog);
+      }, (error) => {
+        !this.closed && !this.localFaceCatalog && (this.localFaceCatalogError = "\u8BFB\u53D6\u6E38\u620F\u724C\u8868\u5931\u8D25\uFF1A" + error.message);
+      }).finally(() => {
+        this.localFaceCatalogPending = null, this.closed || this.emit();
+      }), this.emit());
+    }
+    async importLocalFace(card, file) {
+      let label = this.localFaceCatalog?.find((item) => item.res === card)?.label || this.localFaces.get(card)?.label;
+      if (!label) throw new Error("\u8BF7\u9009\u62E9\u724C\u540D");
+      let image = await readLocalCardImage(this.win, file, LOCAL_FACE_WIDTH, LOCAL_FACE_HEIGHT);
+      if (await this.localFacesReady, this.closed) return;
+      let row = Object.freeze({ card, label, ...image });
+      await this.localFaceTransaction("readwrite", (store) => store.put(row)), !this.closed && (this.localFaces.set(card, row), this.refreshLocalImage(localFaceKey(card)));
+    }
+    async deleteLocalFace(card) {
+      this.closed || !this.localFaces.has(card) || (await this.localFaceTransaction("readwrite", (store) => store.delete(card)), !this.closed && (this.localFaces.delete(card), this.refreshLocalImage(localFaceKey(card))));
+    }
+    async importLocalFaceBackground(file) {
+      let image = await readLocalCardImage(this.win, file, LOCAL_FACE_WIDTH, LOCAL_FACE_HEIGHT);
+      if (await this.localFacesReady, this.closed) return;
+      let row = Object.freeze({ card: FACE_BACKGROUND_RECORD, ...image });
+      await this.localFaceTransaction("readwrite", (store) => store.put(row)), !this.closed && (this.localFaceBackground = row, this.refreshLocalImage(LOCAL_FACE_BACKGROUND_STYLE.id));
+    }
+    async deleteLocalFaceBackground() {
+      this.closed || !this.localFaceBackground || (await this.localFaceTransaction("readwrite", (store) => store.delete(FACE_BACKGROUND_RECORD)), !this.closed && (this.localFaceBackground = null, this.refreshLocalImage(LOCAL_FACE_BACKGROUND_STYLE.id)));
+    }
+    refreshLocalImage(key) {
+      let previous = [];
+      for (let [textureKey, texture] of this.textures)
+        textureKey.startsWith(key + ":") && (this.textures.delete(textureKey), previous.push(texture));
+      this.clearTextures(key), this.refreshNative();
+      for (let texture of previous) texture.destroy(!0);
+      this.emit();
+    }
     get current() {
       return this.settings.get("cardStyle", "");
     }
     get selection() {
       return { face: this.settings.get("cardFaceStyle", this.current), back: this.settings.get("cardBackStyle", this.current), scope: this.settings.get("cardStyleScope", "all") };
     }
+    styleFor(side, id = this.selection[side]) {
+      return side === "face" && id === LOCAL_FACE_STYLE.id ? LOCAL_FACE_STYLE : side === "face" && id === LOCAL_FACE_BACKGROUND_STYLE.id ? LOCAL_FACE_BACKGROUND_STYLE : (side === "back" ? this.localBacks.get(id) : null) || this.styles.get(id);
+    }
     selectSide(side, id) {
       if (!["face", "back"].includes(side)) throw new Error("\u65E0\u6548\u5361\u724C\u9762");
-      if (id && !this.styles.has(id)) throw new Error("\u5361\u724C\u6837\u5F0F\u5C1A\u672A\u542F\u7528");
-      if (side === "back" && this.styles.get(id)?.atlas && !this.styles.get(id).atlas.backImage) throw new Error("\u6B64\u5957\u88C5\u4EC5\u63D0\u4F9B\u5361\u9762");
+      let style2 = this.styleFor(side, id);
+      if (id && !style2) throw new Error("\u5361\u724C\u6837\u5F0F\u5C1A\u672A\u542F\u7528");
+      if (side === "back" && style2?.atlas && !style2.atlas.backImage) throw new Error("\u6B64\u5957\u88C5\u4EC5\u63D0\u4F9B\u5361\u9762");
       this.settings.set(side === "face" ? "cardFaceStyle" : "cardBackStyle", id), this.restore(), this.refreshNative(), this.emit();
     }
     selectScope(value) {
@@ -950,9 +1160,9 @@
       this.status !== value && (this.status = value, this.emit());
     }
     clearTextures(id) {
-      for (let [key, image] of this.backImages) (!id || key === id) && (image.onload = image.onerror = null, image.src = "", this.backImages.delete(key));
+      for (let [key, image] of this.images) (!id || key === id) && (image.onload = image.onerror = null, image.src = "", this.images.delete(key));
       for (let [key, entry] of this.atlases) (!id || key === id) && (entry.controller.abort(), entry.data?.dispose(), this.atlases.delete(key));
-      for (let [key, texture] of this.textures) (!id || key.startsWith(id + ":")) && (texture.destroy(!0), this.textures.delete(key));
+      for (let [key, texture] of this.textures) (!id || key === id || key.startsWith(id + ":")) && (texture.destroy(!0), this.textures.delete(key));
     }
     ensureAtlas(style2) {
       if (this.atlases.has(style2.id)) return this.atlases.get(style2.id);
@@ -974,6 +1184,13 @@
     retry() {
       let id = this.selection.face;
       this.atlases.get(id)?.error && (this.clearTextures(id), this.refreshNative(), this.emit());
+    }
+    previewCardAtlas(id, { retry = !1 } = {}) {
+      if (this.closed) return null;
+      let style2 = this.styles.get(id), next = style2?.atlas ? id : "", previous = this.previewAtlasId;
+      if (this.previewAtlasId = next, previous && previous !== next && previous !== this.selection.face && previous !== this.selection.back && this.clearTextures(previous), !next) return null;
+      let entry = this.atlases.get(next);
+      return retry && entry?.error && this.clearTextures(next), this.ensureAtlas(style2);
     }
     atlasCanvas(style2, name) {
       let data = this.atlases.get(style2.id)?.data, frame = data?.frames.get(cardFrameName(name));
@@ -1010,12 +1227,15 @@
       return texture && this.nativeResources.set(name, texture), texture;
     }
     preview(style2, back) {
-      if (style2.atlas) {
+      if (style2.localFace || style2.localFaceBackground) return null;
+      if (style2.localBackImage || style2.atlas) {
         if (back) {
-          if (!style2.atlas.backImage) return null;
+          let src = style2.localBackImage || style2.atlas.backImage;
+          if (!src) return null;
           let image = this.doc.createElement("img");
-          return image.src = style2.atlas.backImage, image.alt = "", image.width = 135, image.height = 190, image;
+          return image.src = src, image.alt = "", image.width = 135, image.height = 190, image;
         }
+        if (style2.localBackImage) return null;
         if (style2.atlas.previewImage) {
           let image = this.doc.createElement("img");
           return image.src = style2.atlas.previewImage, image.alt = "", image.width = 135, image.height = 190, image;
@@ -1042,21 +1262,41 @@
         return null;
       }
     }
+    imageFor(id, url) {
+      let image = this.images.get(id);
+      if (!image) {
+        image = new this.win.Image(), this.images.set(id, image);
+        let update = () => {
+          !this.closed && this.images.get(id) === image && (this.refreshNative(), this.emit());
+        };
+        image.onload = image.onerror = update, image.src = url;
+      }
+      return image;
+    }
+    imageTexture(key, image, width, height, size) {
+      if (!image.complete || image.naturalWidth !== width || image.naturalHeight !== height) return null;
+      if (!this.textures.has(key)) {
+        let bitmap = new this.win.Laya.Texture2D(width, height, this.win.Laya.TextureFormat?.R8G8B8A8 ?? 1, !1);
+        bitmap.loadImageSource(image, !0);
+        let texture = new this.win.Laya.Texture(bitmap);
+        texture.width = texture.sourceWidth = size.width || 93, texture.height = texture.sourceHeight = size.height || 130, this.textures.set(key, texture);
+      }
+      return this.textures.get(key);
+    }
+    localFaceTexture(ui, size) {
+      if (ui.isNewCardUI !== !0 && ui.IsYiCard) return null;
+      let card = ui.theCard?.ResName, local = this.localFaces.get(card);
+      return local ? this.localFaceImageTexture(localFaceKey(card), local.url, size) : null;
+    }
+    localFaceImageTexture(id, url, size) {
+      let image = this.imageFor(id, url);
+      return this.imageTexture(`${id}:${size.width || 93}x${size.height || 130}`, image, LOCAL_FACE_WIDTH, LOCAL_FACE_HEIGHT, size);
+    }
     texture(style2, back, immediate = !1) {
-      if (style2.atlas) {
-        if (!back || !style2.atlas.backImage) return null;
-        let image = this.backImages.get(style2.id);
-        if (image || (image = new this.win.Image(), this.backImages.set(style2.id, image), image.onload = () => {
-          !this.closed && this.backImages.get(style2.id) === image && (this.refreshNative(), this.emit());
-        }, image.src = style2.atlas.backImage), !image.complete || image.naturalWidth !== 405 || image.naturalHeight !== 570) return null;
-        let key2 = style2.id + ":back";
-        if (!this.textures.has(key2)) {
-          let bitmap = new this.win.Laya.Texture2D(405, 570, this.win.Laya.TextureFormat?.R8G8B8A8 ?? 1, !1);
-          bitmap.loadImageSource(image, !0);
-          let texture = new this.win.Laya.Texture(bitmap);
-          texture.width = texture.sourceWidth = 93, texture.height = texture.sourceHeight = 130, this.textures.set(key2, texture);
-        }
-        return this.textures.get(key2);
+      if (style2.localBackImage || style2.atlas) {
+        if (!back || !style2.localBackImage && !style2.atlas.backImage) return null;
+        let image = this.imageFor(style2.id, style2.localBackImage || style2.atlas.backImage), width = style2.localBackImage ? LOCAL_BACK_WIDTH : 405, height = style2.localBackImage ? LOCAL_BACK_HEIGHT : 570;
+        return this.imageTexture(style2.id + ":back", image, width, height, {});
       }
       if (style2.native) return this.nativeTexture(style2.native[back ? "back" : "face"], immediate);
       let key = style2.id + ":" + back;
@@ -1072,10 +1312,10 @@
       for (let local of [...this.factories.values(), ...this.pools.values(), ...this.insertions.values()]) local.dispose();
       this.factories.clear(), this.pools.clear(), this.insertions.clear();
       for (let b of this.bindings.values()) b.release();
-      this.bindings.clear();
+      this.bindings.clear(), this.bookFaces = /* @__PURE__ */ new WeakSet();
     }
     bindCard(ui, immediate = !1) {
-      if (!(this.closed || !["face", "back"].some((side) => this.styles.has(this.selection[side])) || !isCardUI(ui))) {
+      if (!(this.closed || !["face", "back"].some((side) => this.styleFor(side)) || !isCardUI(ui))) {
         if (!this.bindings.has(ui)) {
           let local = new ResourceScope(), binding = { original: ui.bmpFace.texture, applied: null, layers: /* @__PURE__ */ new Map() }, flush = (node) => {
             node?.render && typeof node.update == "function" && node.update();
@@ -1084,17 +1324,23 @@
             for (let [node, visible] of binding.layers) !node.destroyed && node.visible === !1 && (node.visible = visible, flush(node));
             binding.layers.clear();
           }, binding.apply = (force) => {
-            let card = ui.theCard, style2 = this.styles.get(this.selection[card?.IsEmpty ? "back" : "face"]), eligible = style2 && card && (this.selection.scope === "all" || this.isSelfCard(ui)) && !ui.isPokerCardFace && !ui.dontUpdateCard && (card.IsEmpty || ui.isNewCardUI === !0 || style2.atlas);
+            let card = ui.theCard, style2 = this.styleFor(card?.IsEmpty ? "back" : "face"), bookPreview = style2?.atlas && !card?.IsEmpty && this.bookFaces.has(ui), eligible = style2 && card && (this.selection.scope === "all" || this.isSelfCard(ui) || bookPreview) && !ui.isPokerCardFace && !ui.dontUpdateCard && (card.IsEmpty || ui.isNewCardUI === !0 || style2.atlas || style2.localFace);
             ui.bmpFace.texture !== binding.applied && (binding.original = ui.bmpFace.texture);
             let dimension = (...values) => values.find((value) => Number.isFinite(value) && value > 0 && value <= 4096), size = {
               width: dimension(ui.width, binding.original?.width, ui.bmpFace.width),
               height: dimension(ui.height, binding.original?.height, ui.bmpFace.height)
-            }, texture = eligible && !binding.special ? style2.atlas && !card.IsEmpty ? this.atlasTexture(style2, ui, size) : this.texture(style2, !!card.IsEmpty, force) : null;
+            }, texture = null;
+            if (eligible && !binding.special)
+              if (style2.localFace) texture = this.localFaceTexture(ui, size);
+              else if (style2.localFaceBackground) {
+                let image = this.localFaceBackground;
+                image && (texture = this.localFaceImageTexture(style2.id, image.url, size));
+              } else style2.atlas && !card.IsEmpty ? texture = this.atlasTexture(style2, ui, size) : texture = this.texture(style2, !!card.IsEmpty, force);
             if (binding.reason = style2 ? eligible ? binding.special ? "\u539F\u751F\u6307\u5B9A\u7279\u6B8A\u5361\u56FE" : texture ? "" : ui.isNewCardUI !== !0 && ui.IsYiCard ? "\u5F02\u724C\u4E13\u7528\u5361\u56FE" : style2.atlas?.replaceCards && !style2.atlas.replaceCards.includes(card?.ResName) && this.atlases.get(style2.id)?.data?.frames.has(cardFrameName(card?.ResName)) ? "\u4E0E\u9ED8\u8BA4\u5361\u9762\u76F8\u540C\uFF0C\u4FDD\u7559\u539F\u751F" : style2.atlas ? `\u65E0\u540C\u540D\u5361\u56FE\uFF1A${String(card?.ResName || "\u7A7A\u8D44\u6E90\u540D").slice(0, 96)}` : "\u8D44\u6E90\u672A\u5C31\u7EEA" : "\u8303\u56F4\u6216\u539F\u751F\u663E\u793A\u9650\u5236" : "\u8DDF\u968F\u6E38\u620F", !texture) {
               ui.bmpFace.texture === binding.applied && (ui.bmpFace.texture = binding.original), binding.applied = null, binding.restoreLayers();
               return;
             }
-            if (style2.atlas) for (let key of ["bmpFace2", "bmpName", "bmpNameBg", "bmpNormalName", "bmpCardType", "bmpSmallDesc"]) {
+            if (style2.atlas || style2.localFace) for (let key of ["bmpFace2", "bmpName", "bmpNameBg", "bmpNormalName", "bmpCardType", "bmpSmallDesc"]) {
               let node = ui[key];
               node && (binding.layers.has(node) || binding.layers.set(node, node.visible), node.visible !== !1 && (node.visible = !1, flush(node)));
             }
@@ -1187,7 +1433,7 @@
       this.pools.set(pool, local), local.patch(pool, "BorrowObject", (original) => function(...args) {
         return registry.captureCard(original.apply(this, args));
       }), typeof pool.returnObject == "function" && local.patch(pool, "returnObject", (original) => function(card, ...args) {
-        return registry.bindings.get(card)?.release(), registry.bindings.delete(card), original.call(this, card, ...args);
+        return registry.bindings.get(card)?.release(), registry.bindings.delete(card), registry.bookFaces.delete(card), original.call(this, card, ...args);
       });
     }
     hookFactory(owner) {
@@ -1204,11 +1450,13 @@
         });
     }
     captureBranch(root) {
-      let queue = [root], seen = /* @__PURE__ */ new Set();
+      let queue = [root], seen = /* @__PURE__ */ new Set(), listType = this.game.getClass?.("CardsBookWindow"), detailType = this.game.getClass?.("CardBookDetailWindow");
       for (let i = 0; i < queue.length && i < 6e3; i++) {
         let node = queue[i];
         if (!(!node || typeof node != "object" || seen.has(node) || node.destroyed)) {
           seen.add(node), this.hookFactory(node), isCardUI(node) && this.captureCard(node);
+          for (let ui of cardBookFaces(node, listType, detailType))
+            this.bookFaces.add(ui), queue.push(ui);
           for (let key of CARD_LISTS) {
             let value = own(node, key);
             Array.isArray(value) && queue.push(...value.slice(0, 2048));
@@ -1246,11 +1494,14 @@
       }
     }
     discover() {
-      let queue = [this.win.Laya?.stage, this.game.getScene?.(), this.game.getSelfSeatUI?.()], seen = /* @__PURE__ */ new Set(), found = /* @__PURE__ */ new Set();
+      let queue = [this.win.Laya?.stage, this.game.getScene?.(), this.game.getSelfSeatUI?.()], seen = /* @__PURE__ */ new Set(), found = /* @__PURE__ */ new Set(), listType = this.game.getClass?.("CardsBookWindow"), detailType = this.game.getClass?.("CardBookDetailWindow");
+      this.bookFaces = /* @__PURE__ */ new WeakSet();
       for (let i = 0; i < queue.length && i < 6e3; i++) {
         let node = queue[i];
         if (!(!node || typeof node != "object" || seen.has(node) || node.destroyed)) {
           seen.add(node), this.hookFactory(node), isCardUI(node) && found.add(node);
+          for (let ui of cardBookFaces(node, listType, detailType))
+            this.bookFaces.add(ui), queue.push(ui);
           for (let key of CARD_LISTS) {
             let a = own(node, key);
             Array.isArray(a) && queue.push(...a.slice(0, 2048));
@@ -1266,9 +1517,16 @@
     }
     refreshNative() {
       if (this.closed) return;
-      for (let id of this.backImages.keys()) id !== this.selection.back && this.clearTextures(id);
-      let selectedAtlas = this.styles.get(this.selection.face);
-      for (let id of this.atlases.keys()) id !== selectedAtlas?.id && id !== this.selection.back && this.clearTextures(id);
+      let { face, back: backId } = this.selection, customFaceSelected = face === LOCAL_FACE_STYLE.id, backgroundId = LOCAL_FACE_BACKGROUND_STYLE.id, background = face === backgroundId ? this.localFaceBackground : null;
+      for (let id of this.images.keys())
+        id === backId || background && id === backgroundId || customFaceSelected && id.startsWith(LOCAL_FACE_STYLE.id + ".") || this.clearTextures(id);
+      if (customFaceSelected && this.listeners.size) {
+        let catalog = this.game.getCardFaceCatalog?.();
+        catalog && catalog !== this.localFaceCatalog && (this.localFaceCatalog = catalog, this.localFaceCatalogError = "", this.emit());
+      }
+      let selectedAtlas = this.styles.get(face);
+      for (let id of this.atlases.keys())
+        id !== selectedAtlas?.id && id !== backId && id !== this.previewAtlasId && this.clearTextures(id);
       if (selectedAtlas?.atlas && this.ensureAtlas(selectedAtlas), this.listeners.size) {
         let before = [...this.nativeResources.values()];
         for (let item of this.styles.values()) if (item.native) for (let name of Object.values(item.native)) this.nativeTexture(name);
@@ -1278,7 +1536,8 @@
       let scene = this.game.getScene?.();
       scene !== this.scene && (this.scene = scene, this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds.clear()), this.selfHand = this.game.getSelfSeatUI?.()?.cardContainer;
       for (let ui of this.selfHand?.cardUis || this.selfHand?.cardUIs || this.selfHand?.cardUiList || []) this.rememberSelf(ui.theCard);
-      if (!["face", "back"].some((side) => this.styles.has(this.selection[side]))) {
+      let back = this.styleFor("back"), localImage = back?.localBackImage ? this.imageFor(back.id, back.localBackImage) : null, faceImage = background ? this.imageFor(backgroundId, background.url) : null;
+      if (!(back || selectedAtlas || faceImage || customFaceSelected && this.localFaces.size)) {
         this.restore(), this.setStatus(this.current ? "\u6240\u9009\u5957\u88C5\u5DF2\u505C\u7528\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F" : "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2");
         return;
       }
@@ -1292,11 +1551,8 @@
         for (let [ui, binding] of this.bindings) found.has(ui) || (binding.release(), this.bindings.delete(ui));
         for (let ui of found)
           this.bindCard(ui);
-        let waiting = ["face", "back"].some((side) => {
-          let selected = this.styles.get(this.selection[side]);
-          return selected?.native && !this.texture(selected, side === "back");
-        }), atlas = this.atlases.get(selectedAtlas?.id), prefix = atlas?.error ? "\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25\uFF0C\u5DF2\u4FDD\u7559\u6E38\u620F\u5916\u89C2\uFF1A" + atlas.error : atlas?.loading ? "\u6B63\u5728\u52A0\u8F7D\u5B8C\u6574\u5361\u9762\uFF0C\u5F53\u524D\u4FDD\u7559\u6E38\u620F\u5916\u89C2" : null, faces = atlas?.data ? [...this.bindings].filter(([ui]) => !ui.theCard?.IsEmpty) : [], applied = faces.filter(([ui, b]) => b.applied && !b.reason && !b.error && ui.bmpFace.texture === b.applied).length, fallback = [...new Set(faces.filter(([, b]) => b.reason).map(([, b]) => b.reason))], detail = atlas?.data ? ` \xB7 \u5B8C\u6574\u5361\u9762 R3 \u5DF2\u66FF\u6362 ${applied}/${faces.length}${fallback.length ? " \xB7 \u56DE\u9000\uFF1A" + fallback.join("\uFF1B") : ""}` : "";
-        this.setStatus(prefix || (waiting ? "\u7B49\u5F85\u5B98\u65B9\u5361\u9762\uFF0F\u5361\u80CC\u8D44\u6E90\u52A0\u8F7D\uFF0C\u5DF2\u5C31\u7EEA\u7684\u9762\u72EC\u7ACB\u5E94\u7528" : found.size ? `\u5DF2\u63A5\u5165 ${found.size} \u5F20\u539F\u751F\u5361\u724C \xB7 \u4EC5\u672C\u673A\u663E\u793A${detail}` : "\u5957\u88C5\u5DF2\u5C31\u7EEA\uFF0C\u7B49\u5F85\u539F\u751F\u5361\u724C\u51FA\u73B0"));
+        let waiting = [selectedAtlas?.native?.face, back?.native?.back].some((name) => name && !this.nativeTexture(name)), localStatus = localImage && (localImage.complete ? localImage.naturalWidth !== LOCAL_BACK_WIDTH || localImage.naturalHeight !== LOCAL_BACK_HEIGHT ? "\u81EA\u5B9A\u4E49\u5361\u80CC\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u80CC" : "" : "\u6B63\u5728\u52A0\u8F7D\u81EA\u5B9A\u4E49\u5361\u80CC"), backgroundStatus = faceImage && (faceImage.complete ? faceImage.naturalWidth !== LOCAL_FACE_WIDTH || faceImage.naturalHeight !== LOCAL_FACE_HEIGHT ? "\u5361\u9762\u5E95\u56FE\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u9762" : "" : "\u6B63\u5728\u52A0\u8F7D\u5361\u9762\u5E95\u56FE"), atlas = this.atlases.get(selectedAtlas?.id), prefix = atlas?.error ? "\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25\uFF0C\u5DF2\u4FDD\u7559\u6E38\u620F\u5916\u89C2\uFF1A" + atlas.error : atlas?.loading ? "\u6B63\u5728\u52A0\u8F7D\u5B8C\u6574\u5361\u9762\uFF0C\u5F53\u524D\u4FDD\u7559\u6E38\u620F\u5916\u89C2" : null, faces = atlas?.data ? [...this.bindings].filter(([ui]) => !ui.theCard?.IsEmpty) : [], applied = faces.filter(([ui, b]) => b.applied && !b.reason && !b.error && ui.bmpFace.texture === b.applied).length, fallback = [...new Set(faces.filter(([, b]) => b.reason).map(([, b]) => b.reason))], detail = atlas?.data ? ` \xB7 \u5B8C\u6574\u5361\u9762 R3 \u5DF2\u66FF\u6362 ${applied}/${faces.length}${fallback.length ? " \xB7 \u56DE\u9000\uFF1A" + fallback.join("\uFF1B") : ""}` : "";
+        this.setStatus(prefix || backgroundStatus || localStatus || (waiting ? "\u7B49\u5F85\u5B98\u65B9\u5361\u9762\uFF0F\u5361\u80CC\u8D44\u6E90\u52A0\u8F7D\uFF0C\u5DF2\u5C31\u7EEA\u7684\u9762\u72EC\u7ACB\u5E94\u7528" : found.size ? `\u5DF2\u63A5\u5165 ${found.size} \u5F20\u539F\u751F\u5361\u724C \xB7 \u4EC5\u672C\u673A\u663E\u793A${detail}` : "\u5957\u88C5\u5DF2\u5C31\u7EEA\uFF0C\u7B49\u5F85\u539F\u751F\u5361\u724C\u51FA\u73B0"));
       } catch (error) {
         this.restore(), this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
       }
@@ -1304,7 +1560,7 @@
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.91", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.129", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
@@ -1356,7 +1612,20 @@
     "3213d63b1cb2227293278743dafd47ad76014122cde1bc2d01db6352a0e78ced",
     "b3c428277050a1365d93af4cacfd521e3b4008c1d44b2f5d7bf558aa311ee3a9",
     "ac6fc676e2d1d319dba12c6364ba85740d33e37e0c34d0f8e7ade180d8e0d029"
-  ]), REPLACED_SKIN_PACKAGES = Object.freeze(["b990b29b6a9eafbe50ea3f820c2dd9753187de6a95aed91191786532cafd1b27", "d8065ccacfd2da8c39e1cf1eded8f743a85de717d6589833f679153ada9d89fa", "36a6458a5cc9c58ece0cedad1df6315e82aafb21ebe4a057e10db17c703a5827", "a9890597c627c6c703bcef0a79339fc6b8472d71f37e05b522117dcf6ac2481d", "d268def49f6f9fbd4b989545594e336886d1a86053d63b1bbdf3f638d1acf002", "5edda81bdbd06ad5ab60b8e564f554e10b1f9d13fa13d983f60ae734867d343c", "a257743d4091e677520f307b6df5a7f2938af7261183b2d57609dc4df41cdd8a", "bfcff0007de23af7439cfc60adbc0cf660bc84a094df360c6bf6f0a5fc812672", "b1b4516b854575ccb02219bd8cdf89332845263e8cced8f9c8738b6e7259eb1b"]), REPLACED_SHANHETU_PACKAGES = Object.freeze(["27d9af46ff339493cbb5bcc0b9e49e648661d9ed7becaf5704a75d0a3b83beae", "437a1ffb64a930e87264e69bcf91a856a1e82c066d732408c884182b4ce6e450", "523473559db6aa12043bb0bd0b22e0a232045d9defede4a2a6a9f3d562ad2133", "5577c02f3922100a434db7c45af19dc3db115866a1a841fc7218083f396b0acf", "ea751303a3e7ecd030d2c5a12a13dd125612f6b64ab41c641116fb763579b421", "55340baa7b51c8d97bdfbedc17209be719c2f05105501390b4028c47554cceeb", "980c908196ff62ac529ab2bfbdade42bef76930f43f534b1b075ead306c10fe2", "9017d32206a5b0e4e2eeede12e390767620579836ed7037e1e223f7ab0c52483", "dfc56a7a02dc4ab17e2f34e3e76862f615f5bf344c534921e8424498fd27b11b", "4d8aaf1df389a0420dfc65c4d5762757c2fe454cc0fbb127fe269b88c5a19af5", "e9f7b5ee0383a29799057f19f16e68e34d57fb7310066dc5d3af45456c7f0445", "997bcf58c5567e0e99829798b855c411d5e51ccad7b5f80e81c9ae84add2656d", "f304bd28030950096503a45d96013c3d7a9e2297ca6143b639b83dcb2d3e197a", "f2739ea490ecf8bee75b1dd6ae0050cc0ad0bc558515c30dbb3c6260e80eaa2f", "332272cc92d11796d8dd7d304560129277acd353726feed7cd1e5a5b6578937a", "bf4207ca6d84501c75f6ec24d094aca952224ce60367196482d6bd6815ca3423", "23d6e6f7bae844ee58a9239bb739fb0ab8d2e64b7766629bca492421bd07f400", "f226d8a8d247ce48c0664ba057ad9f961e7c953291ab7f805714979b7ea35825", "56d82efb93d6eaa0b24c0d5deb8693030f49a0b2fb5af0da49ef6f008943ee65", "674efd3ed6e5719ef9cdabea702b4d6d4394560b18aa5f1ad189486f7467910e", "8de4a53accd1548f58266d9854642462b4fdb089a9a0afcc0561ca725930966d", "95c5bf19558e19c3ef192f2f2022aff19908350e882885cf7855cfe9051801c0", "71fc7d79a3b8014d5f80edda50ea7f7dbba80589ec9c7a8f77bd080056d45175", "151c6e9a3651f5a2c6b7b52321a09c294220400a40385e248d47cb6bb46976c2", "6907320aa5d5e23403c5324926cabf8f48ad23df23afd9925ff5b63e96e87cc6", "4f23cce4d4372a13895716d47d9141acd4c9f13c2be199afff5599148e8349ae", "67362c2dee033a700472210cafc14cc1df351e9a5413273d04e3ff2ce566ce66", "fa6474a1c5170c9ba285f9487031e4b205245d527c97b5ba5f26d68f9bf889ff", "a1f400ad8c8d60f2e4c0b0f981acc8c2be2ab61d1fd6a45ef10b7a3621b05918", "a7595aeaee8cd16ad03b5871310fd7375ea73be7b3d6a1466e8770f9d052fc24", "b6be2108829186604d4a11fb00d63d08e081a1f13f950a715441146c07d26a47", "23077a7742fabceb968d15a85b20c292c37e7a4d6099cf5b9f40a43e59c5fb8a", "2f7654ffde27bed353412a69eb9c5f449270a5e94ff492531e61189825ec560d", "e58c1543240d60a88d2fa92a58ff06ffd30bb4f0d2e75a4a18ba5efad4316d20", "742b76de181ca851dfd0df036a282a3bdee634c61012e687574b7e50216e62e6", "16d2e6a72fbb2258cb1dd69359c34b6753eca73c061b1610d7764ec00068c571", "a78a544feab74eb6d9ddbe6af6662d012a43cd85b698698f4cbadec9dada824d", "d5ad4b8005751bfdfe8301c060e8ab460a2ebd3eb2196112c534e8c44647ba6f", "31ad175296a119402b4a4e90bec5a16cad8a85e9eca2f79e3ee3edf745f27fba", "15366eddcf79bd76dd0f11fa2fb1f393faec512502f0ca01bb9ab13d54238490", "438b0292399649be12f2c42723242d73915a381f8a9c42713b25815c29e57e8b", "44ba81e10e40db62f039946b7e0e18ae162d98e95a350b6ed7eedc2cf8df37ba", "2ff778bd021f4d83971551126ea532ea215ad30e9b0b3dfc0450a88a0de9781c", "6ebf9ca6499f5fbf9b46f4e918990924369359c1191fb62b9026519724ac88cc", "20dac8ad2d3873f7779e2add9d89eb19927b5db6c553563edb69a72afe593624"]), REPLACED_THEME_PACKAGES = Object.freeze(["fabfb9cfc1c6f4c9eeeb69fcc4c9bc319f17d5c964624a616bd15b863c18c5aa", "db376fc6d5b9b878a2dd9bb6642f5d7a24dd5b226c658801aeead6249bc98094", "3589cd781d192c53790071a1775924d4a8ccab648272961a991e6e3bf6034abd"]), REPLACED_BACKGROUND_PACKAGES = Object.freeze(["488b63b7fb2c1d88ddee7bc4a858a09f1a5a7f1271be6f012d612936431cbebc", "7aa96fde03bf1a9d1f5d287c63d86f1c11365bf5fb980bfd9d812b76f9543dd5", "1ebfbcaa2a4e5a2b3112f37aa0d48ce66b355d4a0934b1ff5310916427555b60", "f52fec744b48f472e3db4aa9cbf9e03864d996ba299aed70925d721477fdb2aa"]);
+  ]), REPLACED_SKIN_PACKAGES = Object.freeze(["b990b29b6a9eafbe50ea3f820c2dd9753187de6a95aed91191786532cafd1b27", "d8065ccacfd2da8c39e1cf1eded8f743a85de717d6589833f679153ada9d89fa", "36a6458a5cc9c58ece0cedad1df6315e82aafb21ebe4a057e10db17c703a5827", "a9890597c627c6c703bcef0a79339fc6b8472d71f37e05b522117dcf6ac2481d", "d268def49f6f9fbd4b989545594e336886d1a86053d63b1bbdf3f638d1acf002", "5edda81bdbd06ad5ab60b8e564f554e10b1f9d13fa13d983f60ae734867d343c", "a257743d4091e677520f307b6df5a7f2938af7261183b2d57609dc4df41cdd8a", "bfcff0007de23af7439cfc60adbc0cf660bc84a094df360c6bf6f0a5fc812672", "b1b4516b854575ccb02219bd8cdf89332845263e8cced8f9c8738b6e7259eb1b"]), REPLACED_SHANHETU_PACKAGES = Object.freeze(["4f23523f68fb5e27f319a4312a728ffdf648b0049955dfeffead1651ec07e984", "e8f263b989b6cc8361d35240ac6f23dda39ab4d05ee209bdd1f41aff877e82c2", "6975e211a97b612ff61f8456eabe869547921f79c6c83e8885e398cd6be4460c", "03d3564fde594df3feb199cd5d7e323c3730dc1494546ad26cd375427a8accc2", "95c06e8921132548973e9c55b20c16ba06043218bbb090eaedd840191cbb08ff", "27d9af46ff339493cbb5bcc0b9e49e648661d9ed7becaf5704a75d0a3b83beae", "437a1ffb64a930e87264e69bcf91a856a1e82c066d732408c884182b4ce6e450", "523473559db6aa12043bb0bd0b22e0a232045d9defede4a2a6a9f3d562ad2133", "5577c02f3922100a434db7c45af19dc3db115866a1a841fc7218083f396b0acf", "ea751303a3e7ecd030d2c5a12a13dd125612f6b64ab41c641116fb763579b421", "55340baa7b51c8d97bdfbedc17209be719c2f05105501390b4028c47554cceeb", "980c908196ff62ac529ab2bfbdade42bef76930f43f534b1b075ead306c10fe2", "9017d32206a5b0e4e2eeede12e390767620579836ed7037e1e223f7ab0c52483", "dfc56a7a02dc4ab17e2f34e3e76862f615f5bf344c534921e8424498fd27b11b", "4d8aaf1df389a0420dfc65c4d5762757c2fe454cc0fbb127fe269b88c5a19af5", "e9f7b5ee0383a29799057f19f16e68e34d57fb7310066dc5d3af45456c7f0445", "997bcf58c5567e0e99829798b855c411d5e51ccad7b5f80e81c9ae84add2656d", "f304bd28030950096503a45d96013c3d7a9e2297ca6143b639b83dcb2d3e197a", "f2739ea490ecf8bee75b1dd6ae0050cc0ad0bc558515c30dbb3c6260e80eaa2f", "332272cc92d11796d8dd7d304560129277acd353726feed7cd1e5a5b6578937a", "bf4207ca6d84501c75f6ec24d094aca952224ce60367196482d6bd6815ca3423", "23d6e6f7bae844ee58a9239bb739fb0ab8d2e64b7766629bca492421bd07f400", "f226d8a8d247ce48c0664ba057ad9f961e7c953291ab7f805714979b7ea35825", "56d82efb93d6eaa0b24c0d5deb8693030f49a0b2fb5af0da49ef6f008943ee65", "674efd3ed6e5719ef9cdabea702b4d6d4394560b18aa5f1ad189486f7467910e", "8de4a53accd1548f58266d9854642462b4fdb089a9a0afcc0561ca725930966d", "95c5bf19558e19c3ef192f2f2022aff19908350e882885cf7855cfe9051801c0", "71fc7d79a3b8014d5f80edda50ea7f7dbba80589ec9c7a8f77bd080056d45175", "151c6e9a3651f5a2c6b7b52321a09c294220400a40385e248d47cb6bb46976c2", "6907320aa5d5e23403c5324926cabf8f48ad23df23afd9925ff5b63e96e87cc6", "4f23cce4d4372a13895716d47d9141acd4c9f13c2be199afff5599148e8349ae", "67362c2dee033a700472210cafc14cc1df351e9a5413273d04e3ff2ce566ce66", "fa6474a1c5170c9ba285f9487031e4b205245d527c97b5ba5f26d68f9bf889ff", "a1f400ad8c8d60f2e4c0b0f981acc8c2be2ab61d1fd6a45ef10b7a3621b05918", "a7595aeaee8cd16ad03b5871310fd7375ea73be7b3d6a1466e8770f9d052fc24", "b6be2108829186604d4a11fb00d63d08e081a1f13f950a715441146c07d26a47", "23077a7742fabceb968d15a85b20c292c37e7a4d6099cf5b9f40a43e59c5fb8a", "2f7654ffde27bed353412a69eb9c5f449270a5e94ff492531e61189825ec560d", "e58c1543240d60a88d2fa92a58ff06ffd30bb4f0d2e75a4a18ba5efad4316d20", "742b76de181ca851dfd0df036a282a3bdee634c61012e687574b7e50216e62e6", "16d2e6a72fbb2258cb1dd69359c34b6753eca73c061b1610d7764ec00068c571", "a78a544feab74eb6d9ddbe6af6662d012a43cd85b698698f4cbadec9dada824d", "d5ad4b8005751bfdfe8301c060e8ab460a2ebd3eb2196112c534e8c44647ba6f", "31ad175296a119402b4a4e90bec5a16cad8a85e9eca2f79e3ee3edf745f27fba", "15366eddcf79bd76dd0f11fa2fb1f393faec512502f0ca01bb9ab13d54238490", "438b0292399649be12f2c42723242d73915a381f8a9c42713b25815c29e57e8b", "44ba81e10e40db62f039946b7e0e18ae162d98e95a350b6ed7eedc2cf8df37ba", "2ff778bd021f4d83971551126ea532ea215ad30e9b0b3dfc0450a88a0de9781c", "6ebf9ca6499f5fbf9b46f4e918990924369359c1191fb62b9026519724ac88cc", "20dac8ad2d3873f7779e2add9d89eb19927b5db6c553563edb69a72afe593624", "cbff0d7705f6f847b39473baeae6c126a34850685d95956ca07bf09e0ea6ce40"]), REPLACED_THEME_PACKAGES = Object.freeze(["fabfb9cfc1c6f4c9eeeb69fcc4c9bc319f17d5c964624a616bd15b863c18c5aa", "db376fc6d5b9b878a2dd9bb6642f5d7a24dd5b226c658801aeead6249bc98094", "3589cd781d192c53790071a1775924d4a8ccab648272961a991e6e3bf6034abd"]), REPLACED_BACKGROUND_PACKAGES = Object.freeze(["488b63b7fb2c1d88ddee7bc4a858a09f1a5a7f1271be6f012d612936431cbebc", "7aa96fde03bf1a9d1f5d287c63d86f1c11365bf5fb980bfd9d812b76f9543dd5", "1ebfbcaa2a4e5a2b3112f37aa0d48ce66b355d4a0934b1ff5310916427555b60", "f52fec744b48f472e3db4aa9cbf9e03864d996ba299aed70925d721477fdb2aa"]), REPLACED_SHANHETU_BETA_PACKAGES = Object.freeze([
+    "d386dd79b9e8035c78ad5485594dec1c1cba8bef0cc64187e377c2993198ab47",
+    "7773e829307fb13763ff32f8c492d7f9c85a8dea8ac150faef994f375f5ff6b0",
+    "b89e0c4f7155749e1ec287815e7a7c7ce4d743fef76ed5fedfff3dffc2f30429",
+    "e829b3fab31272efa82321480df08da52cea24e0982465f23ef8131381b05a05",
+    "afe9638d54d21777163b139b060abe9f2b9016596a162c591c2d9bb446f26575",
+    "3e9e6d941c7dce854ddf56c7e4fb1491cf7cc504c2eeff68085ff11ab3c88ce0",
+    "79ef88fb2c89bef189de46fd2f2bad461a01d1a210371a2d73b1ccd2afc06be6",
+    "b478b3de512a37bf06243461777833a1377eff25e22cb8f78fcb055a84893835",
+    "d2b7402dedf7a6f7689b62cd6dca325a99027603a1e51fb01f2d588775461529",
+    "6a97b76dcc50c01a4497fd7c5d8c7ea154a76aabc391db78197b3212f232d4e6",
+    "1995c1abe7cebb66fc9d1d3b889eddf41f418bd54725d7f9cd38e34859662008",
+    "e993311d150680de8cabcb2d2e294612fbe030475138a47aedf36a55ac4ad790"
+  ]);
 
   // src/core/background-motion.js
   function nativeEffect(layer, spine) {
@@ -1385,8 +1654,14 @@
     }
     return effect;
   }
+  function stableBackgroundClip(animations) {
+    let names = animations?.map((animation) => animation.name).filter(Boolean) ?? [], idle = names.find((name) => name.toLowerCase() === "daiji") ?? names.find((name) => name.toLowerCase() === "play");
+    if (idle) return idle;
+    let remaining = names.filter((name) => !/^(ChuChang|GongJi|HuDong|JiNeng)$/i.test(name));
+    return remaining.length === 1 ? remaining[0] : void 0;
+  }
   function createBackgroundMotion({ window: window2, layer, spec, size, scope, ready, fail }) {
-    let laya = window2.Laya, root = new laya.Sprite(), players = [], loaded = !1, failed = !1, visible = !1, playing = null;
+    let laya = window2.Laya, root = new laya.Sprite(), players = [], loaded = !1, failed = !1, visible = !1, playing = null, stopAttack;
     root.name = "sgs-background-motion", root.mouseEnabled = root.mouseChildren = !1, root.zOrder = layer.bgSprite.zOrder || 0, root.size(size.width, size.height), root.scrollRect = new laya.Rectangle(0, 0, size.width, size.height), root.visible = !1, scope.add(() => root.destroy(!0)), layer.addChildAt(root, Math.max(0, layer.getChildIndex(layer.bgSprite)) + 1);
     let error = (value) => {
       if (!(scope.closed || failed)) {
@@ -1400,11 +1675,14 @@
       get loaded() {
         return loaded && !failed;
       },
+      stopAttack() {
+        stopAttack?.();
+      },
       layout(fit) {
         scope.closed || !fit || (root.pos(fit.x, fit.y), root.scale(fit.scale, fit.scale));
       },
       show(value) {
-        if (!scope.closed && (visible = value && !failed, root.visible = visible && loaded, playing !== visible)) {
+        if (!scope.closed && (visible = value && !failed, root.visible = visible && loaded, visible || stopAttack?.(), playing !== visible)) {
           playing = visible;
           for (let player of players) visible ? player.resume() : player.pause();
         }
@@ -1440,83 +1718,121 @@
       };
       laya.timer.frameLoop(1, root, frame), scope.add(() => laya.timer.clear(root, frame)), video.src = spec.url, video.load();
     } else {
-      let parts = spec.kind === "bone" ? ["beijing", ...spec.parts] : spec.modern ? ["beijing", "daiji", "qianjing"] : ["beijing", "xingxiang"], count = 0;
+      let parts = spec.kind === "bone" ? ["beijing", ...spec.parts] : spec.modern ? ["beijing", "daiji", "qianjing"] : ["beijing", "xingxiang"], idle = /* @__PURE__ */ new Map(), count = 0;
       for (let part of parts) {
         let effect = nativeEffect(layer, spec.kind === "spine");
-        scope.add(() => effect.destroy()), root.addChild(effect), effect.mouseEnabled = effect.mouseChildren = !1, spec.kind === "bone" && effect.size(size.width, size.height), effect.pos(size.width / 2, size.height / 2), effect.AutoReleaseRes = !0;
-        let onStart = () => {
+        scope.add(() => effect.destroy()), root.addChild(effect), effect.mouseEnabled = effect.mouseChildren = !1, spec.kind === "bone" && effect.size(size.width, size.height), effect.pos(size.width / 2, size.height / 2), effect.AutoReleaseRes = !0, idle.set(part, effect);
+        let started = !1, partReady = () => {
           ++count === parts.length && (complete(), result.show(visible));
+        }, onStart = () => {
+          scope.closed || failed || (started = !0, visible || effect.stop(), partReady());
         };
-        effect.once(laya.Event?.START || "start", effect, onStart), effect.once(laya.Event?.ERROR || "error", effect, error);
-        let animation = spec.modern && part !== "beijing" ? "DaiJi" : spec.modern ? 0 : "play";
-        effect.InitEffect(`${spec.url}/${part}.${spec.kind === "spine" ? "json" : "sk"}`, animation, !0, !1), effect.playEffect(), players.push({ pause() {
-          effect.stop();
+        effect.once(laya.Event?.START || "start", effect, onStart), effect.once(laya.Event?.ERROR || "error", effect, error), players.push({ pause() {
+          started && effect.stop();
         }, resume() {
-          effect.playEffect();
+          started && effect.playEffect();
         } });
+        let url = `${spec.url}/${part}.${spec.kind === "spine" ? "json" : "sk"}`, modernSpine = spec.kind === "spine" && spec.modern, loadEvent = effect.constructor.SPINE_EFFECT_LOAD_COMPLETE;
+        modernSpine && part === "beijing" && loadEvent && (effect.AutoStart = !1, effect.once(loadEvent, effect, () => {
+          if (scope.closed || failed) return;
+          let animation = stableBackgroundClip(effect.templet?.skeletonData?.animations);
+          if (!animation) {
+            effect.visible = !1, partReady();
+            return;
+          }
+          effect.InitEffect(url, animation, !0, !1), effect.playEffect();
+        })), effect.InitEffect(url, modernSpine ? "DaiJi" : "play", !0, !1), effect.playEffect();
+      }
+      if (spec.kind === "spine" && spec.modern) {
+        let missing = /* @__PURE__ */ new Set();
+        result.playAttack = () => {
+          if (scope.closed || !result.loaded || !visible || stopAttack || missing.has("xingxiang")) return;
+          let action = new ResourceScope(), stop = scope.add(() => {
+            stopAttack = null, action.dispose();
+          });
+          stopAttack = stop, action.timeout(stop, 2e4);
+          try {
+            for (let [part, idlePart] of [["xingxiang", "daiji"], ["qianjing", "qianjing"]]) {
+              if (missing.has(part)) continue;
+              let underneath = idle.get(idlePart), effect = nativeEffect(layer, !0), active = !0, ended = !1, release = action.add(() => {
+                active = !1, underneath.visible = !0, effect.destroy();
+              });
+              effect.visible = effect.mouseEnabled = effect.mouseChildren = !1, effect.AutoReleaseRes = !0, root.addChildAt(effect, root.getChildIndex(underneath) + 1), effect.pos(size.width / 2, size.height / 2);
+              let finish = () => {
+                ended = !0, Promise.resolve().then(part === "xingxiang" ? stop : release).catch(stop);
+              };
+              if (effect.once(laya.Event?.START || "start", effect, () => {
+                !active || ended || (underneath.visible = !1, effect.visible = !0);
+              }), effect.once(laya.Event?.STOPPED || "stopped", effect, finish), effect.once(laya.Event?.ERROR || "error", effect, finish), effect.once(effect.constructor.PLAY_NAME_LOSE || "PLAY_NAME_LOSE", effect, () => {
+                missing.add(part), finish();
+              }), effect.InitEffect(`${spec.url}/${part}.json`, "GongJi", !1, !1), effect.playEffect(), part === "xingxiang" && ended) break;
+            }
+          } catch {
+            stop();
+          }
+        };
       }
     }
     return result;
   }
 
   // src/core/background-local.js
-  function imageType(bytes) {
-    let data = new DataView(bytes), tag = (offset) => data.getUint32(offset);
-    if (bytes.byteLength >= 8 && tag(0) === 2303741511 && tag(4) === 218765834) {
-      for (let offset = 8; offset + 12 <= bytes.byteLength; ) {
-        let chunk = tag(offset + 4);
-        if (chunk === 1633899596) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301 APNG");
-        if (chunk === 1229209940) return "image/png";
-        offset += 12 + tag(offset);
-      }
-      throw new Error("PNG \u56FE\u7247\u5185\u5BB9\u4E0D\u5B8C\u6574");
-    }
-    if (bytes.byteLength >= 21 && tag(0) === 1380533830 && tag(8) === 1464156752) {
-      if (tag(12) === 1448097880 && data.getUint8(20) & 2) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301\u52A8\u6001 WebP");
-      return "image/webp";
-    }
-    if (bytes.byteLength >= 3 && data.getUint16(0) === 65496 && data.getUint8(2) === 255) return "image/jpeg";
-    if (bytes.byteLength >= 14 && data.getUint16(0) === 16973) return "image/bmp";
-    throw new Error("\u8BF7\u9009\u62E9 PNG\u3001JPG\u3001WebP \u6216 BMP \u9759\u6001\u56FE\u7247");
-  }
-  async function readLocalBackground(win, file) {
-    if (!file?.size || file.size > 20971520) throw new Error("\u8BF7\u9009\u62E9\u4E0D\u8D85\u8FC7 20 MB \u7684\u56FE\u7247\u6587\u4EF6");
-    if (typeof file.arrayBuffer != "function" || !win.URL?.createObjectURL || !win.Image) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u8BFB\u53D6\u672C\u5730\u56FE\u7247");
-    let bytes = await file.arrayBuffer(), type = imageType(bytes), url = win.URL.createObjectURL(new win.Blob([bytes], { type }));
-    try {
-      let image = new win.Image();
-      await new Promise((resolve, reject) => {
-        image.onload = resolve, image.onerror = () => reject(new Error("\u65E0\u6CD5\u6253\u5F00\u56FE\u7247\uFF0C\u6587\u4EF6\u53EF\u80FD\u5DF2\u635F\u574F")), image.src = url;
-      });
-      let { naturalWidth: width, naturalHeight: height } = image;
-      if (!(width > 0 && height > 0)) throw new Error("\u56FE\u7247\u5C3A\u5BF8\u65E0\u6548");
-      let scale = 4096 / Math.max(width, height);
-      if (scale >= 1) return { bytes, type };
+  var MAX_TEXTURE_EDGE = 4096;
+  function readLocalBackground(win, file) {
+    return withLocalImage(win, file, async (image, original) => {
+      let { naturalWidth: width, naturalHeight: height } = image, scale = MAX_TEXTURE_EDGE / Math.max(width, height);
+      if (scale >= 1) return original;
       let canvas = win.document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(width * scale)), canvas.height = Math.max(1, Math.round(height * scale)), canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
       let resized = await new Promise((resolve, reject) => canvas.toBlob(
         (resized2) => resized2 ? resolve(resized2) : reject(new Error("\u65E0\u6CD5\u7F29\u5C0F\u8FD9\u5F20\u56FE\u7247")),
-        type === "image/jpeg" ? "image/jpeg" : "image/png"
+        original.type === "image/jpeg" ? "image/jpeg" : "image/png"
       ));
       return { bytes: await resized.arrayBuffer(), type: resized.type };
-    } finally {
-      win.URL.revokeObjectURL(url);
+    });
+  }
+  function localBackgroundImage(win, mode, operation) {
+    return localImageTransaction(win, "sgs-toolbox-backgrounds", mode, operation);
+  }
+
+  // src/core/seat.js
+  var read2 = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return;
+    }
+  };
+  function nativeSeatOccupied(ui) {
+    let seat = nativeSeat(ui);
+    return read2(() => seat.IsFull) !== !1;
+  }
+  function nativeSeatPosition(ui) {
+    let seat = nativeSeat(ui), value = read2(() => seat.FixedViewId) ?? read2(() => seat.fixedViewId);
+    return Number.isInteger(value) && value >= 1 && value <= 255 ? value : void 0;
+  }
+  function nativeSeat(ui) {
+    return read2(() => ui.Seat) ?? read2(() => ui.seat) ?? read2(() => ui.cardContainer.Seat) ?? read2(() => ui.cardContainer.seat) ?? null;
+  }
+  function nativeSeatId(ui) {
+    let seat = nativeSeat(ui);
+    for (let value of [
+      read2(() => seat.index),
+      read2(() => seat.Index),
+      read2(() => seat.SeatID),
+      read2(() => seat.ID),
+      read2(() => ui.seatID),
+      read2(() => ui.seatId)
+    ]) {
+      if (value == null || value === "" || typeof value == "boolean") continue;
+      let id = Number(value);
+      if (Number.isInteger(id) && id >= 0 && id < 255) return id;
     }
   }
-  async function localBackgroundImage(win, mode, operation) {
-    if (!win.indexedDB) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u4FDD\u5B58\u672C\u5730\u56FE\u7247");
-    let db = await new Promise((resolve, reject) => {
-      let request = win.indexedDB.open("sgs-toolbox-backgrounds", 1);
-      request.onupgradeneeded = () => request.result.createObjectStore("images", { autoIncrement: !0 }), request.onsuccess = () => resolve(request.result), request.onerror = () => reject(request.error);
-    });
-    try {
-      return await new Promise((resolve, reject) => {
-        let tx = db.transaction("images", mode), request = operation(tx.objectStore("images"));
-        tx.oncomplete = () => resolve(request.result), tx.onabort = () => reject(tx.error || new Error("\u672C\u5730\u56FE\u7247\u5B58\u50A8\u64CD\u4F5C\u5DF2\u4E2D\u6B62"));
-      });
-    } finally {
-      db.close();
-    }
+
+  // src/shared/skin-detail.js
+  function supportsSkinBackgroundAttack(dynamic) {
+    return dynamic?.kind === "spine" && dynamic.modern === !0 && dynamic.attack !== !1;
   }
 
   // src/core/backgrounds.js
@@ -1557,9 +1873,51 @@
       let dynamicUrl = backgroundSpec({ name: "\u52A8\u6001\u8D44\u6E90", url: d.url }).url;
       if (![d.width, d.height].every((n) => Number.isFinite(n) && n > 0 && n <= 16384)) throw new Error("\u52A8\u6001\u80CC\u666F\u5C3A\u5BF8\u65E0\u6548");
       if (d.parts != null && (!Array.isArray(d.parts) || d.parts.length > 16 || d.parts.some((p) => !/^[\w-]{1,80}$/.test(p)) || new Set(d.parts).size !== d.parts.length || d.parts.includes("beijing"))) throw new Error("\u52A8\u6001\u80CC\u666F\u5206\u5C42\u65E0\u6548");
-      result.dynamic = Object.freeze({ kind: d.kind, url: dynamicUrl.replace(/\/$/, ""), width: d.width, height: d.height, modern: d.modern === !0, parts: Object.freeze([...d.parts || []]) });
+      result.dynamic = Object.freeze({
+        kind: d.kind,
+        url: dynamicUrl.replace(/\/$/, ""),
+        width: d.width,
+        height: d.height,
+        modern: d.modern === !0,
+        parts: Object.freeze([...d.parts || []]),
+        ...typeof d.attack == "boolean" ? { attack: d.attack } : {}
+      });
     }
-    return result.animated = value.animated !== !1, Object.freeze(result);
+    return result.animated = value.animated !== !1, result.attackEffects = value.attackEffects !== !1, Object.freeze(result);
+  }
+  var ATTACK_SKILL = /* @__PURE__ */ new Map([[1, "slash"], [11111, "slash"], [11112, "slash"], [11114, "slash"], [8, "attack"], [9, "attack"], [10, "attack"]]), ATTACK_CARDS = /* @__PURE__ */ new Map([
+    ["\u6740", "slash"],
+    ["\u706B\u6740", "slash"],
+    ["\u96F7\u6740", "slash"],
+    ["\u51B0\u6740", "slash"],
+    ["\u706B\u7130\u6740", "slash"],
+    ["\u96F7\u7535\u6740", "slash"],
+    ["\u51B0\u971C\u6740", "slash"],
+    ["\u51B3\u6597", "attack"],
+    ["\u5357\u86EE\u5165\u4FB5", "attack"],
+    ["\u4E07\u7BAD\u9F50\u53D1", "attack"]
+  ]);
+  function watchBackgroundAttack(game, scene, scope, play) {
+    let currentSeat = () => {
+      let seat2 = nativeSeat(game.getSelfSeatUI?.());
+      return seat2?.IsSelf === !1 ? null : seat2;
+    }, seat, release, trigger = (kind, useType) => {
+      (kind === "attack" || kind === "slash" && Number(useType) === 1) && play();
+    };
+    return (enabled) => {
+      let next = enabled ? currentSeat() : null;
+      if (next === seat || (release?.(), seat = next, typeof seat?.on != "function" || typeof seat.off != "function")) return;
+      let bound = seat, isCurrent = () => !scope.closed && game.getScene() === scene && game.isInGame() && currentSeat() === bound, card = (id, useType) => {
+        if (!isCurrent()) return;
+        let meta = game.getCardMeta?.(id);
+        trigger(meta?.firstSkillId > 0 ? ATTACK_SKILL.get(meta.firstSkillId) : ATTACK_CARDS.get(meta?.name), useType);
+      }, skillCard = (id, useType) => {
+        isCurrent() && trigger(ATTACK_SKILL.get(Number(id)), useType);
+      };
+      release = scope.add(() => {
+        bound.off("USE_CARD", scope, card), bound.off("USE_SKILL_CARD", scope, skillCard);
+      }), bound.on("USE_CARD", scope, card), bound.on("USE_SKILL_CARD", scope, skillCard);
+    };
   }
   var BackgroundRegistry = class {
     constructor({ window: window2, game, settings, scope }) {
@@ -1601,6 +1959,10 @@
     select(owner, spec) {
       if (!this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
       this.saveSelection(spec ? { ...backgroundSpec(spec), owner } : null);
+    }
+    setAttackEffects(owner, enabled) {
+      let choice = this.current;
+      choice?.owner !== owner || !this.providers.has(owner) || !supportsSkinBackgroundAttack(choice.dynamic) || (this.settings.set("battleBackground", { ...choice, attackEffects: enabled === !0 }), enabled || this.binding?.motion?.stopAttack(), this.refresh(), this.emit());
     }
     async selectLocal(owner, file) {
       if (this.scope.closed || !this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
@@ -1830,7 +2192,9 @@
                 local.closed || this.refresh();
               },
               fail
-            }), motionScope.closed && (b2.motion = null), layer.updateBgSize();
+            }), motionScope.closed && (b2.motion = null), b2.motion && supportsSkinBackgroundAttack(choice.dynamic) && (b2.syncAttackSeat = watchBackgroundAttack(this.game, scene, motionScope, () => {
+              eligible() && layer.bg?.skin === choice.url && b2.motion?.playAttack?.();
+            })), layer.updateBgSize();
           } catch (error) {
             fail(error?.stack || String(error));
           }
@@ -1838,7 +2202,7 @@
       }
       scene.currentWeatherWallPaper || this.binding.yielded ? this.binding.hideFill?.() : this.binding.syncMotion();
       let b = this.binding;
-      this.state(scene.currentWeatherWallPaper || b.yielded ? "\u6280\u80FD\u80CC\u666F\u4F18\u5148" : b.motionError ? "\u52A8\u6001\u80CC\u666F\u5931\u8D25\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B\uFF1A" + b.motionError : b.motion ? b.motion.loaded ? "\u52A8\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528" : "\u6B63\u5728\u52A0\u8F7D\u52A8\u6001\u80CC\u666F\uFF0C\u6682\u663E\u9759\u6001\u539F\u753B" : "\u9759\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528");
+      b.motion && b.syncAttackSeat?.(choice.attackEffects !== !1), this.state(scene.currentWeatherWallPaper || b.yielded ? "\u6280\u80FD\u80CC\u666F\u4F18\u5148" : b.motionError ? "\u52A8\u6001\u80CC\u666F\u5931\u8D25\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B\uFF1A" + b.motionError : b.motion ? b.motion.loaded ? "\u52A8\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528" : "\u6B63\u5728\u52A0\u8F7D\u52A8\u6001\u80CC\u666F\uFF0C\u6682\u663E\u9759\u6001\u539F\u753B" : "\u9759\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528");
     }
   };
 
@@ -1900,6 +2264,10 @@
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -2124,6 +2492,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     };
   }
 
+  // src/shared/skin-options.js
+  function advancedSkinOption(settings, key) {
+    return settings.get("advanced", !0) === !0 && settings.get(key, !0) === !0;
+  }
+
   // src/shared/plugin-release-notes.js
   var validReleaseNotes = (value) => value === void 0 || typeof value == "string" && value.trim().length > 0 && value.length <= 2e3 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value);
 
@@ -2165,6 +2538,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let declared = manifest.categories, category = spec.category ?? (declared.length === 1 ? declared[0] : void 0);
     if (!PANEL_CATEGORIES.includes(category) || !declared.includes(category)) throw new Error("\u9762\u677F\u5206\u7C7B\u5FC5\u987B\u5728\u63D2\u4EF6 categories \u4E2D\u58F0\u660E\uFF1B\u591A\u5206\u7C7B\u63D2\u4EF6\u987B\u6307\u5B9A category\u3002");
     if (spec.priority !== void 0 && requirePriority(spec.priority), spec.gameView !== void 0 && (category !== "game" || !["battle", "shanhe"].includes(spec.gameView))) throw new Error("gameView \u4EC5\u7528\u4E8E game \u9762\u677F\uFF0C\u503C\u4E3A battle \u6216 shanhe\u3002");
+    if (spec.groupWith !== void 0 && !manifest.dependencies?.includes(spec.groupWith)) throw new Error("\u9762\u677F\u53EA\u80FD\u5E76\u5165\u5DF2\u58F0\u660E\u7684\u524D\u7F6E\u63D2\u4EF6\u7EC4\u3002");
+    if (spec.groupTab !== void 0 && (spec.groupTab !== !0 || !spec.groupWith || spec.title === void 0)) throw new Error("\u7EC4\u5185\u9875\u7B7E\u5FC5\u987B\u58F0\u660E\u524D\u7F6E\u63D2\u4EF6\u7EC4\u548C\u9875\u7B7E\u6807\u9898\u3002");
+    if (spec.groupTabs !== void 0 && (spec.groupTabs !== !0 || spec.groupWith)) throw new Error("\u53EA\u6709\u72EC\u7ACB\u63D2\u4EF6\u7EC4\u7684\u9762\u677F\u53EF\u4EE5\u627F\u8F7D\u7EC4\u5185\u9875\u7B7E\u3002");
+    if ((spec.groupTab || spec.groupTabs) && (!stableVersion.test(manifest.minCoreVersion || "") || compareVersions(manifest.minCoreVersion, "0.6.121") < 0))
+      throw new Error("\u7EC4\u5185\u9875\u7B7E\u8981\u6C42 minCoreVersion \u81F3\u5C11\u4E3A 0.6.121\u3002");
     return {
       ...spec,
       id: manifest.id + ":" + spec.id,
@@ -2599,11 +2977,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             if (scope.closed) return () => {
             };
             let panel = normalizePanel(spec, slot.module.manifest), render = panel.render;
-            return panel.render = (container) => {
+            return panel.render = (container, options) => {
               let root = container.getRootNode?.(), release = root?.host ? acquirePluginStyles(root, this.context.document) : () => {
               };
               try {
-                let cleanup = render(container);
+                let cleanup = render(container, options);
                 return () => {
                   try {
                     cleanup?.();
@@ -2619,10 +2997,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         },
         backgrounds: {
           isInstalled: () => !scope.closed && this.slots.has("backgrounds"),
+          skinShortcutEnabled: () => !scope.closed && advancedSkinOption(this.settings.namespace("skins"), "backgroundShortcut"),
           register: () => scope.closed ? () => {
           } : scope.add(this.context.backgrounds.register(id)),
           select: (spec) => {
             scope.closed || this.context.backgrounds.select(id, spec);
+          },
+          setAttackEffects: (enabled) => {
+            scope.closed || this.context.backgrounds.setAttackEffects(id, enabled);
           },
           selectLocal: (file) => {
             if (!scope.closed) return this.context.backgrounds.selectLocal(id, file);
@@ -3220,7 +3602,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   ALLOWED.add("gn_dbs_coupon_cfg");
   ALLOWED.add("hd_fight_lord_config");
   ALLOWED.add("sys_ss_gamelabel_config");
-  var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read2 = (fn) => {
+  var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read3 = (fn) => {
     try {
       return fn();
     } catch {
@@ -3304,26 +3686,26 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function getConfigData(name) {
       name = validate(name);
       for (let container of [
-        read2(() => win.CtrUtil.AllDatas),
-        read2(() => win.SystemContext.AllDatas),
-        read2(() => win.__SGS_TOOLBOX_DEMO__.configs)
+        read3(() => win.CtrUtil.AllDatas),
+        read3(() => win.SystemContext.AllDatas),
+        read3(() => win.__SGS_TOOLBOX_DEMO__.configs)
       ]) {
-        let data = read2(() => container[`${name}.sgs`]) || read2(() => container[name]);
+        let data = read3(() => container[`${name}.sgs`]) || read3(() => container[name]);
         if (data && typeof data == "object") return data;
       }
       return cache2.get(name) || null;
     }
     function archiveUrl() {
-      let origin = read2(() => win.location.origin);
+      let origin = read3(() => win.location.origin);
       if (origin !== "https://web.sanguosha.com" && origin !== "http://web.sanguosha.com") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u6570\u636E\u5C31\u7EEA");
-      let entries = read2(() => win.performance.getEntriesByType("resource")) || [];
+      let entries = read3(() => win.performance.getEntriesByType("resource")) || [];
       for (let entry of entries.slice(-2048).reverse())
         try {
           let url = new URL(entry.name);
           if (url.protocol === "https:" && url.hostname === "web.sanguosha.com" && /\/Config_w\.sgs$/.test(url.pathname) && !url.username && !url.password) return url.href;
         } catch {
         }
-      let version = read2(() => win.resourceVersion);
+      let version = read3(() => win.resourceVersion);
       if (!["string", "number"].includes(typeof version) || !String(version).trim()) throw new Error("\u7B49\u5F85\u5BA2\u6237\u7AEF\u8D44\u6E90\u7248\u672C\u5C31\u7EEA\uFF0C\u8BF7\u7A0D\u540E\u5237\u65B0");
       return `https://web.sanguosha.com/220/h5_2/res/config/Config_w.sgs?v=${encodeURIComponent(String(version))}`;
     }
@@ -3347,8 +3729,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       if (name = validate(name), scope.closed) throw cancelled();
       let existing = getConfigData(name);
       return existing || (pending.has(name) || pending.set(name, (async () => {
-        let ctrClass = read2(() => win.CtrUtil) || read2(() => typeof CtrUtil < "u" ? CtrUtil : null), decryptor = read2(() => ctrClass.Ctr);
-        if (typeof read2(() => decryptor.Ofb_Dec) != "function") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u89E3\u7801\u5668\u5C31\u7EEA");
+        let ctrClass = read3(() => win.CtrUtil) || read3(() => typeof CtrUtil < "u" ? CtrUtil : null), decryptor = read3(() => ctrClass.Ctr);
+        if (typeof read3(() => decryptor.Ofb_Dec) != "function") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u89E3\u7801\u5668\u5C31\u7EEA");
         let packed = await archive();
         if (scope.closed) throw cancelled();
         let encrypted = await readZipEntry(packed, `${name}.sgs`, win);
@@ -3367,43 +3749,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), { getConfigData, loadConfigData };
   }
 
-  // src/core/seat.js
-  var read3 = (fn) => {
-    try {
-      return fn();
-    } catch {
-      return;
-    }
-  };
-  function nativeSeatOccupied(ui) {
-    let seat = nativeSeat(ui);
-    return read3(() => seat.IsFull) !== !1;
-  }
-  function nativeSeatPosition(ui) {
-    let seat = nativeSeat(ui), value = read3(() => seat.FixedViewId) ?? read3(() => seat.fixedViewId);
-    return Number.isInteger(value) && value >= 1 && value <= 255 ? value : void 0;
-  }
-  function nativeSeat(ui) {
-    return read3(() => ui.Seat) ?? read3(() => ui.seat) ?? read3(() => ui.cardContainer.Seat) ?? read3(() => ui.cardContainer.seat) ?? null;
-  }
-  function nativeSeatId(ui) {
-    let seat = nativeSeat(ui);
-    for (let value of [
-      read3(() => seat.index),
-      read3(() => seat.Index),
-      read3(() => seat.SeatID),
-      read3(() => seat.ID),
-      read3(() => ui.seatID),
-      read3(() => ui.seatId)
-    ]) {
-      if (value == null || value === "" || typeof value == "boolean") continue;
-      let id = Number(value);
-      if (Number.isInteger(id) && id >= 0 && id < 255) return id;
-    }
-  }
-
   // src/core/game.js
-  var GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/, read4 = (fn) => {
+  var GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/, STARTUP_SCENE = /(?:^|\.)(?:LoginScene|CreateUserScene|CreateRoleScene|MainNullScene|LoadingScene)$/, read4 = (fn) => {
     try {
       return fn();
     } catch {
@@ -3481,6 +3828,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       let layer = walk((node) => node.name === "SceneLayer" || node.layerOrder === 2);
       return layer && children(layer).filter((node) => node !== layer && alive(node) && read4(() => node.visible) !== !1).at(-1) || null;
     }
+    function canReserveViewport() {
+      let scene = stageScene(), name = read4(() => scene.SceneName) || read4(() => scene.sceneName);
+      return typeof name == "string" && name.length > 0 && !STARTUP_SCENE.test(name) && read4(() => scene.initialized) !== !1;
+    }
     function getScene() {
       let nextStage = read4(() => win.Laya.stage) || null;
       stage !== nextStage && (stage = nextStage, dispatcher = dispatcherOwner = null, providers = /* @__PURE__ */ new Set());
@@ -3551,14 +3902,17 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         typeof ctor == "function" && typeof read4(() => ctor.GetInstance) == "function" && providers.add(ctor), proto = read4(() => Object.getPrototypeOf(proto));
       }
     }
-    function getCardDefinition(id) {
-      for (let data of [
+    function* cardDefinitions() {
+      let tables = [
         read4(() => win.CtrUtil.AllDatas),
         read4(() => win.CtrUtil.allDatas),
         read4(() => win.SystemContext.AllDatas),
-        read4(() => win.SystemContext.allDatas)
-      ]) {
-        let config = read4(() => data["sys_playcard.sgs"]), rows = read4(() => config.GamePlayCards.card);
+        read4(() => win.SystemContext.allDatas),
+        read4(() => win.__SGS_TOOLBOX_DEMO__.configs)
+      ].map((data) => read4(() => data["sys_playcard.sgs"]) || read4(() => data.sys_playcard));
+      tables.push(configs?.getConfigData("sys_playcard"));
+      for (let config of tables) {
+        let rows = read4(() => config.GamePlayCards.card);
         if (!Array.isArray(rows)) continue;
         let index = definitionTables.get(rows);
         if (!index || index.length !== rows.length) {
@@ -3572,10 +3926,39 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           }
           index = { length: rows.length, records }, definitionTables.set(rows, index);
         }
-        let card = index.records.get(id);
+        yield index;
+      }
+    }
+    function getCardDefinition(id) {
+      for (let { records } of cardDefinitions()) {
+        let card = records.get(id);
         if (card) return card;
       }
       return null;
+    }
+    function getCardFaceCatalog() {
+      for (let index of cardDefinitions()) {
+        if (!index.faces) {
+          let faces = /* @__PURE__ */ new Map();
+          for (let { res, name } of index.records.values()) {
+            if (!cardFrameName(res) || typeof name != "string" || !name.trim() || faces.has(res)) continue;
+            let label = name === "\u6740" && { HuoSha: "\u706B\u6740", LeiSha: "\u96F7\u6740", BingSha: "\u51B0\u6740" }[res] || name;
+            faces.set(res, Object.freeze({ res, label }));
+          }
+          index.faces = Object.freeze([...faces.values()].sort((a, b) => a.label.localeCompare(b.label, "zh-CN")));
+        }
+        if (index.faces.length) return index.faces;
+      }
+      return null;
+    }
+    async function loadCardFaceCatalog() {
+      let existing = getCardFaceCatalog();
+      if (existing) return existing;
+      if (!configs) throw new Error("\u914D\u7F6E\u8BFB\u53D6\u4E0D\u53EF\u7528");
+      await configs.loadConfigData("sys_playcard");
+      let catalog = getCardFaceCatalog();
+      if (!catalog) throw new Error("\u6E38\u620F\u724C\u8868\u4E2D\u6CA1\u6709\u53EF\u6362\u56FE\u7684\u724C");
+      return catalog;
     }
     function getCardMeta(id) {
       if (id = number(id), !Number.isInteger(id) || id <= 0) return { id, name: "\u672A\u77E5\u724C", unknown: !0 };
@@ -3595,7 +3978,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       let definition = getCardDefinition(id);
       if (!card && !definition) return { id, name: `\u724C #${id}`, unknown: !0 };
-      let name = read4(() => card.CardName) || read4(() => card.cardName) || read4(() => card.Name) || read4(() => card.name) || read4(() => definition.CardName) || read4(() => definition.Name) || read4(() => definition.name), cardClass = read4(() => definition.cardClass) || read4(() => card.cardInfo.cardClass) || read4(() => card.cardClass) || read4(() => card.cardInfo.Class) || read4(() => card.className) || read4(() => card.ClassName) || read4(() => definition.Class) || read4(() => definition.class) || read4(() => definition.className);
+      let name = read4(() => card.CardName) || read4(() => card.cardName) || read4(() => card.Name) || read4(() => card.name) || read4(() => definition.CardName) || read4(() => definition.Name) || read4(() => definition.name), cardClass = read4(() => definition.cardClass) || read4(() => card.cardInfo.cardClass) || read4(() => card.cardClass) || read4(() => card.cardInfo.Class) || read4(() => card.className) || read4(() => card.ClassName) || read4(() => definition.Class) || read4(() => definition.class) || read4(() => definition.className), firstSkillId = number(read4(() => card.FirstSkillId));
       return {
         id,
         name: typeof name == "string" && name ? name : `\u724C #${id}`,
@@ -3625,7 +4008,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           read4(() => definition.Type)
         ),
         unknown: !(typeof name == "string" && name),
-        ...typeof cardClass == "string" && cardClass ? { cardClass } : {}
+        ...typeof cardClass == "string" && cardClass ? { cardClass } : {},
+        ...firstSkillId > 0 ? { firstSkillId } : {}
       };
     }
     function getCountdown() {
@@ -3683,6 +4067,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       getSelfSeatUI: () => selfUI(getScene()),
       getSeatUIs: () => seats(getScene()),
       getCardMeta,
+      getCardFaceCatalog,
+      loadCardFaceCatalog,
       getSnapshot,
       getClass,
       getServerProxy,
@@ -3692,6 +4078,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       getSelf,
       getRemainingSlash,
       isInGame: () => isGameScene(getScene()),
+      canReserveViewport,
       getConfigData: (name) => configs?.getConfigData(name) || null,
       loadConfigData: (name) => configs ? configs.loadConfigData(name) : Promise.reject(new Error("\u914D\u7F6E\u8BFB\u53D6\u4E0D\u53EF\u7528")),
       onSceneChange(fn) {
@@ -4447,7 +4834,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
 
   // src/market/official.js
-  var officialPluginIds = Object.freeze(["social", "player-info", "native-cards", "yjcm-cards", "dafeiyu-cards", "backgrounds", "gold-cards", "shanhetu", "cards", "play-assist", "daily-rewards", "seckill", "gaizhu", "effects", "skins", "wish-progress", "themes", "baisheng", "appearances", "ledger", "recharge"]);
+  var officialPluginIds = Object.freeze(["social", "player-info", "native-cards", "yjcm-cards", "dafeiyu-cards", "backgrounds", "gold-cards", "shanhetu", "shanhetu-beta", "cards", "play-assist", "daily-rewards", "seckill", "gaizhu", "effects", "skins", "wish-progress", "themes", "baisheng", "appearances", "ledger", "recharge"]);
   function planOfficialPlugins(installed, catalog) {
     let latest = /* @__PURE__ */ new Map();
     for (let entry of catalog)
@@ -4463,8 +4850,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
 
   // src/ui/game-viewport.js
-  function createGameViewport({ window: win, document: doc, scope }) {
-    let reserved = 0, stage, original, wrapper, descriptor, appliedWidth = 0, appliedHeight = 0, browser, widthDescriptor, widthGetter, styles = /* @__PURE__ */ new Map();
+  function createGameViewport({ window: win, document: doc, scope, canReserve = () => !0 }) {
+    let requested = 0, reserved = 0, stage, original, wrapper, descriptor, appliedWidth = 0, appliedHeight = 0, browser, widthDescriptor, widthGetter, styles = /* @__PURE__ */ new Map();
     function releaseBrowser() {
       browser && Object.getOwnPropertyDescriptor(browser, "clientWidth")?.get === widthGetter && (widthDescriptor ? Object.defineProperty(browser, "clientWidth", widthDescriptor) : delete browser.clientWidth), browser = widthDescriptor = widthGetter = void 0;
     }
@@ -4491,6 +4878,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       stage && stage.setScreenSize === wrapper && (descriptor ? Object.defineProperty(stage, "setScreenSize", descriptor) : delete stage.setScreenSize), resize(stage), stage = original = wrapper = void 0;
     }
     function sync() {
+      reserved = requested && canReserve() ? requested : 0;
       let next = reserved ? win.Laya?.stage : void 0, width = reserved ? Math.max(1, win.innerWidth - reserved) : 0;
       if (syncBrowser(), reserved || restoreStyles(), stage !== next && (releaseStage(), typeof next?.setScreenSize == "function")) {
         stage = next, original = stage.setScreenSize, descriptor = Object.getOwnPropertyDescriptor(stage, "setScreenSize");
@@ -4511,7 +4899,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return scope.listen(win, "resize", sync), scope.interval(sync, 500), scope.add(() => {
       reserved = 0, restoreStyles(), releaseBrowser(), releaseStage();
     }), { reserve(width) {
-      reserved = Math.max(0, Number(width) || 0), sync();
+      requested = Math.max(0, Number(width) || 0), sync();
     } };
   }
 
@@ -4539,7 +4927,254 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), scope.listen(win, "pointercancel", cancel), scope.listen(win, "blur", cancel);
   }
 
+  // src/ui/card-face-catalog.js
+  function mountCardFaceCatalog(container, doc, cardStyles) {
+    let option = (text2, value) => {
+      let node = doc.createElement("option");
+      return node.textContent = text2, node.value = value, node;
+    }, details = doc.createElement("details");
+    details.className = "card-face-catalog";
+    let title = doc.createElement("summary");
+    title.textContent = "\u5361\u724C\u56FE\u9274";
+    let suites = doc.createElement("select");
+    suites.className = "sgs-select", suites.setAttribute("aria-label", "\u9884\u89C8\u5361\u9762\u5957\u88C5");
+    let search = doc.createElement("input");
+    search.type = "search", search.className = "sgs-input", search.placeholder = "\u641C\u7D22\u724C\u540D", search.setAttribute("aria-label", "\u641C\u7D22\u56FE\u9274\u724C\u540D");
+    let choices = doc.createElement("select");
+    choices.className = "sgs-select", choices.setAttribute("aria-label", "\u9884\u89C8\u5361\u724C");
+    let preview = doc.createElement("div");
+    preview.className = "card-face-catalog-preview";
+    let status = doc.createElement("p");
+    status.className = "muted", status.setAttribute("role", "status");
+    let retry = doc.createElement("button");
+    retry.type = "button", retry.title = "\u91CD\u65B0\u52A0\u8F7D\u5361\u9762", retry.setAttribute("aria-label", retry.title), retry.append(createIcon(doc, "refresh"), doc.createTextNode(retry.title)), retry.hidden = !0, details.append(title, suites, search, choices, preview, status, retry), container.append(details);
+    let available = [], styleId = "", res = "", renderedEntry, renderedRes, renderedLabel, results = [], lastData, lastStyle, lastCatalog, lastQuery;
+    function showCard(style2, data, label) {
+      if (renderedEntry === data && renderedRes === res && renderedLabel === label || (renderedEntry = data, renderedRes = res, renderedLabel = label, preview.replaceChildren(), !style2 || !data || !res)) return;
+      let canvas = cardStyles.atlasCanvas(style2, res);
+      canvas && (canvas.setAttribute("role", "img"), canvas.setAttribute("aria-label", label + " \xB7 " + style2.name), preview.append(canvas));
+    }
+    function render({ retry: shouldRetry = !1 } = {}) {
+      if (!details.open) return;
+      let styles = cardStyles.list().filter((style3) => style3.atlas);
+      (styles.length !== available.length || styles.some((style3, index) => style3 !== available[index])) && (available = styles, styles.some((style3) => style3.id === styleId) || (styleId = styles.find((style3) => style3.id === cardStyles.selection.face)?.id || styles[0]?.id || ""), suites.replaceChildren(...styles.map((style3) => option(style3.name, style3.id))), suites.value = styleId);
+      let style2 = styles.find((item) => item.id === styleId), entry = cardStyles.previewCardAtlas(styleId, { retry: shouldRetry }), query = search.value.trim().toLowerCase(), catalog = cardStyles.localFaceCatalog;
+      if (lastData !== entry?.data || lastStyle !== style2 || lastCatalog !== catalog || lastQuery !== query) {
+        lastData = entry?.data, lastStyle = style2, lastCatalog = catalog, lastQuery = query;
+        let names = new Map((catalog || []).map((card) => [card.res, card.label])), allowed2 = style2?.atlas.replaceCards ? new Set(style2.atlas.replaceCards) : null;
+        results = [];
+        for (let [key, frame] of lastData?.frames || []) {
+          let name = key.slice(0, -8);
+          if (allowed2 && !allowed2.has(name)) continue;
+          let nativeLabel = names.get(name), label = frame.label || nativeLabel || name;
+          [label, nativeLabel, name].some((value) => value?.toLowerCase().includes(query)) && results.push({ name, label });
+        }
+        let duplicates = /* @__PURE__ */ new Map();
+        for (let { label } of results) duplicates.set(label, (duplicates.get(label) || 0) + 1);
+        choices.replaceChildren(...results.map(({ name, label }) => option(duplicates.get(label) > 1 ? `${label}\uFF08${name}\uFF09` : label, name)));
+      }
+      let next = results.find((card) => card.name === res) || results[0];
+      res = next?.name || "", choices.value = res, choices.title = next?.label || "", suites.hidden = !style2, search.hidden = choices.hidden = !entry?.data, choices.disabled = !next, preview.hidden = !next, showCard(style2, entry?.data, next?.label), retry.hidden = !entry?.error, status.classList.toggle("card-face-catalog-error", !!entry?.error), status.textContent = entry?.error ? "\u5361\u9762\u9884\u89C8\u52A0\u8F7D\u5931\u8D25\uFF1A" + entry.error : entry?.loading ? "\u6B63\u5728\u52A0\u8F7D\u5361\u9762\u9884\u89C8\u2026" : style2 ? next ? "" : "\u6CA1\u6709\u5339\u914D\u7684\u5361\u724C\u3002" : "\u5B89\u88C5\u5361\u9762\u5957\u88C5\u540E\u53EF\u9010\u5F20\u67E5\u770B\u3002", status.hidden = !status.textContent;
+    }
+    function close() {
+      details.open = !1, cardStyles.previewCardAtlas(""), showCard(null, null, ""), lastData = null;
+    }
+    details.ontoggle = () => {
+      details.open ? (cardStyles.loadLocalFaceCatalog(), render()) : close();
+    }, suites.onchange = () => {
+      styleId = suites.value, render();
+    }, search.oninput = () => render(), choices.onchange = () => {
+      res = choices.value, render();
+    }, retry.onclick = () => render({ retry: !0 });
+    let off = cardStyles.subscribe(() => render());
+    return { close, dispose() {
+      off(), close(), details.remove();
+    } };
+  }
+
   // src/ui/card-style-workshop.js
+  var LOCAL_BACK_HELP = "\u652F\u6301 JPG\u3001PNG\u3001WebP\u3001BMP \u9759\u6001\u56FE\u7247\uFF0C\u6700\u5927 20 MB\u3002\u5EFA\u8BAE\u9009\u4E3B\u4F53\u5C45\u4E2D\u7684\u7AD6\u56FE\uFF0C\u7CFB\u7EDF\u4F1A\u81EA\u52A8\u5C45\u4E2D\u88C1\u526A\uFF0C\u56FE\u7247\u4EC5\u4FDD\u5B58\u5728\u672C\u673A\u3002";
+  function mountLocalFaces(section, doc, cardStyles) {
+    section.className = "custom-card-faces";
+    let modes = doc.createElement("div");
+    modes.className = "sgs-segments", modes.setAttribute("role", "group"), modes.setAttribute("aria-label", "\u81EA\u5B9A\u4E49\u5361\u9762\u6A21\u5F0F");
+    let loadCatalog = () => {
+      cardStyles.selection.face === LOCAL_FACE_STYLE.id && cardStyles.loadLocalFaceCatalog();
+    };
+    for (let [id, label] of [[LOCAL_FACE_BACKGROUND_STYLE.id, "\u7EDF\u4E00\u5E95\u56FE"], [LOCAL_FACE_STYLE.id, "\u9010\u724C\u6362\u56FE"]]) {
+      let button = doc.createElement("button");
+      button.type = "button", button.textContent = label, button.dataset.faceMode = id, button.onclick = () => {
+        message = "", cardStyles.selectSide("face", id), loadCatalog();
+      }, modes.append(button);
+    }
+    let guidance = doc.createElement("p");
+    guidance.className = "muted";
+    let search = doc.createElement("input");
+    search.type = "search", search.className = "sgs-input", search.placeholder = "\u641C\u7D22\u724C\u540D", search.setAttribute("aria-label", "\u641C\u7D22\u724C\u540D");
+    let choices = doc.createElement("select");
+    choices.className = "sgs-select", choices.setAttribute("aria-label", "\u9009\u62E9\u724C\u540D");
+    let upload = doc.createElement("button");
+    upload.type = "button";
+    let picker = doc.createElement("input");
+    picker.type = "file", picker.accept = LOCAL_IMAGE_ACCEPT, picker.hidden = !0;
+    let preview = doc.createElement("div");
+    preview.className = "custom-card-face-preview", preview.hidden = !0;
+    let image = doc.createElement("img");
+    image.alt = "";
+    let filename = doc.createElement("span");
+    filename.className = "custom-card-face-name";
+    let remove = doc.createElement("button");
+    remove.type = "button", remove.title = "\u5220\u9664\u8FD9\u5F20\u5361\u56FE", remove.setAttribute("aria-label", remove.title), remove.append(createIcon(doc, "trash")), preview.append(image, filename, remove);
+    let feedback = doc.createElement("p");
+    feedback.className = "muted", feedback.setAttribute("role", "status"), feedback.hidden = !0;
+    let retry = doc.createElement("button");
+    retry.type = "button", retry.textContent = "\u91CD\u8BD5\u8BFB\u53D6\u724C\u8868", retry.hidden = !0, retry.onclick = () => {
+      message = "", failed = !1, loadCatalog();
+    };
+    let fields = doc.createElement("div");
+    fields.className = "custom-card-face-fields", fields.append(search, choices, upload), section.append(modes, guidance, fields, picker, preview, feedback, retry);
+    let active = !0, busy = !1, message = "", failed = !1, saved = [], catalog, card = "", background = !1;
+    function updateChoices() {
+      let records = new Map((catalog || []).map((option) => [option.res, option.label]));
+      for (let row of saved) records.has(row.card) || records.set(row.card, row.label);
+      let counts = /* @__PURE__ */ new Map();
+      for (let label of records.values()) counts.set(label, (counts.get(label) || 0) + 1);
+      let query = search.value.trim().toLowerCase(), matches = [...records].filter(([res, label]) => label.toLowerCase().includes(query) || res.toLowerCase().includes(query));
+      choices.replaceChildren();
+      let placeholder = doc.createElement("option");
+      placeholder.value = "", placeholder.textContent = matches.length ? "\u9009\u62E9\u724C\u540D" : "\u6CA1\u6709\u5339\u914D\u7684\u724C", choices.append(placeholder);
+      let savedGroup = doc.createElement("optgroup");
+      savedGroup.label = "\u5DF2\u6362\u56FE";
+      let otherGroup = doc.createElement("optgroup");
+      otherGroup.label = "\u53EF\u6362\u56FE";
+      let savedNames = new Set(saved.map((row) => row.card));
+      for (let [res, label] of matches) {
+        let option = doc.createElement("option");
+        option.value = res, option.textContent = counts.get(label) > 1 ? `${label}\uFF08${res}\uFF09` : label, (savedNames.has(res) ? savedGroup : otherGroup).append(option);
+      }
+      for (let group of [savedGroup, otherGroup]) group.childElementCount && choices.append(group);
+      choices.value = matches.some(([res]) => res === card) ? card : "", card = choices.value;
+    }
+    function render() {
+      let face = cardStyles.selection.face;
+      if (background = face === LOCAL_FACE_BACKGROUND_STYLE.id, section.hidden = !background && face !== LOCAL_FACE_STYLE.id, section.hidden) return;
+      for (let button of modes.children)
+        button.disabled = busy, button.setAttribute("aria-pressed", String(button.dataset.faceMode === face));
+      if (!background) {
+        let rows = cardStyles.listLocalFaces();
+        (catalog !== cardStyles.localFaceCatalog || saved.length !== rows.length || rows.some((row2, i) => row2 !== saved[i])) && (saved = rows, catalog = cardStyles.localFaceCatalog, updateChoices());
+      }
+      search.hidden = choices.hidden = background, fields.classList.toggle("is-background", background), guidance.textContent = background ? "\u4E00\u5F20\u56FE\u6362\u6240\u6709\u9002\u7528\u5361\u9762\u7684\u5E95\u7EB9\u3002\u724C\u56FE\u3001\u724C\u540D\u3001\u82B1\u8272\u548C\u70B9\u6570\u7167\u5E38\u663E\u793A\u3002" : "\u9009\u5E26\u724C\u540D\u7684\u5B8C\u6574\u5361\u56FE\u3002\u56FE\u7247\u4F1A\u5C45\u4E2D\u88C1\u526A\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A\u3002";
+      let row = background ? cardStyles.localFaceBackground : saved.find((item) => item.card === card), noCards = !background && !catalog?.length && !saved.length;
+      noCards && (choices.options[0].textContent = cardStyles.localFaceCatalogPending ? "\u6B63\u5728\u8BFB\u53D6\u724C\u8868\u2026" : "\u672A\u8BFB\u53D6\u5230\u724C\u8868"), search.disabled = choices.disabled = busy || noCards, upload.disabled = busy || !background && !card, upload.textContent = row ? "\u66F4\u6362\u56FE\u7247" : "\u9009\u62E9\u56FE\u7247", remove.disabled = busy, remove.title = background ? "\u5220\u9664\u5E95\u56FE" : "\u5220\u9664\u8FD9\u5F20\u5361\u56FE", remove.setAttribute("aria-label", remove.title), preview.hidden = !row, row ? (image.getAttribute("src") !== row.url && (image.src = row.url), filename.textContent = filename.title = row.name) : image.removeAttribute("src");
+      let catalogError = !background && cardStyles.localFaceCatalogError;
+      retry.hidden = !catalogError, retry.disabled = busy;
+      let error = catalogError || cardStyles.localFaceError;
+      feedback.textContent = message || error || "", feedback.hidden = !feedback.textContent, feedback.classList.toggle("custom-card-face-error", failed || !!(!message && error));
+    }
+    async function edit(pending, done, failure, operation) {
+      if (!(busy || !background && !card)) {
+        busy = !0, message = pending, failed = !1, render();
+        try {
+          await operation(), message = done;
+        } catch (error) {
+          message = `${failure}\uFF1A${error.message}`, failed = !0;
+        } finally {
+          busy = !1, active && (render(), !section.hidden && !section.getRootNode().activeElement && upload.focus());
+        }
+      }
+    }
+    search.oninput = () => {
+      message = "", updateChoices(), render();
+    }, choices.onchange = () => {
+      card = choices.value, message = "", render();
+    }, upload.onclick = () => picker.click(), picker.onchange = () => {
+      let file = picker.files?.[0];
+      if (picker.value = "", !file) return;
+      edit("\u6B63\u5728\u5904\u7406\u56FE\u7247\u2026", background ? "\u5DF2\u4FDD\u5B58\u5E95\u56FE" : "\u5DF2\u4FDD\u5B58\u5361\u56FE", "\u5BFC\u5165\u5931\u8D25", background ? () => cardStyles.importLocalFaceBackground(file) : () => cardStyles.importLocalFace(card, file));
+    }, remove.onclick = () => {
+      edit("\u6B63\u5728\u5220\u9664\u2026", background ? "\u5DF2\u6062\u590D\u6E38\u620F\u5E95\u56FE" : "\u5DF2\u6062\u590D\u8FD9\u5F20\u724C\u7684\u6E38\u620F\u5361\u9762", "\u5220\u9664\u5931\u8D25", background ? () => cardStyles.deleteLocalFaceBackground() : () => cardStyles.deleteLocalFace(card));
+    }, render();
+    let off = cardStyles.subscribe(render);
+    return { loadCatalog, dispose() {
+      active = !1, off();
+    } };
+  }
+  function mountLocalBacks(container, doc, cardStyles) {
+    let section = doc.createElement("section");
+    section.className = "custom-card-backs";
+    let heading = doc.createElement("div");
+    heading.className = "custom-card-backs-heading";
+    let title = doc.createElement("h4");
+    title.textContent = "\u81EA\u5B9A\u4E49\u5361\u80CC";
+    let upload = doc.createElement("button");
+    upload.type = "button", upload.textContent = "\u9009\u62E9\u56FE\u7247";
+    let help = doc.createElement("p");
+    help.className = "muted", help.textContent = LOCAL_BACK_HELP, help.id = "core-custom-card-back-help", upload.setAttribute("aria-describedby", help.id);
+    let picker = doc.createElement("input");
+    picker.type = "file", picker.accept = LOCAL_IMAGE_ACCEPT, picker.hidden = !0;
+    let list2 = doc.createElement("fieldset");
+    list2.className = "custom-card-back-list", list2.setAttribute("aria-label", "\u5DF2\u4FDD\u5B58\u7684\u5361\u80CC");
+    let feedback = doc.createElement("p");
+    feedback.className = "muted", feedback.setAttribute("role", "status"), feedback.hidden = !0, heading.append(title, upload), section.append(heading, help, picker, list2, feedback), container.append(section);
+    let active = !0, busy = !1, error = "", rows = [], selected, showFeedback = (message, failed = !1) => {
+      feedback.textContent = message, feedback.hidden = !message, feedback.classList.toggle("custom-card-back-error", failed);
+    }, render = () => {
+      !busy && (error || cardStyles.localBackError) && showFeedback(error || cardStyles.localBackError, !0), upload.disabled = busy;
+      let saved = cardStyles.listLocalBacks(), current = cardStyles.selection.back;
+      if (!(current === selected && saved.length === rows.length && saved.every((item, index) => item === rows[index]))) {
+        rows = saved, selected = current, list2.replaceChildren();
+        for (let style2 of rows) {
+          let row = doc.createElement("div");
+          row.className = "custom-card-back-row";
+          let select = doc.createElement("button");
+          select.type = "button", select.className = "custom-card-back-option";
+          let isSelected = current === style2.id;
+          select.setAttribute("aria-pressed", String(isSelected)), select.title = style2.name;
+          let preview = cardStyles.preview(style2, !0);
+          preview.setAttribute("aria-hidden", "true");
+          let label = doc.createElement("span");
+          if (label.className = "custom-card-back-name", label.textContent = style2.name, select.append(preview, label), isSelected) {
+            let check = createIcon(doc, "check");
+            check.classList.add("custom-card-back-selected"), select.append(check);
+          }
+          select.onclick = () => {
+            if (!busy) {
+              error = "", showFeedback("");
+              try {
+                cardStyles.selectSide("back", style2.id);
+              } catch (cause) {
+                error = "\u9009\u7528\u5931\u8D25\uFF1A" + cause.message, showFeedback(error, !0);
+              }
+              list2.children[rows.indexOf(style2)]?.firstElementChild?.focus();
+            }
+          };
+          let remove = doc.createElement("button");
+          remove.type = "button", remove.className = "custom-card-back-remove", remove.title = "\u5220\u9664 " + style2.name, remove.setAttribute("aria-label", remove.title), remove.append(createIcon(doc, "trash")), remove.onclick = () => run("\u6B63\u5728\u5220\u9664\u2026", "\u5DF2\u5220\u9664\u5361\u80CC", "\u5220\u9664\u5931\u8D25", () => cardStyles.deleteLocalBack(style2.id)), row.append(select, remove), list2.append(row);
+        }
+      }
+    };
+    async function run(pending, done, failure, operation) {
+      if (!busy) {
+        busy = !0, error = "", showFeedback(pending), upload.disabled = !0, list2.disabled = !0;
+        try {
+          await operation(), active && showFeedback(done);
+        } catch (cause) {
+          error = failure + "\uFF1A" + cause.message, active && showFeedback(error, !0);
+        } finally {
+          busy = !1, active && (list2.disabled = !1, render(), (!section.getRootNode().activeElement || section.getRootNode().activeElement === doc.body) && upload.focus());
+        }
+      }
+    }
+    upload.onclick = () => picker.click(), picker.onchange = () => {
+      let file = picker.files?.[0];
+      picker.value = "", file && run("\u6B63\u5728\u5904\u7406\u56FE\u7247\u2026", "\u5DF2\u4FDD\u5B58\u5E76\u9009\u7528\u5361\u80CC", "\u5BFC\u5165\u5931\u8D25", () => cardStyles.importLocalBack(file));
+    }, render();
+    let off = cardStyles.subscribe(render);
+    return () => {
+      active = !1, off();
+    };
+  }
   function mountCardStyleWorkshop(container, { document: doc, cardStyles, settings }) {
     let details = doc.createElement("section");
     details.className = "card-style-workshop plugin-group";
@@ -4556,28 +5191,42 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     };
     apply(settings.get("cardStyleExpanded", !1)), toggle.onclick = () => {
       let expanded = body.hidden;
-      settings.set("cardStyleExpanded", expanded), apply(expanded);
+      settings.set("cardStyleExpanded", expanded), apply(expanded), expanded ? localFaces?.loadCatalog() : catalog?.close();
     }, heading.append(toggle), details.append(heading, body), container.append(details);
+    let options = doc.createElement("div");
+    body.append(options);
+    let faceOptions = doc.createElement("div");
+    body.append(faceOptions);
+    let catalog = cardStyles?.previewCardAtlas ? mountCardFaceCatalog(body, doc, cardStyles) : null, faceEditor = doc.createElement("section");
+    body.append(faceEditor);
+    let localFaces = cardStyles?.listLocalFaces ? mountLocalFaces(faceEditor, doc, cardStyles) : null;
+    localFaces || (faceEditor.hidden = !0), body.hidden || localFaces?.loadCatalog();
+    let backOptions = doc.createElement("div");
+    body.append(backOptions);
+    let unmountLocal = cardStyles?.listLocalBacks ? mountLocalBacks(body, doc, cardStyles) : null, status = doc.createElement("p");
+    status.className = "muted", status.style.overflowWrap = "anywhere", status.setAttribute("role", "status"), body.append(status);
     let render = () => {
-      body.replaceChildren();
+      options.replaceChildren();
       let scopeLabel = doc.createElement("p");
-      scopeLabel.textContent = "\u5E94\u7528\u8303\u56F4", scopeLabel.style.cssText = "display:flex;align-items:center;gap:5px", scopeLabel.append(helpTip(doc, "\u5361\u9762\u4E0E\u5361\u80CC\u72EC\u7ACB\u9009\u62E9\u3002\u5B8C\u6574\u5361\u9762\u6309\u724C\u540D\u5339\u914D\uFF0C\u7F3A\u5931\u5361\u56FE\u4FDD\u7559\u6E38\u620F\u539F\u751F\u663E\u793A\uFF1B\u82B1\u8272\u70B9\u6570\u6CBF\u7528\u6E38\u620F\u3002")), body.append(scopeLabel);
+      scopeLabel.textContent = "\u5E94\u7528\u8303\u56F4", scopeLabel.style.cssText = "display:flex;align-items:center;gap:5px", scopeLabel.append(helpTip(doc, "\u5361\u9762\u4E0E\u5361\u80CC\u72EC\u7ACB\u9009\u62E9\u3002\u5B8C\u6574\u5361\u9762\u6309\u724C\u540D\u5339\u914D\uFF0C\u7F3A\u5931\u5361\u56FE\u4FDD\u7559\u6E38\u620F\u539F\u751F\u663E\u793A\uFF1B\u82B1\u8272\u70B9\u6570\u6CBF\u7528\u6E38\u620F\u3002")), options.append(scopeLabel);
       let scopes = doc.createElement("div");
-      scopes.className = "sgs-segments", body.append(scopes);
+      scopes.className = "sgs-segments", options.append(scopes);
       for (let [value, name] of [["self", "\u4EC5\u81EA\u5DF1\u7684\u624B\u724C"], ["all", "\u6240\u6709\u4EBA"]]) {
         let button = doc.createElement("button");
         button.type = "button", button.textContent = name, button.setAttribute("aria-pressed", String(cardStyles?.selection?.scope === value || !cardStyles?.selection && value === "all")), button.onclick = () => cardStyles?.selectScope(value), scopes.append(button);
       }
       let help = doc.createElement("p");
-      help.className = "muted", help.textContent = "\u4EC5\u81EA\u5DF1\uFF1A\u81EA\u5DF1\u7684\u624B\u724C\u53CA\u5176\u4F7F\u7528\u3001\u6253\u51FA\u3001\u88AB\u987A\u8D70\u65F6\u6CBF\u7528\u6240\u9009\u5916\u89C2\uFF1B\u4ED6\u4EBA\u7684\u724C\u4FDD\u6301\u6E38\u620F\u5916\u89C2\u3002", body.append(help);
+      help.className = "muted", help.textContent = "\u4EC5\u81EA\u5DF1\uFF1A\u81EA\u5DF1\u7684\u624B\u724C\u53CA\u5176\u4F7F\u7528\u3001\u6253\u51FA\u3001\u88AB\u987A\u8D70\u65F6\u6CBF\u7528\u6240\u9009\u5916\u89C2\uFF1B\u4ED6\u4EBA\u7684\u724C\u4FDD\u6301\u6E38\u620F\u5916\u89C2\u3002", options.append(help);
       for (let side of ["face", "back"]) {
+        let options2 = side === "face" ? faceOptions : backOptions, active = options2.getRootNode().activeElement, focused = options2.contains(active) ? active.dataset.cardStyle : void 0;
+        options2.replaceChildren();
         let label = doc.createElement("p");
-        label.textContent = side === "face" ? "\u5361\u9762" : "\u5361\u80CC", body.append(label);
+        label.textContent = side === "face" ? "\u5361\u9762" : "\u5361\u80CC", options2.append(label);
         let choices = doc.createElement("div");
-        choices.className = "card-style-choices", body.append(choices);
-        let option = (id, name, style2) => {
-          let b = doc.createElement("button");
-          if (b.type = "button", b.dataset.cardStyle = id, b.dataset.cardSide = side, b.setAttribute("aria-pressed", String((cardStyles?.list().some((item) => item.id === (cardStyles.selection?.[side] ?? cardStyles.current)) ? cardStyles.selection?.[side] ?? cardStyles.current : "") === id)), style2) {
+        choices.className = "card-style-choices", options2.append(choices);
+        let selectedId = cardStyles?.selection?.[side] ?? cardStyles?.current, selectedStyle = cardStyles?.styleFor?.(side) || cardStyles?.list().find((item) => item.id === selectedId), option = (id, name, style2) => {
+          let customActive = style2?.localFace && selectedStyle?.localFaceBackground, pressed = customActive || (selectedStyle?.id || "") === id, target = style2?.localFace && !pressed ? LOCAL_FACE_BACKGROUND_STYLE.id : customActive ? selectedId : id, b = doc.createElement("button");
+          if (b.type = "button", b.dataset.cardStyle = id, b.dataset.cardSide = side, b.setAttribute("aria-pressed", String(pressed)), style2 && !style2.localFace) {
             let previews = doc.createElement("span");
             previews.className = "card-style-preview";
             for (let back of [side === "back"]) {
@@ -4592,32 +5241,31 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             b.append(previews);
           }
           let text2 = doc.createElement("span");
-          text2.textContent = side === "back" && style2?.backName || name, b.append(text2), b.onclick = () => cardStyles?.selectSide(side, id), choices.append(b);
+          text2.textContent = side === "back" && style2?.backName || name, b.append(text2), b.onclick = () => cardStyles?.selectSide(side, target), choices.append(b), focused === id && b.focus({ preventScroll: !0 });
         };
-        option("", "\u8DDF\u968F\u6E38\u620F");
+        option("", "\u8DDF\u968F\u6E38\u620F"), side === "face" && localFaces && option(LOCAL_FACE_STYLE.id, LOCAL_FACE_STYLE.name, LOCAL_FACE_STYLE);
         for (let style2 of cardStyles?.list() || []) (side !== "back" || !style2.atlas || style2.atlas.backImage) && option(style2.id, style2.name, style2);
         if (side === "face") {
           let selected = cardStyles?.list().find((style2) => style2.id === cardStyles.selection?.face);
           if (selected?.atlas) {
             let source = doc.createElement("p");
-            source.className = "muted", source.textContent = selected.atlas.source, body.append(source);
+            source.className = "muted", source.textContent = selected.atlas.source, options2.append(source);
             let link = doc.createElement("a");
-            link.href = selected.atlas.index.url, link.target = "_blank", link.rel = "noopener noreferrer", link.textContent = "\u67E5\u770B\u56FE\u96C6\u6765\u6E90", body.append(link);
+            link.href = selected.atlas.index.url, link.target = "_blank", link.rel = "noopener noreferrer", link.textContent = "\u67E5\u770B\u56FE\u96C6\u6765\u6E90", options2.append(link);
             let note = doc.createElement("p");
-            if (note.className = "muted", note.textContent = "\u9996\u6B21\u9009\u62E9\u8054\u7F51\u52A0\u8F7D\u6574\u5957\u8D44\u6E90\u3002\u56FD\u6218\u3001\u9650\u65F6\u53CA\u6D3B\u52A8\u724C\u4EC5\u7CBE\u786E\u5339\u914D\u540C\u540D\u5361\u56FE\uFF1B\u7F3A\u5931\u3001\u7279\u6B8A\u6E32\u67D3\u6216\u4E0B\u8F7D\u5931\u8D25\u5747\u56DE\u9000\u6E38\u620F\u5916\u89C2\u3002", body.append(note), cardStyles.status?.includes("\u52A0\u8F7D\u5931\u8D25")) {
+            if (note.className = "muted", note.textContent = "\u9996\u6B21\u9009\u62E9\u8054\u7F51\u52A0\u8F7D\u6574\u5957\u8D44\u6E90\u3002\u56FD\u6218\u3001\u9650\u65F6\u53CA\u6D3B\u52A8\u724C\u4EC5\u7CBE\u786E\u5339\u914D\u540C\u540D\u5361\u56FE\uFF1B\u7F3A\u5931\u3001\u7279\u6B8A\u6E32\u67D3\u6216\u4E0B\u8F7D\u5931\u8D25\u5747\u56DE\u9000\u6E38\u620F\u5916\u89C2\u3002", options2.append(note), cardStyles.status?.startsWith("\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25")) {
               let retry = doc.createElement("button");
-              retry.type = "button", retry.textContent = "\u91CD\u65B0\u52A0\u8F7D\u5361\u9762", retry.onclick = () => cardStyles.retry(), body.append(retry);
+              retry.type = "button", retry.textContent = "\u91CD\u65B0\u52A0\u8F7D\u5361\u9762", retry.onclick = () => cardStyles.retry(), options2.append(retry);
             }
           }
         }
       }
-      let status = doc.createElement("p");
-      status.className = "muted", status.style.overflowWrap = "anywhere", status.setAttribute("role", "status"), status.textContent = cardStyles?.status || "\u5361\u724C\u63A5\u53E3\u7B49\u5F85\u542F\u52A8", /失败|未应用/.test(status.textContent) && (status.style.color = "var(--sgs-danger)"), body.append(status);
+      status.textContent = cardStyles?.status || "\u5361\u724C\u63A5\u53E3\u7B49\u5F85\u542F\u52A8", status.style.color = /失败|未应用/.test(status.textContent) ? "var(--sgs-danger)" : "";
     };
     render();
     let off = cardStyles?.subscribe(render);
     return () => {
-      off?.(), details.remove();
+      off?.(), catalog?.dispose(), localFaces?.dispose(), unmountLocal?.(), details.remove();
     };
   }
 
@@ -5315,13 +5963,15 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
 
   // src/shared/shanhe-scenes.js
-  var SHANHE_MAP_SCENES = /* @__PURE__ */ new Set(["RogueLikeBigMapScene", "RogueSmallMapScene"]);
+  var SHANHE_MAP_SCENES = /* @__PURE__ */ new Set(["RogueLikeBigMapScene", "RogueSmallMapScene"]), SHANHE_BATTLE_SCENE = "RogueLikeGameScene";
 
   // src/core/game-view.js
   function gameViewForScene(scene) {
-    return SHANHE_MAP_SCENES.has(scene?.SceneName || scene?.sceneName || scene?.name) ? "shanhe" : "battle";
+    let name = scene?.SceneName || scene?.sceneName || scene?.name;
+    return name === SHANHE_BATTLE_SCENE ? "shanhe-battle" : SHANHE_MAP_SCENES.has(name) ? "shanhe" : "battle";
   }
   function selectGamePanels(panels, view) {
+    if (view === "shanhe-battle") return panels;
     let selected = view === "shanhe" && panels.some((panel) => panel.gameView === "shanhe") ? "shanhe" : "battle";
     return panels.filter((panel) => !panel.gameView || panel.gameView === selected);
   }
@@ -5395,6 +6045,38 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .plugin-release-notes{margin:8px 0 0;min-width:0;color:var(--sgs-muted);font-size:11px}.plugin-release-notes summary{cursor:pointer;min-height:30px;padding:6px 2px;color:var(--sgs-text);overflow-wrap:anywhere}.plugin-release-notes summary:focus-visible,.plugin-release-notes-text:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px;border-radius:4px}.plugin-release-notes-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;padding:2px 6px 4px 8px;border-left:2px solid var(--sgs-border);max-height:160px;overflow:auto;scrollbar-width:thin}.plugin-update .plugin-release-notes summary{color:var(--sgs-accent)}
 .appearance-page .plugin-heading{margin:0}
 .management-tabs{position:sticky;top:-12px;z-index:8;background:var(--sgs-bg)!important;box-shadow:0 5px 8px var(--sgs-bg)!important}
+.custom-card-backs{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--sgs-border)}
+.custom-card-backs-heading{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 10px}
+.custom-card-backs-heading h4{margin:0;font-size:13px}
+.custom-card-backs-heading button{min-width:68px;min-height:34px;color:var(--sgs-accent)}
+.custom-card-back-list{display:grid;gap:6px;margin:0;padding:0;border:0;min-inline-size:0}
+.custom-card-back-row{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center}
+.custom-card-back-row .custom-card-back-option{display:flex;align-items:center;gap:8px;padding:4px 8px;min-width:0;text-align:left}
+.custom-card-back-option img{width:30px;height:auto;aspect-ratio:93/130;flex:none;border-radius:3px}
+.custom-card-back-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.custom-card-back-row .custom-card-back-option[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 2px 0 var(--sgs-accent);background:var(--sgs-raised)}
+.custom-card-back-selected{margin-left:auto;color:var(--sgs-accent)}
+.custom-card-back-row .custom-card-back-remove{display:grid;place-items:center;width:34px;height:36px;padding:0;color:var(--sgs-muted)}
+.custom-card-back-row .custom-card-back-remove:hover:not(:disabled){color:var(--sgs-danger);border-color:var(--sgs-danger)}
+.custom-card-backs .custom-card-back-error{color:var(--sgs-danger);overflow-wrap:anywhere}
+.custom-card-faces{margin-top:9px;padding:9px 0;border-bottom:1px solid var(--sgs-border)}
+.custom-card-face-fields{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+.custom-card-face-fields input[type=search]{grid-column:1/-1;width:100%}
+.custom-card-face-fields.is-background button{grid-column:2}
+.custom-card-face-fields .sgs-select,.custom-card-face-fields button{height:34px}
+.custom-card-face-fields button{color:var(--sgs-accent)}
+.card-face-catalog{margin:10px 0;padding:0 9px 4px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-surface)}
+.card-face-catalog[open]{padding-bottom:9px}
+.card-face-catalog .sgs-select,.card-face-catalog .sgs-input{width:100%;min-width:0;margin:0 0 6px}
+.card-face-catalog-preview{text-align:center}
+.card-face-catalog-preview canvas{display:block;width:min(135px,100%);height:auto;margin:4px auto;border-radius:8px;box-shadow:0 3px 12px #0005}
+.card-face-catalog .card-face-catalog-error{color:var(--sgs-danger);white-space:pre-wrap;overflow-wrap:anywhere}
+.custom-card-face-preview:not([hidden]){display:grid;grid-template-columns:34px minmax(0,1fr) 36px;gap:8px;align-items:center;margin-top:8px;color:var(--sgs-muted);font-size:11px}
+.custom-card-face-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.custom-card-face-preview img{width:34px;aspect-ratio:135/190;border-radius:3px}
+.custom-card-face-preview button{display:grid;place-items:center;padding:0;height:36px;color:var(--sgs-muted)}
+.custom-card-face-preview button:hover:not(:disabled){color:var(--sgs-danger);border-color:var(--sgs-danger)}
+.custom-card-faces .custom-card-face-error{color:var(--sgs-danger);overflow-wrap:anywhere}
 .card-style-workshop summary{cursor:pointer;color:var(--sgs-accent);padding:8px 0;font-size:12px;min-height:34px}.card-style-workshop summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}.card-style-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-style-choices button{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;font-size:11px}.card-style-choices button[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 3px 0 var(--sgs-accent);background:color-mix(in srgb,var(--sgs-accent) 12%,var(--sgs-surface))}.card-style-preview{display:flex;gap:4px;width:100%;justify-content:center}.card-style-preview canvas,.card-style-preview img{width:43%;max-width:64px;height:auto;aspect-ratio:93/130;border-radius:3px}.card-style-workshop p{margin:8px 0}
 
 .core-upgrade-actions{display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap}.core-upgrade-actions a{font-size:10px}.core-upgrade-refresh{display:inline-flex;align-items:center;gap:5px;flex:none;padding:5px;font-size:10px;color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 40%,var(--sgs-border));background:color-mix(in srgb,var(--sgs-accent) 8%,var(--sgs-surface))}.core-upgrade-reminder{margin-top:6px;padding-left:8px;border-left:2px solid var(--sgs-accent);font-size:11px;color:var(--sgs-muted);overflow-wrap:anywhere}
@@ -5408,6 +6090,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand strong{letter-spacing:1px;font-size:13px}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
 .nav{display:flex;gap:4px;padding:7px 9px;border-block:1px solid var(--sgs-border);background:var(--sgs-surface)}.nav button{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:0;height:42px;padding:0;border-color:transparent;background:transparent;overflow:hidden;transition:flex-grow var(--sgs-motion) cubic-bezier(.2,.8,.2,1),background var(--sgs-motion),gap var(--sgs-motion)}.nav button svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform var(--sgs-motion)}.nav button span{max-width:0;opacity:0;white-space:nowrap;overflow:hidden;transition:max-width var(--sgs-motion),opacity var(--sgs-motion)}.nav button[aria-selected=true]{color:var(--sgs-accent);background:var(--sgs-raised)}.nav:has(button:hover) button:not(:hover):not(:focus-visible) svg,.nav:has(button:focus-visible) button:not(:hover):not(:focus-visible) svg{transform:scale(.92)}.nav button:hover,.nav button:focus-visible{flex-grow:2.2;gap:5px;color:var(--sgs-accent);background:var(--sgs-raised)}.nav button:hover svg,.nav button:focus-visible svg{transform:scale(1.15)}.nav button:hover span,.nav button:focus-visible span{max-width:32px;opacity:1}
 .content{padding:12px;max-height:65vh;min-height:200px;overflow:auto;scrollbar-width:thin}.footer{display:flex;justify-content:space-between;border-top:1px solid var(--sgs-border);padding:7px 12px;color:var(--sgs-muted);font-size:10px}.footer button{padding:0;border:0;background:none;font-size:10px;color:var(--sgs-muted)}.empty{text-align:center;padding:35px 12px;color:var(--sgs-muted)}.empty svg{width:32px;height:32px;fill:none;stroke:var(--sgs-accent);stroke-width:1.2;margin-bottom:12px}.empty strong{display:block;color:var(--sgs-text);font-size:14px;margin-bottom:7px}.tabs{display:flex;gap:4px;margin-bottom:13px}.tabs button{flex:1;padding:5px 2px;font-size:12px}.tabs button.active{border-color:var(--sgs-accent);color:var(--sgs-accent)}h3{font-size:13px;margin:15px 0 7px}h3:first-child{margin-top:0}.card{padding:10px;border:1px solid var(--sgs-border);border-radius:8px;margin-bottom:8px;background:var(--sgs-surface)}.card .title{display:flex;justify-content:space-between;gap:5px}.muted{color:var(--sgs-muted);font-size:11px}.actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.actions button{font-size:11px;padding:4px 7px}.notice{color:var(--sgs-muted);font-size:11px;overflow-wrap:anywhere;padding:7px 0}.error{color:var(--sgs-danger)}label.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0}input[type=checkbox]{accent-color:var(--sgs-accent)}input.address{width:100%;font-size:11px}select{max-width:145px}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);max-width:80vw;background:var(--sgs-raised);color:var(--sgs-text);padding:10px 16px;border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 4px 20px #0008;z-index:2147483647}
+.toast[data-position=top]{top:22px;top:calc(22px + env(safe-area-inset-top, 0px));bottom:auto;box-sizing:border-box;max-width:min(36em,calc(100vw - 32px));text-align:center;overflow-wrap:anywhere;pointer-events:none}
 :host([data-collapsed]) .nav,:host([data-collapsed]) .content,:host([data-collapsed]) .status,:host([data-collapsed]) .footer{display:none}:host([data-collapsed]) .brand{display:none}
 .compact{display:none;align-items:center;height:38px;padding:0 7px 0 10px;cursor:grab;touch-action:none;white-space:nowrap;user-select:none;-webkit-user-select:none}.compact:active{cursor:grabbing}.compact .slash{display:flex;align-items:center;gap:9px;flex:1;min-width:0;height:100%;color:var(--sgs-accent)}.slash-seal{display:grid;place-items:center;flex:none;width:25px;height:27px;font:20px/1 "KaiTi","STKaiti","FangSong",serif;color:var(--sgs-accent);text-shadow:0 1px 1px #0009;background:radial-gradient(ellipse,color-mix(in srgb,var(--sgs-accent) 9%,transparent),transparent 72%)}.slash-reading{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:32px;height:34px}.slash-label{font:9px/10px var(--sgs-font);letter-spacing:1px;color:var(--sgs-muted)}.compact [data-slash]{font:600 21px/23px "Cambria","Georgia",serif;font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--sgs-accent) 42%,var(--sgs-text));text-shadow:0 1px 2px #0008;letter-spacing:.3px}.compact[data-count-state="empty"] [data-slash]{color:var(--sgs-muted)}.compact[data-count-state="unknown"] [data-slash]{color:var(--sgs-muted);font-size:19px}.compact[data-count-state="unlimited"] [data-slash]{font-size:24px}.compact[data-count-size="long"] [data-slash]{font-size:15px;letter-spacing:0}.compact-actions{display:flex;align-items:center;gap:1px;padding-left:6px;margin-left:6px;position:relative}.compact-actions::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:1px;background:linear-gradient(transparent,color-mix(in srgb,var(--sgs-accent) 30%,transparent),transparent)}.compact button{display:grid;place-items:center;flex:none;width:28px;height:30px;padding:5px;border:0;border-radius:7px;background:transparent;color:var(--sgs-muted);box-shadow:none;transition:background 140ms,color 140ms,transform 140ms}.compact button:hover{color:var(--sgs-text);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 13%,transparent),color-mix(in srgb,var(--sgs-accent) 4%,transparent))}.compact button:active{transform:translateY(1px);background:color-mix(in srgb,var(--sgs-accent) 15%,transparent)}.compact button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:-2px;background:color-mix(in srgb,var(--sgs-accent) 9%,transparent)}.compact svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.compact [data-expand] svg{width:16px;height:16px}
 :host([data-collapsed]){width:156px!important;min-width:156px;max-width:156px}:host([data-collapsed]) .shell{position:relative;width:100%!important;max-width:100%;min-width:0;resize:none;border:1px solid color-mix(in srgb,var(--sgs-border) 65%,transparent);border-radius:11px;background:linear-gradient(165deg,var(--sgs-raised) 0%,var(--sgs-bg) 40%,color-mix(in srgb,var(--sgs-bg) 82%,#000) 100%);box-shadow:0 3px 8px #0004,0 12px 28px #0002,inset 0 1px color-mix(in srgb,var(--sgs-text) 9%,transparent),inset 0 -1px #0005}:host([data-collapsed]) .shell::before{content:'';position:absolute;pointer-events:none;top:0;left:15px;right:15px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--sgs-accent) 40%,transparent),transparent)}:host([data-collapsed]) .compact{display:flex}
@@ -5432,7 +6115,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
 ${FEEDBACK_STYLES}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
-  function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount }) {
+  function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount, canReserveGameViewport }) {
     let microUpdate = null, microUpdateBusy = !1, microUpdateError = "";
     async function runMicroUpdate(action) {
       microUpdateBusy = !0, microUpdateError = "", render();
@@ -5505,10 +6188,12 @@ ${FEEDBACK_STYLES}
         }
       }), n;
     };
-    function notify(message) {
+    function notify(message, options) {
       shadow.querySelector(".toast")?.remove(), clearTimeout(toastTimer);
       let n = el("div", message, "toast");
-      n.setAttribute("role", "status"), shadow.append(n), toastTimer = setTimeout(() => n.remove(), 6e3);
+      return options?.position === "top" && (n.dataset.position = "top"), n.setAttribute("role", "status"), shadow.append(n), toastTimer = setTimeout(() => n.remove(), 6e3), () => {
+        n.parentNode && (clearTimeout(toastTimer), n.remove());
+      };
     }
     function empty(title, text2, icon2 = active) {
       let n = el("div", void 0, "empty");
@@ -6062,8 +6747,30 @@ ${FEEDBACK_STYLES}
         return;
       }
       content.classList.add("has-plugin-panels");
-      let groups = /* @__PURE__ */ new Map();
+      let groups = /* @__PURE__ */ new Map(), tabHosts = /* @__PURE__ */ new Map();
+      for (let panel of available)
+        panel.groupTabs && !tabHosts.has(panel.pluginId) && tabHosts.set(panel.pluginId, panel);
+      let appendPanel = (panel, body) => {
+        let section = el("section");
+        section.dataset.panelId = panel.id, body.append(section);
+        let groupTabs = (tabHosts.get(panel.pluginId) === panel ? available.filter((child) => child.groupTab && child.groupWith === panel.pluginId) : []).map((child) => {
+          let mounted;
+          return { id: child.id, title: child.title, mount(target) {
+            if (!content.contains(section) || !section.contains(target) || target === section)
+              throw new Error("\u7EC4\u5185\u9875\u7B7E\u5FC5\u987B\u6302\u8F7D\u5728\u672C\u9762\u677F\u7684\u5185\u5BB9\u5BB9\u5668\u4E2D\u3002");
+            return mounted ??= appendPanel(child, target);
+          } };
+        });
+        try {
+          let clean2 = panel.render(section, { groupTabs });
+          typeof clean2 == "function" && cleanups.push(clean2);
+        } catch (e) {
+          section.append(el("div", "\u9762\u677F\u52A0\u8F7D\u5931\u8D25\uFF1A" + userErrorMessage(e), "error"));
+        }
+        return section;
+      };
       for (let panel of available) {
+        if (panel.groupWith) continue;
         let id = panel.pluginId || panel.id, body = groups.get(id);
         if (!body) {
           let title = panel.pluginName || panel.title || id, group = el("section", void 0, "plugin-group");
@@ -6083,14 +6790,12 @@ ${FEEDBACK_STYLES}
             settings.set(`pluginCollapsed:${id}`, !1), apply(!1);
           }, heading.append(toggle), group.append(heading, body), content.append(group), groups.set(id, body);
         }
-        let section = el("section");
-        section.dataset.panelId = panel.id, body.append(section);
-        try {
-          let clean2 = panel.render(section);
-          typeof clean2 == "function" && cleanups.push(clean2);
-        } catch (e) {
-          section.append(el("div", "\u9762\u677F\u52A0\u8F7D\u5931\u8D25\uFF1A" + userErrorMessage(e), "error"));
-        }
+        appendPanel(panel, body);
+      }
+      for (let panel of available) {
+        if (panel.groupTab && tabHosts.has(panel.groupWith)) continue;
+        let body = panel.groupWith && groups.get(panel.groupWith);
+        body && appendPanel(panel, body);
       }
       restoreScroll();
     }
@@ -6140,7 +6845,7 @@ ${FEEDBACK_STYLES}
     let edgeBehavior = () => {
       let value = settings.get("hudEdgeBehavior", "fixed");
       return mobileDevice() ? value === "none" ? "none" : "hide" : ["none", "hide", "fixed"].includes(value) ? value : "fixed";
-    }, gameViewport = createGameViewport({ window: win, document: doc, scope }), syncGameViewport = () => gameViewport.reserve(host.hasAttribute("data-edge-fixed") ? host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280 : 0), edgeHideTimer, draggingHUD = !1, revealEdge = () => {
+    }, gameViewport = createGameViewport({ window: win, document: doc, scope, canReserve: canReserveGameViewport }), syncGameViewport = () => gameViewport.reserve(host.hasAttribute("data-edge-fixed") ? host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280 : 0), edgeHideTimer, draggingHUD = !1, revealEdge = () => {
       clearTimeout(edgeHideTimer), host.removeAttribute("data-edge-hidden");
     }, hasKeyboardFocus = () => host.matches(":focus-visible") || !!shadow.activeElement?.matches(":focus-visible"), hideEdge = () => {
       clearTimeout(edgeHideTimer), !(!host.hasAttribute("data-edge-docked") || host.hasAttribute("data-edge-fixed") || draggingHUD || hasKeyboardFocus()) && (edgeHideTimer = setTimeout(() => {
@@ -6250,7 +6955,7 @@ ${FEEDBACK_STYLES}
       }
     }
     return render(), { host, shadow, setCompactSummary, notify, showLegacyWarning, render, setGameView(value) {
-      let next = value === "shanhe" ? "shanhe" : "battle";
+      let next = value === "shanhe" || value === "shanhe-battle" ? value : "battle";
       next !== gameView && (gameView = next, active === "game" && render());
     }, setRemainingSlash(value) {
       let known = Number.isFinite(value), text2 = value === 1 / 0 ? "\u221E" : known ? String(value) : "\u2014", compact = shadow.querySelector(".compact"), count = shadow.querySelector("[data-slash]");
@@ -6315,7 +7020,14 @@ ${FEEDBACK_STYLES}
     installTouchPreview(win, scope), !1;
     let onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
     Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
-    let game = createGameAdapter(win, scope), shell = createShell({ window: win, document: win.document, settings, scope, getFeedbackAccount: () => account({ game }) }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope });
+    let game = createGameAdapter(win, scope), shell = createShell({
+      window: win,
+      document: win.document,
+      settings,
+      scope,
+      getFeedbackAccount: () => account({ game }),
+      canReserveGameViewport: () => !!!1 || game.canReserveViewport()
+    }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope });
     scope.add(game.onSceneChange((scene) => shell.setGameView(gameViewForScene(scene)))), shell.setGameView(gameViewForScene(game.getScene()));
     let screenshot = createScreenshotController({ window: win, game, settings, scope, notify: shell.notify }), bridge = installMessageBridge(win, journal, scope, (message) => shell.setStatus(message), {
       getTargets: game.getMessageTargets,
@@ -6351,6 +7063,7 @@ ${FEEDBACK_STYLES}
       effects: REPLACED_EFFECT_PACKAGES,
       skins: REPLACED_SKIN_PACKAGES,
       shanhetu: REPLACED_SHANHETU_PACKAGES,
+      "shanhetu-beta": REPLACED_SHANHETU_BETA_PACKAGES,
       themes: REPLACED_THEME_PACKAGES,
       baisheng: REPLACED_BAISHENG_PACKAGES,
       appearances: REPLACED_APPEARANCE_PACKAGES

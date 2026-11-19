@@ -23,13 +23,17 @@ function findManager(game, name, event, predicate) {
   return null;
 }
 
+export function resolveSkinManager(game) {
+  return findManager(game, 'GeneralSkinManager', 'ClientSkinFromRep', value => typeof safe(() => value.GetSkinListBySkinID) === 'function');
+}
+
 export function resolveSkinRuntime(game) {
   const self = safe(() => game.getSelf());
   const rawId = safe(() => self.ClientId) ?? safe(() => self.clientId);
   const number = rawId === '' || rawId == null ? NaN : Number(rawId);
   const accountId = Number.isSafeInteger(number) && number > 0 ? String(number) : null;
   if (!accountId) return { accountId: null, ready: false, message: '等待登录账号数据。' };
-  const skinManager = findManager(game, 'GeneralSkinManager', 'ClientSkinFromRep', value => typeof safe(() => value.GetSkinListBySkinID) === 'function');
+  const skinManager = resolveSkinManager(game);
   const goodsManager = findManager(game, 'GameGoodsManager', 'DbsCcMovegoodsRep', value => typeof safe(() => value.selfBagFinished) === 'boolean');
   if (!skinManager || !goodsManager) return { accountId, ready: false, message: '等待皮肤与背包接口；可在大厅打开背包后刷新。' };
   if (safe(() => goodsManager.selfBagFinished) !== true) return { accountId, ready: false, message: '背包尚未加载完成，暂不统计未拥有皮肤。' };

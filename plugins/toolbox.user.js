@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.91
+// @version      0.6.129
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  完整版：工具箱核心与全部插件
@@ -273,7 +273,7 @@
   }
 
   // src/core/bundled-plugins.js
-  var bundledPackages = [{ format: "sgs-toolbox-plugin-v1", manifest: { id: "social", name: "\u597D\u53CB\u4E0E\u804A\u5929", version: "0.1.15", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4F18\u5316\u597D\u53CB\u5C06\u706F\u53D8\u5316\u6A2A\u5E45\uFF0C\u8865\u5145\u597D\u53CB\u6D88\u5931\u63D0\u793A\uFF1B\u672C\u673A\u4E3B\u52A8\u5220\u9664\u6210\u529F\u540E\u6E05\u9664\u5BF9\u5E94\u672C\u5730\u8BB0\u5F55\uFF0C\u597D\u53CB\u6D88\u5931\u4E0D\u80FD\u5224\u65AD\u7531\u54EA\u4E00\u65B9\u5220\u9664\u3002\u9996\u6B21\u8BFB\u53D6\u4ECD\u53EA\u5EFA\u7ACB\u57FA\u51C6\u3002", minCoreVersion: "0.6.37", description: "\u597D\u53CB\u7F6E\u9876\u3001\u6539\u540D\u4E0E\u5C06\u706F\u65B0\u589E\u63D0\u9192\u3001\u516C\u5C4F\u4E00\u952E\u8FDB\u623F\u4E0E\u804A\u5929\u5B98\u9636\u8865\u5168", icon: { paths: ["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", "M2 21v-3a6 6 0 0 1 12 0v3", "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"] }, priority: 30300, categories: ["tools"] }, code: `var SGSPlugin = (() => {
+  var bundledPackages = [{ format: "sgs-toolbox-plugin-v1", manifest: { id: "social", name: "\u597D\u53CB\u4E0E\u804A\u5929", version: "0.1.17", apiVersion: 1, contractVersion: 1, releaseNotes: "\u5927\u5385\u623F\u95F4\u5217\u8868\u65B0\u589E\u300C\u53EA\u663E\u793A\u65E0\u5BC6\u7801\u623F\u300D\uFF0C\u5E76\u8C03\u6574\u516C\u5C4F\u623F\u53F7\u8BC6\u522B\u4E0E\u8FDB\u623F\u5165\u53E3\u3002", minCoreVersion: "0.6.37", description: "\u597D\u53CB\u7F6E\u9876\u3001\u6539\u540D\u4E0E\u5C06\u706F\u63D0\u9192\u3001\u516C\u5C4F\u4E00\u952E\u8FDB\u623F\u3001\u5B98\u9636\u8865\u5168\u4E0E\u65E0\u5BC6\u7801\u623F\u7B5B\u9009", icon: { paths: ["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", "M2 21v-3a6 6 0 0 1 12 0v3", "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"] }, priority: 30300, categories: ["tools"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -1021,11 +1021,13 @@
       return "";
     }
   }
+  var SHORT_ROOM_CONTEXT = /\u6297\u91D1|\u6697\u6D41|\u56FD\u6218|\u7F6E\u9876|\u4E00\u8F6E|\u519B|(?:^|[^a-z])(?:kj|m)(?![a-z])/i;
   function roomNumbers(text) {
     const raw = decodeHTML(String(text || ""));
     if (raw.includes("*&.!**.%#") || raw.includes("*&.!.%#")) return [];
-    const plain = raw.replace(/<(a|font)\\b[^>]*\\bhref\\s*=\\s*(['"])[\\s\\S]*?\\2[^>]*>[\\s\\S]*?<\\/\\1\\s*>/gi, " ").replace(/<[^>]*>/g, " ").replace(/(?:[a-z][a-z\\d+.-]*:\\/\\/|www\\.)[^\\s<>"'\uFF0C\u3002\uFF01\uFF1F\uFF1B\u3001]+/gi, " ");
-    return [...new Set([...plain.matchAll(/(?:^|[^\\d])(\\d{1,5})(?!\\d)/g)].map((match) => match[1]).filter((value) => Number(value) > 0))].slice(0, 8);
+    const plain = raw.replace(/<(a|font)\\b[^>]*\\bhref\\s*=\\s*(['"])[\\s\\S]*?\\2[^>]*>[\\s\\S]*?<\\/\\1\\s*>/gi, " ").replace(/<[^>]*>/g, " ").replace(/(?:[a-z][a-z\\d+.-]*:\\/\\/|www\\.)[^\\s<>"'\uFF0C\u3002\uFF01\uFF1F\uFF1B\u3001]+/gi, " ").replace(/#[1-6]\\d/g, " ");
+    const allowShort = SHORT_ROOM_CONTEXT.test(plain);
+    return [...new Set([...plain.matchAll(/(?:^|[^\\d])(\\d{1,5})(?!\\d)/g)].map((match) => match[1]).filter((value) => Number(value) > 0 && (value.length >= 4 || allowShort)))].slice(0, 8);
   }
   function roomTableId(room, mode, group) {
     if (!/^\\d{1,5}$/.test(String(room)) || Number(room) < 1 || !Number.isInteger(mode) || mode < 1 || mode > 999 || !Number.isInteger(group) || group < 1 || group > 999) return null;
@@ -1732,16 +1734,81 @@
     } };
   }
 
+  // src/plugins/social/room-filter.js
+  var LABEL = "\\u53EA\\u663E\\u793A\\u65E0\\u5BC6\\u7801\\u623F";
+  function installRoomFilter(ctx) {
+    let enabled = ctx.settings.get("onlyPasswordFreeRooms", false) === true;
+    let mounted;
+    function unmount() {
+      mounted?.();
+      mounted = void 0;
+    }
+    let currentView;
+    let currentWait;
+    function tick() {
+      const scene = ctx.game.getScene();
+      const view = scene?.SceneName === "HallScene" ? scene.roomListView : null;
+      const wait = view?.isWaitCheckBox;
+      if (mounted && view === currentView && wait === currentWait && !view.destroyed && !wait.destroyed) return;
+      unmount();
+      if (!wait || wait.destroyed || view.destroyed || wait.parent !== view || typeof view.ReloadRoomList !== "function") return;
+      const change = ctx.window.Laya?.Event?.CHANGE;
+      if (!change) return;
+      const toggle = new wait.constructor(LABEL);
+      toggle.selected = enabled;
+      view.addChild(toggle);
+      let source = view.tableDataList;
+      let filtered = false;
+      function layout() {
+        toggle.visible = wait.visible;
+        toggle.pos(wait.x + wait.width + 12, wait.y);
+      }
+      layout();
+      const releaseReload = ctx.scope.patch(view, "ReloadRoomList", (original) => function(rows, ...args) {
+        source = rows;
+        filtered = enabled && Array.isArray(rows);
+        const visible = filtered ? rows.filter((room) => !(room?.HasPass || room?.hasPass)) : rows;
+        return original.call(this, visible, ...args);
+      });
+      const releaseResize = typeof view.OnStageResize === "function" && ctx.scope.patch(view, "OnStageResize", (original) => function(...args) {
+        const result = original.apply(this, args);
+        layout();
+        return result;
+      });
+      function onChange() {
+        enabled = toggle.selected === true;
+        if (Array.isArray(source)) view.ReloadRoomList(source);
+        ctx.settings.set("onlyPasswordFreeRooms", enabled);
+      }
+      toggle.on(change, view, onChange);
+      currentView = view;
+      currentWait = wait;
+      mounted = () => {
+        releaseReload();
+        if (releaseResize) releaseResize();
+        if (!toggle.destroyed) {
+          toggle.off(change, view, onChange);
+          toggle.destroy(true);
+        }
+        if (filtered && !view.destroyed) view.ReloadRoomList(source);
+      };
+      if (enabled && Array.isArray(source)) view.ReloadRoomList(source);
+    }
+    ctx.scope.add(unmount);
+    ctx.scope.interval(tick, 400);
+    tick();
+  }
+
   // src/plugins/social/index.js
   var manifest = {
     id: "social",
     name: "\\u597D\\u53CB\\u4E0E\\u804A\\u5929",
-    version: "0.1.15",
+    version: "0.1.17",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u4F18\\u5316\\u597D\\u53CB\\u5C06\\u706F\\u53D8\\u5316\\u6A2A\\u5E45\\uFF0C\\u8865\\u5145\\u597D\\u53CB\\u6D88\\u5931\\u63D0\\u793A\\uFF1B\\u672C\\u673A\\u4E3B\\u52A8\\u5220\\u9664\\u6210\\u529F\\u540E\\u6E05\\u9664\\u5BF9\\u5E94\\u672C\\u5730\\u8BB0\\u5F55\\uFF0C\\u597D\\u53CB\\u6D88\\u5931\\u4E0D\\u80FD\\u5224\\u65AD\\u7531\\u54EA\\u4E00\\u65B9\\u5220\\u9664\\u3002\\u9996\\u6B21\\u8BFB\\u53D6\\u4ECD\\u53EA\\u5EFA\\u7ACB\\u57FA\\u51C6\\u3002",
+    releaseNotes: "\\u5927\\u5385\\u623F\\u95F4\\u5217\\u8868\\u65B0\\u589E\\u300C\\u53EA\\u663E\\u793A\\u65E0\\u5BC6\\u7801\\u623F\\u300D\\uFF0C\\u5E76\\u8C03\\u6574\\u516C\\u5C4F\\u623F\\u53F7\\u8BC6\\u522B\\u4E0E\\u8FDB\\u623F\\u5165\\u53E3\\u3002",
     minCoreVersion: "0.6.37",
-    description: "\\u597D\\u53CB\\u7F6E\\u9876\\u3001\\u6539\\u540D\\u4E0E\\u5C06\\u706F\\u65B0\\u589E\\u63D0\\u9192\\u3001\\u516C\\u5C4F\\u4E00\\u952E\\u8FDB\\u623F\\u4E0E\\u804A\\u5929\\u5B98\\u9636\\u8865\\u5168",
+    description: "\\u597D\\u53CB\\u7F6E\\u9876\\u3001\\u6539\\u540D\\u4E0E\\u5C06\\u706F\\u63D0\\u9192\\u3001\\u516C\\u5C4F\\u4E00\\u952E\\u8FDB\\u623F\\u3001\\u5B98\\u9636\\u8865\\u5168\\u4E0E\\u65E0\\u5BC6\\u7801\\u623F\\u7B5B\\u9009",
     icon: { paths: ["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", "M2 21v-3a6 6 0 0 1 12 0v3", "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"] },
     priority: 30300,
     categories: ["tools"]
@@ -1751,6 +1818,7 @@
     const friends = createFriendManagement(ctx, banner);
     const lamps = createLampTracking(ctx, friends, banner);
     createChatEnhancements(ctx);
+    installRoomFilter(ctx);
     ctx.ui.registerPanel({ id: "history", category: "tools", render(container) {
       return renderHistory(ctx, container, friends, lamps);
     } });
@@ -1828,8 +1896,8 @@
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E\u804A\u5929","version":"0.1.15","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4F18\u5316\u597D\u53CB\u5C06\u706F\u53D8\u5316\u6A2A\u5E45\uFF0C\u8865\u5145\u597D\u53CB\u6D88\u5931\u63D0\u793A\uFF1B\u672C\u673A\u4E3B\u52A8\u5220\u9664\u6210\u529F\u540E\u6E05\u9664\u5BF9\u5E94\u672C\u5730\u8BB0\u5F55\uFF0C\u597D\u53CB\u6D88\u5931\u4E0D\u80FD\u5224\u65AD\u7531\u54EA\u4E00\u65B9\u5220\u9664\u3002\u9996\u6B21\u8BFB\u53D6\u4ECD\u53EA\u5EFA\u7ACB\u57FA\u51C6\u3002","minCoreVersion":"0.6.37","description":"\u597D\u53CB\u7F6E\u9876\u3001\u6539\u540D\u4E0E\u5C06\u706F\u65B0\u589E\u63D0\u9192\u3001\u516C\u5C4F\u4E00\u952E\u8FDB\u623F\u4E0E\u804A\u5929\u5B98\u9636\u8865\u5168","icon":{"paths":["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8","M2 21v-3a6 6 0 0 1 12 0v3","M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"]},"priority":30300,"categories":["tools"]}};
-`, sha256: "b304c0684ea85708af0cdec01fea078404045e5ef60b4b777751936f4c31823b" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "player-info", name: "\u73A9\u5BB6\u4FE1\u606F", version: "0.4.19", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u6597\u5730\u4E3B\u5C06\u706F\u68C0\u67E5\u4E0E\u5173\u6CE8\u6B66\u5C06\u8BBE\u7F6E\uFF0C\u4F18\u5316\u9009\u5C06\u671F\u95F4\u8D44\u6599\u5361\u906E\u6321\u548C\u63D0\u793A\u5E03\u5C40\u3002\u73A9\u5BB6\u8D44\u6599\u5361\u4E0E\u5C06\u706F\u68C0\u67E5\u9ED8\u8BA4\u5F00\u542F\uFF0C\u4FDD\u7559\u5DF2\u6709\u5173\u95ED\u9009\u62E9\uFF1B\u67E5\u8BE2\u4F1A\u8BBF\u95EE\u6E38\u620F\u670D\u52A1\u5668\u5E76\u6309\u9700\u52A0\u8F7D\u6B66\u5C06\u539F\u753B\uFF0C\u4F53\u9A8C\u5361\u7B49\u4E34\u65F6\u62E5\u6709\u72B6\u6001\u53EF\u80FD\u5F71\u54CD\u5224\u65AD\u3002", minCoreVersion: "0.6.70", description: "\u53EF\u9009\u73A9\u5BB6\u8D44\u6599\u5361\u4E0E\u6597\u5730\u4E3B\u5C06\u706F\u68C0\u67E5\uFF0C\u652F\u6301\u81EA\u5B9A\u4E49\u5173\u6CE8\u6B66\u5C06\u3001\u4EBA\u673A\u63D0\u793A\u4E0E\u81EA\u9009\u8EAB\u4EFD\u8865\u5168", icon: { paths: ["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"] }, priority: 30200, categories: ["game"] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E\u804A\u5929","version":"0.1.17","apiVersion":1,"contractVersion":1,"releaseNotes":"\u5927\u5385\u623F\u95F4\u5217\u8868\u65B0\u589E\u300C\u53EA\u663E\u793A\u65E0\u5BC6\u7801\u623F\u300D\uFF0C\u5E76\u8C03\u6574\u516C\u5C4F\u623F\u53F7\u8BC6\u522B\u4E0E\u8FDB\u623F\u5165\u53E3\u3002","minCoreVersion":"0.6.37","description":"\u597D\u53CB\u7F6E\u9876\u3001\u6539\u540D\u4E0E\u5C06\u706F\u63D0\u9192\u3001\u516C\u5C4F\u4E00\u952E\u8FDB\u623F\u3001\u5B98\u9636\u8865\u5168\u4E0E\u65E0\u5BC6\u7801\u623F\u7B5B\u9009","icon":{"paths":["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8","M2 21v-3a6 6 0 0 1 12 0v3","M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"]},"priority":30300,"categories":["tools"]}};
+`, sha256: "4ef7feb0bb58def3626497607110f00056dc84899ad2257f8f81aa1ca2225702" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "player-info", name: "\u73A9\u5BB6\u4FE1\u606F", version: "0.4.20", apiVersion: 1, contractVersion: 1, releaseNotes: "\u9002\u914D\u65B0\u7248\u5DE5\u5177\u7BB1\u754C\u9762\u8D44\u6E90\u3002\u73A9\u5BB6\u8D44\u6599\u548C\u5C06\u706F\u67E5\u8BE2\u7684\u7528\u6CD5\u6CBF\u7528\u73B0\u6709\u8BBE\u7F6E\u3002", minCoreVersion: "0.6.70", description: "\u53EF\u9009\u73A9\u5BB6\u8D44\u6599\u5361\u4E0E\u6597\u5730\u4E3B\u5C06\u706F\u68C0\u67E5\uFF0C\u652F\u6301\u81EA\u5B9A\u4E49\u5173\u6CE8\u6B66\u5C06\u3001\u4EBA\u673A\u63D0\u793A\u4E0E\u81EA\u9009\u8EAB\u4EFD\u8865\u5168", icon: { paths: ["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"] }, priority: 30200, categories: ["game"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -3825,6 +3893,10 @@ return {...SGSPlugin.default, manifest:{"id":"social","name":"\u597D\u53CB\u4E0E
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
     ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
+    ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
       "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"
@@ -4187,10 +4259,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var manifest = {
     id: "player-info",
     name: "\\u73A9\\u5BB6\\u4FE1\\u606F",
-    version: "0.4.19",
+    version: "0.4.20",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u65B0\\u589E\\u6597\\u5730\\u4E3B\\u5C06\\u706F\\u68C0\\u67E5\\u4E0E\\u5173\\u6CE8\\u6B66\\u5C06\\u8BBE\\u7F6E\\uFF0C\\u4F18\\u5316\\u9009\\u5C06\\u671F\\u95F4\\u8D44\\u6599\\u5361\\u906E\\u6321\\u548C\\u63D0\\u793A\\u5E03\\u5C40\\u3002\\u73A9\\u5BB6\\u8D44\\u6599\\u5361\\u4E0E\\u5C06\\u706F\\u68C0\\u67E5\\u9ED8\\u8BA4\\u5F00\\u542F\\uFF0C\\u4FDD\\u7559\\u5DF2\\u6709\\u5173\\u95ED\\u9009\\u62E9\\uFF1B\\u67E5\\u8BE2\\u4F1A\\u8BBF\\u95EE\\u6E38\\u620F\\u670D\\u52A1\\u5668\\u5E76\\u6309\\u9700\\u52A0\\u8F7D\\u6B66\\u5C06\\u539F\\u753B\\uFF0C\\u4F53\\u9A8C\\u5361\\u7B49\\u4E34\\u65F6\\u62E5\\u6709\\u72B6\\u6001\\u53EF\\u80FD\\u5F71\\u54CD\\u5224\\u65AD\\u3002",
+    releaseNotes: "\\u9002\\u914D\\u65B0\\u7248\\u5DE5\\u5177\\u7BB1\\u754C\\u9762\\u8D44\\u6E90\\u3002\\u73A9\\u5BB6\\u8D44\\u6599\\u548C\\u5C06\\u706F\\u67E5\\u8BE2\\u7684\\u7528\\u6CD5\\u6CBF\\u7528\\u73B0\\u6709\\u8BBE\\u7F6E\\u3002",
     minCoreVersion: "0.6.70",
     description: "\\u53EF\\u9009\\u73A9\\u5BB6\\u8D44\\u6599\\u5361\\u4E0E\\u6597\\u5730\\u4E3B\\u5C06\\u706F\\u68C0\\u67E5\\uFF0C\\u652F\\u6301\\u81EA\\u5B9A\\u4E49\\u5173\\u6CE8\\u6B66\\u5C06\\u3001\\u4EBA\\u673A\\u63D0\\u793A\\u4E0E\\u81EA\\u9009\\u8EAB\\u4EFD\\u8865\\u5168",
     icon: { paths: ["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"] },
@@ -4337,8 +4409,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"player-info","name":"\u73A9\u5BB6\u4FE1\u606F","version":"0.4.19","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u6597\u5730\u4E3B\u5C06\u706F\u68C0\u67E5\u4E0E\u5173\u6CE8\u6B66\u5C06\u8BBE\u7F6E\uFF0C\u4F18\u5316\u9009\u5C06\u671F\u95F4\u8D44\u6599\u5361\u906E\u6321\u548C\u63D0\u793A\u5E03\u5C40\u3002\u73A9\u5BB6\u8D44\u6599\u5361\u4E0E\u5C06\u706F\u68C0\u67E5\u9ED8\u8BA4\u5F00\u542F\uFF0C\u4FDD\u7559\u5DF2\u6709\u5173\u95ED\u9009\u62E9\uFF1B\u67E5\u8BE2\u4F1A\u8BBF\u95EE\u6E38\u620F\u670D\u52A1\u5668\u5E76\u6309\u9700\u52A0\u8F7D\u6B66\u5C06\u539F\u753B\uFF0C\u4F53\u9A8C\u5361\u7B49\u4E34\u65F6\u62E5\u6709\u72B6\u6001\u53EF\u80FD\u5F71\u54CD\u5224\u65AD\u3002","minCoreVersion":"0.6.70","description":"\u53EF\u9009\u73A9\u5BB6\u8D44\u6599\u5361\u4E0E\u6597\u5730\u4E3B\u5C06\u706F\u68C0\u67E5\uFF0C\u652F\u6301\u81EA\u5B9A\u4E49\u5173\u6CE8\u6B66\u5C06\u3001\u4EBA\u673A\u63D0\u793A\u4E0E\u81EA\u9009\u8EAB\u4EFD\u8865\u5168","icon":{"paths":["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0","M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"]},"priority":30200,"categories":["game"]}};
-`, sha256: "137de51e07acf360074aba07283559f9c8e91b6a7559daa95a74a6e62217ec5c" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "native-cards", name: "\u5B98\u65B9\u5361\u724C", version: "0.1.0", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.95", categories: [], icon: "cards", priority: 50090, description: "\u590D\u7528\u5B98\u65B9\u7ECF\u5178\u4E0E\u5927\u5C06\u519B\u4E24\u5957\u5361\u9762\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u4E2D\u6210\u5957\u9009\u7528" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"player-info","name":"\u73A9\u5BB6\u4FE1\u606F","version":"0.4.20","apiVersion":1,"contractVersion":1,"releaseNotes":"\u9002\u914D\u65B0\u7248\u5DE5\u5177\u7BB1\u754C\u9762\u8D44\u6E90\u3002\u73A9\u5BB6\u8D44\u6599\u548C\u5C06\u706F\u67E5\u8BE2\u7684\u7528\u6CD5\u6CBF\u7528\u73B0\u6709\u8BBE\u7F6E\u3002","minCoreVersion":"0.6.70","description":"\u53EF\u9009\u73A9\u5BB6\u8D44\u6599\u5361\u4E0E\u6597\u5730\u4E3B\u5C06\u706F\u68C0\u67E5\uFF0C\u652F\u6301\u81EA\u5B9A\u4E49\u5173\u6CE8\u6B66\u5C06\u3001\u4EBA\u673A\u63D0\u793A\u4E0E\u81EA\u9009\u8EAB\u4EFD\u8865\u5168","icon":{"paths":["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0","M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"]},"priority":30200,"categories":["game"]}};
+`, sha256: "bf8c5cb8458948f3f7b6858a046b34feba9bae5cd0351b7399ae68df4ae90e9d" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "native-cards", name: "\u5B98\u65B9\u5361\u724C", version: "0.1.0", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.95", categories: [], icon: "cards", priority: 50090, description: "\u590D\u7528\u5B98\u65B9\u7ECF\u5178\u4E0E\u5927\u5C06\u519B\u4E24\u5957\u5361\u9762\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u4E2D\u6210\u5957\u9009\u7528" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -4588,7 +4660,7 @@ return {...SGSPlugin.default, manifest:{"id":"native-cards","name":"\u5B98\u65B9
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"yjcm-cards","name":"\u4E00\u5C06\u6210\u540D\u5361\u9762\u5305","version":"0.1.2","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.125","categories":[],"icon":{"paths":["M8 3h12v17H8ZM4 5H2v17h13v-2","M14 6l3 4-3 4-3-4ZM11 17h6"]},"priority":50095,"description":"\u55B5\u55B5\u676F\u3001\u732A\u732A\u4FA0\u9010\u724C\u5361\u9762\uFF1B\u6765\u6E90\u4E3A\u4E00\u5C06\u6210\u540D\u5B98\u65B9\u8D44\u6E90\uFF0C\u7F3A\u5931\u7279\u6B8A\u5361\u56FE\u65F6\u4FDD\u7559\u6E38\u620F\u539F\u751F\u663E\u793A"}};
-`, sha256: "63ec4317e93a6b215790b9865bd8d8b887676a5c00d118eff2ff7d4f79765ac4" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "dafeiyu-cards", name: "\u5927\u80A5\u9C7C\u5361\u9762", version: "0.4.1", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.6.9", categories: [], icon: { paths: ["M3 5h13v16H3Z", "M7 2h14v16h-2", "M5 12c3-5 6-5 8 0-2 5-5 5-8 0Z", "M13 12l2-2v4Z", "M8 11v.1"] }, priority: 50096, description: "\u4E09\u500D\u9AD8\u6E05\u5927\u80A5\u9C7C\u5361\u9762\u4E0E\u9CB8\u6D6A\u85CF\u950B\u5361\u80CC\uFF0C\u5171 52 \u79CD\u5361\u9762\uFF0C\u542B\u519B\u4E89\u5361\u7EC4\u4E0E 8 \u5F20\u884D\u751F\u88C5\u5907\u53CA\u5415\u73B2\u7EEE\u56DB\u4EF6\u88C5\u5907\u7CBE\u4FEE\uFF1B\u56FE\u7247\u6309\u9700\u52A0\u8F7D" }, code: `var SGSPlugin = (() => {
+`, sha256: "63ec4317e93a6b215790b9865bd8d8b887676a5c00d118eff2ff7d4f79765ac4" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "dafeiyu-cards", name: "\u5927\u80A5\u9C7C\u5361\u9762", version: "0.4.3", releaseNotes: "\u8C03\u6574\u5361\u9762\u8D44\u6E90\u517C\u5BB9\u6027\uFF0C\u6B63\u5F0F\u7248\u7EE7\u7EED\u6309\u9700\u52A0\u8F7D\u73B0\u6709\u9AD8\u6E05\u5361\u9762\u548C\u5361\u80CC\u3002", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.6.9", categories: [], icon: { paths: ["M3 5h13v16H3Z", "M7 2h14v16h-2", "M5 12c3-5 6-5 8 0-2 5-5 5-8 0Z", "M13 12l2-2v4Z", "M8 11v.1"] }, priority: 50096, description: "\u4E09\u500D\u9AD8\u6E05\u5927\u80A5\u9C7C\u5361\u9762\u4E0E\u9CB8\u6D6A\u85CF\u950B\u5361\u80CC\uFF0C\u542B\u519B\u4E89\u5361\u7EC4\u548C\u884D\u751F\u88C5\u5907\uFF0C\u56FE\u7247\u6309\u9700\u52A0\u8F7D" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -4660,6 +4732,213 @@ return {...SGSPlugin.default, manifest:{"id":"yjcm-cards","name":"\u4E00\u5C06\u
     "source": "\\u5927\\u80A5\\u9C7C\\uFF0FDeepSeek \\u5A18\\u793E\\u533A\\u5F62\\u8C61\\u4E8C\\u521B\\uFF1B\\u5185\\u7F6E image_gen \\u7CBE\\u4FEE\\u519B\\u4E89\\u5361\\u7EC4 44 \\u5F20\\u4E0E 8 \\u5F20\\u884D\\u751F\\u88C5\\u5907\\uFF0C\\u5305\\u542B\\u5415\\u73B2\\u7EEE\\u56DB\\u4EF6\\u88C5\\u5907\\u7CBE\\u4FEE\\uFF0C\\u5DE5\\u5177\\u7BB1\\u4EE5\\u4E09\\u500D\\u5206\\u8FA8\\u7387\\u7F16\\u6392\\u5361\\u9762\\u3002\\u975E DeepSeek \\u6216\\u4E09\\u56FD\\u6740\\u5B98\\u65B9\\u7F8E\\u672F\\u3002\\u89D2\\u8272\\u539F\\u8BBE\\u8BA1\\u5F52\\u539F\\u4F5C\\u8005\\uFF1B\\u56FE\\u7247\\u6309\\u9700\\u4ECE\\u8D44\\u6E90\\u76EE\\u5F55\\u52A0\\u8F7D\\uFF0C\\u4E0D\\u4E0A\\u4F20\\u8D26\\u53F7\\u6216\\u724C\\u5C40\\u3002"
   };
 
+  // src/plugins/dafeiyu-cards/local-resources.js
+  var localResource = {
+    "index": {
+      "url": "http://127.0.0.1:17321/card-art/dafeiyu/0.4.1/card.atlas",
+      "fallbackUrls": [],
+      "bytes": 19529,
+      "sha256": "41224ff9933c22a719f43c5fefcee10f46afeb2174f6200c0571b920103834cc"
+    },
+    "pages": [
+      {
+        "url": "http://127.0.0.1:17321/card-art/dafeiyu/0.4.1/cards.png",
+        "fallbackUrls": [],
+        "bytes": 8029754,
+        "sha256": "a33367319d22211e83d4a264a6cf85ae3861504beda9e42473b69d3c040cefb7"
+      },
+      {
+        "url": "http://127.0.0.1:17321/card-art/dafeiyu/0.4.1/cards1.png",
+        "fallbackUrls": [],
+        "bytes": 8017484,
+        "sha256": "124456d5b04bc9dd7925692f1c5fb34b042338ebf3af11e13ba7814e81ac17c5"
+      },
+      {
+        "url": "http://127.0.0.1:17321/card-art/dafeiyu/0.4.1/cards2.png",
+        "fallbackUrls": [],
+        "bytes": 8351306,
+        "sha256": "40884bc44c0c265f6b14153e4ac7fcd6add10e29dc7456a4bd62fb56d8fe85fe"
+      },
+      {
+        "url": "http://127.0.0.1:17321/card-art/dafeiyu/0.4.1/cards3.png",
+        "fallbackUrls": [],
+        "bytes": 7625789,
+        "sha256": "97cc1666a12da8f252ee566bf0682a6918244079c0666b35961c813b1495887a"
+      }
+    ],
+    "source": "\\u5927\\u80A5\\u9C7C\\u4E09\\u500D\\u9AD8\\u6E05\\u5361\\u9762 \\xB7 \\u672C\\u673A\\u5F00\\u53D1\\u56FE\\u96C6\\uFF0C\\u5171 94 \\u79CD\\uFF0C\\u542B 42 \\u5F20\\u5C71\\u6CB3\\u56FE\\u88C5\\u5907\\u3002\\u89D2\\u8272\\u539F\\u8BBE\\u8BA1\\u5F52\\u539F\\u4F5C\\u8005\\uFF0C\\u53C2\\u8003\\u81EA\\u793E\\u533A\\u9CB8\\u9C7C\\u5A18\\u3002\\u62A4\\u5FC3\\u955C\\u4EE5\\u7528\\u6237\\u63D0\\u4F9B\\u7684\\u514D\\u6B7B\\u9CB8\\u724C\\u4E3A\\u9053\\u5177\\u53C2\\u8003\\u3002"
+  };
+  var localCards = [
+    {
+      "name": "XiaoLianNu",
+      "label": "\\u5C0F\\u578B\\u8FDE\\u5F29"
+    },
+    {
+      "name": "GuiLongZhanYueDao",
+      "label": "\\u9B3C\\u9F99\\u65A9\\u6708\\u5200"
+    },
+    {
+      "name": "ChiYanZhenHunQin",
+      "label": "\\u8D64\\u708E\\u9547\\u9B42\\u7434"
+    },
+    {
+      "name": "XiuLuoLianYuJi",
+      "label": "\\u4FEE\\u7F57\\u70BC\\u72F1\\u621F"
+    },
+    {
+      "name": "LuanFengHeMingJian",
+      "label": "\\u9E3E\\u51E4\\u548C\\u9E23\\u5251"
+    },
+    {
+      "name": "SanJianLiangRenDao",
+      "label": "\\u4E09\\u5C16\\u4E24\\u5203\\u5200"
+    },
+    {
+      "name": "WuLiuJian",
+      "label": "\\u5434\\u516D\\u5251"
+    },
+    {
+      "name": "QiBaoDao",
+      "label": "\\u4E03\\u5B9D\\u5200"
+    },
+    {
+      "name": "BaiBiDao",
+      "label": "\\u767E\\u8F9F\\u5200"
+    },
+    {
+      "name": "BinTieShuangJi",
+      "label": "\\u9554\\u94C1\\u53CC\\u621F"
+    },
+    {
+      "name": "JiuJieBian",
+      "label": "\\u4E94\\u884C\\u9E64\\u7FCE\\u6247"
+    },
+    {
+      "name": "LiuXingChui",
+      "label": "\\u4E4C\\u94C1\\u9501\\u94FE"
+    },
+    {
+      "name": "JinWuLuoRiGong",
+      "label": "\\u91D1\\u4E4C\\u843D\\u65E5\\u5F13"
+    },
+    {
+      "name": "XingTianPoJunFu",
+      "label": "\\u5211\\u5929\\u7834\\u519B\\u65A7"
+    },
+    {
+      "name": "ShiQuanJian",
+      "label": "\\u65AD\\u9B42"
+    },
+    {
+      "name": "LeiQie",
+      "label": "\\u96F7\\u9707"
+    },
+    {
+      "name": "ShouLiJian",
+      "label": "\\u6697\\u5668\\u98DE\\u5203"
+    },
+    {
+      "name": "TongZiQieAnGang",
+      "label": "\\u65A9\\u9B42\\u5200"
+    },
+    {
+      "name": "YaoDaoCunZheng",
+      "label": "\\u5996\\u5200\\u8D64\\u77B3"
+    },
+    {
+      "name": "ChiXueQingFeng",
+      "label": "\\u8D64\\u8840\\u9752\\u950B"
+    },
+    {
+      "name": "YiTianShiNi",
+      "label": "\\u501A\\u5929\\u5F11\\u9006"
+    },
+    {
+      "name": "GuoFengYuPao",
+      "label": "\\u56FD\\u98CE\\u7389\\u888D"
+    },
+    {
+      "name": "QiMenBaZhen",
+      "label": "\\u5947\\u95E8\\u516B\\u9635"
+    },
+    {
+      "name": "YuLinJia",
+      "label": "\\u9ED1\\u5149\\u94E0"
+    },
+    {
+      "name": "HuXinJing",
+      "label": "\\u62A4\\u5FC3\\u955C"
+    },
+    {
+      "name": "ZengJuZu",
+      "label": "\\u94C1\\u7532\\u80C4"
+    },
+    {
+      "name": "SanShou",
+      "label": "\\u4E09\\u9996"
+    },
+    {
+      "name": "JinHuanXianLinJia",
+      "label": "\\u91D1\\u73AF\\u8854\\u9CDE\\u7532"
+    },
+    {
+      "name": "GouXiang",
+      "label": "\\u94A9\\u9576"
+    },
+    {
+      "name": "JueChenJinGe",
+      "label": "\\u7EDD\\u5C18\\u91D1\\u6208"
+    },
+    {
+      "name": "QiCaiShenLu",
+      "label": "\\u4E03\\u5F69\\u795E\\u9E7F"
+    },
+    {
+      "name": "XuWangZhiMian",
+      "label": "\\u865A\\u5984\\u4E4B\\u5195"
+    },
+    {
+      "name": "TianJiTu",
+      "label": "\\u5929\\u673A\\u56FE"
+    },
+    {
+      "name": "TaiGongYinFu",
+      "label": "\\u592A\\u516C\\u9634\\u7B26"
+    },
+    {
+      "name": "SanLve",
+      "label": "\\u4E09\\u7565"
+    },
+    {
+      "name": "ShanRangZhaoShu",
+      "label": "\\u7985\\u8BA9\\u8BCF\\u4E66"
+    },
+    {
+      "name": "SheLingJi",
+      "label": "\\u86C7\\u7075\\u9AFB"
+    },
+    {
+      "name": "ZhaoGuJing",
+      "label": "\\u7167\\u9AA8\\u955C"
+    },
+    {
+      "name": "BaZhiJing",
+      "label": "\\u6606\\u4ED1\\u955C"
+    },
+    {
+      "name": "BaChiQiongGouYu",
+      "label": "\\u87AD\\u7EB9\\u7389\\u4F69"
+    },
+    {
+      "name": "PingAnYuShou",
+      "label": "\\u5E73\\u5B89\\u7B26"
+    },
+    {
+      "name": "TongQue",
+      "label": "\\u94DC\\u96C0"
+    }
+  ];
+
   // src/plugins/dafeiyu-cards/coverage.js
   var cards = Object.freeze([
     ["Sha", "\\u6740", "standard", "\\u57FA\\u672C"],
@@ -4721,29 +5000,36 @@ return {...SGSPlugin.default, manifest:{"id":"yjcm-cards","name":"\u4E00\u5C06\u
   var manifest = {
     id: "dafeiyu-cards",
     name: "\\u5927\\u80A5\\u9C7C\\u5361\\u9762",
-    version: "0.4.1",
+    version: "0.4.3",
+    releaseNotes: "\\u8C03\\u6574\\u5361\\u9762\\u8D44\\u6E90\\u517C\\u5BB9\\u6027\\uFF0C\\u6B63\\u5F0F\\u7248\\u7EE7\\u7EED\\u6309\\u9700\\u52A0\\u8F7D\\u73B0\\u6709\\u9AD8\\u6E05\\u5361\\u9762\\u548C\\u5361\\u80CC\\u3002",
     apiVersion: 1,
     contractVersion: 1,
     minCoreVersion: "0.6.9",
     categories: [],
     icon: { paths: ["M3 5h13v16H3Z", "M7 2h14v16h-2", "M5 12c3-5 6-5 8 0-2 5-5 5-8 0Z", "M13 12l2-2v4Z", "M8 11v.1"] },
     priority: 50096,
-    description: "\\u4E09\\u500D\\u9AD8\\u6E05\\u5927\\u80A5\\u9C7C\\u5361\\u9762\\u4E0E\\u9CB8\\u6D6A\\u85CF\\u950B\\u5361\\u80CC\\uFF0C\\u5171 52 \\u79CD\\u5361\\u9762\\uFF0C\\u542B\\u519B\\u4E89\\u5361\\u7EC4\\u4E0E 8 \\u5F20\\u884D\\u751F\\u88C5\\u5907\\u53CA\\u5415\\u73B2\\u7EEE\\u56DB\\u4EF6\\u88C5\\u5907\\u7CBE\\u4FEE\\uFF1B\\u56FE\\u7247\\u6309\\u9700\\u52A0\\u8F7D"
+    description: "\\u4E09\\u500D\\u9AD8\\u6E05\\u5927\\u80A5\\u9C7C\\u5361\\u9762\\u4E0E\\u9CB8\\u6D6A\\u85CF\\u950B\\u5361\\u80CC\\uFF0C\\u542B\\u519B\\u4E89\\u5361\\u7EC4\\u548C\\u884D\\u751F\\u88C5\\u5907\\uFF0C\\u56FE\\u7247\\u6309\\u9700\\u52A0\\u8F7D"
   };
   function activate(ctx) {
+    const local = ctx.core?.distribution === "dev";
     ctx.cardStyles.register({
       id: "dafeiyu-cards.beta",
       name: "\\u5927\\u80A5\\u9C7C\\u5361\\u9762",
       backName: "\\u5927\\u80A5\\u9C7C\\u5361\\u80CC \\xB7 \\u9CB8\\u6D6A\\u85CF\\u950B",
-      atlas: { ...resource, replaceCards, backImage }
+      atlas: {
+        ...resource,
+        ...local ? localResource : {},
+        replaceCards: local ? [...replaceCards, ...localCards.map((card) => card.name)] : replaceCards,
+        backImage
+      }
     });
   }
   var index_default = { manifest, activate };
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A5\u9C7C\u5361\u9762","version":"0.4.1","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.6.9","categories":[],"icon":{"paths":["M3 5h13v16H3Z","M7 2h14v16h-2","M5 12c3-5 6-5 8 0-2 5-5 5-8 0Z","M13 12l2-2v4Z","M8 11v.1"]},"priority":50096,"description":"\u4E09\u500D\u9AD8\u6E05\u5927\u80A5\u9C7C\u5361\u9762\u4E0E\u9CB8\u6D6A\u85CF\u950B\u5361\u80CC\uFF0C\u5171 52 \u79CD\u5361\u9762\uFF0C\u542B\u519B\u4E89\u5361\u7EC4\u4E0E 8 \u5F20\u884D\u751F\u88C5\u5907\u53CA\u5415\u73B2\u7EEE\u56DB\u4EF6\u88C5\u5907\u7CBE\u4FEE\uFF1B\u56FE\u7247\u6309\u9700\u52A0\u8F7D"}};
-`, sha256: "c3ee772bf9bf1e17754145f93999eed01ca4cc042a25a846605b50164e0e7752" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "backgrounds", name: "\u81EA\u5B9A\u4E49\u80CC\u666F", version: "0.2.6", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u80CC\u666F\u8BBE\u7F6E\u8BF4\u660E\uFF0C\u7EDF\u4E00\u5F00\u5173\u4E0E\u5E2E\u52A9\u63D0\u793A\u7684\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u80CC\u666F\u548C\u52A8\u6001\u64AD\u653E\u9009\u62E9\u3002", minCoreVersion: "0.6.88", dependencies: ["skins"], categories: ["appearance"], priority: 31e3, icon: { paths: ["M3 4h18v16H3Z", "M3 16 9 10l4 4 3-3 5 5", "M16 7h1"] }, description: "\u5C06\u672C\u5730\u56FE\u7247\u6216\u6E38\u620F\u76AE\u80A4\u7528\u4F5C\u724C\u5C40\u80CC\u666F\uFF0C\u4FDD\u7559\u5929\u6C14\u4E0E\u6B66\u5C06\u6280\u80FD\u80CC\u666F" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A5\u9C7C\u5361\u9762","version":"0.4.3","releaseNotes":"\u8C03\u6574\u5361\u9762\u8D44\u6E90\u517C\u5BB9\u6027\uFF0C\u6B63\u5F0F\u7248\u7EE7\u7EED\u6309\u9700\u52A0\u8F7D\u73B0\u6709\u9AD8\u6E05\u5361\u9762\u548C\u5361\u80CC\u3002","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.6.9","categories":[],"icon":{"paths":["M3 5h13v16H3Z","M7 2h14v16h-2","M5 12c3-5 6-5 8 0-2 5-5 5-8 0Z","M13 12l2-2v4Z","M8 11v.1"]},"priority":50096,"description":"\u4E09\u500D\u9AD8\u6E05\u5927\u80A5\u9C7C\u5361\u9762\u4E0E\u9CB8\u6D6A\u85CF\u950B\u5361\u80CC\uFF0C\u542B\u519B\u4E89\u5361\u7EC4\u548C\u884D\u751F\u88C5\u5907\uFF0C\u56FE\u7247\u6309\u9700\u52A0\u8F7D"}};
+`, sha256: "3792c5fd8f9aac3abd4351db6a77ca95ae22ee9510f293a78a853b8e269ee6e8" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "backgrounds", name: "\u81EA\u5B9A\u4E49\u80CC\u666F", version: "0.2.8", apiVersion: 1, contractVersion: 1, releaseNotes: "\u9002\u914D\u76AE\u80A4\u7BA1\u7406\u4E2D\u7684\u80CC\u666F\u5FEB\u6377\u8BBE\u7F6E\u3002\u80CC\u666F\u56FE\u7247\u548C\u52A8\u6001\u8D44\u6E90\u6309\u9700\u8054\u7F51\u52A0\u8F7D\u3002", minCoreVersion: "0.6.105", dependencies: ["skins"], categories: ["appearance"], priority: 31e3, icon: { paths: ["M3 4h18v16H3Z", "M3 16 9 10l4 4 3-3 5 5", "M16 7h1"] }, description: "\u5C06\u672C\u5730\u56FE\u7247\u6216\u6E38\u620F\u76AE\u80A4\u7528\u4F5C\u724C\u5C40\u80CC\u666F\uFF0C\u4FDD\u7559\u5929\u6C14\u4E0E\u6B66\u5C06\u6280\u80FD\u80CC\u666F" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -4774,6 +5060,9 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
   });
 
   // src/shared/skin-detail.js
+  function supportsSkinBackgroundAttack(dynamic) {
+    return dynamic?.kind === "spine" && dynamic.modern === true && dynamic.attack !== false;
+  }
   function watchSkinDetail(scope, owner, hide) {
     let closing = false;
     const releases = [];
@@ -4809,11 +5098,11 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
   var manifest = {
     id: "backgrounds",
     name: "\\u81EA\\u5B9A\\u4E49\\u80CC\\u666F",
-    version: "0.2.6",
+    version: "0.2.8",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u7CBE\\u7B80\\u80CC\\u666F\\u8BBE\\u7F6E\\u8BF4\\u660E\\uFF0C\\u7EDF\\u4E00\\u5F00\\u5173\\u4E0E\\u5E2E\\u52A9\\u63D0\\u793A\\u7684\\u5916\\u89C2\\uFF0C\\u4FDD\\u7559\\u5DF2\\u6709\\u80CC\\u666F\\u548C\\u52A8\\u6001\\u64AD\\u653E\\u9009\\u62E9\\u3002",
-    minCoreVersion: "0.6.88",
+    releaseNotes: "\\u9002\\u914D\\u76AE\\u80A4\\u7BA1\\u7406\\u4E2D\\u7684\\u80CC\\u666F\\u5FEB\\u6377\\u8BBE\\u7F6E\\u3002\\u80CC\\u666F\\u56FE\\u7247\\u548C\\u52A8\\u6001\\u8D44\\u6E90\\u6309\\u9700\\u8054\\u7F51\\u52A0\\u8F7D\\u3002",
+    minCoreVersion: "0.6.105",
     dependencies: ["skins"],
     categories: ["appearance"],
     priority: 31e3,
@@ -4832,6 +5121,7 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
 [data-sgs-backgrounds] .bg-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 [data-sgs-backgrounds] .bg-mode{display:flex;align-items:center;gap:6px;margin:10px 0 8px}
 [data-sgs-backgrounds] .bg-mode>span{color:var(--sgs-muted);flex:none}
+[data-sgs-backgrounds] .bg-attack{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;min-height:30px;color:var(--sgs-muted);font-size:calc(12px + var(--sgs-font-offset,0px));cursor:pointer}
 [data-sgs-backgrounds] [hidden]{display:none}
 [data-sgs-backgrounds] .bg-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 [data-sgs-backgrounds] .bg-actions button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;padding:5px 8px;white-space:nowrap}
@@ -4855,9 +5145,9 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
     const height = texture?.sourceHeight || texture?.height;
     return Number.isFinite(width) && Number.isFinite(height) && width > height && height > 0;
   }
-  function skinBackgroundSpec(owner, animated = true) {
+  function skinBackgroundSpec(owner, animated = true, attackEffects = true) {
     const vo = owner.skinData.skinBaseVo, state = owner.juexingState || 1;
-    const result = { name: vo.skinname || \`\\u76AE\\u80A4 \${vo.skinID}\`, url: vo.SkinBigUrl(state), animated };
+    const result = { name: vo.skinname || \`\\u76AE\\u80A4 \${vo.skinID}\`, url: vo.SkinBigUrl(state), animated, attackEffects };
     if (!(vo.canUpdateDynamic?.() || vo.IsManyStateDyskin)) {
       if (typeof vo.canUpdateDynamic === "function") result.dynamic = null;
       return result;
@@ -4867,7 +5157,10 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
     else if (vo.ResType === 3 || vo.ResType === 4) {
       const modern = vo.ResType === 3 && Boolean(vo.NewSkinJudge);
       const url = modern ? vo.DynamicSkinBigSkeletonUrlNew?.(state) : vo.DynamicSkinBigSkeletonUrl;
-      if (url) result.dynamic = { kind: "spine", url, modern };
+      if (url) {
+        result.dynamic = { kind: "spine", url, modern };
+        if (modern) result.dynamic.attack = vo.IsNewSkinSystem !== false && vo.HasGongJi !== false && !vo.IsChuChangOnlyDySkin;
+      }
     }
     if (result.dynamic) Object.assign(result.dynamic, { width: owner.skinImg.width, height: owner.skinImg.height });
     return result;
@@ -4879,6 +5172,7 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
       const current = ctx.backgrounds.current;
       return ctx.settings.get("animated", current?.localImageId ? true : current?.animated !== false) !== false;
     };
+    const attackEffects = () => ctx.settings.get("attackEffects", ctx.backgrounds.current?.attackEffects !== false) !== false;
     const element = (tag, text, cls) => {
       const node = doc.createElement(tag);
       if (text) node.textContent = text;
@@ -4912,7 +5206,7 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
       }
     }
     function refreshReadyButton() {
-      const laya = ctx.window.Laya;
+      const laya = ctx.window.Laya ?? ctx.window.laya;
       const next = findSkinDetails(laya?.stage);
       if (next !== owner) {
         observed?.dispose();
@@ -4921,7 +5215,7 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
           floating.hidden = true;
         }) : null;
       }
-      if (observed?.closing) {
+      if (observed?.closing || ctx.backgrounds.skinShortcutEnabled?.() === false) {
         floating.hidden = true;
         return;
       }
@@ -4942,16 +5236,20 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
       floating.hidden = false;
       const selected = ctx.backgrounds.current?.url === vo.SkinBigUrl(owner.juexingState || 1);
       use.textContent = selected ? "\\u5DF2\\u8BBE\\u4E3A\\u724C\\u5C40\\u80CC\\u666F" : "\\u4F5C\\u4E3A\\u724C\\u5C40\\u80CC\\u666F";
-      const spec = skinBackgroundSpec(owner, animated());
+      const spec = skinBackgroundSpec(owner, animated(), attackEffects());
       use.setAttribute("aria-pressed", String(selected));
       use.title = \`\${vo.skinname || "\\u5F53\\u524D\\u76AE\\u80A4"} \\xB7 \${spec.dynamic && spec.animated ? "\\u52A8\\u6001\\u80CC\\u666F" : "\\u9759\\u6001\\u539F\\u753B"}\`;
-      if (selected && !ctx.backgrounds.current.dynamic && spec.dynamic) ctx.backgrounds.select(spec);
+      if (selected && spec.dynamic) {
+        const saved = ctx.backgrounds.current.dynamic;
+        const sameResource = saved?.kind === spec.dynamic.kind && saved.url === spec.dynamic.url.replace(/\\/$/, "");
+        if (!saved || sameResource && spec.dynamic.attack !== void 0 && saved.attack !== spec.dynamic.attack) ctx.backgrounds.select(spec);
+      }
     }
     ctx.scope.listen(use, "click", () => {
       refreshButton();
       if (floating.hidden) return;
       try {
-        ctx.backgrounds.select(skinBackgroundSpec(owner, animated()));
+        ctx.backgrounds.select(skinBackgroundSpec(owner, animated(), attackEffects()));
         importError = "";
         updatePanel?.();
         ctx.notify("\\u5DF2\\u4FDD\\u5B58\\u724C\\u5C40\\u80CC\\u666F\\uFF1B\\u6280\\u80FD\\u80CC\\u666F\\u4FDD\\u6301\\u4F18\\u5148\\u3002");
@@ -4979,6 +5277,10 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
       segments.append(dynamic, still);
       const hint = ctx.ui.helpTip("\\u9ED8\\u8BA4\\u64AD\\u653E\\u76AE\\u80A4\\u52A8\\u6001\\uFF0C\\u65E0\\u9700\\u62E5\\u6709\\u76AE\\u80A4\\u6216\\u89E3\\u9501\\u52A8\\u6001\\uFF1B\\u6CA1\\u6709\\u52A8\\u6001\\u65F6\\u663E\\u793A\\u539F\\u753B\\u3002\\u4EC5\\u6A2A\\u7248\\u6216 16:9 \\u539F\\u753B\\u53EF\\u9009\\uFF0C\\u6280\\u80FD\\u80CC\\u666F\\u4FDD\\u6301\\u4F18\\u5148\\u3002", "\\u80CC\\u666F\\u64AD\\u653E\\u8BF4\\u660E");
       mode.append(element("span", "\\u80CC\\u666F\\u64AD\\u653E"), hint, segments);
+      const attack = ctx.ui.styleSwitch(element("input"));
+      attack.type = "checkbox";
+      const attackRow = element("label", "", "bg-attack");
+      attackRow.append(element("span", "\\u653B\\u51FB\\u7279\\u6548"), attack);
       const capability = element("p", "", "bg-note");
       const reset = element("button", "\\u6062\\u590D\\u6E38\\u620F\\u80CC\\u666F");
       reset.type = "button";
@@ -5010,6 +5312,9 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
         mode.hidden = capability.hidden = local;
         dynamic.setAttribute("aria-pressed", String(animated()));
         still.setAttribute("aria-pressed", String(!animated()));
+        attackRow.hidden = local || !supportsSkinBackgroundAttack(current?.dynamic);
+        attack.disabled = !animated();
+        attack.checked = attackEffects();
         capability.textContent = !current ? "\\u4E5F\\u53EF\\u5728\\u76AE\\u80A4\\u8BE6\\u60C5\\u4E2D\\u9009\\u62E9\\u300C\\u4F5C\\u4E3A\\u724C\\u5C40\\u80CC\\u666F\\u300D\\u3002" : current.dynamic ? "\\u6B64\\u76AE\\u80A4\\u652F\\u6301\\u52A8\\u6001\\u80CC\\u666F\\u3002" : current.dynamic === null ? "\\u6B64\\u76AE\\u80A4\\u6CA1\\u6709\\u52A8\\u6001\\uFF0C\\u4F7F\\u7528\\u9759\\u6001\\u539F\\u753B\\u3002" : "\\u5C1A\\u672A\\u8BC6\\u522B\\u6B64\\u80CC\\u666F\\u7684\\u52A8\\u6001\\uFF1B\\u8BF7\\u5728\\u76AE\\u80A4\\u8BE6\\u60C5\\u91CD\\u65B0\\u9009\\u62E9\\u3002";
       };
       const change = (value) => {
@@ -5019,6 +5324,10 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
         refreshButton();
       };
       const chooseDynamic = () => change(true), chooseStill = () => change(false);
+      const changeAttack = () => {
+        ctx.settings.set("attackEffects", attack.checked);
+        ctx.backgrounds.setAttackEffects(attack.checked);
+      };
       const click = () => {
         importError = "";
         ctx.backgrounds.select(null);
@@ -5047,10 +5356,11 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
       input.addEventListener("change", importFile);
       dynamic.addEventListener("click", chooseDynamic);
       still.addEventListener("click", chooseStill);
+      attack.addEventListener("change", changeAttack);
       updatePanel = update;
       const release = ctx.backgrounds.subscribe(update);
       update();
-      root.append(name, status, mode, capability, actions, localNote, error);
+      root.append(name, status, mode, attackRow, capability, actions, localNote, error);
       container.append(root);
       return () => {
         if (updatePanel === update) updatePanel = null;
@@ -5060,6 +5370,7 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
         input.removeEventListener("change", importFile);
         dynamic.removeEventListener("click", chooseDynamic);
         still.removeEventListener("click", chooseStill);
+        attack.removeEventListener("change", changeAttack);
         root.remove();
       };
     } });
@@ -5068,8 +5379,8 @@ return {...SGSPlugin.default, manifest:{"id":"dafeiyu-cards","name":"\u5927\u80A
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"backgrounds","name":"\u81EA\u5B9A\u4E49\u80CC\u666F","version":"0.2.6","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7CBE\u7B80\u80CC\u666F\u8BBE\u7F6E\u8BF4\u660E\uFF0C\u7EDF\u4E00\u5F00\u5173\u4E0E\u5E2E\u52A9\u63D0\u793A\u7684\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u80CC\u666F\u548C\u52A8\u6001\u64AD\u653E\u9009\u62E9\u3002","minCoreVersion":"0.6.88","dependencies":["skins"],"categories":["appearance"],"priority":31000,"icon":{"paths":["M3 4h18v16H3Z","M3 16 9 10l4 4 3-3 5 5","M16 7h1"]},"description":"\u5C06\u672C\u5730\u56FE\u7247\u6216\u6E38\u620F\u76AE\u80A4\u7528\u4F5C\u724C\u5C40\u80CC\u666F\uFF0C\u4FDD\u7559\u5929\u6C14\u4E0E\u6B66\u5C06\u6280\u80FD\u80CC\u666F"}};
-`, sha256: "bce340d0965179e592d06861f65bf548c2a89a9188e07c0e3cf621559a3c2dbc" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "gold-cards", name: "\u91D1\u8272\u5361\u724C", version: "0.1.0", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.90", categories: [], icon: "cards", priority: 50100, description: "\u91D1\u8272\u5361\u9762\u5E95\u7EB9\u4E0E\u7384\u91D1\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u7684\u5361\u9762\u4E0E\u5361\u80CC\u4E2D\u6210\u5957\u9009\u7528" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"backgrounds","name":"\u81EA\u5B9A\u4E49\u80CC\u666F","version":"0.2.8","apiVersion":1,"contractVersion":1,"releaseNotes":"\u9002\u914D\u76AE\u80A4\u7BA1\u7406\u4E2D\u7684\u80CC\u666F\u5FEB\u6377\u8BBE\u7F6E\u3002\u80CC\u666F\u56FE\u7247\u548C\u52A8\u6001\u8D44\u6E90\u6309\u9700\u8054\u7F51\u52A0\u8F7D\u3002","minCoreVersion":"0.6.105","dependencies":["skins"],"categories":["appearance"],"priority":31000,"icon":{"paths":["M3 4h18v16H3Z","M3 16 9 10l4 4 3-3 5 5","M16 7h1"]},"description":"\u5C06\u672C\u5730\u56FE\u7247\u6216\u6E38\u620F\u76AE\u80A4\u7528\u4F5C\u724C\u5C40\u80CC\u666F\uFF0C\u4FDD\u7559\u5929\u6C14\u4E0E\u6B66\u5C06\u6280\u80FD\u80CC\u666F"}};
+`, sha256: "e1993ff33fa2ed5079f8ef212bd8d0986e57fd6053ca7ed3c804e74bf501fab8" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "gold-cards", name: "\u91D1\u8272\u5361\u724C", version: "0.1.0", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.90", categories: [], icon: "cards", priority: 50100, description: "\u91D1\u8272\u5361\u9762\u5E95\u7EB9\u4E0E\u7384\u91D1\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u7684\u5361\u9762\u4E0E\u5361\u80CC\u4E2D\u6210\u5957\u9009\u7528" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -5120,7 +5431,7 @@ return {...SGSPlugin.default, manifest:{"id":"backgrounds","name":"\u81EA\u5B9A\
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u5361\u724C","version":"0.1.0","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.90","categories":[],"icon":"cards","priority":50100,"description":"\u91D1\u8272\u5361\u9762\u5E95\u7EB9\u4E0E\u7384\u91D1\u5361\u80CC\uFF0C\u5728\u8BBE\u7F6E\u7684\u5361\u9762\u4E0E\u5361\u80CC\u4E2D\u6210\u5957\u9009\u7528"}};
-`, sha256: "223cb665ae968062d24d4cf2f4757f8508e47f20c7e162da08eabf9e3dc5ecba" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "shanhetu", name: "\u5C71\u6CB3\u56FE", version: "0.2.31", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4FEE\u590D\u5FAE\u7AEF\u6362\u5C06\u5361\u9884\u5224\u6D6E\u5C42\u8D34\u5728\u5DE6\u4E0A\u89D2\u7684\u95EE\u9898\uFF0C\u6539\u4E3A\u5728\u6E38\u620F\u533A\u57DF\u9876\u90E8\u5C45\u4E2D\uFF0C\u5E76\u907F\u5F00\u56FA\u5B9A\u5DE5\u5177\u7BB1\u4FA7\u680F\u3002", minCoreVersion: "0.6.37", categories: ["game"], icon: { paths: ["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z", "M6 12 10 7l4 5 3-3 2 3", "M6 16c3-3 7 3 12-1"] }, priority: 11e3, description: "\u654C\u519B\u3001\u95EE\u53F7\u4E0E\u5546\u5E97\u9884\u89C8\uFF0C\u6362\u5C06\u5361\u9884\u5224\u4E0E\u8DE8\u6A21\u5F0F\u6218\u6CD5\u8BA1\u6570" }, code: `var SGSPlugin = (() => {
+`, sha256: "223cb665ae968062d24d4cf2f4757f8508e47f20c7e162da08eabf9e3dc5ecba" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "shanhetu", name: "\u5C71\u6CB3\u56FE", version: "0.2.42", apiVersion: 1, contractVersion: 1, releaseNotes: "\u6982\u51B5\u65B0\u589E\u6D41\u6D3E\u8FDB\u5EA6\u4E0E\u5957\u88C5\u5173\u6CE8\uFF0C\u652F\u6301\u5728\u96C6\u5E02\u548C\u9009\u6218\u6CD5\u65F6\u63D0\u793A\u5173\u6CE8\u7684\u6218\u6CD5\u3002\u53EF\u5F00\u542F\u5947\u9047\u6570\u503C\u6807\u6CE8\u3002\u6362\u5C06\u9884\u89C8\u5728\u5FAE\u7AEF\u6309\u6E38\u620F\u533A\u57DF\u5C45\u4E2D\uFF0C\u907F\u5F00\u5DE5\u5177\u7BB1\u4FA7\u680F\u3002", minCoreVersion: "0.6.121", categories: ["game"], icon: { paths: ["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z", "M6 12 10 7l4 5 3-3 2 3", "M6 16c3-3 7 3 12-1"] }, priority: 11e3, description: "\u654C\u519B\u3001\u5947\u9047\u4E0E\u5546\u5E97\u9884\u89C8\uFF0C\u6362\u5C06\u5361\u9884\u5224\u3001\u6218\u6CD5\u8BA1\u6570\u4E0E\u6D41\u6D3E\u8FDB\u5EA6" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -5157,6 +5468,10 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -5242,6 +5557,517 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
   var CITY_ART_NAMES = Object.freeze(names);
   var cityName = (config, city) => config.text(city?.cityname) || CITY_ART_NAMES[city?.citypic] || "";
 
+  // src/plugins/shanhetu/school-progress.js
+  var grades = ["\\u666E\\u901A", "\\u7A00\\u6709", "\\u53F2\\u8BD7", "\\u4F20\\u8BF4"];
+  var requirements = ["needputong", "needxiyou", "needshishi", "needchuanshuo"];
+  function tacticSchools(tactic) {
+    return new Set(String(tactic?.school ?? "").split(",").map(Number).filter((id) => Number.isSafeInteger(id) && id > 0 && id < 100));
+  }
+  function schoolProgress(schools, tactics, inventory, season) {
+    if (!schools.length || !Array.isArray(inventory) || !(Number(season) > 0)) return null;
+    const counts = /* @__PURE__ */ new Map();
+    for (const id of inventory) {
+      const tactic = tactics.get(String(id));
+      const level = Number(tactic?.level);
+      if (!Number.isInteger(level) || level < 1 || level > 4) continue;
+      for (const school of tacticSchools(tactic)) {
+        const row = counts.get(school) || [0, 0, 0, 0];
+        row[level - 1]++;
+        counts.set(school, row);
+      }
+    }
+    return schools.flatMap((school) => {
+      const seasons = String(school.seasonID ?? school.SeasonList ?? "").split(/[;,]/).filter(Boolean).map(Number);
+      if (seasons.length && !seasons.includes(Number(season))) return [];
+      const id = Number(school.school);
+      if (!(id > 0 && id < 100) || !school.name) return [];
+      const owned = counts.get(id);
+      const tiers = requirements.map((key2, index2) => ({
+        grade: grades[index2],
+        need: Number(school[key2] ?? 0),
+        count: owned?.[index2] ?? 0
+      })).filter((tier) => Number.isSafeInteger(tier.need) && tier.need > 0);
+      if (!tiers.length) return [];
+      const done = tiers.reduce((sum, tier) => sum + Math.min(tier.count, tier.need), 0);
+      const total = tiers.reduce((sum, tier) => sum + tier.need, 0);
+      return [{ id, name: school.name, tiers, done, total, met: done === total }];
+    }).sort((a, b) => Number(b.met) - Number(a.met) || b.done / b.total - a.done / a.total || a.id - b.id);
+  }
+  function schoolMatcher(tactics, schools, followed) {
+    const missing = new Map((schools || []).filter((school) => followed.has(school.id) && !school.met).map((school) => [school.id, {
+      name: school.name,
+      grades: new Set(school.tiers.filter((tier) => tier.count < tier.need).map((tier) => tier.grade))
+    }]));
+    if (!missing.size) return null;
+    return (id, type) => {
+      if (Number(type) !== 2) return [];
+      const tactic = tactics.get(String(id));
+      const grade = grades[Number(tactic?.level) - 1];
+      return [...tacticSchools(tactic)].flatMap((school) => {
+        const target = missing.get(school);
+        return target?.grades.has(grade) ? [{ school, name: target.name }] : [];
+      });
+    };
+  }
+
+  // src/shared/shanhe-impact-season-5.json
+  var shanhe_impact_season_5_default = {
+    season: 5,
+    source: "\\u4E09\\u56FD\\u6740\\u6253\\u5C0F\\u6284 1.6.75 \\xB7 \\u5C71\\u6CB3\\u56FE\\u9274\\u5386\\u53F2\\u5B9E\\u6D4B",
+    generatedAt: "2026-10-20T07:46:43.581Z",
+    attributes: ["rep", "tro", "wis", "mar", "loy", "ass", "cha"],
+    options: {
+      "126701": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 27, consistency: 100 },
+      "126702": { delta: [0, 10, 0, 0, 0, 0, 0], samples: 731, consistency: 100 },
+      "126703": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 248, consistency: 100 },
+      "126801": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 15, consistency: 100 },
+      "126802": { delta: [0, 10, 0, 0, 0, 0, 0], samples: 705, consistency: 100 },
+      "126803": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 253, consistency: 100 },
+      "126901": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 13, consistency: 100 },
+      "126902": { delta: [0, 10, 0, 0, 0, 0, 0], samples: 716, consistency: 100 },
+      "126903": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 247, consistency: 100 },
+      "127001": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 529, consistency: 100 },
+      "127002": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 324, consistency: 100 },
+      "127101": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 639, consistency: 100 },
+      "127102": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 300, consistency: 100 },
+      "127201": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 650, consistency: 100 },
+      "127202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 283, consistency: 100 },
+      "127301": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 3, consistency: 100 },
+      "127302": { delta: [0, 10, 0, 0, 0, 0, 0], samples: 586, consistency: 100 },
+      "127303": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 298, consistency: 100 },
+      "127401": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 8, consistency: 100 },
+      "127402": { delta: [0, 10, 0, 0, 0, 0, 0], samples: 679, consistency: 100 },
+      "127403": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 273, consistency: 100 },
+      "127501": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 58, consistency: 100 },
+      "127502": { delta: [0, 10, 0, 0, 0, 0, 0], samples: 398, consistency: 100 },
+      "127503": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 414, consistency: 100 },
+      "127601": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 300, consistency: 100 },
+      "127602": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 538, consistency: 100 },
+      "127701": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 409, consistency: 100 },
+      "127702": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 412, consistency: 100 },
+      "127801": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 524, consistency: 100 },
+      "127802": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 368, consistency: 100 },
+      "127901": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 4, consistency: 100 },
+      "127902": { delta: [0, 10, 0, 0, 0, 0, 0], samples: 545, consistency: 100 },
+      "127903": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 567, consistency: 100 },
+      "128001": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 6, consistency: 100 },
+      "128002": { delta: [0, 10, 0, 0, 0, 0, 0], samples: 665, consistency: 100 },
+      "128003": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 453, consistency: 100 },
+      "128101": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 68, consistency: 100 },
+      "128102": { delta: [0, 10, 0, 0, 0, 0, 0], samples: 509, consistency: 100 },
+      "128103": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 511, consistency: 100 },
+      "128201": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 437, consistency: 100 },
+      "128202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 620, consistency: 100 },
+      "128301": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 485, consistency: 100 },
+      "128302": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 599, consistency: 100 },
+      "128401": { delta: [0, 5, 0, 0, 0, 0, 0], samples: 576, consistency: 100 },
+      "128402": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 537, consistency: 100 },
+      "148201": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 289, consistency: 100 },
+      "148202": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 16, consistency: 100 },
+      "148203": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 714, consistency: 100 },
+      "148301": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 266, consistency: 100 },
+      "148302": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 17, consistency: 100 },
+      "148303": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 701, consistency: 100 },
+      "148401": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 274, consistency: 100 },
+      "148402": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 10, consistency: 100 },
+      "148403": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 719, consistency: 100 },
+      "148501": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 309, consistency: 100 },
+      "148502": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 15, consistency: 100 },
+      "148503": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 659, consistency: 100 },
+      "148601": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 278, consistency: 100 },
+      "148602": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 7, consistency: 100 },
+      "148603": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 719, consistency: 100 },
+      "148701": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 313, consistency: 100 },
+      "148702": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 19, consistency: 100 },
+      "148703": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 671, consistency: 100 },
+      "148801": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 191, consistency: 100 },
+      "148802": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 72, consistency: 100 },
+      "148803": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 775, consistency: 100 },
+      "149001": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 209, consistency: 100 },
+      "149002": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 78, consistency: 100 },
+      "149003": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 771, consistency: 100 },
+      "149101": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 162, consistency: 100 },
+      "149102": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 106, consistency: 100 },
+      "149103": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 702, consistency: 100 },
+      "149201": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 138, consistency: 100 },
+      "149202": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 107, consistency: 100 },
+      "149203": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 770, consistency: 100 },
+      "149301": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 154, consistency: 100 },
+      "149302": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 48, consistency: 100 },
+      "149303": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 740, consistency: 100 },
+      "149401": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 102, consistency: 100 },
+      "149402": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 51, consistency: 100 },
+      "149403": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 998, consistency: 100 },
+      "149501": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 113, consistency: 100 },
+      "149502": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 72, consistency: 100 },
+      "149503": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 960, consistency: 100 },
+      "149601": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 106, consistency: 100 },
+      "149602": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 45, consistency: 100 },
+      "149603": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 1023, consistency: 100 },
+      "149701": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 156, consistency: 100 },
+      "149702": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 96, consistency: 100 },
+      "149703": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 933, consistency: 100 },
+      "149801": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 106, consistency: 100 },
+      "149802": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 51, consistency: 100 },
+      "149803": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 978, consistency: 100 },
+      "149901": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 105, consistency: 100 },
+      "149902": { delta: [-1, 0, 10, 0, 0, 0, 0], samples: 35, consistency: 100 },
+      "149903": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 962, consistency: 100 },
+      "151701": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 866, consistency: 100 },
+      "151702": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 2462, consistency: 100 },
+      "151703": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 1131, consistency: 100 },
+      "151801": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 21, consistency: 100 },
+      "151802": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 318, consistency: 100 },
+      "151803": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 865, consistency: 100 },
+      "151901": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 93, consistency: 100 },
+      "151902": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 71, consistency: 100 },
+      "151903": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 3702, consistency: 100 },
+      "152001": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 55, consistency: 100 },
+      "152002": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 103, consistency: 100 },
+      "152003": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 2650, consistency: 100 },
+      "152101": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 917, consistency: 100 },
+      "152102": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 1115, consistency: 100 },
+      "152103": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 3414, consistency: 100 },
+      "152201": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 13, consistency: 100 },
+      "152202": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 140, consistency: 100 },
+      "152203": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 1416, consistency: 100 },
+      "152301": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 181, consistency: 100 },
+      "152302": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 310, consistency: 100 },
+      "152303": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 4518, consistency: 100 },
+      "152401": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 20, consistency: 100 },
+      "152402": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 104, consistency: 100 },
+      "152403": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 3593, consistency: 100 },
+      "179801": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 106, consistency: 100 },
+      "179802": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 91, consistency: 100 },
+      "179803": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 230, consistency: 100 },
+      "179901": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 38, consistency: 100 },
+      "179902": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 31, consistency: 100 },
+      "179903": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 313, consistency: 100 },
+      "182301": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 152, consistency: 100 },
+      "182302": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 145, consistency: 100 },
+      "182401": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 184, consistency: 100 },
+      "182402": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 158, consistency: 100 },
+      "182501": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 207, consistency: 100 },
+      "182502": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 143, consistency: 100 },
+      "182601": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 191, consistency: 100 },
+      "182602": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 217, consistency: 100 },
+      "182701": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 201, consistency: 100 },
+      "182702": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 229, consistency: 100 },
+      "182801": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 249, consistency: 100 },
+      "182802": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 174, consistency: 100 },
+      "182901": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 336, consistency: 100 },
+      "182902": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 105, consistency: 100 },
+      "183001": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 412, consistency: 100 },
+      "183002": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 56, consistency: 100 },
+      "183101": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 456, consistency: 100 },
+      "183102": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 42, consistency: 100 },
+      "183201": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 30, consistency: 100 },
+      "183202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 65, consistency: 100 },
+      "183301": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 56, consistency: 100 },
+      "183302": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 41, consistency: 100 },
+      "183401": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 96, consistency: 100 },
+      "183402": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 18, consistency: 100 },
+      "183501": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 54, consistency: 100 },
+      "183502": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 96, consistency: 100 },
+      "183601": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 56, consistency: 100 },
+      "183602": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 95, consistency: 100 },
+      "183701": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 67, consistency: 100 },
+      "183702": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 93, consistency: 100 },
+      "183801": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 44, consistency: 100 },
+      "183802": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 67, consistency: 100 },
+      "183901": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 39, consistency: 100 },
+      "183902": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 62, consistency: 100 },
+      "184001": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 67, consistency: 100 },
+      "184002": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 39, consistency: 100 },
+      "184101": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 195, consistency: 100 },
+      "184102": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 223, consistency: 100 },
+      "184201": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 204, consistency: 100 },
+      "184202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 260, consistency: 100 },
+      "184301": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 282, consistency: 100 },
+      "184302": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 215, consistency: 100 },
+      "184401": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 19, consistency: 100 },
+      "184402": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 164, consistency: 100 },
+      "184501": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 60, consistency: 100 },
+      "184502": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 159, consistency: 100 },
+      "184601": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 142, consistency: 100 },
+      "184602": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 114, consistency: 100 },
+      "184701": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 42, consistency: 100 },
+      "184702": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 95, consistency: 100 },
+      "184801": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 46, consistency: 100 },
+      "184802": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 85, consistency: 100 },
+      "184901": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 67, consistency: 100 },
+      "184902": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 67, consistency: 100 },
+      "185001": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 18, consistency: 100 },
+      "185002": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 74, consistency: 100 },
+      "185101": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 27, consistency: 100 },
+      "185102": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 72, consistency: 100 },
+      "185201": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 40, consistency: 100 },
+      "185202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 73, consistency: 100 },
+      "185301": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 178, consistency: 100 },
+      "185302": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 196, consistency: 100 },
+      "185401": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 308, consistency: 100 },
+      "185402": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 138, consistency: 100 },
+      "185501": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 393, consistency: 100 },
+      "185502": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 69, consistency: 100 },
+      "185601": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 211, consistency: 100 },
+      "185602": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 302, consistency: 100 },
+      "185701": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 259, consistency: 100 },
+      "185702": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 293, consistency: 100 },
+      "185801": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 252, consistency: 100 },
+      "185802": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 266, consistency: 100 },
+      "185901": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 446, consistency: 100 },
+      "185902": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 148, consistency: 100 },
+      "186001": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 484, consistency: 100 },
+      "186002": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 104, consistency: 100 },
+      "186101": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 258, consistency: 100 },
+      "186102": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 294, consistency: 100 },
+      "186201": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 25, consistency: 100 },
+      "186202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 90, consistency: 100 },
+      "186301": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 47, consistency: 100 },
+      "186302": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 90, consistency: 100 },
+      "186401": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 108, consistency: 100 },
+      "186402": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 51, consistency: 100 },
+      "186501": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 73, consistency: 100 },
+      "186502": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 108, consistency: 100 },
+      "186601": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 85, consistency: 100 },
+      "186602": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 124, consistency: 100 },
+      "186701": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 90, consistency: 100 },
+      "186702": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 111, consistency: 100 },
+      "186801": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 35, consistency: 100 },
+      "186802": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 101, consistency: 100 },
+      "186901": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 44, consistency: 100 },
+      "186902": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 86, consistency: 100 },
+      "187001": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 93, consistency: 100 },
+      "187002": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 68, consistency: 100 },
+      "187101": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 265, consistency: 100 },
+      "187102": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 337, consistency: 100 },
+      "187201": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 299, consistency: 100 },
+      "187202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 363, consistency: 100 },
+      "187301": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 352, consistency: 100 },
+      "187302": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 276, consistency: 100 },
+      "187401": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 9, consistency: 100 },
+      "187402": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 257, consistency: 100 },
+      "187501": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 36, consistency: 100 },
+      "187502": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 257, consistency: 100 },
+      "187601": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 108, consistency: 100 },
+      "187602": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 223, consistency: 100 },
+      "187701": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 51, consistency: 100 },
+      "187702": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 133, consistency: 100 },
+      "187801": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 62, consistency: 100 },
+      "187802": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 119, consistency: 100 },
+      "187901": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 85, consistency: 100 },
+      "187902": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 115, consistency: 100 },
+      "188001": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 10, consistency: 100 },
+      "188002": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 101, consistency: 100 },
+      "188101": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 20, consistency: 100 },
+      "188102": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 126, consistency: 100 },
+      "188201": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 34, consistency: 100 },
+      "188202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 137, consistency: 100 },
+      "190001": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 47, consistency: 100 },
+      "190002": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 57, consistency: 100 },
+      "190003": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 251, consistency: 100 },
+      "190101": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 103, consistency: 100 },
+      "190102": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 105, consistency: 100 },
+      "190103": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 251, consistency: 100 },
+      "190201": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 70, consistency: 100 },
+      "190202": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 75, consistency: 100 },
+      "190203": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 247, consistency: 100 },
+      "190301": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 24, consistency: 100 },
+      "190302": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 43, consistency: 100 },
+      "190303": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 310, consistency: 100 },
+      "190401": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 19, consistency: 100 },
+      "190402": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 14, consistency: 100 },
+      "190403": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 192, consistency: 100 },
+      "190501": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 22, consistency: 100 },
+      "190502": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 28, consistency: 100 },
+      "190503": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 159, consistency: 100 },
+      "190601": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 113, consistency: 100 },
+      "190602": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 34, consistency: 100 },
+      "190603": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 254, consistency: 100 },
+      "190701": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 122, consistency: 100 },
+      "190702": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 22, consistency: 100 },
+      "190703": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 310, consistency: 100 },
+      "190801": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 86, consistency: 100 },
+      "190802": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 19, consistency: 100 },
+      "190803": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 154, consistency: 100 },
+      "190901": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 111, consistency: 100 },
+      "190902": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 38, consistency: 100 },
+      "190903": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 153, consistency: 100 },
+      "191001": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 139, consistency: 100 },
+      "191002": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 14, consistency: 100 },
+      "191003": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 244, consistency: 100 },
+      "191101": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 168, consistency: 100 },
+      "191102": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 26, consistency: 100 },
+      "191103": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 249, consistency: 100 },
+      "191201": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 141, consistency: 100 },
+      "191202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 236, consistency: 100 },
+      "191301": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 169, consistency: 100 },
+      "191302": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 227, consistency: 100 },
+      "191401": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 141, consistency: 100 },
+      "191402": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 151, consistency: 100 },
+      "191501": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 59, consistency: 100 },
+      "191502": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 233, consistency: 100 },
+      "191601": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 118, consistency: 100 },
+      "191602": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 269, consistency: 100 },
+      "191701": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 122, consistency: 100 },
+      "191702": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 271, consistency: 100 },
+      "191801": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 116, consistency: 100 },
+      "191802": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 257, consistency: 100 },
+      "191901": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 144, consistency: 100 },
+      "191902": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 224, consistency: 100 },
+      "192001": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 257, consistency: 100 },
+      "192002": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 168, consistency: 100 },
+      "192101": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 250, consistency: 100 },
+      "192102": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 179, consistency: 100 },
+      "192201": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 205, consistency: 100 },
+      "192202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 114, consistency: 100 },
+      "192301": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 106, consistency: 100 },
+      "192302": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 191, consistency: 100 },
+      "192401": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 158, consistency: 100 },
+      "192402": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 211, consistency: 100 },
+      "192501": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 187, consistency: 100 },
+      "192502": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 201, consistency: 100 },
+      "192601": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 110, consistency: 100 },
+      "192602": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 303, consistency: 100 },
+      "192701": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 135, consistency: 100 },
+      "192702": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 273, consistency: 100 },
+      "192801": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 108, consistency: 100 },
+      "192802": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 107, consistency: 100 },
+      "192803": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 231, consistency: 100 },
+      "192901": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 63, consistency: 100 },
+      "192902": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 58, consistency: 100 },
+      "192903": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 296, consistency: 100 },
+      "193001": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 21, consistency: 100 },
+      "193002": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 20, consistency: 100 },
+      "193003": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 343, consistency: 100 },
+      "193101": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 13, consistency: 100 },
+      "193102": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 10, consistency: 100 },
+      "193103": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 190, consistency: 100 },
+      "193201": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 21, consistency: 100 },
+      "193202": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 25, consistency: 100 },
+      "193203": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 165, consistency: 100 },
+      "193301": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 122, consistency: 100 },
+      "193302": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 17, consistency: 100 },
+      "193303": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 281, consistency: 100 },
+      "193401": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 128, consistency: 100 },
+      "193402": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 11, consistency: 100 },
+      "193403": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 307, consistency: 100 },
+      "193501": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 122, consistency: 100 },
+      "193502": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 36, consistency: 100 },
+      "193503": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 178, consistency: 100 },
+      "193601": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 197, consistency: 100 },
+      "193602": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 213, consistency: 100 },
+      "193701": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 39, consistency: 100 },
+      "193702": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 227, consistency: 100 },
+      "193801": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 101, consistency: 100 },
+      "193802": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 210, consistency: 100 },
+      "193901": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 137, consistency: 100 },
+      "193902": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 288, consistency: 100 },
+      "194001": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 114, consistency: 100 },
+      "194002": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 260, consistency: 100 },
+      "194101": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 77, consistency: 100 },
+      "194102": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 286, consistency: 100 },
+      "194201": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 123, consistency: 100 },
+      "194202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 291, consistency: 100 },
+      "194301": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 286, consistency: 100 },
+      "194302": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 186, consistency: 100 },
+      "194401": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 79, consistency: 100 },
+      "194402": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 179, consistency: 100 },
+      "194501": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 128, consistency: 100 },
+      "194502": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 185, consistency: 100 },
+      "194601": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 148, consistency: 100 },
+      "194602": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 237, consistency: 100 },
+      "194701": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 143, consistency: 100 },
+      "194702": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 290, consistency: 100 },
+      "194801": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 275, consistency: 100 },
+      "194802": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 53, consistency: 100 },
+      "194901": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 228, consistency: 100 },
+      "194902": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 71, consistency: 100 },
+      "195001": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 132, consistency: 100 },
+      "195002": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 146, consistency: 100 },
+      "195101": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 116, consistency: 100 },
+      "195102": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 101, consistency: 100 },
+      "195103": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 369, consistency: 100 },
+      "195201": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 65, consistency: 100 },
+      "195202": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 80, consistency: 100 },
+      "195203": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 379, consistency: 100 },
+      "195301": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 24, consistency: 100 },
+      "195302": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 26, consistency: 100 },
+      "195303": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 450, consistency: 100 },
+      "195401": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 5, consistency: 100 },
+      "195402": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 7, consistency: 100 },
+      "195403": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 280, consistency: 100 },
+      "195501": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 17, consistency: 100 },
+      "195502": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 24, consistency: 100 },
+      "195503": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 248, consistency: 100 },
+      "195601": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 97, consistency: 100 },
+      "195602": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 7, consistency: 100 },
+      "195603": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 400, consistency: 100 },
+      "195701": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 157, consistency: 100 },
+      "195702": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 9, consistency: 100 },
+      "195703": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 454, consistency: 100 },
+      "195801": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 153, consistency: 100 },
+      "195802": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 30, consistency: 100 },
+      "195803": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 253, consistency: 100 },
+      "195901": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 812, consistency: 100 },
+      "195902": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 738, consistency: 100 },
+      "196001": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 34, consistency: 100 },
+      "196002": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 312, consistency: 100 },
+      "196101": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 61, consistency: 100 },
+      "196102": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 336, consistency: 100 },
+      "196201": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 532, consistency: 100 },
+      "196202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 833, consistency: 100 },
+      "196301": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 599, consistency: 100 },
+      "196302": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 931, consistency: 100 },
+      "196401": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 63, consistency: 100 },
+      "196402": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 413, consistency: 100 },
+      "196501": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 80, consistency: 100 },
+      "196502": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 397, consistency: 100 },
+      "196601": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 369, consistency: 100 },
+      "196602": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 195, consistency: 100 },
+      "196701": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 54, consistency: 100 },
+      "196702": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 305, consistency: 100 },
+      "196801": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 116, consistency: 100 },
+      "196802": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 311, consistency: 100 },
+      "196901": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 118, consistency: 100 },
+      "196902": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 405, consistency: 100 },
+      "197001": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 171, consistency: 100 },
+      "197002": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 349, consistency: 100 },
+      "197101": { delta: [1, 0, 0, 0, 0, 0, 0], samples: 412, consistency: 100 },
+      "197102": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 66, consistency: 100 },
+      "197201": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 269, consistency: 100 },
+      "197202": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 137, consistency: 100 },
+      "197301": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 209, consistency: 100 },
+      "197302": { delta: [0, 0, 10, 0, 0, 0, 0], samples: 180, consistency: 100 },
+      "107500199": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 2, consistency: 100 },
+      "107500202": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 5, consistency: 100 },
+      "107500206": { delta: [0, 0, 0, 10, 0, 0, 0], samples: 6, consistency: 100 }
+    }
+  };
+
+  // src/shared/shanhe-impact.js
+  var attributes = Object.freeze({
+    rep: "\\u58F0\\u671B",
+    tro: "\\u6218\\u529F",
+    wis: "\\u667A\\u8C0B",
+    mar: "\\u5546\\u624D",
+    loy: "\\u5FE0\\u8BDA",
+    ass: "\\u6743\\u8C0B",
+    cha: "\\u9B45\\u529B"
+  });
+  var impactBySeason = /* @__PURE__ */ new Map([[shanhe_impact_season_5_default.season, shanhe_impact_season_5_default]]);
+  function hasOptionImpactData(season) {
+    return impactBySeason.has(Number(season));
+  }
+  function optionImpact(season, option) {
+    const table = impactBySeason.get(Number(season)), id = Number(option);
+    if (!table || !Number.isSafeInteger(id) || id <= 0) return null;
+    const row = table.options[id];
+    if (!row) return null;
+    const changes = row.delta.flatMap((value, index2) => value ? [\`\${attributes[table.attributes[index2]]} \${value > 0 ? "+" : "\\u2212"}\${Math.abs(value)}\`] : []);
+    return changes.length ? { changes, samples: row.samples, consistency: row.consistency } : null;
+  }
+
   // src/plugins/shanhetu/model.js
   var CONFIG_FILES = ["hd_roguelike", "cha_spell", "sys_playcard", "character"];
   var MAP_SCENES = /* @__PURE__ */ new Set(["RogueLikeBigMapScene", "RogueSmallMapScene"]);
@@ -5273,12 +6099,12 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     if (!root || !Array.isArray(root.Level) || !Array.isArray(root.Fight)) throw new Error("\\u5C71\\u6CB3\\u914D\\u7F6E\\u7F3A\\u5C11\\u5730\\u56FE\\u6216\\u6218\\u6597\\u8868");
     const tables = Object.fromEntries(["Chapter", "Level", "Fight", "General", "Adventure", "Choose", "Tactics", "Spell", "Card", "Text", "Other", "RewardGroup", "DifficultySelection", "EXDifficultySelection", "EnemyGrowth", "EnemyNumGrowth", "EnemyDiffGrowth", "EnemyShow"].map((key2) => [key2, expandRows(root[key2], raw.root?.abbreviation)]));
     const spells = new Map(list(files.cha_spell?.GameSpells?.spell).map((row) => [String(row.a ?? row.id), { id: row.a ?? row.id, name: plain(row.c ?? row.name), desc: plain(row.o ?? row.desc) }]));
-    const cards = new Map(expandRows(files.sys_playcard?.GamePlayCards?.card, files.sys_playcard?.abbreviation).map((row) => [String(row.id), { ...row, name: plain(row.name || spells.get(String(row.spellId))?.name || \`\\u5361\\u724C #\${row.id}\`), desc: spells.get(String(row.spellId))?.desc || "" }]));
+    const cards2 = new Map(expandRows(files.sys_playcard?.GamePlayCards?.card, files.sys_playcard?.abbreviation).map((row) => [String(row.id), { ...row, name: plain(row.name || spells.get(String(row.spellId))?.name || \`\\u5361\\u724C #\${row.id}\`), desc: spells.get(String(row.spellId))?.desc || "" }]));
     const generals = new Map(list(files.character?.GameCharacters?.character).map((row) => [String(row.a ?? row.id), plain((row.ai || "") + (row.b ?? row.name ?? ""))]));
     const items = /* @__PURE__ */ new Map();
     for (const row of tables.Tactics) items.set(String(row.plot), { id: row.plot, name: plain(row.plotname), desc: plain(row.plotdesc), type: 2, level: row.level, money: num(row.money), pra1: num(row.pra1) });
     for (const row of tables.Spell) items.set(String(row.id), { ...spells.get(String(row.spellid)), id: row.id, name: spells.get(String(row.spellid))?.name || \`\\u6280\\u80FD #\${row.spellid}\`, type: 3, level: row.level, money: num(row.money) });
-    for (const row of tables.Card) items.set(String(row.id), { ...cards.get(String(row.cardid)), id: row.id, name: cards.get(String(row.cardid))?.name || \`\\u5361\\u724C #\${row.cardid}\`, type: Number(row.isequip || 0) > 0 ? 5 : 4, level: row.level, money: num(row.money) });
+    for (const row of tables.Card) items.set(String(row.id), { ...cards2.get(String(row.cardid)), id: row.id, name: cards2.get(String(row.cardid))?.name || \`\\u5361\\u724C #\${row.cardid}\`, type: Number(row.isequip || 0) > 0 ? 5 : 4, level: row.level, money: num(row.money) });
     const groups2 = /* @__PURE__ */ new Map();
     for (const row of tables.General) {
       const key2 = String(row.generalgroup);
@@ -5290,10 +6116,12 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       tables,
       items,
       spells,
-      cards,
+      cards: cards2,
       generals,
       groups: groups2,
       texts,
+      schools: expandRows(root.school ?? root.School, raw.root?.abbreviation).map((row) => ({ ...row, name: plain(row.name) })),
+      tactics: index(tables.Tactics, "plot"),
       text: (value) => texts.get(String(value)) || plain(value),
       cities: index(tables.Level, "cityID"),
       fights: index(tables.Fight, "fightID"),
@@ -5466,8 +6294,10 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     }
     return { source: "unavailable", items: [] };
   }
-  function nodePreview(config, location, s) {
+  function nodePreview(config, location, s, showOptionImpact = true) {
     const city = config.cities.get(String(location.location)), adventure = config.adventures.get(String(location.event)), fight = fightPreview(config, location.event, location, s);
+    const season = s.seasonData?.seasonId;
+    const showImpact = showOptionImpact && (hasOptionImpactData(season) || Object.keys(attributes).some((key2) => num(s.gameData?.attrInfo?.[key2]) !== null));
     const options = [];
     if (adventure) for (let i = 1; i <= 3; i++) {
       const effect = adventure["effect" + i];
@@ -5484,10 +6314,13 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       }).join("\\u3001") : "";
       const configuredGain = choice ? reward(config, choice.getitem, choice.getnum) : "";
       const unrevealed = !resolved && Number(choice?.showitem) === 1 && /\u968F\u673A/.test(configuredGain);
+      const camp2 = Number(choice?.type) === 3 && Number(choice?.event1) === 2;
+      const impact = showImpact && !camp2 ? optionImpact(season, effect)?.changes ?? [] : null;
       options.push({
         id: effect,
         order: i,
-        camp: Number(choice?.type) === 3 && Number(choice?.event1) === 2,
+        camp: camp2,
+        impact,
         label: config.text(adventure["option" + i]) || \`\\u9009\\u9879 \${i}\`,
         battle,
         reveal: unrevealed ? current && !event?.isSelect ? "pending" : "on-entry" : "",
@@ -5529,21 +6362,49 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       goods: list(shop.itemId, 128).map((id, i) => {
         const definition = item(config, id), type = num(shop.itemType?.[i]) ?? definition.type, source = moneyKeys[type];
         const extra = type === 2 ? num(source?.exCurMoney) : num(source?.exCurMoney);
-        const bought = s.nativeShop?.find((row) => row.id === id && row.type === type)?.bought ?? (i < 32 && num(shop.boughtIdx) !== null ? (Number(shop.boughtIdx) >>> i & 1) === 1 : null);
-        return { ...definition, id, type, bought, price: priceKnown && extra !== null && definition.money !== null ? Math.ceil((definition.money + extra) * discount) : null };
+        const bought2 = s.nativeShop?.find((row) => row.id === id && row.type === type)?.bought ?? (i < 32 && num(shop.boughtIdx) !== null ? (Number(shop.boughtIdx) >>> i & 1) === 1 : null);
+        return { ...definition, id, type, bought: bought2, price: priceKnown && extra !== null && definition.money !== null ? Math.ceil((definition.money + extra) * discount) : null };
       })
     };
   }
-  function buildView(config, s) {
+  function buildView(config, s, showOptionImpact = true) {
     const chap = chapter(config, s), diff = difficulty(config, s);
     return {
       chapter: config.text(chap?.chaptername || chap?.cityName) || (s.chapterData?.chapterId ? \`\\u7AE0\\u8282 #\${s.chapterData.chapterId}\` : "\\u7B49\\u5F85\\u7AE0\\u8282"),
       difficulty: config.text(diff?.sdifname || diff?.bdifname) || (s.seasonData?.difficulty ? \`\\u96BE\\u5EA6 \${s.seasonData.difficulty}\` : "\\u5F85\\u540C\\u6B65"),
-      nodes: list(s.chapterData?.locations, 256).map((location) => nodePreview(config, location, s)),
+      nodes: list(s.chapterData?.locations, 256).map((location) => nodePreview(config, location, s, showOptionImpact)),
       shop: shopPreview(config, s),
       owned: list(s.gameData?.itemId, 512).map((id) => item(config, id)).filter((item2) => item2.type === 2),
+      schools: schoolProgress(config.schools, config.tactics, s.gameData?.itemListReady === false ? null : s.gameData?.itemId, s.seasonData?.seasonId),
       snapshot: s
     };
+  }
+
+  // src/shared/shanhe-manager.js
+  var read = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return void 0;
+    }
+  };
+  function shanheManager(game) {
+    const valid2 = (value) => value && value.destroyed !== true && typeof read(() => value.RogueLikeDataReq) === "function" && ("allDatas" in value || "AllDatas" in value);
+    const proxy = read(() => game.getServerProxy());
+    for (const type of [102007, "decodeRogueLikeDataSync"]) {
+      const handlers = read(() => proxy._events[type]);
+      for (const handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) {
+        const caller = read(() => handler.caller);
+        if (valid2(caller)) return caller;
+      }
+    }
+    const cls = read(() => game.getClass("RogueLikePveManager"));
+    if (valid2(cls)) return cls;
+    for (const key2 of ["instance", "_instance", "Instance"]) {
+      const descriptor = cls && Object.getOwnPropertyDescriptor(cls, key2);
+      if (descriptor && "value" in descriptor && valid2(descriptor.value)) return descriptor.value;
+    }
+    return null;
   }
 
   // src/core/themes.js
@@ -6004,17 +6865,25 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     const names3 = option.loss.items.map((row) => row.name + (row.count !== 1 ? \`\\xD7\${row.count}\` : "")).join("\\u3001");
     return \`\${option.loss.source === "server" ? "\\u6263\\u9664" : "\\u9884\\u8BA1\\u6263\\u9664"}\\uFF1A\${names3}\`;
   }
+  function impactToken(option) {
+    if (option.camp || !option.impact) return null;
+    const known = option.impact.length > 0;
+    const text = \`\\uFF08\${known ? option.impact.join(" \\xB7 ") : "\\u5C5E\\u6027\\u53D8\\u5316\\u5F85\\u786E\\u8BA4"}\\uFF09\`;
+    return { text, atomic: true, impact: known ? "known" : "unknown" };
+  }
   function optionSummary(option, index2 = 0, includeLoss = true) {
     const mark = ["\\u2460", "\\u2461", "\\u2462"][Number(option.order || index2 + 1) - 1] || String(index2 + 1);
     if (option.camp) return \`\${mark} \\u8425\\u5730\`;
     const gain = shortReward(option.gain || "").replace("\\uFF08\\u5185\\u5BB9\\u5F85\\u540C\\u6B65\\uFF09", option.reveal === "on-entry" ? "\\uFF08\\u5F85\\u63ED\\u793A\\uFF09" : "\\uFF08\\u540D\\u79F0\\u672A\\u4E0B\\u53D1\\uFF09");
     const target = [gain, option.battle ? "\\u6218\\u6597\\uFF1A" + option.battle.generals.map((g) => g.name).join("\\u3001") : "", option.note].filter(Boolean).join(" \\xB7 ") || "\\u5185\\u5BB9\\u5F85\\u540C\\u6B65";
     const money = option.gainDetail?.abandonMoney;
-    return \`\${mark} \${option.lost ? shortReward(option.lost) + " \\u2192 " : option.costHint && option.costHint !== "\\u514D\\u8D39" ? option.costHint + " \\u2192 " : ""}\${target}\${money > 0 ? \`\\uFF08\\u53EF\\u5F03\\u6362\${money}\\u94DC\\u94B1\\uFF09\` : ""}\${includeLoss && lossHint(option) ? \`\\uFF08\${lossHint(option)}\\uFF09\` : ""}\`;
+    return \`\${mark} \${option.lost ? shortReward(option.lost) + " \\u2192 " : option.costHint && option.costHint !== "\\u514D\\u8D39" ? option.costHint + " \\u2192 " : ""}\${target}\${money > 0 ? \`\\uFF08\\u53EF\\u5F03\\u6362\${money}\\u94DC\\u94B1\\uFF09\` : ""}\${impactToken(option)?.text ?? ""}\${includeLoss && lossHint(option) ? \`\\uFF08\${lossHint(option)}\\uFF09\` : ""}\`;
   }
   function optionTokens(option, index2 = 0) {
-    const hint = lossHint(option);
-    return [...optionBaseTokens(option, index2), ...hint ? [{ text: hint, breakBefore: true, ...option.loss.source === "unavailable" ? { warning: true } : {} }] : []];
+    const tokens = optionBaseTokens(option, index2), impact = impactToken(option), hint = lossHint(option);
+    if (impact) tokens.push(impact);
+    if (hint) tokens.push({ text: hint, breakBefore: true, ...option.loss.source === "unavailable" ? { warning: true } : {} });
+    return tokens;
   }
   function optionBaseTokens(option, index2 = 0) {
     const lost = rewardToken(option.lost), gain = rewardToken(option.gain);
@@ -6169,12 +7038,12 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       if (!Array.isArray(value)) errors.push(\`invalid-\${name}\`);
     }
     const nodes = /* @__PURE__ */ new Map();
-    const cards = /* @__PURE__ */ new Map();
+    const cards2 = /* @__PURE__ */ new Map();
     const cardSizes = /* @__PURE__ */ new Map();
     const previous = /* @__PURE__ */ new Map();
     for (const [name, records, map] of [
       ["node", arrays.nodes, nodes],
-      ["card", arrays.cards, cards],
+      ["card", arrays.cards, cards2],
       ["previous", arrays.previous, previous]
     ]) {
       for (const record of records) {
@@ -6199,9 +7068,10 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       }
     }
     for (const r of arrays.controls) if (!validRect(r)) errors.push("invalid-control-geometry");
+    if (snapshot?.shop != null && !validRect(snapshot.shop)) errors.push("invalid-shop-geometry");
     if (snapshot?.drawer !== void 0 && snapshot.drawer !== null && !validRect(snapshot.drawer))
       errors.push("invalid-drawer-geometry");
-    for (const key2 of cards.keys()) if (!nodes.has(key2)) errors.push(\`missing-node:\${key2}\`);
+    for (const key2 of cards2.keys()) if (!nodes.has(key2)) errors.push(\`missing-node:\${key2}\`);
     if (errors.length) return { errors, rawCards: arrays.cards };
     const orderedNodes = [...nodes.entries()].sort(([a], [b]) => compareKey(a, b)).map(([key2, n]) => {
       const regions = [n.anchor, ...n.regions || []].map(rect);
@@ -6216,21 +7086,23 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       };
     });
     const controls = arrays.controls.map(rect);
+    const shop = snapshot.shop ? rect(snapshot.shop) : null;
     const drawer = snapshot.drawer ? rect(snapshot.drawer) : null;
     return {
       errors,
       rawCards: arrays.cards,
       nodes: orderedNodes,
       nodeMap: new Map(orderedNodes.map((n) => [n.key, n])),
-      cards,
+      cards: cards2,
       cardSizes,
       previous,
       viewport: rect(snapshot.viewport),
       safe: inflate(snapshot.viewport, -MARGIN),
       controls,
+      shop,
       drawer,
       protectedDrawer: drawer ? inflate(drawer, CARD_GAP) : null,
-      candidateObstacles: [...orderedNodes.flatMap((n) => n.regions), ...controls, ...drawer ? [drawer] : []]
+      candidateObstacles: [...orderedNodes.flatMap((n) => n.regions), ...controls, ...[shop, drawer].filter(Boolean)]
     };
   }
   function pairReasons(a, b) {
@@ -6351,6 +7223,8 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     const nearTop = ownerCentre.y < ctx.viewport.y + ctx.viewport.h * 0.4;
     const above = !nearTop && gap >= NODE_GAP - EPS && gap <= ABOVE_MAX_GAP + EPS && Math.min(right(p), right(owner.anchor)) - Math.max(p.x, owner.anchor.x) > EPS && offset <= Math.max(owner.anchor.w / 2, p.w / 3) + EPS;
     const selfOverlay = isSelfOverlay(owner.anchor, p);
+    const shop = ctx.shop;
+    const shopOverlapArea = shop && overlap(p, shop) ? (Math.min(right(p), right(shop)) - Math.max(p.x, shop.x)) * (Math.min(bottom(p), bottom(shop)) - Math.max(p.y, shop.y)) : 0;
     const intersections = ctx.controls.flatMap((r) => {
       const x = Math.max(p.x, r.x), y = Math.max(p.y, r.y);
       const w = Math.min(right(p), right(r)) - x, h = Math.min(bottom(p), bottom(r)) - y;
@@ -6363,6 +7237,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     const length = lineLength(p.line);
     const widthChange = Math.abs(p.w - card.w), reflowCost = widthChange * REFLOW_COST_PER_PIXEL;
     return {
+      shopOverlapArea,
       aboveCount: above ? 1 : 0,
       aboveCost,
       selfOverlayCount: selfOverlay ? 1 : 0,
@@ -6378,6 +7253,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     };
   }
   var emptyPreference = () => ({
+    shopOverlapArea: 0,
     aboveCount: 0,
     aboveCost: 0,
     selfOverlayCount: 0,
@@ -6391,8 +7267,9 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     resize: 0,
     widthChange: 0
   });
-  var preferenceOrder = (a, b) => b.aboveCount - a.aboveCount || b.selfOverlayCount - a.selfOverlayCount || a.cost - b.cost || a.length - b.length || a.movement - b.movement || a.resize - b.resize || a.widthChange - b.widthChange;
+  var preferenceOrder = (a, b) => a.shopOverlapArea - b.shopOverlapArea || b.aboveCount - a.aboveCount || b.selfOverlayCount - a.selfOverlayCount || a.cost - b.cost || a.length - b.length || a.movement - b.movement || a.resize - b.resize || a.widthChange - b.widthChange;
   var addPreference = (a, b) => ({
+    shopOverlapArea: a.shopOverlapArea + b.shopOverlapArea,
     aboveCount: a.aboveCount + b.aboveCount,
     aboveCost: a.aboveCost + b.aboveCost,
     selfOverlayCount: a.selfOverlayCount + b.selfOverlayCount,
@@ -6590,6 +7467,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       searchTruncated: false,
       verified: false,
       preference: emptyPreference(),
+      shopOverlapIds: [],
       preferredAboveIds: [],
       selfOverlayIds: []
     };
@@ -6657,6 +7535,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     for (const p of placements) {
       const score = preference(ctx, p);
       diagnostics.preference = addPreference(diagnostics.preference, score);
+      if (score.shopOverlapArea) diagnostics.shopOverlapIds.push(p.id);
       if (score.aboveCount) diagnostics.preferredAboveIds.push(p.id);
       if (score.selfOverlayCount) diagnostics.selfOverlayIds.push(p.id);
     }
@@ -6672,6 +7551,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     return {
       viewport: copy(snapshot.viewport),
       controls: array2(snapshot.controls, copy),
+      shop: copy(snapshot.shop),
       previous: array2(snapshot.previous, (value) => value && typeof value === "object" ? { id: value.id, ...rect(value) } : value),
       drawer: copy(snapshot.drawer),
       cards: array2(snapshot.cards, (card) => card && typeof card === "object" ? { id: card.id, w: card.w, h: card.h, alternatives: array2(card.alternatives, size) } : card),
@@ -7010,11 +7890,16 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
         pending.push(item2);
         recordPending(diagnostics, item2, field);
       }
+      return value;
     };
     const top = scene.topProcesserView;
     if (top && visible(top)) for (const key2 of ["barbg", "bossicon", "bossTxtBg", "bossTxtIcon", "nameTxt", "yearTxt", "monthTxt", "tongqian"]) add(top[key2], top, \`topProcesserView.\${key2}\`);
     const left = scene.leftView;
-    if (left && visible(left)) for (const key2 of ["bg", "titleLeftTex", "titleTex", "seedbg", "seedIcon", "seedTxt", "helpBtn", "shopBtn", "diffInfoUI"]) add(left[key2], left, \`leftView.\${key2}\`);
+    let shop = null;
+    if (left && visible(left)) {
+      for (const key2 of ["bg", "titleLeftTex", "titleTex", "seedbg", "seedIcon", "seedTxt", "helpBtn", "diffInfoUI"]) add(left[key2], left, \`leftView.\${key2}\`);
+      shop = add(left.shopBtn, left, "leftView.shopBtn") || null;
+    }
     const bottom2 = scene.bottomView;
     if (bottom2 && visible(bottom2)) {
       for (const key2 of ["selfSeatUi", "zhanfaItemTex", "changeIcon", "backupPanel", "matePart", "btnRefine"]) add(bottom2[key2], bottom2, \`bottomView.\${key2}\`);
@@ -7024,7 +7909,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     if (cityView.raidItem && visible(cityView.raidItem)) {
       for (const key2 of ["raid", "nameBg", "raidName"]) add(cityView.raidItem[key2], cityView.raidItem, \`cityView.raidItem.\${key2}\`);
     }
-    return { controls: result, pending };
+    return { controls: result, shop, pending };
   }
   function cityEntries(dictionary) {
     const values = [];
@@ -7042,6 +7927,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       result.reason,
       result.controlsComplete,
       encodeRect(result.viewport),
+      encodeRect(result.shop),
       result.nodes.map((node) => [node.id, encodeRect(node.anchor), node.regions.map(encodeRect)]),
       result.controls.map(encodeRect)
     ]);
@@ -7054,6 +7940,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       viewport: null,
       nodes: [],
       controls: [],
+      shop: null,
       controlsComplete: null,
       pending: [],
       signature: "",
@@ -7148,6 +8035,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       diagnostics.phase = "controls";
       const controls = collectControls(scene, cityView, diagnostics);
       result.controls = controls.controls;
+      result.shop = controls.shop;
       result.controlsComplete = controls.pending.length === 0;
       result.pending.push(...controls.pending);
       result.ready = cityPendingCount === 0;
@@ -7370,6 +8258,10 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     ];
     const compact = (value) => typeof value === "string" ? value.replace(/\\s*[\uFF08(](?:\u5F85\u63ED\u793A|\u5165\u70B9\u63ED\u793A)[\uFF09)]/g, "") : value;
     const source = infoLineTokens(line).map((token, index2, tokens) => {
+      if (token.impact) {
+        const text2 = token.text.slice(1, -1).replace(/ (?=[+\u2212])/g, "");
+        return { ...token, text: text2, fallback: text2 };
+      }
       const text = compact(token.text), fallback = compact(token.fallback);
       const match = !token.icon && tokens[index2 - 1]?.text !== " \\u2192 " && /^(?:([\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\\d]+)[\u4EF6\u5F20\u4E2A])?(\u666E\u901A|\u7A00\u6709|\u53F2\u8BD7|\u4F20\u8BF4)(\u6218\u6CD5|\u6280\u80FD|\u624B\u724C|\u5361\u724C|\u88C5\u5907)$/.exec(text?.trim() || "");
       if (match) {
@@ -7386,6 +8278,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       }
       return { ...token, text, fallback };
     }), result = [];
+    const hasImpact = source.some((token) => token.impact);
     for (let i = 0; i < source.length; i++) {
       const token = source[i];
       if (token.text === "\\uFF08\\u53EF\\u5F03\\u6362" && source[i + 1]?.icon === "rogue_money_icon" && source[i + 2]?.text === "\\uFF09") {
@@ -7398,6 +8291,9 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
         const cost = source[i + 1], gain = source[i + 3];
         result.push({ ...cost, prefix: token.text.trim(), text: cost.text.replace(/\\s*\xD7\\s*/g, "\\xD7") + "\\u2192" + gain.text.replace("\\xB7", "") });
         i += 3;
+      } else if (hasImpact && /^[\u2460\u2461\u2462]\\s*$/.test(token.text) && source[i + 1] && !source[i + 1].icon) {
+        const next = source[++i];
+        result.push({ ...next, text: token.text + next.text, fallback: token.text + next.fallback });
       } else result.push(/^[\u2460\u2461\u2462]\\s*$/.test(token.text) ? { ...token, text: token.text.trim(), fallback: token.text.trim() } : token);
     }
     return result;
@@ -7495,7 +8391,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
           y += 6;
         } else if (line.kind === "name" && priorKind) y += 4;
         const tokens = cardTokens(line);
-        if (!tokens.some((token) => token.icon && infoIcon(token.icon))) {
+        if (!tokens.some((token) => token.impact || token.icon && infoIcon(token.icon))) {
           y += text(tokens.map((token) => token.fallback ?? token.text ?? "").join(""), line.kind, 12, y, width - 24) + 2;
         } else {
           let x = 0, rowHeight = 0;
@@ -7511,7 +8407,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
             const value = String(icon3 ? token.text ?? "" : token.fallback ?? token.text ?? "");
             if (!icon3 && (!value.trim() || value.trim() === "\\xB7")) continue;
             const iconWidth = icon3 ? ICON + (value ? 1 : 0) : 0;
-            const kind = token.warning ? "warning" : line.kind;
+            const kind = token.warning ? "warning" : token.impact === "known" ? "impact" : token.impact === "unknown" ? "hint" : line.kind;
             const prefixWidth = token.prefix ? metrics(token.prefix, kind).w + GAP : 0;
             const natural = value ? metrics(value, kind) : { w: 0, h: ICON };
             const w = Math.min(available, prefixWidth + iconWidth + natural.w);
@@ -7663,7 +8559,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
             align: item2.align,
             leading: 4,
             mouseEnabled: false,
-            color: item2.kind === "warning" ? theme.palette.danger : item2.kind === "heading" ? theme.palette.accent : ["stats", "hint", "id"].includes(item2.kind) ? theme.palette.muted : theme.palette.text
+            color: item2.kind === "warning" ? theme.palette.danger : ["heading", "impact"].includes(item2.kind) ? theme.palette.accent : ["stats", "hint", "id"].includes(item2.kind) ? theme.palette.muted : theme.palette.text
           });
           label.typeset();
           if (Math.ceil(Number(label.textHeight)) > item2.h) throw new Error("\\u5361\\u7247\\u6587\\u5B57\\u5B9E\\u6D4B\\u9AD8\\u5EA6\\u53D1\\u751F\\u53D8\\u5316");
@@ -8120,25 +9016,25 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       };
       try {
         const priorWidths = new Map(previous.map((card) => [key(card.id), card.w]));
-        const built = [], cards = [];
+        const built = [], cards2 = [];
         for (const row of rows) {
           const priorWidth = priorWidths.get(key(row.node.id));
           const spec = measure(row, CARD_WIDTHS.includes(priorWidth) ? priorWidth : CARD_WIDTH);
           built.push({ ...row, specs: /* @__PURE__ */ new Map([[spec.w, spec]]) });
-          cards.push({ id: row.node.id, w: spec.w, h: spec.h });
+          cards2.push({ id: row.node.id, w: spec.w, h: spec.h });
           yield;
         }
         const byId = new Map(built.map((row) => [key(row.node.id), row]));
         const knownIds = new Set(next.nodes.map((node) => key(node.id)));
-        const knownCards = cards.filter((card) => knownIds.has(key(card.id)));
+        const knownCards = cards2.filter((card) => knownIds.has(key(card.id)));
         const snapshot = { ...next, cards: knownCards, previous };
-        let result = next.ready ? yield* solve(snapshot) : { placements: [], overflow: cards.map((card) => ({ id: card.id, reason: "\\u8282\\u70B9\\u51E0\\u4F55\\u5F85\\u5C31\\u7EEA" })) };
+        let result = next.ready ? yield* solve(snapshot) : { placements: [], overflow: cards2.map((card) => ({ id: card.id, reason: "\\u8282\\u70B9\\u51E0\\u4F55\\u5F85\\u5C31\\u7EEA" })) };
         const attempts = [{
           phase: next.ready ? "nearby" : "geometry-pending",
           overflow: result.overflow.map((row) => ({ ...row })),
           diagnostics: result.diagnostics || null
         }];
-        const needsAlternatives = () => result.overflow.length || (result.diagnostics?.preferredAboveIds?.length || 0) < knownCards.length;
+        const needsAlternatives = () => result.overflow.length || result.diagnostics?.shopOverlapIds.length || (result.diagnostics?.preferredAboveIds?.length || 0) < knownCards.length;
         const measureAlternatives = function* (targets) {
           let changed = false;
           for (const card of targets) {
@@ -8159,7 +9055,8 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
         };
         if (next.ready && needsAlternatives()) {
           const above = new Set((result.diagnostics?.preferredAboveIds || []).map(key));
-          yield* measureAlternatives(knownCards.filter((card) => !above.has(key(card.id))));
+          const shopOverlap = new Set((result.diagnostics?.shopOverlapIds || []).map(key));
+          yield* measureAlternatives(knownCards.filter((card) => !above.has(key(card.id)) || shopOverlap.has(key(card.id))));
           const flexible = yield* solve(snapshot);
           attempts.push({ phase: "measured-widths", overflow: flexible.overflow.map((row) => ({ ...row })), diagnostics: flexible.diagnostics });
           if (comparePlacementResults(flexible, result) < 0) result = flexible;
@@ -8170,7 +9067,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
           }
         }
         const overflow = new Set(result.overflow.map((row) => key(row.id)));
-        for (const card of cards) if (!knownIds.has(key(card.id))) overflow.add(key(card.id));
+        for (const card of cards2) if (!knownIds.has(key(card.id))) overflow.add(key(card.id));
         let nextDrawer = null;
         if (overflow.size) {
           nextDrawer = findDrawerRect(next.viewport, next.controls, { width: Number(ctx.settings?.get("placementDrawerWidth", 280)) || 280, collapsed: !drawerOpen });
@@ -8180,7 +9077,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
             { width: Number(ctx.settings?.get("placementDrawerWidth", 280)) || 280, collapsed: true }
           );
           if (nextDrawer && next.ready) {
-            for (let pass = 0; pass <= cards.length; pass++) {
+            for (let pass = 0; pass <= cards2.length; pass++) {
               result = yield* solve({ ...snapshot, cards: knownCards.filter((card) => !overflow.has(key(card.id))), drawer: nextDrawer });
               attempts.push({ phase: "drawer", overflow: result.overflow.map((row) => ({ ...row })), diagnostics: result.diagnostics });
               const count = overflow.size;
@@ -8232,7 +9129,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
         layer = fresh;
         priorLayer?.destroy(true);
         showIconHints(final.map((placement) => ({ placement, spec: byId.get(key(placement.id)).specs.get(placement.w) })));
-        measuredCards = cards.map(copyMeasurement);
+        measuredCards = cards2.map(copyMeasurement);
         drawerRect = nextDrawer;
         overflowIds = rows.filter((row) => overflow.has(key(row.node.id))).map((row) => row.node.id);
         lastLayout = {
@@ -8280,6 +9177,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
           viewport: next.viewport,
           nodes: next.nodes,
           controls: next.controls,
+          shop: next.shop,
           signature: next.signature,
           reason: next.reason || null,
           diagnostics: next.diagnostics || null
@@ -8378,7 +9276,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
   }
 
   // src/plugins/shanhetu/native.js
-  var read = (fn) => {
+  var read2 = (fn) => {
     try {
       return fn();
     } catch {
@@ -8388,7 +9286,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
   var scalar = (value) => ["string", "number", "boolean"].includes(typeof value) ? value : null;
   function fields(object, keys) {
     if (!object || typeof object !== "object") return null;
-    return Object.fromEntries(keys.map((key2) => [key2, scalar(read(() => object[key2]))]));
+    return Object.fromEntries(keys.map((key2) => [key2, scalar(read2(() => object[key2]))]));
   }
   function array(value, cap, map = scalar) {
     if (value == null) return [];
@@ -8398,55 +9296,59 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
   function projectEvent(raw, notification = false) {
     const event = fields(raw, ["eventId", "eventType", "isSelect"]);
     if (!event) return null;
-    event.EventData = array(read(() => notification ? raw.data : raw.EventData), 32, (row) => ({
+    event.EventData = array(read2(() => notification ? raw.data : raw.EventData), 32, (row) => ({
       ...fields(row, ["id", "type", "num"]),
-      subData: array(read(() => row.subData), 32, (sub) => fields(sub, ["id", "type", "num"])).filter(Boolean)
+      subData: array(read2(() => row.subData), 32, (sub) => fields(sub, ["id", "type", "num"])).filter(Boolean)
     }));
-    event.loseData = array(read(() => raw.loseData), 32, (row) => fields(row, ["id", "type", "num"])).filter(Boolean);
+    event.loseData = array(read2(() => raw.loseData), 32, (row) => fields(row, ["id", "type", "num"])).filter(Boolean);
     return event;
   }
   function projectSnapshot(data, manager) {
     if (!data || typeof data !== "object") return {};
-    const seasonData = fields(read(() => data.seasonData), ["seasonId", "roundId", "difficulty", "uniqueLogId", "lastEnterTime"]);
-    const rawChapter = read(() => data.chapterData), rawGame = read(() => data.gameData), rawShop = read(() => data.shopData);
+    const seasonData = fields(read2(() => data.seasonData), ["seasonId", "roundId", "difficulty", "uniqueLogId", "lastEnterTime"]);
+    const rawChapter = read2(() => data.chapterData), rawGame = read2(() => data.gameData), rawShop = read2(() => data.shopData);
     const chapterData = fields(rawChapter, ["chapterId", "day", "accday", "curLocation", "endFlag"]);
     if (chapterData) {
       chapterData.day ??= 0;
       chapterData.accday ??= 0;
     }
     if (chapterData) {
-      Object.assign(chapterData, { locations: array(read(() => rawChapter.locations), 256, (row) => fields(row, ["location", "event", "appTime"])).filter(Boolean), alreadyFinishEvent: array(read(() => rawChapter.alreadyFinishEvent), 512) });
-      const event = projectEvent(read(() => rawChapter.curEventData));
+      Object.assign(chapterData, { locations: array(read2(() => rawChapter.locations), 256, (row) => fields(row, ["location", "event", "appTime"])).filter(Boolean), alreadyFinishEvent: array(read2(() => rawChapter.alreadyFinishEvent), 512) });
+      const event = projectEvent(read2(() => rawChapter.curEventData));
       if (event) chapterData.curEventData = event;
     }
     const gameData = fields(rawGame, ["money", "accDamage", "maxDamage", "maxDealCard"]);
     if (gameData) gameData.money ??= 0;
     if (gameData) Object.assign(gameData, {
-      itemId: array(read(() => rawGame.itemId), 2048),
-      passChapter: array(read(() => rawGame.passChapter), 128),
-      myGeneral: fields(read(() => rawGame.myGeneral), ["uGeneralId", "uMaxHp", "uInitHp", "uInitCardNum", "uArmor", "uDrawNum", "uExUseShaNum"]),
-      attrInfo: fields(read(() => rawGame.attrInfo), ["rep", "tro", "wis", "mar", "loy", "sex", "ass", "cha"]),
-      seedData: { seedItem: array(read(() => rawGame.seedData.seedItem), 256, (row) => fields(row, ["type", "attrType", "goal", "sub", "value"])).filter(Boolean) }
+      itemId: array(read2(() => rawGame.itemId), 2048),
+      itemListReady: Array.isArray(read2(() => rawGame.itemId)),
+      passChapter: array(read2(() => rawGame.passChapter), 128),
+      myGeneral: fields(read2(() => rawGame.myGeneral), ["uGeneralId", "uMaxHp", "uInitHp", "uInitCardNum", "uArmor", "uDrawNum", "uExUseShaNum"]),
+      attrInfo: fields(read2(() => rawGame.attrInfo), ["rep", "tro", "wis", "mar", "loy", "sex", "ass", "cha"]),
+      seedData: { seedItem: array(read2(() => rawGame.seedData.seedItem), 256, (row) => fields(row, ["type", "attrType", "goal", "sub", "value"])).filter(Boolean) }
     });
     const shopData = fields(rawShop, ["id", "bShow", "boughtIdx", "exCurMoney", "exMoney"]);
     if (shopData) {
-      Object.assign(shopData, { itemId: array(read(() => rawShop.itemId), 128), itemType: array(read(() => rawShop.itemType), 128) });
+      Object.assign(shopData, { itemId: array(read2(() => rawShop.itemId), 128), itemType: array(read2(() => rawShop.itemType), 128) });
       shopData.boughtIdx ??= 0;
       shopData.exCurMoney ??= 0;
       for (const key2 of ["spellMoney", "equipMoney", "cardMoney"]) {
-        shopData[key2] = fields(read(() => rawShop[key2]), ["exCurMoney", "exMoney"]) || {};
+        shopData[key2] = fields(read2(() => rawShop[key2]), ["exCurMoney", "exMoney"]) || {};
         shopData[key2].exCurMoney ??= 0;
         shopData[key2].exMoney ??= 0;
       }
     }
     const nativeShop = [];
-    const goods = read(() => manager.ShopData.goodList);
+    const processedShop = read2(() => manager.ShopData);
+    const goods = read2(() => processedShop.goodList);
+    const shopOpen = read2(() => processedShop.isShow);
+    if (shopData && typeof shopOpen === "boolean") shopData.bShow = shopOpen;
     for (const type of [2, 3, 4, 5]) {
-      const entries = read(() => goods[type]);
+      const entries = read2(() => goods[type]);
       if (entries == null) continue;
       if (!Array.isArray(entries) || entries.length > 128) throw new Error("\\u5546\\u5E97\\u6761\\u76EE\\u6570\\u91CF\\u5F02\\u5E38");
-      for (const row of entries) nativeShop.push({ id: num(read(() => row.goodId)), type: num(read(() => row.goodType)), bought: typeof read(() => row.isBuyed) === "boolean" ? row.isBuyed : null });
-      const current = num(read(() => manager.ShopData.CurExMoney[type]));
+      for (const row of entries) nativeShop.push({ id: num(read2(() => row.goodId)), type: num(read2(() => row.goodType)), bought: typeof read2(() => row.isBuyed) === "boolean" ? row.isBuyed : null });
+      const current = num(read2(() => processedShop.CurExMoney[type]));
       if (shopData && current !== null) {
         if (type === 2) shopData.exCurMoney = current;
         else shopData[{ 3: "spellMoney", 4: "cardMoney", 5: "equipMoney" }[type]].exCurMoney = current;
@@ -8456,24 +9358,10 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
   }
   function createNativeAdapter(ctx) {
     let notification = null;
-    const scene = () => read(() => ctx.game.getScene()) || null;
-    const sceneName = () => String(read(() => scene().SceneName) || read(() => scene().sceneName) || read(() => scene().name) || "");
-    const account = () => String(read(() => ctx.game.getSelf()?.ClientId) || "");
-    const valid2 = (value) => value && value.destroyed !== true && typeof read(() => value.RogueLikeDataReq) === "function" && ("allDatas" in value || "AllDatas" in value);
-    function manager() {
-      const proxy = read(() => ctx.game.getServerProxy());
-      for (const type of [102007, "decodeRogueLikeDataSync"]) {
-        const handlers = read(() => proxy._events[type]);
-        for (const handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) if (valid2(read(() => handler.caller))) return handler.caller;
-      }
-      const cls = read(() => ctx.game.getClass("RogueLikePveManager"));
-      if (valid2(cls)) return cls;
-      for (const key2 of ["instance", "_instance", "Instance"]) {
-        const descriptor = cls && Object.getOwnPropertyDescriptor(cls, key2);
-        if (descriptor && "value" in descriptor && valid2(descriptor.value)) return descriptor.value;
-      }
-      return null;
-    }
+    const scene = () => read2(() => ctx.game.getScene()) || null;
+    const sceneName = () => String(read2(() => scene().SceneName) || read2(() => scene().sceneName) || read2(() => scene().name) || "");
+    const account = () => String(read2(() => ctx.game.getSelf()?.ClientId) || "");
+    const manager = () => shanheManager(ctx.game);
     const runKey = (data) => JSON.stringify([
       account(),
       data?.seasonData?.seasonId,
@@ -8483,7 +9371,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       data?.chapterData?.chapterId
     ]);
     function snapshot(m = manager()) {
-      const data = read(() => m.AllDatas), s = projectSnapshot(data, m), c = s.chapterData;
+      const data = read2(() => m.AllDatas), s = projectSnapshot(data, m), c = s.chapterData;
       if (notification) {
         if (notification.manager !== m || notification.run !== runKey(data)) notification = null;
         else {
@@ -8498,11 +9386,12 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       if (typeof m?.on !== "function" || typeof m?.off !== "function") return () => {
       };
       const caller = {}, events2 = ["CLIENT_ROGUE_ALL_DATA_REP", "CLIENT_ROGUE_GET_SHOPINFO_REP", "CLIENT_ROGUE_BUY_SHOPITEM_REP", "CLIENT_ROGUE_SEASON_OVER", "CLIENT_ROGUE_SEASON_REP"];
-      for (const event of events2) m.on(event, caller, fn);
+      const handlers = events2.map((event) => [event, (data) => fn(event, data)]);
+      for (const [event, handler] of handlers) m.on(event, caller, handler);
       const onChoice = (raw) => {
         notification = null;
         try {
-          const data = read(() => m.AllDatas), c = data?.chapterData, event = projectEvent(raw, true);
+          const data = read2(() => m.AllDatas), c = data?.chapterData, event = projectEvent(raw, true);
           const node = c?.locations?.find((n) => Number(n.location) === Number(c.curLocation));
           if (Number(event?.eventType) === 2 && Number(node?.event) === Number(event.eventId) || Number(event?.eventType) === 4 && event.loseData.length && node)
             notification = {
@@ -8525,15 +9414,15 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       m.on("CLIENT_ROGUE_EVENT_SELECT_REP", caller, clearChoice);
       return () => {
         notification = null;
-        for (const event of events2) m.off(event, caller, fn);
+        for (const [event, handler] of handlers) m.off(event, caller, handler);
         m.off("CLIENT_ROGUE_EVENT_SELECT_NTF", caller, onChoice);
         m.off("CLIENT_ROGUE_EVENT_SELECT_REP", caller, clearChoice);
       };
     }
     function openShop() {
       if (!MAP_SCENES.has(sceneName())) throw new Error("\\u8BF7\\u8FD4\\u56DE\\u5C71\\u6CB3\\u5730\\u56FE\\u540E\\u6253\\u5F00\\u5546\\u5E97");
-      const ged = read(() => scene().ged);
-      if (typeof read(() => ged.ShowWindowAfterCloseOther) !== "function") throw new Error("\\u5F53\\u524D\\u5BA2\\u6237\\u7AEF\\u672A\\u63D0\\u4F9B\\u517C\\u5BB9\\u7684\\u5546\\u5E97\\u6253\\u5F00\\u63A5\\u53E3\\uFF1B\\u4ECD\\u53EF\\u67E5\\u770B\\u5546\\u54C1\\u9884\\u89C8");
+      const ged = read2(() => scene().ged);
+      if (typeof read2(() => ged.ShowWindowAfterCloseOther) !== "function") throw new Error("\\u5F53\\u524D\\u5BA2\\u6237\\u7AEF\\u672A\\u63D0\\u4F9B\\u517C\\u5BB9\\u7684\\u5546\\u5E97\\u6253\\u5F00\\u63A5\\u53E3\\uFF1B\\u4ECD\\u53EF\\u67E5\\u770B\\u5546\\u54C1\\u9884\\u89C8");
       ged.ShowWindowAfterCloseOther("RogueJiShiWindow");
     }
     function request(mask) {
@@ -8871,15 +9760,15 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
 
   // src/plugins/shanhetu/background.js
   function createBackgroundPreference(ctx) {
-    let entry = null, status = "\\u5DF2\\u5173\\u95ED";
+    let entry = null, error = "";
     const listeners = /* @__PURE__ */ new Set();
     const enabled = () => ctx.settings.get("keepBattleBackground", true) === true;
     const scene = () => ctx.game.getScene?.();
     const account = () => ctx.game.getSelf?.()?.ClientId ?? null;
     const name = (current) => current && (current.SceneName || current.sceneName || current.name);
-    function publish(value) {
-      if (status !== value) {
-        status = value;
+    function publishError(value = "") {
+      if (error !== value) {
+        error = value;
         for (const fn of listeners) fn();
       }
     }
@@ -8892,6 +9781,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
         entry.scope.dispose();
         entry = null;
       }
+      publishError();
     }
     function valid2(current) {
       return !ctx.scope.signal.aborted && !current.scope.closed && enabled() && entry === current && scene() === current.scene && !current.scene.destroyed && account() === current.account;
@@ -8905,22 +9795,16 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     }
     function apply(current) {
       if (!valid2(current) || !current.needed) return;
-      if (current.scene.currentWeatherWallPaper > 0) {
-        publish("\\u7B49\\u5F85\\u5929\\u6C14\\u80CC\\u666F\\u7ED3\\u675F\\u540E\\u91CD\\u9009");
-        return;
-      }
+      if (current.scene.currentWeatherWallPaper > 0) return;
       const official = ready(current) && handler(current, "SELECT_WALLPAPER");
-      if (!official) {
-        publish("\\u7B49\\u5F85\\u5B98\\u65B9\\u80CC\\u666F\\u5165\\u53E3");
-        return;
-      }
+      if (!official) return;
       current.needed = false;
       current.applying = true;
       try {
         Reflect.apply(official.method, official.caller, []);
-        if (valid2(current)) publish("\\u5DF2\\u89E6\\u53D1\\u5B98\\u65B9\\u80CC\\u666F\\u91CD\\u9009");
-      } catch (error) {
-        if (valid2(current)) publish("\\u5B98\\u65B9\\u80CC\\u666F\\u91CD\\u9009\\u5931\\u8D25\\uFF1A" + (error?.stack || String(error)));
+        if (valid2(current)) publishError();
+      } catch (error2) {
+        if (valid2(current)) publishError(error2?.stack || String(error2));
       } finally {
         current.applying = false;
       }
@@ -8928,14 +9812,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
     function schedule(current, delay = 1e3) {
       if (!valid2(current) || !current.needed) return;
       cancelJob(current);
-      if (current.scene.currentWeatherWallPaper > 0) {
-        publish("\\u7B49\\u5F85\\u5929\\u6C14\\u80CC\\u666F\\u7ED3\\u675F\\u540E\\u91CD\\u9009");
-        return;
-      }
-      if (!ready(current)) {
-        publish("\\u7B49\\u5F85\\u5B98\\u65B9\\u80CC\\u666F\\u5165\\u53E3");
-        return;
-      }
+      if (current.scene.currentWeatherWallPaper > 0 || !ready(current)) return;
       const job = new ResourceScope();
       current.job = job;
       job.timeout(() => {
@@ -8944,7 +9821,6 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
         job.dispose();
         apply(current);
       }, delay);
-      publish("\\u7B49\\u5F85\\u5BF9\\u5C40\\u80CC\\u666F\\u5C31\\u7EEA");
     }
     function attach(currentScene, dispatcher) {
       const local = new ResourceScope();
@@ -8984,7 +9860,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
         if (!valid2(current)) return;
         current.needed = false;
         cancelJob(current);
-        publish("\\u5DF2\\u6536\\u5230\\u5B98\\u65B9\\u624B\\u52A8\\u80CC\\u666F\\u9009\\u62E9");
+        publishError();
       });
       return current;
     }
@@ -8992,19 +9868,16 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       if (ctx.scope.signal.aborted) return;
       if (!enabled()) {
         clearEntry();
-        publish("\\u5DF2\\u5173\\u95ED");
         return;
       }
       const current = scene();
       if (name(current) !== "RogueLikeGameScene" || current.destroyed) {
         clearEntry();
-        publish("\\u7B49\\u5F85\\u8FDB\\u5165\\u5C71\\u6CB3\\u5BF9\\u5C40");
         return;
       }
       const dispatcher = ctx.game.getDispatcher?.();
       if (!dispatcher?.on || !dispatcher?.off) {
         clearEntry();
-        publish("\\u7B49\\u5F85\\u5B98\\u65B9\\u80CC\\u666F\\u5165\\u53E3");
         return;
       }
       if (!entry || entry.scene !== current || entry.dispatcher !== dispatcher || entry.account !== account()) {
@@ -9014,13 +9887,12 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
       if (entry.needed && !entry.job) schedule(entry);
     }
     ctx.scope.add(() => {
-      clearEntry();
       listeners.clear();
-      status = "\\u5DF2\\u505C\\u7528";
+      clearEntry();
     });
     refresh();
-    return { refresh, get status() {
-      return status;
+    return { refresh, get error() {
+      return error;
     }, subscribe(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);
@@ -9068,7 +9940,7 @@ return {...SGSPlugin.default, manifest:{"id":"gold-cards","name":"\u91D1\u8272\u
   }
 
   // src/shared/info-runtime.js
-  var read2 = (fn) => {
+  var read3 = (fn) => {
     try {
       return fn();
     } catch {
@@ -9095,14 +9967,14 @@ button{position:absolute;right:8px;top:8px;display:grid;place-items:center;width
 button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:2px}
 \`;
   function generalChangeIds(pool) {
-    const ids2 = read2(() => pool.general_change);
+    const ids2 = read3(() => pool.general_change);
     if (!Array.isArray(ids2) || ids2.length > 512 || !ids2.every((id) => Number.isInteger(id) && id > 0 && id <= 4294967295)) return null;
     return ids2.slice().reverse();
   }
   var generalChangeText = (ids2, names3) => "\\u53EF\\u6362\\u5C06\\u4E3A\\uFF1A" + ids2.map((id) => names3[id] || \`Unknown (\${id})\`).join(", ");
   function createGeneralPreview(ctx, native) {
     const theme = getNativeTheme(ctx);
-    const account = () => String(read2(() => ctx.game.getSelf()?.ClientId) || "");
+    const account = () => String(read3(() => ctx.game.getSelf()?.ClientId) || "");
     const sceneName = () => {
       const s = ctx.game.getScene?.();
       return s?.SceneName || s?.sceneName || s?.name || "";
@@ -9203,10 +10075,10 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
       loadNames();
     }
     function existingWindow() {
-      const entries = read2(() => dispatcher._events.OPEN_WINDOW);
+      const entries = read3(() => dispatcher._events.OPEN_WINDOW);
       for (const handler of Array.isArray(entries) ? entries.slice(0, 32) : [entries]) {
-        const dict = read2(() => handler.caller.WindowInstanceDict);
-        const win = read2(() => dict.getStringKey(WINDOW)) || read2(() => dict.get(WINDOW));
+        const dict = read3(() => handler.caller.WindowInstanceDict);
+        const win = read3(() => dict.getStringKey(WINDOW)) || read3(() => dict.get(WINDOW));
         if (win && !win.destroyed && win.parent && win.visible !== false) return win;
       }
       return null;
@@ -9237,14 +10109,14 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
             binding.add(() => next.off(type, caller, fn));
           };
           for (const type of ["OPEN_WINDOW", "UPDATE_WINDOW"]) listen(type, (packet) => {
-            if (read2(() => packet.WindowName) !== WINDOW) return;
+            if (read3(() => packet.WindowName) !== WINDOW) return;
             recover = true;
-            const data = read2(() => packet.Data);
-            show(type === "OPEN_WINDOW" ? read2(() => data[0]) : data, type === "OPEN_WINDOW");
+            const data = read3(() => packet.Data);
+            show(type === "OPEN_WINDOW" ? read3(() => data[0]) : data, type === "OPEN_WINDOW");
             lastWindow = existingWindow();
           });
           for (const type of ["CLOSE_WINDOW", "HIDE_WINDOW"]) listen(type, (packet) => {
-            if (read2(() => packet.WindowName) === WINDOW) {
+            if (read3(() => packet.WindowName) === WINDOW) {
               clear();
               lastWindow = null;
               lastSignature = "";
@@ -9269,7 +10141,7 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
         return;
       }
       if (!recover) return;
-      const pool = read2(() => native.manager().GeneralPool);
+      const pool = read3(() => native.manager().GeneralPool);
       if (pool) show(pool);
       lastWindow = win;
     }
@@ -9284,27 +10156,600 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
     return { refresh, clear };
   }
 
-  // src/plugins/shanhetu/index.js
+  // src/plugins/shanhetu/native-windows.js
+  var read4 = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return void 0;
+    }
+  };
+  var SHOP_WINDOW = "RogueJiShiWindow";
+  var CHOICE_WINDOWS = ["RogueAwardSelectWindow", "RogueCampSelectWindow"];
+  function mounted(node, stage) {
+    for (let depth = 0; node && depth < 24; depth++, node = node.parent) {
+      if (node.destroyed || node.visible === false) return false;
+      if (node === stage) return true;
+    }
+    return false;
+  }
+  function nativeWindow(game, stage, name) {
+    const handlers = read4(() => game.getDispatcher()._events.OPEN_WINDOW);
+    for (const handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) {
+      const dict = read4(() => handler.caller.WindowInstanceDict);
+      const win = read4(() => dict.getStringKey(name)) || read4(() => dict.get(name));
+      if (mounted(win, stage)) return win;
+    }
+    return null;
+  }
+  function createSchoolWindowSync(ctx, sync) {
+    const caller = {};
+    let dispatcher = null, win = null, refreshButton = null, tabGroup = null;
+    let queued = false;
+    function schedule() {
+      if (queued) return;
+      queued = true;
+      Promise.resolve().then(() => {
+        queued = false;
+        if (!ctx.scope.signal.aborted) sync();
+      });
+    }
+    const onWindow = (name) => {
+      if (name === SHOP_WINDOW || CHOICE_WINDOWS.includes(name)) schedule();
+    };
+    const onOpen = (event) => onWindow(event?.WindowName);
+    const windowEvents = [["OPEN_WINDOW", onOpen], ["OPENED_WINDOW", onWindow], ["windowClosed", onWindow]];
+    function setDispatcher(next) {
+      if (dispatcher === next) return;
+      for (const [event, handler] of windowEvents) {
+        dispatcher?.off(event, caller, handler);
+        next?.on(event, caller, handler);
+      }
+      dispatcher = next;
+    }
+    function setRefreshButton(next) {
+      if (refreshButton === next) return;
+      refreshButton?.off("click", caller, schedule);
+      next?.on("click", caller, schedule);
+      refreshButton = next;
+    }
+    function setTabGroup(next) {
+      if (tabGroup === next) return;
+      tabGroup?.off("TAP_CLICKED", caller, schedule);
+      next?.on("TAP_CLICKED", caller, schedule);
+      tabGroup = next;
+    }
+    function update(enabled) {
+      const stage = enabled && ctx.window?.Laya?.stage;
+      const ged = stage && ctx.game.getDispatcher?.();
+      setDispatcher(typeof ged?.on === "function" && typeof ged.off === "function" ? ged : null);
+      const candidate = stage ? nativeWindow(ctx.game, stage, SHOP_WINDOW) : null;
+      const next = candidate?.panel && !candidate.panel.destroyed ? candidate : null;
+      const button = next?.refreshBtn;
+      setRefreshButton(typeof button?.on === "function" && typeof button.off === "function" ? button : null);
+      const tabs = next?.tabGroup;
+      setTabGroup(typeof tabs?.on === "function" && typeof tabs.off === "function" ? tabs : null);
+      const opened = Boolean(next && next !== win);
+      win = next;
+      return { win, opened };
+    }
+    ctx.scope.add(() => {
+      setTabGroup(null);
+      setRefreshButton(null);
+      setDispatcher(null);
+    });
+    return { update };
+  }
+  function windowByClass(game, stage, name) {
+    const cls = read4(() => game.getClass(name));
+    if (typeof cls !== "function") return null;
+    const stack = [stage];
+    for (let i = 0; i < 768 && stack.length; i++) {
+      const node = stack.pop();
+      if (!node || node.destroyed || node.visible === false) continue;
+      if (node instanceof cls) return node;
+      if (Array.isArray(node._children)) stack.push(...node._children.slice(0, 256));
+    }
+    return null;
+  }
+
+  // src/plugins/shanhetu/native-impact.js
+  var WINDOW2 = "RogueAdventureSelectWindow";
+  function createImpactLabels(ctx) {
+    const labels = /* @__PURE__ */ new Map();
+    function remove(card) {
+      const label = labels.get(card);
+      if (label && !label.destroyed) label.destroy(true);
+      labels.delete(card);
+    }
+    const clear = () => {
+      for (const card of labels.keys()) remove(card);
+    };
+    ctx.scope.add(clear);
+    function update(season) {
+      if (!season) {
+        clear();
+        return;
+      }
+      const Laya = ctx.window.Laya, stage = Laya?.stage;
+      const win = stage && typeof Laya.Text === "function" ? nativeWindow(ctx.game, stage, WINDOW2) || windowByClass(ctx.game, stage, WINDOW2) : null;
+      const cards2 = Array.isArray(win?.showItemList) ? win.showItemList.slice(0, 12) : [];
+      const keep = /* @__PURE__ */ new Set();
+      const palette = ctx.ui.nativeTheme.palette;
+      for (const card of cards2) {
+        if (!mounted(card, stage) || typeof card.addChild !== "function") continue;
+        const impact = optionImpact(season, card.id);
+        if (!impact) continue;
+        keep.add(card);
+        let label = labels.get(card);
+        if (!label || label.destroyed || label.parent !== card) {
+          remove(card);
+          label = new Laya.Text();
+          label.name = "sgs-shanhe-option-impact";
+          label.mouseEnabled = false;
+          label.mouseThrough = true;
+          label.align = "center";
+          label.valign = "middle";
+          label.fontSize = 13;
+          label.height = 20;
+          label.stroke = 2;
+          card.addChild(label);
+          labels.set(card, label);
+        }
+        const width = Number(card.width) || 210;
+        label.width = Math.max(0, width - 20);
+        label.pos(10, Math.max(0, (Number(card.effectValue?.y) || 245) - 24));
+        label.color = palette.highlight;
+        label.strokeColor = palette.surface;
+        const text = impact.changes.join(" \\xB7 ");
+        if (label.text !== text) label.text = text;
+      }
+      for (const card of labels.keys()) if (!keep.has(card)) remove(card);
+    }
+    return { update, clear };
+  }
+
+  // src/plugins/shanhetu/school-alerts.js
+  var cards = (list2) => Array.isArray(list2) && list2.length <= 128 ? list2 : [];
+  var bought = (card) => Boolean(card.Data?.IsBuyed);
+  var stockOrder = (a, b) => Number(bought(a)) - Number(bought(b)) || a.Id - b.Id;
+  var matchKey = (match, id) => \`\${match.school}/\${id}\`;
+  var TACTICS = 2;
+  var DOT_RADIUS = 5;
+  var STAR = [0, -8, 2.5, -2.6, 8, -2.5, 3.8, 1.4, 5, 7, 0, 4.2, -5, 7, -3.8, 1.4, -8, -2.5, -2.5, -2.6];
+  function newOffers(offers, match, announced) {
+    const fresh = [];
+    for (const { id, type, name } of offers) {
+      for (const target of match(id, type)) {
+        const key2 = matchKey(target, id);
+        if (announced.has(key2)) continue;
+        announced.add(key2);
+        fresh.push(\`\${target.name}\\u5957\\u88C5\\u7684\${name}\`);
+      }
+    }
+    return fresh.join("\\u3001");
+  }
+  function createSchoolAlerts(ctx) {
+    let shopKey = "";
+    const shopAnnounced = /* @__PURE__ */ new Set();
+    let choice = null, choiceKey = "", choiceMessage = null, choiceAnnounced = /* @__PURE__ */ new Set();
+    let paintedShop = null, dismissNotice = null, shopNotice = false;
+    const dots = /* @__PURE__ */ new Map();
+    const badges = /* @__PURE__ */ new Map();
+    const theme = getNativeTheme(ctx);
+    function paintChoice(targets) {
+      const { Sprite, Text } = ctx.window?.Laya || {};
+      const palette = theme.palette;
+      const light = ctx.themes?.current?.tokens?.scheme === "light";
+      const keep = /* @__PURE__ */ new Set();
+      const canDraw = typeof Sprite === "function" && typeof Text === "function";
+      for (const card of canDraw ? targets : []) {
+        const bounds2 = card.width > 0 && card.height > 0 ? null : card.getSelfBounds?.();
+        const width = bounds2?.width ?? card.width, height = bounds2?.height ?? card.height;
+        if (!Number.isFinite(width) || width < 96 || !Number.isFinite(height) || height < 100 || typeof card.addChild !== "function") continue;
+        let entry = badges.get(card);
+        if (!entry || entry.badge.destroyed || entry.badge.parent !== card) {
+          if (entry && !entry.badge.destroyed) entry.badge.destroy(true);
+          const badge2 = new Sprite();
+          badge2.name = "sgs-sh-follow-choice";
+          badge2.zOrder = 101;
+          badge2.mouseEnabled = false;
+          const label2 = badge2.addChild(new Text());
+          label2.mouseEnabled = false;
+          label2.bold = true;
+          label2.valign = "middle";
+          label2.text = "\\u5DF2\\u5173\\u6CE8";
+          card.addChild(badge2);
+          badges.set(card, entry = { badge: badge2, label: label2 });
+        }
+        keep.add(card);
+        const { badge, label } = entry;
+        const fontSize = Math.max(14, Math.min(22, Math.round(width * 0.08)));
+        const badgeWidth = fontSize * 3 + 44, badgeHeight = fontSize + 13;
+        badge.pos(
+          (bounds2?.x ?? 0) + width - badgeWidth - Math.round(width * 0.05),
+          (bounds2?.y ?? 0) + Math.round(height * 0.12)
+        );
+        if (entry.palette === palette && label.fontSize === fontSize) continue;
+        entry.palette = palette;
+        badge.graphics.clear();
+        badge.graphics.drawRect(0, 0, badgeWidth, badgeHeight, light ? palette.accent : palette.bg, palette.accent, 1);
+        badge.graphics.drawPoly(17, badgeHeight / 2, STAR, light ? palette.bg : palette.highlight);
+        label.pos(31, 0);
+        label.height = badgeHeight;
+        label.fontSize = fontSize;
+        label.color = light ? palette.bg : palette.text;
+      }
+      for (const [card, { badge }] of badges) {
+        if (keep.has(card)) continue;
+        if (!badge.destroyed) badge.destroy(true);
+        badges.delete(card);
+      }
+    }
+    function paintDots(targets) {
+      for (const [button, dot] of dots) {
+        if (targets.has(button) && !dot.destroyed) continue;
+        if (!dot.destroyed) dot.destroy();
+        dots.delete(button);
+      }
+      const Sprite = ctx.window?.Laya?.Sprite;
+      if (typeof Sprite !== "function") return;
+      for (const [button, flatParent] of targets) {
+        const width = flatParent ? button.renderWidth ?? button.width : button.width;
+        const parent = flatParent || button;
+        if (!Number.isFinite(width) || width < DOT_RADIUS * 2 || typeof parent.addChild !== "function") continue;
+        let dot = dots.get(button);
+        if (!dot) {
+          dot = new Sprite();
+          dot.name = "sgs-sh-follow-dot";
+          dot.mouseEnabled = false;
+          dot.zOrder = 101;
+          dot.graphics.drawCircle(0, 0, DOT_RADIUS, "#e7433a", "#fff1cd", 1);
+          dots.set(button, dot);
+        }
+        if (dot.parent !== parent) parent.addChild(dot);
+        const x = flatParent ? button.renderX ?? button.x : 0;
+        const y = flatParent ? button.renderY ?? button.y : 0;
+        dot.pos(x + width - DOT_RADIUS, y + DOT_RADIUS);
+      }
+    }
+    function arrange(win, rows, resetScroll) {
+      const list2 = win.itemList;
+      if (!rows.some((row, index2) => row !== list2[index2])) return;
+      list2.splice(0, list2.length, ...rows);
+      win.layout();
+      const panel = win.panel;
+      panel.UpdateDrawContent();
+      if (panel.hScrollBar) {
+        panel.hScrollBar.max = Math.max(0, panel.contentWidth - panel.width);
+        if (resetScroll) panel.hScrollBar.value = 0;
+      }
+    }
+    function clearShop() {
+      const win = paintedShop;
+      paintedShop = null;
+      if (win && !win.destroyed && win.curValue === TACTICS && win.panel && !win.panel.destroyed) {
+        const list2 = cards(win.itemList);
+        if (list2.every(Boolean)) arrange(win, [...list2].sort(stockOrder), false);
+      }
+    }
+    function paintShop(win, followedGoods, targets) {
+      if (!win || win.curValue !== TACTICS || typeof win.layout !== "function" || typeof win.panel?.UpdateDrawContent !== "function") {
+        clearShop();
+        return;
+      }
+      const list2 = cards(win.itemList).filter(Boolean);
+      const isMatch = (card) => !bought(card) && followedGoods.has(String(card.Id));
+      if (list2.length !== win.itemList?.length || !list2.some(isMatch)) {
+        clearShop();
+        return;
+      }
+      if (paintedShop !== win) clearShop();
+      paintedShop = win;
+      arrange(win, [...list2].sort((a, b) => Number(isMatch(b)) - Number(isMatch(a)) || stockOrder(a, b)), true);
+      for (const card of list2) {
+        const button = card.tongqianBtn;
+        if (isMatch(card) && button?.parent === card && !button.destroyed && button.visible !== false && card.visible !== false) {
+          targets.set(button, null);
+        }
+      }
+    }
+    function update({ identity, shop, goods, refresh, match, tactics, onMap, left, shopWindow }) {
+      const stage = ctx.window?.Laya?.stage;
+      const followedGoods = /* @__PURE__ */ new Set();
+      const messages = [];
+      if (shop && identity && match && onMap) {
+        const key3 = JSON.stringify([identity, shop.id, shop.open === true, refresh, goods.map((good) => [good.id, good.type])]);
+        if (shopKey !== key3 || shopWindow.opened) {
+          shopKey = key3;
+          shopAnnounced.clear();
+        }
+        const available = goods.filter((good) => good.type === TACTICS && good.bought === false);
+        for (const good of available) if (match(good.id, good.type).length) followedGoods.add(String(good.id));
+        const names3 = newOffers(available, match, shopAnnounced);
+        if (names3) messages.push(\`\\u5546\\u5E97\\u6709\\u5173\\u6CE8\\u7684\${names3}\`);
+      }
+      if (!followedGoods.size) {
+        shopAnnounced.clear();
+        if (shopNotice) {
+          dismissNotice?.();
+          dismissNotice = null;
+          shopNotice = false;
+        }
+      }
+      const targets = /* @__PURE__ */ new Map();
+      const shopWin = followedGoods.size ? shopWindow.win : null;
+      if (followedGoods.size) {
+        const entrance = left?.shopBtn;
+        if (entrance && !entrance.destroyed && entrance.visible !== false && mounted(left, stage)) {
+          targets.set(entrance, entrance.parent === left ? null : left);
+        }
+        const tab = shopWin?.tabGroup?.GetButtonByValue?.(TACTICS);
+        if (mounted(tab, stage)) targets.set(tab, null);
+      }
+      paintShop(shopWin, followedGoods, targets);
+      paintDots(targets);
+      const hasShopMessage = messages.length > 0;
+      let win = null, offers = [];
+      if (stage && match) {
+        for (const name of CHOICE_WINDOWS) {
+          win = nativeWindow(ctx.game, stage, name);
+          if (!win) continue;
+          const items = mounted(win.selectPanel, stage) ? win.SelectItemList : win.ShowItemList;
+          offers = cards(items).filter((card) => mounted(card, stage) && card.Data && Number(card.Type) === TACTICS).map((card) => ({ card, id: card.Id, type: card.Type, name: tactics.get(String(card.Id))?.name }));
+          break;
+        }
+      }
+      const key2 = JSON.stringify([identity, offers.map((offer) => offer.id)]);
+      if (choice !== win || choiceMessage !== win?.msg || choiceKey !== key2) {
+        choice = win;
+        choiceMessage = win?.msg;
+        choiceKey = key2;
+        choiceAnnounced = /* @__PURE__ */ new Set();
+      }
+      paintChoice(new Set(offers.filter((offer) => match(offer.id, offer.type).length).map((offer) => offer.card)));
+      if (match && offers.length) {
+        const names3 = newOffers(offers.filter((offer) => offer.name), match, choiceAnnounced);
+        if (names3) messages.push(\`\\u51FA\\u73B0\\u4E86\\u5173\\u6CE8\\u7684\${names3}\\uFF0C\\u8BF7\\u6CE8\\u610F\\u9009\\u62E9\`);
+      }
+      if (messages.length) {
+        dismissNotice = ctx.notify?.(messages.join("\\u3002"), { position: "top" });
+        shopNotice = hasShopMessage && messages.length === 1;
+      }
+      return followedGoods;
+    }
+    ctx.scope.add(theme.watch(() => paintChoice(new Set(badges.keys()))));
+    ctx.scope.add(() => {
+      dismissNotice?.();
+      clearShop();
+      paintDots(/* @__PURE__ */ new Map());
+      paintChoice(/* @__PURE__ */ new Set());
+    });
+    return { update };
+  }
+
+  // src/plugins/shanhetu/native-school-follow.js
+  var BUTTON_WIDTH = 88;
+  var BUTTON_HEIGHT = 34;
+  var CAPTION = /^([^<]+\u5957\u88C5)<font color=['"]#[0-9a-f]{6}['"]>\\s*[\uFF08(](\u672A|\u5DF2)\u6FC0\u6D3B[\uFF09)]\\s*<\\/font>$/i;
   var CSS2 = \`
+:host{position:fixed;inset:0;z-index:2147482999;pointer-events:none}
+button{position:absolute;pointer-events:auto;appearance:none;box-sizing:border-box;width:\${BUTTON_WIDTH}px;height:\${BUTTON_HEIGHT}px;padding:0 8px;display:grid;place-items:center;border:1px solid var(--sgs-border);border-radius:7px;background:var(--sgs-surface);color:var(--sgs-text);font:600 13px/1.2 system-ui,sans-serif;white-space:nowrap;cursor:pointer;touch-action:manipulation}
+button:hover,button[aria-pressed=true]{border-color:var(--sgs-accent);color:var(--sgs-accent);background:var(--sgs-raised)}
+button:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
+\`;
+  function paintSchoolFollow(button, school, followed) {
+    const action = followed ? "\\u53D6\\u6D88\\u5173\\u6CE8" : "\\u5173\\u6CE8";
+    if (button.textContent !== action) button.textContent = action;
+    button.setAttribute("aria-label", action + school.name + "\\u5957\\u88C5");
+    button.setAttribute("aria-pressed", String(followed));
+  }
+  function pinnedTacticTip(game, stage) {
+    const listeners = read3(() => game.getDispatcher()._events.TIPS_OUT_EVENT);
+    for (const listener of Array.isArray(listeners) ? listeners.slice(0, 16) : [listeners]) {
+      const owner = listener?.caller;
+      const tip = read3(() => owner.currentStaticTip);
+      if (typeof owner?.ShowStaticTip === "function" && typeof tip?.ShowToolTipZhanfa === "function" && typeof tip.showExtendSuit2 === "function" && mounted(tip, stage)) return tip;
+    }
+    return null;
+  }
+  function createNativeSchoolFollow(ctx, toggle) {
+    const { document: doc, window: win } = ctx;
+    const actions = /* @__PURE__ */ new Map();
+    const byName = /* @__PURE__ */ new Map(), byId = /* @__PURE__ */ new Map();
+    let followed = /* @__PURE__ */ new Set(), host, shadow;
+    const theme = getNativeTheme(ctx);
+    let palette = theme.palette;
+    function applyTheme() {
+      if (!host) return;
+      for (const key2 of ["text", "surface", "raised", "border", "accent"]) host.style.setProperty("--sgs-" + key2, palette[key2]);
+    }
+    ctx.scope.add(theme.watch((next) => {
+      palette = next;
+      applyTheme();
+    }));
+    function remove(key2, entry) {
+      if (entry.shortTitle && !key2.destroyed && key2.innerHTML === entry.shortTitle) key2.innerHTML = entry.originalTitle;
+      entry.button.remove();
+      actions.delete(key2);
+    }
+    function place({ owner, anchor, school, key: key2, title, inactive, alignLeft }, surface, keep) {
+      const rect3 = placementRectToClient(anchor, { ...surface, cityView: owner });
+      if (!rect3) return;
+      const leftEdge = Math.max(0, rect3.x), rightEdge = Math.min(win.innerWidth, rect3.x + rect3.w);
+      let width = BUTTON_WIDTH, left = leftEdge + 8, top = rect3.y + (rect3.h - BUTTON_HEIGHT) / 2;
+      if (!alignLeft) {
+        const logicalWidth = inactive ? title.length * 16 : key2.contextWidth || (title.length + 5) * 16;
+        const captionRight = rect3.x + rect3.w * (0.5 + logicalWidth / (2 * anchor.w));
+        left = Math.max(leftEdge + 8, captionRight + 6);
+        const available = rightEdge - left - 8;
+        if (available >= 66) width = Math.min(BUTTON_WIDTH, available);
+        else {
+          left = rightEdge - BUTTON_WIDTH - 8;
+          top = rect3.y - BUTTON_HEIGHT - 4;
+        }
+      }
+      if (left < leftEdge || left + width > rightEdge || top < 0 || top + BUTTON_HEIGHT > win.innerHeight) return;
+      let entry = actions.get(key2);
+      if (entry && entry.school !== school.id) {
+        remove(key2, entry);
+        entry = null;
+      }
+      if (!entry) {
+        if (!host) {
+          host = doc.createElement("div");
+          host.dataset.sgsShanheSchoolFollow = "";
+          shadow = host.attachShadow({ mode: "open" });
+          const style = doc.createElement("style");
+          style.textContent = CSS2;
+          shadow.append(style);
+          (doc.body || doc.documentElement).append(host);
+          applyTheme();
+        }
+        const button = doc.createElement("button");
+        button.type = "button";
+        entry = { button, school: school.id };
+        button.onclick = (event) => {
+          event.stopPropagation();
+          refresh();
+          if (actions.get(key2) === entry) toggle(entry.school);
+        };
+        if (inactive) {
+          entry.originalTitle = key2.innerHTML;
+          entry.shortTitle = title;
+          key2.innerHTML = title;
+        }
+        shadow.append(button);
+        actions.set(key2, entry);
+      }
+      keep.add(key2);
+      entry.button.style.width = width + "px";
+      entry.button.style.left = left + "px";
+      entry.button.style.top = top + "px";
+      paintSchoolFollow(entry.button, school, followed.has(school.id));
+    }
+    function refresh() {
+      const keep = /* @__PURE__ */ new Set(), Laya = win?.Laya, stage = Laya?.stage;
+      const canvas = byId.size && stage && (doc?.querySelector("#layaCanvas") || read3(() => Laya.Render.canvas));
+      if (canvas) {
+        const surface = { stage, canvas, window: win };
+        const tip = pinnedTacticTip(ctx.game, stage);
+        if (tip) {
+          const children = Array.isArray(tip._children) ? tip._children.slice(0, 48) : [];
+          for (const key2 of children) {
+            if (key2?.parent !== tip || key2.visible === false || !Number.isFinite(key2.y)) continue;
+            const entry = actions.get(key2);
+            const html = read3(() => key2.innerHTML);
+            const original = entry?.shortTitle && html === entry.shortTitle ? entry.originalTitle : html;
+            const match = typeof original === "string" ? CAPTION.exec(original) : null;
+            const school = match && byName.get(match[1]);
+            if (!school) continue;
+            const { x, y, width, height } = key2;
+            place({
+              owner: tip,
+              key: key2,
+              anchor: { x, y, w: width, h: height },
+              school,
+              title: match[1],
+              inactive: match[2] === "\\u672A"
+            }, surface, keep);
+          }
+        }
+        if (!keep.size) {
+          const detail = nativeWindow(ctx.game, stage, "RogueZhanfaSuitWindow");
+          const school = byId.get(Number(detail?.schoolVo?.SchoolID));
+          const panel = detail?.itemPanel;
+          if (school && panel && mounted(detail.contentSprite, stage)) {
+            place({
+              owner: detail.contentSprite,
+              key: detail,
+              school,
+              alignLeft: true,
+              anchor: { x: panel.x, y: panel.y - 40, w: panel.width, h: BUTTON_HEIGHT }
+            }, surface, keep);
+          }
+        }
+      }
+      for (const [key2, entry] of actions) if (!keep.has(key2)) remove(key2, entry);
+      if (!keep.size && host) {
+        host.remove();
+        host = shadow = null;
+      }
+    }
+    ctx.scope.add(() => {
+      for (const [key2, entry] of actions) remove(key2, entry);
+      host?.remove();
+    });
+    if (doc) ctx.scope.listen(doc, "click", () => {
+      if (byId.size) ctx.scope.timeout(refresh, 0);
+    }, true);
+    ctx.scope.interval(refresh, 120);
+    return {
+      update(schools, selected) {
+        byName.clear();
+        byId.clear();
+        for (const school of schools || []) {
+          byName.set(school.name + "\\u5957\\u88C5", school);
+          byId.set(school.id, school);
+        }
+        followed = selected;
+        refresh();
+      }
+    };
+  }
+
+  // src/plugins/shanhetu/index.js
+  var CSS3 = \`
+.sh-main-content,.sh-main-chrome{font-size:12px;line-height:1.65}
+.sh-root .sh-tabs>button{font-size:calc(11px + var(--sgs-font-offset,0px));white-space:nowrap}
+.sh-root .sh-school{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 0;margin-bottom:0}
+.sh-root .sh-school .sh-meta{margin-bottom:0}
+.sh-root .sh-follow{min-height:34px;min-width:68px;padding:4px 8px;white-space:nowrap}
+.sh-root .sh-follow[aria-pressed=true],.sh-root .sh-good-star{color:var(--sgs-accent)}
+.sh-root .sh-good strong.sh-good-name{display:flex;align-items:baseline;gap:4px;min-width:0}
+.sh-root .sh-good-name>span:first-child{min-width:0}
+.sh-root .sh-good-star{flex:none}
+.sh-root .sh-good small.sh-good-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .sh-root .sh-warning{color:var(--sgs-danger,#db8175);font-weight:600;font-size:11px;line-height:1.6;overflow-wrap:anywhere}
 .sh-coin{display:inline-flex;align-items:center;gap:3px;white-space:nowrap;vertical-align:middle}.sh-coin img{width:17px;height:17px;object-fit:contain;flex:none}
 .sh-coin.sh-wrap{display:inline;white-space:normal;overflow-wrap:anywhere}.sh-coin.sh-wrap img{display:inline-block;vertical-align:-3px;margin-right:3px}.sh-stats .sh-coin,.sh-enemy-stats .sh-coin{margin-right:3px}
 .sh-atomic{display:inline-block;white-space:nowrap}
+.sh-impact{display:inline-block;white-space:nowrap;color:var(--sgs-accent);font-variant-numeric:tabular-nums}
+.sh-impact[data-impact=unknown]{color:var(--sgs-muted)}
 .sh-enemy+.sh-enemy{margin-top:7px}.sh-enemy-stats{font-size:11px;line-height:1.6;color:var(--sgs-muted);font-variant-numeric:tabular-nums}.sh-node[open] .sh-enemies{display:none}
-.sh-root{font-size:12px;line-height:1.65;min-width:0;color:var(--sgs-text,#eee3cc)}.sh-root *{box-sizing:border-box}.sh-root h3{margin:0;font-size:15px;letter-spacing:.12em}.sh-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.sh-head small{color:var(--sgs-muted);font-size:10px;letter-spacing:.04em}.sh-head button{width:30px;height:30px;padding:6px;background:transparent;border:0;display:grid;place-items:center}.sh-chapter{color:var(--sgs-accent);font-size:16px;font-weight:600;overflow-wrap:anywhere}.sh-muted{color:var(--sgs-muted,#ada48e);font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}.sh-meta{display:flex;gap:8px;flex-wrap:wrap;margin:3px 0 12px;color:var(--sgs-muted);font-size:11px}.sh-meta span+span:before{content:'\\xB7';margin-right:8px;color:var(--sgs-border)}.sh-tabs{margin:12px 0}.sh-tabs button{min-height:30px}.sh-node{border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 45%,transparent);padding:0 0 8px;margin-bottom:8px}.sh-node>summary{align-items:flex-start;padding:9px 0}.sh-node>summary>span{min-width:0;flex:1}.sh-node strong{display:block;font-size:12px;color:var(--sgs-text);overflow-wrap:anywhere}.sh-node small{display:block;font-size:10px;line-height:1.5;color:var(--sgs-muted)}.sh-node[data-current=true]{border-left:2px solid var(--sgs-accent);padding-left:9px}.sh-body{padding:0 2px 5px}.sh-general{margin:10px 0;padding-left:9px;border-left:1px solid color-mix(in srgb,var(--sgs-border) 50%,transparent)}.sh-general>b{font-size:12px;color:var(--sgs-accent)}.sh-stats{font-variant-numeric:tabular-nums;margin:3px 0;color:var(--sgs-text);font-size:11px}.sh-skill{margin:6px 0}.sh-skill strong{display:inline;font-size:11px;color:var(--sgs-text)}.sh-choice{margin:12px 0}.sh-choice>b{font-size:12px;color:var(--sgs-accent)}.sh-choice p{margin:3px 0}.sh-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px 12px;margin:10px 0}.sh-stat{display:flex;justify-content:space-between;gap:6px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 25%,transparent);padding:7px 0;font-size:11px}.sh-stat span{color:var(--sgs-muted)}.sh-stat b{font-variant-numeric:tabular-nums;overflow-wrap:anywhere;text-align:right}.sh-shop-head{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:10px 0}.sh-shop-head button{font-size:11px;flex:none;padding:6px 10px}.sh-good{padding:10px 0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.sh-good summary{padding:0;align-items:flex-start}.sh-good summary>span{flex:1;min-width:0}.sh-good strong{display:block;font-size:12px;color:var(--sgs-text);overflow-wrap:anywhere}.sh-good small{display:block;font-size:10px;color:var(--sgs-muted)}.sh-good .sh-price{color:var(--sgs-accent);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}.sh-good[data-bought=true]{opacity:.65}.sh-error{border-left:2px solid var(--sgs-danger,#db8175);padding:7px 9px;margin:10px 0;color:var(--sgs-danger,#db8175);font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}.sh-options{margin-top:13px;border-top:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.sh-options label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0}.sh-empty{padding:20px 5px;text-align:center;color:var(--sgs-muted)}.sh-root button:disabled{cursor:not-allowed;opacity:.45}.sh-root summary:focus-visible,.sh-root button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:3px}.sh-root button{font:inherit;color:inherit;cursor:pointer}.sh-root .sh-hint{font-size:10px;line-height:1.7;margin-top:9px;color:var(--sgs-muted)}
+.sh-root{min-width:0;color:var(--sgs-text,#eee3cc)}.sh-root *{box-sizing:border-box}.sh-root h3{margin:0;font-size:15px;letter-spacing:.12em}.sh-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.sh-head small{color:var(--sgs-muted);font-size:10px;letter-spacing:.04em}.sh-head button{width:30px;height:30px;padding:6px;background:transparent;border:0;display:grid;place-items:center}.sh-chapter{color:var(--sgs-accent);font-size:16px;font-weight:600;overflow-wrap:anywhere}.sh-muted{color:var(--sgs-muted,#ada48e);font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}.sh-meta{display:flex;gap:8px;flex-wrap:wrap;margin:3px 0 12px;color:var(--sgs-muted);font-size:11px}.sh-meta span+span:before{content:'\\xB7';margin-right:8px;color:var(--sgs-border)}.sh-tabs{margin:12px 0}.sh-tabs button{min-height:30px}.sh-node{border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 45%,transparent);padding:0 0 8px;margin-bottom:8px}.sh-node>summary{align-items:flex-start;padding:9px 0}.sh-node>summary>span{min-width:0;flex:1}.sh-node strong{display:block;font-size:12px;color:var(--sgs-text);overflow-wrap:anywhere}.sh-node small{display:block;font-size:10px;line-height:1.5;color:var(--sgs-muted)}.sh-node[data-current=true]{border-left:2px solid var(--sgs-accent);padding-left:9px}.sh-body{padding:0 2px 5px}.sh-general{margin:10px 0;padding-left:9px;border-left:1px solid color-mix(in srgb,var(--sgs-border) 50%,transparent)}.sh-general>b{font-size:12px;color:var(--sgs-accent)}.sh-stats{font-variant-numeric:tabular-nums;margin:3px 0;color:var(--sgs-text);font-size:11px}.sh-skill{margin:6px 0}.sh-skill strong{display:inline;font-size:11px;color:var(--sgs-text)}.sh-choice{margin:12px 0}.sh-choice>b{font-size:12px;color:var(--sgs-accent)}.sh-choice p{margin:3px 0}.sh-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px 12px;margin:10px 0}.sh-stat{display:flex;justify-content:space-between;gap:6px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 25%,transparent);padding:7px 0;font-size:11px}.sh-stat span{color:var(--sgs-muted)}.sh-stat b{font-variant-numeric:tabular-nums;overflow-wrap:anywhere;text-align:right}.sh-shop-head{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:10px 0}.sh-shop-head button{font-size:11px;flex:none;padding:6px 10px}.sh-good{padding:10px 0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.sh-good summary{padding:0;align-items:flex-start}.sh-good summary>span{flex:1;min-width:0}.sh-good strong{display:block;font-size:12px;color:var(--sgs-text);overflow-wrap:anywhere}.sh-good small{display:block;font-size:10px;color:var(--sgs-muted)}.sh-good .sh-price{color:var(--sgs-accent);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}.sh-good[data-bought=true]{opacity:.65}.sh-error{border-left:2px solid var(--sgs-danger,#db8175);padding:7px 9px;margin:10px 0;color:var(--sgs-danger,#db8175);font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}.sh-options{margin-top:13px;border-top:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.sh-options label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0}.sh-empty{padding:20px 5px;text-align:center;color:var(--sgs-muted)}.sh-root button:disabled{cursor:not-allowed;opacity:.45}.sh-root summary:focus-visible,.sh-root button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:3px}.sh-root button{font:inherit;color:inherit;cursor:pointer}.sh-root .sh-hint{font-size:10px;line-height:1.7;margin-top:9px;color:var(--sgs-muted)}
 .sh-head{margin:0 0 4px;gap:8px}.sh-head>div{min-width:0}.sh-head button{flex:none}.sh-head small{display:none}.sh-chapter{font-size:17px;line-height:1.5;letter-spacing:.04em}.sh-meta{margin-bottom:13px;gap:5px}.sh-meta span+span:before{margin-right:5px}.sh-node{padding-bottom:7px;margin-bottom:7px}.sh-node>summary{padding:10px 0 7px}.sh-node strong{font-size:13px;font-weight:600;letter-spacing:.02em}.sh-node .sh-caption{font-size:12px;color:var(--sgs-text);margin-top:4px;line-height:1.6}.sh-preview{font-size:11px;color:var(--sgs-muted);line-height:1.7;white-space:pre-line;margin-top:3px;overflow-wrap:anywhere}.sh-preview.sh-loot{color:var(--sgs-accent);margin-top:5px;font-size:11px}.sh-node[open] .sh-preview{display:none}.sh-node small{margin-top:3px}.sh-body{padding-top:3px}.sh-hint{opacity:.85}
 \`;
+  var SHOP_REFRESH_REQUEST = 102063;
   function activate(ctx) {
     createTacticCounts(ctx);
     const background = createBackgroundPreference(ctx);
     const shopButton = createShopButtonReveal(ctx);
     const native = createNativeAdapter(ctx), labels = createMapLabels(ctx), listeners = /* @__PURE__ */ new Set();
     const generalPreview = createGeneralPreview(ctx, native);
+    const impactLabels = createImpactLabels(ctx);
+    const schoolAlerts = createSchoolAlerts(ctx);
+    const schoolWindowSync = createSchoolWindowSync(ctx, () => tick());
     let config = null, configJob = null, configAttempt = false, error = "", snapshot = {}, view = null, manager = null, offManager = null;
     let active = false, account = native.account(), lastScene = "", identity = "", signature = "", blockedAccount = false;
-    let pending = null, attempted = "", epoch = 0, tab = "nodes", eventScheduled = false;
+    let pending = null, attempted = "", epoch = 0, tab = "nodes", queuedEvent = null;
     const expanded = /* @__PURE__ */ new Map();
-    const setting = (key2) => ctx.settings.get(key2, true);
+    let followedGoods = /* @__PURE__ */ new Set(), shopRefresh = 0;
+    const setting = (key2, fallback = true) => ctx.settings.get(key2, fallback);
+    const followsKey = () => "followedSchools:" + account;
+    const follows = () => {
+      const saved = account && setting(followsKey(), []);
+      return new Set(Array.isArray(saved) ? saved.filter(Number.isSafeInteger) : []);
+    };
+    function toggleSchool(id) {
+      if (!account || account !== native.account() || !view?.schools?.some((school) => school.id === id)) return;
+      const updated = follows();
+      if (updated.has(id)) updated.delete(id);
+      else updated.add(id);
+      ctx.settings.set(followsKey(), [...updated]);
+      publish(true);
+    }
+    const nativeFollow = createNativeSchoolFollow(ctx, toggleSchool);
     const emit = () => {
       for (const fn of listeners) fn();
     };
@@ -9314,13 +10759,32 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
       epoch++;
     }
     function publish(force = false) {
-      view = config && active && !blockedAccount ? buildView(config, snapshot) : null;
-      const next = JSON.stringify([active, blockedAccount, snapshot, !!config, error, !!pending]);
+      const showOptionImpact = setting("optionImpact", false) === true;
+      view = config && active && !blockedAccount ? buildView(config, snapshot, showOptionImpact) : null;
+      const onMap = MAP_SCENES.has(lastScene);
+      const scene = native.scene();
+      const followed = follows();
+      const match = view && account ? schoolMatcher(config.tactics, view.schools, followed) : null;
+      const shopWindow = schoolWindowSync.update(onMap && active && !blockedAccount);
+      nativeFollow.update(account ? view?.schools : null, followed);
+      followedGoods = schoolAlerts.update({
+        identity,
+        shop: view?.shop,
+        goods: view?.shop?.goods || [],
+        refresh: shopRefresh,
+        match,
+        tactics: config?.items,
+        onMap,
+        left: scene?.leftView,
+        shopWindow
+      });
+      impactLabels.update(showOptionImpact && active && !blockedAccount && onMap ? snapshot.seasonData?.seasonId : null);
+      const next = JSON.stringify([active, blockedAccount, snapshot, !!config, error, !!pending, [...followedGoods]]);
       if (force || next !== signature) {
         signature = next;
         emit();
       }
-      labels.update(native.scene(), view?.nodes.filter((node) => node.type === "fight" ? setting("enemies") : setting("events")) || [], active && !blockedAccount && setting("labels"));
+      labels.update(scene, view?.nodes.filter((node) => node.type === "fight" ? setting("enemies") : setting("events")) || [], active && !blockedAccount && setting("labels"));
     }
     async function loadConfig(force = false) {
       if (configJob || config || configAttempt && !force || !active) return;
@@ -9363,7 +10827,7 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
       }
       publish(true);
     }
-    function tick(fromEvent = false) {
+    function tick(fromEvent = false, fullSync = false) {
       if (ctx.scope.signal.aborted) return;
       background.refresh();
       generalPreview.refresh();
@@ -9377,22 +10841,32 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
         attempted = "";
         cancelPending();
       }
+      if (fullSync) blockedAccount = false;
       if (manager !== nextManager) {
         offManager?.();
         offManager = null;
         manager = nextManager;
         snapshot = {};
         cancelPending();
-        if (manager) offManager = native.subscribe(manager, () => {
-          if (eventScheduled || ctx.scope.signal.aborted) return;
-          const source = manager, sourceAccount = native.account();
-          eventScheduled = true;
-          ctx.scope.timeout(() => {
-            eventScheduled = false;
-            if (manager !== source || native.account() !== sourceAccount) return;
-            blockedAccount = false;
-            tick(true);
-          }, 0);
+        if (manager) offManager = native.subscribe(manager, (event, data) => {
+          if (ctx.scope.signal.aborted) return;
+          const source = nextManager, sourceAccount = native.account(), alreadyQueued = Boolean(queuedEvent);
+          if (queuedEvent?.source !== source || queuedEvent.account !== sourceAccount) {
+            queuedEvent = { source, account: sourceAccount, sync: false, refresh: false };
+          }
+          if (event === "CLIENT_ROGUE_ALL_DATA_REP") {
+            queuedEvent.sync = true;
+            queuedEvent.refresh ||= Number(data?.orgId) === SHOP_REFRESH_REQUEST;
+          }
+          if (event === "CLIENT_ROGUE_GET_SHOPINFO_REP") queuedEvent.refresh ||= Number(data) === SHOP_REFRESH_REQUEST;
+          if (alreadyQueued) return;
+          Promise.resolve().then(() => {
+            const batch = queuedEvent;
+            queuedEvent = null;
+            if (ctx.scope.signal.aborted || manager !== batch.source || native.account() !== batch.account) return;
+            if (batch.refresh) shopRefresh++;
+            tick(true, batch.sync);
+          });
         });
       }
       if (active && !nowActive) {
@@ -9456,13 +10930,19 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
         publish(true);
       }
     }
-    function render(container) {
-      const doc = ctx.document, root = doc.createElement("div");
-      root.className = "sh-root";
-      root.dataset.shanhetu = "";
+    function render(container, { groupTabs = [] } = {}) {
+      const doc = ctx.document, layout = doc.createElement("div");
+      layout.className = "sh-root";
+      layout.dataset.shanhetu = "";
+      const header = doc.createElement("div"), root = doc.createElement("div"), extensions = doc.createElement("div");
+      header.className = "sh-main-chrome";
+      root.className = "sh-main-content";
+      const modules = new Map(groupTabs.map((module) => [module.id, module])), mounted2 = /* @__PURE__ */ new Map();
+      const tabs = [...groupTabs.map(({ id, title }) => [id, title]), ["nodes", "\\u5730\\u56FE"], ["shop", "\\u5546\\u5E97"], ["run", "\\u6982\\u51B5"]];
       const style = doc.createElement("style");
-      style.textContent = CSS2;
-      container.append(style, root);
+      style.textContent = CSS3;
+      layout.append(header, root, extensions);
+      container.append(style, layout);
       const el = (tag, cls, text) => {
         const n = doc.createElement(tag);
         if (cls) n.className = cls;
@@ -9470,7 +10950,13 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
           if (token.breakBefore) n.append(doc.createElement("br"));
           const image = infoIcon(token.icon);
           if (!image) {
-            if (token.atomic || token.warning) {
+            if (token.impact) {
+              const span = doc.createElement("span");
+              span.className = "sh-impact";
+              span.dataset.impact = token.impact;
+              span.textContent = token.text;
+              n.append(span);
+            } else if (token.atomic || token.warning) {
               const span = doc.createElement("span");
               span.className = token.warning ? "sh-warning" : "sh-atomic";
               span.textContent = token.fallback ?? token.text;
@@ -9493,7 +10979,7 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
       const muted = (text) => el("div", "sh-muted", text);
       const lootParts = (rewards) => infoLineTokens({ kind: "reward", tokens: rewardTokens(rewards) });
       const warnings = (names3) => infoLineTokens({ kind: "warning", text: names3.join(" ") });
-      const armors = (cards) => infoLineTokens({ kind: "armor", text: "\\u9632\\u5177 \\xB7 " + [...new Set(cards.map((c) => c.name))].join("\\u3001") });
+      const armors = (cards2) => infoLineTokens({ kind: "armor", text: "\\u9632\\u5177 \\xB7 " + [...new Set(cards2.map((c) => c.name))].join("\\u3001") });
       const optionParts = (option, index2) => infoLineTokens({ inlineTokens: optionTokens(option, index2) });
       const unknown = (value) => value === null || value === void 0 ? "\\u5F85\\u540C\\u6B65" : String(value);
       function details(key2, cls) {
@@ -9529,10 +11015,10 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
       function appendOptions() {
         const options = details("options", "sh-options");
         options.append(el("summary", "", "\\u663E\\u793A\\u8BBE\\u7F6E"));
-        for (const [key2, label] of [["labels", "\\u5730\\u56FE\\u6807\\u6CE8"], ["enemies", "\\u654C\\u519B\\u6807\\u6CE8"], ["events", "\\u95EE\\u53F7\\u4E0E\\u4E8B\\u4EF6\\u6807\\u6CE8"], ["keepBattleBackground", "\\u4FDD\\u7559\\u81EA\\u9009\\u6218\\u6597\\u80CC\\u666F"]]) {
+        for (const [key2, label, fallback = true] of [["labels", "\\u5730\\u56FE\\u6807\\u6CE8"], ["enemies", "\\u654C\\u519B\\u6807\\u6CE8"], ["events", "\\u95EE\\u53F7\\u4E0E\\u4E8B\\u4EF6\\u6807\\u6CE8"], ["optionImpact", "\\u6570\\u503C\\u53D8\\u5316\\u6807\\u6CE8", false], ["keepBattleBackground", "\\u4FDD\\u7559\\u81EA\\u9009\\u6218\\u6597\\u80CC\\u666F"]]) {
           const row = el("label"), input = ctx.ui.styleSwitch(el("input"));
           input.type = "checkbox";
-          input.checked = ctx.settings.get(key2, true);
+          input.checked = setting(key2, fallback);
           input.dataset.key = key2;
           input.setAttribute("aria-label", label);
           input.onchange = () => {
@@ -9545,17 +11031,50 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
           row.append(copy, input);
           options.append(row);
         }
-        if (ctx.settings.get("keepBattleBackground", true)) {
-          const status = muted(background.status);
-          status.dataset.backgroundStatus = "true";
-          options.append(status);
+        if (background.error) {
+          const failure = details("background-error", "sh-error");
+          failure.append(el("summary", "", "\\u80CC\\u666F\\u91CD\\u65B0\\u5E94\\u7528\\u5931\\u8D25"), el("div", "", background.error));
+          options.append(failure);
         }
         root.append(options);
       }
-      function update() {
-        const focused = root.contains(doc.activeElement) ? doc.activeElement?.dataset?.key : root.getRootNode()?.activeElement?.dataset?.key;
+      function appendSchoolProgress(schools) {
+        const section = el("section", "sh-schools");
+        section.append(el("h4", "", "\\u6D41\\u6D3E\\u8FDB\\u5EA6"));
+        if (schools === null) section.append(muted("\\u7B49\\u5F85\\u6D41\\u6D3E\\u914D\\u7F6E\\u548C\\u672C\\u5C40\\u6218\\u6CD5\\u540C\\u6B65"));
+        else if (!schools.length) section.append(muted("\\u5F53\\u524D\\u8D5B\\u5B63\\u6682\\u65E0\\u53EF\\u7528\\u7684\\u6D41\\u6D3E\\u914D\\u7F6E"));
+        const followed = follows();
+        for (const school of schools || []) {
+          const row = el("div", "sh-node sh-school"), name = el("div");
+          name.append(el("strong", "", school.name + (school.met ? " \\xB7 \\u5DF2\\u8FBE\\u6210" : "")));
+          const isFollowed = followed.has(school.id);
+          const tiers = el("div", "sh-meta");
+          for (const tier of school.tiers) {
+            const text = el("span", "sh-atomic", \`\${tier.grade} \${tier.count}/\${tier.need}\`);
+            if (tier.count >= tier.need) text.title = "\\u5DF2\\u6EE1\\u8DB3\\u6B64\\u54C1\\u8D28\\u8981\\u6C42";
+            tiers.append(text);
+          }
+          const follow = el("button", "sh-follow");
+          follow.type = "button";
+          follow.dataset.key = "follow-school-" + school.id;
+          paintSchoolFollow(follow, school, isFollowed);
+          follow.disabled = !account;
+          follow.onclick = () => toggleSchool(school.id);
+          name.append(tiers);
+          row.append(name, follow);
+          section.append(row);
+        }
+        root.append(section);
+      }
+      function update(requestedFocus) {
+        const focused = requestedFocus ?? layout.getRootNode()?.activeElement?.dataset?.key;
+        const selected = tabs.some(([id]) => id === tab) ? tab : "nodes";
+        const restoreFocus = () => {
+          if (focused) [...layout.querySelectorAll("[data-key]")].find((n) => n.dataset.key === focused)?.focus?.({ preventScroll: true });
+        };
         for (const node of root.querySelectorAll("details[data-key]")) expanded.set(node.dataset.key, node.open);
         root.replaceChildren();
+        header.replaceChildren();
         const head = el("header", "sh-head"), title = el("div");
         title.append(el("h3", "sr-only", "\\u5C71\\u6CB3\\u56FE"), el("div", "sh-chapter", view?.chapter || "\\u5C71\\u6CB3\\u884C\\u8BB0"));
         const refresh = el("button");
@@ -9575,34 +11094,47 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
           }
         };
         head.append(title, refresh);
-        root.append(head);
-        if (error) root.append(el("div", "sh-error", error));
-        if (pending) root.append(muted("\\u6B63\\u5728\\u540C\\u6B65\\u5C71\\u6CB3\\u6570\\u636E\\u2026"));
+        header.append(head);
+        if (error) header.append(el("div", "sh-error", error));
+        if (pending) header.append(muted("\\u6B63\\u5728\\u540C\\u6B65\\u5C71\\u6CB3\\u6570\\u636E\\u2026"));
+        if (active && !blockedAccount && view) {
+          const meta = el("div", "sh-meta");
+          for (const text of [view.difficulty, snapshot.chapterData ? \`\\u884C\\u519B \${unknown(snapshot.chapterData.accday)} \\u6708\` : "\\u6708\\u4EFD\\u5F85\\u540C\\u6B65", snapshot.gameData ? \`\${unknown(snapshot.gameData.money)} \\u94DC\\u94B1\` : "\\u94DC\\u94B1\\u5F85\\u540C\\u6B65"]) meta.append(el("span", "", text));
+          header.append(meta);
+        }
+        if (modules.size || active && !blockedAccount && view) {
+          const segments = el("div", "sgs-segments sh-tabs");
+          segments.setAttribute("role", "group");
+          segments.setAttribute("aria-label", "\\u5C71\\u6CB3\\u5185\\u5BB9");
+          for (const [id, label] of tabs) {
+            const button = el("button", "", label);
+            button.type = "button";
+            button.dataset.key = id;
+            button.setAttribute("aria-pressed", String(selected === id));
+            button.onclick = () => {
+              tab = id;
+              update(id);
+            };
+            segments.append(button);
+          }
+          header.append(segments);
+        }
+        const module = modules.get(selected);
+        root.hidden = !!module;
+        extensions.hidden = !module;
+        if (module && !mounted2.has(selected)) mounted2.set(selected, module.mount(extensions));
+        for (const [id, section] of mounted2) section.hidden = id !== selected;
+        if (module) {
+          restoreFocus();
+          return;
+        }
         if (!active || blockedAccount || !view) {
           root.append(el("div", "sh-empty", !active ? "\\u8FDB\\u5165\\u5C71\\u6CB3\\u5730\\u56FE\\u540E\\u663E\\u793A\\u672C\\u8F6E\\u4FE1\\u606F" : blockedAccount ? "\\u8D26\\u53F7\\u5DF2\\u5207\\u6362\\uFF0C\\u7B49\\u5F85\\u65B0\\u8D26\\u53F7\\u540C\\u6B65" : config ? "\\u7B49\\u5F85\\u672C\\u8F6E\\u6570\\u636E" : "\\u6B63\\u5728\\u8BFB\\u53D6\\u5B98\\u65B9\\u914D\\u7F6E\\u2026"));
           appendOptions();
-          if (focused) [...root.querySelectorAll("[data-key]")].find((n) => n.dataset.key === focused)?.focus?.({ preventScroll: true });
+          restoreFocus();
           return;
         }
-        const meta = el("div", "sh-meta");
-        for (const text of [view.difficulty, snapshot.chapterData ? \`\\u884C\\u519B \${unknown(snapshot.chapterData.accday)} \\u6708\` : "\\u6708\\u4EFD\\u5F85\\u540C\\u6B65", snapshot.gameData ? \`\${unknown(snapshot.gameData.money)} \\u94DC\\u94B1\` : "\\u94DC\\u94B1\\u5F85\\u540C\\u6B65"]) meta.append(el("span", "", text));
-        root.append(meta);
-        const tabs = el("div", "sgs-segments sh-tabs");
-        tabs.setAttribute("aria-label", "\\u5C71\\u6CB3\\u5185\\u5BB9");
-        for (const [id, label] of [["nodes", "\\u5730\\u56FE"], ["shop", "\\u5546\\u5E97"], ["run", "\\u6982\\u51B5"]]) {
-          const b = el("button", "", label);
-          b.type = "button";
-          b.dataset.key = id;
-          b.setAttribute("aria-pressed", String(tab === id));
-          b.onclick = () => {
-            tab = id;
-            update();
-            root.querySelector(\`[data-key="\${id}"]\`)?.focus();
-          };
-          tabs.append(b);
-        }
-        root.append(tabs);
-        if (tab === "nodes") {
+        if (selected === "nodes") {
           if (!view.nodes.length) root.append(el("div", "sh-empty", "\\u5F53\\u524D\\u5730\\u56FE\\u8282\\u70B9\\u5C1A\\u672A\\u540C\\u6B65"));
           for (const node of view.nodes) {
             if (node.type === "camp") {
@@ -9654,7 +11186,7 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
             root.append(fold);
           }
           root.append(ctx.ui.helpTip("\\u654C\\u519B\\u6570\\u503C\\u4F9D\\u5F53\\u524D\\u96BE\\u5EA6\\u3001\\u6708\\u4EFD\\u4E0E\\u7AE0\\u8282\\u914D\\u7F6E\\u63A8\\u7B97\\uFF1B\\u968F\\u673A\\u5956\\u52B1\\u4FDD\\u7559\\u968F\\u673A\\u3002"));
-        } else if (tab === "shop") {
+        } else if (selected === "shop") {
           const line = el("div", "sh-shop-head"), shop = view.shop;
           line.append(muted(shop?.open === true ? "\\u5165\\u53E3\\u5DF2\\u5F00\\u653E \\xB7 \\u4EA4\\u6613\\u4EE5\\u6E38\\u620F\\u56DE\\u6267\\u4E3A\\u51C6" : shop?.open === false ? "\\u63D0\\u524D\\u9884\\u89C8 \\xB7 \\u5730\\u56FE\\u5165\\u53E3\\u672A\\u663E\\u793A" : "\\u5F00\\u653E\\u72B6\\u6001\\u5F85\\u540C\\u6B65"));
           const open = el("button", "", "\\u6253\\u5F00\\u5546\\u5E97");
@@ -9665,13 +11197,25 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
           line.append(open);
           root.append(line);
           if (!shop?.goods.length) root.append(el("div", "sh-empty", shop ? "\\u672C\\u6B21\\u5546\\u5E97\\u6CA1\\u6709\\u5DF2\\u540C\\u6B65\\u5546\\u54C1" : "\\u5546\\u5E97\\u5546\\u54C1\\u5C1A\\u672A\\u540C\\u6B65"));
-          for (const [i, good] of (shop?.goods || []).entries()) {
+          const matches = (good) => followedGoods.has(String(good.id)) && good.type === 2 && good.bought === false;
+          const entries = [...(shop?.goods || []).entries()].sort((a, b) => Number(matches(b[1])) - Number(matches(a[1])));
+          for (const [i, good] of entries) {
             const fold = details("good-" + good.id + "-" + i, "sh-good");
             fold.dataset.bought = String(good.bought === true);
             const summary = el("summary"), name = el("span");
             const categoryIcon = { 2: "rogue_event_zhanfa0", 3: "rogue_event_skill0", 4: "rogue_event_card0", 5: "rogue_event_equip0", 6: "rogue_event_equip0", 7: "rogue_event_equip0" }[good.type];
             const category2 = itemTypes[good.type] || "\\u7269\\u54C1", quality = \`\${["\\u672A\\u77E5", "\\u666E\\u901A", "\\u7A00\\u6709", "\\u53F2\\u8BD7", "\\u4F20\\u8BF4"][good.level] || "\\u672A\\u77E5\\u54C1\\u8D28"}\${good.bought ? " \\xB7 \\u5DF2\\u8D2D" : good.bought === null ? " \\xB7 \\u8D2D\\u4E70\\u72B6\\u6001\\u672A\\u77E5" : ""}\`;
-            name.append(el("strong", "", good.name), el("small", "", categoryIcon ? [{ icon: categoryIcon, text: quality, fallback: \`\${category2} \\xB7 \${quality}\`, atomic: false }] : \`\${category2} \\xB7 \${quality}\`));
+            const meta = el("small", "sh-good-meta", categoryIcon ? [{ icon: categoryIcon, text: quality, fallback: \`\${category2} \\xB7 \${quality}\`, atomic: false }] : \`\${category2} \\xB7 \${quality}\`);
+            const title2 = el("strong", "sh-good-name");
+            title2.append(el("span", "", good.name));
+            if (matches(good)) {
+              const star = el("span", "sh-good-star", "\\u2605");
+              star.title = "\\u5173\\u6CE8";
+              star.setAttribute("role", "img");
+              star.setAttribute("aria-label", "\\u5173\\u6CE8");
+              title2.append(star);
+            }
+            name.append(title2, meta);
             summary.append(name, el("span", "sh-price", good.price !== null ? \`\${good.price} \\u94DC\\u94B1\` : good.money !== null ? \`\\u57FA\\u7840 \${good.money}\` : "\\u4EF7\\u683C\\u5F85\\u540C\\u6B65"));
             fold.append(summary, muted(good.desc || "\\u8BF4\\u660E\\u5F85\\u540C\\u6B65"));
             root.append(fold);
@@ -9684,7 +11228,9 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
             stat.append(el("span", "", icon3 ? [{ icon: icon3, text: qualifier, fallback: label, full: label }] : label), el("b", "", unknown(value)));
             grid.append(stat);
           }
-          root.append(grid, el("h4", "", [{ icon: "rogue_event_zhanfa0", text: "\\u5DF2\\u6709", fallback: "\\u5DF2\\u6709\\u6218\\u6CD5", full: "\\u5DF2\\u6709\\u6218\\u6CD5" }]));
+          root.append(grid);
+          appendSchoolProgress(view.schools);
+          root.append(el("h4", "", [{ icon: "rogue_event_zhanfa0", text: "\\u5DF2\\u6709", fallback: "\\u5DF2\\u6709\\u6218\\u6CD5", full: "\\u5DF2\\u6709\\u6218\\u6CD5" }]));
           if (!view.owned.length) root.append(muted(snapshot.gameData ? "\\u6682\\u65E0\\u6218\\u6CD5" : "\\u5F85\\u540C\\u6B65"));
           for (const owned of view.owned) {
             const fold = details("owned-" + owned.id, "sh-good");
@@ -9695,17 +11241,17 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
           }
         }
         appendOptions();
-        if (focused) [...root.querySelectorAll("[data-key]")].find((n) => n.dataset.key === focused)?.focus?.({ preventScroll: true });
+        restoreFocus();
       }
       listeners.add(update);
       update();
       return () => {
         listeners.delete(update);
-        root.remove();
+        layout.remove();
         style.remove();
       };
     }
-    const offPanel = ctx.ui.registerPanel({ id: "main", title: "\\u5C71\\u6CB3\\u56FE", category: "game", priority: 32768, render });
+    const offPanel = ctx.ui.registerPanel({ id: "main", title: "\\u5C71\\u6CB3\\u56FE", category: "game", priority: 32768, groupTabs: true, render });
     const offScene = ctx.game.onSceneChange?.(() => tick());
     ctx.scope.interval(() => tick(), 700);
     tick();
@@ -9723,21 +11269,21 @@ button:hover{background:var(--sgs-raised);color:var(--sgs-text)}button:focus-vis
   var index_default = { manifest: {
     id: "shanhetu",
     name: "\\u5C71\\u6CB3\\u56FE",
-    version: "0.2.31",
+    version: "0.2.42",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u4FEE\\u590D\\u5FAE\\u7AEF\\u6362\\u5C06\\u5361\\u9884\\u5224\\u6D6E\\u5C42\\u8D34\\u5728\\u5DE6\\u4E0A\\u89D2\\u7684\\u95EE\\u9898\\uFF0C\\u6539\\u4E3A\\u5728\\u6E38\\u620F\\u533A\\u57DF\\u9876\\u90E8\\u5C45\\u4E2D\\uFF0C\\u5E76\\u907F\\u5F00\\u56FA\\u5B9A\\u5DE5\\u5177\\u7BB1\\u4FA7\\u680F\\u3002",
-    minCoreVersion: "0.6.37",
+    releaseNotes: "\\u6982\\u51B5\\u65B0\\u589E\\u6D41\\u6D3E\\u8FDB\\u5EA6\\u4E0E\\u5957\\u88C5\\u5173\\u6CE8\\uFF0C\\u652F\\u6301\\u5728\\u96C6\\u5E02\\u548C\\u9009\\u6218\\u6CD5\\u65F6\\u63D0\\u793A\\u5173\\u6CE8\\u7684\\u6218\\u6CD5\\u3002\\u53EF\\u5F00\\u542F\\u5947\\u9047\\u6570\\u503C\\u6807\\u6CE8\\u3002\\u6362\\u5C06\\u9884\\u89C8\\u5728\\u5FAE\\u7AEF\\u6309\\u6E38\\u620F\\u533A\\u57DF\\u5C45\\u4E2D\\uFF0C\\u907F\\u5F00\\u5DE5\\u5177\\u7BB1\\u4FA7\\u680F\\u3002",
+    minCoreVersion: "0.6.121",
     categories: ["game"],
     icon: PLUGIN_ICONS["shanhetu"],
     priority: 11e3,
-    description: "\\u654C\\u519B\\u3001\\u95EE\\u53F7\\u4E0E\\u5546\\u5E97\\u9884\\u89C8\\uFF0C\\u6362\\u5C06\\u5361\\u9884\\u5224\\u4E0E\\u8DE8\\u6A21\\u5F0F\\u6218\\u6CD5\\u8BA1\\u6570"
+    description: "\\u654C\\u519B\\u3001\\u5947\\u9047\\u4E0E\\u5546\\u5E97\\u9884\\u89C8\\uFF0C\\u6362\\u5C06\\u5361\\u9884\\u5224\\u3001\\u6218\\u6CD5\\u8BA1\\u6570\\u4E0E\\u6D41\\u6D3E\\u8FDB\\u5EA6"
   }, initialState, reduce, activate };
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56FE","version":"0.2.31","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4FEE\u590D\u5FAE\u7AEF\u6362\u5C06\u5361\u9884\u5224\u6D6E\u5C42\u8D34\u5728\u5DE6\u4E0A\u89D2\u7684\u95EE\u9898\uFF0C\u6539\u4E3A\u5728\u6E38\u620F\u533A\u57DF\u9876\u90E8\u5C45\u4E2D\uFF0C\u5E76\u907F\u5F00\u56FA\u5B9A\u5DE5\u5177\u7BB1\u4FA7\u680F\u3002","minCoreVersion":"0.6.37","categories":["game"],"icon":{"paths":["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z","M6 12 10 7l4 5 3-3 2 3","M6 16c3-3 7 3 12-1"]},"priority":11000,"description":"\u654C\u519B\u3001\u95EE\u53F7\u4E0E\u5546\u5E97\u9884\u89C8\uFF0C\u6362\u5C06\u5361\u9884\u5224\u4E0E\u8DE8\u6A21\u5F0F\u6218\u6CD5\u8BA1\u6570"}};
-`, sha256: "57a4cfd8c4c49dfd5353456041be215dfbbe2ed6ea09d790c626edb2ccf3d663" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "cards", name: "\u5361\u724C", version: "0.1.79", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u624B\u724C\u7EC4\u95F4\u7559\u7A7A\u5FEB\u6377\u5F00\u5173\uFF0C\u4FDD\u7559\u6392\u5E8F\u65B9\u5F0F\u4E0E\u5DF2\u6709\u9009\u62E9\uFF1B\u6539\u5584\u5361\u724C\u9762\u677F\u5728\u4F4E\u9AD8\u5EA6\u4E0B\u7684\u6EDA\u52A8\u548C\u5185\u5BB9\u663E\u793A\u3002", minCoreVersion: "0.6.87", categories: ["game"], icon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, priority: 1e4, description: "\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570" }, code: `var SGSCards = (() => {
+return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56FE","version":"0.2.42","apiVersion":1,"contractVersion":1,"releaseNotes":"\u6982\u51B5\u65B0\u589E\u6D41\u6D3E\u8FDB\u5EA6\u4E0E\u5957\u88C5\u5173\u6CE8\uFF0C\u652F\u6301\u5728\u96C6\u5E02\u548C\u9009\u6218\u6CD5\u65F6\u63D0\u793A\u5173\u6CE8\u7684\u6218\u6CD5\u3002\u53EF\u5F00\u542F\u5947\u9047\u6570\u503C\u6807\u6CE8\u3002\u6362\u5C06\u9884\u89C8\u5728\u5FAE\u7AEF\u6309\u6E38\u620F\u533A\u57DF\u5C45\u4E2D\uFF0C\u907F\u5F00\u5DE5\u5177\u7BB1\u4FA7\u680F\u3002","minCoreVersion":"0.6.121","categories":["game"],"icon":{"paths":["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z","M6 12 10 7l4 5 3-3 2 3","M6 16c3-3 7 3 12-1"]},"priority":11000,"description":"\u654C\u519B\u3001\u5947\u9047\u4E0E\u5546\u5E97\u9884\u89C8\uFF0C\u6362\u5C06\u5361\u9884\u5224\u3001\u6218\u6CD5\u8BA1\u6570\u4E0E\u6D41\u6D3E\u8FDB\u5EA6"}};
+`, sha256: "d21d5f6ba506a50f0d9e466e49e5b8cc2f21f0821d2ba65898b6bfba1dadf58e" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "cards", name: "\u5361\u724C", version: "0.1.82", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u53EF\u9009\u7684\u5C71\u6CB3\u56FE\u81EA\u52A8\u51FA\u724C\uFF0C\u5728\u7B26\u5408\u6761\u4EF6\u7684\u672C\u4EBA\u51FA\u724C\u9636\u6BB5\u5C1D\u8BD5\u4F7F\u7528\u6307\u5B9A\u724C\uFF0C\u6280\u80FD\u8F85\u52A9\u64CD\u4F5C\u65F6\u8BA9\u884C\u3002\u4F18\u5316\u660E\u724C\u3001\u724C\u5806\u548C\u624B\u724C\u6574\u7406\u3002", minCoreVersion: "0.6.87", categories: ["game"], icon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, priority: 1e4, description: "\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570" }, code: `var SGSCards = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -9795,6 +11341,10 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -12056,16 +13606,13 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
   };
 
   // src/shared/shanhe-scenes.js
-  var SHANHE_MAP_SCENES = /* @__PURE__ */ new Set(["RogueLikeBigMapScene", "RogueSmallMapScene"]);
   var SHANHE_BATTLE_SCENE = "RogueLikeGameScene";
 
   // src/plugins/cards/shanhe-auto-play.js
   var DUEL = 8;
-  var WATCHED_TRICKS = [[DUEL, "\\u51B3\\u6597"], [9, "\\u5357\\u86EE\\u5165\\u4FB5"], [10, "\\u4E07\\u7BAD\\u9F50\\u53D1"]];
-  var TRICKS = WATCHED_TRICKS.map(([id]) => id);
+  var TRICKS = [DUEL, 9, 10];
   var SLASH = [1, 11111, 11112, 11114];
   var ALL_CARDS = [...TRICKS, ...SLASH];
-  var WATCHED_HAND = [...WATCHED_TRICKS, [1, "\\u6740"]];
   var YIN_YANG_TACTIC = 2190;
   var YIN_YANG_SKILL = 13178;
   var DEAL_PROMPT = "\\u51FA\\u724C\\u9636\\u6BB5\\uFF0C\\u8BF7\\u9009\\u62E9\\u4E00\\u5F20\\u5361\\u724C";
@@ -12083,39 +13630,6 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     const skill = Number(card2.FirstSkillId ?? card2.FirstSkill?.ID);
     const base = Number(card2.FirstIndexSkillID ?? skill);
     return base === skill || SLASH.includes(base) && SLASH.includes(skill) ? skill : 0;
-  }
-  function watchedHand(self) {
-    const counts = Object.fromEntries(WATCHED_HAND.map(([id]) => [id, 0]));
-    const models = read2(() => self.seat.HandCards);
-    let cards = models;
-    if (!Array.isArray(models)) {
-      const uis = read2(() => self.cardContainer.cardUis);
-      if (!Array.isArray(uis)) return null;
-      cards = uis.filter((ui) => !ui?.destroyed).map((ui) => ui?.Card);
-    }
-    const expected = read2(() => self.seat.HandCardCount);
-    const seen = /* @__PURE__ */ new Set();
-    let complete = Array.isArray(models) || Number.isInteger(expected);
-    for (const card2 of cards) {
-      if (card2?.IsVirtualCard || card2?.Equipped) continue;
-      const id = Number(card2?.CardId);
-      if (!Number.isInteger(id) || id <= 0) {
-        complete = false;
-        continue;
-      }
-      if (seen.has(id)) continue;
-      seen.add(id);
-      const base = Number(read2(() => card2.FirstIndexSkillID ?? card2.FirstSkillId ?? card2.FirstSkill?.ID));
-      if (!(base > 0)) {
-        complete = false;
-        continue;
-      }
-      const key = SLASH.includes(base) ? 1 : base;
-      if (Object.hasOwn(counts, key)) counts[key]++;
-    }
-    if (Number.isInteger(expected) && seen.size > expected) return null;
-    if (Number.isInteger(expected) && seen.size < expected) complete = false;
-    return { counts, complete };
   }
   function button(bar, name) {
     return bar.getButton?.(name) ?? bar.btns?.find((item) => item?.name === name);
@@ -12140,8 +13654,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     return hasIds && ids2.every((id) => Number(id) > 0) ? false : null;
   }
   function viewing(scene) {
-    if (scene?.IsReplay || scene?.isReplay || scene?.replayBar && !scene.replayBar.destroyed) return "\\u56DE\\u653E\\u4E2D";
-    return scene?.IsViewer ? "\\u65C1\\u89C2\\u4E2D" : "";
+    return scene?.IsViewer || scene?.IsReplay || scene?.isReplay || scene?.replayBar && !scene.replayBar.destroyed;
   }
   function createShanheAutoPlay(ctx) {
     const { game, settings } = ctx;
@@ -12179,27 +13692,23 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       battle.mode = remember ? "remembered" : battle.mode === "off" ? "on" : "off";
       return battle.mode;
     }
-    function nextPlay(state, yinYang) {
+    function nextPlay(state) {
       const { self, seat: seat4, submitted } = battle;
-      if (state.connected === false) return { message: "\\u7B49\\u5F85\\u91CD\\u65B0\\u8FDE\\u63A5" };
-      if (seat4.IsDead) return { message: "\\u672C\\u4EBA\\u5DF2\\u9635\\u4EA1" };
-      if (seat4.IsAiControl) return { message: "\\u6E38\\u620F\\u6258\\u7BA1\\u4E2D" };
-      if (seat4.InActiveState !== true) return { message: "\\u7B49\\u5F85\\u672C\\u4EBA\\u56DE\\u5408" };
-      if (self.selectedSkillItem || visible(self.spellSelector)) return { message: "\\u7B49\\u5F85\\u6280\\u80FD\\u7ED3\\u7B97" };
+      if (state.connected === false || seat4.IsDead || seat4.IsAiControl || seat4.InActiveState !== true || self.selectedSkillItem || visible(self.spellSelector)) return null;
       const hand = self.cardContainer, selection = hand?.SelectContext ?? hand?.selectCardContext;
       const bar = self.getButtonBar?.() ?? self.Pt ?? self.buttonBar;
-      if (!bar) return { message: "\\u7B49\\u5F85\\u6E38\\u620F\\u64CD\\u4F5C\\u680F" };
-      if (!ordinaryPlay(self, hand, selection, bar)) return { message: "\\u7B49\\u5F85\\u666E\\u901A\\u51FA\\u724C" };
+      if (!bar || !ordinaryPlay(self, hand, selection, bar)) return null;
       const cards = hand.cardUis, selector = selection.CardSelector;
-      if (!Array.isArray(cards) || !selector || selector.TurnCard) return { message: "\\u7B49\\u5F85\\u666E\\u901A\\u9009\\u724C" };
+      if (!Array.isArray(cards) || !selector || selector.TurnCard) return null;
       if (submitted) {
-        if (selection === submitted.selection || state.turn === submitted.turn && cards.some((ui) => ui?.Card?.CardId === submitted.cardId)) return { message: "\\u7B49\\u5F85\\u51FA\\u724C\\u7ED3\\u7B97" };
+        if (selection === submitted.selection || state.turn === submitted.turn && cards.some((ui) => ui?.Card?.CardId === submitted.cardId)) return null;
       }
-      if (yinYang === null) return { message: "\\u7B49\\u5F85\\u8BC6\\u522B\\u9634\\u9633\\u6218\\u6CD5" };
+      const yinYang = yinYangEquipped(self, seat4);
+      if (yinYang === null) return null;
       const allowed2 = yinYang ? ALL_CARDS : SLASH;
       const selected = selector.FirstSelectedCard;
       if (!selected) {
-        if (selector.SelectedCount !== 0 || self.SelectSeatContext || typeof hand.CardUI_Click !== "function") return { message: "\\u7B49\\u5F85\\u5F53\\u524D\\u9009\\u62E9\\u7ED3\\u675F" };
+        if (selector.SelectedCount !== 0 || self.SelectSeatContext || typeof hand.CardUI_Click !== "function") return null;
         const usable = cards.filter((ui) => ui?.Activated === true && ui.Visible !== false && !ui.destroyed && !ui.Card?.Selected);
         let next;
         if (yinYang) {
@@ -12209,52 +13718,22 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
           }
         }
         next ??= usable.find((ui) => SLASH.includes(cardSkill(ui.Card)));
-        return next ? { message: "\\u51C6\\u5907\\u9009\\u724C", hand, next } : { message: yinYang ? "\\u6CA1\\u6709\\u53EF\\u51FA\\u7684\\u6307\\u5B9A\\u724C" : "\\u6CA1\\u6709\\u53EF\\u51FA\\u7684\\u6740" };
+        return next ? { hand, next } : null;
       }
       const skill = cardSkill(selected);
-      if (selector.SelectedCount !== 1 || !allowed2.includes(skill) || !cards.some((ui) => ui && !ui.destroyed && ui.Card === selected)) return { message: "\\u7B49\\u5F85\\u624B\\u52A8\\u64CD\\u4F5C" };
+      if (selector.SelectedCount !== 1 || !allowed2.includes(skill) || !cards.some((ui) => ui && !ui.destroyed && ui.Card === selected)) return null;
       if (skill === DUEL || SLASH.includes(skill)) {
         const target = self.SelectSeatContext;
-        if (target?.Card !== selected || target.SelectComplete !== true || !(target.TargetSelector?.SelectedSeatCount > 0)) return { message: "\\u7B49\\u5F85\\u9009\\u62E9\\u76EE\\u6807" };
+        if (target?.Card !== selected || target.SelectComplete !== true || !(target.TargetSelector?.SelectedSeatCount > 0)) return null;
       }
       const confirm = button(bar, "btnOK");
-      if (!visible(confirm) || !enabled(confirm) || typeof confirm.onClick !== "function") return { message: "\\u7B49\\u5F85\\u786E\\u8BA4\\u6309\\u94AE\\u53EF\\u7528" };
-      return { message: "\\u51C6\\u5907\\u786E\\u8BA4\\u51FA\\u724C", confirm, selection, cardId: selected.CardId };
+      if (!visible(confirm) || !enabled(confirm) || typeof confirm.onClick !== "function") return null;
+      return { confirm, selection, cardId: selected.CardId };
     }
-    function update({ scene, self, state, toolbarReady, execute, listeners }) {
-      const on = battle && battle.mode !== "off";
-      if (ctx.scope.signal.aborted || !listeners.size && !(on && execute && toolbarReady)) return;
-      const name = sceneName(scene);
-      const map = SHANHE_MAP_SCENES.has(name);
-      const shanhe = name === SHANHE_BATTLE_SCENE;
-      const view = viewing(scene);
-      const personal = state.active && !map && name && !view && !state.pending?.roundPassed && state.connected !== false && self && !self.destroyed && self.seat?.IsSelf === true;
-      const yinYang = personal ? yinYangEquipped(self, self.seat) : null;
-      let plan = on && toolbarReady ? nextPlay(state, yinYang) : null;
-      if (execute && (plan?.next || plan?.confirm) && ctx.playActions?.runPriority(scene, self)) {
-        plan = { message: "\\u7B49\\u5F85\\u6280\\u80FD\\u7ED3\\u7B97" };
-      }
-      if (listeners.size) {
-        let mode;
-        if (view) mode = view;
-        else if (map) mode = "\\u7B49\\u5F85\\u8FDB\\u5165\\u5BF9\\u5C40";
-        else if (!name) mode = "\\u7B49\\u5F85\\u573A\\u666F";
-        else if (!shanhe) mode = "\\u4EC5\\u9650\\u5C71\\u6CB3\\u56FE\\u5BF9\\u5C40";
-        else if (state.pending?.roundPassed || !state.active && state.lastEvent === "MsgGameOver") mode = "\\u672C\\u5C40\\u5DF2\\u7ED3\\u675F";
-        else if (!state.active) mode = "\\u7B49\\u5F85\\u724C\\u5C40\\u540C\\u6B65";
-        else if (!battle) mode = "\\u7B49\\u5F85\\u672C\\u4EBA\\u5EA7\\u4F4D";
-        else mode = { off: "\\u5DF2\\u5173\\u95ED", on: "\\u672C\\u5C40\\u5F00\\u542F", remembered: "\\u5DF2\\u8BB0\\u4F4F" }[battle.mode];
-        const status = map || shanhe || state.active ? {
-          scene: map ? "\\u5C71\\u6CB3\\u56FE\\u5730\\u56FE" : shanhe ? "\\u5C71\\u6CB3\\u56FE\\u5BF9\\u5C40" : name && self ? "\\u5176\\u4ED6\\u5BF9\\u5C40" : "\\u5F85\\u8BC6\\u522B",
-          yinYang: map ? "\\u2014" : yinYang === null ? "\\u5F85\\u8BC6\\u522B" : yinYang ? "\\u5DF2\\u88C5\\u5907" : "\\u672A\\u88C5\\u5907",
-          mode,
-          step: on ? plan?.message || (settings.get("handSort", true) ? "\\u7B49\\u5F85\\u624B\\u724C\\u64CD\\u4F5C\\u680F" : "\\u6269\\u5C55\\u7406\\u724C\\u5DF2\\u5173\\u95ED") : "",
-          handApplicable: !map && !view,
-          hand: personal ? watchedHand(self) : null
-        } : null;
-        for (const listener of listeners) listener(status);
-      }
-      if (!execute || !plan) return;
+    function update({ scene, self, state }) {
+      if (!battle || battle.mode === "off" || ctx.scope.signal.aborted) return;
+      const plan = nextPlay(state);
+      if (!plan || ctx.playActions?.runPriority(scene, self)) return;
       if (plan.next) {
         battle.submitted = null;
         plan.hand.CardUI_Click({ CardUi: plan.next, Card: plan.next.Card });
@@ -12370,6 +13849,9 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     const observed = () => state.skillUses?.complete ? state.skillUses.counts[\`\${id}:\${seat4.Index}\`] || 0 : null;
     const result = (limit, used) => ({ remaining: count2(limit) && count2(used) ? Math.max(0, limit - used) : null });
     if (id === 3751) return result(seat4.MaxHp, observed());
+    if (id === 4009) {
+      return seat4.InDealRound ? result(skill.TimelimitRound, skill.GetSkillUseCountInRound?.()) : null;
+    }
     const desc = String(skill.SpecialModeDesc || "").replace(/<[^>]*>/g, "").replace(/\\s|&nbsp;/g, "");
     if (!eligible(desc, seen)) return null;
     if (/^(?:(?:\u9501\u5B9A\u6280|\u8F6C\u6362\u6280|[\u9B4F\u8700\u5434\u7FA4\u664B]\u52BF\u529B\u6280)[\uFF0C,])?\u51FA\u724C\u9636\u6BB5(?:\u5185)?\u9650/.test(desc) && !seat4.InDealRound) return null;
@@ -12942,7 +14424,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     const path = regions.map((r) => "M" + r.x + " " + r.y + "H" + r.right + "V" + r.bottom + "H" + r.x + "Z").join("") || "M0 0Z";
     return 'path("' + path + '")';
   }
-  function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings, playStatusListeners = /* @__PURE__ */ new Set()) {
+  function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings) {
     const { document, window, game, scope, settings } = ctx;
     const node = (tag, className, text) => {
       const element = document.createElement(tag);
@@ -13019,7 +14501,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       if (disposed) return;
       const state = ctx.getState();
       if (!state) return;
-      if (state.active || playStatusListeners.size && lastScene === void 0) {
+      if (state.active) {
         try {
           lastScene = game.getScene?.() ?? null;
         } catch {
@@ -13029,7 +14511,6 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       const scene = lastScene;
       const self = state.active && scene ? scene.SelfSeatUi ?? scene.selfSeatUI ?? ownUi(game) : null;
       const autoPlayMode = autoPlay.sync(scene, self, state);
-      const checkPlay = (toolbarReady) => autoPlay.update({ scene, self, state, toolbarReady, execute: allowAutoPlay, listeners: playStatusListeners });
       const revealBoxes = new Map([...seatLayer.children].map((box) => [box.dataset.seatId, box]));
       const visibleReveals = /* @__PURE__ */ new Set();
       if (!state.active) {
@@ -13044,7 +14525,6 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         restoreSelectionWindow?.();
         restoreSelectionWindow = null;
         patchedSelectionPrototype = null;
-        checkPlay(false);
         return;
       }
       let seats = [];
@@ -13173,7 +14653,6 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       if (!anchor || !canReplaceSort && !autoPlayMode || !sortControls.update(self.cardContainer, lockedMode, autoPlayMode)) {
         sortControls.hide();
         releaseOriginal();
-        checkPlay(false);
         return;
       }
       if (!canReplaceSort) releaseOriginal();
@@ -13191,7 +14670,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         if (lockedMode) sortHand(game, lockedMode, { automatic: true });
         previousSignature = nextSignature;
       }
-      checkPlay(true);
+      if (allowAutoPlay) autoPlay.update({ scene, self, state });
     }
     scope.interval(() => update(true), 250);
     const sceneUnsubscribe = game.onSceneChange?.((scene) => {
@@ -13224,13 +14703,6 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
 .sgs-cards h3{font-size:13px;font-weight:600;letter-spacing:.06em;margin:0 0 9px;color:var(--sgs-accent,#dbba70)}
 .sgs-card-section{padding:13px 0;border-bottom:1px solid var(--sgs-border,#665b42)}.sgs-card-section:last-child{border-bottom:0}
 .sgs-card-status{font-size:11px;color:var(--sgs-muted,#b7aa8c);margin:0 0 8px}.sgs-card-status.is-partial{color:var(--sgs-accent,#dbba70)}
-.sgs-play-facts,.sgs-play-hand{margin:0;font-size:12px;font-variant-numeric:tabular-nums}
-.sgs-play-facts>div,.sgs-play-hand>div{display:flex;align-items:baseline;justify-content:space-between;gap:.5em;min-width:0}
-.sgs-play-facts dt,.sgs-play-hand dt{color:var(--sgs-muted,#b7aa8c);white-space:nowrap}
-.sgs-play-facts dd,.sgs-play-hand dd{margin:0;text-align:right;overflow-wrap:anywhere}
-.sgs-play-hand-title{font-size:11px;color:var(--sgs-muted,#b7aa8c);border-top:1px solid var(--sgs-border,#665b42);margin:7px 0 3px;padding-top:5px}
-.sgs-play-hand{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,max(8em,calc(50% - .5em))),1fr));gap:2px 1em}
-.sgs-play-hand dd.has-cards{color:var(--sgs-accent,#dbba70);font-weight:600}
 .sgs-card-muted,.sgs-card-empty{font-size:12px;color:var(--sgs-muted,#b7aa8c)}.sgs-card-empty{padding:6px 0}
 .sgs-card-grid{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.sgs-card-grid+.sgs-card-grid{margin-top:7px}
 .sgs-card-chip{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;border:1px solid var(--sgs-border,#665b42);border-radius:5px;background:var(--sgs-raised,#383327);padding:3px 6px;line-height:1.5;font-size:12px;max-width:100%}
@@ -13359,15 +14831,18 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     ["skillCounts", "\\u663E\\u793A\\u6280\\u80FD\\u6B21\\u6570", true],
     ["skillHints", "\\u6280\\u80FD\\u63D0\\u793A", true]
   ];
+  var DECK_REFRESH_MS = 250;
   function activate(ctx) {
     const { document, window, scope, settings } = ctx;
     const panelRefreshers = /* @__PURE__ */ new Set();
-    const playStatusListeners = /* @__PURE__ */ new Set();
+    const deckPanels = /* @__PURE__ */ new Set();
     const hintRefreshers = /* @__PURE__ */ new Set();
     let disposed = false, native = null, activeHudList = null, hoverHudList = null, heldKey = null;
     let discardMode = settings.get("discardMode", "time"), recentMode = settings.get("recentMode", "player"), deckGroup = settings.get("deckGroup", "name");
     const pinnedDeckRows = /* @__PURE__ */ new Set();
+    const deckMetadata = /* @__PURE__ */ new Map(), deckCompositions = /* @__PURE__ */ new Map();
     let expandedDeckRow = null, deckUiGame = ctx.getState()?.deckStartSeq;
+    let deckTimer = null, deckStatsState = null, deckStatsKey = "";
     const element = (tag, className, text) => {
       const result = document.createElement(tag);
       if (className) result.className = className;
@@ -13377,9 +14852,26 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     const getMeta = (id) => metadata(ctx.game, id);
     const setting = (key, fallback = true) => settings.get(key, fallback);
     const currentState = () => ctx.getState() || initialState();
-    function makeCard(id, possible = false, compact = false, miniature = false) {
+    function getDeckMeta(id) {
+      const cached = deckMetadata.get(id);
+      if (cached) return cached;
+      const info = getMeta(id);
+      if (info.suit && info.number && !/^(?:(?:\u724C #|\u5361\u724C )\\d+|\u672A\u77E5\u724C)$/.test(info.name)) deckMetadata.set(id, info);
+      return info;
+    }
+    function getDeckComposition(state, group) {
+      if (deckStatsState !== state) {
+        deckStatsState = state;
+        const key = JSON.stringify([state.historyComplete, state.seenHistoryComplete, state.deckIds.map((id) => [id, wasSeen(state, id)])]);
+        if (key !== deckStatsKey || deckMetadata.size < state.deckIds.length) deckCompositions.clear();
+        deckStatsKey = key;
+      }
+      if (!deckCompositions.has(group)) deckCompositions.set(group, deckComposition(state, group, getDeckMeta));
+      return deckCompositions.get(group);
+    }
+    function makeCard(id, possible = false, compact = false, miniature = false, getCardMeta = getMeta) {
       if (!id) return element("span", "sgs-card-chip is-possible", "\\uFF1F");
-      const meta = getMeta(id), state = currentState();
+      const meta = getCardMeta(id), state = currentState();
       const chip = element("span", \`sgs-card-chip\${possible ? " is-possible" : ""}\${compact ? " is-compact" : ""}\${miniature ? " sgs-card-mini" : ""}\${meta.suit === 1 || meta.suit === 2 ? " is-red" : ""}\`);
       chip.dataset.cardId = String(id);
       const pip = meta.number > 10 ? { 11: "J", 12: "Q", 13: "K" }[meta.number] || meta.number : meta.number || "";
@@ -13566,30 +15058,43 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     }
     const publishCompact = ctx.ui.registerCompactSummary?.() || (() => {
     });
-    function updateCompact() {
-      const state = currentState();
-      if (deckUiGame !== state.deckStartSeq) {
-        deckUiGame = state.deckStartSeq;
-        pinnedDeckRows.clear();
-        expandedDeckRow = null;
-      }
+    let compactKey = "[]";
+    function updateCompact(state) {
       const items = [];
-      if (state.active && setting("deck")) for (const group of ["name", "suit", "number"]) {
-        const composition = deckComposition(state, group, getMeta);
-        for (const row of composition.rows) if (pinnedDeckRows.has(group + ":" + row.key)) {
-          const label = group === "suit" ? { 1: "\\u7EA2\\u6843", 2: "\\u65B9\\u5757", 3: "\\u9ED1\\u6843", 4: "\\u6885\\u82B1" }[row.key] || "\\u672A\\u77E5\\u82B1\\u8272" : group === "number" ? row.key + "\\u70B9" : row.key;
-          items.push({
-            label,
-            value: composition.complete ? "\\u672A\\u89C1 " + row.unseen : "\\u672A\\u89C1 \\u2264" + row.unseen,
-            detail: label + "\\uFF1A\\u672A\\u89C1 " + row.unseen + " / \\u5F00\\u5C40 " + row.total + "\\u3002" + (composition.complete ? "" : "\\u8BB0\\u5F55\\u4E0D\\u5B8C\\u6574\\uFF0C\\u4EC5\\u4E3A\\u4E0A\\u754C\\u3002") + "\\u672A\\u89C1\\u4E0D\\u7B49\\u4E8E\\u724C\\u5806\\u4F59\\u91CF\\uFF1B\\u672C\\u5C40\\u4E34\\u65F6\\u5173\\u6CE8\\u3002"
-          });
+      if (state.active && setting("deck") && pinnedDeckRows.size) {
+        const groups2 = new Set([...pinnedDeckRows].map((key2) => key2.slice(0, key2.indexOf(":"))));
+        for (const group of ["name", "suit", "number"]) {
+          if (!groups2.has(group)) continue;
+          const composition = getDeckComposition(state, group);
+          for (const row of composition.rows) if (pinnedDeckRows.has(group + ":" + row.key)) {
+            const label = group === "suit" ? { 1: "\\u7EA2\\u6843", 2: "\\u65B9\\u5757", 3: "\\u9ED1\\u6843", 4: "\\u6885\\u82B1" }[row.key] || "\\u672A\\u77E5\\u82B1\\u8272" : group === "number" ? row.key + "\\u70B9" : row.key;
+            items.push({
+              label,
+              value: composition.complete ? "\\u672A\\u89C1 " + row.unseen : "\\u672A\\u89C1 \\u2264" + row.unseen,
+              detail: label + "\\uFF1A\\u672A\\u89C1 " + row.unseen + " / \\u5F00\\u5C40 " + row.total + "\\u3002" + (composition.complete ? "" : "\\u8BB0\\u5F55\\u4E0D\\u5B8C\\u6574\\uFF0C\\u4EC5\\u4E3A\\u4E0A\\u754C\\u3002") + "\\u672A\\u89C1\\u4E0D\\u7B49\\u4E8E\\u724C\\u5806\\u4F59\\u91CF\\uFF1B\\u672C\\u5C40\\u4E34\\u65F6\\u5173\\u6CE8\\u3002"
+            });
+          }
         }
       }
+      const key = JSON.stringify(items);
+      if (key === compactKey) return;
+      compactKey = key;
       publishCompact(items);
+    }
+    function cancelDeckRefresh() {
+      if (deckTimer !== null) window.clearTimeout(deckTimer);
+      deckTimer = null;
+    }
+    scope.add(cancelDeckRefresh);
+    function refreshDeck() {
+      cancelDeckRefresh();
+      if (disposed) return;
+      const state = currentState();
+      updateCompact(state);
+      for (const panel of deckPanels) panel.update(state);
     }
     function refresh() {
       if (disposed) return;
-      updateCompact();
       updateHud();
       panelRefreshers.forEach((update) => update());
       native?.update();
@@ -13644,6 +15149,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         input.addEventListener("change", () => {
           settings.set(key, input.checked);
           refresh();
+          if (key === "deck" || key === "fourColors") refreshDeck();
         });
         label.append(element("span", "", title), input);
         settingsGrid.append(label);
@@ -13658,42 +15164,6 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         root.append(wrap);
         return { wrap, body };
       }
-      const playSection = section("\\u81EA\\u52A8\\u6253\\u724C\\u5224\\u5B9A");
-      playSection.wrap.hidden = true;
-      const facts = element("dl", "sgs-play-facts"), hand = element("dl", "sgs-play-hand");
-      const handTitle = element("p", "sgs-play-hand-title", "\\u672C\\u4EBA\\u624B\\u724C");
-      hand.setAttribute("aria-label", "\\u672C\\u4EBA\\u624B\\u724C\\u5F20\\u6570");
-      hand.title = "\\u6309\\u624B\\u724C\\u539F\\u724C\\u540D\\u7EDF\\u8BA1\\uFF0C\\u542B\\u6682\\u65F6\\u4E0D\\u53EF\\u51FA\\u7684\\u724C\\u3002\\u6740\\u5305\\u542B\\u666E\\u901A\\u6740\\u3001\\u706B\\u6740\\u3001\\u96F7\\u6740\\u548C\\u51B0\\u6740\\u3002";
-      function fact(list2, title) {
-        const row = element("div"), value = element("dd");
-        row.append(element("dt", "", title), value);
-        list2.append(row);
-        return value;
-      }
-      const sceneValue = fact(facts, "\\u5F53\\u524D\\u573A\\u666F"), tactic = fact(facts, "\\u9634\\u9633\\u6218\\u6CD5");
-      const mode = fact(facts, "\\u81EA\\u52A8\\u6253\\u724C"), step = fact(facts, "\\u5F53\\u524D\\u64CD\\u4F5C");
-      const watched = WATCHED_HAND.map(([id, label]) => [id, fact(hand, label)]);
-      playSection.body.append(facts, handTitle, hand);
-      let lastPlayStatus;
-      function showPlayStatus(value) {
-        const signature2 = JSON.stringify(value);
-        if (signature2 === lastPlayStatus) return;
-        lastPlayStatus = signature2;
-        playSection.wrap.hidden = !value;
-        if (!value) return;
-        sceneValue.textContent = value.scene;
-        tactic.textContent = value.yinYang;
-        mode.textContent = value.mode;
-        step.textContent = value.step;
-        step.parentNode.hidden = !value.step;
-        for (const [id, field] of watched) {
-          const count3 = value.hand?.counts[id];
-          field.textContent = value.hand?.complete ? count3 + " \\u5F20" : count3 ? "\\u2265" + count3 + " \\u5F20" : "\\u672A\\u77E5";
-          field.classList.toggle("has-cards", count3 > 0);
-        }
-        hand.hidden = handTitle.hidden = value.handApplicable === false;
-      }
-      playStatusListeners.add(showPlayStatus);
       const compositionSection = section("\\u724C\\u5806\\u7ED3\\u6784");
       const deckSummary = element("p", "sgs-card-deck-summary"), deckControls = element("div", "sgs-card-controls sgs-segments");
       const deckGroupButtons = [];
@@ -13703,7 +15173,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         button2.addEventListener("click", () => {
           deckGroup = value;
           settings.set("deckGroup", value);
-          refresh();
+          refreshDeck();
         });
         deckGroupButtons.push([value, button2]);
         deckControls.append(button2);
@@ -13832,28 +15302,19 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
       diagnostics.append(diagnosticBody);
       root.append(diagnostics, settingsBox);
       container.append(root);
-      function update() {
-        if (disposed) return;
-        const state = currentState();
-        updateHints();
-        inputs.forEach(([key, fallback, input]) => {
-          input.checked = setting(key, fallback);
-        });
-        for (const node of [status, compositionSection.wrap, inferenceSection.wrap, querySection, diagnostics]) node.hidden = !state.active;
-        if (!state.active) {
-          status.textContent = "";
-          queryResults.replaceChildren();
-          return;
-        }
-        status.classList.toggle("is-partial", !state.historyComplete);
-        status.textContent = \`\${state.active ? "\\u8BB0\\u5F55\\u4E2D" : state.lastSeq ? "\\u5F53\\u524D\\u4E0D\\u5728\\u724C\\u5C40" : "\\u7B49\\u5F85\\u6E38\\u620F\\u6D88\\u606F"} \\xB7 \${state.historyComplete ? "\\u5DF2\\u53D6\\u5F97\\u5F00\\u5C40\\u724C\\u8868" : "\\u8BB0\\u5F55\\u4E0D\\u5B8C\\u6574\\uFF0C\\u4EC5\\u5C55\\u793A\\u5DF2\\u786E\\u8BA4\\u4FE1\\u606F"}\${state.turn ? \` \\xB7 \\u7B2C \${state.turn} \\u56DE\\u5408\` : ""}\`;
-        compositionSection.wrap.hidden = !setting("deck");
-        if (deckUiGame !== state.deckStartSeq) {
-          deckUiGame = state.deckStartSeq;
-          pinnedDeckRows.clear();
-          expandedDeckRow = null;
-        }
-        const composition = deckComposition(state, deckGroup, getMeta);
+      const panelBody = container.closest(".plugin-body");
+      const host = container.getRootNode()?.host;
+      const visible3 = () => root.isConnected && !panelBody?.hidden && !host?.matches("[data-collapsed], [data-edge-hidden]");
+      let renderedComposition, renderedControls;
+      function updateDeck(state) {
+        if (!visible3() || !state.active || !setting("deck")) return;
+        const composition = getDeckComposition(state, deckGroup);
+        const expanded = composition.rows.find((row) => deckGroup + ":" + row.key === expandedDeckRow);
+        const details = expanded?.ids.map((id) => state.cards[id]?.lastSeq);
+        const controls = JSON.stringify([deckGroup, expandedDeckRow, [...pinnedDeckRows], setting("fourColors", false), details]);
+        if (composition === renderedComposition && controls === renderedControls) return;
+        renderedComposition = composition;
+        renderedControls = controls;
         deckSummary.textContent = composition.available ? "\\u5DF2\\u89C1 " + composition.seen + " \\xB7 \\u5F00\\u5C40 " + composition.total : "\\u5F00\\u5C40\\u724C\\u8868\\u672A\\u77E5";
         deckGroupButtons.forEach(([value, button2]) => {
           button2.classList.toggle("is-active", value === deckGroup);
@@ -13881,7 +15342,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
             nameCell.append(button2);
             tr.addEventListener("click", () => {
               expandedDeckRow = expandedDeckRow === key ? null : key;
-              update();
+              updateDeck(currentState());
               if (expandedDeckRow) compositionTable.querySelector(".sgs-card-category-cards")?.scrollIntoView?.({ block: "nearest", inline: "nearest", behavior: "auto" });
             });
             const pinCell = element("td"), pin = element("button", "sgs-card-pin", pinned ? "\\u2605" : "\\u2606");
@@ -13893,8 +15354,8 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
               event.stopPropagation();
               if (pinned) pinnedDeckRows.delete(key);
               else pinnedDeckRows.add(key);
-              updateCompact();
-              update();
+              refreshDeck();
+              updateQuery();
               compositionTable.scrollTop = 0;
             });
             pinCell.append(pin);
@@ -13907,7 +15368,7 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
               list2.setAttribute("aria-label", title + "\\u7C7B\\u522B\\u724C");
               for (const id of row.ids) {
                 const seen = row.seenIds.includes(id), item = element("div", "sgs-card-catalog-item" + (seen ? " is-seen" : ""));
-                item.append(makeCard(id, false, false, true));
+                item.append(makeCard(id, false, false, true, getDeckMeta));
                 list2.append(item);
               }
               cell.append(list2);
@@ -13918,6 +15379,23 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
           compositionTable.append(table);
         }
         compositionTable.scrollTop = compositionScrollTop;
+      }
+      function update() {
+        if (disposed) return;
+        const state = currentState();
+        updateHints();
+        inputs.forEach(([key, fallback, input]) => {
+          input.checked = setting(key, fallback);
+        });
+        for (const node of [status, inferenceSection.wrap, querySection, diagnostics]) node.hidden = !state.active;
+        compositionSection.wrap.hidden = !state.active || !setting("deck");
+        if (!state.active) {
+          status.textContent = "";
+          queryResults.replaceChildren();
+          return;
+        }
+        status.classList.toggle("is-partial", !state.historyComplete);
+        status.textContent = \`\${state.active ? "\\u8BB0\\u5F55\\u4E2D" : state.lastSeq ? "\\u5F53\\u524D\\u4E0D\\u5728\\u724C\\u5C40" : "\\u7B49\\u5F85\\u6E38\\u620F\\u6D88\\u606F"} \\xB7 \${state.historyComplete ? "\\u5DF2\\u53D6\\u5F97\\u5F00\\u5C40\\u724C\\u8868" : "\\u8BB0\\u5F55\\u4E0D\\u5B8C\\u6574\\uFF0C\\u4EC5\\u5C55\\u793A\\u5DF2\\u786E\\u8BA4\\u4FE1\\u606F"}\${state.turn ? \` \\xB7 \\u7B2C \${state.turn} \\u56DE\\u5408\` : ""}\`;
         inferenceSection.body.replaceChildren();
         const seatIds = [.../* @__PURE__ */ new Set([...Object.keys(state.seats).map(Number), ...Object.values(state.zones).filter((value) => value.kind === 5).map((value) => value.seatId)])].filter((value) => value !== state.selfSeatId && value < 255).sort((a, b) => a - b);
         for (const seatId of seatIds) {
@@ -13940,23 +15418,45 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
         if (!state.limitations.length) diagnosticBody.append(element("p", "sgs-card-reason", "\\u5C1A\\u672A\\u53D1\\u73B0\\u8BB0\\u5F55\\u7F3A\\u53E3\\uFF1B\\u5B9E\\u9645\\u4FE1\\u606F\\u4EE5\\u672C\\u5C40\\u5DF2\\u6536\\u5230\\u7684\\u5BA2\\u6237\\u7AEF\\u6D88\\u606F\\u4E3A\\u51C6\\u3002"));
         updateQuery();
       }
+      const deckPanel = { visible: visible3, update: updateDeck };
+      const visibilityObserver = new window.MutationObserver(() => updateDeck(currentState()));
+      if (panelBody) visibilityObserver.observe(panelBody, { attributes: true, attributeFilter: ["hidden"] });
+      if (host) visibilityObserver.observe(host, { attributes: true, attributeFilter: ["data-collapsed", "data-edge-hidden"] });
+      deckPanels.add(deckPanel);
       panelRefreshers.add(update);
       update();
+      updateDeck(currentState());
       native?.update();
       return () => {
+        visibilityObserver.disconnect();
+        deckPanels.delete(deckPanel);
         panelRefreshers.delete(update);
         hintRefreshers.delete(updateHints);
-        playStatusListeners.delete(showPlayStatus);
         root.remove();
       };
     }
     const unregister = ctx.ui.registerPanel({ id: "cards", title: "\\u5361\\u724C", category: "game", priority: 32768, render: renderPanel });
-    native = createNativeEnhancements(ctx, overlay, makeCard, refresh, playStatusListeners);
+    native = createNativeEnhancements(ctx, overlay, makeCard, refresh);
     let lastRenderedState = ctx.getState();
     const unsubscribe = ctx.subscribe((state) => {
       if (state === lastRenderedState) return;
+      const gameChanged = deckUiGame !== state.deckStartSeq;
+      const activityChanged = lastRenderedState?.active !== state.active;
       lastRenderedState = state;
+      if (gameChanged) {
+        deckUiGame = state.deckStartSeq;
+        pinnedDeckRows.clear();
+        expandedDeckRow = null;
+      }
+      if (gameChanged || activityChanged || state.lastEvent === "toolbox:snapshot") {
+        deckMetadata.clear();
+        deckCompositions.clear();
+      }
       refresh();
+      if (gameChanged || activityChanged) refreshDeck();
+      else if (deckTimer === null && state.active && setting("deck") && (pinnedDeckRows.size || [...deckPanels].some((panel) => panel.visible()))) {
+        deckTimer = window.setTimeout(refreshDeck, DECK_REFRESH_MS);
+      }
     });
     const releaseTheme = ctx.themes?.subscribe?.(applyTheme);
     applyTheme();
@@ -13969,13 +15469,14 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     return () => {
       if (disposed) return;
       disposed = true;
+      cancelDeckRefresh();
       unsubscribe?.();
       releaseTheme?.();
       unregister?.();
       native?.dispose();
+      deckPanels.clear();
       panelRefreshers.clear();
       hintRefreshers.clear();
-      playStatusListeners.clear();
       overlayHost.remove();
     };
   }
@@ -13983,10 +15484,10 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
     manifest: {
       id: "cards",
       name: "\\u5361\\u724C",
-      version: "0.1.79",
+      version: "0.1.82",
       apiVersion: 1,
       contractVersion: 1,
-      releaseNotes: "\\u65B0\\u589E\\u624B\\u724C\\u7EC4\\u95F4\\u7559\\u7A7A\\u5FEB\\u6377\\u5F00\\u5173\\uFF0C\\u4FDD\\u7559\\u6392\\u5E8F\\u65B9\\u5F0F\\u4E0E\\u5DF2\\u6709\\u9009\\u62E9\\uFF1B\\u6539\\u5584\\u5361\\u724C\\u9762\\u677F\\u5728\\u4F4E\\u9AD8\\u5EA6\\u4E0B\\u7684\\u6EDA\\u52A8\\u548C\\u5185\\u5BB9\\u663E\\u793A\\u3002",
+      releaseNotes: "\\u65B0\\u589E\\u53EF\\u9009\\u7684\\u5C71\\u6CB3\\u56FE\\u81EA\\u52A8\\u51FA\\u724C\\uFF0C\\u5728\\u7B26\\u5408\\u6761\\u4EF6\\u7684\\u672C\\u4EBA\\u51FA\\u724C\\u9636\\u6BB5\\u5C1D\\u8BD5\\u4F7F\\u7528\\u6307\\u5B9A\\u724C\\uFF0C\\u6280\\u80FD\\u8F85\\u52A9\\u64CD\\u4F5C\\u65F6\\u8BA9\\u884C\\u3002\\u4F18\\u5316\\u660E\\u724C\\u3001\\u724C\\u5806\\u548C\\u624B\\u724C\\u6574\\u7406\\u3002",
       minCoreVersion: "0.6.87",
       categories: ["game"],
       icon: PLUGIN_ICONS["cards"],
@@ -14000,8 +15501,8 @@ return {...SGSPlugin.default, manifest:{"id":"shanhetu","name":"\u5C71\u6CB3\u56
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","version":"0.1.79","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u624B\u724C\u7EC4\u95F4\u7559\u7A7A\u5FEB\u6377\u5F00\u5173\uFF0C\u4FDD\u7559\u6392\u5E8F\u65B9\u5F0F\u4E0E\u5DF2\u6709\u9009\u62E9\uFF1B\u6539\u5584\u5361\u724C\u9762\u677F\u5728\u4F4E\u9AD8\u5EA6\u4E0B\u7684\u6EDA\u52A8\u548C\u5185\u5BB9\u663E\u793A\u3002","minCoreVersion":"0.6.87","categories":["game"],"icon":{"paths":["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z","M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"]},"priority":10000,"description":"\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570"}};
-`, sha256: "3623974bec8a56f9d04da48faee5c11c932d78da6eddf8b5bce455258c09c249" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "play-assist", name: "\u51FA\u724C\u8F85\u52A9", version: "0.2.18", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8865\u5145\u5F3A\u8BC6\u6478\u724C\u4E0E\u6B66\u5A18\u53D6\u724C\u8F85\u52A9\uFF0C\u6B66\u5A18\u4F18\u5148\u9009\u62E9\u53EF\u9009\u9632\u5177\u3001\u5176\u4ED6\u88C5\u5907\uFF0C\u518D\u9009\u62E9\u624B\u724C\uFF1B\u72C2\u9AA8\u6309\u5F53\u524D\u4F53\u529B\u9009\u62E9\u56DE\u8840\u6216\u6478\u724C\u3002\u4ECD\u9700\u5F00\u542F\u76F8\u5E94\u6280\u80FD\u8F85\u52A9\uFF0C\u5F3A\u8BC6\u524D\u534A\u6BB5\u9009\u4EBA\u548C\u5C55\u793A\u4FDD\u7559\u624B\u52A8\u3002", minCoreVersion: "0.6.87", description: "\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002", icon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] }, priority: 12e3, categories: ["game"] }, code: `var SGSPlugin = (() => {
+return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","version":"0.1.82","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u53EF\u9009\u7684\u5C71\u6CB3\u56FE\u81EA\u52A8\u51FA\u724C\uFF0C\u5728\u7B26\u5408\u6761\u4EF6\u7684\u672C\u4EBA\u51FA\u724C\u9636\u6BB5\u5C1D\u8BD5\u4F7F\u7528\u6307\u5B9A\u724C\uFF0C\u6280\u80FD\u8F85\u52A9\u64CD\u4F5C\u65F6\u8BA9\u884C\u3002\u4F18\u5316\u660E\u724C\u3001\u724C\u5806\u548C\u624B\u724C\u6574\u7406\u3002","minCoreVersion":"0.6.87","categories":["game"],"icon":{"paths":["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z","M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"]},"priority":10000,"description":"\u8BB0\u724C\u3001\u660E\u724C\u4E0E\u724C\u5806\u67E5\u8BE2\uFF0C\u8F85\u52A9\u7406\u724C\u3001\u8BFB\u79D2\u548C\u663E\u793A\u6280\u80FD\u5269\u4F59\u6B21\u6570"}};
+`, sha256: "2ceff4f2c66a454a869d28de2bfc2a70b2c5a04a9e3805f12d5099e1d4c3b78d" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "play-assist", name: "\u51FA\u724C\u8F85\u52A9", version: "0.2.18", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8865\u5145\u5F3A\u8BC6\u6478\u724C\u4E0E\u6B66\u5A18\u53D6\u724C\u8F85\u52A9\uFF0C\u6B66\u5A18\u4F18\u5148\u9009\u62E9\u53EF\u9009\u9632\u5177\u3001\u5176\u4ED6\u88C5\u5907\uFF0C\u518D\u9009\u62E9\u624B\u724C\uFF1B\u72C2\u9AA8\u6309\u5F53\u524D\u4F53\u529B\u9009\u62E9\u56DE\u8840\u6216\u6478\u724C\u3002\u4ECD\u9700\u5F00\u542F\u76F8\u5E94\u6280\u80FD\u8F85\u52A9\uFF0C\u5F3A\u8BC6\u524D\u534A\u6BB5\u9009\u4EBA\u548C\u5C55\u793A\u4FDD\u7559\u624B\u52A8\u3002", minCoreVersion: "0.6.87", description: "\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002", icon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] }, priority: 12e3, categories: ["game"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -15187,7 +16688,7 @@ return {...SGSCards.default, manifest:{"id":"cards","name":"\u5361\u724C","versi
 })();
 
 return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\u8F85\u52A9","version":"0.2.18","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8865\u5145\u5F3A\u8BC6\u6478\u724C\u4E0E\u6B66\u5A18\u53D6\u724C\u8F85\u52A9\uFF0C\u6B66\u5A18\u4F18\u5148\u9009\u62E9\u53EF\u9009\u9632\u5177\u3001\u5176\u4ED6\u88C5\u5907\uFF0C\u518D\u9009\u62E9\u624B\u724C\uFF1B\u72C2\u9AA8\u6309\u5F53\u524D\u4F53\u529B\u9009\u62E9\u56DE\u8840\u6216\u6478\u724C\u3002\u4ECD\u9700\u5F00\u542F\u76F8\u5E94\u6280\u80FD\u8F85\u52A9\uFF0C\u5F3A\u8BC6\u524D\u534A\u6BB5\u9009\u4EBA\u548C\u5C55\u793A\u4FDD\u7559\u624B\u52A8\u3002","minCoreVersion":"0.6.87","description":"\u957F\u6309\u6280\u80FD\u8F85\u52A9\u3001\u81EA\u52A8\u786E\u5B9A\u4E0E\u8BE2\u95EE\u8DF3\u8FC7\u3002","icon":{"paths":["M4 5h10v14H4zM7 8h4M7 11h3","m17 3-3 8h5l-3 10 7-13h-5l2-5"]},"priority":12000,"categories":["game"]}};
-`, sha256: "1b8d5173592aa42233b32467223b0697772c188b6af5a6a6297181c9913b0602" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "daily-rewards", name: "\u65E5\u5E38\u9886\u5956", version: "0.7.38", apiVersion: 1, contractVersion: 1, releaseNotes: "\u8C03\u6574\u6D3B\u52A8\u5956\u52B1\u9886\u53D6\uFF0C\u907F\u514D\u53D1\u9001\u591A\u4F59\u7684\u9886\u53D6\u8BF7\u6C42\u3002\u81EA\u52A8\u9886\u53D6\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF1B\u5171\u4EAB\u5151\u6362\u7801\u9700\u5355\u72EC\u5F00\u542F\uFF0C\u53EA\u4E0A\u4F20\u6E38\u620F\u660E\u786E\u6210\u529F\u7684\u7801\u53CA\u8D26\u53F7\u6458\u8981\u3002", minCoreVersion: "0.6.38", categories: ["automation"], icon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, priority: 2e4, description: "\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55" }, code: `var SGSPlugin = (() => {
+`, sha256: "1b8d5173592aa42233b32467223b0697772c188b6af5a6a6297181c9913b0602" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "daily-rewards", name: "\u65E5\u5E38\u9886\u5956", version: "0.7.41", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4FEE\u590D\u90E8\u5206\u4EFB\u52A1\u3001\u514D\u8D39\u798F\u5229\u548C\u8282\u94BA\u4EE4\u5956\u52B1\u7684\u72B6\u6001\u8BC6\u522B\u4E0E\u9886\u53D6\uFF0C\u8865\u5145\u672A\u9886\u53D6\u9879\u76EE\u7684\u6838\u5BF9\u63D0\u793A\u3002\u81EA\u52A8\u9886\u53D6\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF0C\u5171\u4EAB\u5151\u6362\u7801\u4ECD\u9700\u5355\u72EC\u5F00\u542F\u3002", minCoreVersion: "0.6.38", categories: ["automation"], icon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, priority: 2e4, description: "\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -15223,6 +16724,10 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -15281,8 +16786,36 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     return [base.name, base.Name, base._name, base.desc, base.Desc, base._desc].some((value) => typeof value === "string" && /\u56DE\u5F52|\u56DE\u6D41|\u8001\u73A9\u5BB6/.test(value));
   }
 
-  // src/plugins/daily-rewards/welfare.js
+  // src/plugins/daily-rewards/native-method.js
   var read = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return void 0;
+    }
+  };
+  function nativeMethod(object, name, signatures = []) {
+    if (name && typeof read(() => object[name]) === "function") return (...args) => object[name](...args);
+    if (!object || !signatures.length) return null;
+    const found = /* @__PURE__ */ new Set();
+    for (const owner of [object, read(() => Object.getPrototypeOf(object))]) {
+      if (!owner) continue;
+      for (const key of Object.getOwnPropertyNames(owner).slice(0, 512)) {
+        if (key === "constructor") continue;
+        const fn = Object.getOwnPropertyDescriptor(owner, key)?.value;
+        if (typeof fn !== "function") continue;
+        const text = Function.prototype.toString.call(fn);
+        if (text.length <= 24e3 && signatures.every((signature) => text.includes(signature))) found.add(fn);
+      }
+    }
+    if (found.size !== 1) return null;
+    const [method2] = found;
+    return (...args) => Reflect.apply(method2, object, args);
+  }
+  var purchaseSender = (proxy) => nativeMethod(proxy, null, [".OldProtocalToPb()", ".addProtocolToCacheList(", ".CACHE_TYPE_SEND"]);
+
+  // src/plugins/daily-rewards/welfare.js
+  var read2 = (fn) => {
     try {
       return fn();
     } catch {
@@ -15309,7 +16842,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         if (finished) return;
         finished = true;
         clearTimeout(timer);
-        read(() => manager.off(event, caller, finish));
+        read2(() => manager.off(event, caller, finish));
         adapter.signal?.removeEventListener("abort", finish);
         resolve();
       };
@@ -15341,7 +16874,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     ]);
   }
   function rawGoods(adapter, id) {
-    const root2 = read(() => adapter.config("sys_gs_dbs_fs_goodsbaseinfo.sgs").root);
+    const root2 = read2(() => adapter.config("sys_gs_dbs_fs_goodsbaseinfo.sgs").root);
     const abbreviations = list(root2?.abbreviation?.field);
     const field = (row2, name) => row2?.[name] ?? row2?.[abbreviations.find((item2) => item2.Long === name)?.Short];
     const allGoods = root2?.goodslist?.goods;
@@ -15374,11 +16907,11 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         eligible,
         ...metadata,
         skipAfter: key.startsWith("tree:") && key !== "tree:claim" ? "welfare:tree:claim" : void 0,
-        done: () => sent && Boolean(read(done)),
+        done: () => sent && Boolean(read2(done)),
         confirmations: confirmations.map((rule) => ({ ...rule, accept: (...args) => sent && rule.accept(...args) })),
         rejections: metadata.rejections?.map((rule) => ({ ...rule, accept: (...args) => sent && rule.accept(...args) })),
         send: () => {
-          if (!valid(adapter) || !read(eligible)) return false;
+          if (!valid(adapter) || !read2(eligible)) return false;
           sent = true;
           return send();
         }
@@ -15388,7 +16921,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     const cards = adapter.manager("NewPrivilegeCardManager");
     if (!welfare && !guild && !cards) notes.push("\\u798F\\u5229\\u7BA1\\u7406\\u5668\\u5C1A\\u672A\\u5C31\\u7EEA");
     if (guild) {
-      const remaining = Number(read(() => guild.LeftFreeDrumTimes)), guildId = read(() => guild.GuildID);
+      const remaining = Number(read2(() => guild.LeftFreeDrumTimes)), guildId = read2(() => guild.GuildID);
       const canDrum = () => guild.GuildID === guildId && guild.CanDrum === true && Number(guild.LeftFreeDrumTimes) === remaining;
       if (guildId && positive(remaining) && remaining <= 20 && canDrum()) add(
         \`drum:\${guildId}:\${remaining}\`,
@@ -15406,13 +16939,13 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     }
     if (welfare) {
       const tree = () => welfare.JbpUserData;
-      const current = read(tree), count = Number(current?.Count), level = Number(current?.Level);
-      const treeRows = list(read(() => adapter.config("ff_jubaopen.sgs").root.award));
+      const current = read2(tree), count = Number(current?.Count), level = Number(current?.Level);
+      const treeRows = list(read2(() => adapter.config("ff_jubaopen.sgs").root.award));
       const itemId = Number(treeRows.find((row) => Number(row.grade) === level)?.buyItem);
       const goods = adapter.manager("GameGoodsManager"), bless = adapter.manager("BlessManager"), shop = adapter.manager("GameShopManager");
-      const itemCount = () => Number(read(() => goods.GetGoodsNumByBaseID(itemId)));
+      const itemCount = () => Number(read2(() => goods.GetGoodsNumByBaseID(itemId)));
       const sameTree = (status) => tree()?.Status === status && Number(tree()?.Count) === count && Number(tree()?.Level) === level;
-      const balanceReady = () => zeroPrice(adapter, itemId) || Number(read(() => adapter.self?.().TotalYuanBao)) >= 200;
+      const balanceReady = () => zeroPrice(adapter, itemId) || Number(read2(() => adapter.self?.().TotalYuanBao)) >= 200;
       const enabledTree = () => bless?.FreeBlessItemEnough === true && (tree()?.Status === 1 && itemCount() >= 1 || balanceReady());
       const failure = (event, field) => {
         const packet = event?.Protocol?.Data?.ProtoObj;
@@ -15455,8 +16988,8 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
                 const completed = itemCount() < before && (tree()?.Status !== 1 || Number(tree()?.Count) > count);
                 if (completed && !redUpdated && valid(adapter)) {
                   redUpdated = true;
-                  read(() => welfare.SaveKanShuPhpData());
-                  if (valid(adapter)) read(() => welfare.event("KANSHU_DALIY_TIME_UPDATE"));
+                  read2(() => welfare.SaveKanShuPhpData());
+                  if (valid(adapter)) read2(() => welfare.event("KANSHU_DALIY_TIME_UPDATE"));
                 }
                 return completed;
               },
@@ -15470,31 +17003,34 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
               } }],
               { maxRejectedAttempts: 3, rejections: reject("decodeClientChopTreeRewardRep", "error"), rewards: () => Array.isArray(tree()?.PeachList) ? list(tree().PeachList).flatMap((peach) => list(peach?.info)).map((item2) => ({ ItemID: item2.goodId, ItemNum: item2.goodCnt })) : null }
             );
-          } else if (price() !== null && shop && typeof shop.GetBuyMsg === "function" && typeof shop.proxy?.L === "function") {
-            const cost = price();
-            add(
-              "tree:item",
-              cost ? \`\\u83B7\\u53D6\\u780D\\u6811\\u9053\\u5177\\uFF08\${cost}\\u5143\\u5B9D\\uFF0C\\u6BCF\\u65E5\\u9650\\u4E00\\u6B21\\uFF09\` : "\\u5151\\u6362\\u514D\\u8D39\\u780D\\u6811\\u9053\\u5177",
-              shop,
-              () => sameTree(1) && tree()?.HasTriggerEvent !== true && itemCount() === 0 && price() === cost,
-              () => itemCount() > 0,
-              () => {
-                const msg = treeBuyMessage(shop, itemId, cost);
-                if (!msg || price() !== cost || !sameTree(1)) return false;
-                return shop.proxy.L(msg);
-              },
-              [],
-              { rewards: [] }
-            );
-          } else notes.push("\\u53D1\\u8D22\\u6811\\u9053\\u5177\\u3001\\u9886\\u53D6\\u8D44\\u683C\\u6216\\u8D39\\u7528\\u672A\\u5C31\\u7EEA\\uFF0C\\u4ECA\\u65E5\\u6682\\u7F13");
+          } else {
+            const cost = price(), transport = shop?.proxy;
+            if (cost !== null && typeof shop?.GetBuyMsg === "function" && purchaseSender(transport)) {
+              const eligible = () => valid(adapter) && adapter.manager("GameShopManager") === shop && shop.proxy === transport && sameTree(1) && tree()?.HasTriggerEvent !== true && itemCount() === 0 && price() === cost;
+              add(
+                "tree:item",
+                cost ? \`\\u83B7\\u53D6\\u780D\\u6811\\u9053\\u5177\\uFF08\${cost}\\u5143\\u5B9D\\uFF0C\\u6BCF\\u65E5\\u9650\\u4E00\\u6B21\\uFF09\` : "\\u5151\\u6362\\u514D\\u8D39\\u780D\\u6811\\u9053\\u5177",
+                shop,
+                eligible,
+                () => itemCount() > 0,
+                () => {
+                  const msg = treeBuyMessage(shop, itemId, cost);
+                  const send = msg && eligible() && purchaseSender(transport);
+                  return send ? send(msg) : false;
+                },
+                [],
+                { rewards: [] }
+              );
+            } else notes.push("\\u53D1\\u8D22\\u6811\\u9053\\u5177\\u3001\\u9886\\u53D6\\u8D44\\u683C\\u6216\\u8D39\\u7528\\u672A\\u5C31\\u7EEA\\uFF0C\\u4ECA\\u65E5\\u6682\\u7F13");
+          }
         } else if (current.Status === 1) notes.push("\\u780D\\u6811\\u7B49\\u7EA7\\u5BF9\\u5E94\\u7684\\u9053\\u5177\\u914D\\u7F6E\\u672A\\u5C31\\u7EEA");
       }
       for (const type of [2, 3]) {
-        const card = () => read(() => welfare.GetCardDataByType(type));
+        const card = () => read2(() => welfare.GetCardDataByType(type));
         const value = card();
         const rewards2 = [];
         if (value?.bActive && value.bReward && positive(value.rewardDays)) rewards2.push({ day: Number(value.rewardDays), test: () => card()?.bActive && card()?.bReward && Number(card()?.rewardDays) === Number(value.rewardDays) });
-        if (type === 3 && value?.bActive) list(read(() => value.AddAwardsCanAwardList())).slice(0, 4).forEach((available, index) => {
+        if (type === 3 && value?.bActive) list(read2(() => value.AddAwardsCanAwardList())).slice(0, 4).forEach((available, index) => {
           if (available === true && positive(Number(value.days) + index + 1)) rewards2.push({ day: Number(value.days) + index + 1, test: () => card()?.bActive && card()?.AddAwardsCanAwardList()?.[index] === true });
         });
         for (const reward of rewards2) if (typeof welfare.SendClientPrivilegeRewardReq === "function") add(
@@ -15510,7 +17046,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
           } }]
         );
         let refreshedSilver = false;
-        if (read(() => welfare.CanShowPrivilegeDaliyReward(type)) === true && typeof welfare.PrivilegeCardDaliyRewardReq === "function") add(
+        if (read2(() => welfare.CanShowPrivilegeDaliyReward(type)) === true && typeof welfare.PrivilegeCardDaliyRewardReq === "function") add(
           \`silver:\${type}\`,
           \`\${type === 2 ? "\\u5468" : "\\u6708"}\\u5361\\u6BCF\\u65E5\\u94F6\\u4E24\`,
           welfare,
@@ -15529,18 +17065,18 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       }
     }
     if (cards) {
-      const config = list(read(() => adapter.config("ff_dbs_pay_gift.sgs").root.new_card.new_card_content));
+      const config = list(read2(() => adapter.config("ff_dbs_pay_gift.sgs").root.new_card.new_card_content));
       if (!config.length) notes.push("\\u65B0\\u6743\\u76CA\\u5361\\u914D\\u7F6E\\u5C1A\\u672A\\u5C31\\u7EEA");
       for (const row of config.slice(0, 128)) {
         const id = Number(row.ID);
         if (!positive(id) || ![1, 2].includes(Number(row.type)) || Number(row.open) !== 1 || !row.reward_e) continue;
-        const current = () => list(read(() => adapter.config("ff_dbs_pay_gift.sgs").root.new_card.new_card_content)).find((value) => Number(value.ID) === id);
+        const current = () => list(read2(() => adapter.config("ff_dbs_pay_gift.sgs").root.new_card.new_card_content)).find((value) => Number(value.ID) === id);
         const eligible = () => Number(current()?.open) === 1 && !!current()?.reward_e && cards.IsCardActive(id) === true && cards.IsClaimedToday(id) === false;
         const proxy = cards.proxy || adapter.proxy?.();
         const reply = (packet) => packet?.Protocol?.Data?.ProtoObj;
         const matches = (packet) => Number(reply(packet)?.card_id) === id;
         const events2 = ["decodeServerNewPrivilegeCardDailyRewardResp", 160121];
-        if (read(eligible)) add(
+        if (read2(eligible)) add(
           \`new-card:\${id}\`,
           \`\\u65B0\${Number(row.type) === 2 ? "\\u5468" : "\\u6708"}\\u5361\\u6BCF\\u65E5\\u5956\\u52B1\`,
           cards,
@@ -15567,7 +17103,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   }
 
   // src/plugins/daily-rewards/military-rewards.js
-  var read2 = (fn) => {
+  var read3 = (fn) => {
     try {
       return fn();
     } catch {
@@ -15584,10 +17120,10 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5]), Number(match[6])).getTime();
   }
   function root(adapter) {
-    return read2(() => adapter.config("ff_task_daily.sgs").root);
+    return read3(() => adapter.config("ff_task_daily.sgs").root);
   }
   function currentSeason(adapter, field) {
-    const now = read2(() => adapter.manager("TimerManager").ServerDate?.getTime());
+    const now = read3(() => adapter.manager("TimerManager").ServerDate?.getTime());
     if (!Number.isFinite(now)) return null;
     return list2(root(adapter)?.[field]).find((row) => positive2(row.id) && positive2(row.reward) && time(row.stime) < now && now < time(row.etime));
   }
@@ -15671,7 +17207,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         const value = currentSeason(adapter, seasons);
         return Number(value?.id) === seasonId && Number(value?.reward) === group;
       };
-      const points = () => Number(read2(() => kind === "ddz-tll" ? activity.DDZBattlePoint : adapter.manager("GameGoodsManager").GetGoodsNumByBaseID(scoreId)));
+      const points = () => Number(read3(() => kind === "ddz-tll" ? activity.DDZBattlePoint : adapter.manager("GameGoodsManager").GetGoodsNumByBaseID(scoreId)));
       for (const row of rewards(adapter, table, group)) for (const high of [false, true]) {
         const id = Number(row.id), field = high ? highList : lowList, rewardField = high ? "ffitem" : "item";
         if (!positive2(id) || !item(row[rewardField])) continue;
@@ -15680,7 +17216,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
           const value = current(), threshold = Number(value?.point), count = points();
           return sameSeason() && activity[flag2] === true && !!item(value?.[rewardField]) && Array.isArray(activity[field]) && Number.isFinite(count) && Number.isSafeInteger(threshold) && threshold >= 0 && count >= threshold && (!high || activity[owned] === true) && !has(activity[field], id);
         };
-        if (!read2(eligible)) continue;
+        if (!read3(eligible)) continue;
         actions.push({
           key: \`activity:\${kind}:tier:\${seasonId}:\${id}:\${Number(high)}\`,
           category: "activities",
@@ -15702,7 +17238,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   }
 
   // src/plugins/daily-rewards/activities.js
-  var read3 = (fn) => {
+  var read4 = (fn) => {
     try {
       return fn();
     } catch {
@@ -15711,7 +17247,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   };
   var positive3 = (value) => Number.isSafeInteger(Number(value)) && Number(value) > 0;
   var has2 = (list3, id) => Array.isArray(list3) && list3.some((value) => Number(value) === Number(id));
-  var method = (object, name) => typeof read3(() => object[name]) === "function";
+  var method = (object, name) => typeof read4(() => object[name]) === "function";
   function ddzStreakState(manager, reward) {
     const native = manager.DDZ2023WinAwardGetState(Number(reward.Id));
     if (native === 2) return 2;
@@ -15747,7 +17283,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     ["NewWeekQuestId", "NewWeekQuestReward", "\\u672C\\u5468\\u80DC\\u5229\\u5BF9\\u5C4090\\u5206\\u949F"]
   ];
   function tavernConfig(adapter) {
-    return read3(() => adapter.manager("WelfareManger")?.CurPubCommonVo);
+    return read4(() => adapter.manager("WelfareManger")?.CurPubCommonVo);
   }
   function currentTavernTaskIds(adapter) {
     const config = tavernConfig(adapter);
@@ -15785,19 +17321,19 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     });
   }
   var freeGeneralId = (adapter) => {
-    const config = read3(() => adapter.config("ff_general_chest_info_config.sgs"));
+    const config = read4(() => adapter.config("ff_general_chest_info_config.sgs"));
     return Number((config?.root || config)?.Common?.[0]?.freeGeneralDropId);
   };
   function entries(value) {
     if (Array.isArray(value)) return value.slice(0, 2048).map((item2, index) => [String(index), item2]);
-    const map = read3(() => value._maps);
+    const map = read4(() => value._maps);
     if (map && typeof map === "object") return Object.entries(map).slice(0, 2048);
-    for (const key of ["datum", "_objDatum"]) if (Array.isArray(read3(() => value[key]))) return entries(value[key]);
+    for (const key of ["datum", "_objDatum"]) if (Array.isArray(read4(() => value[key]))) return entries(value[key]);
     return [];
   }
   var rows = (value) => entries(value).map(([, item2]) => item2);
   var idOf = (value, fallback) => Number(value?.id ?? value?.ID ?? fallback);
-  var lookup = (dictionary, id) => read3(() => dictionary.getNumberKey(id)) ?? read3(() => dictionary.get(id)) ?? read3(() => dictionary._maps[id]);
+  var lookup = (dictionary, id) => read4(() => dictionary.getNumberKey(id)) ?? read4(() => dictionary.get(id)) ?? read4(() => dictionary._maps[id]);
   var protocol = (event) => {
     const p = event?.Protocol ?? event;
     if (!p || p.errCode) return null;
@@ -15823,7 +17359,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     return Number(keys[keys.length - 1]);
   }
   function seasonRewards(adapter, manager, round) {
-    const native = read3(() => manager.CurRankTypeVo.GetSessionInfo(round)?.SessionAwardList);
+    const native = read4(() => manager.CurRankTypeVo.GetSessionInfo(round)?.SessionAwardList);
     if (Array.isArray(native)) return native;
     const type = Number(manager.NewTTrankData?.ttrankType);
     if (!positive3(type)) return null;
@@ -15893,7 +17429,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     if (!selected.activities) return { actions, notes };
     const note = (text) => notes.push({ category: "activities", text });
     const add = (action) => {
-      if (read3(action.eligible) === true) actions.push({ category: "activities", ...action });
+      if (read4(action.eligible) === true) actions.push({ category: "activities", ...action });
     };
     const group = (label, fn) => {
       try {
@@ -16297,7 +17833,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   var SUCCESS = /* @__PURE__ */ new Set([1, 2, 16]);
   var FAILURE = /* @__PURE__ */ new Set([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18]);
   var EVENT = "ClientPickupgiftbagRep";
-  var read4 = (fn) => {
+  var read5 = (fn) => {
     try {
       return fn();
     } catch {
@@ -16385,7 +17921,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     return typeof code === "string" && /^[\\p{Script=Han}A-Za-z0-9\uFF01!_-]{3,40}$/u.test(code) && new TextEncoder().encode(code).length <= 64;
   }
   function replyMatches(message, code) {
-    const protocol2 = read4(() => message.Protocol);
+    const protocol2 = read5(() => message.Protocol);
     return protocol2 && protocol2.CDKey === code && protocol2.Type === 0 && (protocol2.mid === "0" || protocol2.mid === 0) && Number.isInteger(protocol2.Result) ? protocol2 : null;
   }
   function planCodes(adapter, selected = {}) {
@@ -16401,9 +17937,9 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       if (!parsed.tooLong && !parsed.invalid) note("\\u672A\\u586B\\u5199\\u5151\\u6362\\u7801");
       return { actions, notes };
     }
-    const manager = read4(() => adapter.manager("GiftManager"));
-    const proxy = read4(() => adapter.proxy());
-    const ready2 = () => manager && manager.destroyed !== true && read4(() => adapter.manager("GiftManager")) === manager && typeof manager.SendGetGift === "function" && proxy && proxy.destroyed !== true && read4(() => adapter.proxy()) === proxy && typeof proxy.on === "function" && typeof proxy.off === "function";
+    const manager = read5(() => adapter.manager("GiftManager"));
+    const proxy = read5(() => adapter.proxy());
+    const ready2 = () => manager && manager.destroyed !== true && read5(() => adapter.manager("GiftManager")) === manager && typeof manager.SendGetGift === "function" && proxy && proxy.destroyed !== true && read5(() => adapter.proxy()) === proxy && typeof proxy.on === "function" && typeof proxy.off === "function";
     if (!ready2()) {
       note("\\u7B49\\u5F85\\u6E38\\u620F\\u5151\\u6362\\u7801\\u63A5\\u53E3\\u53CA\\u670D\\u52A1\\u5668\\u56DE\\u5305\\u76D1\\u542C\\u5C31\\u7EEA");
       return { actions, notes };
@@ -16441,7 +17977,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     ["excludeTrial", "\\u4F53\\u9A8C\\u5361"],
     ["excludeBeans", "\\u6B22\\u4E50\\u8C46"]
   ];
-  var read5 = (fn) => {
+  var read6 = (fn) => {
     try {
       return fn();
     } catch {
@@ -16462,7 +17998,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   function excludedReward(adapter, selected, rewards2) {
     for (const item2 of rewardItems(rewards2)) {
       const id = Number(item2.ItemID ?? item2.itemID ?? item2.itemId ?? item2.ID ?? item2.id ?? item2.goodsId ?? item2.GoodsID ?? item2.BaseID);
-      const goods = read5(() => adapter.goods?.(id));
+      const goods = read6(() => adapter.goods?.(id));
       const name = String(goods?.name ?? goods?.Name ?? goods?.baseInfo?.name ?? item2.ItemName ?? item2.itemName ?? item2.name ?? item2.Name ?? pointNames.get(id) ?? "");
       const type = Number(goods?.TypeID ?? goods?.type ?? item2.TypeID);
       const period = Number(goods?.period ?? item2.period);
@@ -16476,14 +18012,21 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   }
 
   // src/plugins/daily-rewards/quest-rewards.js
-  var read6 = (fn) => {
+  var read7 = (fn) => {
     try {
       return fn();
     } catch {
       return void 0;
     }
   };
-  var passiveConditions = /* @__PURE__ */ new Set([1, 2, 3, 4, 6, 7]);
+  var repeatableConditions = /* @__PURE__ */ new Set([1, 2, 3, 4, 6, 7, 60, 61]);
+  var refineStoneCondition = 128;
+  var conditionType = (condition) => Number(condition?.reqType ?? condition?._reqType);
+  var refineClaimProgress = /* @__PURE__ */ new WeakMap();
+  function isRefineQuest(task) {
+    const conditions = task?.TaskConditions || task?.taskConditions;
+    return task?.IsNewQusetType === true && Array.isArray(conditions) && conditions.length === 1 && conditionType(conditions[0]) === refineStoneCondition;
+  }
   var managerSpecs4 = {
     ActivityQuestManager: {
       events: ["decodeUserQuestInfoRep", "decodeUserQuestOpRep", "decodeUserQuestDelNtf", 107009, 107014, 107010],
@@ -16516,50 +18059,51 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   }
   function planActivityQuests(adapter, selected, { rows: rows4, nativeMethod: nativeMethod2, taskSkipReason: taskSkipReason2, reservedIds = [] }) {
     if (!selected.tasks) return { actions: [], notes: [] };
-    const manager = read6(() => adapter.manager("ActivityQuestManager"));
+    const manager = read7(() => adapter.manager("ActivityQuestManager"));
     if (!manager) return { actions: [], notes: [] };
-    const ordinary = read6(() => adapter.manager("TaskManager"));
+    const ordinary = read7(() => adapter.manager("TaskManager"));
     const ordinaryRequest = nativeMethod2(ordinary, "RequestTaskAward", ["TaskRewardSelectWindow"]);
     const request = ordinaryRequest || nativeMethod2(manager, "RequestTaskAward", ["quest_id:", "reward_idx:", "CLIENT_QUEST_OP_REQ"]);
     if (!request) return { actions: [], notes: [{ category: "tasks", text: "\\u6D3B\\u52A8\\u4EFB\\u52A1\\u5DF2\\u5C31\\u7EEA\\uFF0C\\u539F\\u751F\\u9886\\u5956\\u5165\\u53E3\\u5C1A\\u672A\\u5339\\u914D" }] };
-    const live2 = () => read6(() => adapter.manager("ActivityQuestManager")) === manager && manager.destroyed !== true && (!ordinaryRequest || read6(() => adapter.manager("TaskManager")) === ordinary && ordinary.destroyed !== true);
+    const live2 = () => read7(() => adapter.manager("ActivityQuestManager")) === manager && manager.destroyed !== true && (!ordinaryRequest || read7(() => adapter.manager("TaskManager")) === ordinary && ordinary.destroyed !== true);
     const actions = [], seen = new Set(reservedIds);
     for (const task of rows4(manager.allTasks)) {
-      const id = Number(read6(() => task?.id ?? task?._id ?? task?.baseVo?.id));
+      const id = Number(read7(() => task?.id ?? task?._id ?? task?.baseVo?.id));
       if (!Number.isSafeInteger(id) || id <= 0 || seen.has(id)) continue;
       seen.add(id);
-      const current = () => read6(() => manager.GetServerTaskDataByTaskID(id));
-      const before = Number(read6(() => current()?.completeTimes));
+      const current = () => read7(() => manager.GetServerTaskDataByTaskID(id));
+      const initial = current();
+      const before = Number(read7(() => initial?.completeTimes));
       if (!Number.isSafeInteger(before) || before < 0) continue;
+      const refineQuest = read7(() => isRefineQuest(initial)) === true;
       const nativeSingle = (value) => value?.IsNewQusetType === true && Number(value.baseVo?.maxComplete ?? value.baseVo?._maxComplete) === 1 && Number(value.completeTimes) === 0 && value.CanRewardCount === 0;
-      const safe = () => read6(() => {
+      const safe = () => read7(() => {
         const value = current(), available = Number(value?.CanRewardCount);
         if (!live2() || !value || value.HasServerData !== true || value.IsFromServer === false || !Number.isSafeInteger(available) || available < 1 && !nativeSingle(value)) return false;
+        if (refineQuest) {
+          const progress = value.condition_data;
+          return isRefineQuest(value) && available > 0 && Array.isArray(progress) && progress.length > 0 && refineClaimProgress.get(value) !== progress && !taskSkipReason2(value, { allowRepeat: true });
+        }
         const reason = taskSkipReason2(value);
         if (!reason) return true;
         if (reason !== "\\u591A\\u6B21\\u5956\\u52B1\\u9700\\u624B\\u52A8\\u5904\\u7406") return false;
         const originalConditions = value.TaskConditions || value.taskConditions;
         const conditions = rows4(originalConditions, 64);
-        const allowed = /* @__PURE__ */ new Set([...passiveConditions, 60, 61]);
-        if (!Array.isArray(originalConditions) || originalConditions.length > 64 || !conditions.length || !conditions.every((condition) => allowed.has(Number(condition?.reqType ?? condition?._reqType)))) return false;
-        const base = Object.create(value.baseVo);
-        Object.defineProperties(base, { maxComplete: { value: 1 }, _maxComplete: { value: 1 } });
-        const single = Object.create(value);
-        Object.defineProperties(single, { baseVo: { value: base }, CanRewardCount: { value: 1 }, CanAward: { value: value.CanAward }, HasAward: { value: value.HasAward }, TaskCompeleMax: { value: value.TaskCompeleMax } });
-        return !taskSkipReason2(single);
+        if (!Array.isArray(originalConditions) || originalConditions.length > 64 || !conditions.length || !conditions.every((condition) => repeatableConditions.has(conditionType(condition)))) return false;
+        return !taskSkipReason2(value, { allowRepeat: true });
       }) === true;
       if (!safe()) continue;
-      const eligible = () => read6(() => {
+      const eligible = () => read7(() => {
         if (!safe() || Number(current()?.completeTimes) !== before) return false;
         const prev = Number(current()?.baseVo?.prevTask);
         return !prev || manager.GetServerTaskDataByTaskID(prev)?.HasAward === true || adapter.manager("TaskManager")?.GetServerTaskDataByTaskID(prev)?.HasAward === true;
       }) === true;
-      const proxy = read6(() => adapter.proxy?.());
+      const proxy = read7(() => adapter.proxy?.());
       const matches = (event) => {
         const packet = event?.Protocol?.Data?.ProtoObj;
         return packet && Number(packet.quest_id) === id && packet.op_type === 1 ? packet : null;
       };
-      const name = read6(() => current()?.baseVo?.name ?? current()?.baseVo?._name);
+      const name = read7(() => current()?.baseVo?.name ?? current()?.baseVo?._name);
       actions.push({
         key: \`quest:\${id}:\${before}\`,
         category: "tasks",
@@ -16568,8 +18112,16 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
         manager,
         rewards: () => current()?.baseVo?.TaskRewardItem ?? current()?.baseVo?.taskRewardItem ?? current()?.TaskRewardItem,
         eligible,
-        done: () => live2() && read6(() => current()?.HasAward === true || Number(current()?.completeTimes) > before) === true,
-        send: () => eligible() ? request(id, 0, nativeSingle(current()) ? 0 : 1) : false,
+        done: () => live2() && read7(() => current()?.HasAward === true || Number(current()?.completeTimes) > before) === true,
+        send: () => {
+          if (!eligible()) return false;
+          const value = current();
+          if (refineQuest) {
+            refineClaimProgress.set(value, value.condition_data);
+            return request(id, 0, value.baseVo.CanOneReceive ? 1 : 0);
+          }
+          return request(id, 0, nativeSingle(value) ? 0 : 1);
+        },
         confirmations: proxy ? [{ manager: proxy, event: "decodeUserQuestOpRep", accept: (event) => matches(event)?.result === 0 }] : [],
         rejections: proxy ? [{ manager: proxy, event: "decodeUserQuestOpRep", accept: (event) => {
           const result = matches(event)?.result;
@@ -16581,7 +18133,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   }
 
   // src/plugins/daily-rewards/free-flip.js
-  var read7 = (fn) => {
+  var read8 = (fn) => {
     try {
       return fn();
     } catch {
@@ -16595,17 +18147,17 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   function planFreeFlip(adapter, selected = {}) {
     const actions = [], notes = [];
     if (!selected.activities || !selected.autoFlip) return { actions, notes };
-    const manager = read7(() => adapter.manager("ActivityManager")), bless = read7(() => adapter.manager("BlessManager"));
-    const info = read7(() => manager.TreasureInfoVo), cards = read7(() => manager.TreasureCardVos);
+    const manager = read8(() => adapter.manager("ActivityManager")), bless = read8(() => adapter.manager("BlessManager"));
+    const info = read8(() => manager.TreasureInfoVo), cards = read8(() => manager.TreasureCardVos);
     if (!manager || typeof manager.SendOpenTreasureCard !== "function" || !info || !cardsValid(cards)) return { actions, notes };
     const session = Number(info.SessionId), freeTime = Number(info.Time_Next_Free);
     const baseline = cards.map((card) => card.Card), index = baseline.findIndex((card) => card === 0);
     if (!Number.isSafeInteger(session) || session <= 0 || !Number.isSafeInteger(freeTime) || freeTime <= 0 || index < 0 || !baseline.some((card) => card > 0)) return { actions, notes };
     const eligible = () => {
-      const current = read7(() => manager.TreasureCardVos), state = read7(() => manager.TreasureInfoVo);
+      const current = read8(() => manager.TreasureCardVos), state = read8(() => manager.TreasureInfoVo);
       return !adapter.signal?.aborted && adapter.valid?.() !== false && manager.destroyed !== true && adapter.manager("ActivityManager") === manager && bless?.FreeBlessItemEnough === true && manager.TreasureNewCardFreeCard === true && state?.IsCanFreeOpen === true && Number(state.SessionId) === session && Number(state.Time_Next_Free) === freeTime && cardsValid(current) && current.every((card, i) => card.Card === baseline[i]);
     };
-    if (read7(eligible) !== true) return { actions, notes };
+    if (read8(eligible) !== true) return { actions, notes };
     const changedCard = (values) => cardsValid(values) && values[index].Card > 0 && values.every((card, i) => i === index || card.Card === baseline[i]);
     const proxy = adapter.proxy?.();
     actions.push({
@@ -16617,7 +18169,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
       exclusionMode: "free-draw",
       eligible,
       done: () => Number(manager.TreasureInfoVo?.SessionId) === session && changedCard(manager.TreasureCardVos),
-      send: () => read7(eligible) === true ? manager.SendOpenTreasureCard(session, 0, 1, index) : false,
+      send: () => read8(eligible) === true ? manager.SendOpenTreasureCard(session, 0, 1, index) : false,
       confirmations: proxy ? [{ manager: proxy, event: "ClientTreasureNTF", accept: (event) => {
         const p = event?.Protocol;
         return p?.Result === 0 && p?.OPType === 12 && Number(p?.SeaonId) === session && changedCard(p?.CardItems);
@@ -16631,7 +18183,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   }
 
   // src/plugins/daily-rewards/daily-free-gift.js
-  var read8 = (fn) => {
+  var read9 = (fn) => {
     try {
       return fn();
     } catch {
@@ -16647,15 +18199,15 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     return [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds()].every((v, i) => v === n[i]) ? d.getTime() : NaN;
   }
   function configuredDailyFreeGift(adapter, shop) {
-    const goods = read8(() => adapter.goods?.(DAILY_FREE_GIFT_ID));
+    const goods = read9(() => adapter.goods?.(DAILY_FREE_GIFT_ID));
     if (!goods || goods.name !== "\\u514D\\u8D39\\u793C\\u76D2" || Number(goods.pricetype) !== 140 || goods.maxBuyCount !== "1;1" || Number(goods.TypeID) !== 43 || goods.maxBuyNum !== void 0 || goods.SellTime || goods.selltime || !["yuanbao", "tongqian", "lotteryPrice", "glory", "gouyu", "mentor", "Bless", "exchangeCount", "ConsumeItemCount"].every((k) => goods[k] === void 0 || Number(goods[k]) === 0)) return [];
     const nativePricesZero = () => [1, 2].every((type) => {
-      const price = read8(() => shop.GetItemPrice(DAILY_FREE_GIFT_ID, type));
+      const price = read9(() => shop.GetItemPrice(DAILY_FREE_GIFT_ID, type));
       return Array.isArray(price) && price.length === 2 && price[0] === type && price[1] === 0;
     });
-    const now = () => read8(() => adapter.manager("TimerManager").ServerDate.getTime());
+    const now = () => read9(() => adapter.manager("TimerManager").ServerDate.getTime());
     const expiry = goods.expirytime ? timestamp(goods.expirytime) : Infinity;
-    const sales = read8(() => adapter.config?.("sys_h5_shop.sgs")?.root?.discount_shop);
+    const sales = read9(() => adapter.config?.("sys_h5_shop.sgs")?.root?.discount_shop);
     if (!Array.isArray(sales)) return [];
     return sales.slice(0, 4096).filter((sale) => Number(sale?.item_id) === DAILY_FREE_GIFT_ID && Number.isSafeInteger(Number(sale.id)) && Number(sale.id) > 0 && Object.keys(sale).every((k) => saleFields.has(k))).map((sale) => {
       const begin = timestamp(sale.time1), end = timestamp(sale.time2);
@@ -16672,33 +18224,6 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     }).filter((item2) => item2.IsInSellTime());
   }
 
-  // src/plugins/daily-rewards/native-method.js
-  var read9 = (fn) => {
-    try {
-      return fn();
-    } catch {
-      return void 0;
-    }
-  };
-  function nativeMethod(object, name, signatures = []) {
-    if (name && typeof read9(() => object[name]) === "function") return (...args) => object[name](...args);
-    if (!object || !signatures.length) return null;
-    const found = /* @__PURE__ */ new Set();
-    for (const owner of [object, read9(() => Object.getPrototypeOf(object))]) {
-      if (!owner) continue;
-      for (const key of Object.getOwnPropertyNames(owner).slice(0, 512)) {
-        if (key === "constructor") continue;
-        const fn = Object.getOwnPropertyDescriptor(owner, key)?.value;
-        if (typeof fn !== "function") continue;
-        const text = Function.prototype.toString.call(fn);
-        if (text.length <= 24e3 && signatures.every((signature) => text.includes(signature))) found.add(fn);
-      }
-    }
-    if (found.size !== 1) return null;
-    const [method2] = found;
-    return (...args) => Reflect.apply(method2, object, args);
-  }
-
   // src/plugins/daily-rewards/free-welfare.js
   var read10 = (fn) => {
     try {
@@ -16710,7 +18235,6 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   var positive4 = (value) => Number.isSafeInteger(Number(value)) && Number(value) > 0;
   var valid2 = (adapter) => !adapter.signal?.aborted && adapter.valid?.() !== false;
   var flag = (owner, name) => read10(() => typeof owner?.[name] === "function" ? owner[name]() : owner?.[name]) === true;
-  var purchaseSender = (proxy) => nativeMethod(proxy, null, [".OldProtocalToPb()", ".addProtocolToCacheList(", ".CACHE_TYPE_SEND"]);
   var managerSpecs6 = {
     Shop_json: { events: [], guard: (value) => typeof value.GetTargetSaleConfigs === "function" && typeof value.GetTargetSaleGoods === "function" },
     BlessManager: { events: ["ClientQifuRankRep", "ClientUserDataCounterNtf", 21471], guard: (value) => "CanFreeBless" in value && "FreeBlessEndTime" in value },
@@ -17051,12 +18575,15 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     ctx.scope?.add(() => leases.clear());
     function prepare(activity) {
       const dispatcher = ctx.game.getDispatcher?.();
-      if (dispatcher && typeof dispatcher._ === "function" && !dispatchers.has(dispatcher)) {
+      if (typeof dispatcher?.event === "function" && !dispatchers.has(dispatcher)) {
         dispatchers.add(dispatcher);
-        ctx.scope.patch(dispatcher, "_", (original) => function(name, ...args) {
-          const type = Number(args[2]), lease = leases.get(type);
-          if (name === "OldbackOneClickDrawAwdWin" && args[1] === true && lease && !ctx.scope.signal.aborted && lease.owner === account() && now() < lease.until) return;
-          return Reflect.apply(original, this, [name, ...args]);
+        ctx.scope.patch(dispatcher, "event", (original) => function(...args) {
+          const [event, data] = args;
+          if (event === "OPEN_WINDOW" && data?.WindowName === "OldbackOneClickDrawAwdWin" && data.Data?.[1] === true) {
+            const lease = leases.get(Number(data.Data[2]));
+            if (lease && !ctx.scope.signal.aborted && lease.owner === account() && now() < lease.until) return false;
+          }
+          return Reflect.apply(original, this, args);
         });
       }
       if (activity && !managers.has(activity)) {
@@ -17501,7 +19028,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     const base = task?.baseVo, name = base?.name || base?.Name || base?._name;
     return typeof name === "string" && name.trim() ? \`\${name.trim().slice(0, 120)}\\uFF08\\u4EFB\\u52A1 \${id}\\uFF09\` : \`\\u4EFB\\u52A1 \${id}\`;
   };
-  function taskSkipReason(task, { allowSelection = false } = {}) {
+  function taskSkipReason(task, { allowSelection = false, allowRepeat = false } = {}) {
     const base = task?.baseVo;
     if (!base || task.CanAward !== true || task.HasAward === true) return "\\u5C1A\\u4E0D\\u53EF\\u9886\\u53D6";
     if (task.HasExpired === true || task.hasExpired === true || base.IsEffectServerTimeStart === false || base.EffectClientTime === false) return "\\u5DF2\\u8FC7\\u671F\\u6216\\u5C1A\\u672A\\u5F00\\u59CB";
@@ -17513,7 +19040,7 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     const conditions = rows3(task.TaskConditions || task.taskConditions, 64);
     const claimDescription = description.replace(/\u7D2F\u8BA1\u6D88\u8017\\s*\\d+\\s*\u94F6\u4E24/g, "");
     if (/\u5151\u6362|\u5151\u53D6|\u6362\u53D6|\u6D88\u8017|\u6263\u9664|\u5408\u6210|\u76F2\u76D2/.test(claimDescription) || conditions.some((item2) => Number(item2?.reqType ?? item2?._reqType) === 30)) return "\\u5151\\u6362\\u6216\\u6D88\\u8017\\u4EFB\\u52A1";
-    if (Number(task.CanRewardCount) > 1 || Number(base.maxComplete ?? base._maxComplete) > 1) return "\\u591A\\u6B21\\u5956\\u52B1\\u9700\\u624B\\u52A8\\u5904\\u7406";
+    if (!allowRepeat && (Number(task.CanRewardCount) > 1 || Number(base.maxComplete ?? base._maxComplete) > 1)) return "\\u591A\\u6B21\\u5956\\u52B1\\u9700\\u624B\\u52A8\\u5904\\u7406";
     if (task.TaskCompeleMax === true) return "\\u4EFB\\u52A1\\u6B21\\u6570\\u5DF2\\u6EE1";
     if ([97, 98, 126, 127, 161114, 161115, 161116].includes(idOf2(task))) return "\\u7279\\u6B8A\\u4EFB\\u52A1\\u9700\\u624B\\u52A8\\u5904\\u7406";
     return "";
@@ -18664,10 +20191,10 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
     manifest: {
       id: "daily-rewards",
       name: "\\u65E5\\u5E38\\u9886\\u5956",
-      version: "0.7.38",
+      version: "0.7.41",
       apiVersion: 1,
       contractVersion: 1,
-      releaseNotes: "\\u8C03\\u6574\\u6D3B\\u52A8\\u5956\\u52B1\\u9886\\u53D6\\uFF0C\\u907F\\u514D\\u53D1\\u9001\\u591A\\u4F59\\u7684\\u9886\\u53D6\\u8BF7\\u6C42\\u3002\\u81EA\\u52A8\\u9886\\u53D6\\u4ECD\\u9ED8\\u8BA4\\u5173\\u95ED\\uFF0C\\u5151\\u6362\\u53EF\\u80FD\\u6D88\\u8017\\u6B22\\u4E50\\u8C46\\uFF1B\\u5171\\u4EAB\\u5151\\u6362\\u7801\\u9700\\u5355\\u72EC\\u5F00\\u542F\\uFF0C\\u53EA\\u4E0A\\u4F20\\u6E38\\u620F\\u660E\\u786E\\u6210\\u529F\\u7684\\u7801\\u53CA\\u8D26\\u53F7\\u6458\\u8981\\u3002",
+      releaseNotes: "\\u4FEE\\u590D\\u90E8\\u5206\\u4EFB\\u52A1\\u3001\\u514D\\u8D39\\u798F\\u5229\\u548C\\u8282\\u94BA\\u4EE4\\u5956\\u52B1\\u7684\\u72B6\\u6001\\u8BC6\\u522B\\u4E0E\\u9886\\u53D6\\uFF0C\\u8865\\u5145\\u672A\\u9886\\u53D6\\u9879\\u76EE\\u7684\\u6838\\u5BF9\\u63D0\\u793A\\u3002\\u81EA\\u52A8\\u9886\\u53D6\\u9ED8\\u8BA4\\u5173\\u95ED\\uFF0C\\u5151\\u6362\\u53EF\\u80FD\\u6D88\\u8017\\u6B22\\u4E50\\u8C46\\uFF0C\\u5171\\u4EAB\\u5151\\u6362\\u7801\\u4ECD\\u9700\\u5355\\u72EC\\u5F00\\u542F\\u3002",
       minCoreVersion: "0.6.38",
       categories: ["automation"],
       icon: PLUGIN_ICONS["daily-rewards"],
@@ -18833,8 +20360,8 @@ return {...SGSPlugin.default, manifest:{"id":"play-assist","name":"\u51FA\u724C\
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E38\u9886\u5956","version":"0.7.38","apiVersion":1,"contractVersion":1,"releaseNotes":"\u8C03\u6574\u6D3B\u52A8\u5956\u52B1\u9886\u53D6\uFF0C\u907F\u514D\u53D1\u9001\u591A\u4F59\u7684\u9886\u53D6\u8BF7\u6C42\u3002\u81EA\u52A8\u9886\u53D6\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF1B\u5171\u4EAB\u5151\u6362\u7801\u9700\u5355\u72EC\u5F00\u542F\uFF0C\u53EA\u4E0A\u4F20\u6E38\u620F\u660E\u786E\u6210\u529F\u7684\u7801\u53CA\u8D26\u53F7\u6458\u8981\u3002","minCoreVersion":"0.6.38","categories":["automation"],"icon":{"paths":["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13","M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"]},"priority":20000,"description":"\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55"}};
-`, sha256: "4a03af7f4f390d053f91df829ab4428a04549bac1fe6a39211a47005cdc57cbc" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "seckill", name: "\u81EA\u52A8\u79D2\u6740", version: "0.1.3", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u81EA\u52A8\u8D2D\u4E70\u754C\u9762\uFF0C\u7EDF\u4E00\u5546\u54C1\u9009\u62E9\u4E0E\u5F00\u5173\u5916\u89C2\uFF1B\u81EA\u52A8\u8D2D\u4E70\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5F00\u542F\u540E\u4F1A\u6D88\u8017\u5BF9\u5E94\u6E38\u620F\u8D27\u5E01\uFF0C\u7ED3\u679C\u672A\u786E\u8BA4\u65F6\u4ECD\u4FDD\u7559\u6838\u5BF9\u72B6\u6001\u3002", minCoreVersion: "0.6.37", description: "\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4", icon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E38\u9886\u5956","version":"0.7.41","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4FEE\u590D\u90E8\u5206\u4EFB\u52A1\u3001\u514D\u8D39\u798F\u5229\u548C\u8282\u94BA\u4EE4\u5956\u52B1\u7684\u72B6\u6001\u8BC6\u522B\u4E0E\u9886\u53D6\uFF0C\u8865\u5145\u672A\u9886\u53D6\u9879\u76EE\u7684\u6838\u5BF9\u63D0\u793A\u3002\u81EA\u52A8\u9886\u53D6\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5151\u6362\u53EF\u80FD\u6D88\u8017\u6B22\u4E50\u8C46\uFF0C\u5171\u4EAB\u5151\u6362\u7801\u4ECD\u9700\u5355\u72EC\u5F00\u542F\u3002","minCoreVersion":"0.6.38","categories":["automation"],"icon":{"paths":["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13","M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"]},"priority":20000,"description":"\u81EA\u52A8\u9886\u53D6\u7B7E\u5230\u3001\u4EFB\u52A1\u3001\u90AE\u4EF6\u4E0E\u6D3B\u52A8\u5956\u52B1\uFF0C\u6309\u8D26\u53F7\u8BB0\u5F55"}};
+`, sha256: "db9050d852bd9d4a4a86d121f7c14a6203bf795ea3a37240a2a4d52cb0ab349a" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "seckill", name: "\u81EA\u52A8\u79D2\u6740", version: "0.1.4", apiVersion: 1, contractVersion: 1, releaseNotes: "\u9002\u914D\u65B0\u7248\u5DE5\u5177\u7BB1\u754C\u9762\u8D44\u6E90\u3002\u81EA\u52A8\u8D2D\u4E70\u9ED8\u8BA4\u5173\u95ED\uFF0C\u542F\u7528\u4F1A\u6D88\u8017\u5BF9\u5E94\u6E38\u620F\u8D27\u5E01\u3002", minCoreVersion: "0.6.37", description: "\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4", icon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -18870,6 +20397,10 @@ return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E3
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -19448,10 +20979,10 @@ return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E3
     manifest: {
       id: "seckill",
       name: "\\u81EA\\u52A8\\u79D2\\u6740",
-      version: "0.1.3",
+      version: "0.1.4",
       apiVersion: 1,
       contractVersion: 1,
-      releaseNotes: "\\u7CBE\\u7B80\\u81EA\\u52A8\\u8D2D\\u4E70\\u754C\\u9762\\uFF0C\\u7EDF\\u4E00\\u5546\\u54C1\\u9009\\u62E9\\u4E0E\\u5F00\\u5173\\u5916\\u89C2\\uFF1B\\u81EA\\u52A8\\u8D2D\\u4E70\\u4ECD\\u9ED8\\u8BA4\\u5173\\u95ED\\uFF0C\\u5F00\\u542F\\u540E\\u4F1A\\u6D88\\u8017\\u5BF9\\u5E94\\u6E38\\u620F\\u8D27\\u5E01\\uFF0C\\u7ED3\\u679C\\u672A\\u786E\\u8BA4\\u65F6\\u4ECD\\u4FDD\\u7559\\u6838\\u5BF9\\u72B6\\u6001\\u3002",
+      releaseNotes: "\\u9002\\u914D\\u65B0\\u7248\\u5DE5\\u5177\\u7BB1\\u754C\\u9762\\u8D44\\u6E90\\u3002\\u81EA\\u52A8\\u8D2D\\u4E70\\u9ED8\\u8BA4\\u5173\\u95ED\\uFF0C\\u542F\\u7528\\u4F1A\\u6D88\\u8017\\u5BF9\\u5E94\\u6E38\\u620F\\u8D27\\u5E01\\u3002",
       minCoreVersion: "0.6.37",
       description: "\\u6309\\u6240\\u9009\\u7269\\u54C1\\u4E0E\\u5173\\u952E\\u8BCD\\u81EA\\u52A8\\u62A2\\u8D2D\\u79D2\\u6740\\u5546\\u54C1\\uFF0C\\u652F\\u6301\\u8DE8\\u573A\\u6B21\\u6392\\u961F\\u4E0E\\u8D2D\\u4E70\\u786E\\u8BA4",
       icon: PLUGIN_ICONS["seckill"],
@@ -19627,8 +21158,8 @@ return {...SGSPlugin.default, manifest:{"id":"daily-rewards","name":"\u65E5\u5E3
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D2\u6740","version":"0.1.3","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7CBE\u7B80\u81EA\u52A8\u8D2D\u4E70\u754C\u9762\uFF0C\u7EDF\u4E00\u5546\u54C1\u9009\u62E9\u4E0E\u5F00\u5173\u5916\u89C2\uFF1B\u81EA\u52A8\u8D2D\u4E70\u4ECD\u9ED8\u8BA4\u5173\u95ED\uFF0C\u5F00\u542F\u540E\u4F1A\u6D88\u8017\u5BF9\u5E94\u6E38\u620F\u8D27\u5E01\uFF0C\u7ED3\u679C\u672A\u786E\u8BA4\u65F6\u4ECD\u4FDD\u7559\u6838\u5BF9\u72B6\u6001\u3002","minCoreVersion":"0.6.37","description":"\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4","icon":{"paths":["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2","M13 10 9 15h3l-1 4 5-6h-4Z"]},"priority":21000,"categories":["automation"]}};
-`, sha256: "d1b63c66d392854b0636f4a9179798654418d82329560fbd2da4597fbeae5057" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "gaizhu", name: "\u76D6\u4E3B\u901F\u5237", version: "0.1.18", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u53CD\u8D3C\u623F\u4E3B\u5355\u4EBA\u767E\u80DC\u548C\u5355\u9A91\u4EBA\u673A\u8BAD\u7EC3\uFF0C\u4F18\u5148\u4F7F\u7528\u5C0F\u6740\u52A9\u624B\u63D0\u793A\uFF0C\u5E76\u63D0\u4F9B\u53D6\u6D88\u65E0\u61C8\u9009\u9879\u3002\u9700\u624B\u52A8\u5F00\u59CB\uFF1B\u70B9\u5C06\u53EF\u80FD\u6D88\u8017\u9053\u5177\uFF0C\u5355\u9A91\u8BAD\u7EC3\u81EA\u52A8\u9009\u8D2D\u53EF\u80FD\u6D88\u8017\u5C40\u5185\u8D27\u5E01\u3002", minCoreVersion: "0.6.37", dependencies: ["baisheng"], description: "\u652F\u6301\u76D6\u4E3B\u901F\u5237\u3001\u53CD\u8D3C\u623F\u4E3B\u5355\u4EBA\u767E\u80DC\u548C\u5355\u9A91\u4EBA\u673A\u8BAD\u7EC3\uFF1B\u5355\u4EBA\u5BF9\u5C40\u4F18\u5148\u63A5\u53D7\u5C0F\u6740\u52A9\u624B\u63D0\u793A\uFF0C\u8D85\u65F6\u672C\u5730\u5904\u7406\u4E0E\u6258\u7BA1\u515C\u5E95\u3002", icon: { paths: ["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0", "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3", "M2 21h6"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D2\u6740","version":"0.1.4","apiVersion":1,"contractVersion":1,"releaseNotes":"\u9002\u914D\u65B0\u7248\u5DE5\u5177\u7BB1\u754C\u9762\u8D44\u6E90\u3002\u81EA\u52A8\u8D2D\u4E70\u9ED8\u8BA4\u5173\u95ED\uFF0C\u542F\u7528\u4F1A\u6D88\u8017\u5BF9\u5E94\u6E38\u620F\u8D27\u5E01\u3002","minCoreVersion":"0.6.37","description":"\u6309\u6240\u9009\u7269\u54C1\u4E0E\u5173\u952E\u8BCD\u81EA\u52A8\u62A2\u8D2D\u79D2\u6740\u5546\u54C1\uFF0C\u652F\u6301\u8DE8\u573A\u6B21\u6392\u961F\u4E0E\u8D2D\u4E70\u786E\u8BA4","icon":{"paths":["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2","M13 10 9 15h3l-1 4 5-6h-4Z"]},"priority":21000,"categories":["automation"]}};
+`, sha256: "0ee4c13b451765bf5900bb57df7dd89dd3a4fd67da585d8753bb463e852c12bf" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "gaizhu", name: "\u76D6\u4E3B\u901F\u5237", version: "0.2.7", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u5927\u5385\u5EFA\u623F\u548C\u8EAB\u4EFD\u3001\u56FD\u6218\u3001\u5355\u9A91\u81EA\u52A8\u6302\u673A\uFF0C\u53EF\u5B9A\u65F6\u6216\u5728\u9152\u9986\u4E09\u9879\u5956\u52B1\u9886\u9F50\u540E\u505C\u673A\u3002\u9996\u6B21\u76D6\u4E3B\u5F00\u5C40\u9700\u786E\u8BA4\u540C\u4F34\uFF0C\u5355\u4EBA\u8865\u5C0F\u6740\u5931\u8D25\u4F1A\u5C1D\u8BD5\u91CD\u8865\u3002\u70B9\u5C06\u548C\u90E8\u5206\u5546\u5E97\u64CD\u4F5C\u53EF\u80FD\u6D88\u8017\u9053\u5177\u6216\u5C40\u5185\u8D27\u5E01\u3002", minCoreVersion: "0.6.37", dependencies: ["baisheng"], description: "\u53CC\u4EBA\u76D6\u4E3B\u901F\u5237\uFF0C\u4EE5\u53CA\u8EAB\u4EFD\u3001\u56FD\u6218\u3001\u5355\u9A91\u81EA\u52A8\u6302\u673A\u3002", icon: { paths: ["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0", "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3", "M2 21h6"] }, priority: 21e3, categories: ["automation"] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -19666,6 +21197,10 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -19842,8 +21377,20 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
   var number = (value) => typeof value === "number" || typeof value === "string" && value.trim() ? Number(value) : NaN;
   var positiveId = (value) => Number.isSafeInteger(value) && value > 0;
   var count = (value) => Number.isFinite(value) && value >= 0 ? value : 0;
+  var AUTO_MODES = Object.freeze(["identity", "nation", "training"]);
+  var STOP_MODES = Object.freeze(["manual", "tavern", "timed"]);
+  function durationOf(hours) {
+    const duration = Math.ceil(number(hours) * 36e5);
+    return Number.isSafeInteger(duration) && duration > 0 ? duration : 0;
+  }
   function cleanOptions(value = {}) {
-    return { pick: ["off", "random", "order"].includes(value?.pick) ? value.pick : "off", wait: value?.wait === true, cancelWuxie: value?.cancelWuxie !== false };
+    return {
+      pick: ["off", "random", "order"].includes(value?.pick) ? value.pick : "off",
+      wait: value?.wait === true,
+      autoMode: AUTO_MODES.includes(value?.autoMode) ? value.autoMode : "identity",
+      stopMode: STOP_MODES.includes(value?.stopMode) ? value.stopMode : "manual",
+      stopHours: durationOf(value?.stopHours) ? number(value.stopHours) : 1
+    };
   }
   function definitions(config) {
     const source = config?.AchievementAll?.Achievement;
@@ -19966,6 +21513,14 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     );
     return false;
   }
+  function closeGameResult(matching, processed) {
+    const win = matching(/^GameMvpWindow$/)[0] || matching(/^GameResultWindow$/)[0];
+    const result = win?.gameResult;
+    if (!result || typeof result !== "object" || processed.get(win) === result || typeof win.laterClose !== "function" || win.loading || win.isClosing || win.closeing) return false;
+    processed.set(win, result);
+    win.laterClose();
+    return true;
+  }
   function clickSkill(node) {
     if (!shown(node) || read(() => node.disabled) === true || read(() => node.enabled) === false || read(() => node._enabled) === false || !read(() => node.activated) || read(() => node.Selected)) return false;
     if (typeof node.onMouse === "function") node.onMouse({ type: "click" });
@@ -19994,6 +21549,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     let nodes = [], scene = null;
     let windowNames = /* @__PURE__ */ new Map();
     let displayed = /* @__PURE__ */ new Set();
+    const processedResults = /* @__PURE__ */ new WeakMap();
     function frame() {
       scene = ctx.game.getScene();
       nodes = walkNative([scene, read(() => ctx.window.Laya.stage)]);
@@ -20158,9 +21714,13 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         } : null
       };
     }
-    function continueResult() {
-      const text = nodes.find((n) => usable(n) && /\u70B9\u51FB.*(?:\u7A7A\u767D|\u7EE7\u7EED)|\u70B9\u51FB\u4EFB\u610F|\u4EFB\u610F.*\u7EE7\u7EED/.test(label(n)));
+    function continueResult({ allowCanvas = true } = {}) {
+      if (closeGameResult(matching, processedResults)) return true;
+      if (!allowCanvas && matching(/^Game(Mvp|Result)Window$/).length) return false;
+      const caption = allowCanvas ? /\u70B9\u51FB.*(?:\u7A7A\u767D|\u7EE7\u7EED)|\u70B9\u51FB\u4EFB\u610F|\u4EFB\u610F.*\u7EE7\u7EED/ : /^\u70B9\u51FB(?:(?:\u7A7A\u767D|\u4EFB\u610F)[^\u3002]{0,8})?\u7EE7\u7EED[\u3002\u2026]*$/;
+      const text = nodes.find((n) => mounted(n) && usable(n) && caption.test(label(n)));
       for (let node = text, i = 0; node && i < 6; node = node.parent, i++) if (press(node)) return true;
+      if (!allowCanvas) return false;
       const canvas = read(() => ctx.document.querySelector("#layaCanvas")) || read(() => ctx.document.querySelector("canvas"));
       const rect = read(() => canvas.getBoundingClientRect());
       if (!canvas || !rect || rect.width <= 0 || rect.height <= 0 || !ctx.window.MouseEvent) return false;
@@ -20241,7 +21801,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
   // src/plugins/gaizhu/battle-guards.js
   var list3 = (v) => Array.isArray(v) ? v : [];
   var enabled = (v) => usable(v) && (v._enabled ?? v.enabled) === true;
-  var chosen = (v) => Boolean(v?.selected || v?.Card?.Selected);
+  var chosen = (v) => Boolean(v?.selected || v?.Selected || v?.Card?.Selected);
   var cardId = (v) => v?.Card?.CardId;
   var skillId = (v) => Number(v?.Skill?.SkillId ?? v?.Skill?.ID);
   var legal = (v) => usable(v) && (v.activated ?? v.Activated ?? v.Skill?.Activated) === true;
@@ -20250,10 +21810,10 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     const targets = list3(trigger?.Targets);
     return {
       trigger: Number(trigger?.SpellId),
-      source: Number(trigger?.SeatId),
+      source: Number(trigger?.SeatId ?? NaN),
       spell: Number(field(packet, "SrcSpellID")),
-      targets: targets.length <= 16 ? targets.map(Number) : [],
-      count: Number(trigger?.Datas?.[0]),
+      targets: targets.length <= 16 ? targets.map((target) => Number(target ?? NaN)) : [],
+      count: Number(trigger?.Datas?.[0] ?? NaN),
       single: Number(read(() => field(packet, "SrcSpell").TargetCountMax)) === 1,
       seat: Number(field(packet, "SeatID")),
       effect: Number(field(packet, "EffectIndex")),
@@ -20282,13 +21842,15 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     }
     function allowsNullification(self) {
       const d = nullification, mine = Number(self.seat?.Index ?? self.seat?.index);
-      if (!d || !Number.isInteger(mine) || !Number.isInteger(d.source) || d.source < 0 || d.source >= 255 || !Number.isInteger(d.count) || d.count < 0 || d.targets.length !== 1) return false;
+      if (!d || !Number.isInteger(mine) || !Number.isInteger(d.count) || d.count < 0 || d.targets.length !== 1) return false;
       const even = d.count % 2 === 0, target = d.targets[0];
       if (!Number.isInteger(target) || target < 0 || target >= 255) return false;
-      return even && target === mine && [15, 84].includes(d.spell) || even && d.single && d.source !== mine && target === mine || !even && d.single && d.source === mine;
+      if (even && target === mine && [4, 15, 84].includes(d.spell)) return true;
+      if (!d.single || !Number.isInteger(d.source) || d.source < 0 || d.source >= 255) return false;
+      return even ? target === mine && d.source !== mine : d.source === mine;
     }
-    function run(frame, { cancelWuxie = true, official = false } = {}) {
-      const self = frame.self, container = self?.cardContainer, context = container?.selectCardContext;
+    function run(frame, { official = false } = {}) {
+      const self = frame.self, container = self?.cardContainer, context = container?.selectCardContext ?? container?.SelectContext;
       if (!self) return null;
       const bar = selfButtonBar(self), selector = usable(self.spellSelector) ? self.spellSelector : null;
       const buttons = usable(bar) ? list3(bar.btns) : [];
@@ -20309,9 +21871,23 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       };
       const ids = [Number(context?.SpecifySkillId), skillId(context), Number(selector?.spell?.SkillId)];
       if (ids.includes(13)) {
-        if (cancelWuxie || !official && !allowsNullification(self)) return { acted: cancel(), reason: "\\u5DF2\\u62E6\\u622A\\u975E\\u5FC5\\u8981\\u65E0\\u61C8\\u8BE2\\u95EE" };
         if (official) return { officialOnly: true, reason: "\\u6309\\u5C0F\\u6740\\u52A9\\u624B\\u5904\\u7406\\u65E0\\u61C8\\u8BE2\\u95EE" };
-        return null;
+        if (!allowsNullification(self)) {
+          const acted = cancel();
+          return { acted, reason: acted ? "\\u5DF2\\u62E6\\u622A\\u975E\\u5FC5\\u8981\\u65E0\\u61C8\\u8BE2\\u95EE" : "\\u7B49\\u5F85\\u65E0\\u61C8\\u53D6\\u6D88\\u6309\\u94AE" };
+        }
+        return { playWuxie() {
+          const cards = list3(container?.cardUis);
+          const hand = list3(container?.activatedCardtems);
+          const isWuxie = (ui) => Number(ui?.Card?.FirstSkillId ?? ui?.Card?.FirstSkill?.ID) === 13;
+          const selectedCard = [.../* @__PURE__ */ new Set([...cards, ...hand])].find(chosen);
+          if (selectedCard) return isWuxie(selectedCard) && ok();
+          const card = [...hand, ...cards].find((ui) => isWuxie(ui) && legal(ui));
+          if (typeof card?.CardUI_Click === "function") card.CardUI_Click(null);
+          else if (typeof card?.setSelected === "function") card.setSelected(true);
+          else return false;
+          return true;
+        } };
       }
       const jinlan = (frame.nodes || []).find((w) => usable(w) && (w.name || w.constructor?.name) === "JinLan2025Window");
       if (jinlan) {
@@ -20482,18 +22058,69 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
   // src/plugins/gaizhu/assistant.js
   var list5 = (value) => Array.isArray(value) ? value : [];
   var same = (a, b) => a != null && b != null && String(a) === String(b);
-  var selected = (ui) => Boolean(ui?.selected || ui?.Selected || ui?.Skill?.Selected || ui?.Card?.Selected || ui?.seat?.Selected);
+  var selected = (ui) => Boolean(ui?.selected || ui?.Selected || ui?.Skill?.Selected || ui?.Card?.Selected || (ui?.seat ?? ui?.Seat)?.Selected);
   var active = (ui) => usable(ui) && (ui.activated ?? ui.Activated ?? ui.Skill?.Activated) !== false;
+  var selectable = (ui) => usable(ui) && (ui.activated ?? ui.Activated) === true && !selected(ui);
+  var enabled3 = (button) => usable(button) && (button._enabled ?? button.enabled) === true;
+  var figure = (seat) => Number(seat?.Figure ?? seat?.figure);
+  var IRON_CHAIN = 85;
+  var WOODEN_OX = 700;
+  var cardChoices = (container) => [.../* @__PURE__ */ new Set([
+    ...list5(container?.activatedCardtems),
+    ...list5(container?.cardUis),
+    ...list5(container?.muniuCardUis)
+  ])];
+  var cardContext = (container) => container?.selectCardContext ?? container?.SelectContext;
+  var cardCount = (context, cards) => context?.CardSelector?.SelectedCount ?? Math.max(list5(context?.SelectedCardIds).length, cards.filter(selected).length);
+  var hostileSpells = /* @__PURE__ */ new Set([1, 4, 5, 8, 15, 83, 84]);
+  function isHostilePlay(self, container, seatContainer, cards) {
+    if (self.seat?.InOwnRound !== true) return false;
+    const context = container?.selectCardContext;
+    const skill = seatContainer?.selectContext?.Skill;
+    const card = cards.find(selected)?.Card;
+    const spell = Number(skill?.SkillId || skill?.ID || context?.SpecifySkillId || card?.FirstSkillId || card?.FirstSkill?.ID);
+    return hostileSpells.has(spell) || /^(\u6740|\u706B\u6740|\u706B\u7130\u6740|\u96F7\u6740|\u96F7\u7535\u6740|\u51B0\u6740|\u51B0\u971C\u6740)$/.test(card?.CardName ?? card?.Name ?? "");
+  }
+  function identityAttackTarget(targets, ownFigure) {
+    if (ownFigure === 3) return targets.find((ui) => figure(ui.seat ?? ui.Seat) === 1) || targets.find((ui) => figure(ui.seat ?? ui.Seat) !== 3);
+    if (ownFigure === 1 || ownFigure === 2) return targets.find((ui) => figure(ui.seat ?? ui.Seat) === 3) || targets.find((ui) => ![1, 2].includes(figure(ui.seat ?? ui.Seat)));
+    return targets[0];
+  }
   function createAssistant(config = {}) {
     const guards = createBattleGuards(config), specialWindows = createSpecialWindows(config);
     let requested = -Infinity;
-    const completed = /* @__PURE__ */ new WeakSet(), chosenPopupCards = /* @__PURE__ */ new WeakSet();
+    const completed = /* @__PURE__ */ new WeakSet(), confirmedPopupSelections = /* @__PURE__ */ new WeakSet(), chosenPopupCards = /* @__PURE__ */ new WeakMap();
+    function confirmPopup(win, official = false) {
+      const chosen2 = list5(win.selectCardUis);
+      const max = Number(win.Skill?.SelectCardCountWhenResponse || 1);
+      const min = Math.max(1, Number(win.Skill?.SelectCardCountMinResponse ?? max));
+      if (win.Skill?.SelectCardConfirmForCancel || chosen2.length < min || confirmedPopupSelections.has(chosen2) || typeof win.confirmClick !== "function" || official && !chosen2.every((ui) => chosenPopupCards.get(chosen2)?.has(ui))) return false;
+      if (win.confirm_btn ? !usable(win.confirm_btn) : chosen2.length < max) return false;
+      confirmedPopupSelections.add(chosen2);
+      win.confirmClick();
+      return true;
+    }
+    function choosePopupCard(win, card) {
+      win.onTouchCard({ target: card });
+      return selected(card) || list5(win.selectCardUis).includes(card) || !usable(win) || Boolean(win.closeing || win.isClosing);
+    }
+    function clickHintedCard(self, data, card) {
+      if (typeof card.CardUI_Click !== "function") return false;
+      const context = cardContext(self.cardContainer), targets = self.SelectSeatContext ?? self.selectSeatContext;
+      card.CardUI_Click(null);
+      return selected(card) || self.CurStepHelpData !== data || cardContext(self.cardContainer) !== context || (self.SelectSeatContext ?? self.selectSeatContext) !== targets;
+    }
+    function clickHintedSkill(self, data, skill) {
+      const context = cardContext(self.cardContainer), targets = self.SelectSeatContext ?? self.selectSeatContext;
+      return clickSkill(skill) && (selected(skill) || self.CurStepHelpData !== data || cardContext(self.cardContainer) !== context || (self.SelectSeatContext ?? self.selectSeatContext) !== targets);
+    }
     function runOfficial(frame, now) {
       const self = frame.self, data = read(() => self.CurStepHelpData);
       for (const win of frame.nodes || []) {
-        if (!usable(win)) continue;
+        if (!usable(win) || win.closeing || win.isClosing) continue;
         const name = win.name || win.constructor?.name;
         if (name !== "WuGuFengDengWindow" && name !== "SelectCardWindow") continue;
+        if (name === "SelectCardWindow" && confirmedPopupSelections.has(win.selectCardUis)) return false;
         const pool2 = name === "WuGuFengDengWindow" ? list5(win.showCardUIs) : [...list5(win.handCardUis), ...list5(win.equipCardUis), ...list5(win.judgeCardUis), ...list5(win.regionCardUis)];
         const specialCard = name === "SelectCardWindow" && Number(win.Skill?.SkillId) === 3572 ? [...list5(win.handCardUis), ...list5(win.equipCardUis)].find((ui) => usable(ui) && ui.CanBeSelected && !list5(win.selectCardUis).includes(ui)) : null;
         const hinted = specialCard || pool2.find((ui) => usable(ui) && !selected(ui) && (list5(win.aiEffectCards).includes(ui) || ui.AiHelpEffect && (!win.aiHelpEffect || ui.AiHelpEffect === win.aiHelpEffect)));
@@ -20501,16 +22128,16 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
           win.OnSelectNormalCardUi(hinted);
           return true;
         }
-        if (hinted && name === "SelectCardWindow" && hinted.CanBeSelected && typeof win.onTouchCard === "function") {
-          chosenPopupCards.add(hinted);
-          win.onTouchCard({ target: hinted });
+        if (hinted && name === "SelectCardWindow" && hinted.CanBeSelected && typeof win.onTouchCard === "function" && choosePopupCard(win, hinted)) {
+          const chosen2 = win.selectCardUis;
+          if (Array.isArray(chosen2)) {
+            const automated = chosenPopupCards.get(chosen2) || /* @__PURE__ */ new Set();
+            automated.add(hinted);
+            chosenPopupCards.set(chosen2, automated);
+          }
           return true;
         }
-        if (name === "SelectCardWindow" && list5(win.selectCardUis).length >= Number(win.Skill?.SelectCardCountWhenResponse || 1) && list5(win.selectCardUis).every((ui) => chosenPopupCards.has(ui)) && typeof win.confirmClick === "function" && !completed.has(win)) {
-          completed.add(win);
-          win.confirmClick();
-          return true;
-        }
+        if (name === "SelectCardWindow" && confirmPopup(win, true)) return true;
       }
       if (typeof data !== "object" || !data || completed.has(data)) {
         if (now - requested >= 1500 && typeof frame.scene.requestAiHelp === "function") {
@@ -20523,35 +22150,31 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       const buttons = usable(bar) ? list5(bar.btns) : [];
       const choices = usable(selector) ? list5(selector.btnList) : [];
       const target = data.target;
-      if (list5(self.skillItems).includes(target) && !selected(target)) return clickSkill(target);
+      if (list5(self.skillItems).includes(target) && !selected(target)) return clickHintedSkill(self, data, target);
       if (choices.includes(target) && usable(target) && typeof selector.btnClick === "function") {
         completed.add(data);
         selector.btnClick(target);
         return true;
       }
-      if (buttons.includes(target) && usable(target)) {
+      if (buttons.includes(target) && dispatch(bar, target)) {
         completed.add(data);
-        if (typeof bar.Button_Click === "function") bar.Button_Click(target);
-        else target.onClick();
         return true;
       }
+      const container = self.cardContainer, equipped = list5(container?.equipCardUis);
+      const equipSkill = data.skillId && equipped.find((ui) => same(ui?.Card?.FirstSkillId, data.skillId) && (ui === target || list5(data.cardUis).includes(ui)));
+      if (equipSkill && !selected(equipSkill)) return selectable(equipSkill) && clickHintedCard(self, data, equipSkill);
       const skill = list5(self.skillItems).find((ui) => same(ui.Skill?.SkillId ?? ui.Skill?.ID, data.skillId));
-      if (data.skillId && !/UseCard/i.test(data.protocol?._className_ ?? data.protocol?.className ?? "")) {
+      if (data.skillId && !equipSkill && !/UseCard/i.test(data.protocol?._className_ ?? data.protocol?.className ?? "")) {
         if (!skill || !active(skill)) return false;
-        if (!selected(skill)) return clickSkill(skill);
+        if (!selected(skill)) return clickHintedSkill(self, data, skill);
       }
-      const container = self.cardContainer;
-      const pool = [...list5(container?.activatedCardtems), ...list5(container?.cardUis), ...list5(container?.equipCardUis)];
+      const pool = [...cardChoices(container), ...equipped];
       const ids = list5(data.cardIds).length ? data.cardIds : list5(data.CardIDs).length ? data.CardIDs : list5(data.protocol?.CardIDs).length ? data.protocol.CardIDs : data.protocol?.CardID != null ? [data.protocol.CardID] : [];
-      const cards = ids.length ? ids.map((id) => list5(data.cardUis).find((ui) => same(ui.Card?.CardId, id)) || pool.find((ui) => same(ui.Card?.CardId, id))) : list5(data.cardUis);
-      if (pool.includes(target) && !cards.includes(target)) cards.push(target);
+      const cards = ids.length ? ids.map((id) => list5(data.cardUis).find((ui) => same(ui?.Card?.CardId, id)) || pool.find((ui) => same(ui?.Card?.CardId, id))) : list5(data.cardUis).filter((ui) => ui !== equipSkill);
+      if (target !== equipSkill && pool.includes(target) && !cards.includes(target)) cards.push(target);
       if (cards.some((ui) => !ui || !usable(ui) || !selected(ui) && !active(ui))) return false;
       const card = cards.find((ui) => !selected(ui));
-      if (card) {
-        if (typeof card.CardUI_Click !== "function") return false;
-        card.CardUI_Click(null);
-        return true;
-      }
+      if (card) return clickHintedCard(self, data, card);
       const seatIds = list5(data.completeSeatIds).length ? data.completeSeatIds : list5(data.seatIds);
       const seats = list5(frame.scene.seatContainer?.seatUIs);
       const targets = seatIds.map((id) => seats.find((ui) => same(ui.seat?.index ?? ui.seat?.Index ?? ui.Seat?.Index, id)));
@@ -20560,8 +22183,9 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       const seat = targets.find((ui) => !selected(ui));
       if (seat) {
         if (typeof seat.seatClickHandler !== "function") return false;
+        const context = self.SelectSeatContext ?? self.selectSeatContext;
         seat.seatClickHandler();
-        return true;
+        return selected(seat) || self.CurStepHelpData !== data || (self.SelectSeatContext ?? self.selectSeatContext) !== context;
       }
       let button = choices.find((ui) => same(ui.name, data.buttonName) || same(ui.data?.sendData, data.buttonName));
       if (!button && Number.isInteger(data.optionIndex)) button = choices[data.optionIndex];
@@ -20573,10 +22197,8 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       }
       button = buttons.find((ui) => same(ui.name, data.buttonName));
       if (!button && !data.buttonName && (cards.length || targets.length)) button = buttons.find((ui) => ui.name === "btnOK");
-      if (!button || !usable(button)) return false;
+      if (!dispatch(bar, button)) return false;
       completed.add(data);
-      if (typeof bar.Button_Click === "function") bar.Button_Click(button);
-      else if (typeof button.onClick === "function") button.onClick();
       return true;
     }
     let task = null, mode = "ai", reason = "", trusteeOwned = false;
@@ -20586,29 +22208,44 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       else if (!press(button)) return false;
       return true;
     }
-    function local(frame, now) {
-      if (now - task.first >= 2500) for (const win of frame.nodes || []) {
-        if (!usable(win)) continue;
+    function recastIronChain(self) {
+      const bar = selfButtonBar(self);
+      const recast = usable(bar) && list5(bar.btns).find((button) => enabled3(button) && button.name === "btnReset");
+      if (!recast) return false;
+      const container = self.cardContainer;
+      const card = cardContext(container)?.CardSelector?.FirstSelectedCard ?? cardChoices(container).find((ui) => ui !== container?.activatedSkillEquip && selected(ui))?.Card;
+      return Number(card?.FirstSkillId ?? card?.FirstSkill?.ID) === IRON_CHAIN && dispatch(bar, recast);
+    }
+    function local(frame, now, identity, preferIronChainRecast) {
+      for (const win of frame.nodes || []) {
+        if (!usable(win) || win.closeing || win.isClosing) continue;
         const name = win.name || win.constructor?.name;
         if (name === "WuGuFengDengWindow" && typeof win.OnSelectNormalCardUi === "function") {
+          if (now - task.first < 2500) return false;
           const card = list5(win.showCardUIs).find((ui) => usable(ui) && (ui.maskAlpha == null || Number(ui.maskAlpha) === 0) && !win.IsCardRemoved?.(ui.Card));
           if (card) {
             win.OnSelectNormalCardUi(card);
             return true;
           }
+          return false;
         }
         if (name === "SelectCardWindow") {
-          const chosen3 = list5(win.selectCardUis), count2 = Number(win.Skill?.SelectCardCountWhenResponse || 1);
-          if (chosen3.length >= count2 && typeof win.confirmClick === "function" && !completed.has(win)) {
-            completed.add(win);
+          const chosen2 = list5(win.selectCardUis);
+          if (now - task.first < 2500 || confirmedPopupSelections.has(chosen2)) return false;
+          if (confirmPopup(win)) return true;
+          if (chosen2.length < Number(win.Skill?.SelectCardCountWhenResponse || 1)) {
+            const card = [...list5(win.equipCardUis), ...list5(win.handCardUis), ...list5(win.judgeCardUis), ...list5(win.regionCardUis)].find((ui) => usable(ui) && ui.CanBeSelected && !chosen2.includes(ui));
+            if (card && typeof win.onTouchCard === "function") return choosePopupCard(win, card);
+          }
+          if (usable(win.cancel_btn) && typeof win.cancelClick === "function") {
+            win.cancelClick();
+            return true;
+          }
+          if (win.Skill?.SelectCardConfirmForCancel && usable(win.confirm_btn) && typeof win.confirmClick === "function") {
             win.confirmClick();
             return true;
           }
-          const card = [...list5(win.equipCardUis), ...list5(win.handCardUis), ...list5(win.judgeCardUis), ...list5(win.regionCardUis)].find((ui) => usable(ui) && ui.CanBeSelected && !chosen3.includes(ui));
-          if (card && typeof win.onTouchCard === "function") {
-            win.onTouchCard({ target: card });
-            return true;
-          }
+          return false;
         }
       }
       const self = frame.self, bar = selfButtonBar(self), selector = self.spellSelector;
@@ -20619,31 +22256,62 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
           return true;
         }
       }
-      const container = self.cardContainer, context = container?.selectCardContext;
+      const container = self.cardContainer, context = cardContext(container);
       const buttons = usable(bar) ? list5(bar.btns) : [];
-      const enabled3 = (b) => usable(b) && (b._enabled ?? b.enabled) === true;
       const ok = buttons.find((b) => enabled3(b) && b.name === "btnOK");
       const cancel = buttons.find((b) => enabled3(b) && b.name === "btnCancel");
-      if (Number(context?.Skill?.SkillId ?? context?.Skill?.ID) === 700 && Number(context?.SelectCountMin) === 0 && Number(context?.SelectCountMax) === 0) return dispatch(bar, cancel);
-      const cards = [.../* @__PURE__ */ new Set([...list5(container?.activatedCardtems), ...list5(container?.cardUis)])];
-      const chosen2 = cards.filter(selected);
-      if (chosen2.length || list5(context?.SelectedCardIds).length) {
-        if (ok) return dispatch(bar, ok);
-      } else {
-        if (typeof container?.AllSelectHandCards === "function") container.AllSelectHandCards();
-        if (!cards.some(selected)) {
-          const card = cards.find((c) => usable(c) && c.activated === true);
-          if (card && typeof card.setSelected === "function") card.setSelected(true);
+      const seatContext = self.SelectSeatContext ?? self.selectSeatContext;
+      const oxSkill = Number(context?.Skill?.SkillId ?? context?.Skill?.ID ?? context?.SpecifySkillId) === WOODEN_OX;
+      const transferringOx = Number(seatContext?.Skill?.SkillId ?? seatContext?.Skill?.ID) === WOODEN_OX || oxSkill && Number(context.SelectCountMin) === 0 && Number(context.SelectCountMax) === 0;
+      const cards = cardChoices(container).filter((ui) => ui !== container?.activatedSkillEquip);
+      const minimum = Number(context?.SelectCountMin ?? context?.CardSelector?.SelectCountMin);
+      if (transferringOx) {
+        if (cancel || ok) return dispatch(bar, cancel || ok);
+      } else if (minimum > 1 && cardCount(context, cards) < minimum) {
+        const before = cardCount(context, cards);
+        for (const card of cards) {
+          if (!selectable(card) || typeof card.setSelected !== "function") continue;
+          card.setSelected(true);
+          if (cardContext(self.cardContainer) !== context) return true;
+          if (cardCount(context, cards) >= minimum) {
+            const currentBar = selfButtonBar(self);
+            const confirm = list5(currentBar?.btns).find((b) => enabled3(b) && b.name === "btnOK");
+            if (confirm) dispatch(currentBar, confirm);
+            return true;
+          }
         }
+        return cardCount(context, cards) > before || dispatch(bar, cancel);
+      } else {
+        const hasSelectedCard = cards.some(selected) || list5(context?.SelectedCardIds).length > 0;
+        if (!hasSelectedCard) {
+          if (typeof container?.AllSelectHandCards === "function") container.AllSelectHandCards();
+          if (!cards.some(selected)) {
+            const card = cards.find(selectable);
+            if (card && typeof card.setSelected === "function") card.setSelected(true);
+          }
+        }
+        if (preferIronChainRecast && recastIronChain(self)) return true;
+        if (hasSelectedCard && ok) return dispatch(bar, ok);
+        if (enabled3(buttons[0])) return dispatch(bar, buttons[0]);
       }
-      if (enabled3(buttons[0])) return dispatch(bar, buttons[0]);
-      const seat = list5(frame.scene.seatContainer?.seatUIs).find((ui) => usable(ui) && ui.activated === true && !selected(ui));
-      if (seat && typeof seat.seatClickHandler === "function") seat.seatClickHandler();
-      if (ok) return dispatch(bar, ok);
+      const seatContainer = frame.scene.seatContainer;
+      const targets = list5(seatContainer?.seatUIs).filter((ui) => selectable(ui) && typeof ui.seatClickHandler === "function");
+      const hostile = identity && isHostilePlay(self, container, seatContainer, cards);
+      const seat = hostile ? identityAttackTarget(targets, figure(self.seat)) : targets[0];
+      if (seat) {
+        seat.seatClickHandler();
+        const currentBar = selfButtonBar(self);
+        const confirm = list5(currentBar?.btns).find((b) => enabled3(b) && b.name === "btnOK");
+        if (confirm) return dispatch(currentBar, confirm);
+        return true;
+      }
+      if (transferringOx) return false;
+      if (hostile && targets.length) return dispatch(bar, cancel);
       return dispatch(bar, buttons.slice(0, 4).find(enabled3));
     }
-    function run(frame, now, { allowTrustee = true } = {}) {
+    function run(frame, now, { allowTrustee = true, identity = false, preferIronChainRecast = false } = {}) {
       const self = frame.self;
+      reason = "";
       if (!self) {
         task = null;
         return false;
@@ -20668,52 +22336,55 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         reason = "\\u7B49\\u5F85\\u6E38\\u620F\\u5141\\u8BB8\\u64CD\\u4F5C";
         return false;
       }
-      const hint = self.CurStepHelpData;
-      const hasHint = hint && !completed.has(hint) && (hint.skillId || hint.target || hint.buttonName || Number.isInteger(hint.optionIndex) || list5(hint.cardIds).length || list5(hint.cardUis).length || list5(hint.CardIDs).length || list5(hint.seatIds).length || list5(hint.completeSeatIds).length || list5(hint.protocol?.CardIDs).length || hint.protocol?.CardID != null);
-      const protection = guards.run(frame, {
-        cancelWuxie: config.cancelWuxie?.() ?? true,
-        official: Boolean(hasHint)
-      });
-      if (protection) {
-        reason = protection.reason;
-        if (protection.officialOnly) {
-          mode = "ai";
-          return runOfficial(frame, now);
-        }
+      const protection = guards.run(frame, { official: true });
+      const wuxie = protection?.officialOnly;
+      if (protection && !wuxie) {
         mode = "local";
+        reason = protection.reason;
         return protection.acted;
       }
-      const special = specialWindows.run(frame);
+      const special = !wuxie && specialWindows.run(frame);
       if (special) {
         mode = "local";
         reason = special.reason;
         return special.acted;
       }
-      reason = "";
-      const bar = selfButtonBar(self), context = self.cardContainer?.selectCardContext;
+      const bar = selfButtonBar(self), context = cardContext(self.cardContainer);
       const selector = usable(self.spellSelector) ? self.spellSelector : null;
+      const buttons = usable(bar) ? list5(bar.btns) : [];
       const key = [
         context?.SpecifySkillId ?? context?.Skill?.SkillId ?? "",
         context?.message ?? "",
         selector?.spell?.SkillId ?? "",
-        list5(bar?.btns).filter((b) => usable(bar) && usable(b) && (b._enabled ?? b.enabled) === true).map((b) => b.name).join(",")
+        buttons.filter(shown).map((b) => b.name).join(",")
       ].join("|");
       if (!task || task.scene !== frame.scene || task.self !== self || task.context !== context || task.key !== key || task.selector !== selector) {
         task = { scene: frame.scene, self, context, key, selector, first: now, localAt: null, lastOfficial: -Infinity, lastLocal: -Infinity, triedTrustee: false };
         mode = "ai";
       }
-      const actionable = Boolean(self.CurStepHelpData) || list5(bar?.btns).some((b) => usable(bar) && usable(b) && (b._enabled ?? b.enabled) === true) || selector && list5(selector.btnList).some((b) => usable(b) && (b._enabled ?? b.enabled) === true) || list5(self.cardContainer?.activatedCardtems).some((c) => usable(c) && c.activated === true) || (frame.nodes || []).some((win) => usable(win) && ["WuGuFengDengWindow", "SelectCardWindow"].includes(win.name || win.constructor?.name));
-      if (task.help !== self.CurStepHelpData) {
-        task.help = self.CurStepHelpData;
-        task.helpSeen = now;
+      const hint = self.CurStepHelpData;
+      const actionable = buttons.some(enabled3) || list5(selector?.btnList).some(enabled3) || list5(self.cardContainer?.activatedCardtems).some(selectable) || list5(self.cardContainer?.muniuCardUis).some(selectable) || context && list5(self.cardContainer?.cardUis).some(selectable) || list5(self.skillItems).some(selectable) || list5(frame.scene.seatContainer?.seatUIs).some(selectable) || (frame.nodes || []).some((win) => usable(win) && ["WuGuFengDengWindow", "SelectCardWindow"].includes(win.name || win.constructor?.name));
+      if ((task.localAt == null || wuxie && hint && task.help !== hint) && runOfficial(frame, now)) {
+        task.lastOfficial = now;
+        task.help = hint;
+        mode = "ai";
+        return true;
+      }
+      task.help = hint;
+      if (!actionable) {
+        task.first = now;
+        task.localAt = null;
+        mode = "ai";
+        reason = "\\u7B49\\u5F85\\u672C\\u65B9\\u53EF\\u64CD\\u4F5C\\u8BE2\\u95EE";
+        return false;
+      }
+      if (now - task.lastOfficial < 2e3) {
+        mode = "ai";
+        reason = "\\u7B49\\u5F85\\u52A9\\u624B\\u64CD\\u4F5C\\u751F\\u6548";
+        return false;
       }
       if (task.localAt == null) {
-        if (runOfficial(frame, now)) {
-          task.lastOfficial = now;
-          mode = "ai";
-          return true;
-        }
-        if (!actionable || now - task.first < 1e3 || now - task.lastOfficial < 2e3 || task.help && now - task.helpSeen < 1e3) {
+        if (now - task.first < 1e3) {
           mode = "ai";
           return false;
         }
@@ -20723,7 +22394,11 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       let acted = false;
       if (now - task.lastLocal >= 1e3) {
         task.lastLocal = now;
-        acted = local(frame, now);
+        if (wuxie) {
+          const fallback = guards.run(frame);
+          reason = fallback?.reason || "";
+          acted = fallback?.playWuxie ? fallback.playWuxie() : Boolean(fallback?.acted);
+        } else acted = local(frame, now, identity, preferIronChainRecast);
       }
       if (allowTrustee && now - task.localAt >= 3e3 && !task.triedTrustee && self.seat?.InOwnRound === true && self.seat?.IsAiControl !== true && typeof self.onTrusteeshipClick === "function") {
         task.triedTrustee = true;
@@ -20745,7 +22420,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     return read(() => getter.call({})) || read(() => ctx.game.getClass("GameContext").GetModeVO());
   }
   var isIdentityPractice = (mode) => Number(mode?.ModeID) === 74 && Number(mode?.RuleTypeID) === 1;
-  function inspectHostRoom(ctx, scene) {
+  function inspectHostRoom(ctx, scene, force = false) {
     const rc = read(() => scene.startUI.rc);
     const proto = read(() => ctx.game.getClass("CreateTableWindow").prototype);
     const mode = roomMode(ctx);
@@ -20753,10 +22428,13 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     if (!isIdentityPractice(mode)) return { error: "\\u623F\\u95F4\\u4E0D\\u662F\\u8EAB\\u4EFD\\u6F14\\u6B66\\uFF08\\u5E94\\u53D8\\u6216\\u519B\\u4E89\\uFF09\\uFF0C\\u5DF2\\u505C\\u6B62" };
     if (read(() => rc.MasterIsSelf) !== true) return { error: "\\u76D6\\u4E3B\\uFF08\\u5C0F\\u53F7\\uFF09\\u5FC5\\u987B\\u7531\\u5F53\\u524D\\u623F\\u95F4\\u623F\\u4E3B\\u8FD0\\u884C\\uFF0C\\u5DF2\\u505C\\u6B62" };
     const rule = read(() => rc.TableSetting);
+    const currentPassword = read(() => rule.Password);
+    const validPassword = typeof currentPassword === "string" && /^\\d{1,4}$/.test(currentPassword) && currentPassword !== "1";
+    if (force) return { rc, password: validPassword ? currentPassword : "" };
     if (!rule || typeof rule.Password !== "string" || typeof rule.BuildHandCard !== "boolean" || typeof rule.CanDianJiang !== "boolean" || !Number.isInteger(rule.RandMode)) {
-      return { error: "\\u623F\\u95F4\\u8BBE\\u7F6E\\u6570\\u636E\\u4E0D\\u5B8C\\u6574\\uFF0C\\u5DF2\\u505C\\u6B62" };
+      return { rc, error: "\\u623F\\u95F4\\u8BBE\\u7F6E\\u6570\\u636E\\u4E0D\\u5B8C\\u6574\\uFF0C\\u5DF2\\u505C\\u6B62" };
     }
-    const password = /^\\d{1,4}$/.test(rule.Password) && rule.Password !== "1" ? rule.Password : String(1e3 + Math.floor(Math.random() * 9e3));
+    const password = validPassword ? currentPassword : String(1e3 + Math.floor(Math.random() * 9e3));
     const patch = {
       Password: password,
       RandMode: [5, 6, 7].includes(rule.RandMode) ? rule.RandMode : 5,
@@ -20764,8 +22442,8 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       CanDianJiang: true
     };
     if (Object.entries(patch).every(([key, value]) => rule[key] === value)) return { rc, password };
-    const proxy = ctx.game.getServerProxy();
-    if (typeof proto?.createModifyRuleMsg !== "function" || typeof proxy?.L !== "function" || typeof rc.on !== "function" || typeof rc.off !== "function") return { error: "\\u623F\\u95F4\\u8BBE\\u7F6E\\u63D0\\u4EA4\\u63A5\\u53E3\\u4E0D\\u53EF\\u7528\\uFF0C\\u5DF2\\u505C\\u6B62" };
+    const proxy = read(() => ctx.game.getServerProxy());
+    if (typeof proto?.createModifyRuleMsg !== "function" || typeof proxy?.L !== "function" || typeof rc.on !== "function" || typeof rc.off !== "function") return { rc, error: "\\u623F\\u95F4\\u8BBE\\u7F6E\\u63D0\\u4EA4\\u63A5\\u53E3\\u4E0D\\u53EF\\u7528\\uFF0C\\u5DF2\\u505C\\u6B62" };
     return { rc, password, submit() {
       const clone = () => Object.assign(Object.create(Object.getPrototypeOf(rule)), rule);
       const packet = proto.createModifyRuleMsg.call({
@@ -20830,19 +22508,580 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     return ids.length;
   }
 
+  // src/plugins/gaizhu/nation.js
+  var COUNTRY_RULE = 5;
+  var ROOM_MODES = [28, 85];
+  var ACTION_DELAY = 1800;
+  var list6 = (value) => Array.isArray(value) ? value : [];
+  var waitInfo = (seat) => seat?.WaitInfo || seat?.waitInfo;
+  function isNationRoom(ctx, mode = roomMode(ctx)) {
+    return ROOM_MODES.includes(Number(mode?.ModeID)) && Number(mode.RuleTypeID) === COUNTRY_RULE;
+  }
+  function isNationGame(ctx, frame) {
+    return frame.game && isNationRoom(ctx);
+  }
+  function createNationRun(ctx, native) {
+    let round, ownAssistant;
+    function reset() {
+      round = {
+        aiAt: -Infinity,
+        empty: -1,
+        aiTries: 0,
+        aiPrompt: false,
+        readyAt: -Infinity,
+        startAt: -Infinity,
+        startTries: 0,
+        selection: null,
+        results: /* @__PURE__ */ new WeakMap()
+      };
+      ownAssistant = null;
+    }
+    reset();
+    function room(frame, now = Date.now()) {
+      const scene = frame.scene;
+      const start = scene?.startUI;
+      const seats = list6(scene?.seatListView?.seatList).filter(Boolean);
+      const id = account(ctx).id;
+      const mine = id && seats.map(waitInfo).find((info) => String(info?.ClientId ?? info?.clientId ?? "") === id);
+      if (!mine || !start?.rc || !isNationRoom(ctx) || frame.game) return "\\u7B49\\u5F85\\u786E\\u8BA4\\u56FD\\u6218\\u623F\\u95F4\\u4E0E\\u5EA7\\u4F4D";
+      const master = read(() => start.rc.MasterIsSelf);
+      if (master !== true) {
+        if (master === false && (mine.IsReady ?? mine.ready) === false && now - round.readyAt >= ACTION_DELAY && press(start.readyBtn)) {
+          round.readyAt = now;
+          return "\\u56FD\\u6218\\uFF1A\\u5DF2\\u8BF7\\u6C42\\u51C6\\u5907";
+        }
+        return "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u623F\\u4E3B\\u5F00\\u5C40";
+      }
+      const empty = seats.filter((seat) => !waitInfo(seat) && Number(seat.SeatStatus ?? seat.seatStatus ?? 0) === 0).length;
+      if (empty !== round.empty) {
+        round.empty = empty;
+        round.aiTries = 0;
+        round.aiPrompt = false;
+      }
+      if (empty) {
+        if (round.aiPrompt && native.confirmAi()) {
+          round.aiAt = now;
+          round.aiPrompt = false;
+          return "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u666E\\u901A\\u5C0F\\u6740\\u5165\\u5EA7";
+        }
+        if (now - round.aiAt < ACTION_DELAY) return "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u8865\\u9F50\\u666E\\u901A\\u5C0F\\u6740";
+        if (round.aiTries >= 5) throw new Error("\\u56FD\\u6218\\u6DFB\\u52A0\\u666E\\u901A\\u5C0F\\u6740\\u91CD\\u8BD5\\u540E\\u4ECD\\u6709\\u7A7A\\u4F4D\\uFF0C\\u8BF7\\u68C0\\u67E5\\u623F\\u95F4");
+        round.aiAt = now;
+        round.aiTries++;
+        round.aiPrompt = native.openAi();
+        return "\\u56FD\\u6218\\uFF1A\\u6B63\\u5728\\u8865\\u9F50\\u666E\\u901A\\u5C0F\\u6740";
+      }
+      if (!usable(start.startBtn)) return "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u5176\\u4ED6\\u73A9\\u5BB6\\u51C6\\u5907";
+      if (now - round.startAt < ACTION_DELAY) return "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u5F00\\u5C40\\u56DE\\u5305";
+      if (round.startTries >= 10) throw new Error("\\u56FD\\u6218\\u8FDE\\u7EED10\\u6B21\\u5F00\\u59CB\\u4ECD\\u672A\\u8FDB\\u5165\\u5BF9\\u5C40\\uFF0C\\u8BF7\\u68C0\\u67E5\\u623F\\u95F4");
+      round.startAt = now;
+      round.startTries++;
+      return press(start.startBtn) ? "\\u56FD\\u6218\\uFF1A\\u5DF2\\u8BF7\\u6C42\\u5F00\\u5C40" : "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u53EF\\u7528\\u5F00\\u5C40\\u6309\\u94AE";
+    }
+    function selectPair(win, now) {
+      if (win.loading || win.closeing || win.isClosing || win.isShowWait) return "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u9009\\u5C06\\u7A97\\u53E3\\u5C31\\u7EEA";
+      if (round.selection?.win !== win || round.selection?.pool !== win.generalUis) {
+        round.selection = { win, pool: win.generalUis, at: -Infinity, confirmed: false };
+      }
+      const job = round.selection;
+      if (job.confirmed) return "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u9009\\u5C06\\u786E\\u8BA4";
+      const main = win.zhuGeneralCardUI?.Card;
+      const deputy = win.fuGeneralCardUI?.Card;
+      const sameCountry = (a, b) => win.needCheckCountry === false || a.Country != null && a.Country === b.Country;
+      if (main && deputy) {
+        if (main.CardId == null || main.CardId === deputy.CardId || !sameCountry(main, deputy) || !usable(win.confirmBtn) || typeof win.confirmBtnEvent !== "function") return "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u5408\\u6CD5\\u4E3B\\u526F\\u5C06\\u786E\\u8BA4";
+        if (read(() => ctx.game.getClass("GameContext").CanOperationInGame()) === false) return "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u6E38\\u620F\\u5141\\u8BB8\\u9009\\u5C06";
+        job.confirmed = true;
+        win.confirmBtnEvent();
+        return "\\u56FD\\u6218\\uFF1A\\u5DF2\\u8BF7\\u6C42\\u786E\\u8BA4\\u4E3B\\u526F\\u5C06";
+      }
+      if (win.zhuGeneralTween || win.fuGeneralTween || now - job.at < 1e3) return "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u9009\\u5C06\\u52A8\\u753B";
+      const pool = list6(win.generalUis).filter((card) => usable(card) && card.CanSelect === true && Number(card.Card?.CardId) > 0);
+      const selected2 = main || deputy;
+      const other = (a, b) => a.CardId !== b.CardId && sameCountry(a, b);
+      const pick = selected2 ? pool.find((card) => other(selected2, card.Card)) : pool.find((card) => pool.some((partner) => other(card.Card, partner.Card)));
+      if (!pick || typeof win.onClickGeneralCard !== "function") return "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u53EF\\u9009\\u4E3B\\u526F\\u5C06";
+      job.at = now;
+      win.onClickGeneralCard(pick);
+      return "\\u56FD\\u6218\\uFF1A\\u6B63\\u5728\\u9009\\u62E9\\u4E3B\\u526F\\u5C06";
+    }
+    function game(frame, now = Date.now(), assistant = null, options = {}) {
+      if (!isNationGame(ctx, frame)) return "\\u7B49\\u5F85\\u786E\\u8BA4\\u56FD\\u6218\\u5BF9\\u5C40";
+      const win = native.matching(/^SelectCountryWarGeneralWindow$/)[0];
+      if (win) return selectPair(win, now);
+      if (!frame.self) return "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u8BFB\\u53D6\\u724C\\u5C40";
+      const decision = assistant || (ownAssistant ||= createAssistant({
+        canOperate: () => read(() => ctx.game.getClass("GameContext").CanOperationInGame()),
+        getCardMeta: (id) => read(() => ctx.game.getCardMeta(id)),
+        getSkill: (id) => read(() => ctx.game.getClass("Skill").GetInstance(id))
+      }));
+      const acted = decision.run(frame, now, options);
+      return decision.reason() || (decision.mode() === "trustee" ? "\\u56FD\\u6218\\uFF1A\\u6258\\u7BA1\\u515C\\u5E95\\u4E2D" : decision.mode() === "local" ? "\\u56FD\\u6218\\uFF1A\\u672C\\u5730\\u5904\\u7406\\u8BE2\\u95EE" : acted ? "\\u56FD\\u6218\\uFF1A\\u6B63\\u5728\\u6267\\u884C\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A" : "\\u56FD\\u6218\\uFF1A\\u7B49\\u5F85\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A");
+    }
+    function settlement() {
+      return closeGameResult(native.matching, round.results);
+    }
+    return { reset, room, game, settlement };
+  }
+
+  // src/plugins/gaizhu/lobby.js
+  var HALL = "HallScene";
+  var TRAINING = "RogueLike1v1Scene";
+  var MODE_ENTRIES = ["ModeScene", "ActivityModeScene"];
+  var PAGE_JOINED = "PAGE_JOIN_SUCCESS";
+  var MILITARY_PRACTICE = 74;
+  var COUNTRY = 28;
+  var ROOM_LIST_SECTION = 4;
+  var COUNTRY_FRIEND_SECTION = 11;
+  var RIDER = 160;
+  function isLobbyEntry(frame, mode) {
+    return !frame.game && (frame.name === HALL || MODE_ENTRIES.includes(frame.name) || frame.name === TRAINING && mode === "training");
+  }
+  function isTrainingGame(ctx, frame) {
+    const context = read(() => ctx.game.getClass("GameContext"));
+    const mode = read(() => context.GetModeVO()) || roomMode(ctx);
+    return frame.game && Number(mode?.ModeID) === RIDER && Number(read(() => context.GetGroupID()) ?? mode?.Section) === 3;
+  }
+  function isMilitaryPractice(mode) {
+    return isIdentityPractice(mode) && Number(mode.Section) === ROOM_LIST_SECTION;
+  }
+  function isCountryFriendMode(ctx, mode) {
+    return Number(mode?.ModeID) === COUNTRY && Number(mode.Section) === COUNTRY_FRIEND_SECTION && isNationRoom(ctx, mode);
+  }
+  function enterFromModeScene(ctx, mode, section) {
+    const dispatcher = read(() => ctx.game.getDispatcher());
+    const handlers = read(() => dispatcher._events.SWITCH_SCENE);
+    const registered = read(() => ctx.game.getClass("SceneManager"));
+    const nativeManager = [registered, ...(Array.isArray(handlers) ? handlers : [handlers]).map((handler) => handler?.caller)].find((value) => typeof value?.SwitchSceneByModeId === "function");
+    if (!nativeManager || typeof dispatcher?.SwitchScene !== "function") return false;
+    nativeManager.SwitchSceneByModeId(mode, section);
+    dispatcher.SwitchScene(HALL);
+    return true;
+  }
+  function roomSeat(scene, id) {
+    const seats = read(() => scene.seatListView.seatList);
+    return Array.isArray(seats) && seats.some((seat) => {
+      const wait = seat?.WaitInfo || seat?.waitInfo;
+      return String(wait?.ClientId ?? wait?.clientId ?? "") === id;
+    });
+  }
+  function createLobbyEntry(ctx, native, mode, isActive = () => true) {
+    const id = account(ctx).id;
+    const password = mode === "identity" ? String(1e3 + Math.floor(Math.random() * 9e3)) : "";
+    const releases = [];
+    const windowName = mode === "nation" ? "CreatOFRoomWindow" : "CreateTableWindow";
+    const matchesWindow = new RegExp(\`^\${windowName}$\`);
+    let cancelled = false, opened = false, submitted = false, navigated = false, origin = null;
+    let nationCreateIssued = false, nativeError = null;
+    const alive = () => !cancelled && isActive() && !ctx.scope.signal.aborted && Boolean(id) && account(ctx).id === id && read(() => ctx.game.getServerProxy().ConnectedSucess1) !== false;
+    const register = (release) => releases.push(ctx.scope.add?.(release) || release);
+    function guardedAction(action) {
+      const gate = manager(ctx, "LocalMatchManager", "ClientMyMatchIdRep", (value) => typeof value.CheckAddRoom === "function");
+      const previous = read(() => gate.stillAddRoomCallBack);
+      if (typeof previous === "function") throw new Error("\\u539F\\u751F\\u8D5B\\u4E8B\\u63D0\\u793A\\u4ECD\\u5F85\\u5904\\u7406\\uFF0C\\u8BF7\\u5148\\u5904\\u7406\\u540E\\u518D\\u542F\\u52A8");
+      try {
+        return action();
+      } finally {
+        const callback = read(() => gate.stillAddRoomCallBack);
+        if (typeof callback === "function") {
+          const guarded = (...args) => {
+            if (alive() && ctx.game.getScene() === origin) callback.apply(gate, args);
+          };
+          gate.stillAddRoomCallBack = guarded;
+          register(() => {
+            if (gate.stillAddRoomCallBack !== guarded) return;
+            gate.stillAddRoomCallBack = null;
+            gate.stillAddRoomCallBackParams = null;
+          });
+        }
+      }
+    }
+    function submitNation(win) {
+      if (!isCountryFriendMode(ctx, win.modeVO) || typeof win.sureCreate !== "function") return false;
+      const lobbyMode = roomMode(ctx);
+      if (!lobbyMode) return false;
+      if (isCountryFriendMode(ctx, lobbyMode)) {
+        guardedAction(() => win.sureCreate());
+        nationCreateIssued = true;
+        return true;
+      }
+      const roomListManager = win.manager;
+      const original = win.onEnterPage;
+      if (win.isSendEnter || typeof original !== "function" || typeof roomListManager?.off !== "function") return false;
+      const descriptor = Object.getOwnPropertyDescriptor(win, "onEnterPage");
+      if (descriptor && "writable" in descriptor && !descriptor.writable) return false;
+      let pendingPage = true;
+      function release() {
+        if (!pendingPage) return;
+        pendingPage = false;
+        read(() => roomListManager.off(PAGE_JOINED, win, joined));
+        if (win.onEnterPage !== joined) return;
+        if (descriptor) Object.defineProperty(win, "onEnterPage", descriptor);
+        else delete win.onEnterPage;
+        win.isSendEnter = false;
+      }
+      function joined(...args) {
+        try {
+          const current = roomMode(ctx);
+          if (!alive() || ctx.game.getScene() !== origin || !usable(win)) return;
+          if (!isCountryFriendMode(ctx, current)) {
+            nativeError = new Error("\\u56FD\\u6218\\u8001\\u53CB\\u5217\\u8868\\u56DE\\u5305\\u4E0E\\u672C\\u6B21\\u5EFA\\u623F\\u8BF7\\u6C42\\u4E0D\\u7B26");
+            return;
+          }
+          guardedAction(() => original.apply(win, args));
+          nationCreateIssued = true;
+        } catch (error) {
+          nativeError = error;
+        } finally {
+          release();
+        }
+      }
+      win.onEnterPage = joined;
+      register(release);
+      win.sureCreate();
+      return true;
+    }
+    function submitIdentity(win) {
+      if (win.isCreate !== true || !isMilitaryPractice(win.curModeVo) || !usable(win.passwordInput) || !usable(win.sureBtn)) return false;
+      if (!usable(win.modeBox) && typeof win.showMoreHandler === "function") win.showMoreHandler();
+      const labels = win.modeBox?._labels;
+      const figure2 = Array.isArray(labels) ? labels.findIndex((item) => String(item).trim() === "\\u81EA\\u9009\\u8EAB\\u4EFD") : -1;
+      if (figure2 < 0 || !usable(win.modeBox)) throw new Error("\\u519B\\u4E89\\u6F14\\u6B66\\u5EFA\\u623F\\u672A\\u663E\\u793A\\u81EA\\u9009\\u8EAB\\u4EFD\\u9009\\u9879");
+      win.modeBox.selectedIndex = figure2;
+      win.passwordInput.text = password;
+      if (usable(win.dianJiangBox)) win.dianJiangBox.selected = false;
+      if (usable(win.cardBuildBox)) win.cardBuildBox.selected = false;
+      return guardedAction(() => press(win.sureBtn));
+    }
+    function step(frame) {
+      if (!alive()) return;
+      if (nativeError) throw nativeError;
+      if (mode === "training") {
+        if (submitted && frame.name === "RogueLike1v1GameScene" && isTrainingGame(ctx, frame)) return { ready: true };
+        if (submitted && frame.name && frame.scene !== origin && frame.name !== "RogueLike1v1GameScene") {
+          throw new Error("\\u5DF2\\u79BB\\u5F00\\u5355\\u9A91\\u4EBA\\u673A\\u5165\\u53E3");
+        }
+        if (!submitted && frame.name === TRAINING) {
+          const button2 = read(() => frame.scene.btnList.find((item) => item?.name === "zgs_robot_tex"));
+          if (!usable(button2)) return;
+          origin = frame.scene;
+          const click = typeof frame.scene.onBtnClick === "function" ? () => {
+            frame.scene.onBtnClick(button2);
+            return true;
+          } : () => press(button2);
+          submitted = guardedAction(click);
+        } else if (!navigated && (frame.name === HALL || MODE_ENTRIES.includes(frame.name))) {
+          const dispatcher = read(() => ctx.game.getDispatcher());
+          if (typeof dispatcher?.SwitchScene !== "function") throw new Error("\\u5F53\\u524D\\u5927\\u5385\\u65E0\\u6CD5\\u6253\\u5F00\\u5355\\u9A91\\u65E0\\u53CC\\u5165\\u53E3");
+          navigated = true;
+          dispatcher.SwitchScene(TRAINING);
+        } else if (frame.name && !isLobbyEntry(frame, mode) && frame.name !== "RogueLike1v1GameScene") {
+          throw new Error("\\u5DF2\\u79BB\\u5F00\\u5355\\u9A91\\u4EBA\\u673A\\u5165\\u53E3");
+        }
+        return;
+      }
+      if (submitted && !frame.game && frame.scene !== origin && !isLobbyEntry(frame, mode)) {
+        const rc = read(() => frame.scene.startUI.rc);
+        const rule = read(() => rc.TableSetting);
+        const current = roomMode(ctx);
+        const roomNumber = String(rule?.TableID || rc?.TableId || "");
+        const expected = mode === "identity" ? isMilitaryPractice(current) && rule?.Password === password : nationCreateIssued && isCountryFriendMode(ctx, current);
+        if (/^[1-9]\\d*$/.test(roomNumber) && current?.ModeID && roomSeat(frame.scene, id)) {
+          if (rc?.MasterIsSelf === false || !expected) throw new Error("\\u5F53\\u524D\\u623F\\u95F4\\u4E0E\\u672C\\u6B21\\u5EFA\\u623F\\u8BF7\\u6C42\\u4E0D\\u7B26");
+          if (rc?.MasterIsSelf === true) return { ready: true, roomNumber, scene: frame.scene };
+        }
+        if (rc || frame.name === "TableScene" || !frame.name) return;
+      }
+      if (frame.name && !isLobbyEntry(frame, mode)) {
+        throw new Error("\\u5DF2\\u79BB\\u5F00\\u5F53\\u524D\\u5EFA\\u623F\\u5165\\u53E3");
+      }
+      if (submitted && frame.name && frame.scene !== origin) throw new Error("\\u5DF2\\u79BB\\u5F00\\u5F53\\u524D\\u5EFA\\u623F\\u5165\\u53E3");
+      if (submitted || !frame.name) return;
+      const identity = mode === "identity";
+      const modeId = identity ? MILITARY_PRACTICE : COUNTRY;
+      if (MODE_ENTRIES.includes(frame.name) && !navigated) {
+        navigated = true;
+        if (!enterFromModeScene(ctx, modeId, ROOM_LIST_SECTION)) throw new Error("\\u5F53\\u524D\\u5927\\u5385\\u65E0\\u6CD5\\u5207\\u6362\\u5230\\u5BF9\\u5E94\\u623F\\u95F4\\u5217\\u8868");
+        return;
+      }
+      if (frame.name !== HALL) return;
+      const view = read(() => frame.scene.roomListView);
+      if (!view) return;
+      if (Number(view.modeId) !== modeId || Number(view.groupId) !== ROOM_LIST_SECTION) {
+        if (opened) throw new Error("\\u5DF2\\u79BB\\u5F00\\u5F53\\u524D\\u5EFA\\u623F\\u5217\\u8868");
+        if (origin !== frame.scene) {
+          if (typeof frame.scene.gotoUI !== "function") throw new Error("\\u5F53\\u524D\\u5927\\u5385\\u65E0\\u6CD5\\u5207\\u6362\\u5230\\u5BF9\\u5E94\\u623F\\u95F4\\u5217\\u8868");
+          origin = frame.scene;
+          frame.scene.gotoUI(modeId, ROOM_LIST_SECTION);
+        }
+        return;
+      }
+      const win = native.matching(matchesWindow)[0];
+      if (opened) {
+        if (frame.scene === origin && win) submitted = identity ? submitIdentity(win) : submitNation(win);
+        return;
+      }
+      if (win) throw new Error("\\u8BF7\\u5148\\u5173\\u95ED\\u539F\\u751F\\u5EFA\\u623F\\u7A97\\u53E3\\uFF0C\\u518D\\u542F\\u52A8\\u81EA\\u52A8\\u5EFA\\u623F");
+      const button = identity ? [view.createRoomSBtn, view.createRoomBtn].find(usable) : view.createOFRoomBtn;
+      if (!usable(button)) return;
+      const open = identity ? view.onCreateRoomClickCheck : view.onShowOfWindow;
+      origin = frame.scene;
+      if (typeof open === "function") {
+        opened = true;
+        open.call(view);
+      } else opened = press(button);
+    }
+    return { password, step, cancel() {
+      cancelled = true;
+      for (const release of releases.splice(0)) release();
+    } };
+  }
+
+  // src/plugins/gaizhu/tavern-status.js
+  var SLOTS = ["NewDayQuestId1", "NewDayQuestId2", "NewWeekQuestId"];
+  var RETRY_MS = 1e4;
+  var SETTLEMENT_WAIT_MS = 1200;
+  var SETTLEMENT_QUERY_INTERVAL_MS = 1500;
+  var positive = (n) => Number.isSafeInteger(n) && n > 0;
+  var protocol = (event) => event?.Protocol ?? event;
+  var payload = (event) => protocol(event)?.Data?.ProtoObj;
+  function calendarDay(ctx) {
+    const clock = manager(ctx, "TimerManager", "ClientPingMsg", (value) => positive(value.LocalServerTime));
+    const seconds = read(() => clock.LocalServerTime);
+    return positive(Math.floor(seconds)) ? Math.floor(seconds / 86400) : null;
+  }
+  function taskManagers(ctx) {
+    const hasTask = (value) => typeof value.GetServerTaskDataByTaskID === "function";
+    return {
+      modern: manager(
+        ctx,
+        "ActivityQuestManager",
+        "decodeUserQuestInfoRep",
+        (value) => hasTask(value) && typeof value.UpTaskState === "function"
+      ) ?? manager(ctx, "ActivityQuestManager", 107009, (value) => hasTask(value) && typeof value.UpTaskState === "function"),
+      legacy: manager(ctx, "TaskManager", "SmsgTaskFailed", hasTask) ?? manager(ctx, "TaskManager", 22011, hasTask)
+    };
+  }
+  function currentConfig(ctx) {
+    const guard = (value) => typeof value.ReqJgqyInfo === "function";
+    const welfare = manager(ctx, "WelfareManger", "decodeClientTavernInfoRep", guard) ?? manager(ctx, "WelfareManger", 180004, guard);
+    const config = read(() => welfare.CurPubCommonVo);
+    const ids = SLOTS.map((slot) => Number(read(() => config[slot])));
+    const round = Number(read(() => config.Round)) || null;
+    return { welfare, round, ids: positive(round) && ids.every(positive) && new Set(ids).size === SLOTS.length ? ids : [] };
+  }
+  function createTavernStatus(ctx, accountId, now) {
+    const proxy = read(() => ctx.game.getServerProxy());
+    let disposed = false;
+    const active2 = () => !disposed && !ctx.scope.signal.aborted && account(ctx).id === accountId && read(() => ctx.game.getServerProxy()) === proxy;
+    const statuses = /* @__PURE__ */ new Map();
+    let day = null, round = null, ids = [], confirmedRound = null, queryRound = false;
+    let configAt = -Infinity, progressAt = -Infinity, recheckAt = -Infinity, waitingUntil = 0;
+    let requested = /* @__PURE__ */ new Set(), settlement = false, refreshProgress = false;
+    const removals = [];
+    const listen = (events, fn) => {
+      for (const event of events) {
+        const onEvent = (packet) => {
+          if (!active2() || day === null || calendarDay(ctx) !== day || protocol(packet)?.errCode) return;
+          read(() => fn(packet));
+        };
+        if (typeof proxy?.on === "function" && typeof proxy?.off === "function") {
+          proxy.on(event, statuses, onEvent);
+          removals.push(ctx.scope.add(() => proxy.off(event, statuses, onEvent)));
+        }
+      }
+    };
+    const record = (id, claimed) => {
+      if (!requested.has(id) || confirmedRound !== round || !ids.includes(id)) return false;
+      statuses.set(id, statuses.get(id) === true || claimed);
+      return true;
+    };
+    listen(["decodeClientTavernInfoRep", 180004], (packet) => {
+      const value = Number(payload(packet)?.tavern_info?.round_id);
+      if (queryRound && positive(value)) confirmedRound = value;
+    });
+    listen(["decodeUserQuestInfoRep", 107009], (packet) => {
+      const entries = payload(packet)?.info;
+      if (!Array.isArray(entries)) return;
+      for (const row of entries) {
+        const count2 = row?.complete_cnt ?? 0;
+        if (Number.isSafeInteger(count2) && count2 >= 0) {
+          record(Number(row?.quest_id), row?.rewarded === true || row?.rewarded === 1 || count2 > 0);
+        }
+      }
+    });
+    listen(["decodeUserQuestOpRep", 107014], (packet) => {
+      const row = payload(packet);
+      if (row?.op_type !== 1 || row?.result !== 0) return;
+      if (record(Number(row.quest_id), true)) refreshProgress = true;
+    });
+    listen(["SmsgClientTaskRewardResponse", 22010], (packet) => {
+      const row = protocol(packet);
+      if (!Number.isSafeInteger(row?.CompleteTimes) || row.CompleteTimes < 0) return;
+      if (record(Number(row.TaskID), true)) refreshProgress = true;
+    });
+    listen(["SmsgClientGetRewardedTaskDataResponse", 22016], (packet) => {
+      const entries = protocol(packet)?.TaskDataItems;
+      if (!Array.isArray(entries)) return;
+      for (const row of entries) {
+        const count2 = Number(row?.completeTimes);
+        if (Number.isSafeInteger(count2) && count2 >= 0) record(Number(row.taskId), count2 > 0);
+      }
+    });
+    listen(["SmsgUpdateTaskProgressToClient", 22011], (packet) => {
+      const id = Number(protocol(packet)?.TaskID);
+      if (!requested.has(id)) return;
+      const { legacy } = taskManagers(ctx);
+      const task = read(() => legacy.GetServerTaskDataByTaskID(id));
+      if (task?.IsFromServer === true && typeof task.HasAward === "boolean") record(id, task.HasAward);
+    });
+    function update(settled) {
+      const time = now();
+      if (!active2()) return { waiting: true, claimed: null };
+      const today = calendarDay(ctx);
+      const config = currentConfig(ctx);
+      if (day !== today || round !== config.round || ids.join() !== config.ids.join()) {
+        const dateChanged = day !== today, roundChanged = round !== config.round;
+        if (dateChanged || roundChanged && confirmedRound !== config.round) queryRound = false;
+        if (dateChanged) confirmedRound = null;
+        day = today;
+        round = config.round;
+        ids = config.ids;
+        statuses.clear();
+        requested.clear();
+        progressAt = -Infinity;
+      }
+      if (day === null) return { waiting: true, claimed: null };
+      if ((!ids.length || confirmedRound !== round) && time - configAt >= RETRY_MS && config.welfare) {
+        queryRound = true;
+        configAt = time;
+        read(() => config.welfare.ReqJgqyInfo());
+      }
+      if (settled && !settlement) {
+        refreshProgress = true;
+        waitingUntil = Math.max(time, recheckAt + SETTLEMENT_QUERY_INTERVAL_MS) + SETTLEMENT_WAIT_MS;
+      }
+      settlement = settled;
+      if (ids.length && confirmedRound === round) {
+        const missing = ids.some((id) => !statuses.has(id));
+        if (missing && time - progressAt >= RETRY_MS || refreshProgress && time - recheckAt >= SETTLEMENT_QUERY_INTERVAL_MS) {
+          refreshProgress = false;
+          recheckAt = progressAt = time;
+          const { legacy, modern } = taskManagers(ctx);
+          const modernIds = ids.filter((id) => modern && (read(() => modern.GetServerTaskDataByTaskID(id)) || !read(() => legacy.GetServerTaskDataByTaskID(id))));
+          const legacyIds = ids.filter((id) => !modernIds.includes(id));
+          if (modernIds.length) {
+            modernIds.forEach((id) => requested.add(id));
+            read(() => modern.UpTaskState(modernIds));
+          }
+          if (legacyIds.length && typeof legacy?.reqTaskProgressByIds === "function") {
+            legacyIds.forEach((id) => requested.add(id));
+            read(() => legacy.reqTaskProgressByIds(legacyIds));
+          }
+        }
+        if (ids.every((id) => statuses.has(id))) {
+          const claimed = ids.filter((id) => statuses.get(id)).length;
+          return { waiting: claimed !== SLOTS.length && time < waitingUntil, claimed };
+        }
+      }
+      return { waiting: true, claimed: null };
+    }
+    return {
+      update,
+      dispose() {
+        disposed = true;
+        for (const remove of removals.splice(0)) remove();
+      }
+    };
+  }
+
+  // src/plugins/gaizhu/stop-policy.js
+  var MAX_DATE = 864e13;
+  function createStopPolicy(ctx) {
+    const now = () => typeof ctx.now === "function" ? ctx.now() : Date.now();
+    const elapsed = () => typeof ctx.now === "function" ? ctx.now() : ctx.window?.performance?.now?.() ?? now();
+    let tavern, startedAt, duration;
+    let mode, state;
+    const snapshot = () => ({ ...state });
+    function reset() {
+      tavern?.dispose();
+      tavern = null;
+      mode = "manual";
+      state = { waiting: false, due: false, deadline: 0, stopStatus: "" };
+    }
+    reset();
+    return {
+      start({ mode: nextMode, hours, account: account2 }) {
+        reset();
+        mode = nextMode;
+        if (mode === "timed") {
+          duration = durationOf(hours);
+          const deadline = now() + duration;
+          if (!duration || deadline > MAX_DATE) throw new Error("\\u8BF7\\u8F93\\u5165\\u6709\\u6548\\u7684\\u6B63\\u6570\\u5C0F\\u65F6");
+          startedAt = elapsed();
+          state = { ...state, deadline, stopStatus: "\\u5B9A\\u65F6\\u8FD0\\u884C\\u4E2D" };
+        } else if (mode === "tavern") {
+          tavern = createTavernStatus(ctx, account2, now);
+          state = { ...state, waiting: true, stopStatus: "\\u9152\\u9986 \\xB7 \\u5F85\\u540C\\u6B65" };
+        }
+      },
+      update({ settled = false } = {}) {
+        if (state.due) return snapshot();
+        if (mode === "timed" && elapsed() - startedAt >= duration) {
+          state = { ...state, due: true, stopStatus: "\\u5B9A\\u65F6\\u5DF2\\u5230" };
+        } else if (mode === "tavern") {
+          const { waiting, claimed } = tavern.update(settled);
+          const due = claimed === 3;
+          state = { ...state, waiting, due, stopStatus: due ? "\\u9152\\u9986\\u4E09\\u9879\\u5DF2\\u9886\\u9F50" : claimed === null ? "\\u9152\\u9986 \\xB7 \\u5F85\\u540C\\u6B65" : \`\\u9152\\u9986 \\xB7 \\u5DF2\\u9886 \${claimed}/3\` };
+        }
+        return snapshot();
+      },
+      reset,
+      snapshot
+    };
+  }
+
   // src/plugins/gaizhu/runtime.js
+  var AI_RETRY_MS = 1200;
+  var AI_ATTEMPT_LIMIT = 12;
+  var ENTRY_TIMEOUT_MS = 25e3;
+  var SEAT_RETRY_MS = 2500;
+  var SEAT_TIMEOUT_MS = 1e4;
+  var RESULT_TIMEOUT_MS = 15e3;
+  var TRAINING_RECOMMENDATION_WAIT_MS = 300;
+  var roomNumberOf = (scene) => {
+    const id = String(read(() => scene.startUI.rc.TableSetting.TableID) ?? read(() => scene.startUI.rc.TableId) ?? "");
+    return /^[1-9]\\d*$/.test(id) ? id : "";
+  };
+  var sameRoom = (room, scene) => room.number ? room.number === roomNumberOf(scene) : room.scene === scene;
+  var sameCompanion = (a, b) => Boolean(a && b && a.id === b.id && a.seat === b.seat);
+  var roomSeats = (scene) => {
+    const entries = read(() => scene.seatListView.seatList);
+    return Array.isArray(entries) ? entries.slice(0, 16) : [];
+  };
+  var waitInfo2 = (ui) => read(() => ui.WaitInfo) || read(() => ui.waitInfo);
+  var playerId = (info) => String(read(() => info.ClientId) ?? read(() => info.clientId) ?? "");
+  var firstRebelSeat = (scene) => read(() => scene.startUI.rc.TableSetting.DoubleNeiJian) ? 5 : 4;
   function createGaiZhu(ctx) {
     const native = createNative(ctx), listeners = /* @__PURE__ */ new Set();
+    const policy = createStopPolicy(ctx);
     let who = { id: "", nickname: "" }, role = "off", options = cleanOptions(), error = "", status = "\\u5DF2\\u505C\\u6B62";
     let settingsJob = null;
     let roomCheck = null, roomPassword = "", settingsRelease = null;
-    let seq = 0, round = {}, rounds = 0, log = [], general = null;
+    let roomRetry = null;
+    let seq = 0, phaseSeq = 0, round = {}, rounds = 0, log = [], general = null;
+    let run = null, inLobby = false;
     let defs = [], names = {}, progress = null, pendingAch = null, configLoading = false, lastQuery = -Infinity;
     let startBan = null;
-    let solo = false, training = false, assistant = createAssistant({ cancelWuxie: () => options.cancelWuxie, getCardMeta: (id) => read(() => ctx.game.getCardMeta(id)), getSkill: (id) => read(() => ctx.game.getClass("Skill").GetInstance(id)), canOperate: () => read(() => ctx.game.getClass("GameContext").CanOperationInGame()) });
+    const newAssistant = () => createAssistant({ getCardMeta: (id) => read(() => ctx.game.getCardMeta(id)), getSkill: (id) => read(() => ctx.game.getClass("Skill").GetInstance(id)), canOperate: () => read(() => ctx.game.getClass("GameContext").CanOperationInGame()) });
+    let solo = false, training = false, assistant = newAssistant();
     let djRelease = null, stopped = false, configSeq = 0, synced = false;
     const now = () => typeof ctx.now === "function" ? ctx.now() : Date.now();
-    const alive = (token) => !stopped && !ctx.scope.signal.aborted && role !== "off" && token === seq && account(ctx).id === who.id;
+    const connected = () => {
+      const proxy = read(() => ctx.game.getServerProxy());
+      return proxy === run?.proxy && read(() => proxy.ConnId) === run?.connectionId && read(() => proxy.ConnectedSucess1) !== false;
+    };
+    const alive = (token) => !stopped && !ctx.scope.signal.aborted && role !== "off" && token === seq && connected() && account(ctx).id === who.id;
     function notify() {
       if (stopped || ctx.scope.signal.aborted) return;
       for (const fn of [...listeners]) fn();
@@ -20856,23 +23095,41 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       notify();
     }
     function cancelRun() {
-      settingsJob = null;
+      seq++;
+      read(() => run?.entry?.cancel());
+      run = null;
+      policy.reset();
       settingsRelease?.();
       settingsRelease = null;
+      settingsJob = null;
       roomCheck = null;
       roomPassword = "";
-      solo = false;
-      training = false;
-      assistant = createAssistant({ cancelWuxie: () => options.cancelWuxie, getCardMeta: (id) => read(() => ctx.game.getCardMeta(id)), getSkill: (id) => read(() => ctx.game.getClass("Skill").GetInstance(id)), canOperate: () => read(() => ctx.game.getClass("GameContext").CanOperationInGame()) });
-      seq++;
       djRelease?.();
       djRelease = null;
       pendingAch = null;
       startBan = null;
+      solo = false;
+      training = false;
+      assistant = newAssistant();
       round = {};
       general = null;
       configLoading = false;
       configSeq++;
+    }
+    function stopClean(message) {
+      role = "off";
+      roomRetry = null;
+      cancelRun();
+      status = message;
+      note(message);
+      notify();
+    }
+    function updateLobby(scene) {
+      const next = isLobbyEntry({ scene, name: nodeName(scene) }, "identity");
+      if (inLobby !== next) {
+        inLobby = next;
+        notify();
+      }
     }
     const sessionState = () => ctx.getState?.();
     function clearStoppedError() {
@@ -20886,6 +23143,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       }
     }
     function fail(value) {
+      roomRetry = null;
       error = String(value?.stack || value);
       role = "off";
       cancelRun();
@@ -20895,6 +23153,35 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       ctx.reportError?.(error);
       notify();
     }
+    function stopForRoomSettings(value, scene, rc) {
+      roomRetry = {
+        scene,
+        rc,
+        tableId: read(() => rc.TableSetting.TableID),
+        role,
+        paired: run?.paired,
+        autoMode: options.autoMode,
+        readyAt: now() + 3e3,
+        seconds: 3
+      };
+      error = String(value?.stack || value);
+      role = "off";
+      cancelRun();
+      status = "\\u623F\\u95F4\\u8BBE\\u7F6E\\u672A\\u80FD\\u81EA\\u52A8\\u4FEE\\u6B63\\uFF0C\\u5DF2\\u505C\\u6B62\\u3002\\u8BF7\\u68C0\\u67E5\\u5BC6\\u7801\\uFF081\\u20134 \\u4F4D\\u6570\\u5B57\\u4E14\\u4E0D\\u662F 1\\uFF09\\u3001\\u81EA\\u9009\\u8EAB\\u4EFD\\u3001\\u5141\\u8BB8\\u70B9\\u5C06\\uFF0C\\u5E76\\u5173\\u95ED\\u624B\\u724C\\u6784\\u7B51\\u3002";
+      note(error);
+      notify();
+    }
+    function updateRoomRetry() {
+      if (!roomRetry) return;
+      const { scene, rc, tableId, readyAt, seconds } = roomRetry;
+      if (read(() => ctx.game.getScene()) !== scene || read(() => scene.startUI.rc) !== rc || read(() => rc.MasterIsSelf) !== true || read(() => rc.TableSetting.TableID) !== tableId) {
+        roomRetry = null;
+        state("\\u5DF2\\u79BB\\u5F00\\u539F\\u623F\\u95F4\\u6216\\u4E0D\\u518D\\u662F\\u623F\\u4E3B \\xB7 \\u5DF2\\u505C\\u6B62");
+        return;
+      }
+      roomRetry.seconds = Math.max(0, Math.ceil((readyAt - now()) / 1e3));
+      if (seconds !== roomRetry.seconds) notify();
+    }
     function sync() {
       const next = account(ctx);
       if (synced && next.id === who.id && next.nickname === who.nickname) return;
@@ -20902,6 +23189,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       if (synced && next.id !== who.id || saved && saved.accountId !== next.id) clearStoppedError();
       const restore = (!synced || next.id === who.id) && next.id && saved?.accountId === next.id && typeof saved.error === "string" && saved.error;
       synced = true;
+      roomRetry = null;
       const changed = Boolean(who.id);
       cancelRun();
       who = next;
@@ -20980,12 +23268,13 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       }
     }
     function resetPhase(phase) {
-      if (phase === "game") assistant = createAssistant({ cancelWuxie: () => options.cancelWuxie, getCardMeta: (id) => read(() => ctx.game.getCardMeta(id)), getSkill: (id) => read(() => ctx.game.getClass("Skill").GetInstance(id)), canOperate: () => read(() => ctx.game.getClass("GameContext").CanOperationInGame()) });
+      if (phase === "game") assistant = newAssistant();
       const played = general;
       djRelease?.();
       djRelease = null;
       round = {
         phase,
+        serial: ++phaseSeq,
         entered: now(),
         dj: null,
         djDone: false,
@@ -21006,23 +23295,73 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         trusteeAt: -Infinity,
         trusteeTries: 0,
         offTries: 0,
-        overAt: 0,
+        overAt: null,
         overTries: 0,
         overClick: -Infinity,
         waitAt: null,
         delayDone: false,
         waitWarned: false,
-        achNeeded: role === "rebel",
+        achNeeded: role === "rebel" || solo,
         achRequested: false,
         achFailures: 0,
         played
       };
-      if (phase === "room" && role === "rebel") progress = null;
+      if (phase === "room" && (role === "rebel" || solo)) progress = null;
+      run.nation?.reset(phase);
       note(phase === "room" ? "\\u5DF2\\u8FDB\\u5165\\u623F\\u95F4\\uFF0C\\u5F00\\u59CB\\u4E0B\\u4E00\\u8F6E" : "\\u8FDB\\u5165\\u5BF9\\u5C40\\uFF0C\\u5B88\\u5907\\u671F\\u95F4\\u62D2\\u7EDD\\u624B\\u6C14\\u5361");
     }
     function ownRoomSeat(scene) {
-      const seats = read(() => scene.seatListView.seatList);
-      return Array.isArray(seats) ? seats.slice(0, 16).map((ui) => ui?.waitInfo || ui?.WaitInfo).find((info) => info && String(info.clientId ?? info.ClientId) === who.id) : null;
+      return roomSeats(scene).map(waitInfo2).find((info) => playerId(info) === who.id) || null;
+    }
+    function roomOwner(scene, self = ownRoomSeat(scene)) {
+      return (self?.isMaster ?? self?.IsMaster ?? read(() => scene.startUI.rc.MasterIsSelf)) === true;
+    }
+    function roomCompanion(scene) {
+      const others = [];
+      for (const [index, ui] of roomSeats(scene).entries()) {
+        const info = waitInfo2(ui), id = playerId(info);
+        if (id === who.id || !/^[1-9]\\d*$/.test(id) || Number(id) > 4e9) continue;
+        const player = read(() => info.SeatPlayerInfo);
+        const robot = read(() => player.IsRobot) ?? read(() => info.IsRobot);
+        if (robot === true || read(() => player.IsAnthropomorphicRobot) === true) continue;
+        if (robot !== false) return null;
+        const seat = Number(read(() => info.SeatID) ?? read(() => info.seatID) ?? read(() => ui.SeatId) ?? read(() => ui.seatId) ?? index);
+        const name = String(read(() => player.NickName) ?? read(() => info.NickName) ?? read(() => info.nickName) ?? read(() => info.nickname) ?? "");
+        if (Number.isInteger(seat) && seat >= 0) others.push({ id, seat, name });
+      }
+      return others.length === 1 ? others[0] : null;
+    }
+    function checkPair(scene) {
+      const paired = run.paired;
+      if (read(() => scene.startUI.rc.MasterIsSelf) !== true || !sameRoom(run.room, scene) || read(() => scene.startUI.rc.TableSetting.Password) !== paired.password) {
+        stopClean("\\u623F\\u53F7\\u3001\\u623F\\u4E3B\\u6216\\u5BC6\\u7801\\u5DF2\\u53D8\\u5316 \\xB7 \\u5DF2\\u505C\\u6B62");
+        return false;
+      }
+      const next = ownRoomSeat(scene) ? roomCompanion(scene) : null;
+      const previous = paired.candidate;
+      paired.candidate = next;
+      if (next?.id !== previous?.id || next?.seat !== previous?.seat || next?.name !== previous?.name) notify();
+      if (!paired.confirmed) {
+        state(next ? "\\u540C\\u4F34\\u5DF2\\u5165\\u5E2D \\xB7 \\u8BF7\\u786E\\u8BA4\\u5E76\\u5F00\\u59CB\\u901F\\u5237" : "\\u623F\\u95F4\\u5DF2\\u521B\\u5EFA \\xB7 \\u7B49\\u5F85\\u4E00\\u540D\\u771F\\u4EBA\\u540C\\u4F34\\u5165\\u5E2D");
+        return false;
+      }
+      if (!sameCompanion(paired.confirmed, next)) {
+        state("\\u786E\\u8BA4\\u7684\\u540C\\u4F34\\u5DF2\\u79BB\\u5E2D \\xB7 \\u6682\\u505C\\u5F00\\u4E0B\\u4E00\\u5C40");
+        return false;
+      }
+      return true;
+    }
+    function confirm() {
+      sync();
+      if (role !== "host" || !run?.paired || run.paired.confirmed || !alive(seq)) return;
+      const scene = read(() => ctx.game.getScene());
+      const paired = run.paired, candidate = paired.candidate;
+      checkPair(scene);
+      if (run?.paired !== paired || !sameCompanion(candidate, paired.candidate)) return;
+      paired.confirmed = candidate;
+      note("\\u5DF2\\u786E\\u8BA4\\u623F\\u53F7\\u548C\\u771F\\u4EBA\\u540C\\u4F34");
+      state("\\u5DF2\\u786E\\u8BA4\\u540C\\u4F34\\uFF0C\\u6B63\\u5728\\u542F\\u52A8");
+      tick();
     }
     function refuseMulligan() {
       const prompt = native.mulligan();
@@ -21092,11 +23431,11 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         round.selectWindow = null;
         return false;
       }
-      if (training && round.overAt) resetPhase("game");
       if (round.selectWindow !== win) {
         round.selectWindow = win;
         round.selectAt = now();
         round.selected = false;
+        round.trainingCandidatesAt = null;
       }
       if (round.selected) {
         const retry = round.selectRetry;
@@ -21117,7 +23456,14 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         }
       } else if (training) {
         const pool = cards.filter((c) => c.ui.CanSelect !== false);
-        card = pool.find((c) => c.ui.winRateBg?.visible === true && c.ui.winRateTf?.visible === true) || pool.reduce((best, c) => Number(c.ui.generalInfo?.quality ?? c.ui.GeneralInfo?.Quality ?? 0) > Number(best?.ui.generalInfo?.quality ?? best?.ui.GeneralInfo?.Quality ?? -1) ? c : best, null);
+        if (pool.length) {
+          round.trainingCandidatesAt ??= now();
+          if (now() - round.trainingCandidatesAt < TRAINING_RECOMMENDATION_WAIT_MS) {
+            state("\\u7B49\\u5F85\\u5355\\u9A91\\u63A8\\u8350\\u6B66\\u5C06");
+            return true;
+          }
+        } else round.trainingCandidatesAt = null;
+        card = pool.find((c) => c.ui.winRateBg?.visible === true && c.ui.winRateTf?.visible === true) || pool.reduce((best, c) => !best || c.quality > best.quality ? c : best, null);
       } else if (options.pick !== "off") {
         card = cards.find((c) => c.id === general?.id);
         if (!card && elapsed >= 5e3) card = cards.find((c) => !bannedGeneral(c.id, c.name || names[c.id]));
@@ -21229,18 +23575,20 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
             return false;
           }
           job2.send();
-        } else if (job2 && !job2.retryAt && now() >= job2.deadline) fail("\\u623F\\u95F4\\u8BBE\\u7F6E\\u4FEE\\u6539\\u7B49\\u5F85\\u670D\\u52A1\\u5668\\u786E\\u8BA4\\u8D85\\u65F6\\uFF0C\\u5DF2\\u505C\\u6B62");
+        } else if (job2 && !job2.retryAt && now() >= job2.deadline) stopForRoomSettings("\\u623F\\u95F4\\u8BBE\\u7F6E\\u4FEE\\u6539\\u7B49\\u5F85\\u670D\\u52A1\\u5668\\u786E\\u8BA4\\u8D85\\u65F6\\uFF0C\\u5DF2\\u505C\\u6B62", scene, job2.rc);
         return false;
       }
-      const result = inspectHostRoom(ctx, scene);
+      const force = roomCheck === "force";
+      const result = inspectHostRoom(ctx, scene, force);
       if (result.error) {
-        fail(result.error);
+        if (result.rc) stopForRoomSettings(result.error, scene, result.rc);
+        else fail(result.error);
         return false;
       }
       if (!result.submit) {
         roomPassword = result.password;
         roomCheck = "done";
-        note("\\u623F\\u95F4\\u8BBE\\u7F6E\\u68C0\\u67E5\\u901A\\u8FC7\\uFF08\\u672C\\u6B21\\u542F\\u52A8\\u4EC5\\u68C0\\u67E5\\u4E00\\u6B21\\uFF09");
+        note(force ? "\\u5DF2\\u624B\\u52A8\\u5F3A\\u5236\\u5F00\\u59CB \\xB7 \\u672C\\u6B21\\u8DF3\\u8FC7\\u623F\\u95F4\\u8BBE\\u7F6E\\u4FEE\\u6B63" : "\\u623F\\u95F4\\u8BBE\\u7F6E\\u68C0\\u67E5\\u901A\\u8FC7\\uFF08\\u672C\\u6B21\\u542F\\u52A8\\u4EC5\\u68C0\\u67E5\\u4E00\\u6B21\\uFF09");
         notify();
         return true;
       }
@@ -21260,26 +23608,36 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         job.retryAt = 0;
         job.deadline = now() + 6e3;
         state(job.attempts === 1 ? "\\u6B63\\u5728\\u4FEE\\u6B63\\u623F\\u95F4\\u8BBE\\u7F6E\\uFF0C\\u7B49\\u5F85\\u670D\\u52A1\\u5668\\u786E\\u8BA4" : "\\u6B63\\u5728\\u91CD\\u8BD5\\u623F\\u95F4\\u8BBE\\u7F6E \\xB7 \\u7B2C" + job.attempts + "\\u6B21");
-        result.submit();
+        try {
+          result.submit();
+        } catch (e) {
+          if (alive(token) && roomCheck === "pending") stopForRoomSettings(e, scene, rc);
+          else throw e;
+        }
       } };
       settingsJob = job;
       const rejected = () => {
         if (!alive(token) || roomCheck !== "pending" || job.retryAt) return;
         if (job.attempts >= 3) {
-          fail("\\u623F\\u95F4\\u8BBE\\u7F6E\\u4FEE\\u6539\\u8FDE\\u7EED3\\u6B21\\u88AB\\u62D2\\u7EDD\\uFF0C\\u5DF2\\u505C\\u6B62");
+          stopForRoomSettings("\\u623F\\u95F4\\u8BBE\\u7F6E\\u4FEE\\u6539\\u8FDE\\u7EED3\\u6B21\\u88AB\\u62D2\\u7EDD\\uFF0C\\u5DF2\\u505C\\u6B62", scene, rc);
           return;
         }
         job.retryAt = now() + 5e3;
         note("\\u623F\\u95F4\\u8BBE\\u7F6E\\u88AB\\u62D2\\u7EDD\\uFF0C\\u7B49\\u5F855\\u79D2\\u540E\\u91CD\\u8BD5");
         state("\\u623F\\u95F4\\u8BBE\\u7F6E\\u88AB\\u62D2\\u7EDD \\xB7 \\u7B49\\u5F855\\u79D2\\u540E\\u91CD\\u8BD5");
       };
-      rc.on("MODIFY_TABLE_EVENT", caller, complete);
-      rc.on("REFRESH_RULE_UI", caller, rejected);
       settingsRelease = ctx.scope.add(() => {
         settingsJob = null;
-        rc.off("MODIFY_TABLE_EVENT", caller, complete);
-        rc.off("REFRESH_RULE_UI", caller, rejected);
+        read(() => rc.off("MODIFY_TABLE_EVENT", caller, complete));
+        read(() => rc.off("REFRESH_RULE_UI", caller, rejected));
       });
+      try {
+        rc.on("MODIFY_TABLE_EVENT", caller, complete);
+        rc.on("REFRESH_RULE_UI", caller, rejected);
+      } catch (e) {
+        stopForRoomSettings(e, scene, rc);
+        return false;
+      }
       job.send();
       return false;
     }
@@ -21306,59 +23664,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       const view = read(() => scene.seatListView), entries = read(() => view.seatList);
       const seats = Array.isArray(entries) ? entries.slice(0, 16) : [];
       const perSeat = single && typeof read(() => view.showBtns) === "function" && typeof read(() => view.addAiHandler) === "function";
-      if (perSeat) {
-        const seat = seats.find((item) => item && !(item.waitInfo || item.WaitInfo) && Number(item.SeatStatus ?? item.seatStatus ?? 0) === 0);
-        if (seat) {
-          if (now() - round.aiAt < 1200) return;
-          const id = Number(seat.SeatId ?? seat.seatId ?? seats.indexOf(seat));
-          const firstRebel = read(() => scene.startUI.rc.TableSetting.DoubleNeiJian) ? 5 : 4;
-          if (round.aiTries < 12) {
-            round.aiAt = now();
-            round.aiTries++;
-            const tier = native.seatAi(view, seat, id >= firstRebel && id < 8);
-            if (tier) {
-              note(\`\\u5DF2\\u8BF7\\u6C42\\u5728 \${id + 1} \\u53F7\\u4F4D\\u6DFB\\u52A0\${tier}\`);
-              state(\`\\u7B49\\u5F85\${tier}\\u5165\\u5EA7\`);
-              return;
-            }
-          }
-          state("\\u7B49\\u5F85\\u53EF\\u7528\\u7684\\u5C0F\\u6740\\u5165\\u5EA7");
-          return;
-        }
-      }
-      const empty = !perSeat && seats.some((s) => !(s?.waitInfo || s?.WaitInfo));
-      if (!empty) round.aiConfirm = false;
-      if (empty && native.confirmAi()) {
-        round.aiConfirm = false;
-        round.aiAt = now();
-        note("\\u5DF2\\u9009\\u62E9\\u666E\\u901A\\u5C0F\\u6740\\uFF0C\\u7B49\\u5F85\\u5EA7\\u4F4D\\u66F4\\u65B0");
-        state("\\u7B49\\u5F85\\u666E\\u901A\\u5C0F\\u6740\\u5165\\u5EA7");
-        return;
-      }
-      if (round.aiConfirm) {
-        if (now() - round.aiAt < 1200) return;
-        round.aiAt = now();
-        round.aiConfirm = false;
-        if (native.confirmAi()) {
-          note("\\u5DF2\\u9009\\u62E9\\u666E\\u901A\\u5C0F\\u6740\\uFF0C\\u7B49\\u5F85\\u5EA7\\u4F4D\\u66F4\\u65B0");
-          state("\\u7B49\\u5F85\\u666E\\u901A\\u5C0F\\u6740\\u5165\\u5EA7");
-        } else state("\\u672A\\u627E\\u5230\\u666E\\u901A\\u5C0F\\u6740\\u9009\\u9879\\uFF0C\\u7B49\\u5F85\\u91CD\\u8BD5\\u6DFB\\u52A0");
-        return;
-      }
-      if (empty && usable(scene.addAiBtn) && round.aiTries < 12) {
-        if (now() - round.aiAt < 1200) return;
-        round.aiAt = now();
-        if (native.openAi()) {
-          round.aiConfirm = true;
-          round.aiTries++;
-        }
-        state("\\u6B63\\u5728\\u8865\\u9F50\\u666E\\u901A\\u5C0F\\u6740");
-        return;
-      }
-      if (empty) {
-        state("\\u7B49\\u5F85\\u6DFB\\u52A0\\u666E\\u901A\\u5C0F\\u6740\\uFF0C\\u6682\\u4E0D\\u5F00\\u59CB");
-        return;
-      }
+      if (perSeat ? fillSoloSeats(scene, view, seats) : fillRoomAi(scene, seats, single)) return;
       const start = read(() => scene.startUI.startBtn);
       if (!usable(start)) {
         state("\\u7B49\\u5F85\\u5176\\u4ED6\\u73A9\\u5BB6\\u51C6\\u5907");
@@ -21374,52 +23680,173 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       press(start);
       state(\`\\u5DF2\\u8BF7\\u6C42\\u5F00\\u59CB \\xB7 \\u7B2C\${round.startTries}\\u6B21\`);
     }
-    function roomRebel(scene) {
-      const self = ownRoomSeat(scene);
-      solo = self?.isMaster === true;
-      if (solo && !checkHostSettings(scene)) return;
+    function fillSoloSeats(scene, view, seats) {
+      const tableId = read(() => scene.startUI.rc.TableSetting.TableID);
+      if (round.soloAi?.scene !== scene || round.soloAi.view !== view || round.soloAi.tableId !== tableId) {
+        round.soloAi = { scene, view, tableId, attempts: /* @__PURE__ */ new Map() };
+      }
+      const job = round.soloAi, empty = [];
+      for (const [index, seat2] of seats.entries()) {
+        if (!seat2) continue;
+        const id2 = Number(seat2.SeatId ?? seat2.seatId ?? index);
+        if (seat2.waitInfo || seat2.WaitInfo) job.attempts.delete(id2);
+        else if (Number(seat2.SeatStatus ?? seat2.seatStatus ?? 0) === 0) empty.push({ id: id2, seat: seat2, tries: job.attempts.get(id2) || 0 });
+      }
+      if (!empty.length) return false;
+      if (now() - round.aiAt < AI_RETRY_MS) return true;
+      const { id, seat, tries } = empty.reduce((first, next) => first.tries <= next.tries ? first : next);
+      if (tries >= AI_ATTEMPT_LIMIT) {
+        const positions = empty.map(({ id: id2 }) => \`\${id2 + 1}\\u53F7\\u4F4D\`).join("\\u3001");
+        fail(\`\${positions}\\u6DFB\\u52A0\\u5C0F\\u6740\\u91CD\\u8BD5\\u540E\\u4ECD\\u672A\\u5165\\u5EA7\\uFF0C\\u5DF2\\u505C\\u6B62\\u3002\\u8BF7\\u68C0\\u67E5\\u623F\\u95F4\\u540E\\u91CD\\u65B0\\u5F00\\u59CB\\u3002\`);
+        return true;
+      }
+      round.aiAt = now();
+      job.attempts.set(id, tries + 1);
+      const firstRebel = firstRebelSeat(scene);
+      let tier;
+      try {
+        tier = native.seatAi(view, seat, id >= firstRebel && id < 8);
+      } catch (error2) {
+        note(\`\${id + 1}\\u53F7\\u4F4D\\u6DFB\\u52A0\\u5C0F\\u6740\\u5931\\u8D25\\uFF1A\${String(error2?.message || error2)}\`);
+      }
+      if (tier) {
+        note(\`\${tries ? "\\u5DF2\\u91CD\\u8BD5" : "\\u5DF2\\u8BF7\\u6C42"}\\u5728 \${id + 1} \\u53F7\\u4F4D\\u6DFB\\u52A0\${tier}\`);
+        state(tries ? \`\${id + 1}\\u53F7\\u4F4D\\u5DF2\\u91CD\\u8BD5 \\xB7 \\u7B49\\u5F85\\u5C0F\\u6740\\u5165\\u5EA7\` : \`\\u7B49\\u5F85\${tier}\\u5165\\u5EA7\`);
+      } else state(\`\${id + 1}\\u53F7\\u4F4D\\u672A\\u80FD\\u6DFB\\u52A0\\u5C0F\\u6740 \\xB7 \\u7B49\\u5F85\\u91CD\\u8BD5\`);
+      return true;
+    }
+    function fillRoomAi(scene, seats, single) {
+      const empty = seats.filter((seat) => !(seat?.waitInfo || seat?.WaitInfo)).length;
+      if (single) {
+        if (empty < round.aiEmpty) round.aiTries = 0;
+        round.aiEmpty = empty;
+      }
+      if (!empty) {
+        round.aiConfirm = false;
+        return false;
+      }
+      const coolingDown = now() - round.aiAt < AI_RETRY_MS;
+      if (single && !round.aiConfirm) {
+        if (coolingDown) return true;
+        if (round.aiTries >= AI_ATTEMPT_LIMIT) {
+          fail("\\u6DFB\\u52A0\\u666E\\u901A\\u5C0F\\u6740\\u91CD\\u8BD5\\u540E\\u4ECD\\u6709\\u7A7A\\u4F4D\\uFF0C\\u5DF2\\u505C\\u6B62\\u3002\\u8BF7\\u68C0\\u67E5\\u623F\\u95F4\\u540E\\u91CD\\u65B0\\u5F00\\u59CB\\u3002");
+          return true;
+        }
+      }
+      try {
+        if (native.confirmAi()) {
+          if (single && !round.aiConfirm) round.aiTries++;
+          round.aiConfirm = false;
+          round.aiAt = now();
+          note("\\u5DF2\\u9009\\u62E9\\u666E\\u901A\\u5C0F\\u6740\\uFF0C\\u7B49\\u5F85\\u5EA7\\u4F4D\\u66F4\\u65B0");
+          state("\\u7B49\\u5F85\\u666E\\u901A\\u5C0F\\u6740\\u5165\\u5EA7");
+        } else if (!coolingDown) {
+          if (round.aiConfirm) {
+            round.aiAt = now();
+            round.aiConfirm = false;
+            state("\\u672A\\u627E\\u5230\\u666E\\u901A\\u5C0F\\u6740\\u9009\\u9879\\uFF0C\\u7B49\\u5F85\\u91CD\\u8BD5\\u6DFB\\u52A0");
+          } else if (round.aiTries < AI_ATTEMPT_LIMIT && (single || usable(scene.addAiBtn))) {
+            round.aiAt = now();
+            round.aiConfirm = native.openAi();
+            if (round.aiConfirm || single) round.aiTries++;
+            state(round.aiConfirm ? "\\u6B63\\u5728\\u8865\\u9F50\\u666E\\u901A\\u5C0F\\u6740" : "\\u6682\\u65F6\\u65E0\\u6CD5\\u6DFB\\u52A0\\u666E\\u901A\\u5C0F\\u6740 \\xB7 \\u7B49\\u5F85\\u91CD\\u8BD5");
+          } else state("\\u7B49\\u5F85\\u6DFB\\u52A0\\u666E\\u901A\\u5C0F\\u6740\\uFF0C\\u6682\\u4E0D\\u5F00\\u59CB");
+        }
+      } catch (error2) {
+        if (!single) throw error2;
+        if (!round.aiConfirm) round.aiTries++;
+        round.aiConfirm = false;
+        round.aiAt = now();
+        note(\`\\u6DFB\\u52A0\\u666E\\u901A\\u5C0F\\u6740\\u5931\\u8D25\\uFF1A\${String(error2?.message || error2)}\`);
+        state("\\u6DFB\\u52A0\\u666E\\u901A\\u5C0F\\u6740\\u5931\\u8D25 \\xB7 \\u7B49\\u5F85\\u91CD\\u8BD5");
+      }
+      return true;
+    }
+    function prepareRebel() {
       if (round.dj) {
         stepDj();
-        return;
+        return false;
       }
       if (options.pick !== "off" && !round.djDone) {
         if (!progress) {
           queryAchievements();
-          return;
+          return false;
         }
         const source = rows();
         if (!source.length) {
           fail("\\u672A\\u627E\\u5230\\u53EF\\u6838\\u5BF9\\u7684\\u767E\\u80DC\\u6218\\u529F\\u5B9A\\u4E49");
-          return;
+          return false;
         }
         if (!source.some((r) => r.owned === true)) {
           state("\\u7B49\\u5F85\\u5F53\\u524D\\u8D26\\u53F7\\u6B66\\u5C06\\u5F52\\u5C5E\\u6570\\u636E");
-          return;
+          return false;
         }
         const currentId = options.pick === "random" ? native.slot(native.dj()?.mgr, 2) : general?.id;
         if (options.pick === "random" && !Number.isFinite(currentId)) {
           if (round.slotWaitAt == null) round.slotWaitAt = now();
           if (now() - round.slotWaitAt < 3e3) {
             state("\\u7B49\\u5F85\\u8BFB\\u53D6\\u53CD\\u8D3C\\u70B9\\u5C06\\u69FD\\uFF0C\\u6682\\u4E0D\\u8986\\u76D6\\u5DF2\\u6709\\u9009\\u62E9");
-            return;
+            return false;
           }
           note("\\u53CD\\u8D3C\\u70B9\\u5C06\\u69FD\\u7B49\\u5F853\\u79D2\\u4ECD\\u4E0D\\u53EF\\u8BFB\\uFF0C\\u4F7F\\u7528\\u5F53\\u524D\\u672A\\u5B8C\\u6210\\u5019\\u9009");
         }
         const chosen2 = chooseGeneral(source, { pick: options.pick, currentId });
         if (!chosen2) {
           fail("\\u6CA1\\u6709\\u5DF2\\u62E5\\u6709\\u4E14\\u767E\\u80DC\\u672A\\u5B8C\\u6210\\u7684\\u53EF\\u70B9\\u6B66\\u5C06\\uFF08\\u5DF2\\u6392\\u9664\\u9EC4\\u76D6\\uFF09");
-          return;
+          return false;
         }
         general = chosen2;
         beginDj(chosen2.id, 2);
-        return;
+        return false;
       }
       if (options.pick === "off" && !progress) queryAchievements();
-      if (solo) {
-        roomHost(scene, true);
+      return true;
+    }
+    function roomSingle(scene) {
+      if (!roomOwner(scene)) {
+        fail("\\u8EAB\\u4EFD\\u81EA\\u52A8\\u6302\\u673A\\u987B\\u7531\\u7B49\\u5F85\\u623F\\u95F4\\u7684\\u623F\\u4E3B\\u542F\\u52A8");
         return;
       }
-      if (self?.ready || self?.isMaster) {
+      if (checkHostSettings(scene) && prepareRebel()) roomHost(scene, true);
+    }
+    function seatNewIdentityHost(scene) {
+      const job = run.rebelSeat;
+      const view = read(() => scene.seatListView), seats = roomSeats(scene);
+      const self = seats.find((seat) => playerId(waitInfo2(seat)) === who.id);
+      const seatId = (seat) => Number(read(() => seat.SeatId ?? seat.seatId));
+      const first = firstRebelSeat(scene);
+      const isRebel = (seat) => {
+        const id = seatId(seat);
+        return Number.isInteger(id) && id >= first && id < 8;
+      };
+      if (isRebel(self)) {
+        run.rebelSeat = null;
+        note(\`\\u5DF2\\u786E\\u8BA4\\u53CD\\u8D3C\\u5EA7\\u4F4D\\uFF1A\${seatId(self) + 1} \\u53F7\\u4F4D\`);
+        return true;
+      }
+      const time = now();
+      if (time >= job.deadline) {
+        stopClean("\\u7B49\\u5F85\\u53CD\\u8D3C\\u5EA7\\u4F4D\\u786E\\u8BA4\\u8D85\\u65F6 \\xB7 \\u5DF2\\u505C\\u6B62\\u6302\\u673A");
+        return false;
+      }
+      state("\\u7B49\\u5F85\\u6362\\u5230\\u53CD\\u8D3C\\u5EA7\\u4F4D");
+      if (!self || !roomOwner(scene, waitInfo2(self)) || time < job.retryAt) return false;
+      const target = seats.filter((seat) => isRebel(seat) && !waitInfo2(seat) && read(() => seat.SeatStatus ?? seat.seatStatus) === 0).sort((left, right) => seatId(right) - seatId(left))[0];
+      if (!target) return false;
+      if (typeof view.showBtns !== "function" || typeof view.sitHandler !== "function") throw new Error("\\u539F\\u751F\\u6362\\u5EA7\\u5165\\u53E3\\u4E0D\\u53EF\\u7528\\uFF0C\\u5DF2\\u505C\\u6B62\\u6302\\u673A");
+      job.retryAt = time + SEAT_RETRY_MS;
+      view.showBtns(target);
+      view.sitHandler();
+      return false;
+    }
+    function roomRebel(scene) {
+      const self = ownRoomSeat(scene);
+      if (!self) {
+        state("\\u7B49\\u5F85\\u5F53\\u524D\\u8D26\\u53F7\\u5165\\u5E2D");
+        return;
+      }
+      if (!prepareRebel()) return;
+      if (self?.ready || self?.IsReady || self?.Ready) {
         round.ready = true;
         state("\\u5DF2\\u51C6\\u5907\\uFF0C\\u7B49\\u5F85\\u623F\\u4E3B\\u5F00\\u59CB");
         return;
@@ -21435,11 +23862,11 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         state("\\u5DF2\\u8BF7\\u6C42\\u51C6\\u5907\\uFF0C\\u7B49\\u5F85\\u623F\\u4E3B\\u5F00\\u59CB");
       } else state("\\u7B49\\u5F85\\u51C6\\u5907\\u6309\\u94AE");
     }
-    function guardTrustee(self) {
+    function guardTrustee(self, mulligan = false) {
       const seat = read(() => self.seat) || read(() => self.Seat) || read(() => self.cardContainer.seat);
       const on = read(() => seat.IsAiControl);
-      const guarded = now() < (round.guardUntil || 0);
-      if (guarded || (solo || training) && !assistant.isTrustee()) {
+      const guarded = (mulligan || !training) && now() < (round.guardUntil || 0);
+      if (guarded || (solo || training || run.nation) && !assistant.isTrustee()) {
         if (on === true && round.offTries < 3 && now() - round.trusteeAt >= 1200 && typeof read(() => self.onTrusteeshipClick) === "function") {
           round.offTries++;
           round.trusteeAt = now();
@@ -21462,19 +23889,9 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       return false;
     }
     function gameStep(frame) {
-      if (round.overAt) {
-        if (training && trainingWindows(frame)) return;
-        state("\\u5BF9\\u5C40\\u7ED3\\u675F\\uFF0C\\u6B63\\u5728\\u8FD4\\u56DE\\u623F\\u95F4");
-        if (now() - round.overAt >= 1200 && now() - round.overClick >= 1500 && round.overTries < 20) {
-          round.overClick = now();
-          round.overTries++;
-          native.continueResult();
-        }
-        return;
-      }
       const guarded = guardTrustee(frame.self);
-      if (role === "rebel" && (solo || training)) {
-        const acted = assistant.run(frame, now(), { allowTrustee: !guarded });
+      if (solo || training) {
+        const acted = assistant.run(frame, now(), { allowTrustee: !guarded, identity: solo, preferIronChainRecast: training });
         state(assistant.reason() || (assistant.mode() === "trustee" ? "\\u5C0F\\u6740\\u52A9\\u624B\\u672A\\u63A8\\u8FDB \\xB7 \\u6258\\u7BA1\\u515C\\u5E95\\u4E2D" : assistant.mode() === "local" ? "\\u5C0F\\u6740\\u52A9\\u624B\\u672A\\u63A8\\u8FDB \\xB7 \\u672C\\u5730\\u5904\\u7406\\u8BE2\\u95EE" : acted ? "\\u6B63\\u5728\\u6267\\u884C\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A" : "\\u7B49\\u5F85\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A"));
         return;
       }
@@ -21564,7 +23981,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       state("\\u7B49\\u5F85\\u76AE\\u80A4\\u9009\\u62E9\\u539F\\u751F\\u63A5\\u53E3");
       return true;
     }
-    function trainingWindows(frame) {
+    function trainingWindows() {
       if (trainingSkin()) return true;
       const bidding = native.matching(/^SayRogueLike1V1Window$/)[0];
       if (bidding) {
@@ -21573,15 +23990,6 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
           round.firstHandButton = first;
           press(first);
           state("\\u5355\\u9A91\\u4EBA\\u673A\\uFF1A\\u5DF2\\u9009\\u62E9\\u5148\\u624B");
-        }
-        return true;
-      }
-      const result = native.matching(/^RogueLike1v1ZhanJiWindow$/).find((win) => !win.isShare);
-      if (result && round.overAt && typeof result.onClickAgain === "function") {
-        if (round.againWindow !== result) {
-          round.againWindow = result;
-          result.onClickAgain();
-          state("\\u5355\\u9A91\\u4EBA\\u673A\\uFF1A\\u5DF2\\u8BF7\\u6C42\\u4E0B\\u4E00\\u628A");
         }
         return true;
       }
@@ -21610,21 +24018,134 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       round.shopWindow = null;
       return false;
     }
-    function isTraining(frame) {
-      const context = read(() => ctx.game.getClass("GameContext"));
-      const proto = read(() => ctx.game.getClass("CreateTableWindow").prototype);
-      const getter = read(() => Object.getOwnPropertyDescriptor(proto, "curModeVo").get);
-      const mode = read(() => context.GetModeVO()) || read(() => getter.call({}));
-      const group = read(() => context.GetGroupID()) ?? read(() => mode.Section);
-      return Number(mode?.ModeID) === 160 && Number(group) === 3;
+    function stepEntry(frame) {
+      const mode = role === "host" ? "identity" : options.autoMode;
+      if (!run.entry) {
+        if (run.room || run.battle || role !== "auto" && !run.createRoom || !isLobbyEntry(frame, mode)) return false;
+        const token2 = seq;
+        run.entry = createLobbyEntry(ctx, native, mode, () => alive(token2) && !policy.update().due && !policy.snapshot().waiting);
+        run.entryAt = now();
+        state(mode === "training" ? "\\u6B63\\u5728\\u8FDB\\u5165\\u5355\\u9A91\\u4EBA\\u673A\\u8BAD\\u7EC3" : "\\u6B63\\u5728\\u521B\\u5EFA\\u623F\\u95F4");
+      }
+      if (now() - run.entryAt >= ENTRY_TIMEOUT_MS) throw new Error("\\u7B49\\u5F85\\u6E38\\u620F\\u786E\\u8BA4\\u8FDB\\u5165\\u76EE\\u6807\\u623F\\u95F4\\u6216\\u8BAD\\u7EC3\\u6A21\\u5F0F\\u8D85\\u65F6");
+      const entry = run.entry, token = seq;
+      const result = entry.step(frame);
+      if (!result?.ready || !alive(token) || run.entry !== entry) return true;
+      const password = entry.password;
+      entry.cancel();
+      run.entry = null;
+      if (mode === "training") return false;
+      run.room = { scene: frame.scene, number: String(result.roomNumber ?? roomNumberOf(frame.scene)) };
+      if (role === "host") {
+        if (!run.room.number || !password) throw new Error("\\u65E0\\u6CD5\\u786E\\u8BA4\\u65B0\\u5EFA\\u623F\\u95F4\\u7684\\u623F\\u53F7\\u4E0E\\u5BC6\\u7801");
+        run.paired = { password, candidate: null, confirmed: null };
+        roomPassword = password;
+        checkPair(frame.scene);
+      } else if (solo) {
+        run.rebelSeat = { deadline: now() + SEAT_TIMEOUT_MS, retryAt: -Infinity };
+      }
+      return true;
+    }
+    function stopDecision(returnedToRoom) {
+      const before = policy.snapshot();
+      const settled = (round.overAt != null || returnedToRoom) && !round.stopChecked;
+      if (settled) round.stopChecked = true;
+      const decision = role === "auto" ? policy.update({ settled }) : before;
+      if (decision.stopStatus !== before.stopStatus || decision.due !== before.due || decision.waiting !== before.waiting) notify();
+      return decision;
+    }
+    function finishByPolicy(decision) {
+      stopClean(\`\${decision.stopStatus} \\xB7 \\u5DF2\\u505C\\u6B62\`);
+    }
+    function markRoundOver() {
+      if (round.phase !== "game" || round.overAt != null) return;
+      round.overAt = now();
+      rounds++;
+      note(\`\\u672C\\u6B21\\u7B2C\${rounds}\\u5C40\\u7ED3\\u675F\`);
+      state("\\u5BF9\\u5C40\\u7ED3\\u675F\\uFF0C\\u7B49\\u5F85\\u7ED3\\u7B97");
+    }
+    function settleTraining(frame, decision, result) {
+      const lobby = !frame.game && frame.name === "RogueLike1v1Scene";
+      if (round.againAt != null) {
+        if (lobby) round.againReturned = true;
+        if (now() - round.againAt >= RESULT_TIMEOUT_MS) {
+          stopClean("\\u7B49\\u5F85\\u5355\\u9A91\\u4EBA\\u673A\\u4E0B\\u4E00\\u5C40\\u8D85\\u65F6 \\xB7 \\u5DF2\\u505C\\u6B62");
+        }
+        return;
+      }
+      if (decision.due) {
+        if (typeof result?.onClickClose === "function" && !result.loading && !result.isClosing && !result.closeing) {
+          result.onClickClose();
+          finishByPolicy(decision);
+          return;
+        }
+        if (frame.scene && !frame.game && !result) {
+          finishByPolicy(decision);
+          return;
+        }
+      } else if (decision.waiting) {
+        state("\\u5BF9\\u5C40\\u5DF2\\u7ED3\\u675F \\xB7 \\u7B49\\u5F85\\u9152\\u9986\\u72B6\\u6001\\u540C\\u6B65");
+        return;
+      } else if (result) {
+        if (!result.loading && !result.isClosing && !result.closeing && (!result.againBtn || usable(result.againBtn)) && typeof result.onClickAgain === "function") {
+          round.againAt = now();
+          result.onClickAgain();
+          state("\\u5355\\u9A91\\u4EBA\\u673A\\uFF1A\\u5DF2\\u8BF7\\u6C42\\u4E0B\\u4E00\\u628A");
+          return;
+        }
+      } else if (lobby) {
+        run.battle = null;
+        stepEntry(frame);
+        return;
+      } else if (frame.scene && !frame.game) {
+        stopClean("\\u5DF2\\u79BB\\u5F00\\u5355\\u9A91\\u4EBA\\u673A\\u8BAD\\u7EC3 \\xB7 \\u5DF2\\u505C\\u6B62");
+        return;
+      }
+      if (now() - round.overAt >= RESULT_TIMEOUT_MS) {
+        stopClean(decision.due ? \`\${decision.stopStatus} \\xB7 \\u5DF2\\u505C\\u6B62\\uFF0C\\u7ED3\\u7B97\\u7A97\\u53E3\\u5F85\\u786E\\u8BA4\` : "\\u7B49\\u5F85\\u5355\\u9A91\\u4EBA\\u673A\\u7ED3\\u7B97\\u8D85\\u65F6 \\xB7 \\u5DF2\\u505C\\u6B62");
+        return;
+      }
+      if (!result && frame.game && now() - round.overAt >= 1200 && now() - round.overClick >= 1500) {
+        round.overClick = now();
+        native.continueResult({ allowCanvas: false });
+      }
+    }
+    function settle(frame, decision) {
+      if (!frame.game) return;
+      state(decision.due ? \`\${decision.stopStatus} \\xB7 \\u6B63\\u5728\\u5904\\u7406\\u7ED3\\u7B97\` : "\\u5BF9\\u5C40\\u7ED3\\u675F\\uFF0C\\u6B63\\u5728\\u8FD4\\u56DE\\u623F\\u95F4");
+      if (now() - round.overAt >= 1200 && now() - round.overClick >= 1500 && round.overTries < 20) {
+        round.overClick = now();
+        round.overTries++;
+        const processed = run.nation ? run.nation.settlement() : native.continueResult({ allowCanvas: !decision.due });
+        const resultExit = processed && decision.due ? read(() => ctx.game.getScene()) : null;
+        if (resultExit && resultExit !== frame.scene) {
+          finishByPolicy(decision);
+          return;
+        }
+      }
+      if (decision.due && now() - round.overAt >= RESULT_TIMEOUT_MS) stopClean(\`\${decision.stopStatus} \\xB7 \\u5DF2\\u505C\\u6B62\\uFF0C\\u7ED3\\u7B97\\u7A97\\u53E3\\u5F85\\u786E\\u8BA4\`);
+    }
+    function chooseStartupBan(scene) {
+      if (run.banChecked || options.pick !== "off" || role !== "rebel" && !solo) return;
+      run.banChecked = true;
+      const mode = roomMode(ctx);
+      if (isIdentityPractice(mode)) startBan = { scene, mode, until: now() + 8e3 };
     }
     function tick() {
       if (stopped || ctx.scope.signal.aborted) return;
       try {
         sync();
-        if (role === "off") return;
+        if (role === "off") {
+          updateRoomRetry();
+          if (listeners.size) updateLobby(read(() => ctx.game.getScene()));
+          return;
+        }
         if (!who.id) {
           fail("\\u5F53\\u524D\\u8D26\\u53F7\\u5C1A\\u672A\\u767B\\u5F55");
+          return;
+        }
+        if (!connected()) {
+          stopClean("\\u6E38\\u620F\\u8FDE\\u63A5\\u5DF2\\u65AD\\u5F00 \\xB7 \\u5DF2\\u505C\\u6B62");
           return;
         }
         if (read(() => ctx.game.getSnapshot().isReplay) === true) {
@@ -21632,34 +24153,154 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
           return;
         }
         const frame = native.frame();
-        const detectedTraining = isTraining(frame);
-        if (role === "rebel") {
-          if (training && frame.game && !detectedTraining) {
-            fail("\\u5DF2\\u79BB\\u5F00\\u5355\\u9A91\\u4EBA\\u673A\\u8BAD\\u7EC3\\u6A21\\u5F0F\\uFF0C\\u5DF2\\u505C\\u6B62");
+        updateLobby(frame.scene);
+        const trainingGame = isTrainingGame(ctx, frame);
+        const trainingResult = training ? native.matching(/^RogueLike1v1ZhanJiWindow$/).find((win) => !win.isShare) : null;
+        if (training && trainingGame && round.againAt != null && !trainingResult && (run.battle !== frame.scene || round.againReturned || native.selectWindow())) {
+          run.battle = frame.scene;
+          resetPhase("game");
+        }
+        if (trainingResult && (!frame.game || frame.scene === run.battle)) markRoundOver();
+        const table = !frame.game && (frame.name === "TableScene" || Boolean(read(() => frame.scene.seatListView)));
+        const returnedToRoom = Boolean(table && run.battle && (!run.room || sameRoom(run.room, frame.scene)));
+        const decision = stopDecision(returnedToRoom);
+        if (training && round.overAt != null && !run.entry && (!frame.game || frame.scene === run.battle)) {
+          settleTraining(frame, decision, trainingResult);
+          return;
+        }
+        if (!frame.scene) {
+          if (decision.due && !run.battle) finishByPolicy(decision);
+          return;
+        }
+        if (decision.due && (!run.admitted || !frame.game && (!run.battle || round.overAt == null))) {
+          finishByPolicy(decision);
+          return;
+        }
+        if (!run.admitted) {
+          if (decision.waiting) {
+            state("\\u542F\\u52A8\\u524D\\u67E5\\u8BE2\\u9152\\u9986\\u4EFB\\u52A1 \\xB7 \\u5F85\\u540C\\u6B65");
             return;
           }
-          training = detectedTraining || training && !frame.game && Boolean(round.overAt);
+          run.admitted = true;
         }
-        if (role === "rebel" && training && !frame.game) {
-          if (trainingWindows(frame)) return;
-          const robot = (read(() => frame.scene.btnList) || []).find((b) => b.name === "zgs_robot_tex");
-          if (frame.name === "RogueLike1v1Scene" && round.phase === "game") resetPhase("room");
-          if (frame.name === "RogueLike1v1Scene" && usable(robot) && now() - (round.robotAt || 0) >= 3e3) {
-            round.robotAt = now();
-            press(robot);
-            state("\\u5DF2\\u8BF7\\u6C42\\u5355\\u9A91\\u4EBA\\u673A\\u8BAD\\u7EC3");
+        const trainingScene = frame.name === "RogueLike1v1Scene" || frame.name === "RogueLike1v1GameScene";
+        if (role === "rebel" && (trainingGame || trainingScene)) {
+          stopClean("\\u5F53\\u524D\\u5904\\u4E8E\\u5355\\u9A91\\uFF0C\\u8BF7\\u5207\\u6362\\u5230\\u300C\\u81EA\\u52A8\\u6302\\u673A\\u300D\\u7684\\u5355\\u9A91\\u65B9\\u5F0F");
+          return;
+        }
+        if (role === "rebel" && table && roomOwner(frame.scene)) {
+          stopClean("\\u5F53\\u524D\\u8D26\\u53F7\\u662F\\u623F\\u4E3B\\uFF0C\\u8BF7\\u5207\\u6362\\u5230\\u300C\\u81EA\\u52A8\\u6302\\u673A\\u300D\\u7684\\u8EAB\\u4EFD\\u65B9\\u5F0F");
+          return;
+        }
+        if (training && frame.game && !trainingGame) {
+          fail("\\u5DF2\\u79BB\\u5F00\\u5355\\u9A91\\u4EBA\\u673A\\u8BAD\\u7EC3\\u6A21\\u5F0F\\uFF0C\\u5DF2\\u505C\\u6B62");
+          return;
+        }
+        if (!training && (trainingGame || trainingScene) && !run.entry) {
+          stopClean("\\u5F53\\u524D\\u5904\\u4E8E\\u5355\\u9A91\\uFF0C\\u8BF7\\u9009\\u62E9\\u5BF9\\u5E94\\u7684\\u81EA\\u52A8\\u6302\\u673A\\u65B9\\u5F0F");
+          return;
+        }
+        if (run.entry && trainingGame && (decision.due || decision.waiting)) {
+          run.entry.cancel();
+          run.entry = null;
+        }
+        if (decision.due && run.entry) {
+          finishByPolicy(decision);
+          return;
+        }
+        if (run.entry || !run.room && !run.battle && (role === "auto" || run.createRoom) && isLobbyEntry(frame, role === "host" ? "identity" : options.autoMode)) {
+          if (decision.waiting) {
+            state("\\u7B49\\u5F85\\u9152\\u9986\\u4EFB\\u52A1\\u540C\\u6B65\\u540E\\u8FDB\\u5165\\u6240\\u9009\\u6A21\\u5F0F");
+            return;
           }
+          if (stepEntry(frame)) return;
+        }
+        if (run.createRoom && !run.paired) {
+          stopClean("\\u8BF7\\u4ECE\\u5927\\u5385\\u521B\\u5EFA\\u76D6\\u4E3B\\u623F");
+          return;
+        }
+        if (run.paired && !run.paired.confirmed && !table) {
+          stopClean("\\u786E\\u8BA4\\u524D\\u5DF2\\u79BB\\u5F00\\u65B0\\u5EFA\\u623F\\u95F4 \\xB7 \\u5DF2\\u505C\\u6B62");
           return;
         }
         if (settingsJob && (frame.game || frame.scene !== settingsJob.scene)) {
           fail("\\u7B49\\u5F85\\u623F\\u95F4\\u8BBE\\u7F6E\\u671F\\u95F4\\u5DF2\\u79BB\\u5F00\\u539F\\u7B49\\u5F85\\u623F\\u95F4\\uFF0C\\u5DF2\\u505C\\u6B62");
           return;
         }
-        if (frame.game && round.phase !== "game") resetPhase("game");
-        else if (!frame.game && (frame.name === "TableScene" || read(() => frame.scene.seatListView)) && round.phase !== "room") resetPhase("room");
-        if (!frame.game && !read(() => frame.scene.seatListView)) {
-          state("\\u7B49\\u5F85\\u8FDB\\u5165\\u623F\\u95F4");
+        if (training && !frame.game) {
+          stopClean("\\u5DF2\\u79BB\\u5F00\\u5355\\u9A91\\u4EBA\\u673A\\u8BAD\\u7EC3 \\xB7 \\u5DF2\\u505C\\u6B62");
           return;
+        }
+        if (!frame.game && !table) {
+          if (decision.due && round.overAt != null) finishByPolicy(decision);
+          else stopClean(run.room || run.battle ? "\\u5DF2\\u79BB\\u5F00\\u5F53\\u524D\\u623F\\u95F4 \\xB7 \\u5DF2\\u505C\\u6B62" : "\\u8BF7\\u5728\\u5BF9\\u5E94\\u7684\\u6E38\\u620F\\u623F\\u95F4\\u542F\\u52A8");
+          return;
+        }
+        if (table) {
+          if (run.room && !sameRoom(run.room, frame.scene)) {
+            stopClean("\\u5DF2\\u79BB\\u5F00\\u539F\\u623F\\u95F4 \\xB7 \\u5DF2\\u505C\\u6B62");
+            return;
+          }
+          const correctRoom = run.nation ? isNationRoom(ctx) : isIdentityPractice(roomMode(ctx));
+          if (!correctRoom && (role !== "host" || run.paired)) {
+            stopClean(run.nation ? "\\u8BF7\\u9009\\u62E9\\u56FD\\u6218\\u623F\\u95F4\\u540E\\u542F\\u52A8" : "\\u8BF7\\u9009\\u62E9\\u8EAB\\u4EFD\\u6F14\\u6B66\\u623F\\u95F4\\u540E\\u542F\\u52A8");
+            return;
+          }
+          run.room ??= { scene: frame.scene, number: roomNumberOf(frame.scene) };
+          run.battle = null;
+          if (decision.due) {
+            finishByPolicy(decision);
+            return;
+          }
+          if (decision.waiting) {
+            state("\\u9152\\u9986\\u72B6\\u6001\\u5F85\\u540C\\u6B65 \\xB7 \\u6682\\u505C\\u5F00\\u4E0B\\u4E00\\u5C40");
+            return;
+          }
+          if (run.rebelSeat && !seatNewIdentityHost(frame.scene)) return;
+          if (run.paired && !checkPair(frame.scene)) return;
+          if (round.phase !== "room") resetPhase("room");
+          chooseStartupBan(frame.scene);
+          if (run.nation) {
+            state(run.nation.room(frame, now()) || "\\u7B49\\u5F85\\u56FD\\u6218\\u623F\\u95F4\\u5C31\\u7EEA");
+            return;
+          }
+        } else {
+          if (run.rebelSeat) {
+            stopClean("\\u53CD\\u8D3C\\u5EA7\\u4F4D\\u786E\\u8BA4\\u524D\\u5DF2\\u8FDB\\u5165\\u5BF9\\u5C40 \\xB7 \\u5DF2\\u505C\\u6B62");
+            return;
+          }
+          if (run.nation && !isNationGame(ctx, frame)) {
+            stopClean("\\u5DF2\\u79BB\\u5F00\\u56FD\\u6218\\u5BF9\\u5C40 \\xB7 \\u5DF2\\u505C\\u6B62");
+            return;
+          }
+          if ((solo || role === "rebel" || run.paired) && !isIdentityPractice(roomMode(ctx))) {
+            stopClean("\\u5DF2\\u79BB\\u5F00\\u8EAB\\u4EFD\\u6F14\\u6B66\\u5BF9\\u5C40 \\xB7 \\u5DF2\\u505C\\u6B62");
+            return;
+          }
+          if (run.battle && run.battle !== frame.scene) {
+            stopClean("\\u5DF2\\u79BB\\u5F00\\u5F53\\u524D\\u5BF9\\u5C40 \\xB7 \\u5DF2\\u505C\\u6B62");
+            return;
+          }
+          if (!run.battle || round.phase !== "game") resetPhase("game");
+          run.battle = frame.scene;
+          if (trainingResult) {
+            markRoundOver();
+            settleTraining(frame, stopDecision(false), trainingResult);
+            return;
+          }
+          if (round.overAt != null) {
+            settle(frame, decision);
+            return;
+          }
+          if (run.nation) {
+            if (refuseMulligan()) {
+              guardTrustee(frame.self);
+              return;
+            }
+            const guarded = guardTrustee(frame.self);
+            state(run.nation.game(frame, now(), assistant, { allowTrustee: !guarded }) || "\\u7B49\\u5F85\\u56FD\\u6218\\u51FA\\u724C");
+            return;
+          }
         }
         if (!frame.game && role === "host" && !checkHostSettings(frame.scene)) return;
         loadConfigs();
@@ -21667,7 +24308,7 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
         if (pendingAch && now() - pendingAch.at >= 8e3) {
           pendingAch = null;
           round.achFailures = (round.achFailures || 0) + 1;
-          if (role === "rebel" && options.pick !== "off" && round.achFailures >= 5) {
+          if ((role === "rebel" || solo) && options.pick !== "off" && round.achFailures >= 5) {
             fail("\\u767E\\u80DC\\u6218\\u529F\\u67E5\\u8BE2\\u8FDE\\u7EED5\\u6B21\\u8D85\\u65F6");
             return;
           }
@@ -21682,19 +24323,20 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
           return;
         }
         if (refuseMulligan()) {
-          if (frame.game) guardTrustee(frame.self);
+          if (frame.game) guardTrustee(frame.self, true);
           return;
         }
         if (training && trainingSkin()) return;
         if (selectGeneral()) return;
-        if (training && trainingWindows(frame)) return;
+        if (training && trainingWindows()) return;
         if (frame.game) {
           gameStep(frame);
           return;
         }
         if (round.phase === "room") {
           if (role === "host") roomHost(frame.scene);
-          else roomRebel(frame.scene);
+          else if (solo) roomSingle(frame.scene);
+          else if (role === "rebel") roomRebel(frame.scene);
         }
       } catch (e) {
         fail(e);
@@ -21704,32 +24346,49 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       if (stopped || ctx.scope.signal.aborted) return;
       sync();
       try {
+        if (Object.hasOwn(value, "stopHours") && !durationOf(value.stopHours)) throw new Error("\\u8BF7\\u8F93\\u5165\\u6709\\u6548\\u7684\\u6B63\\u6570\\u5C0F\\u65F6");
         const next = cleanOptions({ ...options, ...value });
-        if (next.pick !== options.pick || next.wait !== options.wait || next.cancelWuxie !== options.cancelWuxie) {
-          if (role !== "off" && next.pick !== options.pick) throw new Error("\\u8BF7\\u5148\\u505C\\u6B62\\u518D\\u66F4\\u6362\\u70B9\\u5C06\\u6A21\\u5F0F");
+        if (Object.keys(next).some((key) => next[key] !== options[key])) {
+          if (role !== "off" && ["pick", "autoMode", "stopMode", "stopHours"].some((key) => next[key] !== options[key])) throw new Error("\\u8BF7\\u5148\\u505C\\u6B62\\u518D\\u66F4\\u6362\\u8FD0\\u884C\\u8BBE\\u7F6E");
           if (who.id) ctx.settings.set(\`account:\${who.id}:options-v1\`, next);
           options = next;
         }
         if ("role" in value) {
-          if (!["off", "host", "rebel"].includes(value.role)) throw new Error("\\u65E0\\u6548\\u7684\\u8FD0\\u884C\\u89D2\\u8272");
+          if (!["off", "host", "rebel", "auto"].includes(value.role)) throw new Error("\\u65E0\\u6548\\u7684\\u8FD0\\u884C\\u89D2\\u8272");
           if (value.role !== role) {
+            updateRoomRetry();
+            const retry = roomRetry?.role === value.role && roomRetry.autoMode === options.autoMode ? roomRetry : null;
+            if (value.force && !retry || retry?.seconds) return;
+            roomRetry = null;
             cancelRun();
             role = value.role;
             error = "";
             rounds = 0;
             log = [];
             status = role === "off" ? "\\u5DF2\\u505C\\u6B62" : "\\u6B63\\u5728\\u542F\\u52A8";
+            solo = role === "auto" && options.autoMode === "identity";
+            training = role === "auto" && options.autoMode === "training";
             if (role !== "off") clearStoppedError();
             if (role !== "off" && !who.id) {
               fail("\\u767B\\u5F55\\u5F53\\u524D\\u8D26\\u53F7\\u540E\\u624D\\u80FD\\u5F00\\u59CB");
               return;
             }
-            if (role === "rebel" && options.pick === "off") {
-              const scene = read(() => ctx.game.getScene());
-              const mode = nodeName(scene) === "TableScene" ? roomMode(ctx) : null;
-              if (isIdentityPractice(mode)) startBan = { scene, mode, until: now() + 8e3 };
+            if (role !== "off") {
+              const proxy = read(() => ctx.game.getServerProxy());
+              run = { createRoom: role === "host" && value.create === true, proxy, connectionId: read(() => proxy.ConnId) };
+              if (retry) {
+                roomCheck = "force";
+                run.room = { scene: retry.scene, number: roomNumberOf(retry.scene) };
+                run.paired = retry.paired;
+                roomPassword = retry.paired?.password || "";
+              }
+              if (role === "auto") {
+                policy.start({ mode: options.stopMode, hours: options.stopHours, account: who.id });
+                if (options.autoMode === "nation") run.nation = createNationRun(ctx, native);
+              }
             }
-            note(role === "off" ? "\\u5DF2\\u505C\\u6B62\\u901F\\u5237" : \`\\u5F00\\u59CB\\u8FD0\\u884C\\uFF1A\${role === "host" ? "\\u76D6\\u4E3B\\uFF08\\u5C0F\\u53F7\\uFF09" : "\\u53CD\\u8D3C\\uFF08\\u5927\\u53F7\\uFF09"}\`);
+            const module = { host: "\\u76D6\\u4E3B\\uFF08\\u5C0F\\u53F7\\uFF09", rebel: "\\u53CD\\u8D3C\\uFF08\\u5927\\u53F7\\uFF09", auto: "\\u81EA\\u52A8\\u6302\\u673A" }[role];
+            note(role === "off" ? "\\u5DF2\\u505C\\u6B62\\u901F\\u5237" : \`\\u5F00\\u59CB\\u8FD0\\u884C\\uFF1A\${module}\`);
             ctx.reportError?.("");
           }
         }
@@ -21740,24 +24399,36 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
       }
     }
     const projectGuardEvent = (packet) => ({ ...projectBattleGuard(packet), run: seq });
-    observeNative(ctx, { ClientDbsGetuserachinfoRep: projectAchievements, MsgGameOver: () => true, GsCTriggerSpellNew: projectGuardEvent, GsCGamephaseNtf: projectGuardEvent, MsgGameTurnNtf: projectGuardEvent, PubGsCMoveCard: projectGuardEvent, PubGsCUseSpell: projectGuardEvent }, (type, data, sender) => {
-      if (role === "off" || sender.id !== who.id || !alive(seq)) return;
+    const projectAchievementReply = (packet) => {
+      const data = projectAchievements(packet);
+      return data && { ...data, run: seq, requestAt: pendingAch?.at };
+    };
+    const projectDisconnect = () => ({ run: seq });
+    observeNative(ctx, {
+      ClientDbsGetuserachinfoRep: projectAchievementReply,
+      MsgGameOver: () => ({ run: seq, phase: round.serial }),
+      GsCTriggerSpellNew: projectGuardEvent,
+      GsCGamephaseNtf: projectGuardEvent,
+      MsgGameTurnNtf: projectGuardEvent,
+      PubGsCMoveCard: projectGuardEvent,
+      PubGsCUseSpell: projectGuardEvent,
+      close: projectDisconnect,
+      error: projectDisconnect
+    }, (type, data, sender) => {
+      if (type === "close" || type === "error") {
+        if (role !== "off" && data.run === seq && sender.id === who.id) stopClean("\\u6E38\\u620F\\u8FDE\\u63A5\\u5DF2\\u65AD\\u5F00 \\xB7 \\u5DF2\\u505C\\u6B62");
+        return;
+      }
+      if (role === "off" || sender.id !== who.id || !alive(data.run)) return;
       if (type === "ClientDbsGetuserachinfoRep") {
-        if (!pendingAch || pendingAch.seq !== seq || data.nickname !== who.nickname || pendingAch.nickname !== who.nickname) return;
+        if (!pendingAch || pendingAch.seq !== seq || pendingAch.at !== data.requestAt || data.nickname !== who.nickname || pendingAch.nickname !== who.nickname) return;
         progress = data;
         pendingAch = null;
         round.achFailures = 0;
         note("\\u5DF2\\u6536\\u5230\\u5F53\\u524D\\u8D26\\u53F7\\u767E\\u80DC\\u5FEB\\u7167");
-        if (startBan) tryStartBan(read(() => ctx.game.getScene()));
         notify();
-      } else if (type !== "MsgGameOver") {
-        if (data.run === seq) assistant.observe(type, data);
-      } else if (round.phase === "game" && !round.overAt) {
-        round.overAt = now();
-        rounds++;
-        note(\`\\u672C\\u6B21\\u7B2C\${rounds}\\u5C40\\u7ED3\\u675F\`);
-        state("\\u5BF9\\u5C40\\u7ED3\\u675F\\uFF0C\\u7B49\\u5F85\\u7ED3\\u7B97");
-      }
+      } else if (type !== "MsgGameOver") assistant.observe(type, data);
+      else if (round.serial === data.phase) markRoundOver();
     }, () => {
       if (role !== "off") fail("\\u539F\\u751F\\u6D88\\u606F\\u8FDE\\u63A5\\u53D1\\u751F\\u53D8\\u5316\\u6216\\u6D88\\u606F\\u6709\\u7F3A\\u53E3\\uFF0C\\u5DF2\\u505C\\u6B62\\uFF0C\\u8BF7\\u91CD\\u65B0\\u6838\\u5BF9\\u5F53\\u524D\\u623F\\u95F4\\u540E\\u542F\\u52A8");
     });
@@ -21772,10 +24443,37 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     return {
       snapshot() {
         sync();
-        return { account: who.id, nickname: who.nickname, role, ...options, status, error, roomPassword, solo, training, generalName: general?.name || "", rounds, log: [...log] };
+        const stop = policy.snapshot(), paired = run?.paired;
+        return {
+          account: who.id,
+          nickname: who.nickname,
+          role,
+          ...options,
+          status,
+          error,
+          roomNumber: run?.room?.number || "",
+          roomPassword,
+          inLobby,
+          awaitingConfirmation: Boolean(paired && !paired.confirmed),
+          canConfirm: Boolean(paired?.candidate && !paired.confirmed),
+          companionName: paired?.candidate?.name || "",
+          phase: run?.entry ? "lobby" : paired && !paired.confirmed ? "confirm" : round.overAt != null ? "settling" : round.phase,
+          stopStatus: stop.stopStatus,
+          deadline: stop.deadline,
+          stopAfterRound: Boolean(stop.due && run?.battle),
+          retryRole: roomRetry?.role,
+          retrySeconds: roomRetry?.seconds,
+          solo,
+          training,
+          generalName: general?.name || "",
+          rounds,
+          log: [...log]
+        };
       },
       setOptions,
+      confirm,
       subscribe(fn) {
+        updateLobby(read(() => ctx.game.getScene()));
         listeners.add(fn);
         return () => listeners.delete(fn);
       },
@@ -21787,20 +24485,84 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
   var manifest = {
     id: "gaizhu",
     name: "\\u76D6\\u4E3B\\u901F\\u5237",
-    version: "0.1.18",
+    version: "0.2.7",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u65B0\\u589E\\u53CD\\u8D3C\\u623F\\u4E3B\\u5355\\u4EBA\\u767E\\u80DC\\u548C\\u5355\\u9A91\\u4EBA\\u673A\\u8BAD\\u7EC3\\uFF0C\\u4F18\\u5148\\u4F7F\\u7528\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A\\uFF0C\\u5E76\\u63D0\\u4F9B\\u53D6\\u6D88\\u65E0\\u61C8\\u9009\\u9879\\u3002\\u9700\\u624B\\u52A8\\u5F00\\u59CB\\uFF1B\\u70B9\\u5C06\\u53EF\\u80FD\\u6D88\\u8017\\u9053\\u5177\\uFF0C\\u5355\\u9A91\\u8BAD\\u7EC3\\u81EA\\u52A8\\u9009\\u8D2D\\u53EF\\u80FD\\u6D88\\u8017\\u5C40\\u5185\\u8D27\\u5E01\\u3002",
+    releaseNotes: "\\u65B0\\u589E\\u5927\\u5385\\u5EFA\\u623F\\u548C\\u8EAB\\u4EFD\\u3001\\u56FD\\u6218\\u3001\\u5355\\u9A91\\u81EA\\u52A8\\u6302\\u673A\\uFF0C\\u53EF\\u5B9A\\u65F6\\u6216\\u5728\\u9152\\u9986\\u4E09\\u9879\\u5956\\u52B1\\u9886\\u9F50\\u540E\\u505C\\u673A\\u3002\\u9996\\u6B21\\u76D6\\u4E3B\\u5F00\\u5C40\\u9700\\u786E\\u8BA4\\u540C\\u4F34\\uFF0C\\u5355\\u4EBA\\u8865\\u5C0F\\u6740\\u5931\\u8D25\\u4F1A\\u5C1D\\u8BD5\\u91CD\\u8865\\u3002\\u70B9\\u5C06\\u548C\\u90E8\\u5206\\u5546\\u5E97\\u64CD\\u4F5C\\u53EF\\u80FD\\u6D88\\u8017\\u9053\\u5177\\u6216\\u5C40\\u5185\\u8D27\\u5E01\\u3002",
     minCoreVersion: "0.6.37",
     dependencies: ["baisheng"],
-    description: "\\u652F\\u6301\\u76D6\\u4E3B\\u901F\\u5237\\u3001\\u53CD\\u8D3C\\u623F\\u4E3B\\u5355\\u4EBA\\u767E\\u80DC\\u548C\\u5355\\u9A91\\u4EBA\\u673A\\u8BAD\\u7EC3\\uFF1B\\u5355\\u4EBA\\u5BF9\\u5C40\\u4F18\\u5148\\u63A5\\u53D7\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A\\uFF0C\\u8D85\\u65F6\\u672C\\u5730\\u5904\\u7406\\u4E0E\\u6258\\u7BA1\\u515C\\u5E95\\u3002",
+    description: "\\u53CC\\u4EBA\\u76D6\\u4E3B\\u901F\\u5237\\uFF0C\\u4EE5\\u53CA\\u8EAB\\u4EFD\\u3001\\u56FD\\u6218\\u3001\\u5355\\u9A91\\u81EA\\u52A8\\u6302\\u673A\\u3002",
     icon: PLUGIN_ICONS["gaizhu"],
     priority: 21e3,
     categories: ["automation"]
   };
+  var MODULES = [["host", "\\u76D6\\u4E3B\\u5C0F\\u53F7"], ["rebel", "\\u53CD\\u8D3C\\u5927\\u53F7"], ["auto", "\\u81EA\\u52A8\\u6302\\u673A"]];
+  var AUTO_MODES2 = [["identity", "\\u8EAB\\u4EFD"], ["nation", "\\u56FD\\u6218"], ["training", "\\u5355\\u9A91"]];
+  var STOP_MODES2 = [["manual", "\\u624B\\u52A8\\u505C\\u6B62"], ["tavern", "\\u9152\\u9986\\u4E09\\u9879\\u9886\\u9F50"], ["timed", "\\u5B9A\\u65F6"]];
+  var POINT_MODES = [["off", "\\u4E0D\\u70B9\\u5C06"], ["random", "\\u968F\\u673A\\u70B9\\u5C06"], ["order", "\\u6309\\u5E8F\\u70B9\\u5C06"]];
+  var POINT_HINTS = {
+    off: "\\u4ECE\\u5F00\\u5C40\\u5019\\u9009\\u9009\\u5C06\\uFF0C\\u5355\\u4EBA\\u4F18\\u5148\\u54C1\\u8D28\\u9AD8\\u7684\\u672A\\u6EE1\\u767E\\u80DC\\u6B66\\u5C06",
+    random: "\\u5728\\u5DF2\\u62E5\\u6709\\u3001\\u767E\\u80DC\\u672A\\u5B8C\\u6210\\u7684\\u6B66\\u5C06\\u4E2D\\u968F\\u673A\\u8F6E\\u6362",
+    order: "\\u6280\\u80FD\\u6218\\u529F\\u5DF2\\u5B8C\\u6210\\u4F18\\u5148\\uFF0C\\u518D\\u6309\\u767E\\u80DC\\u8FDB\\u5EA6\\u6392\\u5E8F"
+  };
+  var PANEL_STYLE = \`
+  [data-gaizhu]{min-width:0;color:var(--sgs-text);font:12px/1.6 var(--sgs-font,sans-serif)}
+  [data-gaizhu] *,[data-gaizhu] *::before,[data-gaizhu] *::after{box-sizing:border-box}
+  [data-gaizhu] [hidden]{display:none!important}
+  [data-gaizhu] p{margin:0;overflow-wrap:anywhere}
+  [data-gaizhu] .gz-field{margin-top:12px;min-width:0}
+  [data-gaizhu] .gz-module-field{margin-top:3px}
+  [data-gaizhu] .gz-label{margin:0 0 5px;font-size:11px;font-weight:600;color:var(--sgs-muted)}
+  [data-gaizhu] button{font-family:inherit;cursor:pointer;line-height:1.5}
+  [data-gaizhu] button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:2px}
+  [data-gaizhu] button:disabled{opacity:.45;cursor:not-allowed}
+  [data-gaizhu] .gz-segments>button{padding:5px 2px;min-height:32px;font-size:11px;white-space:nowrap}
+  [data-gaizhu] .gz-segments>button:disabled[aria-pressed=true]{opacity:.86}
+  [data-gaizhu] .gz-roles>button{font-size:12px}
+  [data-gaizhu] .gz-stop>button:first-child{flex:4}
+  [data-gaizhu] .gz-stop>button:nth-child(2){flex:6}
+  [data-gaizhu] .gz-stop>button:last-child{flex:3}
+  [data-gaizhu] .gz-hours{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:8px}
+  [data-gaizhu] .gz-hours input{width:76px;font-variant-numeric:tabular-nums}
+  [data-gaizhu] .gz-wait{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 0;border-top:1px solid color-mix(in srgb,var(--sgs-border) 40%,transparent)}
+  [data-gaizhu] .gz-wait-copy{min-width:0;flex:1}
+  [data-gaizhu] .gz-wait-copy>span{display:block}
+  [data-gaizhu] .gz-wait-copy small{display:block;font-size:10px;color:var(--sgs-muted);overflow-wrap:anywhere}
+  [data-gaizhu] .gz-wait-state{font-size:10px;color:var(--sgs-muted);white-space:nowrap}
+  [data-gaizhu] .gz-caution{margin-top:8px;padding-left:8px;border-left:2px solid color-mix(in srgb,var(--sgs-accent) 55%,var(--sgs-border));font-size:11px;color:var(--sgs-muted)}
+  [data-gaizhu] .gz-action{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-height:34px;margin-top:10px;padding:6px 8px;border:1px solid color-mix(in srgb,var(--sgs-accent) 40%,transparent);border-radius:7px;background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 18%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 8%,var(--sgs-surface)));color:var(--sgs-accent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 5%,transparent);font-size:12px;white-space:nowrap}
+  [data-gaizhu] .gz-action:hover:enabled{border-color:var(--sgs-accent)}
+  [data-gaizhu] .gz-action.is-running{background:var(--sgs-surface);color:var(--sgs-danger);border-color:color-mix(in srgb,var(--sgs-danger) 35%,transparent)}
+  [data-gaizhu] .gz-action-icon{display:inline-flex;flex:none}
+  [data-gaizhu] .gz-status{margin-top:8px;padding-left:8px;border-left:2px solid var(--sgs-border);color:var(--sgs-muted);font-size:11px}
+  [data-gaizhu] .gz-stop-status{margin-top:4px;color:var(--sgs-muted);font-size:11px;font-variant-numeric:tabular-nums}
+  [data-gaizhu] .is-error{color:var(--sgs-danger);border-color:var(--sgs-danger)}
+  [data-gaizhu] .gz-invite{margin-top:10px;padding:8px 9px 9px;border-left:2px solid var(--sgs-accent);border-radius:0 6px 6px 0;background:color-mix(in srgb,var(--sgs-accent) 7%,var(--sgs-bg))}
+  [data-gaizhu] .gz-room-line{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  [data-gaizhu] .gz-room-line b{color:var(--sgs-text);font-size:13px;font-variant-numeric:tabular-nums}
+  [data-gaizhu] .gz-password{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:5px;font-variant-numeric:tabular-nums}
+  [data-gaizhu] .gz-password>span{min-width:0;overflow-wrap:anywhere;user-select:text}
+  [data-gaizhu] .gz-password>button{flex:none;padding:3px 6px;min-height:28px;font-size:11px;white-space:nowrap}
+  [data-gaizhu] .gz-companion{margin-top:6px;color:var(--sgs-muted);font-size:11px}
+  [data-gaizhu] .gz-meta{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:7px;color:var(--sgs-muted);font-size:10px;font-variant-numeric:tabular-nums}
+  [data-gaizhu] .gz-meta>span:first-child{min-width:0;overflow-wrap:anywhere}
+  [data-gaizhu] .gz-meta>span:last-child{flex:none;white-space:nowrap}
+  [data-gaizhu] details{margin-top:6px;min-width:0}
+  [data-gaizhu] details>summary{font-size:11px}
+  [data-gaizhu] pre{max-height:180px;overflow:auto;margin:0 0 7px;white-space:pre-wrap;overflow-wrap:anywhere;font:10px/1.6 var(--sgs-font,sans-serif);color:var(--sgs-muted)}
+  [data-gaizhu] .gz-error pre{color:var(--sgs-danger)}
+\`;
+  function operationHint(role, mode, pick) {
+    if (role === "host") return "\\u81EA\\u52A8\\u8865\\u666E\\u901A\\u5C0F\\u6740\\u5E76\\u70B9\\u5C06\\u9EC4\\u76D6\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u70B9\\u5C06\\u8D44\\u6E90\\u3002";
+    const point = "\\u70B9\\u5C06\\u53EF\\u80FD\\u6D88\\u8017\\u6E38\\u620F\\u70B9\\u5C06\\u5361\\u7B49\\u8D44\\u6E90\\u3002";
+    if (role === "rebel") return pick === "off" ? "\\u4E0E\\u76D6\\u4E3B\\u5C0F\\u53F7\\u914D\\u5408\\uFF0C\\u81EA\\u52A8\\u51C6\\u5907\\u3001\\u9009\\u5C06\\u548C\\u6258\\u7BA1\\u3002" : "\\u4E0E\\u76D6\\u4E3B\\u5C0F\\u53F7\\u914D\\u5408\\uFF0C\\u81EA\\u52A8\\u51C6\\u5907\\u3001\\u9009\\u5C06\\u548C\\u6258\\u7BA1\\u3002" + point;
+    if (mode === "training") return "\\u81EA\\u52A8\\u9009\\u5C06\\u548C\\u7EED\\u5C40\\u3002\\u5546\\u5E97\\u6309\\u73B0\\u6709\\u89C4\\u5219\\u9009\\u8D2D\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u5C40\\u5185\\u8D27\\u5E01\\u3002";
+    if (mode === "nation") return "\\u81EA\\u52A8\\u8865\\u5C0F\\u6740\\u3001\\u9009\\u5C06\\u3001\\u63A8\\u8FDB\\u5BF9\\u5C40\\u548C\\u7EED\\u5C40\\u3002";
+    return pick === "off" ? "\\u542F\\u52A8\\u65F6\\u5C1D\\u8BD5\\u628A\\u5DF2\\u6EE1\\u767E\\u80DC\\u7684\\u6B66\\u5C06\\u5199\\u5165\\u6E38\\u620F\\u7981\\u5C06\\u65B9\\u6848\\uFF0C\\u5E76\\u4E3A\\u53CD\\u8D3C\\u961F\\u53CB\\u4F18\\u5148\\u8865\\u9AD8\\u7EA7\\u5C0F\\u6740\\u3002" : "\\u6309\\u6240\\u9009\\u65B9\\u5F0F\\u8F6E\\u6362\\u767E\\u80DC\\u6B66\\u5C06\\uFF0C\\u4E3A\\u53CD\\u8D3C\\u961F\\u53CB\\u4F18\\u5148\\u8865\\u9AD8\\u7EA7\\u5C0F\\u6740\\u3002" + point;
+  }
   function renderPanel(ctx, controller, container) {
     const doc = ctx.document, releases = [];
-    let mounted = true, draftRole = "host", lastAccount;
+    let mounted = true, draftRole = "host", lastAccount, lastHours, lastClipboardKey, clipboardWrite = 0;
     const el = (tag, text, className) => {
       const node = doc.createElement(tag);
       if (text !== void 0) node.textContent = text;
@@ -21811,169 +24573,222 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
     const root = el("section");
     root.dataset.gaizhu = "";
     const style = el("style");
-    style.textContent = \`
-    [data-gaizhu]{min-width:0;color:var(--sgs-text);font:12px/1.6 var(--sgs-font,sans-serif)}
-    [data-gaizhu] *,[data-gaizhu] *::before,[data-gaizhu] *::after{box-sizing:border-box}
-    [data-gaizhu] [hidden]{display:none!important}
-    [data-gaizhu] p{margin:0;overflow-wrap:anywhere}
-    [data-gaizhu] .gz-note{color:var(--sgs-muted);font-size:11px}
-    [data-gaizhu] .gz-field{margin-top:13px;min-width:0}
-    [data-gaizhu] h3,[data-gaizhu] .gz-label{margin:0 0 6px;font-size:11px;font-weight:600;color:var(--sgs-muted)}
-    [data-gaizhu] button{font-family:inherit;cursor:pointer;line-height:1.5}
-    [data-gaizhu] button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:2px}
-    [data-gaizhu] button:disabled{opacity:.45;cursor:not-allowed}
-    [data-gaizhu] .gz-roles>button{padding:7px 4px;font-size:12px}
-    [data-gaizhu] .gz-roles small{display:block;margin-top:1px;font-size:10px;font-weight:400;color:var(--sgs-muted)}
-    [data-gaizhu] .gz-picks>button{padding:6px 2px;min-height:30px;font-size:11px;white-space:nowrap}
-    [data-gaizhu] .gz-wait{display:flex;align-items:center;gap:10px;margin-top:13px;padding:9px 0;border-top:1px solid color-mix(in srgb,var(--sgs-border) 40%,transparent)}
-    [data-gaizhu] .gz-wait-copy{min-width:0;flex:1}
-    [data-gaizhu] .gz-wait-copy>span{display:block}
-    [data-gaizhu] .gz-wait-copy small{display:block;font-size:10px;color:var(--sgs-muted);overflow-wrap:anywhere}
-    [data-gaizhu] .gz-wait-state{font-size:10px;color:var(--sgs-muted);white-space:nowrap}
-    [data-gaizhu] .gz-caution{margin-top:8px;padding-left:8px;border-left:2px solid color-mix(in srgb,var(--sgs-accent) 55%,var(--sgs-border));font-size:10px;color:var(--sgs-muted)}
-    [data-gaizhu] .gz-action{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;min-height:34px;margin-top:13px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--sgs-accent) 40%,transparent);border-radius:7px;background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 18%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 8%,var(--sgs-surface)));color:var(--sgs-accent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 5%,transparent);font-size:12px}
-    [data-gaizhu] .gz-action:hover:enabled{border-color:var(--sgs-accent)}
-    [data-gaizhu] .gz-action.is-running{background:var(--sgs-surface);color:var(--sgs-danger);border-color:color-mix(in srgb,var(--sgs-danger) 35%,transparent)}
-    [data-gaizhu] .gz-status{margin-top:10px;padding-left:8px;border-left:2px solid var(--sgs-border);color:var(--sgs-muted);font-size:11px}
-    [data-gaizhu] .gz-status.is-error{color:var(--sgs-danger);border-color:var(--sgs-danger)}
-    [data-gaizhu] .gz-password{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-variant-numeric:tabular-nums}
-    [data-gaizhu] .gz-meta{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:7px;color:var(--sgs-muted);font-size:10px;font-variant-numeric:tabular-nums}
-    [data-gaizhu] .gz-meta>span:first-child{min-width:0;overflow-wrap:anywhere}
-    [data-gaizhu] .gz-meta>span:last-child{flex:none}
-    [data-gaizhu] details{margin-top:6px;min-width:0}
-    [data-gaizhu] details>summary{font-size:11px}
-    [data-gaizhu] pre{max-height:180px;overflow:auto;margin:0 0 7px;white-space:pre-wrap;overflow-wrap:anywhere;font:10px/1.6 var(--sgs-font,sans-serif);color:var(--sgs-muted)}
-    [data-gaizhu] .gz-error pre{color:var(--sgs-danger)}
-  \`;
-    const intro = el("p", "\\u53CC\\u4EBA\\u8FDB\\u5165\\u540C\\u4E00\\u8EAB\\u4EFD\\u623F\\uFF1B\\u5355\\u4EBA\\u7528\\u53CD\\u8D3C\\u5927\\u53F7\\u5750\\u623F\\u4E3B\\uFF0C\\u6216\\u8FDB\\u5165\\u5355\\u9A91\\u4EBA\\u673A\\u8BAD\\u7EC3\\u3002", "gz-note");
-    const roleField = el("div", void 0, "gz-field"), roleTitle = el("h3", "\\u672C\\u7AEF\\u89D2\\u8272");
-    const roleGroup = el("div", void 0, "sgs-segments gz-roles");
-    roleGroup.setAttribute("role", "group");
-    roleGroup.setAttribute("aria-label", "\\u672C\\u7AEF\\u89D2\\u8272");
-    const roleButtons = /* @__PURE__ */ new Map();
-    for (const [role, title, description] of [["host", "\\u76D6\\u4E3B\\u5C0F\\u53F7", "\\u623F\\u4E3B \\xB7 \\u9EC4\\u76D6"], ["rebel", "\\u53CD\\u8D3C\\u5927\\u53F7", "\\u767E\\u80DC \\xB7 \\u5355\\u4EBA / \\u53CC\\u4EBA"]]) {
-      const button = el("button", title);
-      button.type = "button";
-      button.dataset.role = role;
-      button.setAttribute("aria-label", title);
-      button.title = \`\${title} \\xB7 \${description}\`;
-      button.append(el("small", description));
-      listen(button, "click", () => {
-        draftRole = role;
-        redraw();
-      });
-      roleButtons.set(role, button);
-      roleGroup.append(button);
+    style.textContent = PANEL_STYLE;
+    function segments(label2, key, choices, changed, hints) {
+      const field2 = el("div", void 0, key === "role" ? "gz-field gz-module-field" : "gz-field");
+      if (key !== "role") field2.append(el("p", label2, "gz-label"));
+      const group = el("div", void 0, "sgs-segments gz-segments gz-" + (key === "role" ? "roles" : key));
+      group.setAttribute("role", "group");
+      group.setAttribute("aria-label", label2);
+      field2.append(group);
+      const buttons = /* @__PURE__ */ new Map();
+      for (const [value, title] of choices) {
+        const button = el("button", title);
+        button.type = "button";
+        button.dataset[key] = value;
+        if (hints) button.title = hints[value];
+        listen(button, "click", () => changed(value));
+        group.append(button);
+        buttons.set(value, button);
+      }
+      return { field: field2, update(selected2, disabled) {
+        for (const [value, button] of buttons) {
+          button.disabled = disabled;
+          button.setAttribute("aria-pressed", String(selected2 === value));
+        }
+      } };
     }
-    roleField.append(roleTitle, roleGroup);
-    const pickField = el("div", void 0, "gz-field"), pickTitle = el("p", "\\u70B9\\u5C06 \\xB7 \\u767E\\u80DC\\u8F6E\\u6362", "gz-label");
-    const pickGroup = el("div", void 0, "sgs-segments gz-picks");
-    pickGroup.setAttribute("role", "group");
-    pickGroup.setAttribute("aria-label", "\\u767E\\u80DC\\u70B9\\u5C06\\u65B9\\u5F0F");
-    const pickButtons = /* @__PURE__ */ new Map();
-    for (const [pick, title] of [["off", "\\u4E0D\\u70B9\\u5C06"], ["random", "\\u968F\\u673A\\u70B9\\u5C06"], ["order", "\\u6309\\u5E8F\\u70B9\\u5C06"]]) {
-      const button = el("button", title);
-      button.type = "button";
-      button.dataset.pick = pick;
-      button.title = pick === "order" ? "\\u6280\\u80FD\\u6218\\u529F\\u5DF2\\u5B8C\\u6210\\u4F18\\u5148\\uFF0C\\u518D\\u6309\\u767E\\u80DC\\u8FDB\\u5EA6\\u6392\\u5E8F" : pick === "random" ? "\\u5728\\u5DF2\\u62E5\\u6709\\u3001\\u767E\\u80DC\\u672A\\u5B8C\\u6210\\u7684\\u6B66\\u5C06\\u4E2D\\u968F\\u673A\\u8F6E\\u6362" : "\\u4ECE\\u5F00\\u5C40\\u5019\\u9009\\u9009\\u5C06\\uFF0C\\u5355\\u4EBA\\u4F18\\u5148\\u54C1\\u8D28\\u9AD8\\u7684\\u672A\\u6EE1\\u767E\\u80DC\\u6B66\\u5C06";
-      listen(button, "click", () => controller.setOptions({ pick }));
-      pickButtons.set(pick, button);
-      pickGroup.append(button);
+    function toggle(key, label2, description, showState = false) {
+      const row = el("label", void 0, "gz-wait"), copy = el("span", void 0, "gz-wait-copy");
+      copy.append(el("span", label2), el("small", description));
+      row.append(copy);
+      const indicator = el("span", void 0, "gz-wait-state");
+      if (showState) row.append(indicator);
+      const input = ctx.ui.styleSwitch(el("input"));
+      input.type = "checkbox";
+      input.setAttribute("aria-label", label2);
+      row.append(input);
+      listen(input, "change", () => controller.setOptions({ [key]: input.checked }));
+      return { row, update(checked, disabled) {
+        input.checked = checked;
+        input.disabled = disabled;
+        if (showState) indicator.textContent = checked ? "\\u5DF2\\u5F00\\u542F" : "\\u5DF2\\u5173\\u95ED";
+      } };
     }
-    pickField.append(pickTitle, pickGroup);
-    const waitRow = el("label", void 0, "gz-wait"), waitCopy = el("span", void 0, "gz-wait-copy");
-    waitCopy.append(el("span", "\\u7B491\\u5206\\u949F"), el("small", "\\u524D45\\u79D2\\u70E7\\u6761\\uFF0C\\u52693\\u79D2\\u82E6\\u8089\\uFF1B\\u4E4B\\u540E\\u7ACB\\u5373\\u6536\\u5C3E\\u3002"));
-    const waitState = el("span", void 0, "gz-wait-state"), waitInput = ctx.ui.styleSwitch(el("input"));
-    waitInput.type = "checkbox";
-    waitInput.setAttribute("aria-label", "\\u7B491\\u5206\\u949F");
-    waitRow.append(waitCopy, waitState, waitInput);
-    listen(waitInput, "change", () => controller.setOptions({ wait: waitInput.checked }));
-    const wuxieRow = el("label", void 0, "gz-wait"), wuxieCopy = el("span", void 0, "gz-wait-copy");
-    wuxieCopy.append(el("span", "\\u53D6\\u6D88\\u65E0\\u61C8"), el("small", "\\u5355\\u4EBA\\u767E\\u80DC\\u548C\\u5355\\u9A91\\u8BAD\\u7EC3\\u9ED8\\u8BA4\\u8DF3\\u8FC7\\u65E0\\u61C8\\uFF1B\\u5173\\u95ED\\u540E\\u6309\\u52A9\\u624B\\u548C\\u9526\\u56CA\\u6765\\u6E90\\u5224\\u65AD\\u3002"));
-    const wuxieInput = ctx.ui.styleSwitch(el("input"));
-    wuxieInput.type = "checkbox";
-    wuxieInput.setAttribute("aria-label", "\\u53D6\\u6D88\\u65E0\\u61C8");
-    wuxieRow.append(wuxieCopy, wuxieInput);
-    listen(wuxieInput, "change", () => controller.setOptions({ cancelWuxie: wuxieInput.checked }));
-    const caution = el("p", void 0, "gz-caution");
-    const action = el("button", void 0, "gz-action");
-    action.type = "button";
-    const actionIcon = el("span"), actionText = el("span");
-    actionIcon.setAttribute("aria-hidden", "true");
-    action.append(actionIcon, actionText);
-    listen(action, "click", () => {
-      const s = controller.snapshot();
-      controller.setOptions({ role: s.role === "off" ? draftRole : "off" });
+    function action(label2, icon2) {
+      const button = el("button", void 0, "gz-action");
+      button.type = "button";
+      const picture = el("span", void 0, "gz-action-icon"), caption = el("span", label2);
+      picture.setAttribute("aria-hidden", "true");
+      picture.append(ctx.ui.icon(icon2));
+      button.append(picture, caption);
+      return { button, picture, caption };
+    }
+    const roles = segments("\\u6A21\\u5757", "role", MODULES, (value) => {
+      draftRole = value;
+      redraw();
     });
+    const modes = segments("\\u6302\\u673A\\u65B9\\u5F0F", "mode", AUTO_MODES2, (autoMode) => controller.setOptions({ autoMode }));
+    const picks = segments("\\u70B9\\u5C06 \\xB7 \\u767E\\u80DC\\u8F6E\\u6362", "pick", POINT_MODES, (pick) => controller.setOptions({ pick }), POINT_HINTS);
+    const stops = segments("\\u505C\\u6B62\\u6761\\u4EF6", "stop", STOP_MODES2, (stopMode) => controller.setOptions({ stopMode }));
+    const hoursRow = el("label", void 0, "gz-hours");
+    const hours = el("input", void 0, "sgs-input");
+    hours.type = "number";
+    hours.step = "any";
+    hours.inputMode = "decimal";
+    hours.required = true;
+    hours.setAttribute("aria-label", "\\u6302\\u673A\\u65F6\\u957F\\uFF08\\u5C0F\\u65F6\\uFF09");
+    hoursRow.append(el("span", "\\u6302\\u673A\\u65F6\\u957F\\uFF08\\u5C0F\\u65F6\\uFF09"), hours);
+    const stopHint = el("p", void 0, "gz-companion");
+    stops.field.append(hoursRow, stopHint);
+    const validHours = () => Boolean(durationOf(hours.valueAsNumber));
+    listen(hours, "change", () => {
+      if (validHours()) controller.setOptions({ stopHours: hours.valueAsNumber });
+      redraw();
+    });
+    listen(hours, "input", () => redraw());
+    const wait = toggle("wait", "\\u7B491\\u5206\\u949F", "\\u52693\\u79D2\\u6216\\u6EE145\\u79D2\\u82E6\\u8089\\u3002", true);
+    const caution = el("p", void 0, "gz-caution");
     const status = el("p", void 0, "gz-status");
     status.setAttribute("role", "status");
-    status.setAttribute("aria-live", "polite");
+    const stopStatus = el("p", void 0, "gz-stop-status");
+    stopStatus.setAttribute("role", "status");
+    const invite = el("div", void 0, "gz-invite");
+    const roomLine = el("p", void 0, "gz-room-line"), roomNumber = el("b");
+    roomLine.append(el("span", "\\u623F\\u53F7"), roomNumber);
     const passwordRow = el("div", void 0, "gz-password"), passwordText = el("span"), copyPassword = el("button", "\\u590D\\u5236\\u5BC6\\u7801", "sgs-btn");
     passwordRow.dataset.roomPassword = "";
     copyPassword.type = "button";
+    copyPassword.title = "\\u590D\\u5236\\u623F\\u95F4\\u5BC6\\u7801\\uFF08\\u4FDD\\u7559\\u524D\\u5BFC\\u96F6\\uFF09";
     passwordRow.append(passwordText, copyPassword);
     listen(copyPassword, "click", async () => {
-      const value = controller.snapshot().roomPassword;
-      if (!value) return;
+      const { account: account2, roomNumber: roomNumber2, roomPassword } = controller.snapshot();
+      if (!roomPassword) return;
+      const write = ++clipboardWrite;
+      const current = () => {
+        if (!mounted || write !== clipboardWrite) return false;
+        const s = controller.snapshot();
+        return s.account === account2 && s.roomNumber === roomNumber2 && s.roomPassword === roomPassword;
+      };
       try {
-        await (ctx.window || doc.defaultView).navigator.clipboard.writeText(value);
-        if (mounted) copyPassword.textContent = "\\u5DF2\\u590D\\u5236";
+        await (ctx.window || doc.defaultView).navigator.clipboard.writeText(roomPassword);
+        if (current()) copyPassword.textContent = "\\u5DF2\\u590D\\u5236";
       } catch {
-        if (mounted) copyPassword.textContent = "\\u590D\\u5236\\u5931\\u8D25\\uFF0C\\u8BF7\\u9009\\u53D6\\u5BC6\\u7801";
+        if (current()) copyPassword.textContent = "\\u8BF7\\u9009\\u53D6\\u5BC6\\u7801";
       }
+    });
+    const companion = el("p", void 0, "gz-companion");
+    companion.setAttribute("role", "status");
+    const confirmation = action("\\u786E\\u8BA4\\u5E76\\u5F00\\u59CB\\u901F\\u5237", "check");
+    listen(confirmation.button, "click", () => controller.confirm());
+    invite.append(roomLine, passwordRow, companion, confirmation.button);
+    const primary = action("\\u5F00\\u59CB\\u901F\\u5237", "play");
+    listen(primary.button, "click", () => {
+      const s = controller.snapshot();
+      if (s.role !== "off") {
+        controller.setOptions({ role: "off" });
+        return;
+      }
+      const start = { role: draftRole };
+      if (draftRole === "host" && s.inLobby) start.create = true;
+      else if (s.retryRole === draftRole && (draftRole !== "auto" || s.autoMode === "identity")) start.force = true;
+      controller.setOptions(start);
     });
     const meta = el("div", void 0, "gz-meta"), general = el("span"), rounds = el("span");
     meta.append(general, rounds);
-    const errors = el("details", void 0, "sgs-fold gz-error"), errorSummary = el("summary", "\\u67E5\\u770B\\u5B8C\\u6574\\u9519\\u8BEF"), errorText = el("pre");
-    errors.append(errorSummary, errorText);
-    const history = el("details", void 0, "sgs-fold"), historySummary = el("summary", "\\u8FD0\\u884C\\u8BB0\\u5F55"), historyText = el("pre");
-    history.append(historySummary, historyText);
-    root.append(style, intro, roleField, pickField, waitRow, wuxieRow, caution, action, status, passwordRow, meta, errors, history);
+    const errors = el("details", void 0, "sgs-fold gz-error"), errorText = el("pre");
+    errors.append(el("summary", "\\u67E5\\u770B\\u5B8C\\u6574\\u9519\\u8BEF"), errorText);
+    const history = el("details", void 0, "sgs-fold"), historyText = el("pre");
+    history.append(el("summary", "\\u8FD0\\u884C\\u8BB0\\u5F55"), historyText);
+    root.append(
+      style,
+      roles.field,
+      modes.field,
+      picks.field,
+      stops.field,
+      wait.row,
+      caution,
+      invite,
+      primary.button,
+      status,
+      stopStatus,
+      meta,
+      errors,
+      history
+    );
     container.append(root);
     let previousRunning;
     function redraw() {
       if (!mounted) return;
-      const s = controller.snapshot(), running = s.role === "host" || s.role === "rebel";
-      if (lastAccount !== void 0 && lastAccount !== s.account) draftRole = "host";
+      const s = controller.snapshot(), running = s.role !== "off";
+      const changedAccount = lastAccount !== s.account;
+      if (changedAccount) draftRole = "host";
       lastAccount = s.account;
       if (running) draftRole = s.role;
-      for (const [role, button] of roleButtons) {
-        button.disabled = !s.account || running;
-        button.setAttribute("aria-pressed", String(draftRole === role));
+      const auto = draftRole === "auto", mode = s.autoMode || "identity", stop = s.stopMode || "manual";
+      const canConfigure = Boolean(s.account) && !running;
+      const confirming = running && s.awaitingConfirmation;
+      roles.update(draftRole, !canConfigure);
+      modes.field.hidden = !auto;
+      modes.update(mode, !canConfigure);
+      stops.field.hidden = !auto;
+      stops.update(stop, !canConfigure);
+      hoursRow.hidden = stop !== "timed";
+      hours.disabled = !canConfigure || !auto || stop !== "timed";
+      if (changedAccount || lastHours !== s.stopHours) {
+        hours.value = s.stopHours || "";
+        lastHours = s.stopHours;
       }
-      for (const [pick, button] of pickButtons) {
-        button.disabled = !s.account || running;
-        button.setAttribute("aria-pressed", String(s.pick === pick));
-      }
-      pickField.hidden = draftRole !== "rebel";
-      pickTitle.textContent = s.training ? "\\u5355\\u9A91\\u4EBA\\u673A\\u4E0D\\u652F\\u6301\\u70B9\\u5C06 \\xB7 \\u8BBE\\u7F6E\\u6682\\u4E0D\\u751F\\u6548" : "\\u70B9\\u5C06 \\xB7 \\u767E\\u80DC\\u8F6E\\u6362";
-      if (s.training) for (const button of pickButtons.values()) button.disabled = true;
-      waitRow.hidden = draftRole !== "host";
-      wuxieRow.hidden = draftRole !== "rebel";
-      wuxieInput.checked = s.cancelWuxie !== false;
-      wuxieInput.disabled = !s.account;
-      waitInput.checked = Boolean(s.wait);
-      waitInput.disabled = !s.account;
-      waitState.textContent = s.wait ? "\\u5DF2\\u5F00\\u542F" : "\\u5DF2\\u5173\\u95ED";
-      caution.textContent = s.training ? "\\u4F18\\u5148\\u6267\\u884C\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A\\uFF0C\\u8D85\\u65F6\\u672C\\u5730\\u5904\\u7406\\u5E76\\u6258\\u7BA1\\u515C\\u5E95\\uFF0C\\u62D2\\u7EDD\\u624B\\u6C14\\u5361\\u5E76\\u81EA\\u52A8\\u7EED\\u5C40\\u3002\\u5546\\u5E97\\u6CBF\\u7528\\u9009\\u8D2D\\u89C4\\u5219\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u5C40\\u5185\\u8D27\\u5E01\\uFF1B\\u70B9\\u5C06\\u8BBE\\u7F6E\\u4E0D\\u751F\\u6548\\u3002" : draftRole === "host" ? "\\u5F00\\u59CB\\u540E\\u81EA\\u52A8\\u8865\\u666E\\u901A\\u5C0F\\u6740\\u3001\\u70B9\\u5C06\\u9EC4\\u76D6\\u5E76\\u82E6\\u8089\\u6C42\\u6B7B\\u3002\\u623F\\u95F4\\u70B9\\u5C06\\u53EF\\u80FD\\u6D88\\u8017\\u70B9\\u5C06\\u8D44\\u6E90\\u3002" : s.pick === "off" ? "\\u8EAB\\u4EFD\\u6F14\\u6B66\\u542F\\u52A8\\u65F6\\u5C1D\\u8BD5\\u5C06\\u5DF2\\u6EE1\\u767E\\u80DC\\u6B66\\u5C06\\u5199\\u5165\\u6E38\\u620F\\u7981\\u5C06\\u65B9\\u6848\\u3002\\u5355\\u4EBA\\u4F18\\u5148\\u4E3A\\u53CD\\u8D3C\\u961F\\u53CB\\u8865\\u738B\\u8005\\u6216\\u9AD8\\u7EA7\\u5C0F\\u6740\\u3002\\u62D2\\u7EDD\\u624B\\u6C14\\u5361\\u3002\\u5355\\u9A91\\u8BAD\\u7EC3\\u81EA\\u52A8\\u9009\\u8D2D\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u5C40\\u5185\\u8D27\\u5E01\\u3002" : "\\u6309\\u6240\\u9009\\u65B9\\u5F0F\\u70B9\\u5C06\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u6E38\\u620F\\u70B9\\u5C06\\u5361\\u7B49\\u8D44\\u6E90\\u3002\\u53CC\\u4EBA\\u65F6\\u6258\\u7BA1\\uFF1B\\u5355\\u4EBA\\u623F\\u4E3B\\u4F18\\u5148\\u6267\\u884C\\u5C0F\\u6740\\u52A9\\u624B\\u63D0\\u793A\\uFF0C\\u8D85\\u65F6\\u672C\\u5730\\u5904\\u7406\\u5E76\\u6258\\u7BA1\\u515C\\u5E95\\u3002\\u5355\\u9A91\\u8BAD\\u7EC3\\u81EA\\u52A8\\u9009\\u8D2D\\uFF0C\\u53EF\\u80FD\\u6D88\\u8017\\u5C40\\u5185\\u8D27\\u5E01\\u3002";
-      action.disabled = !s.account && !running;
-      action.classList.toggle("is-running", running);
-      actionText.textContent = running ? "\\u505C\\u6B62\\u901F\\u5237" : "\\u5F00\\u59CB\\u901F\\u5237";
-      action.setAttribute("aria-label", actionText.textContent);
-      action.title = running ? "\\u505C\\u6B62\\u672C\\u7AEF\\u81EA\\u52A8\\u64CD\\u4F5C" : \`\\u5F00\\u59CB\${draftRole === "host" ? "\\u76D6\\u4E3B\\u5C0F\\u53F7" : "\\u53CD\\u8D3C\\u5927\\u53F7"}\\u901F\\u5237\`;
+      const invalidHours = auto && stop === "timed" && !validHours();
+      hours.setAttribute("aria-invalid", String(invalidHours));
+      stopHint.hidden = stop === "manual" || running;
+      stopHint.textContent = stop === "tavern" ? "\\u4E09\\u9879\\u5747\\u5DF2\\u9886\\u53D6\\u540E\\uFF0C\\u6253\\u5B8C\\u672C\\u5C40\\u5373\\u505C\\u6B62\\u3002" : "\\u4ECE\\u542F\\u52A8\\u65F6\\u8BA1\\u65F6\\uFF0C\\u5230\\u70B9\\u540E\\u6253\\u5B8C\\u672C\\u5C40\\u5373\\u505C\\u6B62\\u3002";
+      picks.field.hidden = !(draftRole === "rebel" || auto && mode === "identity");
+      picks.update(s.pick, !canConfigure || picks.field.hidden);
+      wait.row.hidden = draftRole !== "host" || confirming;
+      wait.update(Boolean(s.wait), !s.account);
+      caution.hidden = confirming;
+      caution.textContent = operationHint(draftRole, mode, s.pick);
+      const creating = draftRole === "host" && s.inLobby;
+      const canForce = !running && !creating && s.retryRole === draftRole && (!auto || mode === "identity");
+      const cooling = canForce && s.retrySeconds > 0;
+      primary.button.disabled = cooling || !running && (!s.account || invalidHours);
+      primary.button.classList.toggle("is-running", running);
+      let title = auto ? "\\u5F00\\u59CB\\u6302\\u673A" : creating ? "\\u521B\\u5EFA\\u76D6\\u4E3B\\u623F" : "\\u5F00\\u59CB\\u901F\\u5237";
+      if (running) title = confirming ? "\\u53D6\\u6D88\\u901F\\u5237" : auto ? "\\u505C\\u6B62\\u6302\\u673A" : "\\u505C\\u6B62\\u901F\\u5237";
+      else if (canForce) title = cooling ? \`\\u5F3A\\u5236\\u5F00\\u59CB\\uFF08\${s.retrySeconds}\\u79D2\\uFF09\` : "\\u5F3A\\u5236\\u5F00\\u59CB";
+      primary.caption.textContent = title;
+      primary.button.title = running ? "\\u505C\\u6B62\\u672C\\u7AEF\\u81EA\\u52A8\\u64CD\\u4F5C" : canForce ? "\\u4F7F\\u7528\\u5F53\\u524D\\u623F\\u95F4\\u8BBE\\u7F6E\\u5F00\\u59CB" : title;
       if (previousRunning !== running) {
         previousRunning = running;
-        actionIcon.replaceChildren(ctx.ui.icon(running ? "pause" : "play"));
+        primary.picture.replaceChildren(ctx.ui.icon(running ? "pause" : "play"));
       }
-      status.textContent = s.status || (s.account ? "\\u5DF2\\u505C\\u6B62\\uFF0C\\u70B9\\u51FB\\u5F00\\u59CB\\u540E\\u8FD0\\u884C\\u3002" : "\\u7B49\\u5F85\\u767B\\u5F55\\u8D26\\u53F7\\u3002");
-      status.classList.toggle("is-error", Boolean(s.error));
-      passwordRow.hidden = !s.roomPassword;
-      copyPassword.disabled = !s.account || !s.roomPassword;
-      passwordText.textContent = s.roomPassword ? "\\u623F\\u95F4\\u5DF2\\u8BBE\\u7F6E\\u5BC6\\u7801 \\xB7 " + s.roomPassword : "";
-      copyPassword.title = "\\u590D\\u5236\\u623F\\u95F4\\u5BC6\\u7801\\uFF08\\u4FDD\\u7559\\u524D\\u5BFC\\u96F6\\uFF09";
+      status.textContent = !running && invalidHours ? "\\u8BF7\\u8F93\\u5165\\u5927\\u4E8E 0 \\u7684\\u5C0F\\u65F6\\u6570\\u3002" : s.status || (s.account ? "\\u5DF2\\u505C\\u6B62" : "\\u7B49\\u5F85\\u767B\\u5F55\\u8D26\\u53F7\\u3002");
+      status.classList.toggle("is-error", Boolean(s.error) || !running && invalidHours);
+      status.hidden = Boolean(confirming && !s.error);
+      stopStatus.textContent = auto && s.stopStatus !== status.textContent ? s.stopStatus || "" : "";
+      stopStatus.hidden = !stopStatus.textContent;
+      const hasPassword = Boolean(s.roomPassword);
+      invite.hidden = !confirming && !hasPassword;
+      roomLine.hidden = !s.roomNumber;
+      roomNumber.textContent = String(s.roomNumber || "").slice(-5);
+      passwordRow.hidden = !hasPassword;
+      copyPassword.disabled = !s.account || !hasPassword;
+      passwordText.textContent = hasPassword ? "\\u5BC6\\u7801 " + s.roomPassword : "";
+      const key = [s.account, s.roomNumber, s.roomPassword].join("|");
+      if (key !== lastClipboardKey) {
+        clipboardWrite++;
+        copyPassword.textContent = "\\u590D\\u5236\\u5BC6\\u7801";
+        lastClipboardKey = key;
+      }
+      companion.hidden = !confirming;
+      companion.textContent = s.canConfirm ? s.companionName ? \`\${s.companionName} \\u5DF2\\u5165\\u5E2D\\uFF0C\\u53EF\\u4EE5\\u5F00\\u59CB\\u3002\` : "\\u540C\\u4F34\\u5DF2\\u5165\\u5E2D\\uFF0C\\u53EF\\u4EE5\\u5F00\\u59CB\\u3002" : "\\u8BF7\\u624B\\u52A8\\u9080\\u8BF7\\u53E6\\u4E00\\u4E2A\\u8D26\\u53F7\\uFF0C\\u7B49\\u5F85\\u540C\\u4F34\\u5165\\u5E2D\\u3002";
+      confirmation.button.hidden = !confirming;
+      confirmation.button.disabled = !confirming || !s.canConfirm;
       general.textContent = s.generalName ? \`\\u5F53\\u524D\\u6B66\\u5C06 \\xB7 \${s.generalName}\` : running ? "\\u7B49\\u5F85\\u8BC6\\u522B\\u6B66\\u5C06" : "\\u5C1A\\u672A\\u8FD0\\u884C";
       general.title = general.textContent;
       rounds.textContent = \`\\u5DF2\\u5B8C\\u6210 \${Number.isSafeInteger(s.rounds) && s.rounds >= 0 ? s.rounds : "\\u672A\\u77E5"} \\u5C40\`;
+      meta.hidden = Boolean(confirming);
       errors.hidden = !s.error;
       errorText.textContent = s.error || "";
       history.hidden = !Array.isArray(s.log) || !s.log.length;
@@ -21998,8 +24813,8 @@ return {...SGSPlugin.default, manifest:{"id":"seckill","name":"\u81EA\u52A8\u79D
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F\u5237","version":"0.1.18","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u53CD\u8D3C\u623F\u4E3B\u5355\u4EBA\u767E\u80DC\u548C\u5355\u9A91\u4EBA\u673A\u8BAD\u7EC3\uFF0C\u4F18\u5148\u4F7F\u7528\u5C0F\u6740\u52A9\u624B\u63D0\u793A\uFF0C\u5E76\u63D0\u4F9B\u53D6\u6D88\u65E0\u61C8\u9009\u9879\u3002\u9700\u624B\u52A8\u5F00\u59CB\uFF1B\u70B9\u5C06\u53EF\u80FD\u6D88\u8017\u9053\u5177\uFF0C\u5355\u9A91\u8BAD\u7EC3\u81EA\u52A8\u9009\u8D2D\u53EF\u80FD\u6D88\u8017\u5C40\u5185\u8D27\u5E01\u3002","minCoreVersion":"0.6.37","dependencies":["baisheng"],"description":"\u652F\u6301\u76D6\u4E3B\u901F\u5237\u3001\u53CD\u8D3C\u623F\u4E3B\u5355\u4EBA\u767E\u80DC\u548C\u5355\u9A91\u4EBA\u673A\u8BAD\u7EC3\uFF1B\u5355\u4EBA\u5BF9\u5C40\u4F18\u5148\u63A5\u53D7\u5C0F\u6740\u52A9\u624B\u63D0\u793A\uFF0C\u8D85\u65F6\u672C\u5730\u5904\u7406\u4E0E\u6258\u7BA1\u515C\u5E95\u3002","icon":{"paths":["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0","M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3","M2 21h6"]},"priority":21000,"categories":["automation"]}};
-`, sha256: "1dd15420cb1f69de0ff6c7869a0507ce7a745d4dc5fc8f37099b9cee01333bcd" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "effects", name: "\u7279\u6548\u5C4F\u853D", version: "0.5.11", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7EDF\u4E00\u8BBE\u7F6E\u4E2D\u7684\u5E2E\u52A9\u56FE\u6807\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u7279\u6548\u5C4F\u853D\u9009\u62E9\u3002", minCoreVersion: "0.6.37", categories: ["tools"], icon: { paths: ["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2", "M3 3 21 21M19 3v4M17 5h4"] }, priority: 2e4, description: "\u6309\u9700\u5C4F\u853D\u5BF9\u5C40\u7279\u6548\u4E0E\u754C\u9762\u63D0\u9192\uFF0C\u8BA9\u753B\u9762\u66F4\u6E05\u723D" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F\u5237","version":"0.2.7","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u5927\u5385\u5EFA\u623F\u548C\u8EAB\u4EFD\u3001\u56FD\u6218\u3001\u5355\u9A91\u81EA\u52A8\u6302\u673A\uFF0C\u53EF\u5B9A\u65F6\u6216\u5728\u9152\u9986\u4E09\u9879\u5956\u52B1\u9886\u9F50\u540E\u505C\u673A\u3002\u9996\u6B21\u76D6\u4E3B\u5F00\u5C40\u9700\u786E\u8BA4\u540C\u4F34\uFF0C\u5355\u4EBA\u8865\u5C0F\u6740\u5931\u8D25\u4F1A\u5C1D\u8BD5\u91CD\u8865\u3002\u70B9\u5C06\u548C\u90E8\u5206\u5546\u5E97\u64CD\u4F5C\u53EF\u80FD\u6D88\u8017\u9053\u5177\u6216\u5C40\u5185\u8D27\u5E01\u3002","minCoreVersion":"0.6.37","dependencies":["baisheng"],"description":"\u53CC\u4EBA\u76D6\u4E3B\u901F\u5237\uFF0C\u4EE5\u53CA\u8EAB\u4EFD\u3001\u56FD\u6218\u3001\u5355\u9A91\u81EA\u52A8\u6302\u673A\u3002","icon":{"paths":["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0","M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3","M2 21h6"]},"priority":21000,"categories":["automation"]}};
+`, sha256: "efd53ca97796beb6295527ffb638ce33d19a422933f5d7573d1137c5c344163e" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "effects", name: "\u7279\u6548\u5C4F\u853D", version: "0.5.13", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4FEE\u590D\u5C4F\u853D\u516C\u544A\u6216\u65E5\u5386\u540E\u5927\u5385\u300C\u66F4\u591A\u300D\u4ECD\u663E\u793A\u76F8\u5E94\u7EA2\u70B9\u7684\u95EE\u9898\uFF0C\u5176\u4ED6\u63D0\u9192\u7EE7\u7EED\u6309\u6E38\u620F\u72B6\u6001\u663E\u793A\u3002", minCoreVersion: "0.6.37", categories: ["tools"], icon: { paths: ["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2", "M3 3 21 21M19 3v4M17 5h4"] }, priority: 2e4, description: "\u6309\u9700\u5C4F\u853D\u5BF9\u5C40\u7279\u6548\u4E0E\u754C\u9762\u63D0\u9192\uFF0C\u8BA9\u753B\u9762\u66F4\u6E05\u723D" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -22037,6 +24852,10 @@ return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -22163,7 +24982,15 @@ return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F
     RogueChapterStoryWindow: ["rogue", "Close"]
   };
   var PROB_WINDOWS = ["GetPropSpecialWindow", "GetNewGeneralWindow", "SkinNewGetWin", "GetPropXianDingWindow"];
+  var RECRUIT_VIEWS = ["GeneralOpenWindow", "GeneralOpenNewbieView"];
+  var RECRUIT_EFFECT = /^res\\/assets\\/animate\\/hall\\/generalopen\\/zhaomuchaibao0[1-3]\\.sk$/;
   var SKIN_NODES = ["outAvatarEffect", "outAvatarEffect2", "playingNewSpEffect", "newFullScreenEffect"];
+  var HALL_AD_BADGES = [10049, 10307];
+  var HALL_AD_MANAGERS = [
+    ["decodeSyncGameDataEvent", "NoticeRed"],
+    ["ClientLobbyAdRep", "ShowNewAdNoticeRed"],
+    ["decodeClientActivityCalendarDataResp", "GetSpecialActivityCalendar"]
+  ];
   function createExtendedEffects(ctx, api) {
     const { enabled, mask, patch, read: read2, alive: alive2, items: items2, propertyOwner: propertyOwner2, ready, hit } = api;
     let probStates = /* @__PURE__ */ new WeakMap(), inspected = /* @__PURE__ */ new Set();
@@ -22215,8 +25042,21 @@ return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F
         closing.delete(node);
       }
     }
+    function maskRecruitEffect(view) {
+      const effect = read2(() => view.zhaoMuEffect);
+      const url = read2(() => effect.EffectUrl || effect.effectUrl);
+      if (typeof url === "string" && RECRUIT_EFFECT.test(url)) mask(effect, "package");
+    }
     function windowAdapter(target, name, instance = false) {
       if (!alive2(target)) return;
+      if (RECRUIT_VIEWS.includes(name)) {
+        windowWrap(target, "showOpenEffect", ["package"], (self, _args, invoke) => {
+          const result = invoke();
+          maskRecruitEffect(self);
+          return result;
+        });
+        return;
+      }
       if (name === "RogueComChangeWindow") {
         for (const method2 of ["enterWindow", "UpdateWindow"]) windowWrap(target, method2, ["rogue"], (self, args, invoke) => {
           const before = bossTransitions, data = args[0];
@@ -22457,9 +25297,23 @@ return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F
       records.set(key, record);
       ready("redDot");
     }
+    function inspectHallAdManagers(proxy) {
+      for (const [event, member] of HALL_AD_MANAGERS) {
+        const handlers = read2(() => proxy._events[event]);
+        for (const handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) {
+          const manager = read2(() => handler.caller);
+          if (alive2(manager) && member in manager) inspect(manager);
+        }
+      }
+    }
+    function protectMoreMenu(bar) {
+      const view = read2(() => bar.moreView);
+      patch(view, "UpdateRedPoint", null, "", (self, args, invoke) => invoke(self === view && enabled("version") && HALL_AD_BADGES.includes(args[0]) ? [args[0], false, ...args.slice(2)] : args));
+    }
     function inspect(target) {
       if (!alive2(target) || inspected.has(target) || inspected.size >= 2048) return;
       inspected.add(target);
+      if (enabled("package")) maskRecruitEffect(target);
       if (enabled("banner")) {
         const hide = (self) => hidden(read2(() => self.adBanner), "banner");
         if (alive2(read2(() => target.adBanner))) {
@@ -22498,10 +25352,13 @@ return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F
       if (enabled("redDot") || enabled("version")) for (const key of ["hallToolbar", "toolBar", "moreView"]) inspect(read2(() => target[key]));
       for (const key of ["IsReddot", "HasRedDot"]) skip(target, key, "redDot", () => true, false);
       for (const key of ["NoticeRed", "ShowNewAdNoticeRed"]) redGetter(target, key);
-      if (enabled("version") && typeof read2(() => target.checkMoreRed) === "function" && typeof read2(() => target.moreUpdate) === "function" && alive2(read2(() => target.moreView))) {
+      if (enabled("version") && typeof read2(() => target.checkMoreRed) === "function" && typeof read2(() => target.moreUpdate) === "function") {
         noticeBars.add(target);
-        const view = target.moreView;
-        patch(view, "UpdateRedPoint", null, "", (self, args, invoke) => invoke(enabled("version") && [10049, 10307].includes(args[0]) ? [args[0], false, ...args.slice(2)] : args));
+        protectMoreMenu(target);
+        patch(target, "checkMoreRed", null, "", (self, _args, invoke) => {
+          if (self === target && enabled("version")) protectMoreMenu(self);
+          return invoke();
+        });
         ready("version");
       }
       skip(target, "dealChatMessage", "slogan", (_self, args) => isSlogan(args[0]));
@@ -22556,7 +25413,7 @@ return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F
           probStates.delete(node);
         } else hideProb(node);
       }
-      for (const name of [...Object.keys(WINDOWS), ...PROB_WINDOWS, "RogueComChangeWindow", "TianShuWindow", "ModeScene"]) {
+      for (const name of [...Object.keys(WINDOWS), ...PROB_WINDOWS, ...RECRUIT_VIEWS, "RogueComChangeWindow", "TianShuWindow", "ModeScene"]) {
         const type = read2(() => ctx.game.getClass(name));
         const proto = read2(() => type.prototype);
         if (proto) {
@@ -22576,6 +25433,7 @@ return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F
         if (Array.isArray(managers)) managers.slice(0, 256).forEach(inspect);
       }
       const proxy = read2(() => ctx.game.getServerProxy());
+      if (enabled("version")) inspectHallAdManagers(proxy);
       for (const managers of [read2(() => proxy.constructor.managerList), read2(() => scene.ged.constructor.managerList)]) {
         if (Array.isArray(managers)) managers.slice(0, 256).forEach(inspect);
       }
@@ -22584,8 +25442,7 @@ return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F
       for (const view of calendarViews) if (alive2(view)) read2(() => view.initCalendarRedDot());
       for (const bar of treeBars) if (alive2(bar)) read2(() => bar.checkKanShuRed());
       for (const bar of noticeBars) if (alive2(bar)) {
-        read2(() => bar.moreView.UpdateRedPoint(10049, false));
-        read2(() => bar.moreView.UpdateRedPoint(10307, false));
+        for (const id of HALL_AD_BADGES) read2(() => bar.moreView?.UpdateRedPoint(id, false));
         read2(() => bar.moreUpdate());
       }
     }
@@ -23067,10 +25924,10 @@ return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F
   var manifest = {
     id: "effects",
     name: "\\u7279\\u6548\\u5C4F\\u853D",
-    version: "0.5.11",
+    version: "0.5.13",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u7EDF\\u4E00\\u8BBE\\u7F6E\\u4E2D\\u7684\\u5E2E\\u52A9\\u56FE\\u6807\\u5916\\u89C2\\uFF0C\\u4FDD\\u7559\\u5DF2\\u6709\\u7279\\u6548\\u5C4F\\u853D\\u9009\\u62E9\\u3002",
+    releaseNotes: "\\u4FEE\\u590D\\u5C4F\\u853D\\u516C\\u544A\\u6216\\u65E5\\u5386\\u540E\\u5927\\u5385\\u300C\\u66F4\\u591A\\u300D\\u4ECD\\u663E\\u793A\\u76F8\\u5E94\\u7EA2\\u70B9\\u7684\\u95EE\\u9898\\uFF0C\\u5176\\u4ED6\\u63D0\\u9192\\u7EE7\\u7EED\\u6309\\u6E38\\u620F\\u72B6\\u6001\\u663E\\u793A\\u3002",
     minCoreVersion: "0.6.37",
     categories: ["tools"],
     icon: PLUGIN_ICONS["effects"],
@@ -23265,8 +26122,8 @@ return {...SGSPlugin.default, manifest:{"id":"gaizhu","name":"\u76D6\u4E3B\u901F
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4F\u853D","version":"0.5.11","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7EDF\u4E00\u8BBE\u7F6E\u4E2D\u7684\u5E2E\u52A9\u56FE\u6807\u5916\u89C2\uFF0C\u4FDD\u7559\u5DF2\u6709\u7279\u6548\u5C4F\u853D\u9009\u62E9\u3002","minCoreVersion":"0.6.37","categories":["tools"],"icon":{"paths":["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2","M3 3 21 21M19 3v4M17 5h4"]},"priority":20000,"description":"\u6309\u9700\u5C4F\u853D\u5BF9\u5C40\u7279\u6548\u4E0E\u754C\u9762\u63D0\u9192\uFF0C\u8BA9\u753B\u9762\u66F4\u6E05\u723D"}};
-`, sha256: "bfa1078addcc398d8c3c96a0929b4abf1aac79e91e1e12dd00f1ca9b0d1934cc" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "skins", name: "\u76AE\u80A4\u6536\u96C6", version: "0.4.10", apiVersion: 1, contractVersion: 1, releaseNotes: "\u7CBE\u7B80\u76AE\u80A4\u539F\u753B\u4E0B\u8F7D\u6309\u94AE\u7684\u6837\u5F0F\u52A0\u8F7D\uFF0C\u539F\u6709\u7B5B\u9009\u548C\u9759\u6001\u539F\u753B\u4E0B\u8F7D\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002", minCoreVersion: "0.5.101", categories: [], icon: { paths: ["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z", "M8 3l8 9M16 3l-6 7M8 16h8"] }, priority: 3e4, description: "\u7B5B\u9009\u3001\u67E5\u627E\u76AE\u80A4\uFF0C\u67E5\u770B\u6536\u85CF\u4E0E\u52A8\u6001\u72B6\u6001" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4F\u853D","version":"0.5.13","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4FEE\u590D\u5C4F\u853D\u516C\u544A\u6216\u65E5\u5386\u540E\u5927\u5385\u300C\u66F4\u591A\u300D\u4ECD\u663E\u793A\u76F8\u5E94\u7EA2\u70B9\u7684\u95EE\u9898\uFF0C\u5176\u4ED6\u63D0\u9192\u7EE7\u7EED\u6309\u6E38\u620F\u72B6\u6001\u663E\u793A\u3002","minCoreVersion":"0.6.37","categories":["tools"],"icon":{"paths":["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2","M3 3 21 21M19 3v4M17 5h4"]},"priority":20000,"description":"\u6309\u9700\u5C4F\u853D\u5BF9\u5C40\u7279\u6548\u4E0E\u754C\u9762\u63D0\u9192\uFF0C\u8BA9\u753B\u9762\u66F4\u6E05\u723D"}};
+`, sha256: "9ce62fcc97334347a857f0fafa8dd73f331c022f12b958218c6a21ddd5bcb5d6" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "skins", name: "\u76AE\u80A4\u7BA1\u7406", version: "0.4.13", apiVersion: 1, contractVersion: 1, releaseNotes: "\u65B0\u589E\u76AE\u80A4\u7BA1\u7406\u6574\u7406\u5F00\u5173\u3001\u8BE6\u60C5\u9875\u4E0B\u8F7D\u548C\u80CC\u666F\u5FEB\u6377\u64CD\u4F5C\u3002\u53EF\u4E3A\u672C\u5C40\u5DF2\u4EAE\u51FA\u7684\u6B66\u5C06\u4E34\u65F6\u5207\u6362\u7ACB\u7ED8\u6216\u5BFC\u5165\u9759\u6001\u56FE\u7247\uFF0C\u6548\u679C\u4EC5\u5728\u672C\u673A\u663E\u793A\u3002", minCoreVersion: "0.6.103", categories: ["tools"], icon: { paths: ["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z", "M8 3l8 9M16 3l-6 7M8 16h8"] }, priority: 3e4, description: "\u6574\u7406\u76AE\u80A4\u6536\u85CF\u3001\u4E0B\u8F7D\u539F\u56FE\u548C\u5728\u672C\u5730\u5207\u6362\u724C\u5C40\u76AE\u80A4" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -23302,6 +26159,10 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -23384,6 +26245,11 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     return null;
   }
 
+  // src/shared/skin-options.js
+  function advancedSkinOption(settings, key) {
+    return settings.get("advanced", true) === true && settings.get(key, true) === true;
+  }
+
   // src/plugins/skins/download.js
   function createSkinDownload(ctx) {
     const doc = ctx.document, win = ctx.window;
@@ -23410,6 +26276,10 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     ctx.scope.add(() => observed?.dispose());
     function refresh() {
       try {
+        if (!advancedSkinOption(ctx.settings, "quickDownload")) {
+          root.hidden = true;
+          return;
+        }
         const laya = win.Laya ?? win.laya, next = findSkinDetail(laya?.stage);
         if (next !== owner) {
           observed?.dispose();
@@ -23451,7 +26321,7 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
         const response = await win.fetch(url.href, { signal: ctx.scope.signal, credentials: "omit" });
         if (!response.ok) throw Error("\\u539F\\u753B\\u4E0B\\u8F7D\\u5931\\u8D25\\uFF1AHTTP " + response.status);
         const blob = await response.blob();
-        if (ctx.scope.signal.aborted) return;
+        if (ctx.scope.signal.aborted || !advancedSkinOption(ctx.settings, "quickDownload")) return;
         if (!blob.size || blob.type && !blob.type.startsWith("image/")) throw Error("\\u5B98\\u65B9\\u8DEF\\u5F84\\u672A\\u8FD4\\u56DE\\u56FE\\u7247\\u6587\\u4EF6");
         const ext = /\\.(png|jpe?g|webp|gif|avif)$/i.exec(url.pathname)?.[1] || { "image/png": "png", "image/webp": "webp", "image/jpeg": "jpg" }[blob.type] || "jpg";
         const objectURL = win.URL.createObjectURL(blob), a = doc.createElement("a");
@@ -23475,6 +26345,7 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     });
     ctx.scope.interval(refresh, 100);
     refresh();
+    return refresh;
   }
 
   // src/plugins/skins/model.js
@@ -23545,13 +26416,16 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     }
     return null;
   }
+  function resolveSkinManager(game) {
+    return findManager(game, "GeneralSkinManager", "ClientSkinFromRep", (value) => typeof safe2(() => value.GetSkinListBySkinID) === "function");
+  }
   function resolveSkinRuntime(game) {
     const self = safe2(() => game.getSelf());
     const rawId = safe2(() => self.ClientId) ?? safe2(() => self.clientId);
     const number = rawId === "" || rawId == null ? NaN : Number(rawId);
     const accountId = Number.isSafeInteger(number) && number > 0 ? String(number) : null;
     if (!accountId) return { accountId: null, ready: false, message: "\\u7B49\\u5F85\\u767B\\u5F55\\u8D26\\u53F7\\u6570\\u636E\\u3002" };
-    const skinManager = findManager(game, "GeneralSkinManager", "ClientSkinFromRep", (value) => typeof safe2(() => value.GetSkinListBySkinID) === "function");
+    const skinManager = resolveSkinManager(game);
     const goodsManager = findManager(game, "GameGoodsManager", "DbsCcMovegoodsRep", (value) => typeof safe2(() => value.selfBagFinished) === "boolean");
     if (!skinManager || !goodsManager) return { accountId, ready: false, message: "\\u7B49\\u5F85\\u76AE\\u80A4\\u4E0E\\u80CC\\u5305\\u63A5\\u53E3\\uFF1B\\u53EF\\u5728\\u5927\\u5385\\u6253\\u5F00\\u80CC\\u5305\\u540E\\u5237\\u65B0\\u3002" };
     if (safe2(() => goodsManager.selfBagFinished) !== true) return { accountId, ready: false, message: "\\u80CC\\u5305\\u5C1A\\u672A\\u52A0\\u8F7D\\u5B8C\\u6210\\uFF0C\\u6682\\u4E0D\\u7EDF\\u8BA1\\u672A\\u62E5\\u6709\\u76AE\\u80A4\\u3002" };
@@ -23581,8 +26455,8 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     const root = config.root || config, rows = read(() => root.goodslist.goods), fields = read(() => root.abbreviation.field);
     const result = { ready: false, skinIds: /* @__PURE__ */ new Set() };
     if (!Array.isArray(rows) || !rows.length || rows.length > 2e5) return result;
-    const aliases = new Map(Array.isArray(fields) ? fields.map((field2) => [field2.Long, field2.Short]) : []);
-    const field = (row, key) => read(() => row[key]) ?? read(() => row[aliases.get(key)]);
+    const aliases2 = new Map(Array.isArray(fields) ? fields.map((field2) => [field2.Long, field2.Short]) : []);
+    const field = (row, key) => read(() => row[key]) ?? read(() => row[aliases2.get(key)]);
     result.ready = true;
     for (const row of rows) {
       if (Number(field(row, "TypeID") ?? read(() => row.typeID)) !== 124) continue;
@@ -23920,20 +26794,20 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
       label.strokeColor = skinWindowInk.shadow;
       return label;
     };
-    const button = (name, title, x, y, width, action, selected = () => false, parent = root, options = {}) => {
-      const height = options.height || 27, node = new laya.Sprite();
+    const button = (name, title, x, y, width, action, selected = () => false, parent = root, options2 = {}) => {
+      const height = options2.height || 27, node = new laya.Sprite();
       node.name = name;
       node.size(width, height);
       node.pos(x, y);
       node.mouseEnabled = true;
-      const label = textNode(laya, title, options.kind === "option" ? 15 : 0, 0, width - (options.kind === "option" ? 30 : 0), height, skinWindowInk.muted, 12);
-      if (options.kind === "option") label.align = "left";
+      const label = textNode(laya, title, options2.kind === "option" ? 15 : 0, 0, width - (options2.kind === "option" ? 30 : 0), height, skinWindowInk.muted, 12);
+      if (options2.kind === "option") label.align = "left";
       node.addChild(label);
       parent.addChild(node);
       const marker = new laya.Sprite();
       node.addChild(marker);
       marker.mouseEnabled = false;
-      const item = { node, label, marker, width, height, selected, hover: false, options };
+      const item = { node, label, marker, width, height, selected, hover: false, options: options2 };
       buttons.push(item);
       node.on("click", root, (event) => {
         event?.stopPropagation?.();
@@ -24159,7 +27033,7 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
       craft.label.text = state.craft === "yes" ? "\\u53EF\\u5236" : state.craft === "no" ? "\\u4E0D\\u53EF\\u5236" : "\\u5236\\u4F5C";
       for (const popup2 of popups) if (popup2.visible) chrome.surface(popup2, "panel");
       for (const item of buttons) {
-        const { node, options } = item, selected = item.selected(), kind = options.kind || "button";
+        const { node, options: options2 } = item, selected = item.selected(), kind = options2.kind || "button";
         const nativeSearch = node === searchBtn && chrome.search(node, item.hover);
         if (node === searchBtn) searchIcon.visible = !nativeSearch;
         if (kind === "dropdown") {
@@ -24313,6 +27187,7 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     };
     remember(owner.searchView, ["x", "y", "width", "height", "visible", "text"]);
     remember(owner.searchView.searchInput, ["maxChars"]);
+    remember(owner, ["isSearch"]);
     remember(owner.tabGroup, ["visible"]);
     remember(owner.breakSkinSp, ["y"]);
     remember(owner.gsm, ["curSkinFilterType"]);
@@ -24682,7 +27557,6 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
         if (!alive(owner)) return;
         for (const [obj, key, value] of saved) if (alive(obj)) obj[key] = value;
         owner.searchView.SetActualSize?.(owner.searchView.width, owner.searchView.height);
-        owner.isSearch = false;
         owner.rebuildNewView?.();
         owner.refreshNewSkinEntry?.();
         if (newPage()) {
@@ -24717,6 +27591,13 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     function check() {
       if (ctx.scope.signal.aborted) return;
       try {
+        if (ctx.settings.get("advanced", true) !== true) {
+          const previous = attachment;
+          attachment = null;
+          previous?.dispose();
+          message = "\\u9AD8\\u7EA7\\u76AE\\u80A4\\u6574\\u7406\\u5DF2\\u5173\\u95ED\\u3002";
+          return;
+        }
         const laya = ctx.window.Laya ?? ctx.window.laya;
         if (attachment && (!alive(attachment.owner) || !attachment.owner.parent)) {
           attachment.dispose();
@@ -24750,19 +27631,784 @@ return {...SGSPlugin.default, manifest:{"id":"effects","name":"\u7279\u6548\u5C4
     return { check, getStatus: () => message };
   }
 
+  // src/plugins/skins/local.js
+  var imageTypes = /* @__PURE__ */ new Set(["image/png", "image/jpeg", "image/webp"]);
+  var portraitLayers = ["skinTex", "skinBigSps", "spineSkeleon", "skeleton", "skeletonBg", "skeletonTop", "tempStaticSkin"];
+  var setting = (ctx, key) => ctx.settings.get(key, false) === true;
+  function currentSkin(target) {
+    const { general } = target;
+    return {
+      id: Number(general.SkinId ?? general.SkinItemId) || 0,
+      dynamic: general.IsDynamic === true,
+      form: Number(general.DySkinType) || 1
+    };
+  }
+  function sameSkin(left, right) {
+    return left.id === right.id && left.dynamic === right.dynamic && left.form === right.form;
+  }
+  function animationLayer(avatar) {
+    return avatar.skinBigSps || avatar.spineSkeleon || avatar.skeleton;
+  }
+  function createLocalSkins(ctx) {
+    const choices = /* @__PURE__ */ new Map(), imports = /* @__PURE__ */ new Map(), pending = /* @__PURE__ */ new Map();
+    let scene, lastAutoDynamic;
+    let failedAnimations = /* @__PURE__ */ new WeakMap();
+    function targets() {
+      if (!ctx.game.isInGame?.()) return [];
+      const self = ctx.game.getSelfSeatUI?.();
+      return (ctx.game.getSeatUIs?.() || []).flatMap((ui, index) => {
+        const seat = ui.Seat ?? ui.seat;
+        if (!seat || seat.IsFull === false || seat.IsNameless || seat.destroyed) return [];
+        const isSelf = seat.IsSelf === true || ui === self;
+        const results = [];
+        for (const deputy of [false, true]) {
+          const general = deputy ? seat.General2 : seat.General;
+          const id = Number(deputy ? seat.General2Id : seat.GeneralId);
+          if (!general || general.IsShibing || !Number.isSafeInteger(id) || id <= 0 || id === 65535) continue;
+          if (typeof seat.IsFaceUp === "function" && seat.IsFaceUp(deputy ? 1 : 0) !== true) continue;
+          const avatar = deputy ? ui.seatAvatarFu ?? ui.fuSeatUI?.seatAvatar : ui.seatAvatar;
+          if (!avatar || avatar.destroyed || avatar.generalCard !== general || typeof avatar.SetSkin !== "function") continue;
+          const key = (seat.Index ?? index) + ":" + Number(deputy);
+          const name = general.CardName || general.Name || general.GeneralName || general.generalName || \`\\u6B66\\u5C06 \${id}\`;
+          const label = \`\${isSelf ? "\\u81EA\\u5DF1" : \`\${seat.FixedViewId || index + 1} \\u53F7\\u4F4D\`} \\xB7 \${deputy ? "\\u526F\\u5C06 \\xB7 " : ""}\${name}\`;
+          results.push({ key, seat, general, id, label, isSelf, avatar, x: ui.seatX });
+        }
+        return results;
+      });
+    }
+    function allows(target) {
+      return setting(ctx, target.isSelf ? "unlockSkin" : "otherPlayers");
+    }
+    function catalogue(manager, target) {
+      const items = read(() => manager.GetOnlineSKinList(target.id));
+      return Array.isArray(items) ? items : [];
+    }
+    function supportsDynamic(target, id) {
+      const skinId = id || read(() => target.avatar.defaultDynamicSkinId());
+      if (!skinId) return false;
+      const current = target.avatar.skinBaseVO;
+      if (Number(current?.skinID) === skinId) return Boolean(read(() => current.SeatAnimateUrl));
+      const manager = resolveSkinManager(ctx.game);
+      const vo = read(() => manager.GetGeneralSkinBySkinID(skinId)) ?? catalogue(manager, target).find((entry) => Number(entry?.skinID) === skinId);
+      return Boolean(read(() => vo.SeatAnimateUrl));
+    }
+    function options2(target) {
+      if (!allows(target)) return [];
+      const runtime = target.isSelf ? resolveSkinRuntime(ctx.game) : null;
+      const manager = runtime?.skinManager ?? resolveSkinManager(ctx.game);
+      const results = /* @__PURE__ */ new Map([[0, { id: 0, name: "\\u7ECF\\u5178\\u5F62\\u8C61", owned: true, dynamic: supportsDynamic(target, 0) }]]);
+      for (const vo of catalogue(manager, target)) {
+        const id = Number(vo?.skinID);
+        if (!Number.isSafeInteger(id) || id <= 0 || results.has(id)) continue;
+        const owned = runtime?.ready ? readInventory(read(() => manager.GetSkinListBySkinID(id))).owned : null;
+        results.set(id, { id, name: vo.skinname || \`\\u76AE\\u80A4 \${id}\`, owned, dynamic: Boolean(read(() => vo.SeatAnimateUrl)) });
+      }
+      return [...results.values()];
+    }
+    function matchesTarget(left, right) {
+      return left && right && left.seat === right.seat && left.general === right.general && left.id === right.id && left.isSelf === right.isSelf && left.avatar === right.avatar;
+    }
+    function drawSkin(target, skin) {
+      const { avatar, general, x } = target;
+      avatar.generalCard = Object.create(general, {
+        IsDynamic: { value: skin.dynamic },
+        JueXingState: { value: skin.form, writable: true }
+      });
+      try {
+        avatar.SetSkin(skin.id, x ?? avatar.x, "", 0, skin.form, false, false);
+      } finally {
+        avatar.generalCard = general;
+      }
+    }
+    function animationChanged(target, choice) {
+      return choice.animation && (animationLayer(target.avatar) !== choice.animation || choice.animation.destroyed);
+    }
+    function applySkin(target, original, applied, option = null) {
+      const previous = choices.get(target.key);
+      try {
+        drawSkin(target, applied);
+        if (target.avatar.skinItemID !== applied.id) throw new Error("\\u5F53\\u524D\\u6A21\\u5F0F\\u672A\\u5E94\\u7528\\u8FD9\\u6B3E\\u672C\\u5730\\u76AE\\u80A4\\u3002");
+      } catch (error) {
+        if (previous && !previous.portrait) {
+          read(() => drawSkin(target, previous.applied));
+          previous.animation = previous.applied.dynamic ? animationLayer(target.avatar) : null;
+        } else read(() => drawSkin(target, original));
+        throw error;
+      }
+      previous?.portrait?.dispose();
+      imports.delete(target.key);
+      choices.set(target.key, { target, original, applied, option, animation: applied.dynamic ? animationLayer(target.avatar) : null });
+    }
+    function syncAnimation(target, original, applied, option) {
+      const failed = failedAnimations.get(target.avatar);
+      if (matchesTarget(failed?.target, target) && sameSkin(failed.original, original) && sameSkin(failed.applied, applied)) return;
+      try {
+        applySkin(target, original, applied, option);
+      } catch (error) {
+        failedAnimations.set(target.avatar, { target, original, applied });
+        ctx.window.console?.warn("\\u76AE\\u80A4\\u7BA1\\u7406\\uFF1A\\u672C\\u5730\\u52A8\\u6001\\u5207\\u6362\\u5931\\u8D25", error);
+      }
+    }
+    function selectedSkin(original, option, autoDynamic) {
+      const same = original.id === option.id;
+      return {
+        id: option.id,
+        form: same ? original.form : 1,
+        dynamic: same && original.dynamic || autoDynamic && option.dynamic
+      };
+    }
+    function restore(key, activeTarget) {
+      imports.delete(key);
+      const choice = choices.get(key);
+      if (!choice) return;
+      choices.delete(key);
+      if (choice.portrait) choice.portrait.dispose();
+      else if (matchesTarget(choice.target, activeTarget) && activeTarget.avatar.skinItemID === choice.applied.id && (choice.option || !animationChanged(activeTarget, choice))) {
+        drawSkin(activeTarget, currentSkin(activeTarget));
+      }
+    }
+    function refresh() {
+      const nextScene = ctx.game.getScene?.();
+      const current = targets();
+      const byKey = new Map(current.map((target) => [target.key, target]));
+      const sameScene = scene === nextScene;
+      scene = nextScene;
+      if (!sameScene || !ctx.game.isInGame?.() || !setting(ctx, "unlockSkin")) pending.clear();
+      const autoDynamic = setting(ctx, "unlockDynamic");
+      if (autoDynamic !== lastAutoDynamic || !sameScene) failedAnimations = /* @__PURE__ */ new WeakMap();
+      lastAutoDynamic = autoDynamic;
+      for (const [key, choice] of choices) {
+        const target = sameScene ? byKey.get(key) : null;
+        if (!matchesTarget(choice.target, target)) {
+          restore(key, target);
+          continue;
+        }
+        if (choice.portrait) {
+          if (setting(ctx, "crossServer") && (target.isSelf || setting(ctx, "otherPlayers"))) choice.portrait.refresh();
+          else restore(key, target);
+          continue;
+        }
+        if (!sameSkin(currentSkin(target), choice.original) || target.avatar.skinItemID !== choice.applied.id || (choice.option ? !allows(target) : !autoDynamic)) {
+          restore(key, target);
+          continue;
+        }
+        if (choice.option) {
+          const applied = selectedSkin(choice.original, choice.option, autoDynamic);
+          if (!sameSkin(choice.applied, applied) || animationChanged(target, choice)) syncAnimation(target, choice.original, applied, choice.option);
+        } else if (animationChanged(target, choice)) choices.delete(key);
+      }
+      for (const target of current) {
+        if (!target.isSelf || choices.has(target.key)) continue;
+        const original = currentSkin(target);
+        if (target.avatar.skinItemID !== original.id) continue;
+        const option = pending.get(target.id);
+        if (option) {
+          pending.delete(target.id);
+          try {
+            applySkin(target, original, selectedSkin(original, option, autoDynamic), option);
+          } catch (error) {
+            ctx.notify?.(error.message);
+          }
+          continue;
+        }
+        if (!autoDynamic || original.dynamic) continue;
+        if (!supportsDynamic(target, original.id)) continue;
+        syncAnimation(target, original, { ...original, dynamic: true });
+      }
+      return current;
+    }
+    function liveTarget(target) {
+      const current = refresh().find((entry) => matchesTarget(entry, target));
+      if (!current) throw new Error("\\u5EA7\\u4F4D\\u6216\\u6B66\\u5C06\\u5DF2\\u53D8\\u5316\\uFF0C\\u8BF7\\u91CD\\u65B0\\u9009\\u62E9\\u3002");
+      return current;
+    }
+    function select(target, id) {
+      target = liveTarget(target);
+      const option = options2(target).find((entry) => entry.id === id);
+      if (!option) throw new Error("\\u5F53\\u524D\\u76AE\\u80A4\\u9009\\u9879\\u4E0D\\u53EF\\u7528\\u3002");
+      const original = currentSkin(target);
+      applySkin(target, original, selectedSkin(original, option, setting(ctx, "unlockDynamic")), option);
+      return option;
+    }
+    function selectNative(generalId, option, waitForSeat) {
+      const current = refresh();
+      if (!scene || !ctx.game.isInGame?.() || !setting(ctx, "unlockSkin")) throw new Error("\\u5F53\\u524D\\u724C\\u5C40\\u7684\\u672C\\u5730\\u6362\\u80A4\\u672A\\u542F\\u7528\\u3002");
+      const target = current.find((entry) => entry.isSelf && entry.id === generalId);
+      if (!target) {
+        if (!waitForSeat) throw new Error("\\u5F53\\u524D\\u6B66\\u5C06\\u65E0\\u6CD5\\u672C\\u5730\\u6362\\u80A4\\u3002");
+        pending.set(generalId, option);
+        return;
+      }
+      const original = currentSkin(target);
+      applySkin(target, original, selectedSkin(original, option, setting(ctx, "unlockDynamic")), option);
+    }
+    function clearNative(generalId) {
+      pending.delete(generalId);
+      for (const target of refresh()) {
+        if (target.isSelf && target.id === generalId && choices.get(target.key)?.option) restore(target.key, target);
+      }
+    }
+    function hasOwnGeneral(generalId) {
+      return targets().some((target) => target.isSelf && target.id === generalId);
+    }
+    async function importPortrait(target, file) {
+      target = liveTarget(target);
+      if (!setting(ctx, "crossServer") || !target.isSelf && !setting(ctx, "otherPlayers")) throw new Error("\\u5F53\\u524D\\u5EA7\\u4F4D\\u7684\\u5916\\u670D\\u6362\\u80A4\\u672A\\u542F\\u7528\\u3002");
+      if (!imageTypes.has(file?.type) || !file.size || file.size > 12 * 1024 * 1024) throw new Error("\\u8BF7\\u9009\\u62E9 12 MB \\u4EE5\\u5185\\u7684 PNG\\u3001JPEG \\u6216 WebP \\u56FE\\u7247\\u3002");
+      const { window: win, scope } = ctx;
+      const laya = win.Laya ?? win.laya, avatar = target.avatar;
+      if (!avatar?.skinTex || !laya?.Texture2D || !laya?.Texture || !laya?.Sprite) throw new Error("\\u5F53\\u524D\\u5EA7\\u4F4D\\u4E0D\\u652F\\u6301\\u5916\\u670D\\u7ACB\\u7ED8\\u3002");
+      const url = win.URL.createObjectURL(file), image = new win.Image();
+      const release = scope.add(() => win.URL.revokeObjectURL(url));
+      const request = { scene };
+      imports.set(target.key, request);
+      try {
+        await new Promise((resolve, reject) => {
+          const abort = () => finish(reject, new Error("\\u5DF2\\u53D6\\u6D88\\u56FE\\u7247\\u8F7D\\u5165\\u3002"));
+          function finish(done, value) {
+            scope.signal.removeEventListener("abort", abort);
+            image.onload = image.onerror = null;
+            done(value);
+          }
+          scope.signal.addEventListener("abort", abort, { once: true });
+          image.onload = () => finish(resolve);
+          image.onerror = () => finish(reject, new Error("\\u65E0\\u6CD5\\u6253\\u5F00\\u8FD9\\u5F20\\u56FE\\u7247\\u3002"));
+          image.src = url;
+        });
+        if (scope.signal.aborted || imports.get(target.key) !== request) return;
+        target = liveTarget(target);
+        if (imports.get(target.key) !== request || scene !== request.scene) return;
+        if (!setting(ctx, "crossServer") || !target.isSelf && !setting(ctx, "otherPlayers")) return;
+        if (Math.max(image.naturalWidth, image.naturalHeight) > 4096) throw new Error("\\u56FE\\u7247\\u957F\\u8FB9\\u4E0D\\u80FD\\u8D85\\u8FC7 4096 \\u50CF\\u7D20\\u3002");
+        const portrait = createPortrait(laya, avatar, image);
+        restore(target.key, target);
+        try {
+          portrait.refresh();
+        } catch (error) {
+          portrait.dispose();
+          throw error;
+        }
+        choices.set(target.key, { target, portrait });
+        return true;
+      } finally {
+        if (imports.get(target.key) === request) imports.delete(target.key);
+        release();
+      }
+    }
+    ctx.scope.interval(() => {
+      if (choices.size || pending.size || setting(ctx, "unlockDynamic")) refresh();
+    }, 300);
+    ctx.scope.add(() => {
+      imports.clear();
+      pending.clear();
+      const current = scene === ctx.game.getScene?.() ? targets() : [];
+      for (const key of choices.keys()) restore(key, current.find((target) => target.key === key));
+    });
+    function has(target) {
+      const choice = choices.get(target.key);
+      return Boolean((choice?.option || choice?.portrait) && matchesTarget(choice.target, target));
+    }
+    return {
+      refresh,
+      allows,
+      options: options2,
+      select,
+      selectNative,
+      clearNative,
+      hasOwnGeneral,
+      importPortrait,
+      has,
+      reset(target) {
+        target = liveTarget(target);
+        if (has(target)) restore(target.key, target);
+      }
+    };
+  }
+  function createPortrait(laya, avatar, image) {
+    const bitmap = new laya.Texture2D(image.naturalWidth, image.naturalHeight);
+    let texture, sprite;
+    const hidden = /* @__PURE__ */ new Map();
+    function dispose() {
+      for (const [node, visible2] of hidden) if (!node.destroyed) node.visible = visible2;
+      hidden.clear();
+      sprite?.destroy(true);
+      texture?.destroy();
+      bitmap.destroy();
+    }
+    try {
+      bitmap.loadImageSource(image);
+      texture = new laya.Texture(bitmap);
+      sprite = new laya.Sprite();
+      sprite.name = "sgs-local-skin-portrait";
+      sprite.mouseEnabled = false;
+      const width = avatar.width, height = avatar.height;
+      if (!(width > 0 && height > 0)) throw new Error("\\u5F53\\u524D\\u5EA7\\u4F4D\\u7ACB\\u7ED8\\u533A\\u57DF\\u4E0D\\u53EF\\u7528\\u3002");
+      const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+      const imageWidth = image.naturalWidth * scale, imageHeight = image.naturalHeight * scale;
+      sprite.graphics.drawTexture(
+        texture,
+        (avatar.scrollRect?.x || 0) + (width - imageWidth) / 2,
+        (height - imageHeight) / 2,
+        imageWidth,
+        imageHeight
+      );
+      sprite.zOrder = 1e3;
+      avatar.addChild(sprite);
+    } catch (error) {
+      dispose();
+      throw error;
+    }
+    return { dispose, refresh() {
+      for (const key of portraitLayers) {
+        const node = avatar[key];
+        if (!node || node.destroyed) continue;
+        if (!hidden.has(node) || node.visible !== false) hidden.set(node, node.visible);
+        node.visible = false;
+      }
+    } };
+  }
+
+  // src/plugins/skins/match-selector.js
+  var windows = /* @__PURE__ */ new Set(["SelectSkinWindow", "ChangeSkinWindow"]);
+  function isVisible(node, stage) {
+    for (let parent = node; parent; parent = parent.parent) {
+      if (parent.destroyed || parent.visible === false) return false;
+      if (parent === stage) return true;
+    }
+    return false;
+  }
+  function findSelector(stage) {
+    const queue = [stage];
+    for (let i = 0; i < queue.length && i < 1500; i++) {
+      const node = queue[i];
+      if (!node || node.destroyed || node.visible === false) continue;
+      const view = node.selectView;
+      if (windows.has(node._className_) && typeof node.Close === "function" && Array.isArray(view?.itemList) && Array.isArray(view.list) && view.pannelContent) return node;
+      const children = node._children;
+      if (Array.isArray(children)) for (let j = children.length - 1; j >= 0; j--) queue.push(children[j]);
+    }
+    return null;
+  }
+  function attachSelector(ctx, local, laya, owner) {
+    const view = owner.selectView, content = view.pannelContent, stage = laya.stage;
+    const scene = ctx.game.getScene();
+    const selectingGeneral = owner._className_ === "SelectSkinWindow";
+    const enabled = () => !ctx.scope.signal.aborted && ctx.settings.get("unlockSkin", false) === true && ctx.game.isInGame?.() && scene === ctx.game.getScene() && owner.selectView === view && view.pannelContent === content && isVisible(owner, stage);
+    const generalId = () => Number(view.realGeneralID);
+    const actions = /* @__PURE__ */ new Map();
+    const theme = ctx.ui.nativeTheme;
+    let palette = theme.palette;
+    function show(card, option) {
+      const button = new laya.Sprite(), badge = new laya.Sprite();
+      const width = Math.min(card.width - 12, 130), height = 24;
+      const label = textNode(laya, "\\u672A\\u5F00\\u901A \\xB7 \\u672C\\u5730\\u4F7F\\u7528", 0, 0, width, height);
+      button.name = "sgs-local-skin-" + option.id;
+      button.size(card.width, card.height - 30);
+      button.pos(card.x, card.y);
+      button.mouseEnabled = true;
+      button.zOrder = 40;
+      badge.size(width, height);
+      badge.pos((card.width - width) / 2, button.height - height - 4);
+      badge.mouseEnabled = false;
+      badge.addChild(label);
+      button.addChild(badge);
+      content.addChild(button);
+      let hovered = false;
+      function paint() {
+        const focused = stage.focus === button;
+        theme.surface(badge, { hover: hovered, selected: focused });
+        label.color = focused || hovered ? palette.accent : palette.text;
+      }
+      function choose() {
+        if (!enabled() || !view.itemList.includes(card) || card.HasSkin !== false || Number(owner.generalID) !== generalId()) return;
+        try {
+          local.selectNative(generalId(), option, selectingGeneral);
+        } catch (error) {
+          ctx.notify?.(error.message);
+          return;
+        }
+        view.clickCheck = false;
+        owner.Close();
+        ctx.notify?.("\\u5DF2\\u9009\\u7528\\u672A\\u5F00\\u901A\\u76AE\\u80A4\\uFF0C\\u4EC5\\u672C\\u5C40\\u81EA\\u5DF1\\u53EF\\u89C1\\u3002");
+      }
+      button.on("click", button, (event) => {
+        event?.stopPropagation?.();
+        choose();
+      });
+      button.on("mouseover", button, () => {
+        hovered = true;
+        paint();
+      });
+      button.on("mouseout", button, () => {
+        hovered = false;
+        paint();
+      });
+      paint();
+      return { button, paint, choose };
+    }
+    function remove(card, action) {
+      if (stage.focus === action.button) stage.focus = null;
+      if (!action.button.destroyed) action.button.destroy(true);
+      actions.delete(card);
+    }
+    const unwatch = theme.watch((colors) => {
+      palette = colors;
+      for (const action of actions.values()) action.paint();
+    });
+    const unpatch = ctx.scope.patch(view, "closeSelectSure", (original) => function(...args) {
+      if (scene === ctx.game.getScene()) {
+        try {
+          local.clearNative(generalId());
+        } catch (error) {
+          ctx.notify?.(error.message);
+        }
+      }
+      return Reflect.apply(original, this, args);
+    });
+    const offKeys = ctx.scope.listen(ctx.window, "keydown", (event) => {
+      if (!enabled() || event.defaultPrevented || event.composedPath()[0]?.closest?.("input,select,textarea,button,[contenteditable]")) return;
+      const items = [...actions.values()];
+      const index = items.findIndex((action) => stage.focus === action.button);
+      if (index >= 0 && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        items[index].choose();
+      } else if (event.key === "Tab" && items.length) {
+        const next = items[index < 0 ? event.shiftKey ? items.length - 1 : 0 : index + (event.shiftKey ? -1 : 1)];
+        if (next) {
+          event.preventDefault();
+          stage.focus = next.button;
+          const panel = view.pannel, bar = panel?.vScrollBar;
+          if (bar && (next.button.y < bar.value || next.button.y + next.button.height > bar.value + panel.height)) bar.value = next.button.y;
+          next.paint();
+        } else stage.focus = null;
+        items[index]?.paint();
+      }
+    });
+    return { enabled, check() {
+      const canChoose = selectingGeneral || local.hasOwnGeneral(generalId());
+      const cards = new Set(canChoose ? view.itemList.filter((card) => card.HasSkin === false && Number(card.SkinID) > 0) : []);
+      for (const [card, action] of actions) if (!cards.has(card)) remove(card, action);
+      if (!Array.isArray(view.list)) return;
+      for (const card of cards) {
+        if (actions.has(card)) continue;
+        const id = Number(card.SkinID), vo = view.list.find((entry) => Number(entry?.skinID) === id);
+        if (vo && card.width > 20 && card.height > 60) actions.set(card, show(card, { id, dynamic: Boolean(read(() => vo.SeatAnimateUrl)) }));
+      }
+    }, dispose() {
+      offKeys();
+      unpatch();
+      unwatch();
+      for (const [card, action] of actions) remove(card, action);
+    } };
+  }
+  function createMatchSkinSelector(ctx, local) {
+    let attached;
+    function check() {
+      if (attached && !attached.enabled()) {
+        attached.dispose();
+        attached = null;
+      }
+      if (!attached && !ctx.scope.signal.aborted && ctx.settings.get("unlockSkin", false) === true && ctx.game.isInGame?.()) {
+        const laya = ctx.window.Laya ?? ctx.window.laya;
+        if (!laya?.Sprite || !laya.Text || !ctx.ui.nativeTheme?.surface) return;
+        const owner = findSelector(laya.stage);
+        if (owner && typeof owner.selectView.closeSelectSure === "function") attached = attachSelector(ctx, local, laya, owner);
+      }
+      attached?.check();
+    }
+    ctx.scope.interval(check, 180);
+    ctx.scope.add(() => {
+      attached?.dispose();
+      attached = null;
+    });
+    check();
+    return check;
+  }
+
+  // src/ui/icons.js
+  var markup = Object.freeze({
+    cards: PLUGIN_ICONS.cards,
+    gift: PLUGIN_ICONS["daily-rewards"],
+    effects: PLUGIN_ICONS.effects,
+    skins: PLUGIN_ICONS.skins,
+    palette: PLUGIN_ICONS.themes,
+    typography: '<path d="M3 19 9 5l6 14M5 14h8M16 9h6M19 9v10M16 19h6"/>',
+    toolbox: TOOLBOX_ICON,
+    map: PLUGIN_ICONS.shanhetu,
+    tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
+    settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
+    package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
+    automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
+    refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
+    reset: '<path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12"/>',
+    close: '<path d="m6 6 12 12M6 18 18 6"/>',
+    camera: '<path d="M8 6.5 9.5 4h5L16 6.5h3.5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3.5"/><path d="M18 10h.01"/>',
+    expand: '<path d="M14 4h6v6m0-6-6.5 6.5M10 20H4v-6m0 6 6.5-6.5"/>',
+    collapse: '<path d="M5 12h14"/>',
+    chevron: '<path d="m6 9 6 6 6-6"/>',
+    save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
+    download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
+    pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
+    clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
+    share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
+    play: '<path d="m8 5 11 7-11 7z"/>',
+    pause: '<path d="M8 5v14M16 5v14"/>',
+    trash: '<path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>',
+    update: '<path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5"/>',
+    check: '<path d="m5 12 4 4L19 6"/>',
+    alert: '<path d="m12 3 10 18H2zM12 9v5M12 17v1"/>'
+  });
+  var aliases = Object.freeze({ game: "cards", manage: "settings", reload: "refresh", rollback: "reset" });
+  var ICON_NAMES = Object.freeze([...Object.keys(markup), ...Object.keys(aliases)]);
+
+  // src/ui/controls.js
+  var CONTROL_STYLES = \`
+input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
+input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
+input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
+input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
+input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
+select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
+select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
+select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
+select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
+.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
+.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
+.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
+\`;
+  function styleSwitch(input) {
+    input.classList.add("sgs-switch");
+    input.setAttribute("role", "switch");
+    return input;
+  }
+
+  // src/plugins/skins/panel.js
+  var options = [
+    ["advanced", "\\u9AD8\\u7EA7\\u76AE\\u80A4\\u6574\\u7406", true],
+    ["quickDownload", "\\u5FEB\\u901F\\u4E0B\\u8F7D\\u539F\\u56FE", true],
+    ["backgroundShortcut", "\\u4E00\\u952E\\u724C\\u5C40\\u80CC\\u666F\\uFF08\\u9700\\u63D2\\u4EF6\\uFF09", true],
+    ["unlockSkin", "\\u672C\\u5730\\u89E3\\u9501\\u76AE\\u80A4", false],
+    ["unlockDynamic", "\\u672C\\u5730\\u89E3\\u9501\\u52A8\\u6001", false],
+    ["otherPlayers", "\\u5207\\u6362\\u4ED6\\u4EBA\\u76AE\\u80A4", false],
+    ["crossServer", "\\u66F4\\u6362\\u5176\\u4ED6\\u670D\\u52A1\\u5668\\u76AE\\u80A4", false]
+  ];
+  var styles = \`
+[data-sgs-skin-settings]{display:grid;gap:.42em;min-width:0;line-height:1.4}
+[data-sgs-skin-settings] [hidden]{display:none!important}
+[data-sgs-skin-settings] .skin-option{display:flex;align-items:center;justify-content:space-between;gap:.6em;min-height:27px;cursor:pointer}
+[data-sgs-skin-settings] .skin-option.is-disabled{color:var(--sgs-muted);cursor:default}
+[data-sgs-skin-settings] .skin-children{display:grid;border-inline-start:1px solid var(--sgs-border);padding-inline-start:.7em;margin-inline-start:.15em}
+[data-sgs-skin-settings] .skin-local-options{border-top:1px solid var(--sgs-border);margin-top:.25em;padding-top:.55em}
+[data-sgs-skin-settings] .skin-local-picker{display:grid;gap:.45em;padding-top:.35em}
+[data-sgs-skin-settings] p{margin:0;color:var(--sgs-muted);overflow-wrap:anywhere}
+[data-sgs-skin-settings] .skin-error{color:var(--sgs-danger)}
+[data-sgs-skin-settings] .skin-field{display:grid;gap:.2em;min-width:0}
+[data-sgs-skin-settings] select{width:100%;font-size:inherit}
+[data-sgs-skin-settings] .skin-actions{display:flex;flex-wrap:wrap;gap:.45em}
+[data-sgs-skin-settings] button{min-height:30px;white-space:nowrap;font-size:inherit}
+[data-sgs-skin-settings] .skin-use{color:var(--sgs-accent);border-color:var(--sgs-accent)}
+\`;
+  function renderSkinPanel(ctx, local, reconfigure, container) {
+    const doc = ctx.document, releases = [];
+    const element = (tag, text, cls) => {
+      const node = doc.createElement(tag);
+      if (text) node.textContent = text;
+      if (cls) node.className = cls;
+      return node;
+    };
+    const listen = (...args) => releases.push(ctx.scope.listen(...args));
+    const root = element("div");
+    root.dataset.sgsSkinSettings = "";
+    const style = element("style", CONTROL_STYLES + styles);
+    const children = element("div", "", "skin-children");
+    const localOptions = element("div", "", "skin-local-options");
+    const toggles = /* @__PURE__ */ new Map();
+    for (const [index, [key, title, fallback]] of options.entries()) {
+      const label = element("label", "", "skin-option");
+      const input = styleSwitch(element("input"));
+      input.type = "checkbox";
+      input.checked = ctx.settings.get(key, fallback) === true;
+      label.append(element("span", title), input);
+      (index === 0 ? root : index < 3 ? children : localOptions).append(label);
+      toggles.set(key, input);
+      listen(input, "change", () => {
+        ctx.settings.set(key, input.checked);
+        reconfigure();
+        setMessage("");
+        update(true);
+      });
+    }
+    const missingBackground = element("p", "\\u9700\\u8981\\u542F\\u7528\\u300C\\u81EA\\u5B9A\\u4E49\\u80CC\\u666F\\u300D\\u3002");
+    children.append(missingBackground);
+    const localHint = element("p");
+    localOptions.prepend(localHint);
+    const unlockHint = element("p", "\\u5728\\u6E38\\u620F\\u7684\\u300C\\u9009\\u62E9\\u76AE\\u80A4\\u300D\\u7A97\\u53E3\\u8BD5\\u7528\\u672A\\u5F00\\u901A\\u76AE\\u80A4\\u3002");
+    localOptions.append(unlockHint);
+    const picker = element("div", "", "skin-local-picker");
+    const waiting = element("p"), seat = element("select", "", "sgs-select"), skin = element("select", "", "sgs-select");
+    function field(label, input) {
+      const node = element("label", "", "skin-field");
+      node.append(element("span", label), input);
+      return node;
+    }
+    const seatField = field("\\u9009\\u62E9\\u6B66\\u5C06", seat), skinField = field("\\u9009\\u62E9\\u76AE\\u80A4", skin);
+    const actions = element("div", "", "skin-actions");
+    const use = element("button", "\\u672C\\u5730\\u4F7F\\u7528", "skin-use"), reset = element("button", "\\u6062\\u590D\\u539F\\u76AE\\u80A4");
+    const importButton = element("button", "\\u5BFC\\u5165\\u5916\\u670D\\u56FE\\u7247");
+    const file = element("input");
+    file.type = "file";
+    file.accept = "image/png,image/jpeg,image/webp";
+    file.hidden = true;
+    const message = element("p");
+    message.setAttribute("role", "status");
+    for (const button of [use, importButton, reset]) button.type = "button";
+    actions.append(use, importButton, reset);
+    picker.append(waiting, seatField, skinField, actions, message, file);
+    root.append(children, localOptions, picker, style);
+    container.append(root);
+    let selected, entries = [], seatSignature, skinSignature, importing = false, disposed = false;
+    const cross = (target) => toggles.get("crossServer").checked && (target.isSelf || toggles.get("otherPlayers").checked);
+    const chooseOther = (target) => !target.isSelf && local.allows(target);
+    function setMessage(text, error = false) {
+      message.textContent = text;
+      message.classList.toggle("skin-error", error);
+      message.hidden = !text;
+    }
+    function setSelect(select, items) {
+      const last = select.value;
+      const nodes = items.map(([value, label]) => {
+        const item = element("option", label);
+        item.value = value;
+        return item;
+      });
+      select.replaceChildren(...nodes);
+      if (items.some(([value]) => value === last)) select.value = last;
+    }
+    function update(force = false) {
+      const advanced = toggles.get("advanced").checked;
+      for (const key of ["quickDownload", "backgroundShortcut"]) {
+        const input = toggles.get(key);
+        input.disabled = !advanced;
+        input.parentElement.classList.toggle("is-disabled", !advanced);
+      }
+      missingBackground.hidden = !advanced || ctx.backgrounds?.isInstalled?.() === true;
+      const hint = toggles.get("unlockDynamic").checked ? "\\u672C\\u5C40\\u4EC5\\u4F60\\u53EF\\u89C1\\u3002\\u6709\\u52A8\\u6001\\u7248\\u672C\\u7684\\u81EA\\u7528\\u76AE\\u80A4\\u4F1A\\u81EA\\u52A8\\u64AD\\u653E\\u3002" : "\\u672C\\u5C40\\u751F\\u6548\\uFF0C\\u4EC5\\u4F60\\u53EF\\u89C1\\u3002";
+      if (localHint.textContent !== hint) localHint.textContent = hint;
+      unlockHint.hidden = !toggles.get("unlockSkin").checked;
+      picker.hidden = !["otherPlayers", "crossServer"].some((key) => toggles.get(key).checked);
+      if (picker.hidden) return;
+      const targets = local.refresh().filter((target) => chooseOther(target) || cross(target));
+      const seats = targets.map((target) => [target.key, target.label]);
+      const visibleSeats = JSON.stringify(seats);
+      if (visibleSeats !== seatSignature) {
+        setSelect(seat, seats);
+        seatSignature = visibleSeats;
+      }
+      const next = targets.find((target) => target.key === seat.value);
+      const changed = selected?.general !== next?.general || selected?.seat !== next?.seat;
+      selected = next;
+      const allows = selected && chooseOther(selected);
+      if (force || changed || allows && entries.length <= 1) entries = allows ? local.options(selected) : [];
+      const choices = entries.map((entry) => [String(entry.id), entry.name]);
+      const visibleSkins = JSON.stringify(choices);
+      if (skinSignature !== visibleSkins) {
+        setSelect(skin, choices);
+        skinSignature = visibleSkins;
+      }
+      seatField.hidden = !selected;
+      skinField.hidden = !allows;
+      use.hidden = !allows;
+      use.disabled = !entries.length || importing;
+      importButton.hidden = !selected || !cross(selected);
+      importButton.disabled = importing;
+      reset.hidden = !selected;
+      reset.disabled = !selected || !local.has(selected) || importing;
+      waiting.hidden = Boolean(selected && (!allows || entries.length));
+      waiting.textContent = selected ? "\\u6682\\u65E0\\u7B26\\u5408\\u5F53\\u524D\\u9009\\u9879\\u7684\\u76AE\\u80A4\\u3002" : "\\u8FDB\\u5165\\u724C\\u5C40\\u540E\\u53EF\\u9009\\u62E9\\u5DF2\\u4EAE\\u51FA\\u7684\\u6B66\\u5C06\\u3002";
+      if (changed) setMessage("");
+    }
+    listen(seat, "change", () => update(true));
+    listen(use, "click", () => {
+      if (!selected || !skin.value) return;
+      try {
+        local.select(selected, Number(skin.value));
+        setMessage("\\u5DF2\\u5E94\\u7528\\u672C\\u5730\\u76AE\\u80A4\\u3002");
+      } catch (error) {
+        setMessage(error.message, true);
+      }
+      update();
+    });
+    listen(reset, "click", () => {
+      try {
+        if (selected) local.reset(selected);
+        setMessage("\\u5DF2\\u6062\\u590D\\u539F\\u76AE\\u80A4\\u3002");
+      } catch (error) {
+        setMessage(error.message, true);
+      }
+      update();
+    });
+    listen(importButton, "click", () => file.click());
+    listen(file, "change", async () => {
+      if (!selected || !file.files?.[0] || importing) return;
+      const target = selected, image = file.files[0];
+      importing = true;
+      file.value = "";
+      update();
+      try {
+        if (await local.importPortrait(target, image) && !disposed) setMessage("\\u5DF2\\u5E94\\u7528\\u5916\\u670D\\u56FE\\u7247\\u3002");
+      } catch (error) {
+        if (!disposed) setMessage(error.message, true);
+      } finally {
+        importing = false;
+        if (!disposed) update();
+      }
+    });
+    const timer = ctx.window.setInterval(update, 750);
+    releases.push(ctx.scope.add(() => ctx.window.clearInterval(timer)));
+    setMessage("");
+    update(true);
+    return () => {
+      disposed = true;
+      for (const release of releases.splice(0)) release();
+      root.remove();
+    };
+  }
+
   // src/plugins/skins/index.js
   var index_default = {
-    manifest: { id: "skins", name: "\\u76AE\\u80A4\\u6536\\u96C6", version: "0.4.10", apiVersion: 1, contractVersion: 1, releaseNotes: "\\u7CBE\\u7B80\\u76AE\\u80A4\\u539F\\u753B\\u4E0B\\u8F7D\\u6309\\u94AE\\u7684\\u6837\\u5F0F\\u52A0\\u8F7D\\uFF0C\\u539F\\u6709\\u7B5B\\u9009\\u548C\\u9759\\u6001\\u539F\\u753B\\u4E0B\\u8F7D\\u65B9\\u5F0F\\u4FDD\\u6301\\u4E0D\\u53D8\\u3002", minCoreVersion: "0.5.101", categories: [], icon: PLUGIN_ICONS["skins"], priority: 3e4, description: "\\u7B5B\\u9009\\u3001\\u67E5\\u627E\\u76AE\\u80A4\\uFF0C\\u67E5\\u770B\\u6536\\u85CF\\u4E0E\\u52A8\\u6001\\u72B6\\u6001" },
+    manifest: {
+      id: "skins",
+      name: "\\u76AE\\u80A4\\u7BA1\\u7406",
+      version: "0.4.13",
+      apiVersion: 1,
+      contractVersion: 1,
+      releaseNotes: "\\u65B0\\u589E\\u76AE\\u80A4\\u7BA1\\u7406\\u6574\\u7406\\u5F00\\u5173\\u3001\\u8BE6\\u60C5\\u9875\\u4E0B\\u8F7D\\u548C\\u80CC\\u666F\\u5FEB\\u6377\\u64CD\\u4F5C\\u3002\\u53EF\\u4E3A\\u672C\\u5C40\\u5DF2\\u4EAE\\u51FA\\u7684\\u6B66\\u5C06\\u4E34\\u65F6\\u5207\\u6362\\u7ACB\\u7ED8\\u6216\\u5BFC\\u5165\\u9759\\u6001\\u56FE\\u7247\\uFF0C\\u6548\\u679C\\u4EC5\\u5728\\u672C\\u673A\\u663E\\u793A\\u3002",
+      minCoreVersion: "0.6.103",
+      categories: ["tools"],
+      icon: PLUGIN_ICONS.skins,
+      priority: 3e4,
+      description: "\\u6574\\u7406\\u76AE\\u80A4\\u6536\\u85CF\\u3001\\u4E0B\\u8F7D\\u539F\\u56FE\\u548C\\u5728\\u672C\\u5730\\u5207\\u6362\\u724C\\u5C40\\u76AE\\u80A4"
+    },
     activate(ctx) {
-      createNativeSkins(ctx);
-      createSkinDownload(ctx);
+      const native = createNativeSkins(ctx), refreshDownload = createSkinDownload(ctx), local = createLocalSkins(ctx);
+      const refreshSelector = createMatchSkinSelector(ctx, local);
+      ctx.ui.registerPanel({ id: "main", category: "tools", render(container) {
+        return renderSkinPanel(ctx, local, () => {
+          native.check();
+          refreshDownload();
+          local.refresh();
+          refreshSelector();
+        }, container);
+      } });
     }
   };
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"skins","name":"\u76AE\u80A4\u6536\u96C6","version":"0.4.10","apiVersion":1,"contractVersion":1,"releaseNotes":"\u7CBE\u7B80\u76AE\u80A4\u539F\u753B\u4E0B\u8F7D\u6309\u94AE\u7684\u6837\u5F0F\u52A0\u8F7D\uFF0C\u539F\u6709\u7B5B\u9009\u548C\u9759\u6001\u539F\u753B\u4E0B\u8F7D\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002","minCoreVersion":"0.5.101","categories":[],"icon":{"paths":["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z","M8 3l8 9M16 3l-6 7M8 16h8"]},"priority":30000,"description":"\u7B5B\u9009\u3001\u67E5\u627E\u76AE\u80A4\uFF0C\u67E5\u770B\u6536\u85CF\u4E0E\u52A8\u6001\u72B6\u6001"}};
-`, sha256: "0c00d577aab56021af5d994c9a17489fa81f2b87ac0b3605e2d5a2fff665dc69" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "wish-progress", name: "\u5FC3\u613F\u8FDB\u5EA6", version: "0.1.1", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.0", description: "\u6E38\u620F\u5FC3\u613F\u7A97\u53E3\u663E\u793A\u6B66\u5C06\u683C\u6570\u3001\u76AE\u80A4\u767E\u5206\u6BD4\u4E0E\u6700\u8FD1\u4E00\u6B21\u62BD\u53D6\u51C0\u53D8\u5316", icon: { paths: ["M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z", "M4 21h9M16 21h4"] }, priority: 30100, categories: [] }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"skins","name":"\u76AE\u80A4\u7BA1\u7406","version":"0.4.13","apiVersion":1,"contractVersion":1,"releaseNotes":"\u65B0\u589E\u76AE\u80A4\u7BA1\u7406\u6574\u7406\u5F00\u5173\u3001\u8BE6\u60C5\u9875\u4E0B\u8F7D\u548C\u80CC\u666F\u5FEB\u6377\u64CD\u4F5C\u3002\u53EF\u4E3A\u672C\u5C40\u5DF2\u4EAE\u51FA\u7684\u6B66\u5C06\u4E34\u65F6\u5207\u6362\u7ACB\u7ED8\u6216\u5BFC\u5165\u9759\u6001\u56FE\u7247\uFF0C\u6548\u679C\u4EC5\u5728\u672C\u673A\u663E\u793A\u3002","minCoreVersion":"0.6.103","categories":["tools"],"icon":{"paths":["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z","M8 3l8 9M16 3l-6 7M8 16h8"]},"priority":30000,"description":"\u6574\u7406\u76AE\u80A4\u6536\u85CF\u3001\u4E0B\u8F7D\u539F\u56FE\u548C\u5728\u672C\u5730\u5207\u6362\u724C\u5C40\u76AE\u80A4"}};
+`, sha256: "9d08fe3af72d290847b9a623ce95ffcba91323c5541d85cc993d23c0cae21acc" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "wish-progress", name: "\u5FC3\u613F\u8FDB\u5EA6", version: "0.1.2", releaseNotes: "\u52A0\u7C97\u5FC3\u613F\u8FDB\u5EA6\u6587\u5B57\uFF0C\u6539\u5584\u6D45\u8272\u4E3B\u9898\u4E0B\u5728\u6DF1\u8272\u6E38\u620F\u80CC\u666F\u4E0A\u7684\u53EF\u8BFB\u6027\u3002", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.0", description: "\u6E38\u620F\u5FC3\u613F\u7A97\u53E3\u663E\u793A\u6B66\u5C06\u683C\u6570\u3001\u76AE\u80A4\u767E\u5206\u6BD4\u4E0E\u6700\u8FD1\u4E00\u6B21\u62BD\u53D6\u51C0\u53D8\u5316", icon: { paths: ["M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z", "M4 21h9M16 21h4"] }, priority: 30100, categories: [] }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -24798,6 +28444,10 @@ return {...SGSPlugin.default, manifest:{"id":"skins","name":"\u76AE\u80A4\u6536\
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -25296,11 +28946,15 @@ return {...SGSPlugin.default, manifest:{"id":"skins","name":"\u76AE\u80A4\u6536\
         text += "\\uFF08" + (delta >= 0 ? "+" : "-") + Math.abs(delta).toFixed(3) + (kind === "skin" ? "%" : "") + "\\uFF09";
       }
       if (!labels.has(label)) {
-        labels.set(label, Object.fromEntries(["text", "color", "stroke", "strokeColor", "width", "height", "align", "x", "y"].map((k) => [k, label[k]])));
-        theme.bind(label, { color: "text", strokeColor: "surface" });
+        const fields = ["text", "font", "bold", "color", "stroke", "strokeColor", "width", "height", "align", "x", "y"];
+        labels.set(label, Object.fromEntries(fields.map((key) => [key, label[key]])));
+        const light = () => ctx.themes?.current?.tokens?.scheme === "light";
+        theme.bind(label, { color: (p2) => light() ? p2.surface : p2.text, strokeColor: (p2) => light() ? p2.text : p2.surface });
       }
+      label.font = "Arial";
+      label.bold = true;
+      label.stroke = 2;
       label.text = text;
-      label.stroke = 1;
       label.width = 270;
       label.height = 24;
       label.align = "left";
@@ -25423,7 +29077,19 @@ return {...SGSPlugin.default, manifest:{"id":"skins","name":"\u76AE\u80A4\u6536\
 
   // src/plugins/wish-progress/index.js
   var index_default = {
-    manifest: { id: "wish-progress", name: "\\u5FC3\\u613F\\u8FDB\\u5EA6", version: "0.1.1", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.0", description: "\\u6E38\\u620F\\u5FC3\\u613F\\u7A97\\u53E3\\u663E\\u793A\\u6B66\\u5C06\\u683C\\u6570\\u3001\\u76AE\\u80A4\\u767E\\u5206\\u6BD4\\u4E0E\\u6700\\u8FD1\\u4E00\\u6B21\\u62BD\\u53D6\\u51C0\\u53D8\\u5316", icon: PLUGIN_ICONS["wish-progress"], priority: 30100, categories: [] },
+    manifest: {
+      id: "wish-progress",
+      name: "\\u5FC3\\u613F\\u8FDB\\u5EA6",
+      version: "0.1.2",
+      releaseNotes: "\\u52A0\\u7C97\\u5FC3\\u613F\\u8FDB\\u5EA6\\u6587\\u5B57\\uFF0C\\u6539\\u5584\\u6D45\\u8272\\u4E3B\\u9898\\u4E0B\\u5728\\u6DF1\\u8272\\u6E38\\u620F\\u80CC\\u666F\\u4E0A\\u7684\\u53EF\\u8BFB\\u6027\\u3002",
+      apiVersion: 1,
+      contractVersion: 1,
+      minCoreVersion: "0.5.0",
+      description: "\\u6E38\\u620F\\u5FC3\\u613F\\u7A97\\u53E3\\u663E\\u793A\\u6B66\\u5C06\\u683C\\u6570\\u3001\\u76AE\\u80A4\\u767E\\u5206\\u6BD4\\u4E0E\\u6700\\u8FD1\\u4E00\\u6B21\\u62BD\\u53D6\\u51C0\\u53D8\\u5316",
+      icon: PLUGIN_ICONS["wish-progress"],
+      priority: 30100,
+      categories: []
+    },
     activate(ctx) {
       createWishProgress(ctx);
     }
@@ -25431,8 +29097,8 @@ return {...SGSPlugin.default, manifest:{"id":"skins","name":"\u76AE\u80A4\u6536\
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"wish-progress","name":"\u5FC3\u613F\u8FDB\u5EA6","version":"0.1.1","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.0","description":"\u6E38\u620F\u5FC3\u613F\u7A97\u53E3\u663E\u793A\u6B66\u5C06\u683C\u6570\u3001\u76AE\u80A4\u767E\u5206\u6BD4\u4E0E\u6700\u8FD1\u4E00\u6B21\u62BD\u53D6\u51C0\u53D8\u5316","icon":{"paths":["M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z","M4 21h9M16 21h4"]},"priority":30100,"categories":[]}};
-`, sha256: "bd7b8ea40bce5789378875f648fca9d0a40ba7977517f2f4879f70a7cab4522e" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "themes", name: "\u96C5\u8272\u4E3B\u9898\u5305", version: "0.1.4", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.15", categories: [], icon: { paths: ["M12 21 2 8a16 16 0 0 1 20 0Z", "M12 21 7 5.3M12 21V4.5M12 21 17 5.3", "M10 19a3 3 0 0 1 4 0"] }, priority: 5e4, description: "\u63D0\u4F9B\u4E94\u5957\u6DF1\u8272\u4E0E\u5BA3\u7EB8\u3001\u6674\u5C9A\u3001\u6843\u592D\u4E09\u5957\u6D45\u8272\u914D\u8272\uFF0C\u5728\u8BBE\u7F6E\u7684\u4E3B\u9898\u5DE5\u574A\u4E2D\u9009\u7528" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"wish-progress","name":"\u5FC3\u613F\u8FDB\u5EA6","version":"0.1.2","releaseNotes":"\u52A0\u7C97\u5FC3\u613F\u8FDB\u5EA6\u6587\u5B57\uFF0C\u6539\u5584\u6D45\u8272\u4E3B\u9898\u4E0B\u5728\u6DF1\u8272\u6E38\u620F\u80CC\u666F\u4E0A\u7684\u53EF\u8BFB\u6027\u3002","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.0","description":"\u6E38\u620F\u5FC3\u613F\u7A97\u53E3\u663E\u793A\u6B66\u5C06\u683C\u6570\u3001\u76AE\u80A4\u767E\u5206\u6BD4\u4E0E\u6700\u8FD1\u4E00\u6B21\u62BD\u53D6\u51C0\u53D8\u5316","icon":{"paths":["M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z","M4 21h9M16 21h4"]},"priority":30100,"categories":[]}};
+`, sha256: "9f74c88707a3887f9ec62bc4ff7bfc808bd7fb69a8f6005323cc8ad114ca2fe4" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "themes", name: "\u96C5\u8272\u4E3B\u9898\u5305", version: "0.1.5", releaseNotes: "\u9002\u914D\u65B0\u7248\u5DE5\u5177\u7BB1\u754C\u9762\u8D44\u6E90\uFF0C\u6CBF\u7528\u73B0\u6709\u4E3B\u9898\u914D\u8272\u3002", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.5.15", categories: [], icon: { paths: ["M12 21 2 8a16 16 0 0 1 20 0Z", "M12 21 7 5.3M12 21V4.5M12 21 17 5.3", "M10 19a3 3 0 0 1 4 0"] }, priority: 5e4, description: "\u63D0\u4F9B\u4E94\u5957\u6DF1\u8272\u4E0E\u5BA3\u7EB8\u3001\u6674\u5C9A\u3001\u6843\u592D\u4E09\u5957\u6D45\u8272\u914D\u8272\uFF0C\u5728\u8BBE\u7F6E\u7684\u4E3B\u9898\u5DE5\u574A\u4E2D\u9009\u7528" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -25471,6 +29137,10 @@ return {...SGSPlugin.default, manifest:{"id":"wish-progress","name":"\u5FC3\u613
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -25612,7 +29282,8 @@ return {...SGSPlugin.default, manifest:{"id":"wish-progress","name":"\u5FC3\u613
   var manifest = {
     id: "themes",
     name: "\\u96C5\\u8272\\u4E3B\\u9898\\u5305",
-    version: "0.1.4",
+    version: "0.1.5",
+    releaseNotes: "\\u9002\\u914D\\u65B0\\u7248\\u5DE5\\u5177\\u7BB1\\u754C\\u9762\\u8D44\\u6E90\\uFF0C\\u6CBF\\u7528\\u73B0\\u6709\\u4E3B\\u9898\\u914D\\u8272\\u3002",
     apiVersion: 1,
     contractVersion: 1,
     minCoreVersion: "0.5.15",
@@ -25628,8 +29299,8 @@ return {...SGSPlugin.default, manifest:{"id":"wish-progress","name":"\u5FC3\u613
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"themes","name":"\u96C5\u8272\u4E3B\u9898\u5305","version":"0.1.4","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.15","categories":[],"icon":{"paths":["M12 21 2 8a16 16 0 0 1 20 0Z","M12 21 7 5.3M12 21V4.5M12 21 17 5.3","M10 19a3 3 0 0 1 4 0"]},"priority":50000,"description":"\u63D0\u4F9B\u4E94\u5957\u6DF1\u8272\u4E0E\u5BA3\u7EB8\u3001\u6674\u5C9A\u3001\u6843\u592D\u4E09\u5957\u6D45\u8272\u914D\u8272\uFF0C\u5728\u8BBE\u7F6E\u7684\u4E3B\u9898\u5DE5\u574A\u4E2D\u9009\u7528"}};
-`, sha256: "eae835ca2fca5e48d607b4186e011992bb4eab88456b6543d1768d8891b0d8d2" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "baisheng", name: "\u767E\u80DC\u6218\u529F", version: "0.1.8", apiVersion: 1, contractVersion: 1, releaseNotes: "\u968F\u516C\u5171\u754C\u9762\u8D44\u6E90\u66F4\u65B0\uFF0C\u767E\u80DC\u7EDF\u8BA1\u3001\u7B5B\u9009\u4E0E\u8D26\u53F7\u8BB0\u5F55\u4FDD\u6301\u4E0D\u53D8\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4", "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"] }, priority: 31e3, description: "\u67E5\u770B\u5F53\u524D\u8D26\u53F7\u767E\u80DC\u8FDB\u5EA6\u3001\u5B8C\u6210\u65E5\u671F\u4E0E\u6280\u80FD\u6218\u529F\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"themes","name":"\u96C5\u8272\u4E3B\u9898\u5305","version":"0.1.5","releaseNotes":"\u9002\u914D\u65B0\u7248\u5DE5\u5177\u7BB1\u754C\u9762\u8D44\u6E90\uFF0C\u6CBF\u7528\u73B0\u6709\u4E3B\u9898\u914D\u8272\u3002","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.5.15","categories":[],"icon":{"paths":["M12 21 2 8a16 16 0 0 1 20 0Z","M12 21 7 5.3M12 21V4.5M12 21 17 5.3","M10 19a3 3 0 0 1 4 0"]},"priority":50000,"description":"\u63D0\u4F9B\u4E94\u5957\u6DF1\u8272\u4E0E\u5BA3\u7EB8\u3001\u6674\u5C9A\u3001\u6843\u592D\u4E09\u5957\u6D45\u8272\u914D\u8272\uFF0C\u5728\u8BBE\u7F6E\u7684\u4E3B\u9898\u5DE5\u574A\u4E2D\u9009\u7528"}};
+`, sha256: "ed1049987473a1ba477470f143d9bada0b2223cfa78227d29a6e67e0d53f0615" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "baisheng", name: "\u767E\u80DC\u6218\u529F", version: "0.1.9", apiVersion: 1, contractVersion: 1, releaseNotes: "\u9002\u914D\u65B0\u7248\u5DE5\u5177\u7BB1\u754C\u9762\u8D44\u6E90\uFF0C\u6CBF\u7528\u5DF2\u6709\u7684\u767E\u80DC\u8FDB\u5EA6\u548C\u7B5B\u9009\u8BBE\u7F6E\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4", "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"] }, priority: 31e3, description: "\u67E5\u770B\u5F53\u524D\u8D26\u53F7\u767E\u80DC\u8FDB\u5EA6\u3001\u5B8C\u6210\u65E5\u671F\u4E0E\u6280\u80FD\u6218\u529F\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -25668,6 +29339,10 @@ return {...SGSPlugin.default, manifest:{"id":"themes","name":"\u96C5\u8272\u4E3B
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -25969,10 +29644,10 @@ return {...SGSPlugin.default, manifest:{"id":"themes","name":"\u96C5\u8272\u4E3B
   var manifest = {
     id: "baisheng",
     name: "\\u767E\\u80DC\\u6218\\u529F",
-    version: "0.1.8",
+    version: "0.1.9",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u968F\\u516C\\u5171\\u754C\\u9762\\u8D44\\u6E90\\u66F4\\u65B0\\uFF0C\\u767E\\u80DC\\u7EDF\\u8BA1\\u3001\\u7B5B\\u9009\\u4E0E\\u8D26\\u53F7\\u8BB0\\u5F55\\u4FDD\\u6301\\u4E0D\\u53D8\\u3002",
+    releaseNotes: "\\u9002\\u914D\\u65B0\\u7248\\u5DE5\\u5177\\u7BB1\\u754C\\u9762\\u8D44\\u6E90\\uFF0C\\u6CBF\\u7528\\u5DF2\\u6709\\u7684\\u767E\\u80DC\\u8FDB\\u5EA6\\u548C\\u7B5B\\u9009\\u8BBE\\u7F6E\\u3002",
     minCoreVersion: "0.6.37",
     categories: ["info"],
     icon: PLUGIN_ICONS["baisheng"],
@@ -26225,8 +29900,8 @@ return {...SGSPlugin.default, manifest:{"id":"themes","name":"\u96C5\u8272\u4E3B
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u6218\u529F","version":"0.1.8","apiVersion":1,"contractVersion":1,"releaseNotes":"\u968F\u516C\u5171\u754C\u9762\u8D44\u6E90\u66F4\u65B0\uFF0C\u767E\u80DC\u7EDF\u8BA1\u3001\u7B5B\u9009\u4E0E\u8D26\u53F7\u8BB0\u5F55\u4FDD\u6301\u4E0D\u53D8\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4","M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"]},"priority":31000,"description":"\u67E5\u770B\u5F53\u524D\u8D26\u53F7\u767E\u80DC\u8FDB\u5EA6\u3001\u5B8C\u6210\u65E5\u671F\u4E0E\u6280\u80FD\u6218\u529F\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A"}};
-`, sha256: "86eb2b56d37adb85fae479bc8f1d1b04dd15a6e48dc2a277d538c9006cb4514c" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "appearances", name: "\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1", version: "0.4.24", apiVersion: 1, contractVersion: 1, releaseNotes: "\u652F\u6301\u7528\u5B98\u65B9\u4E03\u65E5\u6218\u7EE9\u8865\u9F50\u672C\u673A\u5DF2\u91C7\u5230\u5F00\u5C40\u7684\u5BF9\u5C40\uFF0C\u907F\u514D\u91CD\u590D\u7EDF\u8BA1\uFF1B\u7F3A\u5C11\u53EF\u9760\u6A21\u5F0F\u6216\u8EAB\u4EFD\u4F9D\u636E\u65F6\u4E0D\u8865\u8BB0\uFF0C\u4E0D\u8865\u9020\u5386\u53F2\u51FA\u6846\u4E0E\u80DC\u7387\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M9 21H3V3h18v9", "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1", "M12 21 16 17l3 2 3-5M19 14h3v3"] }, priority: 32e3, description: "\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u6218\u529F","version":"0.1.9","apiVersion":1,"contractVersion":1,"releaseNotes":"\u9002\u914D\u65B0\u7248\u5DE5\u5177\u7BB1\u754C\u9762\u8D44\u6E90\uFF0C\u6CBF\u7528\u5DF2\u6709\u7684\u767E\u80DC\u8FDB\u5EA6\u548C\u7B5B\u9009\u8BBE\u7F6E\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4","M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"]},"priority":31000,"description":"\u67E5\u770B\u5F53\u524D\u8D26\u53F7\u767E\u80DC\u8FDB\u5EA6\u3001\u5B8C\u6210\u65E5\u671F\u4E0E\u6280\u80FD\u6218\u529F\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A"}};
+`, sha256: "87bb8c49ad27b07e653c8891e43c1b91394586dcc305e9aa8409a9072dcc71b8" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "appearances", name: "\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1", version: "0.4.25", apiVersion: 1, contractVersion: 1, releaseNotes: "\u9002\u914D\u65B0\u7248\u5DE5\u5177\u7BB1\u754C\u9762\u8D44\u6E90\uFF0C\u6CBF\u7528\u5DF2\u6709\u7684\u51FA\u6846\u4E0E\u80DC\u7387\u8BB0\u5F55\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M9 21H3V3h18v9", "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1", "M12 21 16 17l3 2 3-5M19 14h3v3"] }, priority: 32e3, description: "\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -26266,6 +29941,10 @@ return {...SGSPlugin.default, manifest:{"id":"baisheng","name":"\u767E\u80DC\u62
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -28630,10 +32309,10 @@ main{box-sizing:border-box;position:relative;width:100%;max-width:1100px;min-wid
   var manifest = {
     id: "appearances",
     name: "\\u51FA\\u6846\\u4E0E\\u80DC\\u7387\\u7EDF\\u8BA1",
-    version: "0.4.24",
+    version: "0.4.25",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u652F\\u6301\\u7528\\u5B98\\u65B9\\u4E03\\u65E5\\u6218\\u7EE9\\u8865\\u9F50\\u672C\\u673A\\u5DF2\\u91C7\\u5230\\u5F00\\u5C40\\u7684\\u5BF9\\u5C40\\uFF0C\\u907F\\u514D\\u91CD\\u590D\\u7EDF\\u8BA1\\uFF1B\\u7F3A\\u5C11\\u53EF\\u9760\\u6A21\\u5F0F\\u6216\\u8EAB\\u4EFD\\u4F9D\\u636E\\u65F6\\u4E0D\\u8865\\u8BB0\\uFF0C\\u4E0D\\u8865\\u9020\\u5386\\u53F2\\u51FA\\u6846\\u4E0E\\u80DC\\u7387\\u3002",
+    releaseNotes: "\\u9002\\u914D\\u65B0\\u7248\\u5DE5\\u5177\\u7BB1\\u754C\\u9762\\u8D44\\u6E90\\uFF0C\\u6CBF\\u7528\\u5DF2\\u6709\\u7684\\u51FA\\u6846\\u4E0E\\u80DC\\u7387\\u8BB0\\u5F55\\u3002",
     minCoreVersion: "0.6.37",
     categories: ["info"],
     icon: PLUGIN_ICONS["appearances"],
@@ -28644,8 +32323,8 @@ main{box-sizing:border-box;position:relative;width:100%;max-width:1100px;min-wid
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1","version":"0.4.24","apiVersion":1,"contractVersion":1,"releaseNotes":"\u652F\u6301\u7528\u5B98\u65B9\u4E03\u65E5\u6218\u7EE9\u8865\u9F50\u672C\u673A\u5DF2\u91C7\u5230\u5F00\u5C40\u7684\u5BF9\u5C40\uFF0C\u907F\u514D\u91CD\u590D\u7EDF\u8BA1\uFF1B\u7F3A\u5C11\u53EF\u9760\u6A21\u5F0F\u6216\u8EAB\u4EFD\u4F9D\u636E\u65F6\u4E0D\u8865\u8BB0\uFF0C\u4E0D\u8865\u9020\u5386\u53F2\u51FA\u6846\u4E0E\u80DC\u7387\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M9 21H3V3h18v9","M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1","M12 21 16 17l3 2 3-5M19 14h3v3"]},"priority":32000,"description":"\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2"}};
-`, sha256: "bfccea5e37c553b554d7e76af6dc6fa85f5440957f0e79b5d0e56db10b3874f9" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "ledger", name: "\u8D26\u672C", version: "0.3.8", apiVersion: 1, contractVersion: 1, releaseNotes: "\u968F\u516C\u5171\u754C\u9762\u8D44\u6E90\u66F4\u65B0\uFF0C\u8D26\u672C\u7EDF\u8BA1\u3001\u767B\u5F55\u4F59\u989D\u5224\u65AD\u4E0E\u7269\u54C1\u63D0\u9192\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, priority: 3e4, description: "\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1","version":"0.4.25","apiVersion":1,"contractVersion":1,"releaseNotes":"\u9002\u914D\u65B0\u7248\u5DE5\u5177\u7BB1\u754C\u9762\u8D44\u6E90\uFF0C\u6CBF\u7528\u5DF2\u6709\u7684\u51FA\u6846\u4E0E\u80DC\u7387\u8BB0\u5F55\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M9 21H3V3h18v9","M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1","M12 21 16 17l3 2 3-5M19 14h3v3"]},"priority":32000,"description":"\u672C\u673A\u7EDF\u8BA1\u6B63\u5F0F\u6392\u4F4D\u3001\u6597\u5730\u4E3B\u4E0E\u5355\u9A91\u65E0\u53CC\u7684\u51FA\u6846\u3001\u9009\u53D6\u3001\u80DC\u7387\u53CA\u5BF9\u5C40\u5386\u53F2"}};
+`, sha256: "4e4a256dbc533a554ec3ab2e2f03b733e2e01bcfc831ee67bbd1d16529f25509" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "ledger", name: "\u8D26\u672C", version: "0.3.12", apiVersion: 1, contractVersion: 1, releaseNotes: "\u4F18\u5316\u80CC\u5305\u7269\u54C1\u5206\u7C7B\u3001\u8D26\u672C\u6D41\u6C34\u548C\u7269\u54C1\u53D8\u5316\u63D0\u9192\u3002\u8BB0\u5F55\u6309\u8D26\u53F7\u4FDD\u5B58\u5728\u672C\u673A\u3002", minCoreVersion: "0.6.37", categories: ["info"], icon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, priority: 3e4, description: "\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -28683,6 +32362,10 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -28877,14 +32560,17 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
       return [Number(data.ID), data];
     }));
   }
-  function importantItems(defs, activeKnots) {
+  function importantItems(defs, activeKnots = null) {
     const result = [{ ID: YUANBAO, name: "\\u5143\\u5B9D", PicID: 70 }];
     const jade = defs.get(JADE_SEAL);
     if (jade) result.push(jade);
-    for (const name of ["\\u7948\\u798F\\u706F", "\\u7ED8\\u5377\\u6BDB\\u7B14", "\\u79D8\\u94A5", "\\u7389\\u73BA\\u788E\\u7247", "\\u5982\\u610F\\u7ED3"]) {
-      const rows = [...defs.values()].filter((r) => r.name === name || name === "\\u79D8\\u94A5" && r.name === "\\u5BC6\\u94A5");
-      for (const row of rows) if (name !== "\\u5982\\u610F\\u7ED3" || activeKnots.has(Number(row.ID))) result.push(row);
+    const groups = new Map(["\\u7948\\u798F\\u706F", "\\u7ED8\\u5377\\u6BDB\\u7B14", "\\u79D8\\u94A5", "\\u7389\\u73BA\\u788E\\u7247", "\\u5982\\u610F\\u7ED3"].map((name) => [name, []]));
+    for (const row of defs.values()) {
+      const name = row.name === "\\u5BC6\\u94A5" ? "\\u79D8\\u94A5" : row.name;
+      if (name === "\\u5982\\u610F\\u7ED3" && activeKnots && !activeKnots.has(Number(row.ID))) continue;
+      groups.get(name)?.push(row);
     }
+    for (const rows of groups.values()) result.push(...rows);
     return result;
   }
   function totals(records) {
@@ -28956,6 +32642,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
   function createNative(ctx, consume, gap) {
     const goodsManager = () => manager(ctx, "GameGoodsManager", "DbsCcMovegoodsRep", (m) => typeof m.GetGoodsNumByBaseID === "function");
     const blessManager = () => manager(ctx, "NewBlessManager", 170138, (m) => typeof m.IsInDrawTime === "function" && typeof m.GetInfoById === "function") || manager(ctx, "NewBlessManager", "decodeClientQiFuNewData", (m) => typeof m.IsInDrawTime === "function");
+    const inventoryComplete = () => read(() => goodsManager().selfBagFinished) === true;
     function snapshot() {
       const gm = goodsManager(), rows = read(() => gm.goodsList), complete = read(() => gm.selfBagFinished) === true;
       return { complete, instances: list(rows, 5e4).map(projectInstance).filter(Boolean) };
@@ -28981,6 +32668,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     }, (type, data, sender) => consume(type, data, sender), gap);
     return {
       account: () => account(ctx),
+      inventoryComplete,
       snapshot,
       count(id) {
         const gm = goodsManager();
@@ -28995,9 +32683,10 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
         const total = values.reduce((sum, value) => sum + value, 0);
         return integer(total) ? total : null;
       },
-      knots(config, definitions = /* @__PURE__ */ new Map()) {
-        const active = /* @__PURE__ */ new Set(), mgr = blessManager();
-        for (const row of config?.root?.Common || []) if (read(() => mgr.IsInDrawTime(Number(row.Id))) === true && Number(row.exgoodsid) > 0) active.add(Number(row.exgoodsid));
+      knots(config, definitions = []) {
+        const active = /* @__PURE__ */ new Set(), rows = config?.root?.Common;
+        const mgr = rows && blessManager();
+        for (const row of mgr ? rows : []) if (read(() => mgr.IsInDrawTime(Number(row.Id))) === true && Number(row.exgoodsid) > 0) active.add(Number(row.exgoodsid));
         if (active.size) {
           const gm = goodsManager();
           for (const row of definitions.values()) if (row.name === "\\u5982\\u610F\\u7ED3") {
@@ -29007,7 +32696,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
             if (count > 0 && !expired) active.add(id);
           }
         }
-        return { active, known: Boolean(mgr && config?.root?.Common) };
+        return { active, known: Boolean(mgr) };
       },
       icon(id, picId) {
         const gm = goodsManager(), item = read(() => gm.GetGoodsByBaseID(id));
@@ -29077,9 +32766,16 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
 
   // src/plugins/ledger/controller.js
   var uid = (win) => win.crypto?.randomUUID?.() || \`\${Date.now()}-\${Math.random().toString(36).slice(2)}\`;
+  var noAlerts = Object.freeze([]);
   function createController(ctx, options = {}) {
     let who = { id: "", nickname: "" }, records = [], instances = /* @__PURE__ */ new Map(), session = null, loading = false, error = "", configError = "";
     let defs = /* @__PURE__ */ new Map(), qifu = null, prayer = null, generation = 0, loadedConfig = false;
+    let trackedItems = importantItems(defs);
+    function setGoods(config) {
+      defs = goodsDefinitions(config);
+      trackedItems = importantItems(defs);
+    }
+    const visibleItems = (knots) => trackedItems.filter((row) => row.name !== "\\u5982\\u610F\\u7ED3" || knots.active.has(Number(row.ID)));
     let configRetry = null;
     const waitingForConfig = (reason) => /^\u7B49\u5F85(?:\u6E38\u620F\u914D\u7F6E\u6570\u636E\u5C31\u7EEA|\u5BA2\u6237\u7AEF\u8D44\u6E90\u7248\u672C\u5C31\u7EEA\uFF0C\u8BF7\u7A0D\u540E\u5237\u65B0|\u6E38\u620F\u914D\u7F6E\u89E3\u7801\u5668\u5C31\u7EEA)$/.test(String(reason?.message || reason));
     let watch = null;
@@ -29097,7 +32793,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     function settleCurrencyBaseline() {
       if (!currencyPending) return;
       const count = native.yuanbao(), now = Date.now();
-      if (!inventoryReady || !native.snapshot().complete || count === null) {
+      if (!inventoryReady || !native.inventoryComplete() || count === null) {
         currencySample = null;
         currencySampleAt = now;
         return;
@@ -29150,9 +32846,9 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
         const saved = ctx.settings.get("balance:" + who.id, {});
         watch = runtime.watch?.session === session.id && runtime.watch.schema === 2 ? runtime.watch : { schema: 2, session: session.id, previous: saved, latest: { ...saved }, changes: {}, warned: {}, alerts: [] };
         runtime.watch = watch;
+        watch.alerts = watch.alerts.filter((message) => !message.startsWith("\\u5982\\u610F\\u7ED3"));
       }
-      watch.alerts = watch.alerts.filter((message) => !message.startsWith("\\u5982\\u610F\\u7ED3"));
-      const rows = importantItems(defs, native.knots(qifu, defs).active), now = Date.now();
+      const rows = visibleItems(native.knots(qifu, trackedItems)), now = Date.now();
       for (const row of rows) {
         const id = Number(row.ID), count = id === YUANBAO ? currencyReady ? native.yuanbao() : null : inventoryReady ? native.count(id) : null;
         if (!Number.isSafeInteger(count) || count < 0) continue;
@@ -29173,7 +32869,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
         if (fresh && Number.isFinite(limit) && limit > 0 && -change.delta >= limit && !watch.warned[id]) {
           watch.warned[id] = true;
           const message = (id === JADE_SEAL ? "\\u7389\\u73BA\\u5408\\u8BA1\\uFF08\\u542B\\u788E\\u7247\\u6298\\u7B97\\uFF09" : row.name) + "\\u8F83\\u4E0A\\u6B21\\u5728\\u7EBF\\u51CF\\u5C11 " + -change.delta + "\\uFF0C\\u4E0A\\u6B21 " + change.previous + " \\u2192 \\u672C\\u6B21 " + change.count + "\\uFF0C\\u5DF2\\u8FBE\\u5230\\u9608\\u503C " + limit + "\\uFF0C\\u8BF7\\u7ACB\\u5373\\u68C0\\u67E5\\u8D26\\u53F7\\u4E0E\\u7269\\u54C1\\u4F7F\\u7528\\u60C5\\u51B5\\u3002";
-          watch.alerts.push(message);
+          watch.alerts = [...watch.alerts, message];
           ctx.notify?.(message);
         }
       }
@@ -29220,7 +32916,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
         inventoryReady = false;
         beginCurrencyBaseline();
       } else if (!lastAccount) inventoryReady = currencyReady = true;
-      if (!native.snapshot().complete) beginCurrencyBaseline();
+      if (!native.inventoryComplete()) beginCurrencyBaseline();
       lastAccount = who.id;
       if (runtime.account === who.id && runtime.session) session = runtime.session;
       else newSession();
@@ -29354,22 +33050,23 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     }
     const native = createNative(ctx, accept, () => gap());
     const cachedGoods = read(() => ctx.game.getConfigData("sys_gs_dbs_fs_goodsbaseinfo"));
-    if (cachedGoods) defs = goodsDefinitions(cachedGoods);
+    if (cachedGoods) setGoods(cachedGoods);
     qifu = read(() => ctx.game.getConfigData("ff_qifu_new"));
     prayer = read(() => ctx.game.getConfigData("ff_tiangong"));
     let metrics = "";
     sync();
+    checkAssets();
     ctx.scope.interval(() => {
       sync();
       checkAssets();
-      const knots = native.knots(qifu, defs), next = JSON.stringify([
+      const knots = native.knots(qifu, trackedItems), next = JSON.stringify([
         who.id,
         currencyReady,
         inventoryReady,
         native.yuanbao(),
         [...knots.active],
         knots.known,
-        importantItems(defs, knots.active).map((row) => native.count(Number(row.ID)))
+        visibleItems(knots).map((row) => native.count(Number(row.ID)))
       ]);
       if (metrics !== next) {
         metrics = next;
@@ -29393,7 +33090,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
       if (ctx.scope.signal.aborted) return;
       const waiting2 = results.some((r) => r.status === "rejected" && waitingForConfig(r.reason));
       configError = results.flatMap((r, i) => r.status === "rejected" && !waitingForConfig(r.reason) ? [\`\${files[i]}\\uFF1A\${r.reason?.stack || r.reason}\`] : []).join("\\n");
-      if (results[0].status === "fulfilled") defs = goodsDefinitions(results[0].value);
+      if (results[0].status === "fulfilled") setGoods(results[0].value);
       if (results[1].status === "fulfilled") qifu = results[1].value;
       if (results[2].status === "fulfilled") prayer = results[2].value;
       loadingConfig = false;
@@ -29417,8 +33114,11 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
         notify();
         return true;
       },
+      getAlerts() {
+        return watch?.alerts || noAlerts;
+      },
       dismissAlerts() {
-        if (watch) watch.alerts = [];
+        if (watch) watch.alerts = noAlerts;
         notify();
       },
       load,
@@ -29426,12 +33126,13 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
         listeners.add(fn);
         return () => listeners.delete(fn);
       },
-      view() {
+      view({ currentOnly = false } = {}) {
         sync();
         checkAssets();
         const namedItems = (items) => (items || []).filter(canRecordItem).map((i) => ({ ...i, name: defs.get(i.id)?.name || i.name || metadata(i.id).name }));
         const hydrated = [];
         for (const row of records) {
+          if (currentOnly && row.session !== session?.id) continue;
           const items = namedItems(row.items);
           if (row.kind === "goods" && row.items?.length && !items.length) continue;
           const record = { ...row, items };
@@ -29446,18 +33147,19 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
           }
           hydrated.push(record);
         }
-        const current = hydrated.filter((r) => r.session === session?.id), sum = totals(current), knots = native.knots(qifu, defs);
+        const current = currentOnly ? hydrated : hydrated.filter((r) => r.session === session?.id);
+        const sum = totals(current), knots = native.knots(qifu, trackedItems);
         return {
           who,
           session,
           records: hydrated,
-          alerts: watch?.alerts || [],
+          alerts: watch?.alerts || noAlerts,
           jadeComparison: watch?.combined || null,
           loading,
           loadingConfig,
           error: error || configError,
           knotsKnown: knots.known,
-          items: importantItems(defs, knots.active).map((row) => ({
+          items: visibleItems(knots).map((row) => ({
             ...row,
             count: row.ID === YUANBAO ? currencyReady ? native.yuanbao() : null : inventoryReady ? native.count(Number(row.ID)) : null,
             comparison: watch?.changes[row.ID] || null,
@@ -29532,7 +33234,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     let settingsKey = "";
     root.append(account2, note, assets, settings, bar, error.node, prayerTitle, prayers, help);
     function draw() {
-      const v = controller.view();
+      const v = controller.view({ currentOnly: true });
       refreshButton.disabled = v.loadingConfig;
       refreshButton.lastChild.textContent = v.loadingConfig ? "\\u8BFB\\u53D6\\u4E2D\\u2026" : "\\u5237\\u65B0\\u914D\\u7F6E";
       account2.hidden = Boolean(v.who.id);
@@ -29663,7 +33365,10 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     }), pageText = el("span", "muted");
     nav.append(prev, pageText, next);
     bar.append(
-      ui.button("\\u5BFC\\u51FA\\u7B5B\\u9009\\u65E5\\u5FD7", "download", () => downloadJSON(child, \`\\u8D26\\u672C-\${controller.view().who.id}.json\`, { schema: 1, account: controller.view().who, exportedAt: (/* @__PURE__ */ new Date()).toISOString(), records: selected() })),
+      ui.button("\\u5BFC\\u51FA\\u7B5B\\u9009\\u65E5\\u5FD7", "download", () => {
+        const v = controller.view();
+        downloadJSON(child, \`\\u8D26\\u672C-\${v.who.id}.json\`, { schema: 1, account: v.who, exportedAt: (/* @__PURE__ */ new Date()).toISOString(), records: selected(v) });
+      }),
       ui.button("\\u6E05\\u9664\\u7B5B\\u9009", "reset", () => {
         from.value = to.value = item.value = "";
         period = kind = "all";
@@ -29678,8 +33383,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     close.setAttribute("aria-label", "\\u5173\\u95ED\\u8D26\\u672C");
     heading.append(title, close);
     root.append(heading, who, status, filters, periodControl, kindControl, bar, error.node, count, summary, logs, nav);
-    function selected() {
-      const v = controller.view();
+    function selected(v) {
       return filterRecords(v.records, {
         from: from.value ? new Date(from.value).getTime() : 0,
         to: to.value ? new Date(to.value).getTime() : Infinity,
@@ -29690,7 +33394,7 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     }
     function draw() {
       if (!alive || win.closed || ctx.scope.signal.aborted) return;
-      const v = controller.view(), rows = selected().sort((a, b) => b.at - a.at), pages = Math.max(1, Math.ceil(rows.length / 100));
+      const v = controller.view(), rows = selected(v).sort((a, b) => b.at - a.at), pages = Math.max(1, Math.ceil(rows.length / 100));
       page = Math.max(0, Math.min(page, pages - 1));
       who.textContent = v.who.id ? \`\${v.who.nickname || "\\u5F53\\u524D\\u8D26\\u53F7"} \\xB7 \${v.who.id} \\xB7 \\u4EC5\\u4FDD\\u5B58\\u5728\\u5F53\\u524D\\u6D4F\\u89C8\\u5668\` : "\\u7B49\\u5F85\\u767B\\u5F55";
       status.textContent = \`\\u4EC5\\u8BB0\\u5F55\\u63D2\\u4EF6\\u8FD0\\u884C\\u671F\\u95F4\\u89C2\\u5BDF\\u5230\\u7684\\u6D41\\u6C34\\uFF0C\\u9996\\u6B21\\u80CC\\u5305\\u5FEB\\u7167\\u4E0D\\u8BA1\\u4E3A\\u6536\\u5165\\u3002\${v.session?.incomplete ? "\\u672C\\u6B21\\u767B\\u5F55\\u8BB0\\u5F55\\u66FE\\u4E2D\\u65AD\\uFF0C\\u6536\\u652F\\u4E0D\\u5B8C\\u6574\\u3002" : ""}\`;
@@ -29784,8 +33488,11 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     };
     theme(ctx.themes.current);
     const offTheme = ctx.themes.subscribe(theme);
+    let previousAlerts;
     const draw = () => {
-      const alerts = controller.view().alerts;
+      const alerts = controller.getAlerts();
+      if (alerts === previousAlerts) return;
+      previousAlerts = alerts;
       ui.root.hidden = !alerts.length;
       messages.replaceChildren(...alerts.map((text) => ui.el("p", "", text)));
     };
@@ -30145,9 +33852,11 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
     const queue = stage ? [stage] : [], found = [];
     for (let i = 0; i < queue.length && i < 4e3; i++) {
       const node = queue[i];
-      if (!node || node.destroyed) continue;
+      if (!node || node.destroyed || node.visible === false) continue;
+      if (node.name === "SceneLayer" || node.layerOrder === 2 || node.LayerOrder === 2) continue;
       if (Array.isArray(node.bags) && node.topSp && typeof node.showBags === "function" && typeof node.updatePageIdx === "function" && typeof node.updateRadioBtnData === "function" && visible(node)) found.push(node);
-      if (Array.isArray(node._children)) queue.push(...node._children);
+      const children = node._children;
+      if (Array.isArray(children)) queue.push(...children);
     }
     return found;
   }
@@ -30359,11 +34068,23 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
       const text = couponAmounts(slot.BaseData || slot.baseData, getConfig());
       badge.visible = Boolean(text) && slot.visible !== false;
       if (!text) return;
+      const inset = 2;
+      const height = 13;
+      const padding = 4;
+      const frameWidth = slot.width - 2 * inset;
+      const count = slot.countTxt;
+      const countLeft = count?.text ? count.x - slot._x : slot.width;
+      const besideCount = Math.min(frameWidth, countLeft - inset - 2);
       badge.text = text;
-      badge.fontSize = 11;
-      while (badge.textWidth > slot.width - 4 && badge.fontSize > 7) badge.fontSize--;
-      badge.size(Math.min(slot.width, badge.textWidth + 5), 16);
-      badge.pos(slot._x + slot.width - badge.width, slot._y + (slot.leftTimeBg?.visible ? 15 : 1));
+      badge.fontSize = 10;
+      while (badge.textWidth + padding > besideCount && badge.fontSize > 8) badge.fontSize--;
+      let y = slot.height - inset - height;
+      if (count?.text && badge.textWidth + padding > besideCount) {
+        y = Math.max(inset, Math.min(y, count.y - slot._y - height - 2));
+      }
+      while (badge.textWidth + padding > frameWidth && badge.fontSize > 7) badge.fontSize--;
+      badge.size(Math.min(frameWidth, Math.ceil(badge.textWidth) + padding), height);
+      badge.pos(slot._x + inset, slot._y + y);
       badge.color = theme.palette.accent;
       badge.bgColor = theme.palette.bg;
     }
@@ -30465,10 +34186,10 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
   var manifest = {
     id: "ledger",
     name: "\\u8D26\\u672C",
-    version: "0.3.8",
+    version: "0.3.12",
     apiVersion: 1,
     contractVersion: 1,
-    releaseNotes: "\\u968F\\u516C\\u5171\\u754C\\u9762\\u8D44\\u6E90\\u66F4\\u65B0\\uFF0C\\u8D26\\u672C\\u7EDF\\u8BA1\\u3001\\u767B\\u5F55\\u4F59\\u989D\\u5224\\u65AD\\u4E0E\\u7269\\u54C1\\u63D0\\u9192\\u65B9\\u5F0F\\u4FDD\\u6301\\u4E0D\\u53D8\\u3002",
+    releaseNotes: "\\u4F18\\u5316\\u80CC\\u5305\\u7269\\u54C1\\u5206\\u7C7B\\u3001\\u8D26\\u672C\\u6D41\\u6C34\\u548C\\u7269\\u54C1\\u53D8\\u5316\\u63D0\\u9192\\u3002\\u8BB0\\u5F55\\u6309\\u8D26\\u53F7\\u4FDD\\u5B58\\u5728\\u672C\\u673A\\u3002",
     minCoreVersion: "0.6.37",
     categories: ["info"],
     icon: PLUGIN_ICONS["ledger"],
@@ -30486,8 +34207,8 @@ return {...SGSPlugin.default, manifest:{"id":"appearances","name":"\u51FA\u6846\
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"ledger","name":"\u8D26\u672C","version":"0.3.8","apiVersion":1,"contractVersion":1,"releaseNotes":"\u968F\u516C\u5171\u754C\u9762\u8D44\u6E90\u66F4\u65B0\uFF0C\u8D26\u672C\u7EDF\u8BA1\u3001\u767B\u5F55\u4F59\u989D\u5224\u65AD\u4E0E\u7269\u54C1\u63D0\u9192\u65B9\u5F0F\u4FDD\u6301\u4E0D\u53D8\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18","M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"]},"priority":30000,"description":"\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807"}};
-`, sha256: "4150b1bad5420ab0cc4d17603676aa0501d02ba9670e2105cf8c81c3b48cd5ac" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "recharge", name: "\u65E7\u5468\u6708\u5361", version: "0.1.15", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.6.72", categories: ["tools"], priority: 45e3, icon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] }, description: "\u67E5\u8BE2\u65E7\u5468\u5361\u4E0E\u65E7\u6708\u5361\u72B6\u6001\u3001\u8BBE\u7F6E\u5230\u671F\u63D0\u9192\u5E76\u6253\u5F00\u6E38\u620F\u76F4\u8D2D", releaseNotes: "\u79FB\u9664\u5DE5\u5177\u7BB1\u5185\u7684 95 \u6298\u5145\u503C\u5165\u53E3\u3002\u65E7\u5468\u5361\u548C\u65E7\u6708\u5361\u4ECD\u53EF\u67E5\u8BE2\u72B6\u6001\u3001\u8BBE\u7F6E\u5230\u671F\u63D0\u9192\uFF0C\u5E76\u5728\u6838\u5BF9\u5546\u54C1\u540E\u6253\u5F00\u6E38\u620F\u76F4\u8D2D\uFF0C\u8D2D\u4E70\u9700\u624B\u52A8\u786E\u8BA4\u3002" }, code: `var SGSPlugin = (() => {
+return {...SGSPlugin.default, manifest:{"id":"ledger","name":"\u8D26\u672C","version":"0.3.12","apiVersion":1,"contractVersion":1,"releaseNotes":"\u4F18\u5316\u80CC\u5305\u7269\u54C1\u5206\u7C7B\u3001\u8D26\u672C\u6D41\u6C34\u548C\u7269\u54C1\u53D8\u5316\u63D0\u9192\u3002\u8BB0\u5F55\u6309\u8D26\u53F7\u4FDD\u5B58\u5728\u672C\u673A\u3002","minCoreVersion":"0.6.37","categories":["info"],"icon":{"paths":["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18","M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"]},"priority":30000,"description":"\u91CD\u8981\u7269\u54C1\u4F59\u989D\u3001\u767B\u5F55\u6536\u652F\u4E0E\u7948\u613F\u8BB0\u5F55\uFF0C\u80CC\u5305\u9053\u5177\u641C\u7D22\u548C\u62B5\u4EF7\u5238\u6EE1\u51CF\u89D2\u6807"}};
+`, sha256: "f1b3bea02d69b4bf14b1a253a46351067c60cd9af05cc2e0d5a163ee37ff8cc4" }, { format: "sgs-toolbox-plugin-v1", manifest: { id: "recharge", name: "\u65E7\u5468\u6708\u5361", version: "0.1.16", apiVersion: 1, contractVersion: 1, minCoreVersion: "0.6.72", categories: ["tools"], priority: 45e3, icon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] }, description: "\u67E5\u8BE2\u65E7\u5468\u5361\u4E0E\u65E7\u6708\u5361\u72B6\u6001\u3001\u8BBE\u7F6E\u5230\u671F\u63D0\u9192\u5E76\u6253\u5F00\u6E38\u620F\u76F4\u8D2D", releaseNotes: "\u7CBE\u7B80\u65E7\u5468\u5361\u548C\u65E7\u6708\u5361\u7684\u67E5\u8BE2\u3001\u5230\u671F\u63D0\u9192\u4E0E\u76F4\u8D2D\u5165\u53E3\u3002\u6253\u5F00\u6E38\u620F\u76F4\u8D2D\u524D\u4ECD\u9700\u6838\u5BF9\u5546\u54C1\uFF0C\u4ED8\u6B3E\u7531\u7528\u6237\u624B\u52A8\u786E\u8BA4\u3002" }, code: `var SGSPlugin = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -30525,6 +34246,10 @@ return {...SGSPlugin.default, manifest:{"id":"ledger","name":"\u8D26\u672C","ver
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -30678,7 +34403,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var manifest = {
     id: "recharge",
     name: "\\u65E7\\u5468\\u6708\\u5361",
-    version: "0.1.15",
+    version: "0.1.16",
     apiVersion: 1,
     contractVersion: 1,
     minCoreVersion: "0.6.72",
@@ -30686,7 +34411,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     priority: 45e3,
     icon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] },
     description: "\\u67E5\\u8BE2\\u65E7\\u5468\\u5361\\u4E0E\\u65E7\\u6708\\u5361\\u72B6\\u6001\\u3001\\u8BBE\\u7F6E\\u5230\\u671F\\u63D0\\u9192\\u5E76\\u6253\\u5F00\\u6E38\\u620F\\u76F4\\u8D2D",
-    releaseNotes: "\\u79FB\\u9664\\u5DE5\\u5177\\u7BB1\\u5185\\u7684 95 \\u6298\\u5145\\u503C\\u5165\\u53E3\\u3002\\u65E7\\u5468\\u5361\\u548C\\u65E7\\u6708\\u5361\\u4ECD\\u53EF\\u67E5\\u8BE2\\u72B6\\u6001\\u3001\\u8BBE\\u7F6E\\u5230\\u671F\\u63D0\\u9192\\uFF0C\\u5E76\\u5728\\u6838\\u5BF9\\u5546\\u54C1\\u540E\\u6253\\u5F00\\u6E38\\u620F\\u76F4\\u8D2D\\uFF0C\\u8D2D\\u4E70\\u9700\\u624B\\u52A8\\u786E\\u8BA4\\u3002"
+    releaseNotes: "\\u7CBE\\u7B80\\u65E7\\u5468\\u5361\\u548C\\u65E7\\u6708\\u5361\\u7684\\u67E5\\u8BE2\\u3001\\u5230\\u671F\\u63D0\\u9192\\u4E0E\\u76F4\\u8D2D\\u5165\\u53E3\\u3002\\u6253\\u5F00\\u6E38\\u620F\\u76F4\\u8D2D\\u524D\\u4ECD\\u9700\\u6838\\u5BF9\\u5546\\u54C1\\uFF0C\\u4ED8\\u6B3E\\u7531\\u7528\\u6237\\u624B\\u52A8\\u786E\\u8BA4\\u3002"
   };
   function activate(ctx) {
     const riskKey = Symbol.for("sgs.toolbox.recharge.login-risk");
@@ -30949,8 +34674,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   return __toCommonJS(index_exports);
 })();
 
-return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u6708\u5361","version":"0.1.15","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.6.72","categories":["tools"],"priority":45000,"icon":{"paths":["M3 6h18v14H3Z","M3 10h18","M15 15h3","M6 3h12"]},"description":"\u67E5\u8BE2\u65E7\u5468\u5361\u4E0E\u65E7\u6708\u5361\u72B6\u6001\u3001\u8BBE\u7F6E\u5230\u671F\u63D0\u9192\u5E76\u6253\u5F00\u6E38\u620F\u76F4\u8D2D","releaseNotes":"\u79FB\u9664\u5DE5\u5177\u7BB1\u5185\u7684 95 \u6298\u5145\u503C\u5165\u53E3\u3002\u65E7\u5468\u5361\u548C\u65E7\u6708\u5361\u4ECD\u53EF\u67E5\u8BE2\u72B6\u6001\u3001\u8BBE\u7F6E\u5230\u671F\u63D0\u9192\uFF0C\u5E76\u5728\u6838\u5BF9\u5546\u54C1\u540E\u6253\u5F00\u6E38\u620F\u76F4\u8D2D\uFF0C\u8D2D\u4E70\u9700\u624B\u52A8\u786E\u8BA4\u3002"}};
-`, sha256: "d4854914f2c9d076a6a530c492d77ac8740e3b29ebbcbda573de0e7bcb2cdc7d" }];
+return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u6708\u5361","version":"0.1.16","apiVersion":1,"contractVersion":1,"minCoreVersion":"0.6.72","categories":["tools"],"priority":45000,"icon":{"paths":["M3 6h18v14H3Z","M3 10h18","M15 15h3","M6 3h12"]},"description":"\u67E5\u8BE2\u65E7\u5468\u5361\u4E0E\u65E7\u6708\u5361\u72B6\u6001\u3001\u8BBE\u7F6E\u5230\u671F\u63D0\u9192\u5E76\u6253\u5F00\u6E38\u620F\u76F4\u8D2D","releaseNotes":"\u7CBE\u7B80\u65E7\u5468\u5361\u548C\u65E7\u6708\u5361\u7684\u67E5\u8BE2\u3001\u5230\u671F\u63D0\u9192\u4E0E\u76F4\u8D2D\u5165\u53E3\u3002\u6253\u5F00\u6E38\u620F\u76F4\u8D2D\u524D\u4ECD\u9700\u6838\u5BF9\u5546\u54C1\uFF0C\u4ED8\u6B3E\u7531\u7528\u6237\u624B\u52A8\u786E\u8BA4\u3002"}};
+`, sha256: "e2dadb28beef5332005074b038a5f0fe4b87aeb4375a77e04379c9a937d48b34" }];
 
   // src/core/resources.js
   var ResourceScope = class {
@@ -31446,7 +35171,9 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
     for (let [key, item] of Object.entries(index.frames)) {
       if (!/^[A-Za-z][A-Za-z0-9_]{0,95}_png\.png$/.test(key) || item.rotated || item.trimmed) continue;
       let f = item.frame, size = item.sourceSize, offset = item.spriteSourceSize, page = pages[f?.idx ?? 0];
-      !f || !page || ![f.x, f.y, f.w, f.h, f.idx ?? 0].every(Number.isInteger) || f.x < 0 || f.y < 0 || f.w !== width || f.h !== height || size?.w !== width || size?.h !== height || offset?.x !== 0 || offset?.y !== 0 || f.x + f.w > page.width || f.y + f.h > page.height || result.set(key, Object.freeze({ ...f, idx: f.idx ?? 0 }));
+      if (!f || !page || ![f.x, f.y, f.w, f.h, f.idx ?? 0].every(Number.isInteger) || f.x < 0 || f.y < 0 || f.w !== width || f.h !== height || size?.w !== width || size?.h !== height || offset?.x !== 0 || offset?.y !== 0 || f.x + f.w > page.width || f.y + f.h > page.height) continue;
+      let { x, y, w, h } = f, idx = f.idx ?? 0, label = typeof item.label == "string" && item.label.length <= 48 && !/[\u0000-\u001f\u007f]/.test(item.label) ? item.label.trim() : "";
+      result.set(key, Object.freeze({ x, y, w, h, idx, ...label ? { label } : {} }));
     }
     if (!result.size) throw new Error("\u56FE\u96C6\u4E2D\u6CA1\u6709\u53EF\u7528\u7684\u5B8C\u6574\u5361\u56FE");
     return result;
@@ -31513,8 +35240,110 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
     }
   }
 
+  // src/core/local-images.js
+  var LOCAL_IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/bmp,.png,.jpg,.jpeg,.webp,.bmp";
+  function imageType(bytes) {
+    let data = new DataView(bytes), tag = (offset) => data.getUint32(offset);
+    if (bytes.byteLength >= 8 && tag(0) === 2303741511 && tag(4) === 218765834) {
+      for (let offset = 8; offset + 12 <= bytes.byteLength; ) {
+        let chunk = tag(offset + 4);
+        if (chunk === 1633899596) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301 APNG");
+        if (chunk === 1229209940) return "image/png";
+        offset += 12 + tag(offset);
+      }
+      throw new Error("PNG \u56FE\u7247\u5185\u5BB9\u4E0D\u5B8C\u6574");
+    }
+    if (bytes.byteLength >= 21 && tag(0) === 1380533830 && tag(8) === 1464156752) {
+      if (tag(12) === 1448097880 && data.getUint8(20) & 2) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301\u52A8\u6001 WebP");
+      return "image/webp";
+    }
+    if (bytes.byteLength >= 3 && data.getUint16(0) === 65496 && data.getUint8(2) === 255) return "image/jpeg";
+    if (bytes.byteLength >= 14 && data.getUint16(0) === 16973) return "image/bmp";
+    throw new Error("\u8BF7\u9009\u62E9 PNG\u3001JPG\u3001WebP \u6216 BMP \u9759\u6001\u56FE\u7247");
+  }
+  async function withLocalImage(win, file, process2) {
+    if (!file?.size || file.size > 20971520) throw new Error("\u8BF7\u9009\u62E9\u4E0D\u8D85\u8FC7 20 MB \u7684\u56FE\u7247\u6587\u4EF6");
+    if (typeof file.arrayBuffer != "function" || !win.URL?.createObjectURL || !win.Image) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u8BFB\u53D6\u672C\u5730\u56FE\u7247");
+    let bytes = await file.arrayBuffer(), type = imageType(bytes), url = win.URL.createObjectURL(new win.Blob([bytes], { type }));
+    try {
+      let image = new win.Image();
+      if (await new Promise((resolve, reject) => {
+        image.onload = resolve, image.onerror = () => reject(new Error("\u65E0\u6CD5\u6253\u5F00\u56FE\u7247\uFF0C\u6587\u4EF6\u53EF\u80FD\u5DF2\u635F\u574F")), image.src = url;
+      }), !(image.naturalWidth > 0 && image.naturalHeight > 0)) throw new Error("\u56FE\u7247\u5C3A\u5BF8\u65E0\u6548");
+      return await process2(image, { bytes, type });
+    } finally {
+      win.URL.revokeObjectURL(url);
+    }
+  }
+  async function localImageTransaction(win, database, mode, operation, keyPath) {
+    if (!win.indexedDB) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u4FDD\u5B58\u672C\u5730\u56FE\u7247");
+    let db = await new Promise((resolve, reject) => {
+      let request = win.indexedDB.open(database, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("images", { autoIncrement: !0, keyPath }), request.onsuccess = () => resolve(request.result), request.onerror = () => reject(request.error);
+    });
+    try {
+      return await new Promise((resolve, reject) => {
+        let tx = db.transaction("images", mode), request = operation(tx.objectStore("images"));
+        tx.oncomplete = () => resolve(request.result), tx.onabort = () => reject(tx.error || new Error("\u672C\u5730\u56FE\u7247\u5B58\u50A8\u64CD\u4F5C\u5DF2\u4E2D\u6B62"));
+      });
+    } finally {
+      db.close();
+    }
+  }
+  function readLocalCardImage(win, file, width, height) {
+    return withLocalImage(win, file, (image) => {
+      let ratio = width / height, cropWidth = Math.min(image.naturalWidth, image.naturalHeight * ratio), cropHeight = Math.min(image.naturalHeight, image.naturalWidth / ratio), canvas = win.document.createElement("canvas");
+      canvas.width = width, canvas.height = height;
+      let context = canvas.getContext("2d");
+      context.imageSmoothingQuality = "high", context.drawImage(
+        image,
+        (image.naturalWidth - cropWidth) / 2,
+        (image.naturalHeight - cropHeight) / 2,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        width,
+        height
+      );
+      let url = canvas.toDataURL("image/webp", 0.92);
+      if (!isLocalCardImageUrl(url)) throw new Error("\u65E0\u6CD5\u751F\u6210\u5361\u724C\u56FE\u7247");
+      return { name: file.name?.trim().slice(0, 160) || "\u81EA\u5B9A\u4E49\u56FE\u7247", url };
+    });
+  }
+  function isLocalCardImageUrl(url) {
+    return typeof url == "string" && /^data:image\/(?:png|webp);base64,/.test(url);
+  }
+
+  // src/core/card-back-local.js
+  var LOCAL_BACK_PREFIX = "local-card-back.", LOCAL_BACK_WIDTH = 372, LOCAL_BACK_HEIGHT = 520;
+  function readLocalCardBack(win, file) {
+    return readLocalCardImage(win, file, LOCAL_BACK_WIDTH, LOCAL_BACK_HEIGHT);
+  }
+  function localCardBackTransaction(win, mode, operation) {
+    return localImageTransaction(win, "sgs-toolbox-card-backs", mode, operation, "id");
+  }
+  function localCardBack({ id, name, url }) {
+    return !Number.isSafeInteger(id) || id <= 0 || typeof name != "string" || !isLocalCardImageUrl(url) ? null : Object.freeze({ id: LOCAL_BACK_PREFIX + id, name, localBackImage: url });
+  }
+
   // src/core/card-styles.js
-  var COLOR = /^#[0-9a-f]{6}$/i, own = (node, key) => node && Object.getOwnPropertyDescriptor(node, key)?.value, CARD_LISTS = ["_children", "cardUis", "cardUIs", "cardUiList", "cardUIList", "virtualCardUis", "tempHandCardUis", "additionalCardUis", "muniuCardUis", "stateCardUis", "pileCardUis", "seatUIs"], CARD_NODES = ["cardContainer", "seatContainer", "SelfSeatUi", "selfSeatUI", "desktopCardContainer", "discardCardContainer", "cardUi", "cardUI"], isCardUI = (node) => node && !node.destroyed && node.bmpFace && typeof node.SetCardFace == "function" && typeof node.getCardFaceBaseTexture == "function" && typeof node.updateNewCardFace == "function";
+  var LOCAL_FACE_STYLE = Object.freeze({ id: "local-card-face", name: "\u81EA\u5B9A\u4E49\u5361\u9762", localFace: !0 }), LOCAL_FACE_BACKGROUND_STYLE = Object.freeze({ id: "local-card-face-background", localFaceBackground: !0 }), LOCAL_FACE_WIDTH = 405, LOCAL_FACE_HEIGHT = 570, FACE_BACKGROUND_RECORD = "$background", localFaceKey = (card) => `${LOCAL_FACE_STYLE.id}.${card}`, COLOR = /^#[0-9a-f]{6}$/i, own = (node, key) => node && Object.getOwnPropertyDescriptor(node, key)?.value, CARD_LISTS = ["_children", "cardUis", "cardUIs", "cardUiList", "cardUIList", "virtualCardUis", "tempHandCardUis", "additionalCardUis", "muniuCardUis", "stateCardUis", "pileCardUis", "seatUIs"], CARD_NODES = ["cardContainer", "seatContainer", "SelfSeatUi", "selfSeatUI", "desktopCardContainer", "discardCardContainer", "cardUi", "cardUI"], isCardUI = (node) => node && !node.destroyed && node.bmpFace && typeof node.SetCardFace == "function" && typeof node.getCardFaceBaseTexture == "function" && typeof node.updateNewCardFace == "function", NO_BOOK_FACES = Object.freeze([]);
+  function cardBookFaces(node, listType, detailType) {
+    if (typeof detailType == "function" && node instanceof detailType) {
+      let ui = own(own(node, "cardFace"), "cardUi");
+      return isCardUI(ui) ? [ui] : NO_BOOK_FACES;
+    }
+    if (typeof listType != "function" || !(node instanceof listType)) return NO_BOOK_FACES;
+    let panel = own(node, "panel"), count = panel?.numChildren;
+    if (!Number.isInteger(count) || count < 1 || typeof panel.getChildAt != "function") return NO_BOOK_FACES;
+    let result = [];
+    for (let i = 0; i < Math.min(count, 2048); i++) {
+      let ui = own(own(panel.getChildAt(i), "cardFace"), "cardUi");
+      isCardUI(ui) && result.push(ui);
+    }
+    return result;
+  }
   function findNativeCardTexture(L, name) {
     if (!/^card(?:Face|Back)_\d{1,5}$/.test(name)) return null;
     let valid = (t) => t?.bitmap && !t.destroyed && !t.bitmap.destroyed && t.width > 0 && t.height > 0, direct = L?.loader?.getRes?.(name);
@@ -31545,14 +35374,15 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
   }
   var CardStyleRegistry = class {
     constructor({ window: win, document: doc, game, settings, scope }) {
-      Object.assign(this, { win, doc, game, settings, scope }), this.styles = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set(), this.textures = /* @__PURE__ */ new Map(), this.bindings = /* @__PURE__ */ new Map(), this.nativeResources = /* @__PURE__ */ new Map(), this.nativeAttempts = /* @__PURE__ */ new Map(), this.previews = /* @__PURE__ */ new WeakMap(), this.factories = /* @__PURE__ */ new Map(), this.pools = /* @__PURE__ */ new Map(), this.insertions = /* @__PURE__ */ new Map(), this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds = /* @__PURE__ */ new Set(), this.selfHand = null, this.scene = null, this.atlases = /* @__PURE__ */ new Map(), this.backImages = /* @__PURE__ */ new Map(), this.status = "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2", this.closed = !1, scope.interval(() => this.refreshNative(), 400), game.onSceneChange && scope.add(game.onSceneChange(() => this.refreshNative())), scope.add(() => {
-        this.closed = !0, this.restore(), this.clearTextures(), this.nativeResources.clear(), this.nativeAttempts.clear(), this.listeners.clear();
-      });
+      Object.assign(this, { win, doc, game, settings, scope }), this.styles = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set(), this.textures = /* @__PURE__ */ new Map(), this.bindings = /* @__PURE__ */ new Map(), this.nativeResources = /* @__PURE__ */ new Map(), this.nativeAttempts = /* @__PURE__ */ new Map(), this.previews = /* @__PURE__ */ new WeakMap(), this.factories = /* @__PURE__ */ new Map(), this.pools = /* @__PURE__ */ new Map(), this.insertions = /* @__PURE__ */ new Map(), this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds = /* @__PURE__ */ new Set(), this.selfHand = null, this.bookFaces = /* @__PURE__ */ new WeakSet(), this.scene = null, this.atlases = /* @__PURE__ */ new Map(), this.images = /* @__PURE__ */ new Map(), this.previewAtlasId = "", this.localBacks = /* @__PURE__ */ new Map(), this.localFaces = /* @__PURE__ */ new Map(), this.localFaceCatalog = null, this.localFaceCatalogPending = null, this.localFaceCatalogError = "", this.localFaceBackground = null, this.status = "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2", this.closed = !1, scope.interval(() => this.refreshNative(), 400), game.onSceneChange && scope.add(game.onSceneChange(() => this.refreshNative())), scope.add(() => {
+        this.closed = !0, this.restore(), this.clearTextures(), this.nativeResources.clear(), this.nativeAttempts.clear(), this.localBacks.clear(), this.localFaces.clear(), this.localFaceBackground = null, this.listeners.clear();
+      }), this.localBacksReady = win.indexedDB ? this.loadLocalBacks() : Promise.resolve(), this.localFacesReady = win.indexedDB ? this.loadLocalFaces() : Promise.resolve();
     }
     register(style2, owner) {
       if (this.closed) return () => {
       };
       if (!style2?.id?.startsWith(owner + ".") || !/^[a-z][a-z0-9.-]{0,63}$/.test(style2.id) || this.styles.has(style2.id)) throw new Error("\u5361\u724C\u6837\u5F0F ID \u65E0\u6548\u6216\u5DF2\u6CE8\u518C");
+      if (style2.id.startsWith(LOCAL_BACK_PREFIX) || style2.id.startsWith(LOCAL_FACE_STYLE.id + ".")) throw new Error("\u6B64 ID \u4FDD\u7559\u7ED9\u672C\u5730\u5361\u724C\u5916\u89C2");
       if (typeof style2.name != "string" || !style2.name.trim() || style2.name.length > 48) throw new Error("\u5361\u724C\u6837\u5F0F\u540D\u79F0\u65E0\u6548");
       if (style2.backName !== void 0 && (typeof style2.backName != "string" || !style2.backName.trim() || style2.backName.length > 48 || /[\r\n]/.test(style2.backName))) throw new Error("\u5361\u80CC\u540D\u79F0\u65E0\u6548");
       let cleaned = { id: style2.id, name: style2.name, ...style2.backName === void 0 ? {} : { backName: style2.backName } };
@@ -31579,16 +35409,121 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
     list() {
       return [...this.styles.values()];
     }
+    listLocalBacks() {
+      return [...this.localBacks.values()];
+    }
+    async loadLocalBacks() {
+      try {
+        let rows = await localCardBackTransaction(this.win, "readonly", (store) => store.getAll());
+        if (this.closed) return;
+        for (let row of rows) {
+          let style2 = localCardBack(row);
+          style2 && this.localBacks.set(style2.id, style2);
+        }
+      } catch (error) {
+        this.closed || (this.localBackError = "\u8BFB\u53D6\u672C\u5730\u5361\u80CC\u5931\u8D25\uFF1A" + error.message);
+      }
+      this.closed || (this.refreshNative(), this.emit());
+    }
+    async importLocalBack(file) {
+      let image = await readLocalCardBack(this.win, file);
+      if (await this.localBacksReady, this.closed) return;
+      let id = await localCardBackTransaction(this.win, "readwrite", (store) => store.add(image));
+      if (this.closed) return;
+      let style2 = localCardBack({ id, ...image });
+      this.localBacks.set(style2.id, style2);
+      try {
+        this.selectSide("back", style2.id);
+      } catch (error) {
+        throw this.emit(), new Error("\u56FE\u7247\u5DF2\u4FDD\u5B58\uFF0C\u9009\u7528\u5931\u8D25\uFF1A" + error.message);
+      }
+    }
+    async deleteLocalBack(id) {
+      if (this.closed || !this.localBacks.has(id)) return;
+      let key = Number(id.slice(LOCAL_BACK_PREFIX.length));
+      if (await localCardBackTransaction(this.win, "readwrite", (store) => store.delete(key)), !this.closed) {
+        this.localBacks.delete(id);
+        try {
+          this.selection.back === id && this.settings.set("cardBackStyle", "");
+        } finally {
+          this.restore(), this.clearTextures(id), this.refreshNative(), this.emit();
+        }
+      }
+    }
+    localFaceTransaction(mode, operation) {
+      return localImageTransaction(this.win, "sgs-toolbox-card-faces", mode, operation, "card");
+    }
+    async loadLocalFaces() {
+      try {
+        let rows = await this.localFaceTransaction("readonly", (store) => store.getAll());
+        if (this.closed) return;
+        for (let row of rows)
+          typeof row.name != "string" || !isLocalCardImageUrl(row.url) || (row.card === FACE_BACKGROUND_RECORD ? this.localFaceBackground = Object.freeze(row) : cardFrameName(row.card) && typeof row.label == "string" && this.localFaces.set(row.card, Object.freeze(row)));
+      } catch (error) {
+        this.closed || (this.localFaceError = "\u8BFB\u53D6\u672C\u5730\u5361\u9762\u5931\u8D25\uFF1A" + error.message);
+      }
+      this.closed || (this.refreshNative(), this.emit());
+    }
+    listLocalFaces() {
+      return [...this.localFaces.values()];
+    }
+    loadLocalFaceCatalog() {
+      if (this.closed || this.localFaceCatalog || this.localFaceCatalogPending) return;
+      let existing = this.game.getCardFaceCatalog?.();
+      if (existing) {
+        this.localFaceCatalog = existing, this.localFaceCatalogError = "", this.emit();
+        return;
+      }
+      this.game.loadCardFaceCatalog && (this.localFaceCatalogError = "", this.localFaceCatalogPending = this.game.loadCardFaceCatalog().then((catalog) => {
+        !this.closed && !this.localFaceCatalog && (this.localFaceCatalog = catalog);
+      }, (error) => {
+        !this.closed && !this.localFaceCatalog && (this.localFaceCatalogError = "\u8BFB\u53D6\u6E38\u620F\u724C\u8868\u5931\u8D25\uFF1A" + error.message);
+      }).finally(() => {
+        this.localFaceCatalogPending = null, this.closed || this.emit();
+      }), this.emit());
+    }
+    async importLocalFace(card, file) {
+      let label = this.localFaceCatalog?.find((item) => item.res === card)?.label || this.localFaces.get(card)?.label;
+      if (!label) throw new Error("\u8BF7\u9009\u62E9\u724C\u540D");
+      let image = await readLocalCardImage(this.win, file, LOCAL_FACE_WIDTH, LOCAL_FACE_HEIGHT);
+      if (await this.localFacesReady, this.closed) return;
+      let row = Object.freeze({ card, label, ...image });
+      await this.localFaceTransaction("readwrite", (store) => store.put(row)), !this.closed && (this.localFaces.set(card, row), this.refreshLocalImage(localFaceKey(card)));
+    }
+    async deleteLocalFace(card) {
+      this.closed || !this.localFaces.has(card) || (await this.localFaceTransaction("readwrite", (store) => store.delete(card)), !this.closed && (this.localFaces.delete(card), this.refreshLocalImage(localFaceKey(card))));
+    }
+    async importLocalFaceBackground(file) {
+      let image = await readLocalCardImage(this.win, file, LOCAL_FACE_WIDTH, LOCAL_FACE_HEIGHT);
+      if (await this.localFacesReady, this.closed) return;
+      let row = Object.freeze({ card: FACE_BACKGROUND_RECORD, ...image });
+      await this.localFaceTransaction("readwrite", (store) => store.put(row)), !this.closed && (this.localFaceBackground = row, this.refreshLocalImage(LOCAL_FACE_BACKGROUND_STYLE.id));
+    }
+    async deleteLocalFaceBackground() {
+      this.closed || !this.localFaceBackground || (await this.localFaceTransaction("readwrite", (store) => store.delete(FACE_BACKGROUND_RECORD)), !this.closed && (this.localFaceBackground = null, this.refreshLocalImage(LOCAL_FACE_BACKGROUND_STYLE.id)));
+    }
+    refreshLocalImage(key) {
+      let previous = [];
+      for (let [textureKey, texture] of this.textures)
+        textureKey.startsWith(key + ":") && (this.textures.delete(textureKey), previous.push(texture));
+      this.clearTextures(key), this.refreshNative();
+      for (let texture of previous) texture.destroy(!0);
+      this.emit();
+    }
     get current() {
       return this.settings.get("cardStyle", "");
     }
     get selection() {
       return { face: this.settings.get("cardFaceStyle", this.current), back: this.settings.get("cardBackStyle", this.current), scope: this.settings.get("cardStyleScope", "all") };
     }
+    styleFor(side, id = this.selection[side]) {
+      return side === "face" && id === LOCAL_FACE_STYLE.id ? LOCAL_FACE_STYLE : side === "face" && id === LOCAL_FACE_BACKGROUND_STYLE.id ? LOCAL_FACE_BACKGROUND_STYLE : (side === "back" ? this.localBacks.get(id) : null) || this.styles.get(id);
+    }
     selectSide(side, id) {
       if (!["face", "back"].includes(side)) throw new Error("\u65E0\u6548\u5361\u724C\u9762");
-      if (id && !this.styles.has(id)) throw new Error("\u5361\u724C\u6837\u5F0F\u5C1A\u672A\u542F\u7528");
-      if (side === "back" && this.styles.get(id)?.atlas && !this.styles.get(id).atlas.backImage) throw new Error("\u6B64\u5957\u88C5\u4EC5\u63D0\u4F9B\u5361\u9762");
+      let style2 = this.styleFor(side, id);
+      if (id && !style2) throw new Error("\u5361\u724C\u6837\u5F0F\u5C1A\u672A\u542F\u7528");
+      if (side === "back" && style2?.atlas && !style2.atlas.backImage) throw new Error("\u6B64\u5957\u88C5\u4EC5\u63D0\u4F9B\u5361\u9762");
       this.settings.set(side === "face" ? "cardFaceStyle" : "cardBackStyle", id), this.restore(), this.refreshNative(), this.emit();
     }
     selectScope(value) {
@@ -31627,9 +35562,9 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
       this.status !== value && (this.status = value, this.emit());
     }
     clearTextures(id) {
-      for (let [key, image] of this.backImages) (!id || key === id) && (image.onload = image.onerror = null, image.src = "", this.backImages.delete(key));
+      for (let [key, image] of this.images) (!id || key === id) && (image.onload = image.onerror = null, image.src = "", this.images.delete(key));
       for (let [key, entry] of this.atlases) (!id || key === id) && (entry.controller.abort(), entry.data?.dispose(), this.atlases.delete(key));
-      for (let [key, texture] of this.textures) (!id || key.startsWith(id + ":")) && (texture.destroy(!0), this.textures.delete(key));
+      for (let [key, texture] of this.textures) (!id || key === id || key.startsWith(id + ":")) && (texture.destroy(!0), this.textures.delete(key));
     }
     ensureAtlas(style2) {
       if (this.atlases.has(style2.id)) return this.atlases.get(style2.id);
@@ -31651,6 +35586,13 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
     retry() {
       let id = this.selection.face;
       this.atlases.get(id)?.error && (this.clearTextures(id), this.refreshNative(), this.emit());
+    }
+    previewCardAtlas(id, { retry = !1 } = {}) {
+      if (this.closed) return null;
+      let style2 = this.styles.get(id), next = style2?.atlas ? id : "", previous = this.previewAtlasId;
+      if (this.previewAtlasId = next, previous && previous !== next && previous !== this.selection.face && previous !== this.selection.back && this.clearTextures(previous), !next) return null;
+      let entry = this.atlases.get(next);
+      return retry && entry?.error && this.clearTextures(next), this.ensureAtlas(style2);
     }
     atlasCanvas(style2, name) {
       let data = this.atlases.get(style2.id)?.data, frame = data?.frames.get(cardFrameName(name));
@@ -31687,12 +35629,15 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
       return texture && this.nativeResources.set(name, texture), texture;
     }
     preview(style2, back) {
-      if (style2.atlas) {
+      if (style2.localFace || style2.localFaceBackground) return null;
+      if (style2.localBackImage || style2.atlas) {
         if (back) {
-          if (!style2.atlas.backImage) return null;
+          let src = style2.localBackImage || style2.atlas.backImage;
+          if (!src) return null;
           let image = this.doc.createElement("img");
-          return image.src = style2.atlas.backImage, image.alt = "", image.width = 135, image.height = 190, image;
+          return image.src = src, image.alt = "", image.width = 135, image.height = 190, image;
         }
+        if (style2.localBackImage) return null;
         if (style2.atlas.previewImage) {
           let image = this.doc.createElement("img");
           return image.src = style2.atlas.previewImage, image.alt = "", image.width = 135, image.height = 190, image;
@@ -31719,21 +35664,41 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
         return null;
       }
     }
+    imageFor(id, url) {
+      let image = this.images.get(id);
+      if (!image) {
+        image = new this.win.Image(), this.images.set(id, image);
+        let update = () => {
+          !this.closed && this.images.get(id) === image && (this.refreshNative(), this.emit());
+        };
+        image.onload = image.onerror = update, image.src = url;
+      }
+      return image;
+    }
+    imageTexture(key, image, width, height, size) {
+      if (!image.complete || image.naturalWidth !== width || image.naturalHeight !== height) return null;
+      if (!this.textures.has(key)) {
+        let bitmap = new this.win.Laya.Texture2D(width, height, this.win.Laya.TextureFormat?.R8G8B8A8 ?? 1, !1);
+        bitmap.loadImageSource(image, !0);
+        let texture = new this.win.Laya.Texture(bitmap);
+        texture.width = texture.sourceWidth = size.width || 93, texture.height = texture.sourceHeight = size.height || 130, this.textures.set(key, texture);
+      }
+      return this.textures.get(key);
+    }
+    localFaceTexture(ui, size) {
+      if (ui.isNewCardUI !== !0 && ui.IsYiCard) return null;
+      let card = ui.theCard?.ResName, local = this.localFaces.get(card);
+      return local ? this.localFaceImageTexture(localFaceKey(card), local.url, size) : null;
+    }
+    localFaceImageTexture(id, url, size) {
+      let image = this.imageFor(id, url);
+      return this.imageTexture(`${id}:${size.width || 93}x${size.height || 130}`, image, LOCAL_FACE_WIDTH, LOCAL_FACE_HEIGHT, size);
+    }
     texture(style2, back, immediate = !1) {
-      if (style2.atlas) {
-        if (!back || !style2.atlas.backImage) return null;
-        let image = this.backImages.get(style2.id);
-        if (image || (image = new this.win.Image(), this.backImages.set(style2.id, image), image.onload = () => {
-          !this.closed && this.backImages.get(style2.id) === image && (this.refreshNative(), this.emit());
-        }, image.src = style2.atlas.backImage), !image.complete || image.naturalWidth !== 405 || image.naturalHeight !== 570) return null;
-        let key2 = style2.id + ":back";
-        if (!this.textures.has(key2)) {
-          let bitmap = new this.win.Laya.Texture2D(405, 570, this.win.Laya.TextureFormat?.R8G8B8A8 ?? 1, !1);
-          bitmap.loadImageSource(image, !0);
-          let texture = new this.win.Laya.Texture(bitmap);
-          texture.width = texture.sourceWidth = 93, texture.height = texture.sourceHeight = 130, this.textures.set(key2, texture);
-        }
-        return this.textures.get(key2);
+      if (style2.localBackImage || style2.atlas) {
+        if (!back || !style2.localBackImage && !style2.atlas.backImage) return null;
+        let image = this.imageFor(style2.id, style2.localBackImage || style2.atlas.backImage), width = style2.localBackImage ? LOCAL_BACK_WIDTH : 405, height = style2.localBackImage ? LOCAL_BACK_HEIGHT : 570;
+        return this.imageTexture(style2.id + ":back", image, width, height, {});
       }
       if (style2.native) return this.nativeTexture(style2.native[back ? "back" : "face"], immediate);
       let key = style2.id + ":" + back;
@@ -31749,10 +35714,10 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
       for (let local of [...this.factories.values(), ...this.pools.values(), ...this.insertions.values()]) local.dispose();
       this.factories.clear(), this.pools.clear(), this.insertions.clear();
       for (let b of this.bindings.values()) b.release();
-      this.bindings.clear();
+      this.bindings.clear(), this.bookFaces = /* @__PURE__ */ new WeakSet();
     }
     bindCard(ui, immediate = !1) {
-      if (!(this.closed || !["face", "back"].some((side) => this.styles.has(this.selection[side])) || !isCardUI(ui))) {
+      if (!(this.closed || !["face", "back"].some((side) => this.styleFor(side)) || !isCardUI(ui))) {
         if (!this.bindings.has(ui)) {
           let local = new ResourceScope(), binding = { original: ui.bmpFace.texture, applied: null, layers: /* @__PURE__ */ new Map() }, flush = (node) => {
             node?.render && typeof node.update == "function" && node.update();
@@ -31761,17 +35726,23 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
             for (let [node, visible] of binding.layers) !node.destroyed && node.visible === !1 && (node.visible = visible, flush(node));
             binding.layers.clear();
           }, binding.apply = (force) => {
-            let card = ui.theCard, style2 = this.styles.get(this.selection[card?.IsEmpty ? "back" : "face"]), eligible = style2 && card && (this.selection.scope === "all" || this.isSelfCard(ui)) && !ui.isPokerCardFace && !ui.dontUpdateCard && (card.IsEmpty || ui.isNewCardUI === !0 || style2.atlas);
+            let card = ui.theCard, style2 = this.styleFor(card?.IsEmpty ? "back" : "face"), bookPreview = style2?.atlas && !card?.IsEmpty && this.bookFaces.has(ui), eligible = style2 && card && (this.selection.scope === "all" || this.isSelfCard(ui) || bookPreview) && !ui.isPokerCardFace && !ui.dontUpdateCard && (card.IsEmpty || ui.isNewCardUI === !0 || style2.atlas || style2.localFace);
             ui.bmpFace.texture !== binding.applied && (binding.original = ui.bmpFace.texture);
             let dimension = (...values) => values.find((value) => Number.isFinite(value) && value > 0 && value <= 4096), size = {
               width: dimension(ui.width, binding.original?.width, ui.bmpFace.width),
               height: dimension(ui.height, binding.original?.height, ui.bmpFace.height)
-            }, texture = eligible && !binding.special ? style2.atlas && !card.IsEmpty ? this.atlasTexture(style2, ui, size) : this.texture(style2, !!card.IsEmpty, force) : null;
+            }, texture = null;
+            if (eligible && !binding.special)
+              if (style2.localFace) texture = this.localFaceTexture(ui, size);
+              else if (style2.localFaceBackground) {
+                let image = this.localFaceBackground;
+                image && (texture = this.localFaceImageTexture(style2.id, image.url, size));
+              } else style2.atlas && !card.IsEmpty ? texture = this.atlasTexture(style2, ui, size) : texture = this.texture(style2, !!card.IsEmpty, force);
             if (binding.reason = style2 ? eligible ? binding.special ? "\u539F\u751F\u6307\u5B9A\u7279\u6B8A\u5361\u56FE" : texture ? "" : ui.isNewCardUI !== !0 && ui.IsYiCard ? "\u5F02\u724C\u4E13\u7528\u5361\u56FE" : style2.atlas?.replaceCards && !style2.atlas.replaceCards.includes(card?.ResName) && this.atlases.get(style2.id)?.data?.frames.has(cardFrameName(card?.ResName)) ? "\u4E0E\u9ED8\u8BA4\u5361\u9762\u76F8\u540C\uFF0C\u4FDD\u7559\u539F\u751F" : style2.atlas ? `\u65E0\u540C\u540D\u5361\u56FE\uFF1A${String(card?.ResName || "\u7A7A\u8D44\u6E90\u540D").slice(0, 96)}` : "\u8D44\u6E90\u672A\u5C31\u7EEA" : "\u8303\u56F4\u6216\u539F\u751F\u663E\u793A\u9650\u5236" : "\u8DDF\u968F\u6E38\u620F", !texture) {
               ui.bmpFace.texture === binding.applied && (ui.bmpFace.texture = binding.original), binding.applied = null, binding.restoreLayers();
               return;
             }
-            if (style2.atlas) for (let key of ["bmpFace2", "bmpName", "bmpNameBg", "bmpNormalName", "bmpCardType", "bmpSmallDesc"]) {
+            if (style2.atlas || style2.localFace) for (let key of ["bmpFace2", "bmpName", "bmpNameBg", "bmpNormalName", "bmpCardType", "bmpSmallDesc"]) {
               let node = ui[key];
               node && (binding.layers.has(node) || binding.layers.set(node, node.visible), node.visible !== !1 && (node.visible = !1, flush(node)));
             }
@@ -31864,7 +35835,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
       this.pools.set(pool, local), local.patch(pool, "BorrowObject", (original) => function(...args) {
         return registry.captureCard(original.apply(this, args));
       }), typeof pool.returnObject == "function" && local.patch(pool, "returnObject", (original) => function(card, ...args) {
-        return registry.bindings.get(card)?.release(), registry.bindings.delete(card), original.call(this, card, ...args);
+        return registry.bindings.get(card)?.release(), registry.bindings.delete(card), registry.bookFaces.delete(card), original.call(this, card, ...args);
       });
     }
     hookFactory(owner) {
@@ -31881,11 +35852,13 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
         });
     }
     captureBranch(root) {
-      let queue = [root], seen = /* @__PURE__ */ new Set();
+      let queue = [root], seen = /* @__PURE__ */ new Set(), listType = this.game.getClass?.("CardsBookWindow"), detailType = this.game.getClass?.("CardBookDetailWindow");
       for (let i = 0; i < queue.length && i < 6e3; i++) {
         let node = queue[i];
         if (!(!node || typeof node != "object" || seen.has(node) || node.destroyed)) {
           seen.add(node), this.hookFactory(node), isCardUI(node) && this.captureCard(node);
+          for (let ui of cardBookFaces(node, listType, detailType))
+            this.bookFaces.add(ui), queue.push(ui);
           for (let key of CARD_LISTS) {
             let value = own(node, key);
             Array.isArray(value) && queue.push(...value.slice(0, 2048));
@@ -31923,11 +35896,14 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
       }
     }
     discover() {
-      let queue = [this.win.Laya?.stage, this.game.getScene?.(), this.game.getSelfSeatUI?.()], seen = /* @__PURE__ */ new Set(), found = /* @__PURE__ */ new Set();
+      let queue = [this.win.Laya?.stage, this.game.getScene?.(), this.game.getSelfSeatUI?.()], seen = /* @__PURE__ */ new Set(), found = /* @__PURE__ */ new Set(), listType = this.game.getClass?.("CardsBookWindow"), detailType = this.game.getClass?.("CardBookDetailWindow");
+      this.bookFaces = /* @__PURE__ */ new WeakSet();
       for (let i = 0; i < queue.length && i < 6e3; i++) {
         let node = queue[i];
         if (!(!node || typeof node != "object" || seen.has(node) || node.destroyed)) {
           seen.add(node), this.hookFactory(node), isCardUI(node) && found.add(node);
+          for (let ui of cardBookFaces(node, listType, detailType))
+            this.bookFaces.add(ui), queue.push(ui);
           for (let key of CARD_LISTS) {
             let a = own(node, key);
             Array.isArray(a) && queue.push(...a.slice(0, 2048));
@@ -31943,9 +35919,16 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
     }
     refreshNative() {
       if (this.closed) return;
-      for (let id of this.backImages.keys()) id !== this.selection.back && this.clearTextures(id);
-      let selectedAtlas = this.styles.get(this.selection.face);
-      for (let id of this.atlases.keys()) id !== selectedAtlas?.id && id !== this.selection.back && this.clearTextures(id);
+      let { face, back: backId } = this.selection, customFaceSelected = face === LOCAL_FACE_STYLE.id, backgroundId = LOCAL_FACE_BACKGROUND_STYLE.id, background = face === backgroundId ? this.localFaceBackground : null;
+      for (let id of this.images.keys())
+        id === backId || background && id === backgroundId || customFaceSelected && id.startsWith(LOCAL_FACE_STYLE.id + ".") || this.clearTextures(id);
+      if (customFaceSelected && this.listeners.size) {
+        let catalog = this.game.getCardFaceCatalog?.();
+        catalog && catalog !== this.localFaceCatalog && (this.localFaceCatalog = catalog, this.localFaceCatalogError = "", this.emit());
+      }
+      let selectedAtlas = this.styles.get(face);
+      for (let id of this.atlases.keys())
+        id !== selectedAtlas?.id && id !== backId && id !== this.previewAtlasId && this.clearTextures(id);
       if (selectedAtlas?.atlas && this.ensureAtlas(selectedAtlas), this.listeners.size) {
         let before = [...this.nativeResources.values()];
         for (let item of this.styles.values()) if (item.native) for (let name of Object.values(item.native)) this.nativeTexture(name);
@@ -31955,7 +35938,8 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
       let scene = this.game.getScene?.();
       scene !== this.scene && (this.scene = scene, this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds.clear()), this.selfHand = this.game.getSelfSeatUI?.()?.cardContainer;
       for (let ui of this.selfHand?.cardUis || this.selfHand?.cardUIs || this.selfHand?.cardUiList || []) this.rememberSelf(ui.theCard);
-      if (!["face", "back"].some((side) => this.styles.has(this.selection[side]))) {
+      let back = this.styleFor("back"), localImage = back?.localBackImage ? this.imageFor(back.id, back.localBackImage) : null, faceImage = background ? this.imageFor(backgroundId, background.url) : null;
+      if (!(back || selectedAtlas || faceImage || customFaceSelected && this.localFaces.size)) {
         this.restore(), this.setStatus(this.current ? "\u6240\u9009\u5957\u88C5\u5DF2\u505C\u7528\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F" : "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2");
         return;
       }
@@ -31969,11 +35953,8 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
         for (let [ui, binding] of this.bindings) found.has(ui) || (binding.release(), this.bindings.delete(ui));
         for (let ui of found)
           this.bindCard(ui);
-        let waiting = ["face", "back"].some((side) => {
-          let selected = this.styles.get(this.selection[side]);
-          return selected?.native && !this.texture(selected, side === "back");
-        }), atlas = this.atlases.get(selectedAtlas?.id), prefix = atlas?.error ? "\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25\uFF0C\u5DF2\u4FDD\u7559\u6E38\u620F\u5916\u89C2\uFF1A" + atlas.error : atlas?.loading ? "\u6B63\u5728\u52A0\u8F7D\u5B8C\u6574\u5361\u9762\uFF0C\u5F53\u524D\u4FDD\u7559\u6E38\u620F\u5916\u89C2" : null, faces = atlas?.data ? [...this.bindings].filter(([ui]) => !ui.theCard?.IsEmpty) : [], applied = faces.filter(([ui, b]) => b.applied && !b.reason && !b.error && ui.bmpFace.texture === b.applied).length, fallback = [...new Set(faces.filter(([, b]) => b.reason).map(([, b]) => b.reason))], detail = atlas?.data ? ` \xB7 \u5B8C\u6574\u5361\u9762 R3 \u5DF2\u66FF\u6362 ${applied}/${faces.length}${fallback.length ? " \xB7 \u56DE\u9000\uFF1A" + fallback.join("\uFF1B") : ""}` : "";
-        this.setStatus(prefix || (waiting ? "\u7B49\u5F85\u5B98\u65B9\u5361\u9762\uFF0F\u5361\u80CC\u8D44\u6E90\u52A0\u8F7D\uFF0C\u5DF2\u5C31\u7EEA\u7684\u9762\u72EC\u7ACB\u5E94\u7528" : found.size ? `\u5DF2\u63A5\u5165 ${found.size} \u5F20\u539F\u751F\u5361\u724C \xB7 \u4EC5\u672C\u673A\u663E\u793A${detail}` : "\u5957\u88C5\u5DF2\u5C31\u7EEA\uFF0C\u7B49\u5F85\u539F\u751F\u5361\u724C\u51FA\u73B0"));
+        let waiting = [selectedAtlas?.native?.face, back?.native?.back].some((name) => name && !this.nativeTexture(name)), localStatus = localImage && (localImage.complete ? localImage.naturalWidth !== LOCAL_BACK_WIDTH || localImage.naturalHeight !== LOCAL_BACK_HEIGHT ? "\u81EA\u5B9A\u4E49\u5361\u80CC\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u80CC" : "" : "\u6B63\u5728\u52A0\u8F7D\u81EA\u5B9A\u4E49\u5361\u80CC"), backgroundStatus = faceImage && (faceImage.complete ? faceImage.naturalWidth !== LOCAL_FACE_WIDTH || faceImage.naturalHeight !== LOCAL_FACE_HEIGHT ? "\u5361\u9762\u5E95\u56FE\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u9762" : "" : "\u6B63\u5728\u52A0\u8F7D\u5361\u9762\u5E95\u56FE"), atlas = this.atlases.get(selectedAtlas?.id), prefix = atlas?.error ? "\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25\uFF0C\u5DF2\u4FDD\u7559\u6E38\u620F\u5916\u89C2\uFF1A" + atlas.error : atlas?.loading ? "\u6B63\u5728\u52A0\u8F7D\u5B8C\u6574\u5361\u9762\uFF0C\u5F53\u524D\u4FDD\u7559\u6E38\u620F\u5916\u89C2" : null, faces = atlas?.data ? [...this.bindings].filter(([ui]) => !ui.theCard?.IsEmpty) : [], applied = faces.filter(([ui, b]) => b.applied && !b.reason && !b.error && ui.bmpFace.texture === b.applied).length, fallback = [...new Set(faces.filter(([, b]) => b.reason).map(([, b]) => b.reason))], detail = atlas?.data ? ` \xB7 \u5B8C\u6574\u5361\u9762 R3 \u5DF2\u66FF\u6362 ${applied}/${faces.length}${fallback.length ? " \xB7 \u56DE\u9000\uFF1A" + fallback.join("\uFF1B") : ""}` : "";
+        this.setStatus(prefix || backgroundStatus || localStatus || (waiting ? "\u7B49\u5F85\u5B98\u65B9\u5361\u9762\uFF0F\u5361\u80CC\u8D44\u6E90\u52A0\u8F7D\uFF0C\u5DF2\u5C31\u7EEA\u7684\u9762\u72EC\u7ACB\u5E94\u7528" : found.size ? `\u5DF2\u63A5\u5165 ${found.size} \u5F20\u539F\u751F\u5361\u724C \xB7 \u4EC5\u672C\u673A\u663E\u793A${detail}` : "\u5957\u88C5\u5DF2\u5C31\u7EEA\uFF0C\u7B49\u5F85\u539F\u751F\u5361\u724C\u51FA\u73B0"));
       } catch (error) {
         this.restore(), this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
       }
@@ -31981,7 +35962,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.91", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.129", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
@@ -32033,7 +36014,20 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
     "3213d63b1cb2227293278743dafd47ad76014122cde1bc2d01db6352a0e78ced",
     "b3c428277050a1365d93af4cacfd521e3b4008c1d44b2f5d7bf558aa311ee3a9",
     "ac6fc676e2d1d319dba12c6364ba85740d33e37e0c34d0f8e7ade180d8e0d029"
-  ]), REPLACED_SKIN_PACKAGES = Object.freeze(["b990b29b6a9eafbe50ea3f820c2dd9753187de6a95aed91191786532cafd1b27", "d8065ccacfd2da8c39e1cf1eded8f743a85de717d6589833f679153ada9d89fa", "36a6458a5cc9c58ece0cedad1df6315e82aafb21ebe4a057e10db17c703a5827", "a9890597c627c6c703bcef0a79339fc6b8472d71f37e05b522117dcf6ac2481d", "d268def49f6f9fbd4b989545594e336886d1a86053d63b1bbdf3f638d1acf002", "5edda81bdbd06ad5ab60b8e564f554e10b1f9d13fa13d983f60ae734867d343c", "a257743d4091e677520f307b6df5a7f2938af7261183b2d57609dc4df41cdd8a", "bfcff0007de23af7439cfc60adbc0cf660bc84a094df360c6bf6f0a5fc812672", "b1b4516b854575ccb02219bd8cdf89332845263e8cced8f9c8738b6e7259eb1b"]), REPLACED_SHANHETU_PACKAGES = Object.freeze(["27d9af46ff339493cbb5bcc0b9e49e648661d9ed7becaf5704a75d0a3b83beae", "437a1ffb64a930e87264e69bcf91a856a1e82c066d732408c884182b4ce6e450", "523473559db6aa12043bb0bd0b22e0a232045d9defede4a2a6a9f3d562ad2133", "5577c02f3922100a434db7c45af19dc3db115866a1a841fc7218083f396b0acf", "ea751303a3e7ecd030d2c5a12a13dd125612f6b64ab41c641116fb763579b421", "55340baa7b51c8d97bdfbedc17209be719c2f05105501390b4028c47554cceeb", "980c908196ff62ac529ab2bfbdade42bef76930f43f534b1b075ead306c10fe2", "9017d32206a5b0e4e2eeede12e390767620579836ed7037e1e223f7ab0c52483", "dfc56a7a02dc4ab17e2f34e3e76862f615f5bf344c534921e8424498fd27b11b", "4d8aaf1df389a0420dfc65c4d5762757c2fe454cc0fbb127fe269b88c5a19af5", "e9f7b5ee0383a29799057f19f16e68e34d57fb7310066dc5d3af45456c7f0445", "997bcf58c5567e0e99829798b855c411d5e51ccad7b5f80e81c9ae84add2656d", "f304bd28030950096503a45d96013c3d7a9e2297ca6143b639b83dcb2d3e197a", "f2739ea490ecf8bee75b1dd6ae0050cc0ad0bc558515c30dbb3c6260e80eaa2f", "332272cc92d11796d8dd7d304560129277acd353726feed7cd1e5a5b6578937a", "bf4207ca6d84501c75f6ec24d094aca952224ce60367196482d6bd6815ca3423", "23d6e6f7bae844ee58a9239bb739fb0ab8d2e64b7766629bca492421bd07f400", "f226d8a8d247ce48c0664ba057ad9f961e7c953291ab7f805714979b7ea35825", "56d82efb93d6eaa0b24c0d5deb8693030f49a0b2fb5af0da49ef6f008943ee65", "674efd3ed6e5719ef9cdabea702b4d6d4394560b18aa5f1ad189486f7467910e", "8de4a53accd1548f58266d9854642462b4fdb089a9a0afcc0561ca725930966d", "95c5bf19558e19c3ef192f2f2022aff19908350e882885cf7855cfe9051801c0", "71fc7d79a3b8014d5f80edda50ea7f7dbba80589ec9c7a8f77bd080056d45175", "151c6e9a3651f5a2c6b7b52321a09c294220400a40385e248d47cb6bb46976c2", "6907320aa5d5e23403c5324926cabf8f48ad23df23afd9925ff5b63e96e87cc6", "4f23cce4d4372a13895716d47d9141acd4c9f13c2be199afff5599148e8349ae", "67362c2dee033a700472210cafc14cc1df351e9a5413273d04e3ff2ce566ce66", "fa6474a1c5170c9ba285f9487031e4b205245d527c97b5ba5f26d68f9bf889ff", "a1f400ad8c8d60f2e4c0b0f981acc8c2be2ab61d1fd6a45ef10b7a3621b05918", "a7595aeaee8cd16ad03b5871310fd7375ea73be7b3d6a1466e8770f9d052fc24", "b6be2108829186604d4a11fb00d63d08e081a1f13f950a715441146c07d26a47", "23077a7742fabceb968d15a85b20c292c37e7a4d6099cf5b9f40a43e59c5fb8a", "2f7654ffde27bed353412a69eb9c5f449270a5e94ff492531e61189825ec560d", "e58c1543240d60a88d2fa92a58ff06ffd30bb4f0d2e75a4a18ba5efad4316d20", "742b76de181ca851dfd0df036a282a3bdee634c61012e687574b7e50216e62e6", "16d2e6a72fbb2258cb1dd69359c34b6753eca73c061b1610d7764ec00068c571", "a78a544feab74eb6d9ddbe6af6662d012a43cd85b698698f4cbadec9dada824d", "d5ad4b8005751bfdfe8301c060e8ab460a2ebd3eb2196112c534e8c44647ba6f", "31ad175296a119402b4a4e90bec5a16cad8a85e9eca2f79e3ee3edf745f27fba", "15366eddcf79bd76dd0f11fa2fb1f393faec512502f0ca01bb9ab13d54238490", "438b0292399649be12f2c42723242d73915a381f8a9c42713b25815c29e57e8b", "44ba81e10e40db62f039946b7e0e18ae162d98e95a350b6ed7eedc2cf8df37ba", "2ff778bd021f4d83971551126ea532ea215ad30e9b0b3dfc0450a88a0de9781c", "6ebf9ca6499f5fbf9b46f4e918990924369359c1191fb62b9026519724ac88cc", "20dac8ad2d3873f7779e2add9d89eb19927b5db6c553563edb69a72afe593624"]), REPLACED_THEME_PACKAGES = Object.freeze(["fabfb9cfc1c6f4c9eeeb69fcc4c9bc319f17d5c964624a616bd15b863c18c5aa", "db376fc6d5b9b878a2dd9bb6642f5d7a24dd5b226c658801aeead6249bc98094", "3589cd781d192c53790071a1775924d4a8ccab648272961a991e6e3bf6034abd"]), REPLACED_BACKGROUND_PACKAGES = Object.freeze(["488b63b7fb2c1d88ddee7bc4a858a09f1a5a7f1271be6f012d612936431cbebc", "7aa96fde03bf1a9d1f5d287c63d86f1c11365bf5fb980bfd9d812b76f9543dd5", "1ebfbcaa2a4e5a2b3112f37aa0d48ce66b355d4a0934b1ff5310916427555b60", "f52fec744b48f472e3db4aa9cbf9e03864d996ba299aed70925d721477fdb2aa"]);
+  ]), REPLACED_SKIN_PACKAGES = Object.freeze(["b990b29b6a9eafbe50ea3f820c2dd9753187de6a95aed91191786532cafd1b27", "d8065ccacfd2da8c39e1cf1eded8f743a85de717d6589833f679153ada9d89fa", "36a6458a5cc9c58ece0cedad1df6315e82aafb21ebe4a057e10db17c703a5827", "a9890597c627c6c703bcef0a79339fc6b8472d71f37e05b522117dcf6ac2481d", "d268def49f6f9fbd4b989545594e336886d1a86053d63b1bbdf3f638d1acf002", "5edda81bdbd06ad5ab60b8e564f554e10b1f9d13fa13d983f60ae734867d343c", "a257743d4091e677520f307b6df5a7f2938af7261183b2d57609dc4df41cdd8a", "bfcff0007de23af7439cfc60adbc0cf660bc84a094df360c6bf6f0a5fc812672", "b1b4516b854575ccb02219bd8cdf89332845263e8cced8f9c8738b6e7259eb1b"]), REPLACED_SHANHETU_PACKAGES = Object.freeze(["4f23523f68fb5e27f319a4312a728ffdf648b0049955dfeffead1651ec07e984", "e8f263b989b6cc8361d35240ac6f23dda39ab4d05ee209bdd1f41aff877e82c2", "6975e211a97b612ff61f8456eabe869547921f79c6c83e8885e398cd6be4460c", "03d3564fde594df3feb199cd5d7e323c3730dc1494546ad26cd375427a8accc2", "95c06e8921132548973e9c55b20c16ba06043218bbb090eaedd840191cbb08ff", "27d9af46ff339493cbb5bcc0b9e49e648661d9ed7becaf5704a75d0a3b83beae", "437a1ffb64a930e87264e69bcf91a856a1e82c066d732408c884182b4ce6e450", "523473559db6aa12043bb0bd0b22e0a232045d9defede4a2a6a9f3d562ad2133", "5577c02f3922100a434db7c45af19dc3db115866a1a841fc7218083f396b0acf", "ea751303a3e7ecd030d2c5a12a13dd125612f6b64ab41c641116fb763579b421", "55340baa7b51c8d97bdfbedc17209be719c2f05105501390b4028c47554cceeb", "980c908196ff62ac529ab2bfbdade42bef76930f43f534b1b075ead306c10fe2", "9017d32206a5b0e4e2eeede12e390767620579836ed7037e1e223f7ab0c52483", "dfc56a7a02dc4ab17e2f34e3e76862f615f5bf344c534921e8424498fd27b11b", "4d8aaf1df389a0420dfc65c4d5762757c2fe454cc0fbb127fe269b88c5a19af5", "e9f7b5ee0383a29799057f19f16e68e34d57fb7310066dc5d3af45456c7f0445", "997bcf58c5567e0e99829798b855c411d5e51ccad7b5f80e81c9ae84add2656d", "f304bd28030950096503a45d96013c3d7a9e2297ca6143b639b83dcb2d3e197a", "f2739ea490ecf8bee75b1dd6ae0050cc0ad0bc558515c30dbb3c6260e80eaa2f", "332272cc92d11796d8dd7d304560129277acd353726feed7cd1e5a5b6578937a", "bf4207ca6d84501c75f6ec24d094aca952224ce60367196482d6bd6815ca3423", "23d6e6f7bae844ee58a9239bb739fb0ab8d2e64b7766629bca492421bd07f400", "f226d8a8d247ce48c0664ba057ad9f961e7c953291ab7f805714979b7ea35825", "56d82efb93d6eaa0b24c0d5deb8693030f49a0b2fb5af0da49ef6f008943ee65", "674efd3ed6e5719ef9cdabea702b4d6d4394560b18aa5f1ad189486f7467910e", "8de4a53accd1548f58266d9854642462b4fdb089a9a0afcc0561ca725930966d", "95c5bf19558e19c3ef192f2f2022aff19908350e882885cf7855cfe9051801c0", "71fc7d79a3b8014d5f80edda50ea7f7dbba80589ec9c7a8f77bd080056d45175", "151c6e9a3651f5a2c6b7b52321a09c294220400a40385e248d47cb6bb46976c2", "6907320aa5d5e23403c5324926cabf8f48ad23df23afd9925ff5b63e96e87cc6", "4f23cce4d4372a13895716d47d9141acd4c9f13c2be199afff5599148e8349ae", "67362c2dee033a700472210cafc14cc1df351e9a5413273d04e3ff2ce566ce66", "fa6474a1c5170c9ba285f9487031e4b205245d527c97b5ba5f26d68f9bf889ff", "a1f400ad8c8d60f2e4c0b0f981acc8c2be2ab61d1fd6a45ef10b7a3621b05918", "a7595aeaee8cd16ad03b5871310fd7375ea73be7b3d6a1466e8770f9d052fc24", "b6be2108829186604d4a11fb00d63d08e081a1f13f950a715441146c07d26a47", "23077a7742fabceb968d15a85b20c292c37e7a4d6099cf5b9f40a43e59c5fb8a", "2f7654ffde27bed353412a69eb9c5f449270a5e94ff492531e61189825ec560d", "e58c1543240d60a88d2fa92a58ff06ffd30bb4f0d2e75a4a18ba5efad4316d20", "742b76de181ca851dfd0df036a282a3bdee634c61012e687574b7e50216e62e6", "16d2e6a72fbb2258cb1dd69359c34b6753eca73c061b1610d7764ec00068c571", "a78a544feab74eb6d9ddbe6af6662d012a43cd85b698698f4cbadec9dada824d", "d5ad4b8005751bfdfe8301c060e8ab460a2ebd3eb2196112c534e8c44647ba6f", "31ad175296a119402b4a4e90bec5a16cad8a85e9eca2f79e3ee3edf745f27fba", "15366eddcf79bd76dd0f11fa2fb1f393faec512502f0ca01bb9ab13d54238490", "438b0292399649be12f2c42723242d73915a381f8a9c42713b25815c29e57e8b", "44ba81e10e40db62f039946b7e0e18ae162d98e95a350b6ed7eedc2cf8df37ba", "2ff778bd021f4d83971551126ea532ea215ad30e9b0b3dfc0450a88a0de9781c", "6ebf9ca6499f5fbf9b46f4e918990924369359c1191fb62b9026519724ac88cc", "20dac8ad2d3873f7779e2add9d89eb19927b5db6c553563edb69a72afe593624", "cbff0d7705f6f847b39473baeae6c126a34850685d95956ca07bf09e0ea6ce40"]), REPLACED_THEME_PACKAGES = Object.freeze(["fabfb9cfc1c6f4c9eeeb69fcc4c9bc319f17d5c964624a616bd15b863c18c5aa", "db376fc6d5b9b878a2dd9bb6642f5d7a24dd5b226c658801aeead6249bc98094", "3589cd781d192c53790071a1775924d4a8ccab648272961a991e6e3bf6034abd"]), REPLACED_BACKGROUND_PACKAGES = Object.freeze(["488b63b7fb2c1d88ddee7bc4a858a09f1a5a7f1271be6f012d612936431cbebc", "7aa96fde03bf1a9d1f5d287c63d86f1c11365bf5fb980bfd9d812b76f9543dd5", "1ebfbcaa2a4e5a2b3112f37aa0d48ce66b355d4a0934b1ff5310916427555b60", "f52fec744b48f472e3db4aa9cbf9e03864d996ba299aed70925d721477fdb2aa"]), REPLACED_SHANHETU_BETA_PACKAGES = Object.freeze([
+    "d386dd79b9e8035c78ad5485594dec1c1cba8bef0cc64187e377c2993198ab47",
+    "7773e829307fb13763ff32f8c492d7f9c85a8dea8ac150faef994f375f5ff6b0",
+    "b89e0c4f7155749e1ec287815e7a7c7ce4d743fef76ed5fedfff3dffc2f30429",
+    "e829b3fab31272efa82321480df08da52cea24e0982465f23ef8131381b05a05",
+    "afe9638d54d21777163b139b060abe9f2b9016596a162c591c2d9bb446f26575",
+    "3e9e6d941c7dce854ddf56c7e4fb1491cf7cc504c2eeff68085ff11ab3c88ce0",
+    "79ef88fb2c89bef189de46fd2f2bad461a01d1a210371a2d73b1ccd2afc06be6",
+    "b478b3de512a37bf06243461777833a1377eff25e22cb8f78fcb055a84893835",
+    "d2b7402dedf7a6f7689b62cd6dca325a99027603a1e51fb01f2d588775461529",
+    "6a97b76dcc50c01a4497fd7c5d8c7ea154a76aabc391db78197b3212f232d4e6",
+    "1995c1abe7cebb66fc9d1d3b889eddf41f418bd54725d7f9cd38e34859662008",
+    "e993311d150680de8cabcb2d2e294612fbe030475138a47aedf36a55ac4ad790"
+  ]);
 
   // src/core/background-motion.js
   function nativeEffect(layer, spine) {
@@ -32062,8 +36056,14 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
     }
     return effect;
   }
+  function stableBackgroundClip(animations) {
+    let names = animations?.map((animation) => animation.name).filter(Boolean) ?? [], idle = names.find((name) => name.toLowerCase() === "daiji") ?? names.find((name) => name.toLowerCase() === "play");
+    if (idle) return idle;
+    let remaining = names.filter((name) => !/^(ChuChang|GongJi|HuDong|JiNeng)$/i.test(name));
+    return remaining.length === 1 ? remaining[0] : void 0;
+  }
   function createBackgroundMotion({ window: window2, layer, spec, size, scope, ready, fail }) {
-    let laya = window2.Laya, root = new laya.Sprite(), players = [], loaded = !1, failed = !1, visible = !1, playing = null;
+    let laya = window2.Laya, root = new laya.Sprite(), players = [], loaded = !1, failed = !1, visible = !1, playing = null, stopAttack;
     root.name = "sgs-background-motion", root.mouseEnabled = root.mouseChildren = !1, root.zOrder = layer.bgSprite.zOrder || 0, root.size(size.width, size.height), root.scrollRect = new laya.Rectangle(0, 0, size.width, size.height), root.visible = !1, scope.add(() => root.destroy(!0)), layer.addChildAt(root, Math.max(0, layer.getChildIndex(layer.bgSprite)) + 1);
     let error = (value) => {
       if (!(scope.closed || failed)) {
@@ -32077,11 +36077,14 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
       get loaded() {
         return loaded && !failed;
       },
+      stopAttack() {
+        stopAttack?.();
+      },
       layout(fit) {
         scope.closed || !fit || (root.pos(fit.x, fit.y), root.scale(fit.scale, fit.scale));
       },
       show(value) {
-        if (!scope.closed && (visible = value && !failed, root.visible = visible && loaded, playing !== visible)) {
+        if (!scope.closed && (visible = value && !failed, root.visible = visible && loaded, visible || stopAttack?.(), playing !== visible)) {
           playing = visible;
           for (let player of players) visible ? player.resume() : player.pause();
         }
@@ -32117,83 +36120,121 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
       };
       laya.timer.frameLoop(1, root, frame), scope.add(() => laya.timer.clear(root, frame)), video.src = spec.url, video.load();
     } else {
-      let parts = spec.kind === "bone" ? ["beijing", ...spec.parts] : spec.modern ? ["beijing", "daiji", "qianjing"] : ["beijing", "xingxiang"], count = 0;
+      let parts = spec.kind === "bone" ? ["beijing", ...spec.parts] : spec.modern ? ["beijing", "daiji", "qianjing"] : ["beijing", "xingxiang"], idle = /* @__PURE__ */ new Map(), count = 0;
       for (let part of parts) {
         let effect = nativeEffect(layer, spec.kind === "spine");
-        scope.add(() => effect.destroy()), root.addChild(effect), effect.mouseEnabled = effect.mouseChildren = !1, spec.kind === "bone" && effect.size(size.width, size.height), effect.pos(size.width / 2, size.height / 2), effect.AutoReleaseRes = !0;
-        let onStart = () => {
+        scope.add(() => effect.destroy()), root.addChild(effect), effect.mouseEnabled = effect.mouseChildren = !1, spec.kind === "bone" && effect.size(size.width, size.height), effect.pos(size.width / 2, size.height / 2), effect.AutoReleaseRes = !0, idle.set(part, effect);
+        let started = !1, partReady = () => {
           ++count === parts.length && (complete(), result.show(visible));
+        }, onStart = () => {
+          scope.closed || failed || (started = !0, visible || effect.stop(), partReady());
         };
-        effect.once(laya.Event?.START || "start", effect, onStart), effect.once(laya.Event?.ERROR || "error", effect, error);
-        let animation = spec.modern && part !== "beijing" ? "DaiJi" : spec.modern ? 0 : "play";
-        effect.InitEffect(`${spec.url}/${part}.${spec.kind === "spine" ? "json" : "sk"}`, animation, !0, !1), effect.playEffect(), players.push({ pause() {
-          effect.stop();
+        effect.once(laya.Event?.START || "start", effect, onStart), effect.once(laya.Event?.ERROR || "error", effect, error), players.push({ pause() {
+          started && effect.stop();
         }, resume() {
-          effect.playEffect();
+          started && effect.playEffect();
         } });
+        let url = `${spec.url}/${part}.${spec.kind === "spine" ? "json" : "sk"}`, modernSpine = spec.kind === "spine" && spec.modern, loadEvent = effect.constructor.SPINE_EFFECT_LOAD_COMPLETE;
+        modernSpine && part === "beijing" && loadEvent && (effect.AutoStart = !1, effect.once(loadEvent, effect, () => {
+          if (scope.closed || failed) return;
+          let animation = stableBackgroundClip(effect.templet?.skeletonData?.animations);
+          if (!animation) {
+            effect.visible = !1, partReady();
+            return;
+          }
+          effect.InitEffect(url, animation, !0, !1), effect.playEffect();
+        })), effect.InitEffect(url, modernSpine ? "DaiJi" : "play", !0, !1), effect.playEffect();
+      }
+      if (spec.kind === "spine" && spec.modern) {
+        let missing = /* @__PURE__ */ new Set();
+        result.playAttack = () => {
+          if (scope.closed || !result.loaded || !visible || stopAttack || missing.has("xingxiang")) return;
+          let action = new ResourceScope(), stop = scope.add(() => {
+            stopAttack = null, action.dispose();
+          });
+          stopAttack = stop, action.timeout(stop, 2e4);
+          try {
+            for (let [part, idlePart] of [["xingxiang", "daiji"], ["qianjing", "qianjing"]]) {
+              if (missing.has(part)) continue;
+              let underneath = idle.get(idlePart), effect = nativeEffect(layer, !0), active = !0, ended = !1, release = action.add(() => {
+                active = !1, underneath.visible = !0, effect.destroy();
+              });
+              effect.visible = effect.mouseEnabled = effect.mouseChildren = !1, effect.AutoReleaseRes = !0, root.addChildAt(effect, root.getChildIndex(underneath) + 1), effect.pos(size.width / 2, size.height / 2);
+              let finish = () => {
+                ended = !0, Promise.resolve().then(part === "xingxiang" ? stop : release).catch(stop);
+              };
+              if (effect.once(laya.Event?.START || "start", effect, () => {
+                !active || ended || (underneath.visible = !1, effect.visible = !0);
+              }), effect.once(laya.Event?.STOPPED || "stopped", effect, finish), effect.once(laya.Event?.ERROR || "error", effect, finish), effect.once(effect.constructor.PLAY_NAME_LOSE || "PLAY_NAME_LOSE", effect, () => {
+                missing.add(part), finish();
+              }), effect.InitEffect(`${spec.url}/${part}.json`, "GongJi", !1, !1), effect.playEffect(), part === "xingxiang" && ended) break;
+            }
+          } catch {
+            stop();
+          }
+        };
       }
     }
     return result;
   }
 
   // src/core/background-local.js
-  function imageType(bytes) {
-    let data = new DataView(bytes), tag = (offset) => data.getUint32(offset);
-    if (bytes.byteLength >= 8 && tag(0) === 2303741511 && tag(4) === 218765834) {
-      for (let offset = 8; offset + 12 <= bytes.byteLength; ) {
-        let chunk = tag(offset + 4);
-        if (chunk === 1633899596) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301 APNG");
-        if (chunk === 1229209940) return "image/png";
-        offset += 12 + tag(offset);
-      }
-      throw new Error("PNG \u56FE\u7247\u5185\u5BB9\u4E0D\u5B8C\u6574");
-    }
-    if (bytes.byteLength >= 21 && tag(0) === 1380533830 && tag(8) === 1464156752) {
-      if (tag(12) === 1448097880 && data.getUint8(20) & 2) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301\u52A8\u6001 WebP");
-      return "image/webp";
-    }
-    if (bytes.byteLength >= 3 && data.getUint16(0) === 65496 && data.getUint8(2) === 255) return "image/jpeg";
-    if (bytes.byteLength >= 14 && data.getUint16(0) === 16973) return "image/bmp";
-    throw new Error("\u8BF7\u9009\u62E9 PNG\u3001JPG\u3001WebP \u6216 BMP \u9759\u6001\u56FE\u7247");
-  }
-  async function readLocalBackground(win, file) {
-    if (!file?.size || file.size > 20971520) throw new Error("\u8BF7\u9009\u62E9\u4E0D\u8D85\u8FC7 20 MB \u7684\u56FE\u7247\u6587\u4EF6");
-    if (typeof file.arrayBuffer != "function" || !win.URL?.createObjectURL || !win.Image) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u8BFB\u53D6\u672C\u5730\u56FE\u7247");
-    let bytes = await file.arrayBuffer(), type = imageType(bytes), url = win.URL.createObjectURL(new win.Blob([bytes], { type }));
-    try {
-      let image = new win.Image();
-      await new Promise((resolve, reject) => {
-        image.onload = resolve, image.onerror = () => reject(new Error("\u65E0\u6CD5\u6253\u5F00\u56FE\u7247\uFF0C\u6587\u4EF6\u53EF\u80FD\u5DF2\u635F\u574F")), image.src = url;
-      });
-      let { naturalWidth: width, naturalHeight: height } = image;
-      if (!(width > 0 && height > 0)) throw new Error("\u56FE\u7247\u5C3A\u5BF8\u65E0\u6548");
-      let scale = 4096 / Math.max(width, height);
-      if (scale >= 1) return { bytes, type };
+  var MAX_TEXTURE_EDGE = 4096;
+  function readLocalBackground(win, file) {
+    return withLocalImage(win, file, async (image, original) => {
+      let { naturalWidth: width, naturalHeight: height } = image, scale = MAX_TEXTURE_EDGE / Math.max(width, height);
+      if (scale >= 1) return original;
       let canvas = win.document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(width * scale)), canvas.height = Math.max(1, Math.round(height * scale)), canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
       let resized = await new Promise((resolve, reject) => canvas.toBlob(
         (resized2) => resized2 ? resolve(resized2) : reject(new Error("\u65E0\u6CD5\u7F29\u5C0F\u8FD9\u5F20\u56FE\u7247")),
-        type === "image/jpeg" ? "image/jpeg" : "image/png"
+        original.type === "image/jpeg" ? "image/jpeg" : "image/png"
       ));
       return { bytes: await resized.arrayBuffer(), type: resized.type };
-    } finally {
-      win.URL.revokeObjectURL(url);
+    });
+  }
+  function localBackgroundImage(win, mode, operation) {
+    return localImageTransaction(win, "sgs-toolbox-backgrounds", mode, operation);
+  }
+
+  // src/core/seat.js
+  var read2 = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return;
+    }
+  };
+  function nativeSeatOccupied(ui) {
+    let seat = nativeSeat(ui);
+    return read2(() => seat.IsFull) !== !1;
+  }
+  function nativeSeatPosition(ui) {
+    let seat = nativeSeat(ui), value = read2(() => seat.FixedViewId) ?? read2(() => seat.fixedViewId);
+    return Number.isInteger(value) && value >= 1 && value <= 255 ? value : void 0;
+  }
+  function nativeSeat(ui) {
+    return read2(() => ui.Seat) ?? read2(() => ui.seat) ?? read2(() => ui.cardContainer.Seat) ?? read2(() => ui.cardContainer.seat) ?? null;
+  }
+  function nativeSeatId(ui) {
+    let seat = nativeSeat(ui);
+    for (let value of [
+      read2(() => seat.index),
+      read2(() => seat.Index),
+      read2(() => seat.SeatID),
+      read2(() => seat.ID),
+      read2(() => ui.seatID),
+      read2(() => ui.seatId)
+    ]) {
+      if (value == null || value === "" || typeof value == "boolean") continue;
+      let id = Number(value);
+      if (Number.isInteger(id) && id >= 0 && id < 255) return id;
     }
   }
-  async function localBackgroundImage(win, mode, operation) {
-    if (!win.indexedDB) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u4FDD\u5B58\u672C\u5730\u56FE\u7247");
-    let db = await new Promise((resolve, reject) => {
-      let request = win.indexedDB.open("sgs-toolbox-backgrounds", 1);
-      request.onupgradeneeded = () => request.result.createObjectStore("images", { autoIncrement: !0 }), request.onsuccess = () => resolve(request.result), request.onerror = () => reject(request.error);
-    });
-    try {
-      return await new Promise((resolve, reject) => {
-        let tx = db.transaction("images", mode), request = operation(tx.objectStore("images"));
-        tx.oncomplete = () => resolve(request.result), tx.onabort = () => reject(tx.error || new Error("\u672C\u5730\u56FE\u7247\u5B58\u50A8\u64CD\u4F5C\u5DF2\u4E2D\u6B62"));
-      });
-    } finally {
-      db.close();
-    }
+
+  // src/shared/skin-detail.js
+  function supportsSkinBackgroundAttack(dynamic) {
+    return dynamic?.kind === "spine" && dynamic.modern === !0 && dynamic.attack !== !1;
   }
 
   // src/core/backgrounds.js
@@ -32234,9 +36275,51 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
       let dynamicUrl = backgroundSpec({ name: "\u52A8\u6001\u8D44\u6E90", url: d.url }).url;
       if (![d.width, d.height].every((n) => Number.isFinite(n) && n > 0 && n <= 16384)) throw new Error("\u52A8\u6001\u80CC\u666F\u5C3A\u5BF8\u65E0\u6548");
       if (d.parts != null && (!Array.isArray(d.parts) || d.parts.length > 16 || d.parts.some((p) => !/^[\w-]{1,80}$/.test(p)) || new Set(d.parts).size !== d.parts.length || d.parts.includes("beijing"))) throw new Error("\u52A8\u6001\u80CC\u666F\u5206\u5C42\u65E0\u6548");
-      result.dynamic = Object.freeze({ kind: d.kind, url: dynamicUrl.replace(/\/$/, ""), width: d.width, height: d.height, modern: d.modern === !0, parts: Object.freeze([...d.parts || []]) });
+      result.dynamic = Object.freeze({
+        kind: d.kind,
+        url: dynamicUrl.replace(/\/$/, ""),
+        width: d.width,
+        height: d.height,
+        modern: d.modern === !0,
+        parts: Object.freeze([...d.parts || []]),
+        ...typeof d.attack == "boolean" ? { attack: d.attack } : {}
+      });
     }
-    return result.animated = value.animated !== !1, Object.freeze(result);
+    return result.animated = value.animated !== !1, result.attackEffects = value.attackEffects !== !1, Object.freeze(result);
+  }
+  var ATTACK_SKILL = /* @__PURE__ */ new Map([[1, "slash"], [11111, "slash"], [11112, "slash"], [11114, "slash"], [8, "attack"], [9, "attack"], [10, "attack"]]), ATTACK_CARDS = /* @__PURE__ */ new Map([
+    ["\u6740", "slash"],
+    ["\u706B\u6740", "slash"],
+    ["\u96F7\u6740", "slash"],
+    ["\u51B0\u6740", "slash"],
+    ["\u706B\u7130\u6740", "slash"],
+    ["\u96F7\u7535\u6740", "slash"],
+    ["\u51B0\u971C\u6740", "slash"],
+    ["\u51B3\u6597", "attack"],
+    ["\u5357\u86EE\u5165\u4FB5", "attack"],
+    ["\u4E07\u7BAD\u9F50\u53D1", "attack"]
+  ]);
+  function watchBackgroundAttack(game, scene, scope, play) {
+    let currentSeat = () => {
+      let seat2 = nativeSeat(game.getSelfSeatUI?.());
+      return seat2?.IsSelf === !1 ? null : seat2;
+    }, seat, release, trigger = (kind, useType) => {
+      (kind === "attack" || kind === "slash" && Number(useType) === 1) && play();
+    };
+    return (enabled) => {
+      let next = enabled ? currentSeat() : null;
+      if (next === seat || (release?.(), seat = next, typeof seat?.on != "function" || typeof seat.off != "function")) return;
+      let bound = seat, isCurrent = () => !scope.closed && game.getScene() === scene && game.isInGame() && currentSeat() === bound, card = (id, useType) => {
+        if (!isCurrent()) return;
+        let meta = game.getCardMeta?.(id);
+        trigger(meta?.firstSkillId > 0 ? ATTACK_SKILL.get(meta.firstSkillId) : ATTACK_CARDS.get(meta?.name), useType);
+      }, skillCard = (id, useType) => {
+        isCurrent() && trigger(ATTACK_SKILL.get(Number(id)), useType);
+      };
+      release = scope.add(() => {
+        bound.off("USE_CARD", scope, card), bound.off("USE_SKILL_CARD", scope, skillCard);
+      }), bound.on("USE_CARD", scope, card), bound.on("USE_SKILL_CARD", scope, skillCard);
+    };
   }
   var BackgroundRegistry = class {
     constructor({ window: window2, game, settings, scope }) {
@@ -32278,6 +36361,10 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
     select(owner, spec) {
       if (!this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
       this.saveSelection(spec ? { ...backgroundSpec(spec), owner } : null);
+    }
+    setAttackEffects(owner, enabled) {
+      let choice = this.current;
+      choice?.owner !== owner || !this.providers.has(owner) || !supportsSkinBackgroundAttack(choice.dynamic) || (this.settings.set("battleBackground", { ...choice, attackEffects: enabled === !0 }), enabled || this.binding?.motion?.stopAttack(), this.refresh(), this.emit());
     }
     async selectLocal(owner, file) {
       if (this.scope.closed || !this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
@@ -32507,7 +36594,9 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
                 local.closed || this.refresh();
               },
               fail
-            }), motionScope.closed && (b2.motion = null), layer.updateBgSize();
+            }), motionScope.closed && (b2.motion = null), b2.motion && supportsSkinBackgroundAttack(choice.dynamic) && (b2.syncAttackSeat = watchBackgroundAttack(this.game, scene, motionScope, () => {
+              eligible() && layer.bg?.skin === choice.url && b2.motion?.playAttack?.();
+            })), layer.updateBgSize();
           } catch (error) {
             fail(error?.stack || String(error));
           }
@@ -32515,7 +36604,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
       }
       scene.currentWeatherWallPaper || this.binding.yielded ? this.binding.hideFill?.() : this.binding.syncMotion();
       let b = this.binding;
-      this.state(scene.currentWeatherWallPaper || b.yielded ? "\u6280\u80FD\u80CC\u666F\u4F18\u5148" : b.motionError ? "\u52A8\u6001\u80CC\u666F\u5931\u8D25\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B\uFF1A" + b.motionError : b.motion ? b.motion.loaded ? "\u52A8\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528" : "\u6B63\u5728\u52A0\u8F7D\u52A8\u6001\u80CC\u666F\uFF0C\u6682\u663E\u9759\u6001\u539F\u753B" : "\u9759\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528");
+      b.motion && b.syncAttackSeat?.(choice.attackEffects !== !1), this.state(scene.currentWeatherWallPaper || b.yielded ? "\u6280\u80FD\u80CC\u666F\u4F18\u5148" : b.motionError ? "\u52A8\u6001\u80CC\u666F\u5931\u8D25\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B\uFF1A" + b.motionError : b.motion ? b.motion.loaded ? "\u52A8\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528" : "\u6B63\u5728\u52A0\u8F7D\u52A8\u6001\u80CC\u666F\uFF0C\u6682\u663E\u9759\u6001\u539F\u753B" : "\u9759\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528");
     }
   };
 
@@ -32577,6 +36666,10 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
       "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
       "M6 12 10 7l4 5 3-3 2 3",
       "M6 16c3-3 7 3 12-1"
+    ),
+    "shanhetu-beta": icon(
+      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+      "M12 7v8m-4-4h8"
     ),
     "daily-rewards": icon(
       "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -32801,6 +36894,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     };
   }
 
+  // src/shared/skin-options.js
+  function advancedSkinOption(settings, key) {
+    return settings.get("advanced", !0) === !0 && settings.get(key, !0) === !0;
+  }
+
   // src/shared/plugin-release-notes.js
   var validReleaseNotes = (value) => value === void 0 || typeof value == "string" && value.trim().length > 0 && value.length <= 2e3 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value);
 
@@ -32842,6 +36940,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let declared = manifest.categories, category = spec.category ?? (declared.length === 1 ? declared[0] : void 0);
     if (!PANEL_CATEGORIES.includes(category) || !declared.includes(category)) throw new Error("\u9762\u677F\u5206\u7C7B\u5FC5\u987B\u5728\u63D2\u4EF6 categories \u4E2D\u58F0\u660E\uFF1B\u591A\u5206\u7C7B\u63D2\u4EF6\u987B\u6307\u5B9A category\u3002");
     if (spec.priority !== void 0 && requirePriority(spec.priority), spec.gameView !== void 0 && (category !== "game" || !["battle", "shanhe"].includes(spec.gameView))) throw new Error("gameView \u4EC5\u7528\u4E8E game \u9762\u677F\uFF0C\u503C\u4E3A battle \u6216 shanhe\u3002");
+    if (spec.groupWith !== void 0 && !manifest.dependencies?.includes(spec.groupWith)) throw new Error("\u9762\u677F\u53EA\u80FD\u5E76\u5165\u5DF2\u58F0\u660E\u7684\u524D\u7F6E\u63D2\u4EF6\u7EC4\u3002");
+    if (spec.groupTab !== void 0 && (spec.groupTab !== !0 || !spec.groupWith || spec.title === void 0)) throw new Error("\u7EC4\u5185\u9875\u7B7E\u5FC5\u987B\u58F0\u660E\u524D\u7F6E\u63D2\u4EF6\u7EC4\u548C\u9875\u7B7E\u6807\u9898\u3002");
+    if (spec.groupTabs !== void 0 && (spec.groupTabs !== !0 || spec.groupWith)) throw new Error("\u53EA\u6709\u72EC\u7ACB\u63D2\u4EF6\u7EC4\u7684\u9762\u677F\u53EF\u4EE5\u627F\u8F7D\u7EC4\u5185\u9875\u7B7E\u3002");
+    if ((spec.groupTab || spec.groupTabs) && (!stableVersion.test(manifest.minCoreVersion || "") || compareVersions(manifest.minCoreVersion, "0.6.121") < 0))
+      throw new Error("\u7EC4\u5185\u9875\u7B7E\u8981\u6C42 minCoreVersion \u81F3\u5C11\u4E3A 0.6.121\u3002");
     return {
       ...spec,
       id: manifest.id + ":" + spec.id,
@@ -33276,11 +37379,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             if (scope.closed) return () => {
             };
             let panel = normalizePanel(spec, slot.module.manifest), render = panel.render;
-            return panel.render = (container) => {
+            return panel.render = (container, options) => {
               let root = container.getRootNode?.(), release = root?.host ? acquirePluginStyles(root, this.context.document) : () => {
               };
               try {
-                let cleanup = render(container);
+                let cleanup = render(container, options);
                 return () => {
                   try {
                     cleanup?.();
@@ -33296,10 +37399,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         },
         backgrounds: {
           isInstalled: () => !scope.closed && this.slots.has("backgrounds"),
+          skinShortcutEnabled: () => !scope.closed && advancedSkinOption(this.settings.namespace("skins"), "backgroundShortcut"),
           register: () => scope.closed ? () => {
           } : scope.add(this.context.backgrounds.register(id)),
           select: (spec) => {
             scope.closed || this.context.backgrounds.select(id, spec);
+          },
+          setAttackEffects: (enabled) => {
+            scope.closed || this.context.backgrounds.setAttackEffects(id, enabled);
           },
           selectLocal: (file) => {
             if (!scope.closed) return this.context.backgrounds.selectLocal(id, file);
@@ -33897,7 +38004,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   ALLOWED.add("gn_dbs_coupon_cfg");
   ALLOWED.add("hd_fight_lord_config");
   ALLOWED.add("sys_ss_gamelabel_config");
-  var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read2 = (fn) => {
+  var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read3 = (fn) => {
     try {
       return fn();
     } catch {
@@ -33981,26 +38088,26 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function getConfigData(name) {
       name = validate(name);
       for (let container of [
-        read2(() => win.CtrUtil.AllDatas),
-        read2(() => win.SystemContext.AllDatas),
-        read2(() => win.__SGS_TOOLBOX_DEMO__.configs)
+        read3(() => win.CtrUtil.AllDatas),
+        read3(() => win.SystemContext.AllDatas),
+        read3(() => win.__SGS_TOOLBOX_DEMO__.configs)
       ]) {
-        let data = read2(() => container[`${name}.sgs`]) || read2(() => container[name]);
+        let data = read3(() => container[`${name}.sgs`]) || read3(() => container[name]);
         if (data && typeof data == "object") return data;
       }
       return cache2.get(name) || null;
     }
     function archiveUrl() {
-      let origin = read2(() => win.location.origin);
+      let origin = read3(() => win.location.origin);
       if (origin !== "https://web.sanguosha.com" && origin !== "http://web.sanguosha.com") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u6570\u636E\u5C31\u7EEA");
-      let entries = read2(() => win.performance.getEntriesByType("resource")) || [];
+      let entries = read3(() => win.performance.getEntriesByType("resource")) || [];
       for (let entry of entries.slice(-2048).reverse())
         try {
           let url = new URL(entry.name);
           if (url.protocol === "https:" && url.hostname === "web.sanguosha.com" && /\/Config_w\.sgs$/.test(url.pathname) && !url.username && !url.password) return url.href;
         } catch {
         }
-      let version = read2(() => win.resourceVersion);
+      let version = read3(() => win.resourceVersion);
       if (!["string", "number"].includes(typeof version) || !String(version).trim()) throw new Error("\u7B49\u5F85\u5BA2\u6237\u7AEF\u8D44\u6E90\u7248\u672C\u5C31\u7EEA\uFF0C\u8BF7\u7A0D\u540E\u5237\u65B0");
       return `https://web.sanguosha.com/220/h5_2/res/config/Config_w.sgs?v=${encodeURIComponent(String(version))}`;
     }
@@ -34024,8 +38131,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       if (name = validate(name), scope.closed) throw cancelled();
       let existing = getConfigData(name);
       return existing || (pending.has(name) || pending.set(name, (async () => {
-        let ctrClass = read2(() => win.CtrUtil) || read2(() => typeof CtrUtil < "u" ? CtrUtil : null), decryptor = read2(() => ctrClass.Ctr);
-        if (typeof read2(() => decryptor.Ofb_Dec) != "function") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u89E3\u7801\u5668\u5C31\u7EEA");
+        let ctrClass = read3(() => win.CtrUtil) || read3(() => typeof CtrUtil < "u" ? CtrUtil : null), decryptor = read3(() => ctrClass.Ctr);
+        if (typeof read3(() => decryptor.Ofb_Dec) != "function") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u89E3\u7801\u5668\u5C31\u7EEA");
         let packed = await archive();
         if (scope.closed) throw cancelled();
         let encrypted = await readZipEntry(packed, `${name}.sgs`, win);
@@ -34044,43 +38151,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), { getConfigData, loadConfigData };
   }
 
-  // src/core/seat.js
-  var read3 = (fn) => {
-    try {
-      return fn();
-    } catch {
-      return;
-    }
-  };
-  function nativeSeatOccupied(ui) {
-    let seat = nativeSeat(ui);
-    return read3(() => seat.IsFull) !== !1;
-  }
-  function nativeSeatPosition(ui) {
-    let seat = nativeSeat(ui), value = read3(() => seat.FixedViewId) ?? read3(() => seat.fixedViewId);
-    return Number.isInteger(value) && value >= 1 && value <= 255 ? value : void 0;
-  }
-  function nativeSeat(ui) {
-    return read3(() => ui.Seat) ?? read3(() => ui.seat) ?? read3(() => ui.cardContainer.Seat) ?? read3(() => ui.cardContainer.seat) ?? null;
-  }
-  function nativeSeatId(ui) {
-    let seat = nativeSeat(ui);
-    for (let value of [
-      read3(() => seat.index),
-      read3(() => seat.Index),
-      read3(() => seat.SeatID),
-      read3(() => seat.ID),
-      read3(() => ui.seatID),
-      read3(() => ui.seatId)
-    ]) {
-      if (value == null || value === "" || typeof value == "boolean") continue;
-      let id = Number(value);
-      if (Number.isInteger(id) && id >= 0 && id < 255) return id;
-    }
-  }
-
   // src/core/game.js
-  var GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/, read4 = (fn) => {
+  var GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/, STARTUP_SCENE = /(?:^|\.)(?:LoginScene|CreateUserScene|CreateRoleScene|MainNullScene|LoadingScene)$/, read4 = (fn) => {
     try {
       return fn();
     } catch {
@@ -34158,6 +38230,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       let layer = walk((node) => node.name === "SceneLayer" || node.layerOrder === 2);
       return layer && children(layer).filter((node) => node !== layer && alive(node) && read4(() => node.visible) !== !1).at(-1) || null;
     }
+    function canReserveViewport() {
+      let scene = stageScene(), name = read4(() => scene.SceneName) || read4(() => scene.sceneName);
+      return typeof name == "string" && name.length > 0 && !STARTUP_SCENE.test(name) && read4(() => scene.initialized) !== !1;
+    }
     function getScene() {
       let nextStage = read4(() => win.Laya.stage) || null;
       stage !== nextStage && (stage = nextStage, dispatcher = dispatcherOwner = null, providers = /* @__PURE__ */ new Set());
@@ -34228,14 +38304,17 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         typeof ctor == "function" && typeof read4(() => ctor.GetInstance) == "function" && providers.add(ctor), proto = read4(() => Object.getPrototypeOf(proto));
       }
     }
-    function getCardDefinition(id) {
-      for (let data of [
+    function* cardDefinitions() {
+      let tables = [
         read4(() => win.CtrUtil.AllDatas),
         read4(() => win.CtrUtil.allDatas),
         read4(() => win.SystemContext.AllDatas),
-        read4(() => win.SystemContext.allDatas)
-      ]) {
-        let config = read4(() => data["sys_playcard.sgs"]), rows = read4(() => config.GamePlayCards.card);
+        read4(() => win.SystemContext.allDatas),
+        read4(() => win.__SGS_TOOLBOX_DEMO__.configs)
+      ].map((data) => read4(() => data["sys_playcard.sgs"]) || read4(() => data.sys_playcard));
+      tables.push(configs?.getConfigData("sys_playcard"));
+      for (let config of tables) {
+        let rows = read4(() => config.GamePlayCards.card);
         if (!Array.isArray(rows)) continue;
         let index = definitionTables.get(rows);
         if (!index || index.length !== rows.length) {
@@ -34249,10 +38328,39 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           }
           index = { length: rows.length, records }, definitionTables.set(rows, index);
         }
-        let card = index.records.get(id);
+        yield index;
+      }
+    }
+    function getCardDefinition(id) {
+      for (let { records } of cardDefinitions()) {
+        let card = records.get(id);
         if (card) return card;
       }
       return null;
+    }
+    function getCardFaceCatalog() {
+      for (let index of cardDefinitions()) {
+        if (!index.faces) {
+          let faces = /* @__PURE__ */ new Map();
+          for (let { res, name } of index.records.values()) {
+            if (!cardFrameName(res) || typeof name != "string" || !name.trim() || faces.has(res)) continue;
+            let label = name === "\u6740" && { HuoSha: "\u706B\u6740", LeiSha: "\u96F7\u6740", BingSha: "\u51B0\u6740" }[res] || name;
+            faces.set(res, Object.freeze({ res, label }));
+          }
+          index.faces = Object.freeze([...faces.values()].sort((a, b) => a.label.localeCompare(b.label, "zh-CN")));
+        }
+        if (index.faces.length) return index.faces;
+      }
+      return null;
+    }
+    async function loadCardFaceCatalog() {
+      let existing = getCardFaceCatalog();
+      if (existing) return existing;
+      if (!configs) throw new Error("\u914D\u7F6E\u8BFB\u53D6\u4E0D\u53EF\u7528");
+      await configs.loadConfigData("sys_playcard");
+      let catalog = getCardFaceCatalog();
+      if (!catalog) throw new Error("\u6E38\u620F\u724C\u8868\u4E2D\u6CA1\u6709\u53EF\u6362\u56FE\u7684\u724C");
+      return catalog;
     }
     function getCardMeta(id) {
       if (id = number(id), !Number.isInteger(id) || id <= 0) return { id, name: "\u672A\u77E5\u724C", unknown: !0 };
@@ -34272,7 +38380,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       let definition = getCardDefinition(id);
       if (!card && !definition) return { id, name: `\u724C #${id}`, unknown: !0 };
-      let name = read4(() => card.CardName) || read4(() => card.cardName) || read4(() => card.Name) || read4(() => card.name) || read4(() => definition.CardName) || read4(() => definition.Name) || read4(() => definition.name), cardClass = read4(() => definition.cardClass) || read4(() => card.cardInfo.cardClass) || read4(() => card.cardClass) || read4(() => card.cardInfo.Class) || read4(() => card.className) || read4(() => card.ClassName) || read4(() => definition.Class) || read4(() => definition.class) || read4(() => definition.className);
+      let name = read4(() => card.CardName) || read4(() => card.cardName) || read4(() => card.Name) || read4(() => card.name) || read4(() => definition.CardName) || read4(() => definition.Name) || read4(() => definition.name), cardClass = read4(() => definition.cardClass) || read4(() => card.cardInfo.cardClass) || read4(() => card.cardClass) || read4(() => card.cardInfo.Class) || read4(() => card.className) || read4(() => card.ClassName) || read4(() => definition.Class) || read4(() => definition.class) || read4(() => definition.className), firstSkillId = number(read4(() => card.FirstSkillId));
       return {
         id,
         name: typeof name == "string" && name ? name : `\u724C #${id}`,
@@ -34302,7 +38410,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           read4(() => definition.Type)
         ),
         unknown: !(typeof name == "string" && name),
-        ...typeof cardClass == "string" && cardClass ? { cardClass } : {}
+        ...typeof cardClass == "string" && cardClass ? { cardClass } : {},
+        ...firstSkillId > 0 ? { firstSkillId } : {}
       };
     }
     function getCountdown() {
@@ -34360,6 +38469,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       getSelfSeatUI: () => selfUI(getScene()),
       getSeatUIs: () => seats(getScene()),
       getCardMeta,
+      getCardFaceCatalog,
+      loadCardFaceCatalog,
       getSnapshot,
       getClass,
       getServerProxy,
@@ -34369,6 +38480,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       getSelf,
       getRemainingSlash,
       isInGame: () => isGameScene(getScene()),
+      canReserveViewport,
       getConfigData: (name) => configs?.getConfigData(name) || null,
       loadConfigData: (name) => configs ? configs.loadConfigData(name) : Promise.reject(new Error("\u914D\u7F6E\u8BFB\u53D6\u4E0D\u53EF\u7528")),
       onSceneChange(fn) {
@@ -35124,7 +39236,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
 
   // src/market/official.js
-  var officialPluginIds = Object.freeze(["social", "player-info", "native-cards", "yjcm-cards", "dafeiyu-cards", "backgrounds", "gold-cards", "shanhetu", "cards", "play-assist", "daily-rewards", "seckill", "gaizhu", "effects", "skins", "wish-progress", "themes", "baisheng", "appearances", "ledger", "recharge"]);
+  var officialPluginIds = Object.freeze(["social", "player-info", "native-cards", "yjcm-cards", "dafeiyu-cards", "backgrounds", "gold-cards", "shanhetu", "shanhetu-beta", "cards", "play-assist", "daily-rewards", "seckill", "gaizhu", "effects", "skins", "wish-progress", "themes", "baisheng", "appearances", "ledger", "recharge"]);
   function planOfficialPlugins(installed, catalog) {
     let latest = /* @__PURE__ */ new Map();
     for (let entry of catalog)
@@ -35140,8 +39252,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
 
   // src/ui/game-viewport.js
-  function createGameViewport({ window: win, document: doc, scope }) {
-    let reserved = 0, stage, original, wrapper, descriptor, appliedWidth = 0, appliedHeight = 0, browser, widthDescriptor, widthGetter, styles = /* @__PURE__ */ new Map();
+  function createGameViewport({ window: win, document: doc, scope, canReserve = () => !0 }) {
+    let requested = 0, reserved = 0, stage, original, wrapper, descriptor, appliedWidth = 0, appliedHeight = 0, browser, widthDescriptor, widthGetter, styles = /* @__PURE__ */ new Map();
     function releaseBrowser() {
       browser && Object.getOwnPropertyDescriptor(browser, "clientWidth")?.get === widthGetter && (widthDescriptor ? Object.defineProperty(browser, "clientWidth", widthDescriptor) : delete browser.clientWidth), browser = widthDescriptor = widthGetter = void 0;
     }
@@ -35168,6 +39280,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       stage && stage.setScreenSize === wrapper && (descriptor ? Object.defineProperty(stage, "setScreenSize", descriptor) : delete stage.setScreenSize), resize(stage), stage = original = wrapper = void 0;
     }
     function sync() {
+      reserved = requested && canReserve() ? requested : 0;
       let next = reserved ? win.Laya?.stage : void 0, width = reserved ? Math.max(1, win.innerWidth - reserved) : 0;
       if (syncBrowser(), reserved || restoreStyles(), stage !== next && (releaseStage(), typeof next?.setScreenSize == "function")) {
         stage = next, original = stage.setScreenSize, descriptor = Object.getOwnPropertyDescriptor(stage, "setScreenSize");
@@ -35188,7 +39301,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return scope.listen(win, "resize", sync), scope.interval(sync, 500), scope.add(() => {
       reserved = 0, restoreStyles(), releaseBrowser(), releaseStage();
     }), { reserve(width) {
-      reserved = Math.max(0, Number(width) || 0), sync();
+      requested = Math.max(0, Number(width) || 0), sync();
     } };
   }
 
@@ -35216,7 +39329,254 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), scope.listen(win, "pointercancel", cancel), scope.listen(win, "blur", cancel);
   }
 
+  // src/ui/card-face-catalog.js
+  function mountCardFaceCatalog(container, doc, cardStyles) {
+    let option = (text2, value) => {
+      let node = doc.createElement("option");
+      return node.textContent = text2, node.value = value, node;
+    }, details = doc.createElement("details");
+    details.className = "card-face-catalog";
+    let title = doc.createElement("summary");
+    title.textContent = "\u5361\u724C\u56FE\u9274";
+    let suites = doc.createElement("select");
+    suites.className = "sgs-select", suites.setAttribute("aria-label", "\u9884\u89C8\u5361\u9762\u5957\u88C5");
+    let search = doc.createElement("input");
+    search.type = "search", search.className = "sgs-input", search.placeholder = "\u641C\u7D22\u724C\u540D", search.setAttribute("aria-label", "\u641C\u7D22\u56FE\u9274\u724C\u540D");
+    let choices = doc.createElement("select");
+    choices.className = "sgs-select", choices.setAttribute("aria-label", "\u9884\u89C8\u5361\u724C");
+    let preview = doc.createElement("div");
+    preview.className = "card-face-catalog-preview";
+    let status = doc.createElement("p");
+    status.className = "muted", status.setAttribute("role", "status");
+    let retry = doc.createElement("button");
+    retry.type = "button", retry.title = "\u91CD\u65B0\u52A0\u8F7D\u5361\u9762", retry.setAttribute("aria-label", retry.title), retry.append(createIcon(doc, "refresh"), doc.createTextNode(retry.title)), retry.hidden = !0, details.append(title, suites, search, choices, preview, status, retry), container.append(details);
+    let available = [], styleId = "", res = "", renderedEntry, renderedRes, renderedLabel, results = [], lastData, lastStyle, lastCatalog, lastQuery;
+    function showCard(style2, data, label) {
+      if (renderedEntry === data && renderedRes === res && renderedLabel === label || (renderedEntry = data, renderedRes = res, renderedLabel = label, preview.replaceChildren(), !style2 || !data || !res)) return;
+      let canvas = cardStyles.atlasCanvas(style2, res);
+      canvas && (canvas.setAttribute("role", "img"), canvas.setAttribute("aria-label", label + " \xB7 " + style2.name), preview.append(canvas));
+    }
+    function render({ retry: shouldRetry = !1 } = {}) {
+      if (!details.open) return;
+      let styles = cardStyles.list().filter((style3) => style3.atlas);
+      (styles.length !== available.length || styles.some((style3, index) => style3 !== available[index])) && (available = styles, styles.some((style3) => style3.id === styleId) || (styleId = styles.find((style3) => style3.id === cardStyles.selection.face)?.id || styles[0]?.id || ""), suites.replaceChildren(...styles.map((style3) => option(style3.name, style3.id))), suites.value = styleId);
+      let style2 = styles.find((item) => item.id === styleId), entry = cardStyles.previewCardAtlas(styleId, { retry: shouldRetry }), query = search.value.trim().toLowerCase(), catalog = cardStyles.localFaceCatalog;
+      if (lastData !== entry?.data || lastStyle !== style2 || lastCatalog !== catalog || lastQuery !== query) {
+        lastData = entry?.data, lastStyle = style2, lastCatalog = catalog, lastQuery = query;
+        let names = new Map((catalog || []).map((card) => [card.res, card.label])), allowed2 = style2?.atlas.replaceCards ? new Set(style2.atlas.replaceCards) : null;
+        results = [];
+        for (let [key, frame] of lastData?.frames || []) {
+          let name = key.slice(0, -8);
+          if (allowed2 && !allowed2.has(name)) continue;
+          let nativeLabel = names.get(name), label = frame.label || nativeLabel || name;
+          [label, nativeLabel, name].some((value) => value?.toLowerCase().includes(query)) && results.push({ name, label });
+        }
+        let duplicates = /* @__PURE__ */ new Map();
+        for (let { label } of results) duplicates.set(label, (duplicates.get(label) || 0) + 1);
+        choices.replaceChildren(...results.map(({ name, label }) => option(duplicates.get(label) > 1 ? `${label}\uFF08${name}\uFF09` : label, name)));
+      }
+      let next = results.find((card) => card.name === res) || results[0];
+      res = next?.name || "", choices.value = res, choices.title = next?.label || "", suites.hidden = !style2, search.hidden = choices.hidden = !entry?.data, choices.disabled = !next, preview.hidden = !next, showCard(style2, entry?.data, next?.label), retry.hidden = !entry?.error, status.classList.toggle("card-face-catalog-error", !!entry?.error), status.textContent = entry?.error ? "\u5361\u9762\u9884\u89C8\u52A0\u8F7D\u5931\u8D25\uFF1A" + entry.error : entry?.loading ? "\u6B63\u5728\u52A0\u8F7D\u5361\u9762\u9884\u89C8\u2026" : style2 ? next ? "" : "\u6CA1\u6709\u5339\u914D\u7684\u5361\u724C\u3002" : "\u5B89\u88C5\u5361\u9762\u5957\u88C5\u540E\u53EF\u9010\u5F20\u67E5\u770B\u3002", status.hidden = !status.textContent;
+    }
+    function close() {
+      details.open = !1, cardStyles.previewCardAtlas(""), showCard(null, null, ""), lastData = null;
+    }
+    details.ontoggle = () => {
+      details.open ? (cardStyles.loadLocalFaceCatalog(), render()) : close();
+    }, suites.onchange = () => {
+      styleId = suites.value, render();
+    }, search.oninput = () => render(), choices.onchange = () => {
+      res = choices.value, render();
+    }, retry.onclick = () => render({ retry: !0 });
+    let off = cardStyles.subscribe(() => render());
+    return { close, dispose() {
+      off(), close(), details.remove();
+    } };
+  }
+
   // src/ui/card-style-workshop.js
+  var LOCAL_BACK_HELP = "\u652F\u6301 JPG\u3001PNG\u3001WebP\u3001BMP \u9759\u6001\u56FE\u7247\uFF0C\u6700\u5927 20 MB\u3002\u5EFA\u8BAE\u9009\u4E3B\u4F53\u5C45\u4E2D\u7684\u7AD6\u56FE\uFF0C\u7CFB\u7EDF\u4F1A\u81EA\u52A8\u5C45\u4E2D\u88C1\u526A\uFF0C\u56FE\u7247\u4EC5\u4FDD\u5B58\u5728\u672C\u673A\u3002";
+  function mountLocalFaces(section, doc, cardStyles) {
+    section.className = "custom-card-faces";
+    let modes = doc.createElement("div");
+    modes.className = "sgs-segments", modes.setAttribute("role", "group"), modes.setAttribute("aria-label", "\u81EA\u5B9A\u4E49\u5361\u9762\u6A21\u5F0F");
+    let loadCatalog = () => {
+      cardStyles.selection.face === LOCAL_FACE_STYLE.id && cardStyles.loadLocalFaceCatalog();
+    };
+    for (let [id, label] of [[LOCAL_FACE_BACKGROUND_STYLE.id, "\u7EDF\u4E00\u5E95\u56FE"], [LOCAL_FACE_STYLE.id, "\u9010\u724C\u6362\u56FE"]]) {
+      let button = doc.createElement("button");
+      button.type = "button", button.textContent = label, button.dataset.faceMode = id, button.onclick = () => {
+        message = "", cardStyles.selectSide("face", id), loadCatalog();
+      }, modes.append(button);
+    }
+    let guidance = doc.createElement("p");
+    guidance.className = "muted";
+    let search = doc.createElement("input");
+    search.type = "search", search.className = "sgs-input", search.placeholder = "\u641C\u7D22\u724C\u540D", search.setAttribute("aria-label", "\u641C\u7D22\u724C\u540D");
+    let choices = doc.createElement("select");
+    choices.className = "sgs-select", choices.setAttribute("aria-label", "\u9009\u62E9\u724C\u540D");
+    let upload = doc.createElement("button");
+    upload.type = "button";
+    let picker = doc.createElement("input");
+    picker.type = "file", picker.accept = LOCAL_IMAGE_ACCEPT, picker.hidden = !0;
+    let preview = doc.createElement("div");
+    preview.className = "custom-card-face-preview", preview.hidden = !0;
+    let image = doc.createElement("img");
+    image.alt = "";
+    let filename = doc.createElement("span");
+    filename.className = "custom-card-face-name";
+    let remove = doc.createElement("button");
+    remove.type = "button", remove.title = "\u5220\u9664\u8FD9\u5F20\u5361\u56FE", remove.setAttribute("aria-label", remove.title), remove.append(createIcon(doc, "trash")), preview.append(image, filename, remove);
+    let feedback = doc.createElement("p");
+    feedback.className = "muted", feedback.setAttribute("role", "status"), feedback.hidden = !0;
+    let retry = doc.createElement("button");
+    retry.type = "button", retry.textContent = "\u91CD\u8BD5\u8BFB\u53D6\u724C\u8868", retry.hidden = !0, retry.onclick = () => {
+      message = "", failed = !1, loadCatalog();
+    };
+    let fields = doc.createElement("div");
+    fields.className = "custom-card-face-fields", fields.append(search, choices, upload), section.append(modes, guidance, fields, picker, preview, feedback, retry);
+    let active = !0, busy = !1, message = "", failed = !1, saved = [], catalog, card = "", background = !1;
+    function updateChoices() {
+      let records = new Map((catalog || []).map((option) => [option.res, option.label]));
+      for (let row of saved) records.has(row.card) || records.set(row.card, row.label);
+      let counts = /* @__PURE__ */ new Map();
+      for (let label of records.values()) counts.set(label, (counts.get(label) || 0) + 1);
+      let query = search.value.trim().toLowerCase(), matches = [...records].filter(([res, label]) => label.toLowerCase().includes(query) || res.toLowerCase().includes(query));
+      choices.replaceChildren();
+      let placeholder = doc.createElement("option");
+      placeholder.value = "", placeholder.textContent = matches.length ? "\u9009\u62E9\u724C\u540D" : "\u6CA1\u6709\u5339\u914D\u7684\u724C", choices.append(placeholder);
+      let savedGroup = doc.createElement("optgroup");
+      savedGroup.label = "\u5DF2\u6362\u56FE";
+      let otherGroup = doc.createElement("optgroup");
+      otherGroup.label = "\u53EF\u6362\u56FE";
+      let savedNames = new Set(saved.map((row) => row.card));
+      for (let [res, label] of matches) {
+        let option = doc.createElement("option");
+        option.value = res, option.textContent = counts.get(label) > 1 ? `${label}\uFF08${res}\uFF09` : label, (savedNames.has(res) ? savedGroup : otherGroup).append(option);
+      }
+      for (let group of [savedGroup, otherGroup]) group.childElementCount && choices.append(group);
+      choices.value = matches.some(([res]) => res === card) ? card : "", card = choices.value;
+    }
+    function render() {
+      let face = cardStyles.selection.face;
+      if (background = face === LOCAL_FACE_BACKGROUND_STYLE.id, section.hidden = !background && face !== LOCAL_FACE_STYLE.id, section.hidden) return;
+      for (let button of modes.children)
+        button.disabled = busy, button.setAttribute("aria-pressed", String(button.dataset.faceMode === face));
+      if (!background) {
+        let rows = cardStyles.listLocalFaces();
+        (catalog !== cardStyles.localFaceCatalog || saved.length !== rows.length || rows.some((row2, i) => row2 !== saved[i])) && (saved = rows, catalog = cardStyles.localFaceCatalog, updateChoices());
+      }
+      search.hidden = choices.hidden = background, fields.classList.toggle("is-background", background), guidance.textContent = background ? "\u4E00\u5F20\u56FE\u6362\u6240\u6709\u9002\u7528\u5361\u9762\u7684\u5E95\u7EB9\u3002\u724C\u56FE\u3001\u724C\u540D\u3001\u82B1\u8272\u548C\u70B9\u6570\u7167\u5E38\u663E\u793A\u3002" : "\u9009\u5E26\u724C\u540D\u7684\u5B8C\u6574\u5361\u56FE\u3002\u56FE\u7247\u4F1A\u5C45\u4E2D\u88C1\u526A\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A\u3002";
+      let row = background ? cardStyles.localFaceBackground : saved.find((item) => item.card === card), noCards = !background && !catalog?.length && !saved.length;
+      noCards && (choices.options[0].textContent = cardStyles.localFaceCatalogPending ? "\u6B63\u5728\u8BFB\u53D6\u724C\u8868\u2026" : "\u672A\u8BFB\u53D6\u5230\u724C\u8868"), search.disabled = choices.disabled = busy || noCards, upload.disabled = busy || !background && !card, upload.textContent = row ? "\u66F4\u6362\u56FE\u7247" : "\u9009\u62E9\u56FE\u7247", remove.disabled = busy, remove.title = background ? "\u5220\u9664\u5E95\u56FE" : "\u5220\u9664\u8FD9\u5F20\u5361\u56FE", remove.setAttribute("aria-label", remove.title), preview.hidden = !row, row ? (image.getAttribute("src") !== row.url && (image.src = row.url), filename.textContent = filename.title = row.name) : image.removeAttribute("src");
+      let catalogError = !background && cardStyles.localFaceCatalogError;
+      retry.hidden = !catalogError, retry.disabled = busy;
+      let error = catalogError || cardStyles.localFaceError;
+      feedback.textContent = message || error || "", feedback.hidden = !feedback.textContent, feedback.classList.toggle("custom-card-face-error", failed || !!(!message && error));
+    }
+    async function edit(pending, done, failure, operation) {
+      if (!(busy || !background && !card)) {
+        busy = !0, message = pending, failed = !1, render();
+        try {
+          await operation(), message = done;
+        } catch (error) {
+          message = `${failure}\uFF1A${error.message}`, failed = !0;
+        } finally {
+          busy = !1, active && (render(), !section.hidden && !section.getRootNode().activeElement && upload.focus());
+        }
+      }
+    }
+    search.oninput = () => {
+      message = "", updateChoices(), render();
+    }, choices.onchange = () => {
+      card = choices.value, message = "", render();
+    }, upload.onclick = () => picker.click(), picker.onchange = () => {
+      let file = picker.files?.[0];
+      if (picker.value = "", !file) return;
+      edit("\u6B63\u5728\u5904\u7406\u56FE\u7247\u2026", background ? "\u5DF2\u4FDD\u5B58\u5E95\u56FE" : "\u5DF2\u4FDD\u5B58\u5361\u56FE", "\u5BFC\u5165\u5931\u8D25", background ? () => cardStyles.importLocalFaceBackground(file) : () => cardStyles.importLocalFace(card, file));
+    }, remove.onclick = () => {
+      edit("\u6B63\u5728\u5220\u9664\u2026", background ? "\u5DF2\u6062\u590D\u6E38\u620F\u5E95\u56FE" : "\u5DF2\u6062\u590D\u8FD9\u5F20\u724C\u7684\u6E38\u620F\u5361\u9762", "\u5220\u9664\u5931\u8D25", background ? () => cardStyles.deleteLocalFaceBackground() : () => cardStyles.deleteLocalFace(card));
+    }, render();
+    let off = cardStyles.subscribe(render);
+    return { loadCatalog, dispose() {
+      active = !1, off();
+    } };
+  }
+  function mountLocalBacks(container, doc, cardStyles) {
+    let section = doc.createElement("section");
+    section.className = "custom-card-backs";
+    let heading = doc.createElement("div");
+    heading.className = "custom-card-backs-heading";
+    let title = doc.createElement("h4");
+    title.textContent = "\u81EA\u5B9A\u4E49\u5361\u80CC";
+    let upload = doc.createElement("button");
+    upload.type = "button", upload.textContent = "\u9009\u62E9\u56FE\u7247";
+    let help = doc.createElement("p");
+    help.className = "muted", help.textContent = LOCAL_BACK_HELP, help.id = "core-custom-card-back-help", upload.setAttribute("aria-describedby", help.id);
+    let picker = doc.createElement("input");
+    picker.type = "file", picker.accept = LOCAL_IMAGE_ACCEPT, picker.hidden = !0;
+    let list2 = doc.createElement("fieldset");
+    list2.className = "custom-card-back-list", list2.setAttribute("aria-label", "\u5DF2\u4FDD\u5B58\u7684\u5361\u80CC");
+    let feedback = doc.createElement("p");
+    feedback.className = "muted", feedback.setAttribute("role", "status"), feedback.hidden = !0, heading.append(title, upload), section.append(heading, help, picker, list2, feedback), container.append(section);
+    let active = !0, busy = !1, error = "", rows = [], selected, showFeedback = (message, failed = !1) => {
+      feedback.textContent = message, feedback.hidden = !message, feedback.classList.toggle("custom-card-back-error", failed);
+    }, render = () => {
+      !busy && (error || cardStyles.localBackError) && showFeedback(error || cardStyles.localBackError, !0), upload.disabled = busy;
+      let saved = cardStyles.listLocalBacks(), current = cardStyles.selection.back;
+      if (!(current === selected && saved.length === rows.length && saved.every((item, index) => item === rows[index]))) {
+        rows = saved, selected = current, list2.replaceChildren();
+        for (let style2 of rows) {
+          let row = doc.createElement("div");
+          row.className = "custom-card-back-row";
+          let select = doc.createElement("button");
+          select.type = "button", select.className = "custom-card-back-option";
+          let isSelected = current === style2.id;
+          select.setAttribute("aria-pressed", String(isSelected)), select.title = style2.name;
+          let preview = cardStyles.preview(style2, !0);
+          preview.setAttribute("aria-hidden", "true");
+          let label = doc.createElement("span");
+          if (label.className = "custom-card-back-name", label.textContent = style2.name, select.append(preview, label), isSelected) {
+            let check = createIcon(doc, "check");
+            check.classList.add("custom-card-back-selected"), select.append(check);
+          }
+          select.onclick = () => {
+            if (!busy) {
+              error = "", showFeedback("");
+              try {
+                cardStyles.selectSide("back", style2.id);
+              } catch (cause) {
+                error = "\u9009\u7528\u5931\u8D25\uFF1A" + cause.message, showFeedback(error, !0);
+              }
+              list2.children[rows.indexOf(style2)]?.firstElementChild?.focus();
+            }
+          };
+          let remove = doc.createElement("button");
+          remove.type = "button", remove.className = "custom-card-back-remove", remove.title = "\u5220\u9664 " + style2.name, remove.setAttribute("aria-label", remove.title), remove.append(createIcon(doc, "trash")), remove.onclick = () => run("\u6B63\u5728\u5220\u9664\u2026", "\u5DF2\u5220\u9664\u5361\u80CC", "\u5220\u9664\u5931\u8D25", () => cardStyles.deleteLocalBack(style2.id)), row.append(select, remove), list2.append(row);
+        }
+      }
+    };
+    async function run(pending, done, failure, operation) {
+      if (!busy) {
+        busy = !0, error = "", showFeedback(pending), upload.disabled = !0, list2.disabled = !0;
+        try {
+          await operation(), active && showFeedback(done);
+        } catch (cause) {
+          error = failure + "\uFF1A" + cause.message, active && showFeedback(error, !0);
+        } finally {
+          busy = !1, active && (list2.disabled = !1, render(), (!section.getRootNode().activeElement || section.getRootNode().activeElement === doc.body) && upload.focus());
+        }
+      }
+    }
+    upload.onclick = () => picker.click(), picker.onchange = () => {
+      let file = picker.files?.[0];
+      picker.value = "", file && run("\u6B63\u5728\u5904\u7406\u56FE\u7247\u2026", "\u5DF2\u4FDD\u5B58\u5E76\u9009\u7528\u5361\u80CC", "\u5BFC\u5165\u5931\u8D25", () => cardStyles.importLocalBack(file));
+    }, render();
+    let off = cardStyles.subscribe(render);
+    return () => {
+      active = !1, off();
+    };
+  }
   function mountCardStyleWorkshop(container, { document: doc, cardStyles, settings }) {
     let details = doc.createElement("section");
     details.className = "card-style-workshop plugin-group";
@@ -35233,28 +39593,42 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     };
     apply(settings.get("cardStyleExpanded", !1)), toggle.onclick = () => {
       let expanded = body.hidden;
-      settings.set("cardStyleExpanded", expanded), apply(expanded);
+      settings.set("cardStyleExpanded", expanded), apply(expanded), expanded ? localFaces?.loadCatalog() : catalog?.close();
     }, heading.append(toggle), details.append(heading, body), container.append(details);
+    let options = doc.createElement("div");
+    body.append(options);
+    let faceOptions = doc.createElement("div");
+    body.append(faceOptions);
+    let catalog = cardStyles?.previewCardAtlas ? mountCardFaceCatalog(body, doc, cardStyles) : null, faceEditor = doc.createElement("section");
+    body.append(faceEditor);
+    let localFaces = cardStyles?.listLocalFaces ? mountLocalFaces(faceEditor, doc, cardStyles) : null;
+    localFaces || (faceEditor.hidden = !0), body.hidden || localFaces?.loadCatalog();
+    let backOptions = doc.createElement("div");
+    body.append(backOptions);
+    let unmountLocal = cardStyles?.listLocalBacks ? mountLocalBacks(body, doc, cardStyles) : null, status = doc.createElement("p");
+    status.className = "muted", status.style.overflowWrap = "anywhere", status.setAttribute("role", "status"), body.append(status);
     let render = () => {
-      body.replaceChildren();
+      options.replaceChildren();
       let scopeLabel = doc.createElement("p");
-      scopeLabel.textContent = "\u5E94\u7528\u8303\u56F4", scopeLabel.style.cssText = "display:flex;align-items:center;gap:5px", scopeLabel.append(helpTip(doc, "\u5361\u9762\u4E0E\u5361\u80CC\u72EC\u7ACB\u9009\u62E9\u3002\u5B8C\u6574\u5361\u9762\u6309\u724C\u540D\u5339\u914D\uFF0C\u7F3A\u5931\u5361\u56FE\u4FDD\u7559\u6E38\u620F\u539F\u751F\u663E\u793A\uFF1B\u82B1\u8272\u70B9\u6570\u6CBF\u7528\u6E38\u620F\u3002")), body.append(scopeLabel);
+      scopeLabel.textContent = "\u5E94\u7528\u8303\u56F4", scopeLabel.style.cssText = "display:flex;align-items:center;gap:5px", scopeLabel.append(helpTip(doc, "\u5361\u9762\u4E0E\u5361\u80CC\u72EC\u7ACB\u9009\u62E9\u3002\u5B8C\u6574\u5361\u9762\u6309\u724C\u540D\u5339\u914D\uFF0C\u7F3A\u5931\u5361\u56FE\u4FDD\u7559\u6E38\u620F\u539F\u751F\u663E\u793A\uFF1B\u82B1\u8272\u70B9\u6570\u6CBF\u7528\u6E38\u620F\u3002")), options.append(scopeLabel);
       let scopes = doc.createElement("div");
-      scopes.className = "sgs-segments", body.append(scopes);
+      scopes.className = "sgs-segments", options.append(scopes);
       for (let [value, name] of [["self", "\u4EC5\u81EA\u5DF1\u7684\u624B\u724C"], ["all", "\u6240\u6709\u4EBA"]]) {
         let button = doc.createElement("button");
         button.type = "button", button.textContent = name, button.setAttribute("aria-pressed", String(cardStyles?.selection?.scope === value || !cardStyles?.selection && value === "all")), button.onclick = () => cardStyles?.selectScope(value), scopes.append(button);
       }
       let help = doc.createElement("p");
-      help.className = "muted", help.textContent = "\u4EC5\u81EA\u5DF1\uFF1A\u81EA\u5DF1\u7684\u624B\u724C\u53CA\u5176\u4F7F\u7528\u3001\u6253\u51FA\u3001\u88AB\u987A\u8D70\u65F6\u6CBF\u7528\u6240\u9009\u5916\u89C2\uFF1B\u4ED6\u4EBA\u7684\u724C\u4FDD\u6301\u6E38\u620F\u5916\u89C2\u3002", body.append(help);
+      help.className = "muted", help.textContent = "\u4EC5\u81EA\u5DF1\uFF1A\u81EA\u5DF1\u7684\u624B\u724C\u53CA\u5176\u4F7F\u7528\u3001\u6253\u51FA\u3001\u88AB\u987A\u8D70\u65F6\u6CBF\u7528\u6240\u9009\u5916\u89C2\uFF1B\u4ED6\u4EBA\u7684\u724C\u4FDD\u6301\u6E38\u620F\u5916\u89C2\u3002", options.append(help);
       for (let side of ["face", "back"]) {
+        let options2 = side === "face" ? faceOptions : backOptions, active = options2.getRootNode().activeElement, focused = options2.contains(active) ? active.dataset.cardStyle : void 0;
+        options2.replaceChildren();
         let label = doc.createElement("p");
-        label.textContent = side === "face" ? "\u5361\u9762" : "\u5361\u80CC", body.append(label);
+        label.textContent = side === "face" ? "\u5361\u9762" : "\u5361\u80CC", options2.append(label);
         let choices = doc.createElement("div");
-        choices.className = "card-style-choices", body.append(choices);
-        let option = (id, name, style2) => {
-          let b = doc.createElement("button");
-          if (b.type = "button", b.dataset.cardStyle = id, b.dataset.cardSide = side, b.setAttribute("aria-pressed", String((cardStyles?.list().some((item) => item.id === (cardStyles.selection?.[side] ?? cardStyles.current)) ? cardStyles.selection?.[side] ?? cardStyles.current : "") === id)), style2) {
+        choices.className = "card-style-choices", options2.append(choices);
+        let selectedId = cardStyles?.selection?.[side] ?? cardStyles?.current, selectedStyle = cardStyles?.styleFor?.(side) || cardStyles?.list().find((item) => item.id === selectedId), option = (id, name, style2) => {
+          let customActive = style2?.localFace && selectedStyle?.localFaceBackground, pressed = customActive || (selectedStyle?.id || "") === id, target = style2?.localFace && !pressed ? LOCAL_FACE_BACKGROUND_STYLE.id : customActive ? selectedId : id, b = doc.createElement("button");
+          if (b.type = "button", b.dataset.cardStyle = id, b.dataset.cardSide = side, b.setAttribute("aria-pressed", String(pressed)), style2 && !style2.localFace) {
             let previews = doc.createElement("span");
             previews.className = "card-style-preview";
             for (let back of [side === "back"]) {
@@ -35269,32 +39643,31 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             b.append(previews);
           }
           let text2 = doc.createElement("span");
-          text2.textContent = side === "back" && style2?.backName || name, b.append(text2), b.onclick = () => cardStyles?.selectSide(side, id), choices.append(b);
+          text2.textContent = side === "back" && style2?.backName || name, b.append(text2), b.onclick = () => cardStyles?.selectSide(side, target), choices.append(b), focused === id && b.focus({ preventScroll: !0 });
         };
-        option("", "\u8DDF\u968F\u6E38\u620F");
+        option("", "\u8DDF\u968F\u6E38\u620F"), side === "face" && localFaces && option(LOCAL_FACE_STYLE.id, LOCAL_FACE_STYLE.name, LOCAL_FACE_STYLE);
         for (let style2 of cardStyles?.list() || []) (side !== "back" || !style2.atlas || style2.atlas.backImage) && option(style2.id, style2.name, style2);
         if (side === "face") {
           let selected = cardStyles?.list().find((style2) => style2.id === cardStyles.selection?.face);
           if (selected?.atlas) {
             let source = doc.createElement("p");
-            source.className = "muted", source.textContent = selected.atlas.source, body.append(source);
+            source.className = "muted", source.textContent = selected.atlas.source, options2.append(source);
             let link = doc.createElement("a");
-            link.href = selected.atlas.index.url, link.target = "_blank", link.rel = "noopener noreferrer", link.textContent = "\u67E5\u770B\u56FE\u96C6\u6765\u6E90", body.append(link);
+            link.href = selected.atlas.index.url, link.target = "_blank", link.rel = "noopener noreferrer", link.textContent = "\u67E5\u770B\u56FE\u96C6\u6765\u6E90", options2.append(link);
             let note = doc.createElement("p");
-            if (note.className = "muted", note.textContent = "\u9996\u6B21\u9009\u62E9\u8054\u7F51\u52A0\u8F7D\u6574\u5957\u8D44\u6E90\u3002\u56FD\u6218\u3001\u9650\u65F6\u53CA\u6D3B\u52A8\u724C\u4EC5\u7CBE\u786E\u5339\u914D\u540C\u540D\u5361\u56FE\uFF1B\u7F3A\u5931\u3001\u7279\u6B8A\u6E32\u67D3\u6216\u4E0B\u8F7D\u5931\u8D25\u5747\u56DE\u9000\u6E38\u620F\u5916\u89C2\u3002", body.append(note), cardStyles.status?.includes("\u52A0\u8F7D\u5931\u8D25")) {
+            if (note.className = "muted", note.textContent = "\u9996\u6B21\u9009\u62E9\u8054\u7F51\u52A0\u8F7D\u6574\u5957\u8D44\u6E90\u3002\u56FD\u6218\u3001\u9650\u65F6\u53CA\u6D3B\u52A8\u724C\u4EC5\u7CBE\u786E\u5339\u914D\u540C\u540D\u5361\u56FE\uFF1B\u7F3A\u5931\u3001\u7279\u6B8A\u6E32\u67D3\u6216\u4E0B\u8F7D\u5931\u8D25\u5747\u56DE\u9000\u6E38\u620F\u5916\u89C2\u3002", options2.append(note), cardStyles.status?.startsWith("\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25")) {
               let retry = doc.createElement("button");
-              retry.type = "button", retry.textContent = "\u91CD\u65B0\u52A0\u8F7D\u5361\u9762", retry.onclick = () => cardStyles.retry(), body.append(retry);
+              retry.type = "button", retry.textContent = "\u91CD\u65B0\u52A0\u8F7D\u5361\u9762", retry.onclick = () => cardStyles.retry(), options2.append(retry);
             }
           }
         }
       }
-      let status = doc.createElement("p");
-      status.className = "muted", status.style.overflowWrap = "anywhere", status.setAttribute("role", "status"), status.textContent = cardStyles?.status || "\u5361\u724C\u63A5\u53E3\u7B49\u5F85\u542F\u52A8", /失败|未应用/.test(status.textContent) && (status.style.color = "var(--sgs-danger)"), body.append(status);
+      status.textContent = cardStyles?.status || "\u5361\u724C\u63A5\u53E3\u7B49\u5F85\u542F\u52A8", status.style.color = /失败|未应用/.test(status.textContent) ? "var(--sgs-danger)" : "";
     };
     render();
     let off = cardStyles?.subscribe(render);
     return () => {
-      off?.(), details.remove();
+      off?.(), catalog?.dispose(), localFaces?.dispose(), unmountLocal?.(), details.remove();
     };
   }
 
@@ -35992,13 +40365,15 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
 
   // src/shared/shanhe-scenes.js
-  var SHANHE_MAP_SCENES = /* @__PURE__ */ new Set(["RogueLikeBigMapScene", "RogueSmallMapScene"]);
+  var SHANHE_MAP_SCENES = /* @__PURE__ */ new Set(["RogueLikeBigMapScene", "RogueSmallMapScene"]), SHANHE_BATTLE_SCENE = "RogueLikeGameScene";
 
   // src/core/game-view.js
   function gameViewForScene(scene) {
-    return SHANHE_MAP_SCENES.has(scene?.SceneName || scene?.sceneName || scene?.name) ? "shanhe" : "battle";
+    let name = scene?.SceneName || scene?.sceneName || scene?.name;
+    return name === SHANHE_BATTLE_SCENE ? "shanhe-battle" : SHANHE_MAP_SCENES.has(name) ? "shanhe" : "battle";
   }
   function selectGamePanels(panels, view) {
+    if (view === "shanhe-battle") return panels;
     let selected = view === "shanhe" && panels.some((panel) => panel.gameView === "shanhe") ? "shanhe" : "battle";
     return panels.filter((panel) => !panel.gameView || panel.gameView === selected);
   }
@@ -36072,6 +40447,38 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .plugin-release-notes{margin:8px 0 0;min-width:0;color:var(--sgs-muted);font-size:11px}.plugin-release-notes summary{cursor:pointer;min-height:30px;padding:6px 2px;color:var(--sgs-text);overflow-wrap:anywhere}.plugin-release-notes summary:focus-visible,.plugin-release-notes-text:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px;border-radius:4px}.plugin-release-notes-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;padding:2px 6px 4px 8px;border-left:2px solid var(--sgs-border);max-height:160px;overflow:auto;scrollbar-width:thin}.plugin-update .plugin-release-notes summary{color:var(--sgs-accent)}
 .appearance-page .plugin-heading{margin:0}
 .management-tabs{position:sticky;top:-12px;z-index:8;background:var(--sgs-bg)!important;box-shadow:0 5px 8px var(--sgs-bg)!important}
+.custom-card-backs{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--sgs-border)}
+.custom-card-backs-heading{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 10px}
+.custom-card-backs-heading h4{margin:0;font-size:13px}
+.custom-card-backs-heading button{min-width:68px;min-height:34px;color:var(--sgs-accent)}
+.custom-card-back-list{display:grid;gap:6px;margin:0;padding:0;border:0;min-inline-size:0}
+.custom-card-back-row{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center}
+.custom-card-back-row .custom-card-back-option{display:flex;align-items:center;gap:8px;padding:4px 8px;min-width:0;text-align:left}
+.custom-card-back-option img{width:30px;height:auto;aspect-ratio:93/130;flex:none;border-radius:3px}
+.custom-card-back-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.custom-card-back-row .custom-card-back-option[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 2px 0 var(--sgs-accent);background:var(--sgs-raised)}
+.custom-card-back-selected{margin-left:auto;color:var(--sgs-accent)}
+.custom-card-back-row .custom-card-back-remove{display:grid;place-items:center;width:34px;height:36px;padding:0;color:var(--sgs-muted)}
+.custom-card-back-row .custom-card-back-remove:hover:not(:disabled){color:var(--sgs-danger);border-color:var(--sgs-danger)}
+.custom-card-backs .custom-card-back-error{color:var(--sgs-danger);overflow-wrap:anywhere}
+.custom-card-faces{margin-top:9px;padding:9px 0;border-bottom:1px solid var(--sgs-border)}
+.custom-card-face-fields{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+.custom-card-face-fields input[type=search]{grid-column:1/-1;width:100%}
+.custom-card-face-fields.is-background button{grid-column:2}
+.custom-card-face-fields .sgs-select,.custom-card-face-fields button{height:34px}
+.custom-card-face-fields button{color:var(--sgs-accent)}
+.card-face-catalog{margin:10px 0;padding:0 9px 4px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-surface)}
+.card-face-catalog[open]{padding-bottom:9px}
+.card-face-catalog .sgs-select,.card-face-catalog .sgs-input{width:100%;min-width:0;margin:0 0 6px}
+.card-face-catalog-preview{text-align:center}
+.card-face-catalog-preview canvas{display:block;width:min(135px,100%);height:auto;margin:4px auto;border-radius:8px;box-shadow:0 3px 12px #0005}
+.card-face-catalog .card-face-catalog-error{color:var(--sgs-danger);white-space:pre-wrap;overflow-wrap:anywhere}
+.custom-card-face-preview:not([hidden]){display:grid;grid-template-columns:34px minmax(0,1fr) 36px;gap:8px;align-items:center;margin-top:8px;color:var(--sgs-muted);font-size:11px}
+.custom-card-face-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.custom-card-face-preview img{width:34px;aspect-ratio:135/190;border-radius:3px}
+.custom-card-face-preview button{display:grid;place-items:center;padding:0;height:36px;color:var(--sgs-muted)}
+.custom-card-face-preview button:hover:not(:disabled){color:var(--sgs-danger);border-color:var(--sgs-danger)}
+.custom-card-faces .custom-card-face-error{color:var(--sgs-danger);overflow-wrap:anywhere}
 .card-style-workshop summary{cursor:pointer;color:var(--sgs-accent);padding:8px 0;font-size:12px;min-height:34px}.card-style-workshop summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}.card-style-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-style-choices button{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;font-size:11px}.card-style-choices button[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 3px 0 var(--sgs-accent);background:color-mix(in srgb,var(--sgs-accent) 12%,var(--sgs-surface))}.card-style-preview{display:flex;gap:4px;width:100%;justify-content:center}.card-style-preview canvas,.card-style-preview img{width:43%;max-width:64px;height:auto;aspect-ratio:93/130;border-radius:3px}.card-style-workshop p{margin:8px 0}
 
 .core-upgrade-actions{display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap}.core-upgrade-actions a{font-size:10px}.core-upgrade-refresh{display:inline-flex;align-items:center;gap:5px;flex:none;padding:5px;font-size:10px;color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 40%,var(--sgs-border));background:color-mix(in srgb,var(--sgs-accent) 8%,var(--sgs-surface))}.core-upgrade-reminder{margin-top:6px;padding-left:8px;border-left:2px solid var(--sgs-accent);font-size:11px;color:var(--sgs-muted);overflow-wrap:anywhere}
@@ -36085,6 +40492,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand strong{letter-spacing:1px;font-size:13px}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
 .nav{display:flex;gap:4px;padding:7px 9px;border-block:1px solid var(--sgs-border);background:var(--sgs-surface)}.nav button{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:0;height:42px;padding:0;border-color:transparent;background:transparent;overflow:hidden;transition:flex-grow var(--sgs-motion) cubic-bezier(.2,.8,.2,1),background var(--sgs-motion),gap var(--sgs-motion)}.nav button svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform var(--sgs-motion)}.nav button span{max-width:0;opacity:0;white-space:nowrap;overflow:hidden;transition:max-width var(--sgs-motion),opacity var(--sgs-motion)}.nav button[aria-selected=true]{color:var(--sgs-accent);background:var(--sgs-raised)}.nav:has(button:hover) button:not(:hover):not(:focus-visible) svg,.nav:has(button:focus-visible) button:not(:hover):not(:focus-visible) svg{transform:scale(.92)}.nav button:hover,.nav button:focus-visible{flex-grow:2.2;gap:5px;color:var(--sgs-accent);background:var(--sgs-raised)}.nav button:hover svg,.nav button:focus-visible svg{transform:scale(1.15)}.nav button:hover span,.nav button:focus-visible span{max-width:32px;opacity:1}
 .content{padding:12px;max-height:65vh;min-height:200px;overflow:auto;scrollbar-width:thin}.footer{display:flex;justify-content:space-between;border-top:1px solid var(--sgs-border);padding:7px 12px;color:var(--sgs-muted);font-size:10px}.footer button{padding:0;border:0;background:none;font-size:10px;color:var(--sgs-muted)}.empty{text-align:center;padding:35px 12px;color:var(--sgs-muted)}.empty svg{width:32px;height:32px;fill:none;stroke:var(--sgs-accent);stroke-width:1.2;margin-bottom:12px}.empty strong{display:block;color:var(--sgs-text);font-size:14px;margin-bottom:7px}.tabs{display:flex;gap:4px;margin-bottom:13px}.tabs button{flex:1;padding:5px 2px;font-size:12px}.tabs button.active{border-color:var(--sgs-accent);color:var(--sgs-accent)}h3{font-size:13px;margin:15px 0 7px}h3:first-child{margin-top:0}.card{padding:10px;border:1px solid var(--sgs-border);border-radius:8px;margin-bottom:8px;background:var(--sgs-surface)}.card .title{display:flex;justify-content:space-between;gap:5px}.muted{color:var(--sgs-muted);font-size:11px}.actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.actions button{font-size:11px;padding:4px 7px}.notice{color:var(--sgs-muted);font-size:11px;overflow-wrap:anywhere;padding:7px 0}.error{color:var(--sgs-danger)}label.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0}input[type=checkbox]{accent-color:var(--sgs-accent)}input.address{width:100%;font-size:11px}select{max-width:145px}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);max-width:80vw;background:var(--sgs-raised);color:var(--sgs-text);padding:10px 16px;border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 4px 20px #0008;z-index:2147483647}
+.toast[data-position=top]{top:22px;top:calc(22px + env(safe-area-inset-top, 0px));bottom:auto;box-sizing:border-box;max-width:min(36em,calc(100vw - 32px));text-align:center;overflow-wrap:anywhere;pointer-events:none}
 :host([data-collapsed]) .nav,:host([data-collapsed]) .content,:host([data-collapsed]) .status,:host([data-collapsed]) .footer{display:none}:host([data-collapsed]) .brand{display:none}
 .compact{display:none;align-items:center;height:38px;padding:0 7px 0 10px;cursor:grab;touch-action:none;white-space:nowrap;user-select:none;-webkit-user-select:none}.compact:active{cursor:grabbing}.compact .slash{display:flex;align-items:center;gap:9px;flex:1;min-width:0;height:100%;color:var(--sgs-accent)}.slash-seal{display:grid;place-items:center;flex:none;width:25px;height:27px;font:20px/1 "KaiTi","STKaiti","FangSong",serif;color:var(--sgs-accent);text-shadow:0 1px 1px #0009;background:radial-gradient(ellipse,color-mix(in srgb,var(--sgs-accent) 9%,transparent),transparent 72%)}.slash-reading{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:32px;height:34px}.slash-label{font:9px/10px var(--sgs-font);letter-spacing:1px;color:var(--sgs-muted)}.compact [data-slash]{font:600 21px/23px "Cambria","Georgia",serif;font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--sgs-accent) 42%,var(--sgs-text));text-shadow:0 1px 2px #0008;letter-spacing:.3px}.compact[data-count-state="empty"] [data-slash]{color:var(--sgs-muted)}.compact[data-count-state="unknown"] [data-slash]{color:var(--sgs-muted);font-size:19px}.compact[data-count-state="unlimited"] [data-slash]{font-size:24px}.compact[data-count-size="long"] [data-slash]{font-size:15px;letter-spacing:0}.compact-actions{display:flex;align-items:center;gap:1px;padding-left:6px;margin-left:6px;position:relative}.compact-actions::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:1px;background:linear-gradient(transparent,color-mix(in srgb,var(--sgs-accent) 30%,transparent),transparent)}.compact button{display:grid;place-items:center;flex:none;width:28px;height:30px;padding:5px;border:0;border-radius:7px;background:transparent;color:var(--sgs-muted);box-shadow:none;transition:background 140ms,color 140ms,transform 140ms}.compact button:hover{color:var(--sgs-text);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 13%,transparent),color-mix(in srgb,var(--sgs-accent) 4%,transparent))}.compact button:active{transform:translateY(1px);background:color-mix(in srgb,var(--sgs-accent) 15%,transparent)}.compact button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:-2px;background:color-mix(in srgb,var(--sgs-accent) 9%,transparent)}.compact svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.compact [data-expand] svg{width:16px;height:16px}
 :host([data-collapsed]){width:156px!important;min-width:156px;max-width:156px}:host([data-collapsed]) .shell{position:relative;width:100%!important;max-width:100%;min-width:0;resize:none;border:1px solid color-mix(in srgb,var(--sgs-border) 65%,transparent);border-radius:11px;background:linear-gradient(165deg,var(--sgs-raised) 0%,var(--sgs-bg) 40%,color-mix(in srgb,var(--sgs-bg) 82%,#000) 100%);box-shadow:0 3px 8px #0004,0 12px 28px #0002,inset 0 1px color-mix(in srgb,var(--sgs-text) 9%,transparent),inset 0 -1px #0005}:host([data-collapsed]) .shell::before{content:'';position:absolute;pointer-events:none;top:0;left:15px;right:15px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--sgs-accent) 40%,transparent),transparent)}:host([data-collapsed]) .compact{display:flex}
@@ -36109,7 +40517,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
 ${FEEDBACK_STYLES}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
-  function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount }) {
+  function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount, canReserveGameViewport }) {
     let microUpdate = null, microUpdateBusy = !1, microUpdateError = "";
     async function runMicroUpdate(action) {
       microUpdateBusy = !0, microUpdateError = "", render();
@@ -36182,10 +40590,12 @@ ${FEEDBACK_STYLES}
         }
       }), n;
     };
-    function notify(message) {
+    function notify(message, options) {
       shadow.querySelector(".toast")?.remove(), clearTimeout(toastTimer);
       let n = el("div", message, "toast");
-      n.setAttribute("role", "status"), shadow.append(n), toastTimer = setTimeout(() => n.remove(), 6e3);
+      return options?.position === "top" && (n.dataset.position = "top"), n.setAttribute("role", "status"), shadow.append(n), toastTimer = setTimeout(() => n.remove(), 6e3), () => {
+        n.parentNode && (clearTimeout(toastTimer), n.remove());
+      };
     }
     function empty(title, text2, icon2 = active) {
       let n = el("div", void 0, "empty");
@@ -36739,8 +41149,30 @@ ${FEEDBACK_STYLES}
         return;
       }
       content.classList.add("has-plugin-panels");
-      let groups = /* @__PURE__ */ new Map();
+      let groups = /* @__PURE__ */ new Map(), tabHosts = /* @__PURE__ */ new Map();
+      for (let panel of available)
+        panel.groupTabs && !tabHosts.has(panel.pluginId) && tabHosts.set(panel.pluginId, panel);
+      let appendPanel = (panel, body) => {
+        let section = el("section");
+        section.dataset.panelId = panel.id, body.append(section);
+        let groupTabs = (tabHosts.get(panel.pluginId) === panel ? available.filter((child) => child.groupTab && child.groupWith === panel.pluginId) : []).map((child) => {
+          let mounted;
+          return { id: child.id, title: child.title, mount(target) {
+            if (!content.contains(section) || !section.contains(target) || target === section)
+              throw new Error("\u7EC4\u5185\u9875\u7B7E\u5FC5\u987B\u6302\u8F7D\u5728\u672C\u9762\u677F\u7684\u5185\u5BB9\u5BB9\u5668\u4E2D\u3002");
+            return mounted ??= appendPanel(child, target);
+          } };
+        });
+        try {
+          let clean2 = panel.render(section, { groupTabs });
+          typeof clean2 == "function" && cleanups.push(clean2);
+        } catch (e) {
+          section.append(el("div", "\u9762\u677F\u52A0\u8F7D\u5931\u8D25\uFF1A" + userErrorMessage(e), "error"));
+        }
+        return section;
+      };
       for (let panel of available) {
+        if (panel.groupWith) continue;
         let id = panel.pluginId || panel.id, body = groups.get(id);
         if (!body) {
           let title = panel.pluginName || panel.title || id, group = el("section", void 0, "plugin-group");
@@ -36760,14 +41192,12 @@ ${FEEDBACK_STYLES}
             settings.set(`pluginCollapsed:${id}`, !1), apply(!1);
           }, heading.append(toggle), group.append(heading, body), content.append(group), groups.set(id, body);
         }
-        let section = el("section");
-        section.dataset.panelId = panel.id, body.append(section);
-        try {
-          let clean2 = panel.render(section);
-          typeof clean2 == "function" && cleanups.push(clean2);
-        } catch (e) {
-          section.append(el("div", "\u9762\u677F\u52A0\u8F7D\u5931\u8D25\uFF1A" + userErrorMessage(e), "error"));
-        }
+        appendPanel(panel, body);
+      }
+      for (let panel of available) {
+        if (panel.groupTab && tabHosts.has(panel.groupWith)) continue;
+        let body = panel.groupWith && groups.get(panel.groupWith);
+        body && appendPanel(panel, body);
       }
       restoreScroll();
     }
@@ -36817,7 +41247,7 @@ ${FEEDBACK_STYLES}
     let edgeBehavior = () => {
       let value = settings.get("hudEdgeBehavior", "fixed");
       return mobileDevice() ? value === "none" ? "none" : "hide" : ["none", "hide", "fixed"].includes(value) ? value : "fixed";
-    }, gameViewport = createGameViewport({ window: win, document: doc, scope }), syncGameViewport = () => gameViewport.reserve(host.hasAttribute("data-edge-fixed") ? host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280 : 0), edgeHideTimer, draggingHUD = !1, revealEdge = () => {
+    }, gameViewport = createGameViewport({ window: win, document: doc, scope, canReserve: canReserveGameViewport }), syncGameViewport = () => gameViewport.reserve(host.hasAttribute("data-edge-fixed") ? host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280 : 0), edgeHideTimer, draggingHUD = !1, revealEdge = () => {
       clearTimeout(edgeHideTimer), host.removeAttribute("data-edge-hidden");
     }, hasKeyboardFocus = () => host.matches(":focus-visible") || !!shadow.activeElement?.matches(":focus-visible"), hideEdge = () => {
       clearTimeout(edgeHideTimer), !(!host.hasAttribute("data-edge-docked") || host.hasAttribute("data-edge-fixed") || draggingHUD || hasKeyboardFocus()) && (edgeHideTimer = setTimeout(() => {
@@ -36927,7 +41357,7 @@ ${FEEDBACK_STYLES}
       }
     }
     return render(), { host, shadow, setCompactSummary, notify, showLegacyWarning, render, setGameView(value) {
-      let next = value === "shanhe" ? "shanhe" : "battle";
+      let next = value === "shanhe" || value === "shanhe-battle" ? value : "battle";
       next !== gameView && (gameView = next, active === "game" && render());
     }, setRemainingSlash(value) {
       let known = Number.isFinite(value), text2 = value === 1 / 0 ? "\u221E" : known ? String(value) : "\u2014", compact = shadow.querySelector(".compact"), count = shadow.querySelector("[data-slash]");
@@ -36992,7 +41422,14 @@ ${FEEDBACK_STYLES}
     installTouchPreview(win, scope), !1;
     let onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
     Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
-    let game = createGameAdapter(win, scope), shell = createShell({ window: win, document: win.document, settings, scope, getFeedbackAccount: () => account({ game }) }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope });
+    let game = createGameAdapter(win, scope), shell = createShell({
+      window: win,
+      document: win.document,
+      settings,
+      scope,
+      getFeedbackAccount: () => account({ game }),
+      canReserveGameViewport: () => !!!1 || game.canReserveViewport()
+    }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope });
     scope.add(game.onSceneChange((scene) => shell.setGameView(gameViewForScene(scene)))), shell.setGameView(gameViewForScene(game.getScene()));
     let screenshot = createScreenshotController({ window: win, game, settings, scope, notify: shell.notify }), bridge = installMessageBridge(win, journal, scope, (message) => shell.setStatus(message), {
       getTargets: game.getMessageTargets,
@@ -37028,6 +41465,7 @@ ${FEEDBACK_STYLES}
       effects: REPLACED_EFFECT_PACKAGES,
       skins: REPLACED_SKIN_PACKAGES,
       shanhetu: REPLACED_SHANHETU_PACKAGES,
+      "shanhetu-beta": REPLACED_SHANHETU_BETA_PACKAGES,
       themes: REPLACED_THEME_PACKAGES,
       baisheng: REPLACED_BAISHENG_PACKAGES,
       appearances: REPLACED_APPEARANCE_PACKAGES

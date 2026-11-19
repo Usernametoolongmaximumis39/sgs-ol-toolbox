@@ -79,6 +79,23 @@ function setup() {
     get overlay() { return document.querySelector('[data-sgs-cards-overlay]')?.shadowRoot; } };
 }
 
+function controlDeckTimer(window) {
+  const setTimeout = window.setTimeout.bind(window), clearTimeout = window.clearTimeout.bind(window);
+  const pending = new Map();
+  let next = 0;
+  window.setTimeout = (callback, delay, ...args) => {
+    if (delay !== 250) return setTimeout(callback, delay, ...args);
+    const id = --next;
+    pending.set(id, () => callback(...args));
+    return id;
+  };
+  window.clearTimeout = id => id < 0 ? pending.delete(id) : clearTimeout(id);
+  return {
+    get count() { return pending.size; },
+    flush() { for (const [id, run] of [...pending]) { pending.delete(id); run(); } },
+  };
+}
+
 test('inactive native card overlays never discover seats or classes during loading and lobby ticks', () => {
   const dom = new JSDOM('<!doctype html><body><main></main></body>', { url: 'https://web.sanguosha.com/' });
   const { window } = dom, scope = new ResourceScope(), reads = [];
@@ -335,6 +352,7 @@ test('hidden deals never paint broad candidate badges over portraits or list the
 
 test('deck catalog expands categories and pins them without persisting or carrying pins to a new game', () => {
   const env=setup();
+  const timer = controlDeckTimer(env.window);
   try {
     env.activate(); env.send('MsgGamePlayCardNtf',{CardList:[1,2,3]});
     const section=[...env.document.querySelectorAll('.sgs-card-section')].find(node=>node.querySelector('h3')?.textContent==='牌堆结构');
@@ -345,6 +363,7 @@ test('deck catalog expands categories and pins them without persisting or carryi
     assert.equal(section.querySelector('tbody tr').dataset.cardCategory,'name:闪');
     assert.equal(env.settings.get('pinnedDeckRows'),undefined);
     env.send('PubGsCUseCard',{SeatID:1,CardID:2});
+    timer.flush();
     assert.equal(section.querySelector('tbody tr td:nth-child(2)').textContent,'0/1');
     assert.ok(section.querySelector('.sgs-card-catalog-item.is-seen .sgs-card-mini'));
     assert.equal(section.querySelector('.sgs-card-catalog-item small'), null);
@@ -377,6 +396,48 @@ test('type, suit and number sorting use native card objects and preserve selecte
     assert.equal(env.layouts, before);
     env.self.sortCardBtn.enabled = false;
     assert.equal(sortHand(env.game, 'number'), false);
+  } finally { env.close(); }
+});
+
+test('deck statistics coalesce changes, reuse metadata and skip hidden unpinned views', async () => {
+  const env = setup(), timer = controlDeckTimer(env.window);
+  const container = env.document.querySelector('main');
+  container.classList.add('plugin-body');
+  container.hidden = true;
+  const lookups = [];
+  const getMeta = env.game.getCardMeta;
+  env.game.getCardMeta = id => { lookups.push(id); return getMeta(id); };
+  try {
+    env.send('MsgGamePlayCardNtf', { CardList: [1, 2, 3] });
+    env.activate();
+    const summary = env.document.querySelector('.sgs-card-deck-summary');
+    const play = id => env.send('PubGsCUseCard', { SeatID: 1, CardID: id });
+    play(1);
+    assert.equal(timer.count, 0);
+    assert.deepEqual(lookups, []);
+
+    container.hidden = false;
+    await Promise.resolve();
+    assert.match(summary.textContent, /已见 1 · 开局 3/);
+    assert.deepEqual(lookups, [1, 2, 3]);
+    play(2); play(3);
+    assert.equal(timer.count, 1);
+    assert.equal(env.state.cards[3].seen, true);
+    assert.match(summary.textContent, /已见 1/);
+    timer.flush();
+    assert.match(summary.textContent, /已见 3/);
+    assert.deepEqual(lookups, [1, 2, 3]);
+    const table = env.document.querySelector('.sgs-card-composition');
+    play(3); timer.flush();
+    assert.equal(env.document.querySelector('.sgs-card-composition'), table);
+
+    env.document.querySelector('.sgs-card-controls button:nth-child(2)').click();
+    assert.match(env.document.querySelector('.sgs-card-composition th').textContent, /花色/);
+    assert.deepEqual(lookups, [1, 2, 3]);
+    env.send('toolbox:gap', { reason: '测试消息缺口' });
+    assert.equal(timer.count, 1);
+    env.stop();
+    assert.equal(timer.count, 0);
   } finally { env.close(); }
 });
 
@@ -525,11 +586,13 @@ test('sort controls use the hand area above the left side and follow canvas scal
     const bar = env.container.getChildByName('sgs-toolbox-hand-sort');
     assert.equal(env.overlay.querySelector('.sgs-card-sortbar'), null, 'no HTML control above the game canvas');
     assert.equal(bar.visible, true);
-    assert.equal(bar.x, 233); assert.equal(bar.y, -16);
+    assert.equal(bar.x, 233); assert.equal(bar.y, -22);
     assert.equal(bar.getChildByName('number')._children[0].fontSize, 12);
-    assert.deepEqual(handSortAnchor(env.window, env.self), { x: 233, y: 464 });
+    assert.deepEqual(handSortAnchor(env.window, env.self), { x: 233, y: 458 });
     env.document.querySelector('canvas').getBoundingClientRect = () => ({ left: 30, top: 20, width: 800, height: 560 });
-    assert.deepEqual(handSortAnchor(env.window, env.self), { x: 216.4, y: 391.2 });
+    const scaled = handSortAnchor(env.window, env.self);
+    assert.equal(scaled.x, 216.4);
+    assert.ok(Math.abs(scaled.y - 386.4) < .01);
     env.container.parent = null;
     assert.equal(handSortAnchor(env.window, env.self), null, 'never anchor a detached hand controller');
   } finally { env.close(); }
@@ -542,11 +605,11 @@ test('sort controls clamp old offsets to the hand band and visible canvas', () =
     env.activate();
     const bar = env.container.getChildByName('sgs-toolbox-hand-sort');
     assert.deepEqual(bar._children.filter(child => ['spacing', 'type', 'suit', 'number'].includes(child.name)).map(child => child.name), ['spacing', 'type', 'suit', 'number']); assert.equal(bar.getChildByName('drag'), undefined);
-    assert.equal(bar.x, 347); assert.equal(bar.y, -40);
+    assert.equal(bar.x, 347); assert.equal(bar.y, -46);
     env.window.innerWidth = 340;
     env.send('MsgGameTurnNtf', { SeatID: 1 });
     assert.equal(bar.x, 200); assert.ok(bar.x + bar.width < 340);
-    assert.equal(bar.y, -40);
+    assert.equal(bar.y, -46);
   } finally { env.close(); }
 });
 

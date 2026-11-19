@@ -83,6 +83,7 @@ test('gaizhu: invalid mode or nonmaster fails before point, AI, start and config
     if (invalid === 'unknown') f.ctx.game.getClass = () => null;
     f.controller.setOptions({ role: 'host' }); f.advance();
     assert.equal(f.controller.snapshot().role, 'off'); assert.ok(f.controller.snapshot().error);
+    assert.equal(f.controller.snapshot().retryRole, undefined);
     assert.deepEqual(f.calls, []);
   }
 });
@@ -100,6 +101,72 @@ test('gaizhu: room correction submits once and blocks gameplay until server conf
   assert.equal(rc.TableSetting.Password, '1', 'local state is not a server acknowledgement');
   events.get('MODIFY_TABLE_EVENT')(); f.advance();
   assert.ok(f.calls.some(call => Array.isArray(call) && call[0] === 'point')); assert.equal(events.size, 0);
+});
+
+test('gaizhu: failed room correction stops and requires an explicit restart after three seconds', t => {
+  for (const role of ['host', 'auto']) {
+    const f = fixture(t), rule = f.room.startUI.rc.TableSetting;
+    rule.Password = ''; rule.CanDianJiang = false;
+    f.controller.setOptions({ role });
+    const stopped = f.controller.snapshot();
+    assert.equal(stopped.role, 'off'); assert.equal(stopped.retryRole, role); assert.equal(stopped.retrySeconds, 3);
+    assert.match(stopped.status, /密码.*自选身份.*允许点将.*手牌构筑/);
+    assert.match(stopped.error, /提交接口不可用/);
+    assert.deepEqual(f.errors.filter(Boolean), [], 'room settings notice does not trigger plugin recovery');
+    f.advance(2999);
+    f.controller.setOptions({ role, force: true });
+    assert.equal(f.controller.snapshot().role, 'off');
+    f.advance(1);
+    assert.equal(f.controller.snapshot().retrySeconds, 0);
+    assert.deepEqual(f.calls, [], 'cooldown expiry never starts gameplay');
+
+    if (role === 'auto') rule.Password = '0042';
+    f.controller.setOptions({ role, force: true }); f.advance();
+    const started = f.controller.snapshot();
+    assert.equal(started.role, role); assert.equal(started.retryRole, undefined);
+    assert.equal(started.roomPassword, role === 'auto' ? '0042' : '');
+    assert.match(started.log.join('\n'), /强制开始/);
+    assert.equal(rule.CanDianJiang, false);
+    f.controller.setOptions({ role: 'off' });
+    f.controller.setOptions({ role });
+    assert.equal(f.controller.snapshot().retrySeconds, 3, 'force permission is consumed by one start');
+  }
+});
+
+test('gaizhu: room retry cannot be carried to a different room, owner or account', t => {
+  for (const change of ['scene', 'room-id', 'master', 'account']) {
+    const f = fixture(t), rc = f.room.startUI.rc;
+    rc.TableSetting.Password = '';
+    f.controller.setOptions({ role: 'host' });
+    f.advance(3000);
+    if (change === 'scene') f.scene({ ...f.room });
+    if (change === 'room-id') rc.TableSetting.TableID++;
+    if (change === 'master') rc.MasterIsSelf = false;
+    if (change === 'account') f.account('42');
+    f.controller.setOptions({ role: 'host', force: true });
+    assert.equal(f.controller.snapshot().retryRole, undefined);
+    assert.equal(f.controller.snapshot().role, 'off');
+    assert.deepEqual(f.calls, []);
+  }
+});
+
+test('gaizhu: an exception during room correction releases listeners and offers a manual restart', t => {
+  for (const failure of ['listen', 'submit']) {
+    const f = fixture(t), rc = f.room.startUI.rc, events = new Map();
+    rc.TableSetting.Password = '';
+    rc.on = (name, caller, fn) => {
+      events.set(name, fn);
+      if (failure === 'listen' && name === 'REFRESH_RULE_UI') throw new Error('绑定房间事件失败');
+    };
+    rc.off = name => events.delete(name);
+    f.ctx.game.getServerProxy().L = () => { throw new Error('提交房间设置失败'); };
+    f.controller.setOptions({ role: 'host' });
+    assert.equal(f.controller.snapshot().role, 'off');
+    assert.equal(f.controller.snapshot().retryRole, 'host');
+    assert.match(f.controller.snapshot().error, /失败/);
+    assert.equal(events.size, 0);
+    assert.deepEqual(f.calls, []);
+  }
 });
 
 test('gaizhu: stopping settings releases confirmation listeners and never performs gameplay', t => {
@@ -144,10 +211,12 @@ test('gaizhu: rejected settings wait five seconds and retry the same password, a
         assert.ok(f.calls.some(call => Array.isArray(call) && call[0] === 'point'));
       } else if (outcome === 'timeout') {
         f.advance(6000); assert.match(f.controller.snapshot().error, /超时/);
+        assert.equal(f.controller.snapshot().retryRole, 'host');
       } else {
         events.get('REFRESH_RULE_UI')(); f.advance(5000); assert.equal(packets.length, 3);
         events.get('REFRESH_RULE_UI')(); f.advance(10000);
         assert.equal(packets.length, 3); assert.match(f.controller.snapshot().error, /连续3次/);
+        assert.equal(f.controller.snapshot().retryRole, 'host');
       }
     }
     assert.equal(events.size, 0);
@@ -209,6 +278,21 @@ test('gaizhu: rebel off prepares once and never points; trustee waits20 seconds 
   f.scene(f.game); f.advance(); f.advance(19999); assert.equal(f.calls.includes('trustee'), false);
   f.advance(1); assert.equal(f.calls.filter(x => x === 'trustee').length, 1); f.advance(3000); assert.equal(f.calls.filter(x => x === 'trustee').length, 1);
 });
+test('gaizhu: paired rebel asks to switch modules when the account is host or enters training', t => {
+  const host = fixture(t);
+  host.controller.setOptions({ role: 'rebel', pick: 'order' });
+  assert.equal(host.controller.snapshot().role, 'off');
+  assert.match(host.controller.snapshot().status, /房主.*自动挂机.*身份/);
+  assert.deepEqual(host.calls, []);
+
+  const training = fixture(t), original = training.ctx.game.getClass;
+  training.ctx.game.getClass = name => name === 'GameContext' ? { GetModeVO: () => ({ ModeID: 160, Section: 3 }) } : original(name);
+  training.scene(training.game);
+  training.controller.setOptions({ role: 'rebel' });
+  assert.equal(training.controller.snapshot().role, 'off');
+  assert.match(training.controller.snapshot().status, /单骑.*自动挂机.*单骑/);
+  assert.deepEqual(training.calls, []);
+});
 test('gaizhu: anonymous mulligan bar extends guard and explicit rebel cancel remains available', t => {
   const f = fixture(t); f.rebel(); f.scene(f.game); f.controller.setOptions({ role: 'rebel' });
   f.advance(19999); const bar = f.game.SelfSeatUi.buttonBar;
@@ -253,6 +337,22 @@ test('gaizhu: account changes and disposal invalidate pending configuration and 
   f.account('42'); f.advance(); const total = f.calls.length; resolve({}); await flush(); f.advance(100000);
   assert.equal(f.controller.snapshot().role, 'off'); assert.equal(f.calls.length, total);
   f.scope.dispose(); assert.equal([...f.handlers.values()].reduce((sum, entries) => sum + entries.size, 0), 0);
+});
+
+test('gaizhu: reconnecting on the same proxy cancels pending work before another heartbeat', async t => {
+  for (const how of ['connection id', 'socket close event']) {
+    const f = fixture(t), proxy = f.ctx.game.getServerProxy();
+    proxy.ConnId = 1; proxy.ConnectedSucess1 = true;
+    f.controller.setOptions({ role: 'host' });
+    if (how === 'connection id') proxy.ConnId = 2;
+    else { f.emit('close', {}); await flush(); }
+    const calls = f.calls.length;
+    f.advance(1500);
+    assert.equal(f.controller.snapshot().role, 'off');
+    assert.match(f.controller.snapshot().status, /连接已断开/);
+    assert.equal(f.djHandlers.size, 0);
+    assert.equal(f.calls.length, calls);
+  }
 });
 test('gaizhu: native hidden ancestors and disabled controls cannot be selected; bounded walks do not read arbitrary getters', () => {
   assert.equal(usable({ parent: { visible: false } }), false); assert.equal(usable({ _enabled: false }), false);
@@ -450,21 +550,27 @@ test('gaizhu: official self-seat Pt without legacy buttonBar cancels screenshot 
   self.Pt.visible = cancel.enabled = true; f.advance(); assert.equal(submitted, 1);
 });
 
-test('gaizhu: official Pt takes precedence over stale legacy alias and handles hand-card refusal', t => {
+test('gaizhu: current native bar takes precedence over stale aliases and handles hand-card refusal', t => {
   const f = fixture(t); f.scene(f.game);
   const self = f.game.SelfSeatUi;
   self.buttonBar = { visible: true, btns: [], txtOptMsg: { _innerHTML: '旧文本' } };
   self.Pt = { visible: true, txtOptMsg: { _innerHTML: '是否更换手牌？' },
-    btns: [{ label: '不使用', onClick() { f.calls.push('pt-decline'); self.Pt.visible = false; } },
+    btns: [{ label: '不使用', onClick() { f.calls.push('stale-decline'); } }] };
+  self.Ai = { visible: true, txtOptMsg: { _innerHTML: '是否更换手牌？' },
+    btns: [{ label: '不使用', onClick() { f.calls.push('native-decline'); self.Ai.visible = false; } },
       { label: '使用', onClick() { assert.fail('must not use mulligan'); } }] };
+  self.getButtonBar = function () { return this.Ai; };
   f.controller.setOptions({ role: 'host' });
-  assert.ok(f.calls.includes('pt-decline')); assert.equal(f.calls.includes('kurou'), false);
+  assert.ok(f.calls.includes('native-decline')); assert.equal(f.calls.includes('kurou'), false);
+  f.advance();
+  assert.equal(f.calls.filter(call => call === 'native-decline').length, 1);
+  assert.equal(f.calls.includes('stale-decline'), false, 'hiding the current bar must not reactivate a stale alias');
 });
 
 
-test('gaizhu: rebel host fills AI and starts without forcing Huang Gai; assistant receives first opportunity before fallback', t => {
+test('gaizhu: identity auto farm fills AI and starts without forcing Huang Gai; assistant receives first opportunity before fallback', t => {
   const f = fixture(t);
-  f.controller.setOptions({ role: 'rebel', pick: 'off' });
+  f.controller.setOptions({ role: 'auto', pick: 'off' });
   f.advance(); f.advance(2000);
   assert.equal(f.controller.snapshot().solo, true);
   assert.ok(f.calls.includes('ai')); assert.ok(f.calls.includes('start'));
@@ -483,6 +589,214 @@ test('gaizhu: rebel host fills AI and starts without forcing Huang Gai; assistan
   f.advance(); assert.equal(hinted, 1);
 });
 
+test('gaizhu: solo fills every other rebel seat with the best unlocked AI, including from seats 5–8', t => {
+  for (const selfSeat of [4, 5, 6, 7]) {
+    const f = fixture(t), kingUnlocked = selfSeat % 2 === 0;
+    const seats = Array.from({ length: 8 }, (_, SeatId) => ({ SeatId, SeatStatus: 0,
+      WaitInfo: SeatId === selfSeat ? { clientId: '41', isMaster: true } : null })).reverse();
+    f.room.addAiBtn.onClick = () => assert.fail('solo seat controls must avoid bulk fill');
+    f.room.seatListView = { seatList: seats,
+      showBtns(seat) {
+        this.currentSeat = seat;
+        this.addAiBtn = { visible: true };
+        this.addAiMBtn = { visible: true };
+        this.addAiSBtn = { visible: kingUnlocked };
+      },
+      addAiHandler(tier, seat) {
+        assert.equal(this.currentSeat, seat);
+        assert.equal(seat.WaitInfo, null);
+        f.calls.push(['seat-ai', seat.SeatId, tier]);
+        seat.WaitInfo = { clientId: 900 + seat.SeatId };
+      },
+    };
+    f.controller.setOptions({ role: 'auto' });
+    for (let i = 0; i < 7; i++) f.advance(1200);
+    const added = f.calls.filter(call => call[0] === 'seat-ai').sort((a, b) => a[1] - b[1]);
+    assert.deepEqual(added, Array.from({ length: 8 }, (_, id) => id).filter(id => id !== selfSeat)
+      .map(id => ['seat-ai', id, id < 4 ? 1 : kingUnlocked ? 3 : 2]));
+    assert.equal(f.calls.at(-1), 'start');
+  }
+});
+
+test('gaizhu: solo retries a failed seat independently after filling the other seats', t => {
+  const f = fixture(t), view = f.room.seatListView, added = [];
+  const seats = Array.from({ length: 8 }, (_, SeatId) => ({ SeatId, SeatStatus: 0,
+    WaitInfo: SeatId === 5 ? { clientId: '41', isMaster: true } : null }));
+  view.seatList = seats;
+  view.showBtns = function (seat) {
+    this.currentSeat = seat;
+    this.addAiBtn = this.addAiSBtn = { visible: true };
+  };
+  let failures = 0;
+  view.addAiHandler = (type, seat) => {
+    assert.equal(seat.WaitInfo, null);
+    added.push([seat.SeatId, type]);
+    if (seat.SeatId === 0) {
+      if (++failures === 1) throw new Error('客户端暂时无法添加');
+      if (failures <= 6) return;
+    }
+    seat.WaitInfo = { clientId: 900 + seat.SeatId };
+  };
+  f.controller.setOptions({ role: 'auto', pick: 'off' });
+  assert.match(f.controller.snapshot().status, /1号位.*等待重试/);
+  f.advance(1199);
+  assert.equal(added.length, 1, 'allow time for an entry to reach the seat list');
+  f.advance(1);
+  for (let i = 0; i < 10; i++) f.advance(1200);
+  assert.deepEqual(added.slice(0, 7), [[0, 1], [1, 1], [2, 1], [3, 1], [4, 3], [6, 3], [7, 3]]);
+  assert.equal(f.calls.includes('start'), false);
+  f.advance(1200); f.advance();
+  assert.equal(added.length, 13);
+  assert.ok(f.calls.includes('start'));
+  assert.equal(f.controller.snapshot().error, '');
+});
+
+test('gaizhu: solo stops with the affected position when a seat never fills', t => {
+  const f = fixture(t), view = f.room.seatListView;
+  view.showBtns = function (seat) { this.currentSeat = seat; this.addAiBtn = { visible: true }; };
+  view.addAiHandler = () => f.calls.push('seat-ai');
+  f.controller.setOptions({ role: 'auto', pick: 'off' });
+  for (let i = 0; i < 16; i++) f.advance(1200);
+  assert.equal(f.calls.filter(call => call === 'seat-ai').length, 12);
+  assert.equal(f.calls.includes('start'), false);
+  assert.equal(f.controller.snapshot().role, 'off');
+  assert.match(f.controller.snapshot().error, /2号位添加小杀重试后仍未入座/);
+});
+
+test('gaizhu: solo retries a failed bulk confirmation while the add button is covered', t => {
+  const f = fixture(t), button = f.room.addAiBtn;
+  let confirmations = 0;
+  const prompt = { visible: false, parent: f.room, confirmData: { clickClose: true, buttonArr: [
+    { label: '小杀（普通）', callBack() {
+      f.calls.push('ai-confirm');
+      if (++confirmations === 1) throw new Error('确认失败');
+      f.room.seatListView.seatList[1].waitInfo = { clientId: 900 };
+    } },
+  ] }, RemoveFromParent() { this.visible = false; button.enabled = true; } };
+  f.room._children.push(prompt);
+  button.onClick = () => { f.calls.push('ai'); prompt.visible = true; button.enabled = false; };
+  f.controller.setOptions({ role: 'auto', pick: 'off' });
+  f.advance();
+  assert.equal(f.calls.filter(call => call === 'ai-confirm').length, 1);
+  assert.match(f.controller.snapshot().status, /添加普通小杀失败.*等待重试/);
+  f.advance(1199);
+  assert.equal(f.calls.filter(call => call === 'ai-confirm').length, 1);
+  assert.equal(f.calls.includes('start'), false);
+  f.advance(1); f.advance();
+  assert.deepEqual(f.calls.filter(call => typeof call === 'string'), ['ai', 'ai-confirm', 'ai-confirm', 'start']);
+});
+
+test('gaizhu: deadline at the first observed game frame still finishes the admitted round', async t => {
+  const f = fixture(t);
+  f.controller.setOptions({ role: 'auto', stopMode: 'timed', stopHours: 0.001 });
+  f.advance();
+  const starts = f.calls.filter(call => call === 'start').length;
+  assert.equal(starts, 1);
+  f.scene(f.game);
+  f.advance(3350);
+  assert.equal(f.controller.snapshot().role, 'auto');
+  assert.equal(f.controller.snapshot().stopAfterRound, true);
+  f.game._children = [{ text: '点击空白处继续', onClick() { f.calls.push('continue'); f.scene(f.room); } }];
+  f.emit('MsgGameOver', {});
+  await flush();
+  f.advance(1200); f.advance(3000);
+  assert.equal(f.controller.snapshot().role, 'off');
+  assert.equal(f.controller.snapshot().rounds, 1);
+  assert.equal(f.calls.filter(call => call === 'continue').length, 1);
+  assert.equal(f.calls.filter(call => call === 'start').length, starts);
+});
+
+test('gaizhu: solo without point cards selects the highest quality confirmed unfinished general', async t => {
+  const f = fixture(t);
+  const defs = f.ctx.game.getConfigData('gn_gs_ahievement').AchievementAll.Achievement;
+  defs.push({ Id: 40, characterId: 4, flags: 2048, CriteriaEntry: [{ Id: 400, count: 100 }] },
+    { Id: 50, characterId: 5, flags: 2048, CriteriaEntry: [{ Id: 500, count: 100 }] });
+  f.controller.setOptions({ role: 'auto' });
+  const picked = [];
+  const card = (itemId, quality, CanSelect = true) => ({ generalInfo: { itemId, quality }, CanSelect,
+    sureBtnClick() { picked.push(itemId); win.visible = false; } });
+  const win = { name: 'SelectGeneralWindow', generalUis: [card(2, 2), card(3, 4), card(4, 8), card(5, 9, false)] };
+  f.game._children.push(win); f.scene(f.game); f.advance(3500);
+  assert.deepEqual(picked, []);
+  f.emit('ClientDbsGetuserachinfoRep', { requestType: 0, NickName: '演练', Achs: [
+    { id: 200, type: 2, detailInfo: 99 }, { id: 300, type: 2, detailInfo: 1 }, { id: 40, type: 1, detailInfo: 10 },
+  ] });
+  await flush(); f.advance();
+  assert.deepEqual(picked, [3]);
+});
+
+test('gaizhu: only confirmed unfinished candidates are selected in solo, paired ordering is retained', async t => {
+  for (const solo of [false, true]) {
+    const f = fixture(t); if (!solo) f.rebel();
+    f.controller.setOptions({ role: solo ? 'auto' : 'rebel' });
+    await f.reply(solo ? 100 : 99);
+    let picked;
+    const card = (itemId, Quality) => ({ GeneralInfo: { ItemID: itemId, Quality }, sureBtnClick() { picked = itemId; } });
+    f.game._children.push({ name: 'SelectGeneralWindow', generalUis: [card(2, 1), card(solo ? 999 : 3, 9)] });
+    f.scene(f.game); f.advance(3500);
+    assert.equal(picked, solo ? undefined : 2);
+  }
+});
+
+test('gaizhu: identity practice start sends one additive native ban batch, never gates or retries', async t => {
+  for (const solo of [false, true]) {
+    const f = fixture(t); if (!solo) f.rebel();
+    const defs = f.ctx.game.getConfigData('gn_gs_ahievement').AchievementAll.Achievement;
+    for (const id of [4, 5, 6, 7, 8, 9, 10]) defs.push({ Id: id * 10, characterId: id, flags: 2048, CriteriaEntry: [{ Id: id * 100, count: 100 }] });
+    const batches = [];
+    const shield = {
+      GetNewGeneralPoolComplianceByModeIdAndSection(mode, section) {
+        assert.deepEqual([mode, section], [74, 1]);
+        return this.GetNewGeneralPoolCompliance({ Id: 1, InFactGeneralList: [7, 8, 9, 10, 2, 3, 4, 5, 6],
+          CantCloseGeneralList: [7], BfGListInShowPool: [2, 6], MinGOpen: 4, CanCloseBfAllCnt: 1 }, false);
+      },
+      GetShieldGeneralGameModelNodeByIndex: id => id === 1 ? { scheme_id: 22 } : null,
+      GetShieldGeneralState: (id, scheme) => scheme === 22 && [6, 8].includes(id),
+      InShieldCloseGeneral: id => id !== 10,
+      SendClientShieldGeneralBatchReq(scheme, close, open) {
+        assert.equal(this.ShieldGeneralBatchState, 0);
+        batches.push([scheme, close, open]);
+        if (solo) throw new Error('禁将暂不可用');
+      },
+    };
+    const getClass = f.ctx.game.getClass;
+    class IdentityRoom extends RoomSettingsWindow { get curModeVo() { return { ...super.curModeVo, Section: 1 }; } }
+    f.ctx.game.getClass = name => name === 'CreateTableWindow' ? IdentityRoom : name === 'GameShieldGeneralManager'
+      ? { instance: shield } : name === 'GameGeneralManager' ? { HasGeneral: id => id !== 9 } : getClass(name);
+    const reply = async () => {
+      f.emit('ClientDbsGetuserachinfoRep', { requestType: 0, NickName: '演练', Achs: [
+        ...[2, 4, 5, 6, 7, 8, 9, 10].map(id => ({ id: id * 10, type: 1, detailInfo: 10 })),
+        { id: 300, type: 2, detailInfo: 100 },
+      ] });
+      await flush();
+    };
+    f.controller.setOptions({ role: solo ? 'auto' : 'rebel' }); f.advance(1200);
+    assert.ok(f.calls.includes(solo ? 'start' : 'ready'), 'room proceeds before achievement reply');
+    await reply(); f.advance(1500);
+    assert.deepEqual(batches, [[22, [3, 4], []]]);
+    assert.equal(f.controller.snapshot().role, solo ? 'auto' : 'rebel');
+    assert.equal(f.controller.snapshot().error, '');
+    f.scene(f.game); f.advance(); f.scene(f.room); f.advance(1500);
+    await reply(); f.advance(1500);
+    assert.equal(batches.length, 1, 'next rounds do not send another ban request');
+  }
+});
+
+test('gaizhu: startup ban is discarded on leaving the original room while waiting for achievements', async t => {
+  const f = fixture(t); f.rebel();
+  let attempts = 0;
+  f.ctx.game.getClass = name => {
+    if (name === 'GameShieldGeneralManager') attempts++;
+    return name === 'CreateTableWindow' ? RoomSettingsWindow : null;
+  };
+  f.controller.setOptions({ role: 'rebel' });
+  f.scene(f.game); f.advance(500);
+  await f.reply(100);
+  f.scene(f.room); f.advance(1500); await f.reply(100);
+  assert.equal(f.controller.snapshot().role, 'rebel');
+  assert.equal(attempts, 0);
+});
+
 test('gaizhu: training ignores point modes, selects recommended general, shops and requests next game once', async t => {
   const f = fixture(t), oldClass = f.ctx.game.getClass;
   let group = 3, buys = 0, again = 0, selected = 0;
@@ -490,11 +804,14 @@ test('gaizhu: training ignores point modes, selects recommended general, shops a
   f.scene(f.game);
   const win = { name: 'SelectGeneralRogue1v1Window', generalUis: [
     { generalInfo: { itemId: 2, quality: 5 }, sureBtnClick() { selected = 2; } },
-    { generalInfo: { itemId: 3, quality: 1 }, winRateBg: { visible: true }, winRateTf: { visible: true }, sureBtnClick() { selected = 3; } },
+    { generalInfo: { itemId: 3, quality: 1 }, winRateBg: { visible: false }, winRateTf: { visible: false }, sureBtnClick() { selected = 3; } },
   ] };
   f.game._children = [win];
-  f.controller.setOptions({ role: 'rebel', pick: 'order' });
-  assert.equal(f.controller.snapshot().training, true); assert.equal(selected, 3);
+  f.controller.setOptions({ role: 'auto', autoMode: 'training', pick: 'order' });
+  assert.equal(f.controller.snapshot().training, true);
+  f.advance(299); assert.equal(selected, 0);
+  win.generalUis[1].winRateBg.visible = win.generalUis[1].winRateTf.visible = true;
+  f.advance(1); assert.equal(selected, 3);
   assert.ok(!f.calls.some(c => Array.isArray(c) && c[0] === 'point'));
   f.game._children = [{ name: 'RogueLike1v1GameShopWindow', ShopView: { ShowItemList: [
     { Id: 9999, hufuNum: 0, Requestbuy() { buys++; } },
@@ -511,6 +828,65 @@ test('gaizhu: training ignores point modes, selects recommended general, shops a
   assert.match(f.controller.snapshot().error, /离开单骑人机/);
 });
 
+test('training allows own-turn fallback before twenty seconds as soon as the mulligan is closed', t => {
+  const f = fixture(t), getClass = f.ctx.game.getClass;
+  f.ctx.game.getClass = name => name === 'GameContext' ? { GetModeVO: () => ({ ModeID: 160, Section: 3 }) } : getClass(name);
+  f.game.SelfSeatUi.seat.InOwnRound = true;
+  const mulligan = { name: 'ShouQiKaAskWindow', CloseWin() { f.calls.push('decline-mulligan'); } };
+  f.game._children = [mulligan];
+  f.scene(f.game);
+  f.controller.setOptions({ role: 'auto', autoMode: 'training' });
+  f.advance(4000);
+  assert.ok(f.calls.includes('decline-mulligan'));
+  assert.ok(!f.calls.includes('trustee'));
+  mulligan.visible = false;
+  f.advance();
+  f.advance(1000);
+  f.advance(3000);
+  assert.equal(f.calls.filter(call => call === 'trustee').length, 1);
+});
+
+test('training counts a mounted result without GameOver, then advances through the lobby to a fresh game', async t => {
+  const f = fixture(t), getClass = f.ctx.game.getClass;
+  f.ctx.game.getClass = name => name === 'GameContext' ? { GetModeVO: () => ({ ModeID: 160, Section: 3 }) } : getClass(name);
+  const lobby = { name: 'RogueLike1v1Scene', btnList: [{ name: 'zgs_robot_tex', onClick() { assert.fail('native replay already requested'); } }] };
+  f.scene(f.game);
+  f.controller.setOptions({ role: 'auto', autoMode: 'training' });
+  f.game._children = [{ name: 'RogueLike1v1ZhanJiWindow', isShare: true, onClickAgain() { assert.fail('share window'); } }];
+  f.advance();
+  assert.equal(f.controller.snapshot().rounds, 0);
+  const againBtn = { enabled: false };
+  f.game._children.push({ name: 'RogueLike1v1ZhanJiWindow', againBtn, onClickAgain() { f.calls.push('again'); f.scene(lobby); } });
+  f.advance();
+  assert.equal(f.controller.snapshot().rounds, 1);
+  assert.equal(f.calls.includes('again'), false);
+  againBtn.enabled = true; f.advance();
+  f.emit('MsgGameOver', {}); await flush();
+  f.advance(1000);
+  const cancel = { name: 'btnCancel', enabled: true, onClick() { f.calls.push('next-game-action'); this.enabled = false; } };
+  const next = { name: 'RogueLike1v1GameScene', _children: [], SelfSeatUi: { CurStepHelpData: { buttonName: 'btnCancel' }, Pt: { btns: [cancel] } } };
+  f.scene(next); f.advance();
+  assert.equal(f.controller.snapshot().phase, 'game');
+  assert.equal(f.controller.snapshot().rounds, 1);
+  assert.deepEqual(f.calls.filter(c => c === 'again' || c === 'next-game-action'), ['again', 'next-game-action']);
+});
+
+test('training starts from the native lobby once when the finished round result is already closed', async t => {
+  const f = fixture(t), getClass = f.ctx.game.getClass;
+  f.ctx.game.getClass = name => name === 'GameContext' ? { GetModeVO: () => ({ ModeID: 160, Section: 3 }) } : getClass(name);
+  const next = { name: 'RogueLike1v1GameScene', _children: [], SelfSeatUi: {} };
+  const lobby = { name: 'RogueLike1v1Scene', btnList: [{ name: 'zgs_robot_tex', onClick() { f.calls.push('robot'); } }] };
+  f.scene(f.game);
+  f.controller.setOptions({ role: 'auto', autoMode: 'training' });
+  f.emit('MsgGameOver', {}); await flush();
+  f.scene(lobby); f.advance(); f.advance(1000);
+  assert.deepEqual(f.calls.filter(c => c === 'robot'), ['robot']);
+  f.scene(next); f.advance();
+  assert.equal(f.controller.snapshot().phase, 'game');
+  f.emit('MsgGameOver', {}); await flush();
+  assert.equal(f.controller.snapshot().rounds, 2);
+});
+
 
 test('training skin: preserves current skin via native Close, falls back to first owned and never runs when stopped', t => {
   for (const outcome of ['close','first','stuck','off']) {
@@ -521,7 +897,7 @@ test('training skin: preserves current skin via native Close, falls back to firs
     const win={name:'SelectSkinWindow',generalID:2,selectView:{usingSkinID:outcome==='first'?undefined:9,itemList:[unusable,owned],itemClick(event){assert.equal(event.currentTarget,owned);calls.push('first');if(outcome!=='stuck') win.visible=false;}},Close(){calls.push('close');if(outcome!=='stuck')win.visible=false;}};
     f.game._children=[win];
     if(outcome==='off'){f.advance();assert.deepEqual(calls,[]);continue;}
-    f.controller.setOptions({role:'rebel'});
+    f.controller.setOptions({role:'auto', autoMode:'training'});
     assert.deepEqual(calls,[outcome==='first'?'first':'close']);
     f.advance(250);assert.equal(calls.length,1);
     if(outcome==='stuck'){

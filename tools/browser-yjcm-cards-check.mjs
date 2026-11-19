@@ -51,7 +51,7 @@ try {
     window.check={registry,original,cards,hand,scope,shell,enable,disable};
   },methods);
   const host=page.locator('[data-sgs-toolbox="core"]');
-  await host.locator('[data-category="manage"]').click();await host.getByRole('button',{name:'设置',exact:true}).click();await host.locator('.card-style-workshop summary').click();
+  await host.locator('[data-category="manage"]').click();await host.getByRole('button',{name:'外观',exact:true}).click();await host.locator('.card-style-workshop .plugin-toggle').click();
   assert.equal(requests.length,0,'install/open must not download');
   await page.waitForFunction(()=>[...check.shell.host.shadowRoot.querySelectorAll('[data-card-style^="yjcm-cards."] img')].filter(img=>img.complete&&img.naturalWidth===135&&img.naturalHeight===190).length===2);
   assert.equal(requests.length,0,'both previews must be available before any atlas download');
@@ -112,7 +112,7 @@ try {
     for(let i=0;i<3;i++){check.registry.refreshNative();if(!check.registry.bindings.has(ui)||!check.registry.bindings.has(virtual))throw Error('shop or virtual cards lost hooks on discovery');}
     check.shop=shop;
   },methods);
-  await host.locator('.card-style-workshop [role="status"]').scrollIntoViewIfNeeded();
+  await host.locator('.card-style-workshop').getByRole('status').scrollIntoViewIfNeeded();
   await page.screenshot({path:'test-results/yjcm-self-hand-status.png'});
   for(const width of [248,280,420])for(const light of [false,true]){
     await page.evaluate(({width,light})=>{check.shell.host.style.width=width+'px';check.shell.applyTheme({...YjcmCheck.BLACK_GOLD.tokens,...(light?{bg:'#f6f0e4',surface:'#fffaf0',raised:'#ebe2cf',text:'#312a20',muted:'#746957',accent:'#826121',border:'#c7b89b',scheme:'light'}:{})});const s=check.shell.host.shadowRoot;s.querySelector('[data-card-style="yjcm-cards.miao"]').scrollIntoView({block:'center'});},{width,light});
@@ -128,7 +128,7 @@ try {
   corrupt=true;
   await host.locator('[data-card-style="yjcm-cards.miao"]').click();await page.waitForFunction(()=>check.registry.atlases.get('yjcm-cards.miao')?.error);
   await page.evaluate(()=>{if(check.cards[0].bmpFace.texture!==check.original)throw Error('integrity error did not restore original');});
-  await host.locator('.card-style-workshop [role="status"]').scrollIntoViewIfNeeded();
+  await host.locator('.card-style-workshop').getByRole('status').scrollIntoViewIfNeeded();
   assert.equal(await page.evaluate(()=>{const c=check.shell.host.shadowRoot.querySelector('.content');return c.scrollWidth>c.clientWidth;}),false,'error detail overflow');
   await page.screenshot({path:'test-results/yjcm-load-error.png'});
   await host.getByRole('button',{name:'重新加载卡面'}).waitFor();corrupt=false;

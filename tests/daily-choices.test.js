@@ -59,8 +59,14 @@ test('timeout survives reload and blocks changed selection and double-clicks', a
   const click = f.click(), first = f.controller.claimChoice(click);
   assert.equal(await f.controller.claimChoice({ ...click, optionId: 7 }), false);
   assert.equal(await first, false); assert.equal(f.sent.length, 1);
-  assert.match(f.controller.snapshot().choices[0].reason, /通常尚未满足领取条件/);
+  const expected = '工具箱暂未确认领取状态，请以游戏内领取记录为准。不会自动重发。';
+  assert.equal(f.controller.snapshot().choices[0].reason, expected);
+  const ledger = f.settings.get('account:a:attempts');
+  ledger.items[click.key].text = '暂未确认领取，通常尚未满足领取条件；不会自动重发';
+  f.settings.set('account:a:attempts', ledger);
   const again = createRewardsController({ adapter: f.adapter, settings: f.settings, scope: f.scope });
+  assert.equal(again.snapshot().choices[0].reason, expected);
+  assert.equal(again.snapshot().issues.find(issue => issue.key === click.key).text, expected);
   assert.equal(await again.claimChoice(click), false); assert.equal(f.sent.length, 1);
 });
 test('persistence failure and disposed scope cannot send', async t => {

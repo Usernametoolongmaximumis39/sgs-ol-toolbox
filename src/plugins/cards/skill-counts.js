@@ -17,6 +17,9 @@ export function skillCount(skill, seen = new Set(), state = {}, scene = {}) {
   const observed = () => state.skillUses?.complete ? state.skillUses.counts[`${id}:${seat.Index}`] || 0 : null;
   const result = (limit, used) => ({ remaining: count(limit) && count(used) ? Math.max(0, limit - used) : null });
   if (id === 0xea7) return result(seat.MaxHp, observed());
+  if (id === 4009) { // 刃掣的原生上限随本回合弃牌堆中的【杀】变化，最低为 1。
+    return seat.InDealRound ? result(skill.TimelimitRound, skill.GetSkillUseCountInRound?.()) : null;
+  }
   const desc = String(skill.SpecialModeDesc || '').replace(/<[^>]*>/g, '').replace(/\s|&nbsp;/g, '');
   if (!eligible(desc, seen)) return null;
   if (/^(?:(?:锁定技|转换技|[魏蜀吴群晋]势力技)[，,])?出牌阶段(?:内)?限/.test(desc) && !seat.InDealRound) return null;

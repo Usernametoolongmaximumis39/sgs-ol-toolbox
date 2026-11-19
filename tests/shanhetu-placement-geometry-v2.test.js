@@ -278,10 +278,13 @@ test('native falsy visibility hides the name background, its draw children and c
     assert.deepEqual(result.nodes[0].anchor, { x: -100, y: -80, w: 170, h: 140 });
     assert.equal(result.nodes[0].regions.length, 2);
     assert.deepEqual(result.controls, []);
+    assert.equal(result.shop, null);
   }
   const context = fixture();
   context.scene.leftView = new Sprite(context.scene, { shopBtn: { x: 0, y: 0, width: 20, height: 20 } });
-  assert.equal(capturePlacementGeometry(context).controls.length, 1, 'absence of a visibility contract is distinct from an explicit falsy value');
+  const visibleShop = capturePlacementGeometry(context);
+  assert.equal(visibleShop.controls.length, 1, 'absence of a visibility contract is distinct from an explicit falsy value');
+  assert.deepEqual(visibleShop.shop, visibleShop.controls[0]);
   context.scene.leftView.shopBtn.renderVisible = undefined;
   assert.equal(capturePlacementGeometry(context).controls.length, 0);
 });
@@ -343,6 +346,7 @@ test('unresolved soft UI controls remain pending without hiding known city cards
   assert.equal(result.diagnostics.controlCoverage, 'known-controls-only');
   assert.deepEqual(result.nodes.map(node => node.id), [41]);
   assert.deepEqual(result.controls, [{ x: -610, y: -366, w: 32, h: 44 }]);
+  assert.equal(result.shop, null);
   assert.deepEqual(result.pending, [shop]);
   assert.deepEqual(result.diagnostics.pendingDetails, [{ field: 'leftView.shopBtn', reason: 'missing-rendered-size',
     contract: 'explicit-rectangle', width: 0, height: 0, renderWidth: null, renderHeight: null, textureWidth: null, textureHeight: null }]);
@@ -353,6 +357,7 @@ test('unresolved soft UI controls remain pending without hiding known city cards
   assert.equal(complete.controlsComplete, true);
   assert.equal(complete.reason, 'ready');
   assert.equal(complete.controls.length, 2);
+  assert.deepEqual(complete.shop, { x: -570, y: -321, w: 80, h: 30 });
   assert.deepEqual(complete.pending, []);
   assert.notEqual(complete.signature, result.signature);
 });

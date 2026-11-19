@@ -73,7 +73,7 @@ function card(state, id) {
   return state.cards[id] ||= { id, locations: ['?'], tags: [], lastSeq: 0, seen: false };
 }
 
-function wasSeen(state, id) {
+export function wasSeen(state, id) {
   const item = state.cards[id];
   if (typeof item?.seen === 'boolean') return item.seen;
   // Older installed packages did not retain an observation flag. Recover

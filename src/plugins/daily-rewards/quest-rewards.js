@@ -1,7 +1,17 @@
 // The client keeps newer activity/login rewards in a second quest manager.
 // Discover its existing proxy caller; never create one or accept a new quest.
 const read = fn => { try { return fn(); } catch { return undefined; } };
-const passiveConditions = new Set([1, 2, 3, 4, 6, 7]);
+// Recharge progress is already completed and requires no payment at claim time.
+const repeatableConditions = new Set([1, 2, 3, 4, 6, 7, 60, 61]);
+// REQ_GET_REFINE_STONE is the main quest for owning five-star generals.
+const refineStoneCondition = 128;
+const conditionType = condition => Number(condition?.reqType ?? condition?._reqType);
+const refineClaimProgress = new WeakMap();
+function isRefineQuest(task) {
+  const conditions = task?.TaskConditions || task?.taskConditions;
+  return task?.IsNewQusetType === true && Array.isArray(conditions) && conditions.length === 1 &&
+    conditionType(conditions[0]) === refineStoneCondition;
+}
 export const managerSpecs = {
   ActivityQuestManager: {
     events: ['decodeUserQuestInfoRep', 'decodeUserQuestOpRep', 'decodeUserQuestDelNtf', 107009, 107014, 107010],
@@ -51,8 +61,10 @@ export function planActivityQuests(adapter, selected, { rows, nativeMethod, task
     if (!Number.isSafeInteger(id) || id <= 0 || seen.has(id)) continue;
     seen.add(id);
     const current = () => read(() => manager.GetServerTaskDataByTaskID(id));
-    const before = Number(read(() => current()?.completeTimes));
+    const initial = current();
+    const before = Number(read(() => initial?.completeTimes));
     if (!Number.isSafeInteger(before) || before < 0) continue;
+    const refineQuest = read(() => isRefineQuest(initial)) === true;
     // LW.CanAward honors alternative conditions, while CanRewardCount returns
     // zero as soon as ANY condition is unfinished. The daily UI uses J(id)
     // (count=0) for a single claim. Keep repeat/batch tasks on their old gate.
@@ -63,22 +75,21 @@ export function planActivityQuests(adapter, selected, { rows, nativeMethod, task
       const value = current(), available = Number(value?.CanRewardCount);
       if (!live() || !value || value.HasServerData !== true || value.IsFromServer === false ||
           !Number.isSafeInteger(available) || (available < 1 && !nativeSingle(value))) return false;
+      if (refineQuest) {
+        // The native success handler increments completeTimes before its
+        // quest-info request replaces condition_data with the remaining progress.
+        const progress = value.condition_data;
+        return isRefineQuest(value) && available > 0 && Array.isArray(progress) && progress.length > 0 &&
+          refineClaimProgress.get(value) !== progress && !taskSkipReason(value, { allowRepeat: true });
+      }
       const reason = taskSkipReason(value);
       if (!reason) return true;
       if (reason !== '多次奖励需手动处理') return false;
       const originalConditions = value.TaskConditions || value.taskConditions;
       const conditions = rows(originalConditions, 64);
-      // Native REQ_GET_YB_NUM=60 / REQ_GET_YB_ONE_NUM=61 describe
-      // completed recharge progress, not a claim-time payment.
-      const allowed = new Set([...passiveConditions, 60, 61]);
-      if (!Array.isArray(originalConditions) || originalConditions.length > 64 || !conditions.length || !conditions.every(condition => allowed.has(Number(condition?.reqType ?? condition?._reqType)))) return false;
-      // Only remove the multi-reward restriction. Native fields are getters;
-      // inherited read-only facades preserve every other existing skip rule.
-      const base = Object.create(value.baseVo);
-      Object.defineProperties(base, { maxComplete: { value: 1 }, _maxComplete: { value: 1 } });
-      const single = Object.create(value);
-      Object.defineProperties(single, { baseVo: { value: base }, CanRewardCount: { value: 1 }, CanAward: { value: value.CanAward }, HasAward: { value: value.HasAward }, TaskCompeleMax: { value: value.TaskCompeleMax } });
-      return !taskSkipReason(single);
+      if (!Array.isArray(originalConditions) || originalConditions.length > 64 || !conditions.length ||
+          !conditions.every(condition => repeatableConditions.has(conditionType(condition)))) return false;
+      return !taskSkipReason(value, { allowRepeat: true });
     }) === true;
     if (!safe()) continue;
     const eligible = () => read(() => {
@@ -96,7 +107,15 @@ export function planActivityQuests(adapter, selected, { rows, nativeMethod, task
       rewards: () => current()?.baseVo?.TaskRewardItem ?? current()?.baseVo?.taskRewardItem ?? current()?.TaskRewardItem,
       eligible,
       done: () => live() && read(() => current()?.HasAward === true || Number(current()?.completeTimes) > before) === true,
-      send: () => eligible() ? request(id, 0, nativeSingle(current()) ? 0 : 1) : false,
+      send: () => {
+        if (!eligible()) return false;
+        const value = current();
+        if (refineQuest) {
+          refineClaimProgress.set(value, value.condition_data);
+          return request(id, 0, value.baseVo.CanOneReceive ? 1 : 0);
+        }
+        return request(id, 0, nativeSingle(value) ? 0 : 1);
+      },
       confirmations: proxy ? [{ manager: proxy, event: 'decodeUserQuestOpRep', accept: event => matches(event)?.result === 0 }] : [],
       rejections: proxy ? [{ manager: proxy, event: 'decodeUserQuestOpRep', accept: event => { const result = matches(event)?.result; return Number.isInteger(result) && result > 0; } }] : [],
     });

@@ -75,47 +75,5 @@
     "toolboxSha256": "13808f05cc1b9ca4d03843c5c24722650570551fb6e96938d8d1f043526338ea",
     "hostSha256": "95c6dbb39047195514dbf9b633540598c2fd694b2cec9c73362980466ce96c03",
     "preloadSha256": "23f1bf4d851ccdebd880df120b024817e3d07180355695556d9f66930551485e"
-  },
-  {
-    "version": "0.6.91",
-    "edition": "full",
-    "toolboxSha256": "13a65abf388cb27f5e7477b9d69570c01e15f468a05497634d6d468332ac3696",
-    "hostSha256": "df9d2b3cb9f06599c3faee2e40f8792379cce9a213c6694dbff62df9f7459625",
-    "preloadSha256": "9f00cec3ae9e783c8c67219b1347545d789afc333c266f02e36e6ba5932c6c42"
-  },
-  {
-    "version": "0.6.91",
-    "edition": "lite",
-    "toolboxSha256": "f8d4717dda4a03a96e0a51275ee2d33e2a4b6a7d2c881743f737a8492f295d03",
-    "hostSha256": "df9d2b3cb9f06599c3faee2e40f8792379cce9a213c6694dbff62df9f7459625",
-    "preloadSha256": "9f00cec3ae9e783c8c67219b1347545d789afc333c266f02e36e6ba5932c6c42"
-  },
-  {
-    "version": "0.6.91",
-    "edition": "full",
-    "toolboxSha256": "13a65abf388cb27f5e7477b9d69570c01e15f468a05497634d6d468332ac3696",
-    "hostSha256": "dcb9460499a5330976cc8251a69f59936802d67385b785e974522a31e9775fee",
-    "preloadSha256": "d6303b409d5162428eea3de991b9a72a9d05a505a8d9ee14250a26df72bfb707"
-  },
-  {
-    "version": "0.6.91",
-    "edition": "lite",
-    "toolboxSha256": "f8d4717dda4a03a96e0a51275ee2d33e2a4b6a7d2c881743f737a8492f295d03",
-    "hostSha256": "dcb9460499a5330976cc8251a69f59936802d67385b785e974522a31e9775fee",
-    "preloadSha256": "d6303b409d5162428eea3de991b9a72a9d05a505a8d9ee14250a26df72bfb707"
-  },
-  {
-    "version": "0.6.91",
-    "edition": "full",
-    "toolboxSha256": "13a65abf388cb27f5e7477b9d69570c01e15f468a05497634d6d468332ac3696",
-    "hostSha256": "318fa20c8cb2a595b63090c721a019f070319a09044daa4cb01db390789fa865",
-    "preloadSha256": "6cd47504230d89d3c120738209e50373d01bb06338c3cd1ed6e0c2c3f536ad96"
-  },
-  {
-    "version": "0.6.91",
-    "edition": "lite",
-    "toolboxSha256": "f8d4717dda4a03a96e0a51275ee2d33e2a4b6a7d2c881743f737a8492f295d03",
-    "hostSha256": "318fa20c8cb2a595b63090c721a019f070319a09044daa4cb01db390789fa865",
-    "preloadSha256": "6cd47504230d89d3c120738209e50373d01bb06338c3cd1ed6e0c2c3f536ad96"
   }
 ]

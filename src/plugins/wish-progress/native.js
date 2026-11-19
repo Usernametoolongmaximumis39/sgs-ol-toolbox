@@ -82,10 +82,14 @@ function render(kind, v) {
             + (kind === 'skin' ? '%' : '') + '）';
     }
     if (!labels.has(label)) {
-        labels.set(label, Object.fromEntries(['text','color','stroke','strokeColor','width','height','align','x','y'].map(k => [k,label[k]])));
-        theme.bind(label, { color:'text', strokeColor:'surface' });
+        const fields = ['text', 'font', 'bold', 'color', 'stroke', 'strokeColor', 'width', 'height', 'align', 'x', 'y'];
+        labels.set(label, Object.fromEntries(fields.map(key => [key, label[key]])));
+        // The game backdrop stays dark when the toolbox switches to a light palette.
+        const light = () => ctx.themes?.current?.tokens?.scheme === 'light';
+        theme.bind(label, { color: p => light() ? p.surface : p.text, strokeColor: p => light() ? p.text : p.surface });
     }
-    label.text = text; label.stroke = 1;
+    label.font = 'Arial'; label.bold = true; label.stroke = 2;
+    label.text = text;
     label.width = 270; label.height = 24; label.align = 'left';
     label.pos(18, v.proBar.height / 2 + 4);
 }

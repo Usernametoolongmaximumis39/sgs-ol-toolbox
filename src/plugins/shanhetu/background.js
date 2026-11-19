@@ -3,15 +3,15 @@ import { ResourceScope } from '../../core/resources.js';
 // Replay the scene handler registered by the official SELECT_WALLPAPER action
 // after entry has settled. The official setter skips an already selected ID.
 export function createBackgroundPreference(ctx) {
-  let entry = null, status = '已关闭';
+  let entry = null, error = '';
   const listeners = new Set();
   const enabled = () => ctx.settings.get('keepBattleBackground', true) === true;
   const scene = () => ctx.game.getScene?.();
   const account = () => ctx.game.getSelf?.()?.ClientId ?? null;
   const name = current => current && (current.SceneName || current.sceneName || current.name);
-  function publish(value) { if (status !== value) { status = value; for (const fn of listeners) fn(); } }
+  function publishError(value = '') { if (error !== value) { error = value; for (const fn of listeners) fn(); } }
   function cancelJob(current) { current.job?.dispose(); current.job = null; }
-  function clearEntry() { if (entry) { entry.scope.dispose(); entry = null; } }
+  function clearEntry() { if (entry) { entry.scope.dispose(); entry = null; } publishError(); }
   function valid(current) {
     return !ctx.scope.signal.aborted && !current.scope.closed && enabled()
       && entry === current && scene() === current.scene && !current.scene.destroyed && account() === current.account;
@@ -23,31 +23,29 @@ export function createBackgroundPreference(ctx) {
   function ready(current) { return handler(current, 'SELECT_WALLPAPER') && handler(current, 'BACKGROUND_USEDID_GOT'); }
   function apply(current) {
     if (!valid(current) || !current.needed) return;
-    if (current.scene.currentWeatherWallPaper > 0) { publish('等待天气背景结束后重选'); return; }
+    if (current.scene.currentWeatherWallPaper > 0) return;
     const official = ready(current) && handler(current, 'SELECT_WALLPAPER');
-    if (!official) { publish('等待官方背景入口'); return; }
+    if (!official) return;
     // This is the exact callback captured by the native button's selection event.
     // It reads the native saved selection, then uses normal native ID loading.
     // Do not call the Rogue scene's wallpaper hook, which forces the chapter ID.
     current.needed = false; current.applying = true;
     try {
       Reflect.apply(official.method, official.caller, []);
-      if (valid(current)) publish('已触发官方背景重选');
+      if (valid(current)) publishError();
     } catch (error) {
-      if (valid(current)) publish('官方背景重选失败：' + (error?.stack || String(error)));
+      if (valid(current)) publishError(error?.stack || String(error));
     } finally { current.applying = false; }
   }
   function schedule(current, delay = 1000) {
     if (!valid(current) || !current.needed) return;
     cancelJob(current);
-    if (current.scene.currentWeatherWallPaper > 0) { publish('等待天气背景结束后重选'); return; }
-    if (!ready(current)) { publish('等待官方背景入口'); return; }
+    if (current.scene.currentWeatherWallPaper > 0 || !ready(current)) return;
     const job = new ResourceScope(); current.job = job;
     job.timeout(() => {
       if (current.job !== job) return;
       current.job = null; job.dispose(); apply(current);
     }, delay);
-    publish('等待对局背景就绪');
   }
   function attach(currentScene, dispatcher) {
     const local = new ResourceScope();
@@ -76,25 +74,25 @@ export function createBackgroundPreference(ctx) {
     });
     listen('SELECT_WALLPAPER', () => {
       if (!valid(current)) return;
-      current.needed = false; cancelJob(current); publish('已收到官方手动背景选择');
+      current.needed = false; cancelJob(current); publishError();
     });
     return current;
   }
   function refresh() {
     if (ctx.scope.signal.aborted) return;
-    if (!enabled()) { clearEntry(); publish('已关闭'); return; }
+    if (!enabled()) { clearEntry(); return; }
     const current = scene();
     if (name(current) !== 'RogueLikeGameScene' || current.destroyed) {
-      clearEntry(); publish('等待进入山河对局'); return;
+      clearEntry(); return;
     }
     const dispatcher = ctx.game.getDispatcher?.();
-    if (!dispatcher?.on || !dispatcher?.off) { clearEntry(); publish('等待官方背景入口'); return; }
+    if (!dispatcher?.on || !dispatcher?.off) { clearEntry(); return; }
     if (!entry || entry.scene !== current || entry.dispatcher !== dispatcher || entry.account !== account()) {
       clearEntry(); attach(current, dispatcher);
     }
     if (entry.needed && !entry.job) schedule(entry);
   }
-  ctx.scope.add(() => { clearEntry(); listeners.clear(); status = '已停用'; });
+  ctx.scope.add(() => { listeners.clear(); clearEntry(); });
   refresh();
-  return { refresh, get status() { return status; }, subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); } };
+  return { refresh, get error() { return error; }, subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); } };
 }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { officialPluginIds, planOfficialPlugins } from '../src/market/official.js';
-import { pluginReleases } from '../tools/plugin-packages.mjs';
+import { fullBundledPackages, pluginReleases } from '../tools/plugin-packages.mjs';
 const catalog = () => officialPluginIds.map(id => ({ id, name: id, version: '1.0.0', ...(id === 'gaizhu' ? { dependencies: ['baisheng'] } : {}) }));
 test('official suite matches maintainer release identities and orders prerequisites', () => {
   assert.deepEqual([...officialPluginIds].sort(), pluginReleases.filter(p => !p.localOnly).map(p => p.id).sort());
@@ -15,4 +15,11 @@ test('suite preserves installed versions and refuses disabled prerequisites / in
   assert.throws(() => planOfficialPlugins([{ id: 'baisheng', enabled: false }], catalog()), /未正常运行/);
   assert.throws(() => planOfficialPlugins([], catalog().filter(p => p.id !== 'social')), /市场缺少/);
   assert.equal(planOfficialPlugins([{ id: 'social', version: '0.0.1' }], catalog()).some(p => p.id === 'social'), false);
+});
+test('Shanhe Beta is available in the official suite without being bundled in Full', () => {
+  const entries = catalog();
+  assert.ok(planOfficialPlugins([], entries).some(entry => entry.id === 'shanhetu-beta'));
+  const bundled = fullBundledPackages(entries.map(manifest => ({ manifest }))).map(pkg => pkg.manifest.id);
+  assert.ok(bundled.includes('shanhetu'));
+  assert.ok(!bundled.includes('shanhetu-beta'));
 });

@@ -119,6 +119,59 @@ test('passive repeat rewards claim exactly one per ordinal and confirm counter g
   for (const condition of [1, 2, 3, 4, 6, 7]) assert.equal(fixture({ maximum: 2, condition }).plan().actions.length, 1);
 });
 
+function refineFixture() {
+  const f = fixture({ maximum: 607, condition: 128 });
+  Object.assign(f.task, { IsNewQusetType: true, completeTimes: 163, condition_data: [{ condition_id: 0, condition_cnt: 1 }] });
+  Object.assign(f.task.baseVo, { name: '拥有1个5阶武将', HaveSelectReward: false, CanOneReceive: false });
+  Object.defineProperties(f.task, {
+    CanAward: { configurable: true, get() { return this.CanRewardCount > 0; } },
+    CanRewardCount: { configurable: true, get() { return Math.min(this.baseVo.maxComplete - this.completeTimes, this.condition_data[0].condition_cnt); } },
+  });
+  return f;
+}
+
+test('five-star general quest follows native single claim and waits for new server progress', () => {
+  const f = refineFixture(), action = f.plan().actions[0];
+  assert.equal(action.key, 'quest:7001:163');
+  action.send();
+  assert.deepEqual(f.sent, [['ordinary', 7001, 0, 0]]);
+  assert.equal(action.done(), true);
+  assert.equal(action.send(), false);
+  assert.equal(f.plan().actions.length, 0, 'success count increased but the condition reply is still in flight');
+  f.task.condition_data = [{ condition_id: 0, condition_cnt: 0 }];
+  assert.equal(f.plan().actions.length, 0, '164 five-star generals, 164 claims');
+  f.task.condition_data = [{ condition_id: 0, condition_cnt: 2 }];
+  f.task.baseVo.CanOneReceive = true;
+  const next = f.plan().actions[0];
+  assert.equal(next.key, 'quest:7001:164');
+  next.send();
+  assert.deepEqual(f.sent, [['ordinary', 7001, 0, 0], ['ordinary', 7001, 0, 1]]);
+  assert.equal(f.plan().actions.length, 0, 'even the batch-capable entry sends one and rechecks progress');
+});
+
+test('five-star general repeat claims require the sole native condition and retain existing gates', () => {
+  for (const change of [
+    f => { f.task.TaskConditions.push({ reqType: 1 }); },
+    f => { f.task.IsNewQusetType = false; },
+    f => { f.task.HasServerData = false; },
+    f => { f.task.HasExpired = true; },
+    f => { f.task.baseVo.HaveSelectReward = true; },
+    f => { f.task.baseVo.desc = '消耗道具兑换'; },
+    f => { f.task.completeTimes = 607; },
+    f => { f.task.condition_data = [{ condition_id: 0, condition_cnt: 0 }]; },
+  ]) {
+    const f = refineFixture(), action = f.plan().actions[0];
+    change(f);
+    assert.equal(action.send(), false);
+    assert.equal(f.plan().actions.length, 0);
+    assert.deepEqual(f.sent, []);
+  }
+  const f = refineFixture();
+  f.adapter.day = () => '2026-11-19';
+  f.adapter.goods = () => ({ Name: '抵价券' });
+  assert.equal(planRewards(f.adapter, { tasks: true, excludeCoupon: true }).actions.length, 0);
+});
+
 test('repeat relaxation never admits consumption, choice, purchase, expired, unsynced or unknown-condition tasks', () => {
   for (const change of [
     f => { f.task.HasServerData = false; }, f => { f.task.IsFromServer = false; },

@@ -33,10 +33,11 @@ function decodeRoute(rawUrl) {
   return rawPath;
 }
 
-/** Loopback market; the sole write route records verified universal-code shares. */
+/** Loopback market with an optional, same-origin administration handler. */
 export async function createMarketServer({ rootDir = path.resolve('release/market'), port = 17321,
   host = '127.0.0.1', codesFile = path.resolve(import.meta.dirname, '../data/reward-codes.txt'),
-  sharedCodesFile = path.join(path.dirname(codesFile), 'shared-reward-codes.txt'), rewardBackend = null } = {}) {
+  sharedCodesFile = path.join(path.dirname(codesFile), 'shared-reward-codes.txt'), rewardBackend = null,
+  adminHandler = null } = {}) {
   if (host !== '127.0.0.1') throw new Error('本地插件市场只能监听 127.0.0.1。');
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('端口必须为 0–65535 的整数。');
   const root = path.resolve(rootDir);
@@ -53,13 +54,20 @@ export async function createMarketServer({ rootDir = path.resolve('release/marke
         sendJson(response, 403, { error: 'invalid_host' }, head); return;
       }
       const origin = request.headers.origin;
+      const route = decodeRoute(request.url);
+      if (route === null) { sendJson(response, 400, { error: 'invalid_path' }, head); return; }
+      if (adminHandler && (route === '/admin' || route.startsWith('/admin/') || route.startsWith('/api/admin/'))) {
+        const fetchSite = request.headers['sec-fetch-site'];
+        if ((origin !== undefined && origin !== baseUrl) || (fetchSite && !['none', 'same-origin'].includes(fetchSite))) {
+          sendJson(response, 403, { error: 'admin_origin_not_allowed' }, head); return;
+        }
+        await adminHandler(request, response, route, baseUrl); return;
+      }
       const allowedOrigin = origin === 'https://web.sanguosha.com' || origin === baseUrl;
       if (origin && !allowedOrigin) {
         sendJson(response, 403, { error: 'origin_not_allowed' }, head); return;
       }
       if (allowedOrigin) response.setHeader('Access-Control-Allow-Origin', origin);
-      const route = decodeRoute(request.url);
-      if (route === null) { sendJson(response, 400, { error: 'invalid_path' }, head); return; }
       const sharing = route === '/reward-codes/share';
       if (request.method === 'OPTIONS') {
         if (!allowedOrigin || !(sharing ? ['POST'] : ['GET', 'HEAD']).includes(request.headers['access-control-request-method'])) {
@@ -206,8 +214,7 @@ export async function createMarketServer({ rootDir = path.resolve('release/marke
   };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  const args = process.argv.slice(2);
+export function marketOptions(args) {
   const options = { rootDir: path.resolve('release/market'), port: 17321 };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--root' && args[i + 1]) options.rootDir = path.resolve(args[++i]);
@@ -215,11 +222,20 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     else if (args[i] === '--codes-file' && args[i + 1]) options.codesFile = path.resolve(args[++i]);
     else throw new Error('用法：node tools/market-server.mjs [--root release/market] [--port 17321] [--codes-file data/reward-codes.txt]');
   }
+  return options;
+}
+
+export async function startMarket(options) {
   const running = await createMarketServer(options);
   console.log(`小抄本地插件市场：${running.url}/dev/`);
   console.log(`目录：${running.url}/catalog.json`);
   console.log(`兑换码：${running.url}/reward-codes.txt`);
+  if (options.adminHandler) console.log(`本地服务管理：${running.url}/admin/`);
   const stop = () => running.close().then(() => process.exit(0));
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  await startMarket(marketOptions(process.argv.slice(2)));
 }

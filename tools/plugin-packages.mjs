@@ -3,30 +3,13 @@ import { resolve, relative, sep } from 'node:path';
 import { realpath } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 import { packageDigest, PACKAGE_FORMAT, validateManifest } from '../src/core/packages.js';
+import { pluginReleases } from './plugin-releases.mjs';
 
-export const pluginReleases = [
-  { id: 'social' },
-  { id: 'player-info' },
-  { id: 'native-cards' },
-  { id: 'yjcm-cards' },
-  { id: 'dafeiyu-cards' },
-  { id: 'backgrounds' },
-  { id: 'gold-cards' },
-  { id: 'shanhetu' },
-  { id: 'cards' },
-  { id: 'play-assist' },
-  { id: 'daily-rewards' },
-  { id: 'seckill' },
-  { id: 'gaizhu' },
-  { id: 'effects' },
-  { id: 'skins' },
-  { id: 'wish-progress' },
-  { id: 'themes' },
-  { id: 'baisheng' },
-  { id: 'appearances' },
-  { id: 'ledger' },
-  { id: 'recharge' },
-];
+export { pluginReleases };
+
+export function fullBundledPackages(packages) {
+  return packages.filter(pkg => !pluginReleases.some(spec => spec.id === pkg.manifest.id && (spec.localOnly || spec.excludeFromFull)));
+}
 
 /** Each package is bundled from its own entry. Cross-plugin imports are a build error. */
 export async function bundlePlugin(id, { root = resolve(import.meta.dirname, '..') } = {}) {

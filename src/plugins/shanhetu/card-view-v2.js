@@ -24,6 +24,10 @@ export function cardTokens(line) {
   ];
   const compact = value => typeof value === 'string' ? value.replace(/\s*[（(](?:待揭示|入点揭示)[）)]/g, '') : value;
   const source = infoLineTokens(line).map((token, index, tokens) => {
+    if (token.impact) {
+      const text = token.text.slice(1, -1).replace(/ (?=[+−])/g, '');
+      return { ...token, text, fallback: text };
+    }
     const text = compact(token.text), fallback = compact(token.fallback);
     // Only a complete generic reward becomes a category icon. Named rewards
     // and unknown descriptions retain their text; no acquisition mode is guessed.
@@ -38,6 +42,7 @@ export function cardTokens(line) {
     }
     return { ...token, text, fallback };
   }), result = [];
+  const hasImpact = source.some(token => token.impact);
   for (let i = 0; i < source.length; i++) {
     const token = source[i];
     if (token.text === '（可弃换' && source[i + 1]?.icon === 'rogue_money_icon' && source[i + 2]?.text === '）') {
@@ -48,6 +53,9 @@ export function cardTokens(line) {
     } else if (/^[①②③]\s*$/.test(token.text) && source[i + 1]?.icon && source[i + 2]?.text === ' → ' && !source[i + 3]?.icon) {
       const cost = source[i + 1], gain = source[i + 3];
       result.push({ ...cost, prefix: token.text.trim(), text: cost.text.replace(/\s*×\s*/g, '×') + '→' + gain.text.replace('·', '') }); i += 3;
+    } else if (hasImpact && /^[①②③]\s*$/.test(token.text) && source[i + 1] && !source[i + 1].icon) {
+      const next = source[++i];
+      result.push({ ...next, text: token.text + next.text, fallback: token.text + next.fallback });
     } else result.push(/^[①②③]\s*$/.test(token.text) ? { ...token, text: token.text.trim(), fallback: token.text.trim() } : token);
   }
   return result;
@@ -119,7 +127,7 @@ export function createInfoCardView(ctx, theme) {
       if (line.kind === 'reward') { y += 3; rules.push({ y }); y += 6; }
       else if (line.kind === 'name' && priorKind) y += 4;
       const tokens = cardTokens(line);
-      if (!tokens.some(token => token.icon && infoIcon(token.icon))) {
+      if (!tokens.some(token => token.impact || token.icon && infoIcon(token.icon))) {
         y += text(tokens.map(token => token.fallback ?? token.text ?? '').join(''), line.kind, 12, y, width - 24) + 2;
       } else {
         let x = 0, rowHeight = 0;
@@ -131,7 +139,8 @@ export function createInfoCardView(ctx, theme) {
           const value = String(icon ? token.text ?? '' : token.fallback ?? token.text ?? '');
           if (!icon && (!value.trim() || value.trim() === '·')) continue;
           const iconWidth = icon ? ICON + (value ? 1 : 0) : 0;
-          const kind = token.warning ? 'warning' : line.kind;
+          const kind = token.warning ? 'warning' : token.impact === 'known' ? 'impact'
+            : token.impact === 'unknown' ? 'hint' : line.kind;
           const prefixWidth = token.prefix ? metrics(token.prefix, kind).w + GAP : 0;
           const natural = value ? metrics(value, kind) : { w: 0, h: ICON };
           const w = Math.min(available, prefixWidth + iconWidth + natural.w);
@@ -216,7 +225,7 @@ export function createInfoCardView(ctx, theme) {
         Object.assign(label, { x: item.x, y: item.y, width: item.w, height: item.h, text: item.text,
           wordWrap: true, font: FONT, fontSize: item.fontSize, bold: item.bold, align: item.align,
           leading: 4, mouseEnabled: false,
-          color: item.kind === 'warning' ? theme.palette.danger : item.kind === 'heading' ? theme.palette.accent
+          color: item.kind === 'warning' ? theme.palette.danger : ['heading', 'impact'].includes(item.kind) ? theme.palette.accent
             : ['stats', 'hint', 'id'].includes(item.kind) ? theme.palette.muted : theme.palette.text });
         label.typeset();
         if (Math.ceil(Number(label.textHeight)) > item.h) throw new Error('卡片文字实测高度发生变化');

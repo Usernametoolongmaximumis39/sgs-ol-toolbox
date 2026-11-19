@@ -26,7 +26,15 @@ const WINDOWS = {
   RogueChapterStoryWindow: ['rogue', 'Close'],
 };
 const PROB_WINDOWS = ['GetPropSpecialWindow', 'GetNewGeneralWindow', 'SkinNewGetWin', 'GetPropXianDingWindow'];
+const RECRUIT_VIEWS = ['GeneralOpenWindow', 'GeneralOpenNewbieView'];
+const RECRUIT_EFFECT = /^res\/assets\/animate\/hall\/generalopen\/zhaomuchaibao0[1-3]\.sk$/;
 const SKIN_NODES = ['outAvatarEffect', 'outAvatarEffect2', 'playingNewSpEffect', 'newFullScreenEffect'];
+const HALL_AD_BADGES = [10049, 10307]; // Bottom_Notice, Bottom_Calendar
+const HALL_AD_MANAGERS = [
+  ['decodeSyncGameDataEvent', 'NoticeRed'],
+  ['ClientLobbyAdRep', 'ShowNewAdNoticeRed'],
+  ['decodeClientActivityCalendarDataResp', 'GetSpecialActivityCalendar'],
+];
 
 export function createExtendedEffects(ctx, api) {
   const { enabled, mask, patch, read, alive, items, propertyOwner, ready, hit } = api;
@@ -73,8 +81,22 @@ export function createExtendedEffects(ctx, api) {
       hit(category);
     } finally { closing.delete(node); }
   }
+  function maskRecruitEffect(view) {
+    const effect = read(() => view.zhaoMuEffect);
+    const url = read(() => effect.EffectUrl || effect.effectUrl);
+    if (typeof url === 'string' && RECRUIT_EFFECT.test(url)) mask(effect, 'package');
+  }
   function windowAdapter(target, name, instance = false) {
     if (!alive(target)) return;
+    if (RECRUIT_VIEWS.includes(name)) {
+      windowWrap(target, 'showOpenEffect', ['package'], (self, _args, invoke) => {
+        const result = invoke();
+        // The reveal label and stop events drive the result window and cleanup.
+        maskRecruitEffect(self);
+        return result;
+      });
+      return;
+    }
     if (name === 'RogueComChangeWindow') {
       for (const method of ['enterWindow', 'UpdateWindow']) windowWrap(target, method, ['rogue'], (self, args, invoke) => {
         const before = bossTransitions, data = args[0];
@@ -283,10 +305,27 @@ export function createExtendedEffects(ctx, api) {
     if (!records) { records = new Map(); getters.set(target, records); }
     records.set(key, record); ready('redDot');
   }
+  function inspectHallAdManagers(proxy) {
+    // These private singletons are already registered on the server proxy.
+    for (const [event, member] of HALL_AD_MANAGERS) {
+      const handlers = read(() => proxy._events[event]);
+      for (const handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) {
+        const manager = read(() => handler.caller);
+        if (alive(manager) && member in manager) inspect(manager);
+      }
+    }
+  }
+  function protectMoreMenu(bar) {
+    const view = read(() => bar.moreView);
+    patch(view, 'UpdateRedPoint', null, '', (self, args, invoke) =>
+      invoke(self === view && enabled('version') && HALL_AD_BADGES.includes(args[0])
+        ? [args[0], false, ...args.slice(2)] : args));
+  }
   function inspect(target) {
     if (!alive(target) || inspected.has(target) || inspected.size >= 2048) return;
     inspected.add(target);
     // Only named client surfaces are inspected; never invoke singleton factories.
+    if (enabled('package')) maskRecruitEffect(target);
     if (enabled('banner')) {
       const hide = self => hidden(read(() => self.adBanner), 'banner');
       if (alive(read(() => target.adBanner))) { hide(target); ready('banner'); }
@@ -325,13 +364,14 @@ export function createExtendedEffects(ctx, api) {
     for (const key of ['IsReddot', 'HasRedDot']) skip(target, key, 'redDot', () => true, false);
     for (const key of ['NoticeRed', 'ShowNewAdNoticeRed']) redGetter(target, key);
     if (enabled('version') && typeof read(() => target.checkMoreRed) === 'function'
-        && typeof read(() => target.moreUpdate) === 'function' && alive(read(() => target.moreView))) {
+        && typeof read(() => target.moreUpdate) === 'function') {
       noticeBars.add(target);
-      // The native enum Bottom_Notice is 10049. Clear only this menu entry;
-      // moreUpdate recomputes the aggregate using all other native sources.
-      const view = target.moreView;
-      patch(view, 'UpdateRedPoint', null, '', (self, args, invoke) =>
-        invoke(enabled('version') && [10049, 10307].includes(args[0]) ? [args[0], false, ...args.slice(2)] : args));
+      protectMoreMenu(target);
+      // The panel is created on first click, just before the first check.
+      patch(target, 'checkMoreRed', null, '', (self, _args, invoke) => {
+        if (self === target && enabled('version')) protectMoreMenu(self);
+        return invoke();
+      });
       ready('version');
     }
     skip(target, 'dealChatMessage', 'slogan', (_self, args) => isSlogan(args[0]));
@@ -379,7 +419,7 @@ export function createExtendedEffects(ctx, api) {
       if (!alive(node)) { probNodes.delete(node); probStates.delete(node); }
       else hideProb(node);
     }
-    for (const name of [...Object.keys(WINDOWS), ...PROB_WINDOWS, 'RogueComChangeWindow', 'TianShuWindow', 'ModeScene']) {
+    for (const name of [...Object.keys(WINDOWS), ...PROB_WINDOWS, ...RECRUIT_VIEWS, 'RogueComChangeWindow', 'TianShuWindow', 'ModeScene']) {
       const type = read(() => ctx.game.getClass(name));
       const proto = read(() => type.prototype);
       if (proto) { windowAdapter(proto, name); if (name === 'ModeScene') inspect(proto); }
@@ -397,6 +437,7 @@ export function createExtendedEffects(ctx, api) {
       if (Array.isArray(managers)) managers.slice(0, 256).forEach(inspect);
     }
     const proxy = read(() => ctx.game.getServerProxy());
+    if (enabled('version')) inspectHallAdManagers(proxy);
     for (const managers of [read(() => proxy.constructor.managerList), read(() => scene.ged.constructor.managerList)]) {
       if (Array.isArray(managers)) managers.slice(0, 256).forEach(inspect);
     }
@@ -405,8 +446,7 @@ export function createExtendedEffects(ctx, api) {
     for (const view of calendarViews) if (alive(view)) read(() => view.initCalendarRedDot());
     for (const bar of treeBars) if (alive(bar)) read(() => bar.checkKanShuRed());
     for (const bar of noticeBars) if (alive(bar)) {
-      read(() => bar.moreView.UpdateRedPoint(10049, false));
-      read(() => bar.moreView.UpdateRedPoint(10307, false));
+      for (const id of HALL_AD_BADGES) read(() => bar.moreView?.UpdateRedPoint(id, false));
       read(() => bar.moreUpdate());
     }
   }

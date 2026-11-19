@@ -5,9 +5,23 @@ const number = value => typeof value === 'number' || (typeof value === 'string' 
 const positiveId = value => Number.isSafeInteger(value) && value > 0;
 const count = value => Number.isFinite(value) && value >= 0 ? value : 0;
 
-// Only preferences persist. A role is deliberately absent from this schema.
+export const AUTO_MODES = Object.freeze(['identity', 'nation', 'training']);
+export const STOP_MODES = Object.freeze(['manual', 'tavern', 'timed']);
+
+export function durationOf(hours) {
+  const duration = Math.ceil(number(hours) * 3600000);
+  return Number.isSafeInteger(duration) && duration > 0 ? duration : 0;
+}
+
+// Runtime role, room confirmation and deadline are session state.
 export function cleanOptions(value = {}) {
-  return { pick: ['off', 'random', 'order'].includes(value?.pick) ? value.pick : 'off', wait: value?.wait === true, cancelWuxie: value?.cancelWuxie !== false };
+  return {
+    pick: ['off', 'random', 'order'].includes(value?.pick) ? value.pick : 'off',
+    wait: value?.wait === true,
+    autoMode: AUTO_MODES.includes(value?.autoMode) ? value.autoMode : 'identity',
+    stopMode: STOP_MODES.includes(value?.stopMode) ? value.stopMode : 'manual',
+    stopHours: durationOf(value?.stopHours) ? number(value.stopHours) : 1,
+  };
 }
 
 export function definitions(config) {

@@ -14,6 +14,7 @@ export function createNative(ctx, consume, gap) {
   const goodsManager = () => manager(ctx, 'GameGoodsManager', 'DbsCcMovegoodsRep', m => typeof m.GetGoodsNumByBaseID === 'function');
   const blessManager = () => manager(ctx, 'NewBlessManager', 170138, m => typeof m.IsInDrawTime === 'function' && typeof m.GetInfoById === 'function') ||
     manager(ctx, 'NewBlessManager', 'decodeClientQiFuNewData', m => typeof m.IsInDrawTime === 'function');
+  const inventoryComplete = () => read(() => goodsManager().selfBagFinished) === true;
   function snapshot() {
     const gm = goodsManager(), rows = read(() => gm.goodsList), complete = read(() => gm.selfBagFinished) === true;
     return { complete, instances: list(rows, 50000).map(projectInstance).filter(Boolean) };
@@ -31,15 +32,16 @@ export function createNative(ctx, consume, gap) {
     ClientLoginRep: packet => ({ id: String(field(packet, 'userID') || '') }),
   }, (type, data, sender) => consume(type, data, sender), gap);
   return {
-    account: () => account(ctx), snapshot,
+    account: () => account(ctx), inventoryComplete, snapshot,
     count(id) { const gm = goodsManager(); if (read(() => gm.selfBagFinished) !== true) return null;
       const n = number(read(() => gm.GetGoodsNumByBaseID(id))); return integer(n) ? n : null; },
     yuanbao() { const self = read(() => ctx.game.getSelf()); const values = ['YuanBao', 'BindYuanBao', 'FreeLimitYuanBaoNum'].map(key => number(read(() => self[key])));
       if (!values.every(integer)) return null;
       const total = values.reduce((sum, value) => sum + value, 0); return integer(total) ? total : null; },
-    knots(config, definitions = new Map()) {
-      const active = new Set(), mgr = blessManager();
-      for (const row of config?.root?.Common || []) if (read(() => mgr.IsInDrawTime(Number(row.Id))) === true && Number(row.exgoodsid) > 0) active.add(Number(row.exgoodsid));
+    knots(config, definitions = []) {
+      const active = new Set(), rows = config?.root?.Common;
+      const mgr = rows && blessManager();
+      for (const row of mgr ? rows : []) if (read(() => mgr.IsInDrawTime(Number(row.Id))) === true && Number(row.exgoodsid) > 0) active.add(Number(row.exgoodsid));
       // Consecutive blessing weeks can leave an earlier, still valid knot in
       // the bag. Show it separately while any blessing week is drawing; never
       // expose old knots outside blessing weeks just because a balance remains.
@@ -52,7 +54,7 @@ export function createNative(ctx, consume, gap) {
           if (count > 0 && !expired) active.add(id);
         }
       }
-      return { active, known: Boolean(mgr && config?.root?.Common) };
+      return { active, known: Boolean(mgr) };
     },
     icon(id, picId) {
       const gm = goodsManager(), item = read(() => gm.GetGoodsByBaseID(id));

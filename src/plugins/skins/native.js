@@ -1,7 +1,7 @@
 import { resolveSkinRuntime } from './runtime.js';
 import { read, nativeSkinState, matchesSkin, skinTotals, emptyDynamicFilters, readCrystalCatalogue, readDynamicMaterials } from './native-model.js';
 import { createSkinControls, sectionTitle, textNode } from './controls.js';
-import { getNativeTheme } from '../../ui/native-theme.js';
+import { skinWindowInk } from './game-chrome.js';
 
 const alive = node => node && !read(() => node.destroyed);
 // lk.virtualDraw requires this interface on EVERY direct content child,
@@ -29,7 +29,7 @@ export function findSkinWindow(stage) {
 }
 
 export function enhanceSkinWindow(ctx, owner) {
-  const laya = ctx.window.Laya ?? ctx.window.laya, theme = getNativeTheme(ctx);
+  const laya = ctx.window.Laya ?? ctx.window.laya;
   const required = ['showGeneralSkinNew', 'onClearPanelItems', 'clearLineBackItem', 'ShowNewView', 'changeView', 'onSearchChange', 'refreshNewSkinEntryState'];
   if (!required.every(key => typeof owner[key] === 'function') || typeof owner.searchView?.on !== 'function') throw new Error('当前皮肤管理接口不兼容');
   const releases = [], decorations = [], itemPatches = [];
@@ -46,6 +46,7 @@ export function enhanceSkinWindow(ctx, owner) {
   const remember = (obj, keys) => { if (obj) for (const key of keys) saved.push([obj, key, obj[key]]); };
   remember(owner.searchView, ['x', 'y', 'width', 'height', 'visible', 'text']);
   remember(owner.searchView.searchInput, ['maxChars']);
+  remember(owner, ['isSearch']);
   remember(owner.tabGroup, ['visible']);
   remember(owner.breakSkinSp, ['y']);
   remember(owner.gsm, ['curSkinFilterType']);
@@ -75,12 +76,11 @@ export function enhanceSkinWindow(ctx, owner) {
   const groups = () => { const result = []; owner.allSkinShows?.forEach((key, rows) => { if (Array.isArray(rows)) result.push([key, rows]); }); return result; };
   function clearDecorations() { for (const item of decorations.splice(0)) if (alive(item)) item.destroy(true); }
   function addTitle(panel, title, y) {
-    const node = virtualNode(sectionTitle(laya, title, 790, theme.palette)); node.pos(25, y); panel.addChild(node); decorations.push(node); return node;
+    const node = virtualNode(sectionTitle(laya, title)); node.pos(25, y); panel.addChild(node); decorations.push(node); return node;
   }
   function emptyHint(panel, x, y, width, height, size = 12) {
-    const node = virtualNode(textNode(laya, '暂无符合条件的皮肤', x, y, width, height, theme.palette.muted, size));
-    node.paintTheme = palette => { node.color = palette.muted; node.bgColor = palette.bg; };
-    node.paintTheme(theme.palette);
+    const node = virtualNode(textNode(laya, '暂无符合条件的皮肤', x, y, width, height, skinWindowInk.muted, size));
+    node.stroke = 1; node.strokeColor = skinWindowInk.shadow;
     panel.addChild(node); decorations.push(node); return node;
   }
   function totals(rows) {
@@ -238,16 +238,6 @@ export function enhanceSkinWindow(ctx, owner) {
   }
   function changed() { ctx.settings.set('nativeGroup', state.group); refresh(false); }
   controls = createSkinControls(ctx, owner, state, changed, () => markRead(recentIds()));
-  // Recolor existing nodes without rebuilding results, moving scroll position,
-  // clearing search text, or closing an open filter menu.
-  releases.push(theme.watch(palette => {
-    for (const node of decorations) if (alive(node)) node.paintTheme?.(palette);
-  }, { target: owner }));
-  const searchInput = owner.searchView.searchInput;
-  if (searchInput) {
-    const properties = Object.fromEntries(Object.entries({ color: 'text', bgColor: 'bg', promptColor: 'muted', borderColor: 'borderSoft' }).filter(([key]) => key in searchInput));
-    releases.push(theme.bind(searchInput, properties));
-  }
   patch(owner, 'selectGenerals', function (value) {
     const all = state.group === 'quality' || newPage(), sources = [Reflect.apply(original.selectGenerals, this, [all ? 0 : value])];
     // Native ALL loops countries 1..5; its OTHER branch also includes Jin.
@@ -321,7 +311,6 @@ export function enhanceSkinWindow(ctx, owner) {
       if (!alive(owner)) return;
       for (const [obj, key, value] of saved) if (alive(obj)) obj[key] = value;
       owner.searchView.SetActualSize?.(owner.searchView.width, owner.searchView.height);
-      owner.isSearch = false;
       owner.rebuildNewView?.();
       owner.refreshNewSkinEntry?.();
       if (newPage()) { original.changeView.call(owner, false); original.ShowNewView.call(owner); }
@@ -345,6 +334,11 @@ export function createNativeSkins(ctx) {
   function check() {
     if (ctx.scope.signal.aborted) return;
     try {
+      if (ctx.settings.get('advanced', true) !== true) {
+        const previous = attachment; attachment = null; previous?.dispose();
+        message = '高级皮肤整理已关闭。';
+        return;
+      }
       const laya = ctx.window.Laya ?? ctx.window.laya;
       if (attachment && (!alive(attachment.owner) || !attachment.owner.parent)) { attachment.dispose(); attachment = null; }
       if (attachment && !visible(attachment.owner)) {

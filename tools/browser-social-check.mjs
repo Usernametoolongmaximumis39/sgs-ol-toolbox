@@ -18,6 +18,7 @@ const nativeChatSize=method('Size(t,i){','get Drawed(){',source.indexOf('class a
  await writeFile(resolve(out,'source-report.json'),JSON.stringify({source:'test-results/reference/client-static/sgsGame_a.js',sha256:createHash('sha256').update(source).digest('hex'),methods:[vip,resize,office,nativeOfficerIcon,nativeDetailRequest,nativeChatSize].map(code=>({name:code.slice(0,code.indexOf('{')),offset:source.indexOf(code),end:source.indexOf(code)+code.length,sha256:createHash('sha256').update(code).digest('hex')}))},null,2));
 const bundle=await build({stdin:{contents:"export {mountPluginUI} from './src/ui/plugin-ui.js';export {createFriendManagement} from './src/plugins/social/friends.js';export {createChatEnhancements} from './src/plugins/social/chat.js';export {createLampTracking} from './src/plugins/social/lamps.js';export {activate,renderHistory} from './src/plugins/social/index.js';export {ResourceScope} from './src/core/resources.js';",resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'SocialCheck'});
 const browser=await chromium.launch({channel:'chrome',headless:true});const errors=[],checks=[];
+const roomFilterBundle=await build({entryPoints:['src/plugins/social/room-filter.js'],bundle:true,write:false,format:'iife',globalName:'RoomFilterCheck'});
 try{
  const page=await browser.newPage({viewport:{width:1150,height:780}});page.on('pageerror',e=>errors.push(e.message));
  await page.setContent('<html><head><base href="http://social.fixture/"></head><body style="margin:0"></body></html>');
@@ -93,6 +94,31 @@ try{
  assert.equal(await page.evaluate(()=>menu.showBtnList[0].label),'取消置顶');
  await page.waitForFunction(()=>chatRows.every(r=>r.htmlTxt._element._children.some(c=>c._tex?.getIsReady())));await page.waitForTimeout(80);
  await page.screenshot({path:resolve(out,'native-pinned-menu.png')});
+ const startupRequests=await page.evaluate(()=>{
+  friendRuntime.dispose();
+  window.savedFriendProfiles=friendRows.map(row=>row.userData);
+  for(const row of friendRows)row.userData=null;
+  const requests=[];
+  class LoadingUser{static SendUserBaseInfo(name){requests.push(name)}}
+  const game={...ctx.game,getSelf:()=>({...ctx.game.getSelf(),constructor:LoadingUser})};
+  window.friendRuntime=SocialCheck.createFriendManagement({...ctx,game});
+  return requests;
+ });
+ assert.deepEqual(startupRequests,['青山旧友']);
+ assert.equal(await page.evaluate(()=>list.goodFriendsList[0].data.FriendNickname),'长江东逝水');
+ const firstNativeOrder=await page.evaluate(()=>{
+  friendRows[0].userData=savedFriendProfiles[0];
+  proxy.event('ClientUserbaseinfoRep',{Protocol:{clientID:1234567891}});
+  return manager.GetGoodFriendsList().map(f=>f.FriendNickname);
+ });
+ assert.deepEqual(firstNativeOrder,['青山旧友','长江东逝水']);
+ await page.waitForFunction(()=>{
+  const row=list.goodFriendsList[0];
+  return row.data.FriendNickname==='青山旧友'&&row.getChildAt(row.numChildren-1).visible&&!row.vipIcon.visible;
+ });
+ await page.screenshot({path:resolve(out,'native-startup-pin.png'),clip:{x:28,y:108,width:225,height:170}});
+ await page.evaluate(()=>{friendRows.forEach((row,i)=>{row.userData=savedFriendProfiles[i]})});
+ checks.push('login requests saved pin first; profile reply sorts the native list and paints the pin');
  await page.evaluate(()=>{const f=friendRows.find(f=>f.userData.ClientId===1234567891);f.FriendNickname='青山新名';users.set('青山新名',f.userData);f.userData.Nickname='青山新名';friendRuntime.tick();friendRuntime.tick()});
  assert.equal(await page.evaluate(()=>friendRuntime.getRecord().changes.length),1);assert.equal(await page.evaluate(()=>notices.length),1);
  assert.equal(await page.evaluate(()=>friendRuntime.getRecord().friends['1234567891'].name),'青山新名');
@@ -177,11 +203,69 @@ try{
  assert.equal(shareProbe.unchanged,true);assert.equal(shareProbe.nativeLink,'showShareGeneral');
  await page.screenshot({path:resolve(out,'native-share-room-filter.png')});
  checks.push('native skin share parameters never create room links or join requests; original share link remains actionable');
+ const faceLinks=await page.evaluate(()=>{
+  const face='<img style="width:18px;height:18px;" src="face25.png"/>';
+  const decorate=(chatMsg,message)=>chat.getHtmlBase({MsgType:1,chatMsg,MessageHtml:face+message});
+  const faceOnly=decorate('#25','');
+  const plain=decorate('#25 来123',' 来123');
+  const recruitment=decorate('#25 KJ123',' KJ123');
+  chatRuntime.tick();
+  const result=[faceOnly,plain,recruitment].map(row=>row.htmlTxt._innerHTML);
+  for(const row of [faceOnly,plain,recruitment])row.destroy(true);
+  return result;
+ });
+ assert.ok(faceLinks.every(html=>html.includes('face25.png')&&!html.includes('sgs-social-room:25')));
+ assert.doesNotMatch(faceLinks[1],/sgs-social-room:/);
+ assert.match(faceLinks[2],/sgs-social-room:123/);
+ checks.push('inline face IDs are ignored and short room links require a keyword');
  await page.evaluate(()=>{window.account=2234567890;friendRuntime.tick();chatRuntime.tick()});
  assert.deepEqual(await page.evaluate(()=>friendRuntime.getRecord().pins),[]);assert.equal(await page.evaluate(()=>friendRuntime.getRecord().changes.length),0);
  await page.evaluate(()=>{account=1234567890;friendRuntime.tick()});assert.equal(await page.evaluate(()=>notices.length),1);assert.deepEqual(await page.evaluate(()=>friendRuntime.getRecord().pins),['1234567891']);
  checks.push('switching account clears previous account pin and rename history','returning to saved account retains pin without repeating rename alert');
+ await page.addScriptTag({content:roomFilterBundle.outputFiles[0].text});
+ await page.evaluate(()=>{
+  document.querySelector('#social-panel').hidden=true;
+  const view=new Laya.Sprite();view.pos(450,530);view.size(660,200);Laya.stage.addChild(view);
+  view.graphics.drawRect(0,0,660,200,'#24261f','#746344',1);
+  class HallCheckBox extends Laya.Sprite {
+   constructor(label){
+    super();
+    const caption=new Laya.Text();Object.assign(caption,{text:label,fontSize:16,color:'#e5d4b0',x:24,y:2});this.addChild(caption);
+    this.size(caption.textWidth+24,24);
+    this.selected=false;
+    this.on('click',this,()=>{this.selected=!this.selected;this.event('change')});
+   }
+   get selected(){return this.checked}
+   set selected(value){this.checked=value;this.graphics.clear();this.graphics.drawRect(0,3,16,16,value?'#ac8945':'#171813','#9a8d69',1)}
+  }
+  view.isWaitCheckBox=view.addChild(new HallCheckBox('只显示等待中的房间'));
+  view.OnStageResize=function(x=24){this.isWaitCheckBox.pos(x,8)};
+  view.OnStageResize();
+  const rows=new Laya.Text();Object.assign(rows,{x:24,y:44,color:'#e5d4b0',fontSize:16,leading:14});view.addChild(rows);
+  view.ReloadRoomList=function(data){rows.text=(data??[]).map(room=>room.name).join('\n')};
+  view.tableDataList=[{name:'房间 A'},{name:'房间 B（有密码）',HasPass:true},{name:'房间 C（有密码）',hasPass:true}];
+  view.ReloadRoomList(view.tableDataList);
+  scene.roomListView=view;window.roomFilterView=view;window.roomRows=rows;
+  RoomFilterCheck.installRoomFilter(ctx);
+  window.roomToggle=view.getChildAt(view.numChildren-1);
+ });
+ assert.deepEqual(await page.evaluate(()=>[roomToggle.x-roomFilterView.isWaitCheckBox.x-roomFilterView.isWaitCheckBox.width,roomToggle.y]),[12,8]);
+ const point=await page.evaluate(()=>{const p=roomToggle.localToGlobal(new Laya.Point(10,10));return{x:p.x,y:p.y}});
+ await page.mouse.click(point.x,point.y);
+ assert.equal(await page.evaluate(()=>roomRows.text),'房间 A');
+ await page.screenshot({path:resolve(out,'native-password-free-rooms.png'),clip:{x:450,y:530,width:660,height:200}});
+ await page.mouse.click(point.x,point.y);
+ assert.equal(await page.evaluate(()=>roomRows.text),'房间 A\n房间 B（有密码）\n房间 C（有密码）');
+ await page.mouse.click(point.x,point.y);
+ await page.evaluate(()=>{
+  roomFilterView.tableDataList=[{name:'新页有密码',HasPass:true},{name:'新页无密码',HasPass:false}];
+  roomFilterView.ReloadRoomList(roomFilterView.tableDataList);
+  roomFilterView.OnStageResize(40);
+ });
+ assert.deepEqual(await page.evaluate(()=>[roomRows.text,roomToggle.x-roomFilterView.isWaitCheckBox.x-roomFilterView.isWaitCheckBox.width]),['新页无密码',12]);
  await page.evaluate(()=>{panelDispose();scope.dispose();scope.dispose()});
+ assert.deepEqual(await page.evaluate(()=>[roomToggle.destroyed,roomRows.text]),[true,'新页有密码\n新页无密码']);
+ checks.push('room password filtering refreshes on native clicks, survives page updates and resize, and restores rows on disposal');
  assert.equal(await page.locator('.sgs-social').count(),0);
  assert.deepEqual(await page.evaluate(()=>list.goodFriendsList.map(r=>[r.data.userData.ClientId,r.vipIcon.visible])),[[1234567892,true],[1234567891,false]]);
  assert.equal(await page.evaluate(()=>chatRows[0].htmlTxt._innerHTML===messages[0].MessageHtml),true);

@@ -4,7 +4,7 @@ import { createController } from './controller.js';
 import { ITEMS, normalize, rowLabel } from './model.js';
 
 export default {
-  manifest: { id: 'seckill', name: '自动秒杀', version: '0.1.3', apiVersion: 1, contractVersion: 1, releaseNotes: "精简自动购买界面，统一商品选择与开关外观；自动购买仍默认关闭，开启后会消耗对应游戏货币，结果未确认时仍保留核对状态。", minCoreVersion: '0.6.37',
+  manifest: { id: 'seckill', name: '自动秒杀', version: '0.1.4', apiVersion: 1, contractVersion: 1, releaseNotes: "适配新版工具箱界面资源。自动购买默认关闭，启用会消耗对应游戏货币。", minCoreVersion: '0.6.37',
     description: '按所选物品与关键词自动抢购秒杀商品，支持跨场次排队与购买确认', icon: PLUGIN_ICONS['seckill'], priority: 21000, categories: ['automation'] },
   activate(ctx) {
     const controller = createController({ adapter: createNativeAdapter(ctx), settings: ctx.settings, scope: ctx.scope, reportError: e => ctx.reportError?.(e), notify: ctx.notify });

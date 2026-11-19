@@ -14,6 +14,8 @@ import { findPluginUpdates, compareVersions } from '../market/updates.js';
 import { selectGamePanels } from '../core/game-view.js';
 import { comparePanelOrder, comparePluginOrder } from '../core/plugin-contract.js';
 import { createIcon } from './icons.js';
+import { createFeedbackForm, FEEDBACK_STYLES } from './feedback.js';
+const feedbackIcon = { paths: ['M20 16h-8l-5 4v-4H4V4h16z', 'M8 8h8M8 12h6'] };
 const categories = [['game', '牌局'], ['automation', '自动'], ['tools', '工具'], ['manage', '管理'], ['info', '信息']];
 const FONT_SIZES = [['tiny', '特小', -2], ['small', '小', -1], ['standard', '标准', 0], ['large', '大', 2]];
 const scaleFonts = css => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix, size) => `${prefix}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`);
@@ -31,6 +33,38 @@ const style = `
 .plugin-release-notes{margin:8px 0 0;min-width:0;color:var(--sgs-muted);font-size:11px}.plugin-release-notes summary{cursor:pointer;min-height:30px;padding:6px 2px;color:var(--sgs-text);overflow-wrap:anywhere}.plugin-release-notes summary:focus-visible,.plugin-release-notes-text:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px;border-radius:4px}.plugin-release-notes-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;padding:2px 6px 4px 8px;border-left:2px solid var(--sgs-border);max-height:160px;overflow:auto;scrollbar-width:thin}.plugin-update .plugin-release-notes summary{color:var(--sgs-accent)}
 .appearance-page .plugin-heading{margin:0}
 .management-tabs{position:sticky;top:-12px;z-index:8;background:var(--sgs-bg)!important;box-shadow:0 5px 8px var(--sgs-bg)!important}
+.custom-card-backs{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--sgs-border)}
+.custom-card-backs-heading{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 10px}
+.custom-card-backs-heading h4{margin:0;font-size:13px}
+.custom-card-backs-heading button{min-width:68px;min-height:34px;color:var(--sgs-accent)}
+.custom-card-back-list{display:grid;gap:6px;margin:0;padding:0;border:0;min-inline-size:0}
+.custom-card-back-row{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center}
+.custom-card-back-row .custom-card-back-option{display:flex;align-items:center;gap:8px;padding:4px 8px;min-width:0;text-align:left}
+.custom-card-back-option img{width:30px;height:auto;aspect-ratio:93/130;flex:none;border-radius:3px}
+.custom-card-back-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.custom-card-back-row .custom-card-back-option[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 2px 0 var(--sgs-accent);background:var(--sgs-raised)}
+.custom-card-back-selected{margin-left:auto;color:var(--sgs-accent)}
+.custom-card-back-row .custom-card-back-remove{display:grid;place-items:center;width:34px;height:36px;padding:0;color:var(--sgs-muted)}
+.custom-card-back-row .custom-card-back-remove:hover:not(:disabled){color:var(--sgs-danger);border-color:var(--sgs-danger)}
+.custom-card-backs .custom-card-back-error{color:var(--sgs-danger);overflow-wrap:anywhere}
+.custom-card-faces{margin-top:9px;padding:9px 0;border-bottom:1px solid var(--sgs-border)}
+.custom-card-face-fields{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+.custom-card-face-fields input[type=search]{grid-column:1/-1;width:100%}
+.custom-card-face-fields.is-background button{grid-column:2}
+.custom-card-face-fields .sgs-select,.custom-card-face-fields button{height:34px}
+.custom-card-face-fields button{color:var(--sgs-accent)}
+.card-face-catalog{margin:10px 0;padding:0 9px 4px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-surface)}
+.card-face-catalog[open]{padding-bottom:9px}
+.card-face-catalog .sgs-select,.card-face-catalog .sgs-input{width:100%;min-width:0;margin:0 0 6px}
+.card-face-catalog-preview{text-align:center}
+.card-face-catalog-preview canvas{display:block;width:min(135px,100%);height:auto;margin:4px auto;border-radius:8px;box-shadow:0 3px 12px #0005}
+.card-face-catalog .card-face-catalog-error{color:var(--sgs-danger);white-space:pre-wrap;overflow-wrap:anywhere}
+.custom-card-face-preview:not([hidden]){display:grid;grid-template-columns:34px minmax(0,1fr) 36px;gap:8px;align-items:center;margin-top:8px;color:var(--sgs-muted);font-size:11px}
+.custom-card-face-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.custom-card-face-preview img{width:34px;aspect-ratio:135/190;border-radius:3px}
+.custom-card-face-preview button{display:grid;place-items:center;padding:0;height:36px;color:var(--sgs-muted)}
+.custom-card-face-preview button:hover:not(:disabled){color:var(--sgs-danger);border-color:var(--sgs-danger)}
+.custom-card-faces .custom-card-face-error{color:var(--sgs-danger);overflow-wrap:anywhere}
 .card-style-workshop summary{cursor:pointer;color:var(--sgs-accent);padding:8px 0;font-size:12px;min-height:34px}.card-style-workshop summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}.card-style-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-style-choices button{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;font-size:11px}.card-style-choices button[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 3px 0 var(--sgs-accent);background:color-mix(in srgb,var(--sgs-accent) 12%,var(--sgs-surface))}.card-style-preview{display:flex;gap:4px;width:100%;justify-content:center}.card-style-preview canvas,.card-style-preview img{width:43%;max-width:64px;height:auto;aspect-ratio:93/130;border-radius:3px}.card-style-workshop p{margin:8px 0}
 
 .core-upgrade-actions{display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap}.core-upgrade-actions a{font-size:10px}.core-upgrade-refresh{display:inline-flex;align-items:center;gap:5px;flex:none;padding:5px;font-size:10px;color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 40%,var(--sgs-border));background:color-mix(in srgb,var(--sgs-accent) 8%,var(--sgs-surface))}.core-upgrade-reminder{margin-top:6px;padding-left:8px;border-left:2px solid var(--sgs-accent);font-size:11px;color:var(--sgs-muted);overflow-wrap:anywhere}
@@ -44,6 +78,7 @@ const style = `
 .brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand strong{letter-spacing:1px;font-size:13px}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
 .nav{display:flex;gap:4px;padding:7px 9px;border-block:1px solid var(--sgs-border);background:var(--sgs-surface)}.nav button{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:0;height:42px;padding:0;border-color:transparent;background:transparent;overflow:hidden;transition:flex-grow var(--sgs-motion) cubic-bezier(.2,.8,.2,1),background var(--sgs-motion),gap var(--sgs-motion)}.nav button svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform var(--sgs-motion)}.nav button span{max-width:0;opacity:0;white-space:nowrap;overflow:hidden;transition:max-width var(--sgs-motion),opacity var(--sgs-motion)}.nav button[aria-selected=true]{color:var(--sgs-accent);background:var(--sgs-raised)}.nav:has(button:hover) button:not(:hover):not(:focus-visible) svg,.nav:has(button:focus-visible) button:not(:hover):not(:focus-visible) svg{transform:scale(.92)}.nav button:hover,.nav button:focus-visible{flex-grow:2.2;gap:5px;color:var(--sgs-accent);background:var(--sgs-raised)}.nav button:hover svg,.nav button:focus-visible svg{transform:scale(1.15)}.nav button:hover span,.nav button:focus-visible span{max-width:32px;opacity:1}
 .content{padding:12px;max-height:65vh;min-height:200px;overflow:auto;scrollbar-width:thin}.footer{display:flex;justify-content:space-between;border-top:1px solid var(--sgs-border);padding:7px 12px;color:var(--sgs-muted);font-size:10px}.footer button{padding:0;border:0;background:none;font-size:10px;color:var(--sgs-muted)}.empty{text-align:center;padding:35px 12px;color:var(--sgs-muted)}.empty svg{width:32px;height:32px;fill:none;stroke:var(--sgs-accent);stroke-width:1.2;margin-bottom:12px}.empty strong{display:block;color:var(--sgs-text);font-size:14px;margin-bottom:7px}.tabs{display:flex;gap:4px;margin-bottom:13px}.tabs button{flex:1;padding:5px 2px;font-size:12px}.tabs button.active{border-color:var(--sgs-accent);color:var(--sgs-accent)}h3{font-size:13px;margin:15px 0 7px}h3:first-child{margin-top:0}.card{padding:10px;border:1px solid var(--sgs-border);border-radius:8px;margin-bottom:8px;background:var(--sgs-surface)}.card .title{display:flex;justify-content:space-between;gap:5px}.muted{color:var(--sgs-muted);font-size:11px}.actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.actions button{font-size:11px;padding:4px 7px}.notice{color:var(--sgs-muted);font-size:11px;overflow-wrap:anywhere;padding:7px 0}.error{color:var(--sgs-danger)}label.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0}input[type=checkbox]{accent-color:var(--sgs-accent)}input.address{width:100%;font-size:11px}select{max-width:145px}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);max-width:80vw;background:var(--sgs-raised);color:var(--sgs-text);padding:10px 16px;border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 4px 20px #0008;z-index:2147483647}
+.toast[data-position=top]{top:22px;top:calc(22px + env(safe-area-inset-top, 0px));bottom:auto;box-sizing:border-box;max-width:min(36em,calc(100vw - 32px));text-align:center;overflow-wrap:anywhere;pointer-events:none}
 :host([data-collapsed]) .nav,:host([data-collapsed]) .content,:host([data-collapsed]) .status,:host([data-collapsed]) .footer{display:none}:host([data-collapsed]) .brand{display:none}
 .compact{display:none;align-items:center;height:38px;padding:0 7px 0 10px;cursor:grab;touch-action:none;white-space:nowrap;user-select:none;-webkit-user-select:none}.compact:active{cursor:grabbing}.compact .slash{display:flex;align-items:center;gap:9px;flex:1;min-width:0;height:100%;color:var(--sgs-accent)}.slash-seal{display:grid;place-items:center;flex:none;width:25px;height:27px;font:20px/1 "KaiTi","STKaiti","FangSong",serif;color:var(--sgs-accent);text-shadow:0 1px 1px #0009;background:radial-gradient(ellipse,color-mix(in srgb,var(--sgs-accent) 9%,transparent),transparent 72%)}.slash-reading{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:32px;height:34px}.slash-label{font:9px/10px var(--sgs-font);letter-spacing:1px;color:var(--sgs-muted)}.compact [data-slash]{font:600 21px/23px "Cambria","Georgia",serif;font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--sgs-accent) 42%,var(--sgs-text));text-shadow:0 1px 2px #0008;letter-spacing:.3px}.compact[data-count-state="empty"] [data-slash]{color:var(--sgs-muted)}.compact[data-count-state="unknown"] [data-slash]{color:var(--sgs-muted);font-size:19px}.compact[data-count-state="unlimited"] [data-slash]{font-size:24px}.compact[data-count-size="long"] [data-slash]{font-size:15px;letter-spacing:0}.compact-actions{display:flex;align-items:center;gap:1px;padding-left:6px;margin-left:6px;position:relative}.compact-actions::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:1px;background:linear-gradient(transparent,color-mix(in srgb,var(--sgs-accent) 30%,transparent),transparent)}.compact button{display:grid;place-items:center;flex:none;width:28px;height:30px;padding:5px;border:0;border-radius:7px;background:transparent;color:var(--sgs-muted);box-shadow:none;transition:background 140ms,color 140ms,transform 140ms}.compact button:hover{color:var(--sgs-text);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 13%,transparent),color-mix(in srgb,var(--sgs-accent) 4%,transparent))}.compact button:active{transform:translateY(1px);background:color-mix(in srgb,var(--sgs-accent) 15%,transparent)}.compact button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:-2px;background:color-mix(in srgb,var(--sgs-accent) 9%,transparent)}.compact svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.compact [data-expand] svg{width:16px;height:16px}
 :host([data-collapsed]){width:156px!important;min-width:156px;max-width:156px}:host([data-collapsed]) .shell{position:relative;width:100%!important;max-width:100%;min-width:0;resize:none;border:1px solid color-mix(in srgb,var(--sgs-border) 65%,transparent);border-radius:11px;background:linear-gradient(165deg,var(--sgs-raised) 0%,var(--sgs-bg) 40%,color-mix(in srgb,var(--sgs-bg) 82%,#000) 100%);box-shadow:0 3px 8px #0004,0 12px 28px #0002,inset 0 1px color-mix(in srgb,var(--sgs-text) 9%,transparent),inset 0 -1px #0005}:host([data-collapsed]) .shell::before{content:'';position:absolute;pointer-events:none;top:0;left:15px;right:15px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--sgs-accent) 40%,transparent),transparent)}:host([data-collapsed]) .compact{display:flex}
@@ -60,9 +95,15 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
 .settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 1 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
 .font-preview{margin-top:12px;padding:12px 0 12px 10px;border-left:2px solid var(--sgs-accent);line-height:1.6}.font-preview strong{font-size:13px}.font-preview p{font-size:12px;margin:5px 0}.font-settings .sgs-segments button{min-width:0;flex:1;padding:6px 2px}.brand{gap:6px}.brand-name{min-width:0;flex:1}.brand strong{white-space:nowrap;letter-spacing:0;font-size:13px}.brand small{font-size:9px}.brand .mark{flex:none}.brand [data-collapse]{flex:none;margin-left:0}.brand-name strong{display:block;overflow:hidden;text-overflow:ellipsis}.brand [data-update-hint]{display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 7px;border:1px solid color-mix(in srgb,var(--sgs-accent) 48%,var(--sgs-border));border-radius:7px;background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 20%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 10%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 20%,transparent),0 2px 4px #0002;color:var(--sgs-accent);font-size:11px;font-weight:600;line-height:18px;cursor:pointer;white-space:nowrap;transition:background 140ms,border-color 140ms,box-shadow 140ms,transform 140ms}.brand [data-update-hint] svg{width:13px;height:13px;flex:none;stroke-width:1.8}.brand [data-update-hint][hidden]{display:none}.brand [data-update-hint]:hover{border-color:var(--sgs-accent);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 30%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 17%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 28%,transparent),0 3px 7px #0003;transform:translateY(-1px)}.brand [data-update-hint]:active{transform:translateY(0);box-shadow:inset 0 1px 3px #0003}.brand [data-update-hint]:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}
 
+.brand [data-feedback]{display:flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 6px;background:transparent;box-shadow:none;color:var(--sgs-muted);font-size:11px;line-height:18px;white-space:nowrap}
+.brand [data-feedback] svg{width:14px;height:14px}
+.brand [data-feedback]:hover,.brand [data-feedback]:focus-visible{color:var(--sgs-accent);border-color:var(--sgs-accent);background:var(--sgs-surface)}
+.brand small{white-space:nowrap;letter-spacing:.6px}
+:host([data-tight-brand]) .brand.has-update .mark{display:none}
+${FEEDBACK_STYLES}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
-export function createShell({ window: win, document: doc, settings, scope }) {
+export function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount, canReserveGameViewport }) {
   let microUpdate = null, microUpdateBusy = false, microUpdateError = '';
   async function runMicroUpdate(action) {
     microUpdateBusy = true; microUpdateError = ''; render();
@@ -85,6 +126,18 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   }
   for (const [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
   const content = shadow.querySelector('.content'); let active = settings.get('category', 'game'); let management = 'market'; let renderedCleanup; let handlers = {}; const panels = new Map(); let toastTimer;
+  const feedbackForm = createFeedbackForm(win, doc, scope, getFeedbackAccount);
+  const feedbackButton = doc.createElement('button');
+  feedbackButton.type = 'button'; feedbackButton.dataset.feedback = ''; feedbackButton.title = '前往反馈';
+  feedbackButton.append(createIcon(doc, feedbackIcon), doc.createTextNode('反馈'));
+  shadow.querySelector('[data-update-hint]').before(feedbackButton);
+  scope.listen(feedbackButton, 'click', () => {
+    if (active !== 'manage' || management !== 'settings') {
+      active = 'manage'; management = 'settings'; settings.set('category', active); render();
+    }
+    content.scrollTop = 0;
+    feedbackForm.elements.message.focus({ preventScroll: true });
+  });
   const applyFontSize = () => {
     const choice = FONT_SIZES.find(([id]) => id === settings.get('fontSize', 'standard')) || FONT_SIZES[2];
     host.style.setProperty('--sgs-font-offset', `${choice[2]}px`);
@@ -125,7 +178,20 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   }
   const el = (tag, text, cls) => { const n = doc.createElement(tag); if (text !== undefined) n.textContent = text; if (cls) n.className = cls; return n; };
   const button = (text, fn) => { const n = el('button', text); n.addEventListener('click', async () => { n.disabled = true; try { await fn(); } catch (e) { notify(userErrorMessage(e)); } finally { n.disabled = false; } }); return n; };
-  function notify(message) { shadow.querySelector('.toast')?.remove(); clearTimeout(toastTimer); const n = el('div', message, 'toast'); n.setAttribute('role', 'status'); shadow.append(n); toastTimer = setTimeout(() => n.remove(), 6000); }
+  function notify(message, options) {
+    shadow.querySelector('.toast')?.remove();
+    clearTimeout(toastTimer);
+    const n = el('div', message, 'toast');
+    if (options?.position === 'top') n.dataset.position = 'top';
+    n.setAttribute('role', 'status');
+    shadow.append(n);
+    toastTimer = setTimeout(() => n.remove(), 6000);
+    return () => {
+      if (!n.parentNode) return;
+      clearTimeout(toastTimer);
+      n.remove();
+    };
+  }
   function empty(title, text, icon = active) { const n = el('div', undefined, 'empty'); n.append(createIcon(doc, icon)); n.append(el('strong', title), el('div', text)); content.append(n); }
   async function exportDiagnostics() {
     if (typeof handlers.exportDiagnostics !== 'function') throw new Error('记牌诊断尚未准备好');
@@ -227,6 +293,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   }
   function renderSettings(cleanups) {
     const first = content.children.length;
+    content.append(el('h3', '反馈'), feedbackForm);
     {
       const edgeHeading = el('h3', 'HUD 靠边行为'); content.append(edgeHeading);
       const choices = el('div', undefined, 'sgs-segments'); choices.setAttribute('role', 'group'); choices.setAttribute('aria-label', 'HUD 靠边行为');
@@ -626,6 +693,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     const coreUpgrade = MICROCLIENT ? !!microUpdate?.newer && !microUpdate?.pending : coreUpdateStatus()?.order > 0;
     const updateHint = shadow.querySelector('[data-update-hint]');
     updateHint.hidden = !coreUpgrade && !upgrades;
+    updateHint.parentElement.classList.toggle('has-update', !updateHint.hidden);
     updateHint.title = [coreUpgrade && '核心可升级', upgrades && `${upgrades} 个插件可更新`, '点击前往更新'].filter(Boolean).join(' · ');
     const alerts = [coreUpgrade && '核心可升级', failures && `${failures} 个插件异常`, upgrades && `${upgrades} 个插件可更新`].filter(Boolean).join(' · ');
     manage.title = alerts || '管理';
@@ -638,7 +706,29 @@ export function createShell({ window: win, document: doc, settings, scope }) {
     if (!available.length) { if (active !== 'manage') empty('尚未安装此类插件', active === 'game' ? '前往管理 → 插件市场安装卡牌插件。' : '此分类为后续插件保留。'); restoreScroll(); return; }
     content.classList.add('has-plugin-panels');
     const groups = new Map();
+    const tabHosts = new Map();
     for (const panel of available) {
+      if (panel.groupTabs && !tabHosts.has(panel.pluginId)) tabHosts.set(panel.pluginId, panel);
+    }
+    const appendPanel = (panel, body) => {
+      const section = el('section'); section.dataset.panelId = panel.id; body.append(section);
+      const tabs = tabHosts.get(panel.pluginId) === panel
+        ? available.filter(child => child.groupTab && child.groupWith === panel.pluginId) : [];
+      const groupTabs = tabs.map(child => {
+        let mounted;
+        return { id: child.id, title: child.title, mount(target) {
+          if (!content.contains(section) || !section.contains(target) || target === section) {
+            throw new Error('组内页签必须挂载在本面板的内容容器中。');
+          }
+          return mounted ??= appendPanel(child, target);
+        } };
+      });
+      try { const clean = panel.render(section, { groupTabs }); if (typeof clean === 'function') cleanups.push(clean); }
+      catch (e) { section.append(el('div', '面板加载失败：' + userErrorMessage(e), 'error')); }
+      return section;
+    };
+    for (const panel of available) {
+      if (panel.groupWith) continue;
       const id = panel.pluginId || panel.id;
       let body = groups.get(id);
       if (!body) {
@@ -661,9 +751,12 @@ export function createShell({ window: win, document: doc, settings, scope }) {
         toggle.ondblclick = () => { settings.set(`pluginCollapsed:${id}`, false); apply(false); };
         heading.append(toggle); group.append(heading, body); content.append(group); groups.set(id, body);
       }
-      const section = el('section'); section.dataset.panelId = panel.id; body.append(section);
-      try { const clean = panel.render(section); if (typeof clean === 'function') cleanups.push(clean); }
-      catch (e) { section.append(el('div', '面板加载失败：' + userErrorMessage(e), 'error')); }
+      appendPanel(panel, body);
+    }
+    for (const panel of available) {
+      if (panel.groupTab && tabHosts.has(panel.groupWith)) continue;
+      const body = panel.groupWith && groups.get(panel.groupWith);
+      if (body) appendPanel(panel, body);
     }
     restoreScroll();
   }
@@ -717,7 +810,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   });
   scope.listen(doc, 'pointerdown', closeTouchTip); scope.listen(content, 'scroll', closeTouchTip); scope.add(closeTouchTip);
   const edgeBehavior = () => { const value = settings.get('hudEdgeBehavior', 'fixed'); return mobileDevice() ? (value === 'none' ? 'none' : 'hide') : MICROCLIENT && value === 'hide' ? 'fixed' : ['none', 'hide', 'fixed'].includes(value) ? value : 'fixed'; };
-  const gameViewport = createGameViewport({ window: win, document: doc, scope });
+  const gameViewport = createGameViewport({ window: win, document: doc, scope, canReserve: canReserveGameViewport });
   const syncGameViewport = () => gameViewport.reserve(host.hasAttribute('data-edge-fixed') ? (host.hasAttribute('data-collapsed') ? 156 : parseFloat(host.style.width) || 280) : 0);
   let edgeHideTimer, draggingHUD = false;
   const revealEdge = () => { clearTimeout(edgeHideTimer); host.removeAttribute('data-edge-hidden'); };
@@ -774,7 +867,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   host.style.width = Math.max(248, Math.min(420, settings.get('width', 280))) + 'px'; edgeResizer.setAttribute('aria-valuenow', String(parseFloat(host.style.width))); syncGameViewport();
   if (win.ResizeObserver) {
     let saveWidth;
-    const observer = new win.ResizeObserver(entries => { if (host.hasAttribute('data-collapsed')) return; const width = Math.round(entries[0].borderBoxSize?.[0]?.inlineSize || shadow.querySelector('.shell').getBoundingClientRect().width); if (width < 248) return; host.style.width = width + 'px'; edgeResizer.setAttribute('aria-valuenow', String(width)); syncGameViewport(); clearTimeout(saveWidth); saveWidth = setTimeout(() => settings.set('width', width), 200); });
+    const observer = new win.ResizeObserver(entries => { if (host.hasAttribute('data-collapsed')) return; const width = Math.round(entries[0].borderBoxSize?.[0]?.inlineSize || shadow.querySelector('.shell').getBoundingClientRect().width); host.toggleAttribute('data-tight-brand', width < 300); if (width < 248) return; host.style.width = width + 'px'; edgeResizer.setAttribute('aria-valuenow', String(width)); syncGameViewport(); clearTimeout(saveWidth); saveWidth = setTimeout(() => settings.set('width', width), 200); });
     observer.observe(shadow.querySelector('.shell')); scope.add(() => { observer.disconnect(); clearTimeout(saveWidth); });
   }
   for (const handle of shadow.querySelectorAll('.brand,.compact')) scope.listen(handle, 'pointerdown', e => {
@@ -833,7 +926,7 @@ export function createShell({ window: win, document: doc, settings, scope }) {
   }
   render();
   return { host, shadow, setCompactSummary, notify, showLegacyWarning, render, setGameView(value) {
-    const next = value === 'shanhe' ? 'shanhe' : 'battle';
+    const next = value === 'shanhe' || value === 'shanhe-battle' ? value : 'battle';
     if (next === gameView) return;
     gameView = next; if (active === 'game') render();
   }, setRemainingSlash(value) {

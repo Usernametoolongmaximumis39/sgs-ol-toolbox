@@ -30,10 +30,12 @@ test('atlas contract: source, integrity, exact names and untrimmed card frames o
   assert.equal(cardFrameName('GuoZhanSha'), 'GuoZhanSha_png.png');
   assert.equal(cardFrameName('../Sha'), null);
   const full = {frame:{x:0,y:0,w:135,h:190,idx:0},sourceSize:{w:135,h:190},spriteSourceSize:{x:0,y:0}};
-  const index = {meta:{image:'cardZhuZhuXia.png,cardZhuZhuXia1.png'},frames:{'Sha_png.png':full,'GuoZhanSha_png.png':full,
+  const index = {meta:{image:'cardZhuZhuXia.png,cardZhuZhuXia1.png'},frames:{'Sha_png.png':{...full,label:'杀'},'GuoZhanSha_png.png':{...full,label:'无效\n牌名'},
     'Mask_png.png':{...full,frame:{...full.frame,w:5}},'Invalid_png.png':{...full,rotated:true}}};
   const frames = parseCardFrames(index,[{width:135,height:190},{width:256,height:240}],descriptor);
   assert.deepEqual([...frames.keys()],['Sha_png.png','GuoZhanSha_png.png']);
+  assert.equal(frames.get('Sha_png.png').label, '杀');
+  assert.equal(frames.get('GuoZhanSha_png.png').label, undefined);
   assert.throws(() => parseCardFrames({...index,meta:{image:'else.png'}},[],descriptor), /清单/);
 });
 
