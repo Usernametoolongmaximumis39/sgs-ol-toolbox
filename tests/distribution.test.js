@@ -5,8 +5,8 @@ import { SessionJournal } from '../src/core/session.js';
 import { Settings } from '../src/core/storage.js';
 import { packageDigest, compilePackage } from '../src/core/packages.js';
 
-async function packet(version = '1.0.0') {
-  const manifest = { id: 'example', name: '示例', version, apiVersion: 1, categories: [] };
+async function packet(version = '1.0.0', fields = {}) {
+  const manifest = { id: 'example', name: '示例', version, apiVersion: 1, categories: [], ...fields };
   const code = `return { manifest: ${JSON.stringify(manifest)}, activate(ctx) { ctx.settings.set('starts', ctx.settings.get('starts', 0) + 1); } };`;
   return { format: 'sgs-toolbox-plugin-v1', manifest, code, sha256: await packageDigest(manifest, code) };
 }
@@ -69,4 +69,47 @@ test('fresh lite has no installed plugins and bundled persistence failures remai
 test('legacy builtin records still behave normally for non-bundled manager users', async () => {
   const f = fixtures(), manager = f.create(); manager.registerBuiltin(compilePackage(await packet()));
   await manager.init(); assert.equal(f.records.size, 0); manager.dispose();
+});
+
+test('an incompatible package stays saved along with its rollback package and disabled state', async () => {
+  const active = await packet('2.0.0', { minCoreVersion: '99.0.0' }), previous = await packet();
+  const row = { id: 'example', active, previous, enabled: false, uninstalled: false };
+  const f = fixtures([row]), manager = f.create();
+  await manager.init();
+  assert.match(manager.loadIssues.get('example').message, /需要核心 99\.0\.0/);
+  assert.equal(manager.list()[0].version, previous.manifest.version);
+  assert.equal(manager.list()[0].enabled, false);
+  assert.deepEqual(f.records.get('example'), row);
+  manager.dispose();
+});
+
+test('lite recovers the saved package of an interrupted builtin migration', async () => {
+  const previous = await packet(), row = { id: 'example', active: null, previous, enabled: false, appliedBuiltinMigrations: [previous.sha256] };
+  const f = fixtures([row]), lite = f.create();
+  await lite.init();
+  assert.equal(lite.list()[0].version, previous.manifest.version);
+  assert.equal(lite.list()[0].enabled, false);
+  assert.deepEqual(f.records.get('example'), { ...row, active: previous, previous: null });
+  lite.dispose();
+  const restart = f.create(); await restart.init();
+  assert.equal(restart.list()[0].version, previous.manifest.version);
+  restart.dispose();
+});
+
+test('a failed storage read never writes over a saved installation', async () => {
+  const active = await packet(), row = { id: 'example', active, previous: null, enabled: false, uninstalled: true };
+  const f = fixtures([row]), manager = f.create();
+  let rejectRead, signalReadStarted;
+  const readStarted = new Promise(resolve => { signalReadStarted = resolve; });
+  f.store.list = () => new Promise((_resolve, reject) => { rejectRead = reject; signalReadStarted(); });
+  await manager.registerBundled(active);
+  const init = manager.init();
+  const install = manager.install(active);
+  await readStarted;
+  rejectRead(new Error('temporary failure'));
+  await init;
+  assert.match(manager.storageError, /无法读取插件存储/);
+  await assert.rejects(install, /temporary failure/);
+  assert.deepEqual(f.records.get('example'), row);
+  manager.dispose();
 });

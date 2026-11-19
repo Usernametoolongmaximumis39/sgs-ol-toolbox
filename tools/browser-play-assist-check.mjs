@@ -45,6 +45,10 @@ try {
   assert.equal(await root.getByRole('switch', {checked:true}).count(), 1);
   await page.locator('main').evaluate(n => { n.style.cssText = 'width:280px;padding:12px;background:#201e1a;--sgs-text:#eee3cc;--sgs-muted:#b7aa8c;--sgs-accent:#dbba70;--sgs-border:#665b42;--sgs-surface:#2c2922;--sgs-font:system-ui'; });
   await root.screenshot({path:resolve(output,'defaults.png')});
+  const wuxieHelp = root.getByRole('button', {name:'跳过无懈说明'});
+  await wuxieHelp.focus();
+  assert.equal(await root.getByRole('tooltip').innerText(), '仅在山河图中跳过自己回合的首轮无懈询问');
+  await wuxieHelp.press('Escape');
   await root.getByRole('switch', {name:'权道数量',exact:true}).focus(); await page.keyboard.press('Space');
   assert.equal(await page.evaluate(()=>values.get('quandaoCount')),true);
   assert.equal(await root.getByRole('switch', {name:'跨局记忆',exact:true}).count(),0);

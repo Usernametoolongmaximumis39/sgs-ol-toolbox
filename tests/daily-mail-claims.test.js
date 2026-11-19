@@ -66,7 +66,7 @@ test('legacy keyed pending mail is repaired once only after fresh matching read 
   assert.deepEqual(f.trace.map(item => item[0]), ['read', 'item']);
   const records = f.storage.get('account:41:attempts').items;
   assert.equal(records['mail-legacy:1011:10'].priorStatus, 'unconfirmed'); assert.equal(records['mail-legacy:1011:10'].status, 'superseded');
-  assert.equal(records['mail:1011'].flowVersion, 3); await f.make().run(); assert.equal(f.trace.length, 2);
+  assert.equal(records['mail:1011'].flowVersion, 4); await f.make().run(); assert.equal(f.trace.length, 2);
 });
 test('a repair timeout persists the new version and never retries again across hot reloads', async t => {
   const f = fixture(t);
@@ -100,7 +100,7 @@ test('already-read uncertain keyed item mail v2 refreshes read acknowledgement t
  const f=fixture(t,{read:1});
  f.storage.set('account:41:attempts',{day:'2026-11-14',items:{'mail:1011':{status:'unconfirmed',at:10,flowVersion:2}}});
  await f.controller.run();assert.deepEqual(f.trace.map(v=>v[0]),['read','item']);assert.equal(f.controller.snapshot().confirmed,1);
- assert.equal(f.storage.get('account:41:attempts').items['mail:1011'].flowVersion,3);
+ assert.equal(f.storage.get('account:41:attempts').items['mail:1011'].flowVersion,4);
  await f.make().run();assert.equal(f.trace.length,2);
 });
 test('repair of already-read mail awaits exact fresh read ACK, not the old read flag', async t => {
@@ -112,8 +112,64 @@ test('v2 gift mail is never repaired by repeating potentially repeatable gift re
  const f=fixture(t,{read:1,type:1});f.storage.set('account:41:attempts',{day:'2026-11-14',items:{'mail:1011':{status:'unconfirmed',at:10,flowVersion:2}}});
  await f.controller.run();assert.deepEqual(f.trace,[]);
 });
-test('v3 repair timeout stays protected across reloads', async t => {
+test('recovery timeout stays protected across reloads', async t => {
  const f=fixture(t,{read:1});f.manager.SendClientDbsGetgmawardReq=(...args)=>f.trace.push(['item',...args]);
  f.storage.set('account:41:attempts',{day:'2026-11-14',items:{'mail:1011':{status:'unconfirmed',at:10,flowVersion:2}}});
- await f.controller.run();await f.make().run();assert.deepEqual(f.trace.map(v=>v[0]),['read','item']);assert.equal(f.storage.get('account:41:attempts').items['mail:1011'].flowVersion,3);
+ await f.controller.run();await f.make().run();assert.deepEqual(f.trace.map(v=>v[0]),['read','item']);assert.equal(f.storage.get('account:41:attempts').items['mail:1011'].flowVersion,4);
+});
+
+test('the next automatic check resumes an already-read item without another read request', async t => {
+  const f = fixture(t);
+  const claim = f.manager.SendClientDbsGetgmawardReq.bind(f.manager);
+  f.manager.SendClientDbsGetgmawardReq = (key, mid, sender) => {
+    const record = f.storage.get('account:41:attempts').items[`mail:${mid}`];
+    assert.equal(record.status, 'pending');
+    if (record.flowVersion === 3) { f.trace.push(['item', key, mid, sender]); return; }
+    assert.equal(record.flowVersion, 4);
+    claim(key, mid, sender);
+  };
+  await f.controller.run();
+  assert.equal(f.mail.read, 1);
+  assert.equal(f.mail.Geted, false);
+  assert.deepEqual(f.trace.map(([action]) => action), ['read', 'item']);
+  const prior = f.storage.get('account:41:attempts').items['mail:1011'];
+  assert.equal(prior.status, 'unconfirmed');
+
+  const reloaded = f.make();
+  await reloaded.run();
+  assert.deepEqual(f.trace.map(([action]) => action), ['read', 'item', 'item']);
+  assert.equal(reloaded.snapshot().confirmed, 1);
+  assert.equal(reloaded.snapshot().issues.length, 0);
+  const records = f.storage.get('account:41:attempts').items;
+  assert.equal(records[`mail-legacy:1011:${prior.at}`].status, 'superseded');
+  assert.equal(records['mail:1011'].status, 'confirmed');
+  await f.make().run();
+  assert.equal(f.trace.length, 3);
+});
+
+test('a persisted read-but-unclaimed item gets at most one recovery send even after another timeout', async t => {
+  const f = fixture(t, { read: 1 });
+  f.storage.set('account:41:attempts', { day: '2026-11-14', items: { 'mail:1011': { status: 'interrupted', at: 10, flowVersion: 3 } } });
+  f.manager.SendClientDbsGetgmawardReq = (...args) => f.trace.push(['item', ...args]);
+  await f.controller.run();
+  await f.make().run();
+  assert.deepEqual(f.trace, [['item', 'mail-key', '1011', '']]);
+  assert.equal(f.storage.get('account:41:attempts').items['mail:1011'].flowVersion, 4);
+});
+
+test('the read-but-unclaimed recovery skips gifts, completed items, prior recoveries, and excluded items', async t => {
+  const f = fixture(t, { type: 1, read: 1 });
+  f.manager.systemMailList.push({ ...f.mail, mid: '1012', AttachmentType: 2, Geted: true },
+    { ...f.mail, mid: '1013', AttachmentType: 2 }, { ...f.mail, mid: '1014', AttachmentType: 2 });
+  f.adapter.goods = id => id === 42 ? { name: '抵价券' } : null;
+  f.controller.options({ excludeCoupon: true });
+  const records = Object.fromEntries(['1011', '1012', '1013', '1014'].map(mid => [`mail:${mid}`, { status: 'unconfirmed', at: 10, flowVersion: 3 }]));
+  records['mail-legacy:1013:8'] = { status: 'superseded' };
+  f.storage.set('account:41:attempts', { day: '2026-11-14', items: records });
+  await f.controller.run();
+  assert.deepEqual(f.trace, []);
+  assert.equal(f.storage.get('account:41:attempts').items['mail:1012'].status, 'confirmed');
+  f.controller.options({ excludeCoupon: false });
+  await f.controller.run();
+  assert.deepEqual(f.trace, [['item', 'mail-key', '1014', '']]);
 });

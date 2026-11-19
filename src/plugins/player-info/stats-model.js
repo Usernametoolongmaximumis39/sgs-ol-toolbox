@@ -38,7 +38,27 @@ export function rankSummary(data, config) {
   return { rate: wins !== null && losses !== null && wins + losses > 0 ? (100 * wins / (wins + losses)).toFixed(1) + '%' : null,
     name, stars, season: data.curCycData.roundId ?? null };
 }
-const overlaps = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+export const overlaps = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+const fits = (r, obstacles, stage) => r.x >= 6 && r.y >= 6 && r.x + r.width <= stage.width - 6 && r.y + r.height <= stage.height - 6
+  && !obstacles.some(o => overlaps(r, o));
+
+export function placeStatsMarker(avatar, obstacles, stage, size) {
+  const gap = 4, top = Math.max(6, avatar.y + gap);
+  const left = avatar.x - size - gap, right = avatar.x + avatar.width + gap;
+  const towardsRight = avatar.x + avatar.width / 2 < stage.width / 2;
+  const sides = towardsRight ? [right, left] : [left, right];
+  for (const y of [top, top + size, top + 2 * size]) for (const x of sides) {
+    const r = { x, y, width: size, height: size };
+    if (fits(r, obstacles, stage)) return r;
+  }
+  const topLeft = avatar.x + gap, topRight = avatar.x + avatar.width - size - gap;
+  for (const x of towardsRight ? [topRight, topLeft] : [topLeft, topRight]) {
+    const r = { x, y: avatar.y - size - gap, width: size, height: size };
+    if (fits(r, obstacles, stage)) return r;
+  }
+  return null;
+}
+
 export function placeStats(avatar, obstacles, stage, width = 230, height = 70) {
   const side = avatar.x + avatar.width / 2 < stage.width / 2 ? ['right', 'left'] : ['left', 'right'];
   const candidates = [];
@@ -51,8 +71,7 @@ export function placeStats(avatar, obstacles, stage, width = 230, height = 70) {
   for (const { direction, gap } of candidates) for (const dy of [6, 38, 70]) {
     const r = { x: direction === 'right' ? avatar.x + avatar.width + gap : avatar.x - width - gap,
       y: avatar.y + dy, width, height };
-    if (r.x >= 6 && r.y >= 6 && r.x + width <= stage.width - 6 && r.y + height <= stage.height - 6
-      && !obstacles.some(o => overlaps(r, o))) return r;
+    if (fits(r, obstacles, stage)) return r;
   }
   return null;
 }

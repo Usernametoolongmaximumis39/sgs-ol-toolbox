@@ -63,6 +63,13 @@ try {
     for (const key of ['showBags', 'updatePageIdx', 'onAddBagItem', 'onUpdateBagItem', 'onDelBagItem', 'updateBagData', 'dealChangePage', 'getBagNum', 'onPreClick', 'onNextClick']) owner[key] = CapturedBag.prototype[key];
     owner.updateRadioBtnData = function (rows) { this.curPage = 1; this.showBags(rows); this.updatePageIdx(); }; owner.canJoinBags = () => true;
     owner.showBags(rows); owner.updatePageIdx();
+    let clock = 0, redraws = 0, countdownReads = 0;
+    for (const row of rows) if (row.RemainingTime) {
+      const duration = row.RemainingTime;
+      Object.defineProperty(row, 'RemainingTime', { get() { countdownReads++; return Math.max(0, duration - clock); } });
+    }
+    const nativeShow = owner.showBags;
+    owner.showBags = function (...args) { redraws++; return nativeShow.apply(this, args); };
     const gm = { GetGoodsNumByBaseID() {}, _events: { BAG_ADD_PROP: [{ caller: owner, method: owner.onAddBagItem }], BAG_DELETE_PROP: [{ caller: owner, method: owner.onDelBagItem }] } };
     let config = null; const couponConfig = { sgs_config: { couponsys: { GRmb: { seting: [{ AID: 1, AVV: '7000-2000' }] } } } };
     let tokens = { bg: '#211e18', surface: '#302b22', raised: '#3b3326', text: '#f0e4cc', muted: '#a99c80', accent: '#d8b66b', border: '#66573d', danger: '#d26155' }; const subscribers = new Set();
@@ -71,13 +78,21 @@ try {
     ctx.ui.nativeTheme = BagCheck.createNativeTheme({ window, document, scope, themes: ctx.themes });
     const original = owner.showBags, originalAdd = gm._events.BAG_ADD_PROP[0].method;
     const fixture = window.bagFixture = { ctx, owner, gm, rows, original, originalAdd, subscribers, scope,
-      setTheme(next) { tokens = next; for (const fn of subscribers) fn(); }, restart() { this.scope.dispose(); } };
+      setTheme(next) { tokens = next; for (const fn of subscribers) fn(); }, restart() { this.scope.dispose(); },
+      advanceClock() { clock++; this.runtime.tick(); },
+      work() { return { redraws, countdownReads }; } };
     fixture.runtime = BagCheck.createBagEnhancements(ctx);
   });
   const snapshot = () => page.evaluate(() => { const f = bagFixture, o = f.owner; return { page: o.curPage, pages: o.allPage, total: o.bagDatas.length, ids: o.bags.map(b => b.ID || null),
     texts: o.topSp._children.filter(n => n.visible && n.name === 'sgs-toolbox-coupon-amount').map(n => n.text), status: o.getChildByName('sgs-toolbox-bag-search')?.getChildByName('bag-search-status')?.text }; });
   const point = async name => page.evaluate(name => { const root = bagFixture.owner.getChildByName('sgs-toolbox-bag-search'), node = root.getChildByName(name), p = node.localToGlobal(new Laya.Point(node.width / 2, node.height / 2), true); return { x: p.x, y: p.y }; }, name);
   await page.waitForFunction(() => bagFixture.owner.topSp._children.some(n => n.visible && n.text === '7000-2000'));
+  const openWork = await page.evaluate(() => {
+    for (let i = 0; i < 3; i++) bagFixture.advanceClock();
+    return bagFixture.work();
+  });
+  assert.deepEqual(openWork, { redraws: 0, countdownReads: 0 });
+  checks.push('打开背包及推进三次原生倒计时，账本未重画原生格子或遍历背包倒计时');
   const countdownLayout = () => page.evaluate(() => {
     const { owner } = bagFixture;
     return owner.bags.filter(slot => slot.leftTimeBg.visible).map(slot => {
@@ -115,6 +130,14 @@ try {
   let p; await page.keyboard.type('抵价券'); await page.keyboard.press('Enter');
   assert.equal((await snapshot()).pages, 1); assert.equal((await snapshot()).total, 87); assert.equal((await snapshot()).ids.filter(Boolean).length, 29);
   assert.ok((await snapshot()).texts.every(t => t === '7000-2000')); checks.push('真实 Laya 输入/Enter 搜索，原生筛选分页与完整背包并存；抵价券角标');
+  const searchWork = await page.evaluate(() => {
+    const before = bagFixture.work();
+    for (let i = 0; i < 3; i++) bagFixture.advanceClock();
+    const after = bagFixture.work();
+    return { redraws: after.redraws - before.redraws, countdownReads: after.countdownReads - before.countdownReads };
+  });
+  assert.deepEqual(searchWork, { redraws: 0, countdownReads: 0 });
+  checks.push('搜索开启时，倒计时变化也不触发原生重画');
   assert.ok((await countdownLayout()).every(nativeCountdown));
   assert.ok((await badgeLayout()).every(fitsSlot));
   await page.screenshot({ path: path.join(output, 'search-dark.png') });
@@ -145,6 +168,6 @@ try {
   assert.ok((await countdownLayout()).every(nativeCountdown));
   checks.push('浅/深主题即时更新；关闭/重新打开与停用释放节点、监听和原生方法');
   assert.deepEqual(errors, []);
-  await writeFile(path.join(output, 'report.json'), JSON.stringify({ checks, errors, clientPath, environment: 'Chrome headless + 本机真实 Laya 引擎，捕获客户端列表/分页/增删方法；合成物品与图像，非官服实局' }, null, 2));
+  await writeFile(path.join(output, 'report.json'), JSON.stringify({ checks, errors, openWork, searchWork, clientPath, environment: 'Chrome headless + 本机真实 Laya 引擎，捕获客户端列表/分页/增删方法；合成物品与图像，非官服实局' }, null, 2));
   console.log(checks.join('\n'));
 } finally { await browser.close(); }

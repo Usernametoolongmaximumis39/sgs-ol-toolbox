@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { statsMode, hundredRate, ddzRoleRates, currentStreak, rankSummary, placeStats } from '../src/plugins/player-info/stats-model.js';
+import { statsMode, hundredRate, ddzRoleRates, currentStreak, rankSummary, placeStats, placeStatsMarker } from '../src/plugins/player-info/stats-model.js';
 import { officerTone, officerColor } from '../src/plugins/player-info/officer-style.js';
 test('officer colors follow user groups including three commander ranks and separate golden protector', () => {
   for (const name of ['骁卒','校尉','郎将','偏将军']) assert.equal(officerTone(name), 'gray');
@@ -55,6 +55,19 @@ test('left and right teammates avoid actual vertical native hand strip in mirror
     const p = placeStats(avatar, [avatar, bar], stage); assert.ok(p);
     assert.ok(p.x + p.width <= bar.x || p.x >= bar.x + bar.width || p.y + p.height <= bar.y || p.y >= bar.y + bar.height);
   }
+});
+
+test('collapsed stats stay at the portrait edge and mirror towards the table', () => {
+  const stage = { width: 1280, height: 800 }, size = 28;
+  const left = { x: 20, y: 40, width: 270, height: 172 }, right = { ...left, x: 990 };
+  assert.deepEqual(placeStatsMarker(left, [left], stage, size), { x: 294, y: 44, width: 28, height: 28 });
+  assert.deepEqual(placeStatsMarker(right, [right], stage, size), { x: 958, y: 44, width: 28, height: 28 });
+
+  const tip = { x: 290, y: 40, width: 50, height: 32 };
+  assert.deepEqual(placeStatsMarker(left, [left, tip], stage, size), { x: 294, y: 72, width: 28, height: 28 });
+  const selection = { ...tip, height: 140 };
+  assert.deepEqual(placeStatsMarker(left, [left, selection], stage, size), { x: 258, y: 8, width: 28, height: 28 });
+  assert.equal(placeStatsMarker(left, [left, selection, { x: 0, y: 0, width: 320, height: 40 }], stage, size), null);
 });
 
 test('DDZ role rates preserve zero and missing percentages', () => {

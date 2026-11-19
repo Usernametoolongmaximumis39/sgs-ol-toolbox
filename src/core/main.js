@@ -96,7 +96,9 @@ async function initialize(win, api) {
   if (scope.closed) return null;
   Object.assign(api, { manager, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get });
   if (win.__SGS_TOOLBOX_DEMO__) snapshots.request();
-  if (manager.errors.length) shell.notify(manager.errors.join('；'));
+  if (manager.storageError) shell.notify('无法读取插件存储，请刷新游戏重试。');
+  else if (manager.loadIssues.size) shell.notify(`${manager.loadIssues.size} 个插件加载异常，已保留安装记录。`);
+  else if (manager.errors.length) shell.notify(manager.errors.join('；'));
   return api;
 }
 boot(window).catch(error => { console.error('[三国杀OL工具箱]', error); });

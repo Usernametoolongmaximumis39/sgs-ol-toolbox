@@ -131,6 +131,35 @@ test('cards panel retains settings and queries without duplicating external disp
   } finally { env.close(); }
 });
 
+test('revealed card opacity defaults to 80% and applies saved choices without replacing the cards', () => {
+  const env = setup();
+  try {
+    env.activate();
+    const revealToggle = env.document.querySelector('[data-setting="reveals"]');
+    const row = revealToggle.parentElement.nextElementSibling;
+    const options = [...row.querySelectorAll('button')];
+    const selected = () => options.filter(button => button.getAttribute('aria-pressed') === 'true').map(button => button.textContent);
+    const layer = () => env.overlay.querySelector('.sgs-card-seat-layer');
+    const card = layer().querySelector('.sgs-card-mini');
+    assert.deepEqual(options.map(button => button.textContent), ['60%', '80%', '100%']);
+    assert.deepEqual(selected(), ['80%']);
+    assert.equal(layer().style.opacity, '0.8');
+
+    for (const value of [60, 100, 80, 60]) {
+      options.find(button => button.textContent === `${value}%`).click();
+      assert.deepEqual(selected(), [`${value}%`]);
+      assert.equal(layer().style.opacity, String(value / 100));
+      assert.equal(layer().querySelector('.sgs-card-mini'), card);
+    }
+    assert.equal(env.overlay.querySelector('.sgs-card-hud').style.opacity, '');
+    env.stop();
+    env.activate();
+    assert.equal(layer().style.opacity, '0.6');
+    const group = env.document.querySelector('[aria-label="明牌不透明度"]');
+    assert.equal(group.querySelector('[aria-pressed="true"]').textContent, '60%');
+  } finally { env.close(); }
+});
+
 test('skill hints appear for native skills, react to settings and release on disposal', () => {
   const env = setup();
   try {

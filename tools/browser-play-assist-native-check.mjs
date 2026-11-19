@@ -157,7 +157,7 @@ try {
     let cancellations = 0;
     cancel.on('click', bar, () => { cancellations++; bar.visible = false; });
     bar.Button_Click = btn => btn.event('click');
-    const scene = {SceneName:'RogueLikeGameScene', SelfSeatUi:self};
+    let scene = {SceneName:'RogueLikeGameScene', SelfSeatUi:self};
     const assist = AssistNative.createRuntime({window, document, scope, ui:{}, settings:{get:(_key, fallback)=>fallback},
       game:{getScene:()=>scene, getSnapshot:()=>({inGame:true}), getClass:()=>null, getServerProxy:()=>proxy}}, () => ({skipWuxie:true}));
     const phase = (seat, round) => proxy.event('GsCGamephaseNtf', {Protocol:{SeatID:seat, Round:round}});
@@ -173,13 +173,18 @@ try {
       const first = await inquiry(0), counter = await inquiry(1);
       phase(1, 4);
       const opponent = await inquiry(0);
-      return {first, counter, opponent};
+      scene = {SceneName:'GameScene', SelfSeatUi:self};
+      assist.tick();
+      phase(0, 4);
+      const ordinary = await inquiry(0);
+      return {first, counter, opponent, ordinary};
     } finally { scope.dispose(); self.destroy(true); }
   });
   assert.deepEqual(wuxieChecks, {
     first:{cancellations:1, visible:false}, counter:{cancellations:1, visible:true}, opponent:{cancellations:1, visible:true},
+    ordinary:{cancellations:1, visible:true},
   });
   assert.deepEqual(errors,[]);
-  await writeFile(resolve(output,'native-report.json'),JSON.stringify({checks:['long press / release suppression / unlock / native confirmation','58x26 stacked rows / adjacent skills / multiple locks','badge inside button / dark and light themes','resize / skill reuse / setting toggle','badge click passes through / cleanup restores handler','迁附 native long press owns lock / 驭势 absent','山河图 initial Wuxie cancels via Ai; opponent counters and turns stay manual'],compactBadges,wuxieChecks,errors},null,2));
+  await writeFile(resolve(output,'native-report.json'),JSON.stringify({checks:['long press / release suppression / unlock / native confirmation','58x26 stacked rows / adjacent skills / multiple locks','badge inside button / dark and light themes','resize / skill reuse / setting toggle','badge click passes through / cleanup restores handler','迁附 native long press owns lock / 驭势 absent','山河图 initial Wuxie cancels via Ai; counters, opponent turns and ordinary battles stay manual'],compactBadges,wuxieChecks,errors},null,2));
   console.log('PASS Laya long press / stacked badges / resize / unlock / cleanup / 山河图无懈');
 }finally{await browser.close();}

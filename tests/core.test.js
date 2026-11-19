@@ -233,14 +233,15 @@ test('startup activation failure falls back to the previous working package', as
   assert.equal(panels.size, 1);
 });
 
-test('corrupt startup package falls back to builtin and persists the corrected pointer', async (t) => {
+test('a startup package load failure can use the builtin while retaining the stored package', async (t) => {
   const active = await pluginPackage('0.3.0'); active.code += '\n// altered';
   const store = new MemoryPackageStore([{ id: 'test.cards', enabled: false, uninstalled: false, active, previous: null }]);
   const { manager } = await harness(t, { store });
   assert.equal(manager.list()[0].version, '0.1.0');
   assert.equal(manager.list()[0].active, false);
   assert.equal(manager.list()[0].source, '内置');
-  assert.equal(store.records.get('test.cards').active, null);
+  assert.equal(store.records.get('test.cards').active.code, active.code);
+  assert.match(manager.loadIssues.get('test.cards').message, /校验失败/);
   assert.equal(store.records.get('test.cards').enabled, false);
 });
 

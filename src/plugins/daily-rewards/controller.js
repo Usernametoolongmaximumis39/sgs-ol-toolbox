@@ -26,7 +26,7 @@ export function rewardWorkflowGroup(action) {
   const sign = /^sign:(\d+):/.exec(key);
   if (sign) return `sign:${sign[1]}`;
   if (key.startsWith('welfare:tree:')) return 'welfare:tree';
-  if (key.startsWith('mail-read:') || key.startsWith('mail-read-v2:')) return 'mail-read';
+  if (/^mail-read(?:-v[23])?:/.test(key)) return 'mail-read';
   const drum = /^welfare:drum:([^:]+):/.exec(key);
   if (drum) return `welfare:drum:${drum[1]}`;
   if (key.startsWith('ranked:')) return 'ranked:daily';
@@ -74,19 +74,20 @@ export function awaitClaim(action, { signal, valid, timeout = 8000, poll = 100 }
     }
     signal?.addEventListener('abort', abort, { once: true });
     interval = setInterval(check, poll);
-    deadline = setTimeout(() => finish({ status: 'unconfirmed', text: unconfirmedClaimText }), timeout);
+    deadline = setTimeout(() => finish({ status: 'unconfirmed', text: action.unconfirmedText || unconfirmedClaimText }), timeout);
+    const requestFailed = () => finish({ status: 'unconfirmed', text: action.unconfirmedText || '请求异常，结果未确认；不会自动重发' });
     try {
       if (!valid() || signal?.aborted) return abort();
       const result = action.send();
       if (result === false) return finish({ status: 'rejected', text: '游戏拒绝请求，未记为成功' });
-      if (result && typeof result.then === 'function') Promise.resolve(result).catch(() => finish({ status: 'unconfirmed', text: '请求异常，结果未确认；不会自动重发' }));
+      if (result && typeof result.then === 'function') Promise.resolve(result).catch(requestFailed);
       check();
       if (!ended && action.refreshClaimState) refreshTimer = setTimeout(() => {
         check();
         if (!ended) { safely(action.refreshClaimState); check(); }
       }, Math.min(1000, timeout / 2));
     } catch {
-      finish({ status: 'unconfirmed', text: '请求异常，结果未确认；不会自动重发' });
+      requestFailed();
     }
   });
 }
@@ -316,6 +317,13 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
       const noted = new Set(), skipped = new Set();
       let count = 0, unresolved = 0, rejected = 0, lastFailure = '';
       const newPermanentUnresolved = new Set();
+      const previousRecoveries = new Set(Object.entries(ledger.items)
+        .filter(([id, entry]) => id.startsWith('mail-legacy:') && entry?.status === 'superseded')
+        .map(([id]) => `mail:${id.slice('mail-legacy:'.length, id.lastIndexOf(':'))}`));
+      // Give a request from this run time to settle before considering recovery.
+      const recoverableMails = Object.entries(ledger.items).filter(([id, entry]) => id.startsWith('mail:') &&
+        uncertainStatuses.has(entry?.status) && (!entry.flowVersion || entry.flowVersion === 2 ||
+          (entry.flowVersion === 3 && !previousRecoveries.has(id))));
       // A late authoritative state update can settle an earlier request in
       // this activation. Never resend it merely to discover its result.
       function reconcile() {
@@ -341,7 +349,7 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
         // Pre-fix clipboard queues lack provenance and may contain private prose.
         // Preserve their stored value until import, but never send that old queue.
         if (selected.codeInputVersion !== 1) selected.codeText = '';
-        selected.legacyMailAttempts = Object.fromEntries(Object.entries(ledger.items).filter(([id, entry]) => id.startsWith('mail:') && uncertainStatuses.has(entry?.status) && (!entry.flowVersion || entry.flowVersion === 2)));
+        selected.recoverableMailAttempts = Object.fromEntries(recoverableMails.filter(([id, entry]) => ledger.items[id] === entry));
         // Previously sent keys (including failed/uncertain ones) never re-enter
         // the queue or block unrelated new codes in a later automatic cycle.
         const parsed = parseCodes(selected.codeText);
@@ -367,16 +375,6 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
           reconcile();
           continue; // Re-plan with the refreshed lists before selecting a tier.
         }
-        for (const action of plan.actions) {
-          const previous = ledger.items[action.key], repair = action.legacyMailRepair;
-          if (!repair || !uncertainStatuses.has(previous?.status) || (previous.flowVersion && previous.flowVersion !== 2) || (Number(previous.at) || 0) !== repair.previousAt ||
-            ledger.items[repair.readKey]?.status !== 'confirmed' || !safely(action.eligible)) continue;
-          // Preserve the old intent as superseded, never as a claimed reward.
-          // The replacement is versioned before send, so a second timeout
-          // cannot trigger another migration or a repeated repair request.
-          ledger.items[`mail-legacy:${action.key.slice(5)}:${repair.previousAt}`] = { ...previous, priorStatus: previous.status, status: 'superseded', reason: 'native-read-first-repair' };
-          delete ledger.items[action.key]; write();
-        }
         for (const note of plan.notes) {
           const id = note.category + note.text;
           if (!noted.has(id)) { noted.add(id); log(note.category, note.text); }
@@ -398,12 +396,15 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
         const action = plan.actions.find(item => {
           const group = rewardWorkflowGroup(item);
           const tier = militaryTier.exec(item.key);
+          const recovery = item.mailRecovery;
+          const canRecover = recovery && ledger.items[item.key] === recovery.previous &&
+            (!recovery.readKey || ledger.items[recovery.readKey]?.status === 'confirmed');
           if (jieyueLists && isJieyue(item.key) && !record(item)[item.key]) {
             const premium = tier ? item.key.endsWith(':1') : item.manager?.hadBuyNewJD;
             if (item.manager !== jieyueManager || !jieyueLists.free || (premium && !jieyueLists.premium)) { waitingForJieyue = true; return false; }
           }
-          return (!record(item)[item.key] || retryable(item)) && !skipped.has(item.key) &&
-            !blockedGroups.has(group) && !blockedMilitaryBatches.has(group) &&
+          return (!record(item)[item.key] || retryable(item) || canRecover) && !skipped.has(item.key) &&
+            (!blockedGroups.has(group) || canRecover) && !blockedMilitaryBatches.has(group) &&
             !(tier && blockedGroups.has(`activity:${tier[1]}`)) && !(item.skipAfter && ledger.items[item.skipAfter]);
         });
         if (!action) break;
@@ -413,6 +414,11 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
         if (!safely(action.eligible)) { skipped.add(action.key); continue; }
         if (safely(action.done) === true) { records[action.key] = { status: 'confirmed' }; continue; }
         if (Object.keys(records).length >= (action.permanent ? 5000 : 1000)) { state.status = '领取记录已达上限，请手动领取剩余奖励'; break; }
+        if (action.mailRecovery) {
+          const { previous, readKey } = action.mailRecovery;
+          const priorKey = `mail-legacy:${action.key.slice(5)}:${Number(previous.at) || 0}`;
+          records[priorKey] = { ...previous, priorStatus: previous.status, status: 'superseded', reason: readKey ? 'native-read-first-repair' : 'read-unclaimed-item' };
+        }
         // Persist intent BEFORE sending. A reload or timeout cannot resend an uncertain request.
         records[action.key] = { status: 'pending', at: now(), label: action.label, workflowGroup: rewardWorkflowGroup(action), ...attempts, ...(action.flowVersion ? { flowVersion: action.flowVersion } : {}) };
         try { write(); }

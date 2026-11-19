@@ -166,6 +166,30 @@ try {
     return [demo.sent, demo.refineTask.completeTimes, api.settings.namespace('daily-rewards').get('account:41:attempts').items['quest:7003:163'].status];
   }), [[[7003, 0, 0]], 164, 'confirmed']);
   await host.screenshot({ path: 'test-results/reward-issues/five-star-main-quest.png' });
+  await page.evaluate(async () => {
+    const api = window[Symbol.for('sgs.ol.toolbox.core')], demo = window.__SGS_TOOLBOX_DEMO__;
+    const settings = api.settings.namespace('daily-rewards');
+    const [item, gift] = demo.mail.systemMailList;
+    item.read = 1;
+    gift.read = 1;
+    demo.sent.length = 0;
+    settings.set('account:41:attempts', { day: '2026-11-13', items: {
+      'mail:1011': { status: 'unconfirmed', label: '邮件道具附件', at: 10, flowVersion: 3 },
+      'mail:1012': { status: 'unconfirmed', label: '邮件礼包附件', at: 11, flowVersion: 3 },
+    } });
+    settings.set('account:41:options', { ...settings.get('account:41:options'), mail: true, tasks: false });
+    await api.manager.reload('daily-rewards');
+  });
+  await status.filter({ hasText: '本轮已确认 1 项，另有 1 项待核对' }).waitFor();
+  assert.deepEqual(await page.evaluate(() => {
+    const api = window[Symbol.for('sgs.ol.toolbox.core')], demo = window.__SGS_TOOLBOX_DEMO__;
+    const { items } = api.settings.namespace('daily-rewards').get('account:41:attempts');
+    return [demo.sent, demo.mailReads, demo.mail.systemMailList.length, items['mail:1011'].status, items['mail:1012'].status];
+  }), [[['邮件附件', '1011']], [], 2, 'confirmed', 'unconfirmed']);
+  await host.screenshot({ path: 'test-results/reward-issues/read-unclaimed-mail.png' });
+  await page.evaluate(() => window[Symbol.for('sgs.ol.toolbox.core')].manager.reload('daily-rewards'));
+  await status.filter({ hasText: '本轮已确认 0 项，另有 1 项待核对' }).waitFor();
+  assert.equal(await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.sent.length), 1);
   assert.deepEqual(errors, []);
-  console.log('PASS: tier 15 and the five-star main quest each claimed once; only the automatic Jieyue claim promotion was suppressed; six UI renders checked.');
+  console.log('PASS: daily reward issues, Jieyue tier and five-star quest, and read-but-unclaimed mail recovery.');
 } finally { await browser.close(); await market.close(); }

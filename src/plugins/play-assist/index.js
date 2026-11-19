@@ -5,14 +5,14 @@ export const OPTIONS = [
   ['skillLock', '长按技能辅助', '长按开启：山河 0.5 秒／其他 2 秒；右键长按记住；移动端继续按到 3 秒／5 秒记住；点一下取消'],
   ['autoConfirm', '选好后自动确定', ''],
   ['fireAttack', '自动火攻', '展示、弃牌'],
-  ['skipWuxie', '跳过无懈', '仅山河模式的限定询问'],
+  ['skipWuxie', '跳过无懈', '仅在山河图中跳过自己回合的首轮无懈询问'],
   ['skipTao', '跳过他人求桃', ''],
   ['skipAssist', '跳过应变助战', ''],
   ['quandaoCount', '权道数量', ''],
   ['rapid', '技能连按', '取消连按间隔'],
 ];
-export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.18', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "补充强识摸牌与武娘取牌辅助，武娘优先选择可选防具、其他装备，再选择手牌；狂骨按当前体力选择回血或摸牌。仍需开启相应技能辅助，强识前半段选人和展示保留手动。", minCoreVersion: '0.6.87', description: '长按技能辅助、自动确定与询问跳过。',
+export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.19', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "修复单骑场景误触发自动跳过无懈的问题。已开启该选项时，仅在山河图战斗中自动跳过相应询问。", minCoreVersion: '0.6.87', description: '长按技能辅助、自动确定与询问跳过。',
   icon: { paths: ['M4 5h10v14H4zM7 8h4M7 11h3', 'm17 3-3 8h5l-3 10 7-13h-5l2-5'] }, priority: 12000, categories: ['game'] };
 
 export default { manifest, activate(ctx) {

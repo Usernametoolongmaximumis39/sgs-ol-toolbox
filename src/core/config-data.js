@@ -22,6 +22,8 @@ ALLOWED.add('sys_h5_shop');
 ALLOWED.add('gn_dbs_coupon_cfg');
 ALLOWED.add('hd_fight_lord_config');
 ALLOWED.add('sys_ss_gamelabel_config');
+const YJCM_SKINS = 'yjcm-skins';
+ALLOWED.add(YJCM_SKINS);
 const ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024;
 const read = fn => { try { return fn(); } catch { return undefined; } };
 const normalize = name => String(name).replace(/\.sgs$/, '');
@@ -101,6 +103,68 @@ export async function readZipEntry(bytes, filename, win = globalThis) {
   throw new Error(`官方配置包缺少 ${filename}`);
 }
 
+async function loadYjcmSkinData(win, signal, knownVersion) {
+  const root = 'https://web.sanguosha.com/x/pc/';
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal.aborted) throw cancelled();
+  signal.addEventListener('abort', abort, { once: true });
+  const timer = setTimeout(abort, 30000);
+  const text = bytes => new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  const json = bytes => JSON.parse(text(bytes));
+  async function fetchData(path, limit, cache = 'default') {
+    const response = await win.fetch(root + path, { signal: controller.signal, credentials: 'omit', redirect: 'error', cache });
+    if (!response.ok) throw new Error(`一将成名配置读取失败（HTTP ${response.status}，${path.split('?')[0]}）`);
+    if (!response.body || Number(response.headers.get('content-length')) > limit) throw new Error('一将成名配置响应无效');
+    return boundedStream(response.body, limit);
+  }
+  try {
+    const versionsText = text(await fetchData('versionConf.js', 16 * 1024, 'no-cache'));
+    const configVersion = versionsText.match(/"res\/config\/Config\.sgs"\s*:\s*"([\da-f]{1,32})"/i)?.[1];
+    const resourceVersion = versionsText.match(/\bresourceVersion\s*=\s*"([\da-f]{1,32})"/i)?.[1];
+    if (!configVersion || !resourceVersion) throw new Error('一将成名版本清单格式已变化');
+    const version = configVersion + ':' + resourceVersion;
+    if (version === knownVersion) return { version, unchanged: true };
+    const [archive, wasmBytes, versions, resources, textures] = await Promise.all([
+      fetchData('res/config/Config.sgs?v=' + configVersion, ARCHIVE_LIMIT),
+      fetchData('libs/min/resc?v=2020032001', 64 * 1024),
+      fetchData('version.json?v=' + resourceVersion, ENTRY_LIMIT).then(json),
+      fetchData('res/assets/default.res.json', ENTRY_LIMIT).then(json),
+      fetchData('res/assets/spinePngHash.json', ENTRY_LIMIT).then(json),
+    ]);
+    // The published decoder only receives its private, fixed-size memory.
+    const memory = new WebAssembly.Memory({ initial: 256, maximum: 256 });
+    const { instance } = await WebAssembly.instantiate(wasmBytes, { env: { memory } });
+    const decoder = instance.exports;
+    decoder.e(0, 0, 256);
+    decoder.f(0, 0, 256);
+    decoder.d(0, 0, 128);
+    const tables = {};
+    for (const name of ['GameGeneralConfig', 'GeneralSkinInfoConfig', 'GameItemConfig', 'GeneralCards', 'Skills']) {
+      if (controller.signal.aborted) throw cancelled();
+      const packed = await readZipEntry(archive, name + '.sgs', win);
+      const length = packed.length + (16 - packed.length % 16);
+      if (length > memory.buffer.byteLength - 16384) throw new Error('一将成名配置条目超过解码上限');
+      const buffer = new Uint8Array(memory.buffer, 16384, length);
+      buffer.fill(0);
+      buffer.set(packed);
+      decoder.a(buffer.byteOffset, length);
+      decoder.d(0, 0, 128);
+      tables[name] = json(await inflate(buffer.subarray(0, packed.length), 'gzip', win));
+    }
+    if (controller.signal.aborted) throw cancelled();
+    return { ...tables, version, versions, resources, textures };
+  } catch (error) {
+    if (signal.aborted) throw cancelled();
+    if (controller.signal.aborted) throw new Error('读取一将成名配置超时');
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener('abort', abort);
+    abort();
+  }
+}
+
 export function createConfigData(win, scope) {
   const cache = new Map(), pending = new Map(); let archivePromise;
   function validate(name) {
@@ -149,10 +213,11 @@ export function createConfigData(win, scope) {
     }
     return archivePromise;
   }
-  async function loadConfigData(name) {
+  async function loadConfigData(name, { signal = scope.signal, knownVersion } = {}) {
     name = validate(name);
-    if (scope.closed) throw cancelled();
+    if (scope.closed || signal.aborted) throw cancelled();
     const existing = getConfigData(name); if (existing) return existing;
+    if (name === YJCM_SKINS) return loadYjcmSkinData(win, signal, knownVersion);
     if (!pending.has(name)) pending.set(name, (async () => {
       // CtrUtil is a native global lexical class on some official client builds.
       // Read its already-initialized decryptor only; never call Init/CreateInstance.

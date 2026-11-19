@@ -1,4 +1,4 @@
-// 三国杀OL工具箱 · 微端 LITE · 0.6.129
+// 三国杀OL工具箱 · 微端 LITE · 0.6.149
 (() => {
   function installRefreshReentry() {
     return !1;
@@ -1506,7 +1506,7 @@
         this.restore(), this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
       }
     }
-  }, CORE_VERSION = "0.6.129", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
+  }, CORE_VERSION = "0.6.149", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
     "43a4cbff657c319e8b7b1bf2ec7689e0a557fc9bb17a9090d24a2163d1857dda",
@@ -1557,7 +1557,21 @@
     "3213d63b1cb2227293278743dafd47ad76014122cde1bc2d01db6352a0e78ced",
     "b3c428277050a1365d93af4cacfd521e3b4008c1d44b2f5d7bf558aa311ee3a9",
     "ac6fc676e2d1d319dba12c6364ba85740d33e37e0c34d0f8e7ade180d8e0d029"
-  ]), REPLACED_SKIN_PACKAGES = Object.freeze(["b990b29b6a9eafbe50ea3f820c2dd9753187de6a95aed91191786532cafd1b27", "d8065ccacfd2da8c39e1cf1eded8f743a85de717d6589833f679153ada9d89fa", "36a6458a5cc9c58ece0cedad1df6315e82aafb21ebe4a057e10db17c703a5827", "a9890597c627c6c703bcef0a79339fc6b8472d71f37e05b522117dcf6ac2481d", "d268def49f6f9fbd4b989545594e336886d1a86053d63b1bbdf3f638d1acf002", "5edda81bdbd06ad5ab60b8e564f554e10b1f9d13fa13d983f60ae734867d343c", "a257743d4091e677520f307b6df5a7f2938af7261183b2d57609dc4df41cdd8a", "bfcff0007de23af7439cfc60adbc0cf660bc84a094df360c6bf6f0a5fc812672", "b1b4516b854575ccb02219bd8cdf89332845263e8cced8f9c8738b6e7259eb1b"]), REPLACED_SHANHETU_PACKAGES = Object.freeze(["4f23523f68fb5e27f319a4312a728ffdf648b0049955dfeffead1651ec07e984", "e8f263b989b6cc8361d35240ac6f23dda39ab4d05ee209bdd1f41aff877e82c2", "6975e211a97b612ff61f8456eabe869547921f79c6c83e8885e398cd6be4460c", "03d3564fde594df3feb199cd5d7e323c3730dc1494546ad26cd375427a8accc2", "95c06e8921132548973e9c55b20c16ba06043218bbb090eaedd840191cbb08ff", "27d9af46ff339493cbb5bcc0b9e49e648661d9ed7becaf5704a75d0a3b83beae", "437a1ffb64a930e87264e69bcf91a856a1e82c066d732408c884182b4ce6e450", "523473559db6aa12043bb0bd0b22e0a232045d9defede4a2a6a9f3d562ad2133", "5577c02f3922100a434db7c45af19dc3db115866a1a841fc7218083f396b0acf", "ea751303a3e7ecd030d2c5a12a13dd125612f6b64ab41c641116fb763579b421", "55340baa7b51c8d97bdfbedc17209be719c2f05105501390b4028c47554cceeb", "980c908196ff62ac529ab2bfbdade42bef76930f43f534b1b075ead306c10fe2", "9017d32206a5b0e4e2eeede12e390767620579836ed7037e1e223f7ab0c52483", "dfc56a7a02dc4ab17e2f34e3e76862f615f5bf344c534921e8424498fd27b11b", "4d8aaf1df389a0420dfc65c4d5762757c2fe454cc0fbb127fe269b88c5a19af5", "e9f7b5ee0383a29799057f19f16e68e34d57fb7310066dc5d3af45456c7f0445", "997bcf58c5567e0e99829798b855c411d5e51ccad7b5f80e81c9ae84add2656d", "f304bd28030950096503a45d96013c3d7a9e2297ca6143b639b83dcb2d3e197a", "f2739ea490ecf8bee75b1dd6ae0050cc0ad0bc558515c30dbb3c6260e80eaa2f", "332272cc92d11796d8dd7d304560129277acd353726feed7cd1e5a5b6578937a", "bf4207ca6d84501c75f6ec24d094aca952224ce60367196482d6bd6815ca3423", "23d6e6f7bae844ee58a9239bb739fb0ab8d2e64b7766629bca492421bd07f400", "f226d8a8d247ce48c0664ba057ad9f961e7c953291ab7f805714979b7ea35825", "56d82efb93d6eaa0b24c0d5deb8693030f49a0b2fb5af0da49ef6f008943ee65", "674efd3ed6e5719ef9cdabea702b4d6d4394560b18aa5f1ad189486f7467910e", "8de4a53accd1548f58266d9854642462b4fdb089a9a0afcc0561ca725930966d", "95c5bf19558e19c3ef192f2f2022aff19908350e882885cf7855cfe9051801c0", "71fc7d79a3b8014d5f80edda50ea7f7dbba80589ec9c7a8f77bd080056d45175", "151c6e9a3651f5a2c6b7b52321a09c294220400a40385e248d47cb6bb46976c2", "6907320aa5d5e23403c5324926cabf8f48ad23df23afd9925ff5b63e96e87cc6", "4f23cce4d4372a13895716d47d9141acd4c9f13c2be199afff5599148e8349ae", "67362c2dee033a700472210cafc14cc1df351e9a5413273d04e3ff2ce566ce66", "fa6474a1c5170c9ba285f9487031e4b205245d527c97b5ba5f26d68f9bf889ff", "a1f400ad8c8d60f2e4c0b0f981acc8c2be2ab61d1fd6a45ef10b7a3621b05918", "a7595aeaee8cd16ad03b5871310fd7375ea73be7b3d6a1466e8770f9d052fc24", "b6be2108829186604d4a11fb00d63d08e081a1f13f950a715441146c07d26a47", "23077a7742fabceb968d15a85b20c292c37e7a4d6099cf5b9f40a43e59c5fb8a", "2f7654ffde27bed353412a69eb9c5f449270a5e94ff492531e61189825ec560d", "e58c1543240d60a88d2fa92a58ff06ffd30bb4f0d2e75a4a18ba5efad4316d20", "742b76de181ca851dfd0df036a282a3bdee634c61012e687574b7e50216e62e6", "16d2e6a72fbb2258cb1dd69359c34b6753eca73c061b1610d7764ec00068c571", "a78a544feab74eb6d9ddbe6af6662d012a43cd85b698698f4cbadec9dada824d", "d5ad4b8005751bfdfe8301c060e8ab460a2ebd3eb2196112c534e8c44647ba6f", "31ad175296a119402b4a4e90bec5a16cad8a85e9eca2f79e3ee3edf745f27fba", "15366eddcf79bd76dd0f11fa2fb1f393faec512502f0ca01bb9ab13d54238490", "438b0292399649be12f2c42723242d73915a381f8a9c42713b25815c29e57e8b", "44ba81e10e40db62f039946b7e0e18ae162d98e95a350b6ed7eedc2cf8df37ba", "2ff778bd021f4d83971551126ea532ea215ad30e9b0b3dfc0450a88a0de9781c", "6ebf9ca6499f5fbf9b46f4e918990924369359c1191fb62b9026519724ac88cc", "20dac8ad2d3873f7779e2add9d89eb19927b5db6c553563edb69a72afe593624", "cbff0d7705f6f847b39473baeae6c126a34850685d95956ca07bf09e0ea6ce40"]), REPLACED_THEME_PACKAGES = Object.freeze(["fabfb9cfc1c6f4c9eeeb69fcc4c9bc319f17d5c964624a616bd15b863c18c5aa", "db376fc6d5b9b878a2dd9bb6642f5d7a24dd5b226c658801aeead6249bc98094", "3589cd781d192c53790071a1775924d4a8ccab648272961a991e6e3bf6034abd"]), REPLACED_BACKGROUND_PACKAGES = Object.freeze(["488b63b7fb2c1d88ddee7bc4a858a09f1a5a7f1271be6f012d612936431cbebc", "7aa96fde03bf1a9d1f5d287c63d86f1c11365bf5fb980bfd9d812b76f9543dd5", "1ebfbcaa2a4e5a2b3112f37aa0d48ce66b355d4a0934b1ff5310916427555b60", "f52fec744b48f472e3db4aa9cbf9e03864d996ba299aed70925d721477fdb2aa"]), REPLACED_SHANHETU_BETA_PACKAGES = Object.freeze([
+  ]), REPLACED_SKIN_PACKAGES = Object.freeze([
+    "b990b29b6a9eafbe50ea3f820c2dd9753187de6a95aed91191786532cafd1b27",
+    "d8065ccacfd2da8c39e1cf1eded8f743a85de717d6589833f679153ada9d89fa",
+    "36a6458a5cc9c58ece0cedad1df6315e82aafb21ebe4a057e10db17c703a5827",
+    "a9890597c627c6c703bcef0a79339fc6b8472d71f37e05b522117dcf6ac2481d",
+    "d268def49f6f9fbd4b989545594e336886d1a86053d63b1bbdf3f638d1acf002",
+    "5edda81bdbd06ad5ab60b8e564f554e10b1f9d13fa13d983f60ae734867d343c",
+    "a257743d4091e677520f307b6df5a7f2938af7261183b2d57609dc4df41cdd8a",
+    "bfcff0007de23af7439cfc60adbc0cf660bc84a094df360c6bf6f0a5fc812672",
+    "b1b4516b854575ccb02219bd8cdf89332845263e8cced8f9c8738b6e7259eb1b",
+    "9a5c003190086fa55d0b99d9f36d8831377c1f1b174f4dfe4b487ee5648c9410",
+    "5f99dc882131e076134e4890fc536dfba0825e09dda844b76fe33e26c84266dd",
+    "26604ac76a2ca04bbac4ffd27ebfc674f94bcb9d5e1d0af7ecf9faac9927f194",
+    "994ca7d5088cc57d17e9a54114ec459a1cd2c8188a4460a678c121d0ffe49b17"
+  ]), REPLACED_SHANHETU_PACKAGES = Object.freeze(["4f23523f68fb5e27f319a4312a728ffdf648b0049955dfeffead1651ec07e984", "e8f263b989b6cc8361d35240ac6f23dda39ab4d05ee209bdd1f41aff877e82c2", "6975e211a97b612ff61f8456eabe869547921f79c6c83e8885e398cd6be4460c", "03d3564fde594df3feb199cd5d7e323c3730dc1494546ad26cd375427a8accc2", "95c06e8921132548973e9c55b20c16ba06043218bbb090eaedd840191cbb08ff", "27d9af46ff339493cbb5bcc0b9e49e648661d9ed7becaf5704a75d0a3b83beae", "437a1ffb64a930e87264e69bcf91a856a1e82c066d732408c884182b4ce6e450", "523473559db6aa12043bb0bd0b22e0a232045d9defede4a2a6a9f3d562ad2133", "5577c02f3922100a434db7c45af19dc3db115866a1a841fc7218083f396b0acf", "ea751303a3e7ecd030d2c5a12a13dd125612f6b64ab41c641116fb763579b421", "55340baa7b51c8d97bdfbedc17209be719c2f05105501390b4028c47554cceeb", "980c908196ff62ac529ab2bfbdade42bef76930f43f534b1b075ead306c10fe2", "9017d32206a5b0e4e2eeede12e390767620579836ed7037e1e223f7ab0c52483", "dfc56a7a02dc4ab17e2f34e3e76862f615f5bf344c534921e8424498fd27b11b", "4d8aaf1df389a0420dfc65c4d5762757c2fe454cc0fbb127fe269b88c5a19af5", "e9f7b5ee0383a29799057f19f16e68e34d57fb7310066dc5d3af45456c7f0445", "997bcf58c5567e0e99829798b855c411d5e51ccad7b5f80e81c9ae84add2656d", "f304bd28030950096503a45d96013c3d7a9e2297ca6143b639b83dcb2d3e197a", "f2739ea490ecf8bee75b1dd6ae0050cc0ad0bc558515c30dbb3c6260e80eaa2f", "332272cc92d11796d8dd7d304560129277acd353726feed7cd1e5a5b6578937a", "bf4207ca6d84501c75f6ec24d094aca952224ce60367196482d6bd6815ca3423", "23d6e6f7bae844ee58a9239bb739fb0ab8d2e64b7766629bca492421bd07f400", "f226d8a8d247ce48c0664ba057ad9f961e7c953291ab7f805714979b7ea35825", "56d82efb93d6eaa0b24c0d5deb8693030f49a0b2fb5af0da49ef6f008943ee65", "674efd3ed6e5719ef9cdabea702b4d6d4394560b18aa5f1ad189486f7467910e", "8de4a53accd1548f58266d9854642462b4fdb089a9a0afcc0561ca725930966d", "95c5bf19558e19c3ef192f2f2022aff19908350e882885cf7855cfe9051801c0", "71fc7d79a3b8014d5f80edda50ea7f7dbba80589ec9c7a8f77bd080056d45175", "151c6e9a3651f5a2c6b7b52321a09c294220400a40385e248d47cb6bb46976c2", "6907320aa5d5e23403c5324926cabf8f48ad23df23afd9925ff5b63e96e87cc6", "4f23cce4d4372a13895716d47d9141acd4c9f13c2be199afff5599148e8349ae", "67362c2dee033a700472210cafc14cc1df351e9a5413273d04e3ff2ce566ce66", "fa6474a1c5170c9ba285f9487031e4b205245d527c97b5ba5f26d68f9bf889ff", "a1f400ad8c8d60f2e4c0b0f981acc8c2be2ab61d1fd6a45ef10b7a3621b05918", "a7595aeaee8cd16ad03b5871310fd7375ea73be7b3d6a1466e8770f9d052fc24", "b6be2108829186604d4a11fb00d63d08e081a1f13f950a715441146c07d26a47", "23077a7742fabceb968d15a85b20c292c37e7a4d6099cf5b9f40a43e59c5fb8a", "2f7654ffde27bed353412a69eb9c5f449270a5e94ff492531e61189825ec560d", "e58c1543240d60a88d2fa92a58ff06ffd30bb4f0d2e75a4a18ba5efad4316d20", "742b76de181ca851dfd0df036a282a3bdee634c61012e687574b7e50216e62e6", "16d2e6a72fbb2258cb1dd69359c34b6753eca73c061b1610d7764ec00068c571", "a78a544feab74eb6d9ddbe6af6662d012a43cd85b698698f4cbadec9dada824d", "d5ad4b8005751bfdfe8301c060e8ab460a2ebd3eb2196112c534e8c44647ba6f", "31ad175296a119402b4a4e90bec5a16cad8a85e9eca2f79e3ee3edf745f27fba", "15366eddcf79bd76dd0f11fa2fb1f393faec512502f0ca01bb9ab13d54238490", "438b0292399649be12f2c42723242d73915a381f8a9c42713b25815c29e57e8b", "44ba81e10e40db62f039946b7e0e18ae162d98e95a350b6ed7eedc2cf8df37ba", "2ff778bd021f4d83971551126ea532ea215ad30e9b0b3dfc0450a88a0de9781c", "6ebf9ca6499f5fbf9b46f4e918990924369359c1191fb62b9026519724ac88cc", "20dac8ad2d3873f7779e2add9d89eb19927b5db6c553563edb69a72afe593624", "cbff0d7705f6f847b39473baeae6c126a34850685d95956ca07bf09e0ea6ce40"]), REPLACED_THEME_PACKAGES = Object.freeze(["fabfb9cfc1c6f4c9eeeb69fcc4c9bc319f17d5c964624a616bd15b863c18c5aa", "db376fc6d5b9b878a2dd9bb6642f5d7a24dd5b226c658801aeead6249bc98094", "3589cd781d192c53790071a1775924d4a8ccab648272961a991e6e3bf6034abd"]), REPLACED_BACKGROUND_PACKAGES = Object.freeze(["488b63b7fb2c1d88ddee7bc4a858a09f1a5a7f1271be6f012d612936431cbebc", "7aa96fde03bf1a9d1f5d287c63d86f1c11365bf5fb980bfd9d812b76f9543dd5", "1ebfbcaa2a4e5a2b3112f37aa0d48ce66b355d4a0934b1ff5310916427555b60", "f52fec744b48f472e3db4aa9cbf9e03864d996ba299aed70925d721477fdb2aa"]), REPLACED_SHANHETU_BETA_PACKAGES = Object.freeze([
     "d386dd79b9e8035c78ad5485594dec1c1cba8bef0cc64187e377c2993198ab47",
     "7773e829307fb13763ff32f8c492d7f9c85a8dea8ac150faef994f375f5ff6b0",
     "b89e0c4f7155749e1ec287815e7a7c7ce4d743fef76ed5fedfff3dffc2f30429",
@@ -2757,7 +2771,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   var PluginManager = class {
     constructor({ journal, store, settings, context, onChange = () => {
     } }) {
-      Object.assign(this, { journal, store, settings, context, onChange }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.priorityPlayActions = /* @__PURE__ */ new Set(), this.unsubscribe = journal.subscribe((event) => {
+      Object.assign(this, { journal, store, settings, context, onChange }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.initializing = !0, this.storageError = "", this.loadIssues = /* @__PURE__ */ new Map(), this.priorityPlayActions = /* @__PURE__ */ new Set(), this.unsubscribe = journal.subscribe((event) => {
         let changed = !1;
         for (let slot of this.slots.values())
           try {
@@ -2773,6 +2787,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       let work = this.tail.catch(() => {
       }).then(() => {
         if (this.closed) throw new Error("\u63D2\u4EF6\u7BA1\u7406\u5668\u5DF2\u505C\u6B62");
+        if (this.storageError) throw new Error(this.storageError);
         return fn();
       });
       return this.tail = work, work;
@@ -3024,52 +3039,66 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       var _a2;
       (_a2 = slot.scope) == null || _a2.dispose(), slot.scope = null, slot.active = !1, slot.listeners.clear();
     }
-    async init() {
-      var _a2, _b2, _c, _d, _e, _f;
-      let stored = [];
+    init() {
+      return this.serial(async () => {
+        try {
+          await this.loadInstalled();
+        } finally {
+          this.initializing = !1, this.closed || this.onChange();
+        }
+      });
+    }
+    async loadInstalled() {
+      var _a2, _b2, _c, _d, _e, _f, _g;
+      let stored;
       try {
         stored = await this.store.list();
-      } catch (e) {
-        this.errors.push(e.message);
+      } catch (error) {
+        this.storageError = "\u65E0\u6CD5\u8BFB\u53D6\u63D2\u4EF6\u5B58\u50A8\uFF0C\u8BF7\u5237\u65B0\u6E38\u620F\u91CD\u8BD5\u3002" + ((error == null ? void 0 : error.message) || String(error)), this.errors.push(this.storageError);
+        return;
       }
       if (this.closed) return;
       let records = new Map(stored.map((r) => [r.id, r]));
       for (let id of /* @__PURE__ */ new Set([...this.builtins.keys(), ...records.keys()])) {
         let record = records.get(id) || { id, active: null, previous: null, enabled: !0, uninstalled: !1 };
         if (record.uninstalled) continue;
-        let module = this.builtins.get(id);
-        if (record.active)
+        let builtin = this.builtins.get(id), module = builtin, saved = record.active || (!builtin && !((_a2 = record.previous) != null && _a2.builtin) ? record.previous : null);
+        if (saved)
           try {
-            await verifyPackage(record.active), module = compilePackage(record.active);
-          } catch (e) {
-            if (this.errors.push(`${id}: ${e.message}`), record.active = null, record.previous && !record.previous.builtin)
+            await verifyPackage(saved), module = compilePackage(saved);
+          } catch (error) {
+            let message = (error == null ? void 0 : error.message) || String(error);
+            if (this.errors.push(`${id}: ${message}`), this.loadIssues.set(id, { record, message }), record.active && record.previous && !record.previous.builtin)
               try {
-                await verifyPackage(record.previous), module = compilePackage(record.previous), record.active = record.previous;
+                await verifyPackage(record.previous), module = compilePackage(record.previous);
               } catch {
               }
-            record.previous = null;
-            try {
-              await this.store.put(record);
-            } catch (persistError) {
-              this.errors.push(`${id}: ${persistError.message}`);
-            }
           }
-        let builtin = this.builtins.get(id);
-        if (record.active && (_a2 = builtin == null ? void 0 : builtin.replacesPackageDigests) != null && _a2.includes(record.active.sha256) && !((_b2 = record.appliedBuiltinMigrations) != null && _b2.includes(record.active.sha256))) {
-          let upgraded = { ...record, active: null, previous: record.active, appliedBuiltinMigrations: [...record.appliedBuiltinMigrations || [], record.active.sha256] };
+        if (this.closed) return;
+        let loadFailed = this.loadIssues.has(id);
+        if (saved && !record.active && !loadFailed) {
+          record = { ...record, active: saved, previous: null };
           try {
-            await this.store.put(upgraded), record = upgraded, module = builtin, (_d = (_c = this.context).notify) == null || _d.call(_c, `${builtin.manifest.name}\u5DF2\u66F4\u65B0\u81F3\u968F\u6838\u5FC3\u63D0\u4F9B\u7684 ${builtin.manifest.version}`);
+            await this.store.put(record);
+          } catch (error) {
+            this.errors.push(`${id}: \u63D2\u4EF6\u6062\u590D\u672A\u4FDD\u5B58\uFF1A${error.message}`);
+          }
+        }
+        if (!loadFailed && record.active && (_b2 = builtin == null ? void 0 : builtin.replacesPackageDigests) != null && _b2.includes(record.active.sha256) && !((_c = record.appliedBuiltinMigrations) != null && _c.includes(record.active.sha256))) {
+          let upgraded = { ...record, active: builtin.bundledPackage || null, previous: record.active, appliedBuiltinMigrations: [...record.appliedBuiltinMigrations || [], record.active.sha256] };
+          try {
+            await this.store.put(upgraded), record = upgraded, module = builtin, (_e = (_d = this.context).notify) == null || _e.call(_d, `${builtin.manifest.name}\u5DF2\u66F4\u65B0\u81F3\u968F\u6838\u5FC3\u63D0\u4F9B\u7684 ${builtin.manifest.version}`);
           } catch (error) {
             this.errors.push(`${id}: \u5185\u7F6E\u4FEE\u590D\u66F4\u65B0\u672A\u4FDD\u5B58\uFF1A${error.message}`);
           }
         }
         if (this.closed) return;
         if (!module) continue;
-        if (builtin != null && builtin.bundledPackage && (!record.active || (_e = record.previous) != null && _e.builtin)) {
+        if (!loadFailed && builtin != null && builtin.bundledPackage && (!record.active || (_f = record.previous) != null && _f.builtin)) {
           let portable = {
             ...record,
             active: record.active || builtin.bundledPackage,
-            previous: (_f = record.previous) != null && _f.builtin ? builtin.bundledPackage : record.previous
+            previous: (_g = record.previous) != null && _g.builtin ? builtin.bundledPackage : record.previous
           };
           try {
             await this.store.put(portable), record = portable;
@@ -3088,7 +3117,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             await this.activate(slot);
           } catch (e) {
             this.errors.push(`${id}: ${e.message}`), this.deactivate(slot);
-            let alternatives = e.dependency ? [] : [record.previous, this.builtins.has(id) ? { builtin: !0 } : null].filter(Boolean), recovered = !1;
+            let alternatives = e.dependency || this.loadIssues.has(id) ? [] : [record.previous, this.builtins.has(id) ? { builtin: !0 } : null].filter(Boolean), recovered = !1;
             for (let alt of alternatives)
               try {
                 let fallback = alt.builtin ? this.builtins.get(id) : (await verifyPackage(alt), compilePackage(alt));
@@ -3102,24 +3131,26 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             recovered || (this.slots.set(id, slot), slot.error = e.message);
           }
       }
-      this.onChange();
     }
     list() {
-      return [...this.slots.values()].map((s) => ({ ...s.module.manifest, enabled: s.record.enabled, active: s.active, error: s.error, ...s.maintenance ? { maintenance: s.maintenance } : {}, hasPrevious: !!s.record.previous, source: s.record.active ? "\u63D2\u4EF6\u5E02\u573A / \u6587\u4EF6" : "\u5185\u7F6E" })).sort(comparePluginOrder);
+      return [...this.slots.values()].map((s) => {
+        let builtinFallback = this.loadIssues.has(s.record.id) && s.module === this.builtins.get(s.record.id);
+        return { ...s.module.manifest, enabled: s.record.enabled, active: s.active, error: s.error, ...s.maintenance ? { maintenance: s.maintenance } : {}, hasPrevious: !!s.record.previous, source: s.record.active && !builtinFallback ? "\u63D2\u4EF6\u5E02\u573A / \u6587\u4EF6" : "\u5185\u7F6E" };
+      }).sort(comparePluginOrder);
     }
     install(pkg) {
       return this.serial(async () => (await verifyPackage(pkg), this.swap(pkg.manifest.id, compilePackage(pkg), pkg, void 0, { restartDependents: !0 })));
     }
     async swap(id, module, pkg, previousOverride, { restartDependents = !1 } = {}) {
-      var _a2, _b2, _c;
-      let old = this.slots.get(id);
+      var _a2, _b2, _c, _d;
+      let old = this.slots.get(id), saved = (old == null ? void 0 : old.record) || ((_a2 = this.loadIssues.get(id)) == null ? void 0 : _a2.record);
       old && !restartDependents && this.assertUnused(id), this.slots.set(id, { module });
       try {
         this.assertGraph(module);
       } finally {
         old ? this.slots.set(id, old) : this.slots.delete(id);
       }
-      let record = { id, enabled: (old == null ? void 0 : old.record.enabled) ?? !0, uninstalled: !1, active: pkg, previous: previousOverride ?? (old ? old.record.active || { builtin: !0 } : null), appliedBuiltinMigrations: (old == null ? void 0 : old.record.appliedBuiltinMigrations) || [] }, candidate = this.makeSlot(module, record), dependents = old && restartDependents ? this.enabledDependents(id) : [];
+      let previous = old ? old.record.active || { builtin: !0 } : (saved == null ? void 0 : saved.active) || (saved == null ? void 0 : saved.previous) || null, record = { id, enabled: (saved == null ? void 0 : saved.enabled) ?? !0, uninstalled: !1, active: pkg, previous: previousOverride ?? previous, appliedBuiltinMigrations: (saved == null ? void 0 : saved.appliedBuiltinMigrations) || [] }, candidate = this.makeSlot(module, record), dependents = old && restartDependents ? this.enabledDependents(id) : [];
       for (let slot of [...dependents].reverse())
         slot.maintenance = "waiting", this.deactivate(slot);
       let updateError, recoveryErrors = [];
@@ -3127,7 +3158,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         old && this.deactivate(old), restartDependents && (candidate.maintenance = "updating"), this.slots.set(id, candidate);
         try {
           if (this.onChange(), record.enabled && await this.activate(candidate), this.closed) throw new Error("\u63D2\u4EF6\u5B89\u88C5\u5DF2\u53D6\u6D88");
-          await this.store.put(record);
+          await this.store.put(record), this.loadIssues.delete(id);
         } catch (error) {
           if (this.deactivate(candidate), this.slots.delete(id), old && !this.closed) {
             let restored = this.makeSlot(old.module, old.record);
@@ -3144,15 +3175,15 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         updateError = error;
       } finally {
         let failed = /* @__PURE__ */ new Set();
-        (_a2 = this.slots.get(id)) != null && _a2.active || failed.add(id);
+        (_b2 = this.slots.get(id)) != null && _b2.active || failed.add(id);
         for (let slot of dependents) {
           let dependentId = slot.module.manifest.id;
           if (this.closed) break;
           if (!(this.slots.get(dependentId) !== slot || !slot.record.enabled)) {
             slot.maintenance = "restarting";
             try {
-              let blocked = (_b2 = slot.module.manifest.dependencies) == null ? void 0 : _b2.find((dep) => failed.has(dep));
-              if (blocked) throw this.dependencyError("\u524D\u7F6E\u63D2\u4EF6\u300C" + (((_c = this.slots.get(blocked)) == null ? void 0 : _c.module.manifest.name) || blocked) + "\u300D\u672A\u80FD\u6062\u590D\u8FD0\u884C");
+              let blocked = (_c = slot.module.manifest.dependencies) == null ? void 0 : _c.find((dep) => failed.has(dep));
+              if (blocked) throw this.dependencyError("\u524D\u7F6E\u63D2\u4EF6\u300C" + (((_d = this.slots.get(blocked)) == null ? void 0 : _d.module.manifest.name) || blocked) + "\u300D\u672A\u80FD\u6062\u590D\u8FD0\u884C");
               slot.restartUsed = !1, this.onChange(), await this.activate(slot);
             } catch (error) {
               this.deactivate(slot), failed.add(dependentId), slot.error = "\u66F4\u65B0\u540E\u91CD\u542F\u5931\u8D25\uFF1A" + String((error == null ? void 0 : error.stack) || error), recoveryErrors.push(new Error(slot.module.manifest.name + "\uFF1A" + ((error == null ? void 0 : error.message) || String(error)), { cause: error }));
@@ -3203,6 +3234,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return this.serial(async () => {
         let slot = this.slots.get(id);
         if (!slot) throw new Error("\u63D2\u4EF6\u672A\u5B89\u88C5");
+        if (this.loadIssues.has(id)) throw new Error("\u63D2\u4EF6\u5305\u52A0\u8F7D\u5F02\u5E38\uFF0C\u8BF7\u5237\u65B0\u6E38\u620F\u91CD\u8BD5\u3002");
         return this.swap(id, slot.module, slot.record.active, slot.record.previous);
       });
     }
@@ -3219,7 +3251,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return this.serial(async () => {
         this.assertUnused(id), await this.store.put({ id, uninstalled: !0, enabled: !1, active: null, previous: null });
         let slot = this.slots.get(id);
-        slot && this.deactivate(slot), this.slots.delete(id), this.onChange();
+        slot && this.deactivate(slot), this.slots.delete(id), this.loadIssues.delete(id), this.onChange();
       });
     }
     restoreBuiltin(id) {
@@ -3546,6 +3578,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   SOFTWARE. */
   var ALLOWED = /* @__PURE__ */ new Set(["gn_zonghe", "cha_gs_dbs_fs_skininfo", "ff_jubaopen", "ff_dbs_pay_gift", "sys_gs_dbs_fs_goodsbaseinfo", "cha_dbs_general_series", "ff_task_daily", "mod_new_ttrank_config", "ff_general_chest_info_config", "gn_dbs_giftbag", "hd_roguelike", "cha_spell", "sys_playcard", "character", "gn_gs_ahievement", "ff_qifu_new", "ff_tiangong", "h5_officer"]);
   ALLOWED.add("sys_h5_shop"), ALLOWED.add("gn_dbs_coupon_cfg"), ALLOWED.add("hd_fight_lord_config"), ALLOWED.add("sys_ss_gamelabel_config");
+  var YJCM_SKINS = "yjcm-skins";
+  ALLOWED.add(YJCM_SKINS);
   var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read3 = (fn) => {
     try {
       return fn();
@@ -3621,6 +3655,47 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     throw new Error(`\u5B98\u65B9\u914D\u7F6E\u5305\u7F3A\u5C11 ${filename}`);
   }
+  async function loadYjcmSkinData(win, signal, knownVersion) {
+    var _a2, _b2;
+    let root = "https://web.sanguosha.com/x/pc/", controller = new AbortController(), abort = () => controller.abort();
+    if (signal.aborted) throw cancelled();
+    signal.addEventListener("abort", abort, { once: !0 });
+    let timer = setTimeout(abort, 3e4), text2 = (bytes) => new TextDecoder("utf-8", { fatal: !0 }).decode(bytes), json = (bytes) => JSON.parse(text2(bytes));
+    async function fetchData(path, limit2, cache2 = "default") {
+      let response = await win.fetch(root + path, { signal: controller.signal, credentials: "omit", redirect: "error", cache: cache2 });
+      if (!response.ok) throw new Error(`\u4E00\u5C06\u6210\u540D\u914D\u7F6E\u8BFB\u53D6\u5931\u8D25\uFF08HTTP ${response.status}\uFF0C${path.split("?")[0]}\uFF09`);
+      if (!response.body || Number(response.headers.get("content-length")) > limit2) throw new Error("\u4E00\u5C06\u6210\u540D\u914D\u7F6E\u54CD\u5E94\u65E0\u6548");
+      return boundedStream(response.body, limit2);
+    }
+    try {
+      let versionsText = text2(await fetchData("versionConf.js", 16384, "no-cache")), configVersion = (_a2 = versionsText.match(/"res\/config\/Config\.sgs"\s*:\s*"([\da-f]{1,32})"/i)) == null ? void 0 : _a2[1], resourceVersion = (_b2 = versionsText.match(/\bresourceVersion\s*=\s*"([\da-f]{1,32})"/i)) == null ? void 0 : _b2[1];
+      if (!configVersion || !resourceVersion) throw new Error("\u4E00\u5C06\u6210\u540D\u7248\u672C\u6E05\u5355\u683C\u5F0F\u5DF2\u53D8\u5316");
+      let version = configVersion + ":" + resourceVersion;
+      if (version === knownVersion) return { version, unchanged: !0 };
+      let [archive, wasmBytes, versions, resources, textures] = await Promise.all([
+        fetchData("res/config/Config.sgs?v=" + configVersion, ARCHIVE_LIMIT),
+        fetchData("libs/min/resc?v=2020032001", 64 * 1024),
+        fetchData("version.json?v=" + resourceVersion, ENTRY_LIMIT).then(json),
+        fetchData("res/assets/default.res.json", ENTRY_LIMIT).then(json),
+        fetchData("res/assets/spinePngHash.json", ENTRY_LIMIT).then(json)
+      ]), memory = new WebAssembly.Memory({ initial: 256, maximum: 256 }), { instance } = await WebAssembly.instantiate(wasmBytes, { env: { memory } }), decoder = instance.exports;
+      decoder.e(0, 0, 256), decoder.f(0, 0, 256), decoder.d(0, 0, 128);
+      let tables = {};
+      for (let name of ["GameGeneralConfig", "GeneralSkinInfoConfig", "GameItemConfig", "GeneralCards", "Skills"]) {
+        if (controller.signal.aborted) throw cancelled();
+        let packed = await readZipEntry(archive, name + ".sgs", win), length = packed.length + (16 - packed.length % 16);
+        if (length > memory.buffer.byteLength - 16384) throw new Error("\u4E00\u5C06\u6210\u540D\u914D\u7F6E\u6761\u76EE\u8D85\u8FC7\u89E3\u7801\u4E0A\u9650");
+        let buffer = new Uint8Array(memory.buffer, 16384, length);
+        buffer.fill(0), buffer.set(packed), decoder.a(buffer.byteOffset, length), decoder.d(0, 0, 128), tables[name] = json(await inflate(buffer.subarray(0, packed.length), "gzip", win));
+      }
+      if (controller.signal.aborted) throw cancelled();
+      return { ...tables, version, versions, resources, textures };
+    } catch (error) {
+      throw signal.aborted ? cancelled() : controller.signal.aborted ? new Error("\u8BFB\u53D6\u4E00\u5C06\u6210\u540D\u914D\u7F6E\u8D85\u65F6") : error;
+    } finally {
+      clearTimeout(timer), signal.removeEventListener("abort", abort), abort();
+    }
+  }
   function createConfigData(win, scope) {
     let cache2 = /* @__PURE__ */ new Map(), pending = /* @__PURE__ */ new Map(), archivePromise;
     function validate(name) {
@@ -3669,9 +3744,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         throw archivePromise = null, error;
       })), archivePromise;
     }
-    async function loadConfigData(name) {
-      if (name = validate(name), scope.closed) throw cancelled();
-      return getConfigData(name) || (pending.has(name) || pending.set(name, (async () => {
+    async function loadConfigData(name, { signal = scope.signal, knownVersion } = {}) {
+      if (name = validate(name), scope.closed || signal.aborted) throw cancelled();
+      return getConfigData(name) || (name === YJCM_SKINS ? loadYjcmSkinData(win, signal, knownVersion) : (pending.has(name) || pending.set(name, (async () => {
         let ctrClass = read3(() => win.CtrUtil) || read3(() => typeof CtrUtil < "u" ? CtrUtil : null), decryptor = read3(() => ctrClass.Ctr);
         if (typeof read3(() => decryptor.Ofb_Dec) != "function") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u89E3\u7801\u5668\u5C31\u7EEA");
         let packed = await archive();
@@ -3685,7 +3760,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         let data = JSON.parse(new TextDecoder("utf-8", { fatal: !0 }).decode(plain));
         if (!data || typeof data != "object" || Array.isArray(data)) throw new Error("\u6E38\u620F\u914D\u7F6E\u5185\u5BB9\u65E0\u6548");
         return cache2.set(name, data), data;
-      })().finally(() => pending.delete(name))), pending.get(name));
+      })().finally(() => pending.delete(name))), pending.get(name)));
     }
     return scope.add(() => {
       cache2.clear(), pending.clear(), archivePromise = null;
@@ -4021,7 +4096,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       isInGame: () => isGameScene(getScene()),
       canReserveViewport,
       getConfigData: (name) => (configs == null ? void 0 : configs.getConfigData(name)) || null,
-      loadConfigData: (name) => configs ? configs.loadConfigData(name) : Promise.reject(new Error("\u914D\u7F6E\u8BFB\u53D6\u4E0D\u53EF\u7528")),
+      loadConfigData: (name, options) => configs ? configs.loadConfigData(name, options) : Promise.reject(new Error("\u914D\u7F6E\u8BFB\u53D6\u4E0D\u53EF\u7528")),
       onSceneChange(fn) {
         if (typeof fn != "function") throw new TypeError("Scene subscriber must be a function");
         return listeners.add(fn), () => listeners.delete(fn);
@@ -6091,11 +6166,26 @@ ${FEEDBACK_STYLES}
     }
     function pluginCards() {
       var _a2, _b2;
-      let list2 = [...((_a2 = handlers.manager) == null ? void 0 : _a2.list()) || []].sort(comparePluginOrder), state = currentMarketState(), updates = new Map((state.catalog ? findPluginUpdates(list2, state.catalog.plugins) : []).map((item) => [item.id, item]));
-      list2.sort((a, b) => {
+      let manager2 = handlers.manager, list2 = [...(manager2 == null ? void 0 : manager2.list()) || []].sort(comparePluginOrder), state = currentMarketState(), updates = new Map((state.catalog ? findPluginUpdates(list2, state.catalog.plugins) : []).map((item) => [item.id, item]));
+      if (list2.sort((a, b) => {
         var _a3, _b3;
         return +(((_a3 = updates.get(b.id)) == null ? void 0 : _a3.status) === "update") - +(((_b3 = updates.get(a.id)) == null ? void 0 : _b3.status) === "update") || comparePluginOrder(a, b);
-      }), content.append(el("h3", "\u5DF2\u5B89\u88C5\u63D2\u4EF6")), list2.length || content.append(el("p", "\u6682\u65E0\u5DF2\u5B89\u88C5\u63D2\u4EF6\u3002\u4ECE\u4E0B\u65B9\u5E02\u573A\u5B89\u88C5\uFF0C\u6216\u5BFC\u5165\u63D2\u4EF6\u5305\u6587\u4EF6\u3002", "muted"));
+      }), content.append(el("h3", "\u5DF2\u5B89\u88C5\u63D2\u4EF6")), manager2 != null && manager2.initializing) {
+        content.append(el("p", "\u6B63\u5728\u8BFB\u53D6\u5DF2\u5B89\u88C5\u63D2\u4EF6\u2026", "notice"));
+        return;
+      }
+      if (manager2 != null && manager2.storageError) {
+        let error = el("p", userErrorMessage(manager2.storageError), "notice error");
+        error.setAttribute("role", "alert"), content.append(error);
+        return;
+      }
+      if ((_a2 = manager2 == null ? void 0 : manager2.loadIssues) != null && _a2.size) {
+        let details = el("details", void 0, "plugin-error"), summary = el("summary");
+        summary.append(svgIcon("alert"), el("span", `${manager2.loadIssues.size} \u4E2A\u63D2\u4EF6\u52A0\u8F7D\u5F02\u5E38`));
+        let errors = [...manager2.loadIssues].map(([id, issue]) => `${id}\uFF1A${userErrorMessage(issue.message)}`);
+        details.append(summary, el("pre", errors.join(`
+`))), content.append(details, el("p", "\u5DF2\u4FDD\u7559\u5B89\u88C5\u8BB0\u5F55\u3002\u8BF7\u5237\u65B0\u6E38\u620F\u91CD\u8BD5\u3002", "notice"));
+      } else list2.length || content.append(el("p", "\u6682\u65E0\u5DF2\u5B89\u88C5\u63D2\u4EF6\u3002\u4ECE\u4E0B\u65B9\u5E02\u573A\u5B89\u88C5\uFF0C\u6216\u5BFC\u5165\u63D2\u4EF6\u5305\u6587\u4EF6\u3002", "muted"));
       for (let item of list2) {
         let update = updates.get(item.id), maintenance = { updating: "\u6B63\u5728\u66F4\u65B0", waiting: "\u7B49\u5F85\u524D\u7F6E\u66F4\u65B0", restarting: "\u6B63\u5728\u6062\u590D" }[item.maintenance], failed = !maintenance && (!!item.error || item.enabled && !item.active), card = el("section", void 0, `card plugin-card${(update == null ? void 0 : update.status) === "update" ? " has-update" : ""}${failed ? " has-error" : ""}`);
         card.dataset.pluginId = item.id, maintenance && card.setAttribute("aria-busy", "true"), pluginIdentity(card, item, (_b2 = update == null ? void 0 : update.entry) == null ? void 0 : _b2.description);
@@ -6217,7 +6307,7 @@ ${FEEDBACK_STYLES}
       } else content.append(el("div", "\u70B9\u51FB\u68C0\u6D4B\uFF0C\u6BD4\u8F83\u5DF2\u5B89\u88C5\u63D2\u4EF6\u4E0E\u5E02\u573A\u6700\u65B0\u7248\u672C\u3002", "notice"));
     }
     function catalogCards(container) {
-      var _a2;
+      var _a2, _b2;
       let state = currentMarketState();
       if (!state.client) {
         container.append(el("div", "\u79BB\u7EBF\u6A21\u5F0F\uFF1A\u53EF\u5BFC\u5165\u63D2\u4EF6\u5305\u6587\u4EF6\uFF0C\u5DF2\u5B89\u88C5\u63D2\u4EF6\u7167\u5E38\u8FD0\u884C\u3002", "notice"));
@@ -6235,20 +6325,20 @@ ${FEEDBACK_STYLES}
         container.append(el("div", "\u70B9\u51FB\u8FDE\u63A5\u540E\u8BFB\u53D6\u9759\u6001\u76EE\u5F55\u3002\u76EE\u5F55\u79BB\u7EBF\u4E0D\u4F1A\u505C\u6B62\u5DF2\u5B89\u88C5\u63D2\u4EF6\u3002", "notice"));
         return;
       }
-      let installed = new Map((((_a2 = handlers.manager) == null ? void 0 : _a2.list()) || []).map((item) => [item.id, item])), filter = el("label", void 0, "row"), toggle = styleSwitch(el("input"));
+      let installed = new Map((((_a2 = handlers.manager) == null ? void 0 : _a2.list()) || []).map((item) => [item.id, item])), loadIssues = (_b2 = handlers.manager) == null ? void 0 : _b2.loadIssues, filter = el("label", void 0, "row"), toggle = styleSwitch(el("input"));
       toggle.type = "checkbox", toggle.checked = onlyUninstalled, toggle.addEventListener("change", () => {
         onlyUninstalled = toggle.checked, settings.set("marketOnlyUninstalled", onlyUninstalled), render();
       }), filter.append(el("span", "\u53EA\u663E\u793A\u672A\u5B89\u88C5"), toggle), container.append(filter);
-      let count = state.catalog.plugins.filter((entry) => !onlyUninstalled || !installed.has(entry.id)).length;
+      let count = state.catalog.plugins.filter((entry) => !onlyUninstalled || !installed.has(entry.id) && !(loadIssues != null && loadIssues.has(entry.id))).length;
       container.append(el("div", `${count} \u4E2A${onlyUninstalled ? "\u672A\u5B89\u88C5" : "\u53EF\u7528"}\u53D1\u5E03\u5305`, "muted")), count || container.append(el("div", "\u76EE\u5F55\u4E2D\u7684\u63D2\u4EF6\u5747\u5DF2\u5B89\u88C5", "notice"));
       for (let entry of [...state.catalog.plugins].sort(comparePluginOrder)) {
         let card = el("section", void 0, "card plugin-card");
         pluginIdentity(card, entry), card.dataset.catalogKey = JSON.stringify([entry.id, entry.version]);
-        let current = installed.get(entry.id), same = (current == null ? void 0 : current.version) === entry.version;
-        card.dataset.catalogInstalled = String(!!current);
-        let bottom = el("div", void 0, "plugin-bottom"), status = el("span", current ? `\u5DF2\u5B89\u88C5${same ? "\u6B64\u7248\u672C" : " " + current.version}` : "\u672A\u5B89\u88C5", "plugin-status");
+        let current = installed.get(entry.id), same = (current == null ? void 0 : current.version) === entry.version, unavailable = !current && (loadIssues == null ? void 0 : loadIssues.has(entry.id));
+        card.dataset.catalogInstalled = String(!!current || !!unavailable);
+        let bottom = el("div", void 0, "plugin-bottom"), status = el("span", unavailable ? "\u5DF2\u4FDD\u5B58 \xB7 \u52A0\u8F7D\u5F02\u5E38" : current ? `\u5DF2\u5B89\u88C5${same ? "\u6B64\u7248\u672C" : " " + current.version}` : "\u672A\u5B89\u88C5", "plugin-status");
         status.title = status.textContent, status.style.whiteSpace = "normal", bottom.append(status);
-        let busy = installing.has(entry.id), install = button(busy ? "\u6B63\u5728\u5B89\u88C5\u2026" : same ? "\u5DF2\u5B89\u88C5" : current ? "\u66FF\u6362\u6B64\u7248\u672C" : "\u5B89\u88C5\u6B64\u7248\u672C", () => installEntry(entry));
+        let busy = installing.has(entry.id), install = button(busy ? "\u6B63\u5728\u5B89\u88C5\u2026" : same ? "\u5DF2\u5B89\u88C5" : current || unavailable ? "\u66FF\u6362\u6B64\u7248\u672C" : "\u5B89\u88C5\u6B64\u7248\u672C", () => installEntry(entry));
         install.disabled = officialBusy || busy || same, install.style.marginLeft = "auto", install.style.flexShrink = "0", busy && card.setAttribute("aria-busy", "true"), bottom.append(install), card.append(bottom, ...releaseNotesBlock(entry)), renderDependencyPrompt(card, entry), markSearchable(card, entry), container.append(card);
       }
     }
@@ -6296,12 +6386,13 @@ ${FEEDBACK_STYLES}
       content.append(card);
     }
     async function completeOfficialPlugins() {
+      var _a2;
       if (officialBusy || installing.size) return;
       let client = handlers.market();
       officialBusy = !0, officialStatus = "\u6B63\u5728\u51C6\u5907\u5B98\u65B9\u63D2\u4EF6\u5957\u88C5\u2026", render();
       let completed = 0;
       try {
-        let catalog = await client.getCatalog(), plan = planOfficialPlugins(handlers.manager.list(), catalog.plugins);
+        let catalog = await client.getCatalog(), manager2 = handlers.manager, installed = manager2.list(), saved = [...((_a2 = manager2.loadIssues) == null ? void 0 : _a2.keys()) || []].filter((id) => !installed.some((item) => item.id === id)), plan = planOfficialPlugins([...installed, ...saved.map((id) => ({ id, name: id, enabled: !1, active: !1 }))], catalog.plugins);
         for (let entry of plan) {
           if (scope.closed) return;
           if (handlers.market() !== client) throw new Error("\u5E02\u573A\u5730\u5740\u5DF2\u6539\u53D8\uFF0C\u8BF7\u91CD\u65B0\u8FDE\u63A5\u540E\u91CD\u8BD5\u3002");
@@ -6322,6 +6413,11 @@ ${FEEDBACK_STYLES}
     function renderMarket() {
       var _a2, _b2, _c, _d, _e;
       renderCoreUpgrade();
+      let manager2 = handlers.manager;
+      if (manager2 != null && manager2.initializing || manager2 != null && manager2.storageError) {
+        pluginCards();
+        return;
+      }
       let pack = el("section", void 0, "card");
       pack.append(el("strong", "\u5B98\u65B9\u63D2\u4EF6\u5957\u88C5"), el("div", `\u4E00\u952E\u8865\u9F50 ${officialPluginIds.length} \u4E2A\u5B98\u65B9\u63D2\u4EF6\uFF1B\u4FDD\u7559\u5DF2\u6709\u7248\u672C\u3001\u8BBE\u7F6E\u548C\u505C\u7528\u72B6\u6001\u3002`, "notice"));
       let complete = button(officialBusy ? "\u6B63\u5728\u8865\u9F50\u2026" : "\u4E00\u952E\u8865\u9F50\u5B98\u65B9\u63D2\u4EF6", completeOfficialPlugins);
@@ -6354,7 +6450,7 @@ ${FEEDBACK_STYLES}
       content.append(tabs), management === "settings" ? renderSettings(cleanups) : management === "market" ? renderMarket() : management === "appearance" && renderAppearance(cleanups);
     }
     function render() {
-      var _a2, _b2, _c;
+      var _a2, _b2, _c, _d, _e, _f;
       let previousKey = renderedKey, anchors = renderedKey === "manage:market" ? [...content.querySelectorAll("[data-catalog-key]")].filter((card) => !card.hidden && card.getBoundingClientRect().bottom > content.getBoundingClientRect().top).map((card) => ({ key: card.dataset.catalogKey, top: card.getBoundingClientRect().top })) : [], restoreScroll = () => {
         if (content.scrollTop = viewScroll.get(renderedKey) || 0, previousKey === renderedKey)
           for (let anchor of anchors) {
@@ -6379,13 +6475,15 @@ ${FEEDBACK_STYLES}
           } catch {
           }
       };
-      let installed = ((_a2 = handlers.manager) == null ? void 0 : _a2.list()) || [], market = currentMarketState(), failures = installed.filter((item) => !item.maintenance && (item.error || item.enabled && !item.active)).length, upgrades = market.catalog ? findPluginUpdates(installed, market.catalog.plugins).filter((item) => item.status === "update").length : 0, manage = shadow.querySelector('[data-category="manage"]');
-      (_b2 = manage.querySelector(".nav-alert")) == null || _b2.remove();
+      let installed = ((_a2 = handlers.manager) == null ? void 0 : _a2.list()) || [], market = currentMarketState(), failedPlugins = new Set((_c = (_b2 = handlers.manager) == null ? void 0 : _b2.loadIssues) == null ? void 0 : _c.keys());
+      for (let item of installed) !item.maintenance && (item.error || item.enabled && !item.active) && failedPlugins.add(item.id);
+      let failures = failedPlugins.size, storageError = !!((_d = handlers.manager) != null && _d.storageError), upgrades = market.catalog ? findPluginUpdates(installed, market.catalog.plugins).filter((item) => item.status === "update").length : 0, manage = shadow.querySelector('[data-category="manage"]');
+      (_e = manage.querySelector(".nav-alert")) == null || _e.remove();
       let coreUpgrade = !!(microUpdate != null && microUpdate.newer) && !(microUpdate != null && microUpdate.pending), updateHint = shadow.querySelector("[data-update-hint]");
       updateHint.hidden = !coreUpgrade && !upgrades, updateHint.parentElement.classList.toggle("has-update", !updateHint.hidden), updateHint.title = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`, "\u70B9\u51FB\u524D\u5F80\u66F4\u65B0"].filter(Boolean).join(" \xB7 ");
-      let alerts = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", failures && `${failures} \u4E2A\u63D2\u4EF6\u5F02\u5E38`, upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`].filter(Boolean).join(" \xB7 ");
+      let alerts = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", storageError && "\u63D2\u4EF6\u5B58\u50A8\u8BFB\u53D6\u5931\u8D25", failures && `${failures} \u4E2A\u63D2\u4EF6\u5F02\u5E38`, upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`].filter(Boolean).join(" \xB7 ");
       if (manage.title = alerts || "\u7BA1\u7406", alerts) {
-        let badge = el("i", String(failures || upgrades + Number(coreUpgrade)), `nav-alert${failures ? " is-error" : ""}`);
+        let badge = el("i", storageError ? "!" : String(failures || upgrades + Number(coreUpgrade)), `nav-alert${failures || storageError ? " is-error" : ""}`);
         badge.setAttribute("aria-label", alerts), manage.append(badge);
       }
       for (let b of shadow.querySelectorAll("[data-category]")) b.setAttribute("aria-selected", String(b.dataset.category === active));
@@ -6746,7 +6844,7 @@ ${FEEDBACK_STYLES}
       shell.host.style.display = ready ? "" : "none", ready && !mounted && (mounted = !0, snapshots.request());
       let capture = bridge.getStatus();
       shell.setStatus(bridge.error || (ready ? capture.received ? `\u5DF2\u6536 ${capture.received} \u6761\u6D88\u606F \xB7 ${journal.incomplete ? "\u7F3A\u5C11\u5F00\u5C40\u8BB0\u5F55" : "\u672C\u5C40\u8BB0\u5F55\u4E2D"}` : capture.targets.length ? "\u6D88\u606F\u5165\u53E3\u5DF2\u8FDE\u63A5 \xB7 \u7B49\u5F85\u6536\u5305" : "\u672A\u63A5\u5165\u6E38\u620F\u6D88\u606F \xB7 \u4EC5\u539F\u751F\u663E\u793A\u53EF\u7528" : "\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6"));
-    }, 500), !win.__SGS_TOOLBOX_DEMO__ && !((_c = win.Laya) != null && _c.stage) && (shell.host.style.display = "none"), await manager2.init(), scope.closed ? null : (Object.assign(api, { manager: manager2, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager2.errors.length && shell.notify(manager2.errors.join("\uFF1B")), api);
+    }, 500), !win.__SGS_TOOLBOX_DEMO__ && !((_c = win.Laya) != null && _c.stage) && (shell.host.style.display = "none"), await manager2.init(), scope.closed ? null : (Object.assign(api, { manager: manager2, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager2.storageError ? shell.notify("\u65E0\u6CD5\u8BFB\u53D6\u63D2\u4EF6\u5B58\u50A8\uFF0C\u8BF7\u5237\u65B0\u6E38\u620F\u91CD\u8BD5\u3002") : manager2.loadIssues.size ? shell.notify(`${manager2.loadIssues.size} \u4E2A\u63D2\u4EF6\u52A0\u8F7D\u5F02\u5E38\uFF0C\u5DF2\u4FDD\u7559\u5B89\u88C5\u8BB0\u5F55\u3002`) : manager2.errors.length && shell.notify(manager2.errors.join("\uFF1B")), api);
   }
   boot(window).catch((error) => {
     console.error("[\u4E09\u56FD\u6740OL\u5DE5\u5177\u7BB1]", error);

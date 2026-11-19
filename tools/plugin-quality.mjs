@@ -193,7 +193,8 @@ export const pluginQuality = {
       "tests/skins-native-model.test.js"
     ],
     "browser": [
-      "tools/browser-skins-native-check.mjs"
+      "tools/browser-skins-native-check.mjs",
+      "tools/browser-yjcm-skin-effects-check.mjs"
     ]
   },
   "wish-progress": {

@@ -9,6 +9,7 @@ export class PluginManager {
   constructor({ journal, store, settings, context, onChange = () => {} }) {
     Object.assign(this, { journal, store, settings, context, onChange });
     this.builtins = new Map(); this.slots = new Map(); this.tail = Promise.resolve(); this.errors = []; this.closed = false;
+    this.initializing = true; this.storageError = ''; this.loadIssues = new Map();
     this.priorityPlayActions = new Set();
     this.unsubscribe = journal.subscribe(event => {
       let changed = false;
@@ -19,7 +20,7 @@ export class PluginManager {
       if (changed) this.onChange();
     });
   }
-  serial(fn) { const work = this.tail.catch(() => {}).then(() => { if (this.closed) throw new Error('插件管理器已停止'); return fn(); }); this.tail = work; return work; }
+  serial(fn) { const work = this.tail.catch(() => {}).then(() => { if (this.closed) throw new Error('插件管理器已停止'); if (this.storageError) throw new Error(this.storageError); return fn(); }); this.tail = work; return work; }
   registerBuiltin(module) { validateManifest(module.manifest); this.builtins.set(module.manifest.id, module); }
   async registerBundled(pkg, replacesPackageDigests = []) {
     await verifyPackage(pkg);
@@ -164,25 +165,54 @@ export class PluginManager {
     catch (e) { scope.dispose(); slot.scope = null; throw e; }
   }
   deactivate(slot) { slot.scope?.dispose(); slot.scope = null; slot.active = false; slot.listeners.clear(); }
-  async init() {
-    let stored = [];
-    try { stored = await this.store.list(); } catch (e) { this.errors.push(e.message); }
+  init() {
+    return this.serial(async () => {
+      try { await this.loadInstalled(); }
+      finally {
+        this.initializing = false;
+        if (!this.closed) this.onChange();
+      }
+    });
+  }
+  async loadInstalled() {
+    let stored;
+    try { stored = await this.store.list(); }
+    catch (error) {
+      this.storageError = '无法读取插件存储，请刷新游戏重试。' + (error?.message || String(error));
+      this.errors.push(this.storageError);
+      return;
+    }
     if (this.closed) return;
     const records = new Map(stored.map(r => [r.id, r]));
     for (const id of new Set([...this.builtins.keys(), ...records.keys()])) {
       let record = records.get(id) || { id, active: null, previous: null, enabled: true, uninstalled: false };
       if (record.uninstalled) continue;
-      let module = this.builtins.get(id);
-      if (record.active) { try { await verifyPackage(record.active); module = compilePackage(record.active); } catch (e) {
-        this.errors.push(`${id}: ${e.message}`);
-        record.active = null;
-        if (record.previous && !record.previous.builtin) { try { await verifyPackage(record.previous); module = compilePackage(record.previous); record.active = record.previous; } catch {} }
-        record.previous = null;
-        try { await this.store.put(record); } catch (persistError) { this.errors.push(`${id}: ${persistError.message}`); }
-      } }
       const builtin = this.builtins.get(id);
-      if (record.active && builtin?.replacesPackageDigests?.includes(record.active.sha256) && !record.appliedBuiltinMigrations?.includes(record.active.sha256)) {
-        const upgraded = { ...record, active: null, previous: record.active, appliedBuiltinMigrations: [...(record.appliedBuiltinMigrations || []), record.active.sha256] };
+      let module = builtin;
+      // Older cores could be closed after saving the migration marker but
+      // before saving the bundled code. Lite can still load the saved package.
+      const saved = record.active || (!builtin && !record.previous?.builtin ? record.previous : null);
+      if (saved) {
+        try { await verifyPackage(saved); module = compilePackage(saved); }
+        catch (error) {
+          const message = error?.message || String(error);
+          this.errors.push(`${id}: ${message}`);
+          this.loadIssues.set(id, { record, message });
+          // A temporary verification or compilation failure must leave both
+          // saved packages in place so the next startup can try them again.
+          if (record.active && record.previous && !record.previous.builtin) {
+            try { await verifyPackage(record.previous); module = compilePackage(record.previous); } catch {}
+          }
+        }
+      }
+      if (this.closed) return;
+      const loadFailed = this.loadIssues.has(id);
+      if (saved && !record.active && !loadFailed) {
+        record = { ...record, active: saved, previous: null };
+        try { await this.store.put(record); } catch (error) { this.errors.push(`${id}: 插件恢复未保存：${error.message}`); }
+      }
+      if (!loadFailed && record.active && builtin?.replacesPackageDigests?.includes(record.active.sha256) && !record.appliedBuiltinMigrations?.includes(record.active.sha256)) {
+        const upgraded = { ...record, active: builtin.bundledPackage || null, previous: record.active, appliedBuiltinMigrations: [...(record.appliedBuiltinMigrations || []), record.active.sha256] };
         try {
           await this.store.put(upgraded); record = upgraded; module = builtin;
           this.context.notify?.(`${builtin.manifest.name}已更新至随核心提供的 ${builtin.manifest.version}`);
@@ -192,7 +222,7 @@ export class PluginManager {
       if (!module) continue;
       // Full materializes its bundled code before activation. Lite can then load
       // the same installation and rollback records without bundling any plugins.
-      if (builtin?.bundledPackage && (!record.active || record.previous?.builtin)) {
+      if (!loadFailed && builtin?.bundledPackage && (!record.active || record.previous?.builtin)) {
         const portable = { ...record, active: record.active || builtin.bundledPackage,
           previous: record.previous?.builtin ? builtin.bundledPackage : record.previous };
         try { await this.store.put(portable); record = portable; }
@@ -206,7 +236,7 @@ export class PluginManager {
       const { record } = slot;
       if (record.enabled) { try { await this.activate(slot); } catch (e) {
         this.errors.push(`${id}: ${e.message}`); this.deactivate(slot);
-        const alternatives = e.dependency ? [] : [record.previous, this.builtins.has(id) ? { builtin: true } : null].filter(Boolean);
+        const alternatives = e.dependency || this.loadIssues.has(id) ? [] : [record.previous, this.builtins.has(id) ? { builtin: true } : null].filter(Boolean);
         let recovered = false;
         for (const alt of alternatives) {
           try {
@@ -220,16 +250,20 @@ export class PluginManager {
         if (!recovered) { this.slots.set(id, slot); slot.error = e.message; }
       } }
     }
-    this.onChange();
   }
-  list() { return [...this.slots.values()].map(s => ({ ...s.module.manifest, enabled: s.record.enabled, active: s.active, error: s.error, ...(s.maintenance ? { maintenance: s.maintenance } : {}), hasPrevious: !!s.record.previous, source: s.record.active ? '插件市场 / 文件' : '内置' })).sort(comparePluginOrder); }
+  list() { return [...this.slots.values()].map(s => {
+    const builtinFallback = this.loadIssues.has(s.record.id) && s.module === this.builtins.get(s.record.id);
+    return { ...s.module.manifest, enabled: s.record.enabled, active: s.active, error: s.error, ...(s.maintenance ? { maintenance: s.maintenance } : {}), hasPrevious: !!s.record.previous, source: s.record.active && !builtinFallback ? '插件市场 / 文件' : '内置' };
+  }).sort(comparePluginOrder); }
   install(pkg) { return this.serial(async () => { await verifyPackage(pkg); return this.swap(pkg.manifest.id, compilePackage(pkg), pkg, undefined, { restartDependents: true }); }); }
   async swap(id, module, pkg, previousOverride, { restartDependents = false } = {}) {
     const old = this.slots.get(id);
+    const saved = old?.record || this.loadIssues.get(id)?.record;
     if (old && !restartDependents) this.assertUnused(id);
     this.slots.set(id, { module });
     try { this.assertGraph(module); } finally { if (old) this.slots.set(id, old); else this.slots.delete(id); }
-    const record = { id, enabled: old?.record.enabled ?? true, uninstalled: false, active: pkg, previous: previousOverride ?? (old ? old.record.active || { builtin: true } : null), appliedBuiltinMigrations: old?.record.appliedBuiltinMigrations || [] };
+    const previous = old ? old.record.active || { builtin: true } : saved?.active || saved?.previous || null;
+    const record = { id, enabled: saved?.enabled ?? true, uninstalled: false, active: pkg, previous: previousOverride ?? previous, appliedBuiltinMigrations: saved?.appliedBuiltinMigrations || [] };
     const candidate = this.makeSlot(module, record);
     // Download, verification, compilation, graph checks and state construction
     // have already succeeded. Pause only runtime resources, never saved choices.
@@ -241,7 +275,7 @@ export class PluginManager {
       if (old) this.deactivate(old);
       if (restartDependents) candidate.maintenance = 'updating';
       this.slots.set(id, candidate);
-      try { this.onChange(); if (record.enabled) await this.activate(candidate); if (this.closed) throw new Error('插件安装已取消'); await this.store.put(record); }
+      try { this.onChange(); if (record.enabled) await this.activate(candidate); if (this.closed) throw new Error('插件安装已取消'); await this.store.put(record); this.loadIssues.delete(id); }
       catch (error) {
         this.deactivate(candidate); this.slots.delete(id);
         if (old && !this.closed) {
@@ -298,9 +332,14 @@ export class PluginManager {
     slot.record.enabled = enabled; if (!enabled) this.deactivate(slot); this.onChange();
   }); }
   disable(id) { return this.enable(id, false); }
-  reload(id) { return this.serial(async () => { const slot = this.slots.get(id); if (!slot) throw new Error('插件未安装'); return this.swap(id, slot.module, slot.record.active, slot.record.previous); }); }
+  reload(id) { return this.serial(async () => {
+    const slot = this.slots.get(id);
+    if (!slot) throw new Error('插件未安装');
+    if (this.loadIssues.has(id)) throw new Error('插件包加载异常，请刷新游戏重试。');
+    return this.swap(id, slot.module, slot.record.active, slot.record.previous);
+  }); }
   rollback(id) { return this.serial(async () => { const slot = this.slots.get(id), previous = slot?.record.previous; if (!previous) throw new Error('没有可回退版本'); const module = previous.builtin ? this.builtins.get(id) : (await verifyPackage(previous), compilePackage(previous)); if (!module) throw new Error('内置版本不存在'); return this.swap(id, module, previous.builtin ? module.bundledPackage || null : previous); }); }
-  uninstall(id) { return this.serial(async () => { this.assertUnused(id); await this.store.put({ id, uninstalled: true, enabled: false, active: null, previous: null }); const slot = this.slots.get(id); if (slot) this.deactivate(slot); this.slots.delete(id); this.onChange(); }); }
+  uninstall(id) { return this.serial(async () => { this.assertUnused(id); await this.store.put({ id, uninstalled: true, enabled: false, active: null, previous: null }); const slot = this.slots.get(id); if (slot) this.deactivate(slot); this.slots.delete(id); this.loadIssues.delete(id); this.onChange(); }); }
   restoreBuiltin(id) { return this.serial(async () => { const module = this.builtins.get(id); if (!module) throw new Error('没有此内置插件'); return this.swap(id, module, module.bundledPackage || null); }); }
   dispose() { this.closed = true; this.unsubscribe(); for (const slot of [...this.slots.values()].reverse()) this.deactivate(slot); }
 }

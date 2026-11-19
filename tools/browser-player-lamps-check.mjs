@@ -59,6 +59,13 @@ try {
  await page.evaluate(()=>{window.cover=new Laya.Sprite();cover.pos(0,0);cover.size(1000,800);cover.mouseEnabled=true;cover.zOrder=200;cover.graphics.drawRect(0,0,1000,800,'#294238');Laya.stage.addChild(cover);});
  await page.mouse.move(first.x+18,first.y+first.height-94+18);await page.waitForTimeout(50);assert.equal(await page.getByRole('tooltip').count(),0);
  await page.screenshot({path:`${out}/native-occluded.png`});await page.evaluate(()=>cover.destroy(true));
+ const cardToggle=page.getByRole('button',{name:'收起地主玩家的玩家信息卡片'});
+ await cardToggle.focus();await page.keyboard.press('Space');
+ assert.equal(await page.getByRole('group',{name:'地主玩家的将灯'}).count(),0,'collapsed card hides lamp controls');
+ assert.equal(await page.getByRole('group',{name:'农民玩家的将灯'}).count(),1);
+ assert.equal(await page.evaluate(()=>Laya.stage.getChildByName('sgs-player-stats').getChildByName('sgs-player-lamps')),null);
+ await page.keyboard.press('Space');await page.getByRole('group',{name:'地主玩家的将灯'}).waitFor();
+ await page.evaluate(()=>document.activeElement.blur());
  await page.getByRole('button',{name:'自定义方案',exact:true}).click();
  await page.locator('.pi-slots button').first().click();await page.getByRole('searchbox').fill('界吕布');await page.locator('.pi-results button').click();
  assert.equal(await page.evaluate(()=>opts.get().landlord[0]),'界吕布');

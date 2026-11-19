@@ -6,8 +6,8 @@ import { createBattleLamps } from './lamps.js';
 import { createPlayerSettings, renderPlayerSettings } from './settings.js';
 
 export const manifest = {
-  id: 'player-info', name: '玩家信息', version: '0.4.20', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "适配新版工具箱界面资源。玩家资料和将灯查询的用法沿用现有设置。", minCoreVersion: '0.6.70', description: '可选玩家资料卡与斗地主将灯检查，支持自定义关注武将、人机提示与自选身份补全',
+  id: 'player-info', name: '玩家信息', version: '0.4.22', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "牌局中的玩家统计卡片可收起为头像旁的小圆点，点击小圆点恢复，收起时会避让附近控件。", minCoreVersion: '0.6.70', description: '可选玩家资料卡与斗地主将灯检查，支持自定义关注武将、人机提示与自选身份补全',
   icon: { paths: ['M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0', 'M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3'] },
   priority: 30200, categories: ['game'],
 };

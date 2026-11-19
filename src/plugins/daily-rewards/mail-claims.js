@@ -56,34 +56,41 @@ export function planMailClaims(adapter, selected, rows) {
       }
     }
     if (!send) { note('部分邮件领取入口不可用或附件类型不支持'); continue; }
-    const unread = current()?.read === 0 || current()?.read === false;
-    // A one-time migration may repair a keyed mail sent by the old flow,
-    // but only after a fresh native READ_MAIL_SUCCESS for this exact mail.
-    const legacy = selected.legacyMailAttempts?.[`mail:${id}`];
-    const repair = legacy && (!legacy.flowVersion || (legacy.flowVersion === 2 && type === 2)) && typeof token === 'string' && token.length > 0;
-    const readKey = repair ? `mail-read-v3:${id}:${Number(legacy.at) || 0}` : `mail-read:${id}`;
+    const isUnread = () => current()?.read === 0 || current()?.read === false;
+    const isRead = () => current()?.read === 1 || current()?.read === true;
+    const unread = isUnread(), actionKey = `mail:${id}`;
+    const previous = selected.recoverableMailAttempts?.[actionKey];
+    const keyed = typeof token === 'string' && token.length > 0;
+    const item = type === 2 && keyed;
+    // Older flows require a new read acknowledgement. The read-first flow
+    // can resume a read, unclaimed item directly, as the native mail UI does.
+    const legacy = previous && keyed && (!previous.flowVersion || (previous.flowVersion === 2 && item));
+    const resume = previous?.flowVersion === 3 && item && isRead() && current()?.Geted === false;
+    const readKey = legacy ? `mail-read-v3:${id}:${Number(previous.at) || 0}` : `mail-read:${id}`;
     let readAcked = false, readSent = false;
-    if (unread || repair) {
+    if (unread || legacy) {
       if (typeof manager.ReadMail !== 'function') { note('邮件尚未读，等待原生读信接口就绪'); continue; }
       // ReadMail is a prerequisite, not a reward. Its private readMailID is
       // global, so the controller's sequential queue must await each read.
       actions.push({ key: readKey, category: 'mail', workflowGroup: 'mail-read', label: `读取邮件 ${seen.size}`, manager, flowVersion: 3, auxiliary: true,
         rewards: () => mailRewardItems(adapter, current()),
-        eligible: () => live() && (repair || current()?.read === 0 || current()?.read === false),
-        done: () => current()?.Geted === true || (readSent && (repair ? readAcked : unread || readAcked) && (current()?.read === 1 || current()?.read === true)),
+        eligible: () => live() && (legacy || isUnread()),
+        done: () => current()?.Geted === true || (readSent && (!legacy || readAcked) && isRead()),
         confirmations: [{ manager, event: 'READ_MAIL_SUCCESS', accept: value => {
-          if (!sameId(value?.mid, id) || !(current()?.read === 1 || current()?.read === true)) return false;
+          if (!sameId(value?.mid, id) || !isRead()) return false;
           readAcked = true; return true;
         } }],
         send: () => { if (!live()) return false; readSent = true; return manager.ReadMail(mail.mid); },
       });
     }
-    actions.push({ key: `mail:${id}`, category: 'mail', workflowGroup: `mail:${id}`, label: `邮件附件 ${seen.size}`, manager, flowVersion: 3,
-      legacyMailRepair: repair ? { readKey, previousAt: Number(legacy.at) || 0 } : undefined,
+    const eligible = () => live() && (resume ? isRead() && current()?.Geted === false : !isUnread());
+    actions.push({ key: actionKey, category: 'mail', workflowGroup: actionKey, label: `邮件附件 ${seen.size}`, manager, flowVersion: legacy || resume ? 4 : 3,
+      mailRecovery: legacy || resume ? { previous, readKey: legacy ? readKey : undefined } : undefined,
+      unconfirmedText: item && !legacy && !resume ? '工具箱暂未确认领取状态。下次检查时，若游戏仍显示已读未领，将尝试补领一次。' : undefined,
       rewards: () => mailRewardItems(adapter, current()),
-      eligible: () => live() && current()?.read !== 0 && current()?.read !== false,
+      eligible,
       done: () => current()?.Geted === true, confirmations, rejections,
-      send: () => live() && current()?.read !== 0 && current()?.read !== false ? send() : false,
+      send: () => eligible() ? send() : false,
     });
   }
   return { actions, notes };

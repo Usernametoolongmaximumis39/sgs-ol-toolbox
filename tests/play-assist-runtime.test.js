@@ -160,11 +160,29 @@ test('long press cancels on mouseout, activates at 500ms and suppresses release 
   f.item.event('mouseup');f.item.event('click');assert.equal(f.skillCalls,0);
   f.item.event('mousedown');f.item.event('mouseup');f.item.event('click');assert.equal(f.runtime.getSkills()[0].locked,false);assert.equal(f.skillCalls,0);
 });
-test('ordinary wuxie and assist still skip once',async t=>{
-  const f=fixture(t,{skipWuxie:true,skipAssist:true});f.self.cardContainer.selectCardContext={SpecifySkillId:13};
-  f.runtime.tick();await flush();assert.equal(f.calls,1);
-  f.runtime.tick();await flush();assert.equal(f.calls,1);
-  f.self.cardContainer.selectCardContext={};f.self.buttonBar.btns[0].label='助战';f.self.buttonBar.Show();await flush();assert.equal(f.calls,2);
+test('Wuxie remains manual in ordinary and unknown scenes while assist still skips', async t => {
+  for (const name of ['GameScene', 'UnknownRogueScene', undefined]) {
+    const f = fixture(t, {skipWuxie:true, skipAssist:true});
+    f.ctx.game.getScene().SceneName = name;
+    f.self.cardContainer.selectCardContext = {SpecifySkillId:13};
+    f.runtime.tick();
+    await flush();
+    assert.equal(f.calls, 0, `${name}: preserves the native prompt without inquiry data`);
+
+    Object.assign(f.gc, {IsRoguelike1v1:true, IsRogueLike:true, IsPveRoguelike:true});
+    f.self.seat.InOwnRound2 = true;
+    f.proxy.event('GsCTriggerSpellNew', {Protocol:{TriggerSeatId:0, SrcSpellID:8,
+      FirstTriggerParam:{SpellId:13, Datas:[0]}}});
+    f.self.buttonBar.Show();
+    await flush();
+    assert.equal(f.calls, 0, `${name}: ignores generic mode flags even with a first inquiry`);
+
+    f.self.cardContainer.selectCardContext = {};
+    f.self.buttonBar.btns[0].label = '助战';
+    f.self.buttonBar.Show();
+    await flush();
+    assert.equal(f.calls, 1, `${name}: skips assist independently`);
+  }
 });
 test('山河图 uses the native Wuxie count across phases and preserves counter inquiries', async t => {
   const f = fixture(t, {skipWuxie:true});
@@ -229,15 +247,18 @@ test('山河图 reconnect uses the native seat turn state and the Wuxie option c
   assert.deepEqual(choices, []);
   await ask(0);
   assert.deepEqual(choices, [255]);
+  f.self.spellSelector.Show();
+  await flush();
+  assert.deepEqual(choices, [255], 'the same inquiry is not cancelled twice');
   assert.equal(f.calls, 0, 'uses the selector cancel, not the underlying button bar');
 });
-test('fire attack conversion selects the legal card; selector cancellation submits once',async t=>{
+test('fire attack conversion selects the legal card and ordinary Wuxie choices stay manual',async t=>{
   const f=fixture(t,{fireAttack:true,skipWuxie:true});const convert = new Native();Object.assign(convert,{Skill:{SkillId:3744},activated:true,Selected:false});
   const card={activated:false,selected:false,setSelected(v){this.selected=v;}};convert.on('click',convert,()=>{convert.Selected=!convert.Selected;card.activated=convert.Selected;});
   f.self.skillItems.push(convert);f.self.seat.HasSkill=id=>id===3744;f.self.seat.LastAttackByTheSkill={ID:83};f.self.cardContainer.cardUis=[card];f.self.cardContainer.selectCardContext={message:'弃置红色的手牌，对目标造成伤害'};
   f.runtime.tick();await flush();assert.equal(card.selected,true);assert.equal(f.calls,1);
   let clicks=0;Object.assign(f.self.spellSelector,{visible:true,spell:{SkillId:13},btnList:[{_enabled:true,data:{sendData:255}}],btnClick(){clicks++;}});
-  f.runtime.tick();await flush();f.runtime.tick();await flush();assert.equal(clicks,1);f.self.spellSelector.Show();await flush();assert.equal(clicks,2);
+  f.runtime.tick();await flush();f.self.spellSelector.Show();await flush();assert.equal(clicks,0);
 });
 test('制衡, 同花色, 鬼才 and 250 keep their specific selection rules',async t=>{
   const f=fixture(t,{skillLock:true});const setSkill=id=>{f.item.Skill={SkillId:id,Name:String(id)};f.item.seat.HasSkill=()=>true;f.runtime.tick();f.runtime.toggle(id);f.self.buttonBar.Show();};

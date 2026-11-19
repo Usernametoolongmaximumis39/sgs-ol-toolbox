@@ -352,6 +352,65 @@ for (const side of ['selfSkin', 'otherSkin']) test(`effects: ${side} hides that 
   } finally { f.dispose(); }
 });
 
+test('effects: 业火淬魂 suppression prevents optional battle actions before their follow-ups are scheduled', () => {
+  const f = setup();
+  try {
+    class SkinSeat {
+      constructor(own, skin = 75001) { this.seat = { IsSelf: own, SkinItemID: skin }; this.actions = []; }
+      onPlayNewSpEffect(type, ...args) { this.actions.push([type, ...args]); }
+      useCard() { this.cardResolved = true; this.onPlayNewSpEffect(3); return 'used'; }
+    }
+    const own = new SkinSeat(true), other = new SkinSeat(false), unknown = new SkinSeat(undefined);
+    const differentSkin = new SkinSeat(true, 75000);
+    f.scene.seatContainer.seatUIs = [own, other, unknown, differentSkin];
+    f.controller.setEnabled('selfSkin', true);
+    assert.equal(own.useCard(), 'used');
+    assert.equal(own.cardResolved, true);
+    for (const type of [1, 2, 5]) own.onPlayNewSpEffect(type);
+    assert.deepEqual(own.actions, []);
+    own.onPlayNewSpEffect(4);
+    own.onPlayNewSpEffect(3, null, null, { preview: true });
+    assert.deepEqual(own.actions.map(([type]) => type), [4, 3]);
+    for (const seat of [other, unknown, differentSkin]) seat.useCard();
+    for (const seat of [other, unknown, differentSkin]) assert.deepEqual(seat.actions, [[3]]);
+    f.controller.setMany({ selfSkin: false, otherSkin: true });
+    own.useCard(); other.useCard();
+    assert.deepEqual(own.actions.map(([type]) => type), [4, 3, 3]);
+    assert.deepEqual(other.actions, [[3]]);
+    f.controller.setMany({ otherSkin: false, skill: true });
+    own.onPlayNewSpEffect(2); own.useCard();
+    assert.deepEqual(own.actions.map(([type]) => type), [4, 3, 3, 3]);
+    f.dispose(); own.onPlayNewSpEffect(2);
+    assert.deepEqual(own.actions.map(([type]) => type), [4, 3, 3, 3, 2]);
+  } finally { f.dispose(); }
+});
+
+test('effects: 魔张飞入魔 uses the native skill switch even on a detached global effect manager', () => {
+  const f = setup({ selfSkin: true });
+  try {
+    const data = { EffectPath: 'SkillEffect/OL_FX_MatchGame_mozhangfei', IsJson: true };
+    const oldShow = f.nativeController.ShowEffectByDataWithJson;
+    // Deliberately avoid the fixture's registered BaseEffect and seat controller.
+    const service = { ShowEffectByDataWithJson(effectData, layer, name, params) {
+      return { alpha: 0.8, effectName: name, end: params?.EndTrigger };
+    } };
+    f.scene.seatContainer.seatUIs = [];
+    let completed = 0;
+    const manager = { effectCtrl: service, PlayHighQulaliityEffectSYS() {
+      return this.effectCtrl.ShowEffectByDataWithJson(data, 0, '', { EndTrigger: () => completed++ });
+    } };
+    f.ctx.game.getDispatcher = () => ({ _events: { SKILL_RUMO_NTF: { caller: manager } } });
+    assert.equal(manager.PlayHighQulaliityEffectSYS().alpha, 0.8);
+    f.controller.setEnabled('skill', true);
+    const effect = manager.PlayHighQulaliityEffectSYS();
+    assert.equal(effect.alpha, 0); effect.end(); assert.equal(completed, 1);
+    assert.equal(f.nativeController.ShowEffectByDataWithJson, oldShow);
+    f.controller.setEnabled('skill', false);
+    assert.equal(effect.alpha, 0.8);
+    assert.equal(manager.PlayHighQulaliityEffectSYS().alpha, 0.8);
+  } finally { f.dispose(); }
+});
+
 test('effects: kill/heal reward visuals and high-quality skill triggers are independent', () => {
   const f = setup();
   try {

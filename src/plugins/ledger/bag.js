@@ -44,6 +44,7 @@ export function enhanceBagView(ctx, owner, getConfig) {
   const L = ctx.window.Laya ?? ctx.window.laya, theme = getNativeTheme(ctx);
   const releases = [], slots = new Map();
   let disposed = false, query = '', showing = false, hover = false;
+  let palette = theme.palette, resultCount = 0, lastRows, lastLength, lastInventory = '';
   const originalShow = owner.showBags, originalPage = owner.updatePageIdx;
   const patch = (target, key, factory) => releases.push(ctx.scope.patch(target, key, old => {
     const changed = factory(old);
@@ -57,11 +58,11 @@ export function enhanceBagView(ctx, owner, getConfig) {
   const button = new L.Sprite(); button.name = 'bag-search-button'; button.size(28, 26); button.pos(156, 0); button.mouseEnabled = true; root.addChild(button);
   const icon = new L.Sprite(); icon.mouseEnabled = false; button.addChild(icon);
   const status = new L.Text(); status.name = 'bag-search-status'; status.pos(0, 29); status.size(184, 19);
-  Object.assign(status, { font: 'Microsoft YaHei', fontSize: 11, align: 'right', valign: 'middle', mouseEnabled: false }); root.addChild(status);
+  Object.assign(status, { font: 'Microsoft YaHei', fontSize: 11, align: 'right', valign: 'middle', mouseEnabled: false, visible: false }); root.addChild(status);
   const empty = new L.Text(); empty.name = 'bag-search-empty'; empty.pos(200, 225); empty.size(400, 32);
-  Object.assign(empty, { text: '没有符合搜索条件的道具', font: 'Microsoft YaHei', fontSize: 14, align: 'center', valign: 'middle', mouseEnabled: false }); owner.addChild(empty);
+  Object.assign(empty, { text: '没有符合搜索条件的道具', font: 'Microsoft YaHei', fontSize: 14, align: 'center', valign: 'middle', mouseEnabled: false, visible: false }); owner.addChild(empty);
   function paint() {
-    const p = theme.palette;
+    const p = palette;
     theme.surface(root, { width: 184, height: 26, kind: 'panel' });
     input.color = p.text; input.promptColor = p.muted;
     status.color = p.muted; status.bgColor = p.bg; empty.color = p.muted; empty.bgColor = p.bg;
@@ -70,36 +71,58 @@ export function enhanceBagView(ctx, owner, getConfig) {
     if (query) { g.drawLine(10, 9, 18, 17, p.accent, 1.5); g.drawLine(18, 9, 10, 17, p.accent, 1.5); button.ToolTip = '清空搜索（Esc）'; }
     else { g.drawCircle(12, 11, 4, null, p.accent, 1.5); g.drawLine(15, 14, 19, 18, p.accent, 1.5); button.ToolTip = '搜索道具（Enter）'; }
   }
+  function updateStatus() {
+    const searching = Boolean(query);
+    status.visible = hover || searching;
+    status.text = hover ? (searching ? '清空搜索 · Esc' : '搜索道具 · Ctrl+F') : (searching ? `找到 ${resultCount} 项` : '');
+    empty.visible = searching && resultCount === 0;
+  }
   function page() {
+    if (!query) return originalPage.call(owner);
     const full = owner.bagDatas;
     try { owner.bagDatas = filterBag(Array.isArray(full) ? full : [], query); return originalPage.call(owner); }
     finally { owner.bagDatas = full; }
   }
   function draw(rows = owner.bagDatas) {
     const full = Array.isArray(rows) ? rows : [];
-    owner.bagDatas = full; page();
+    const filtered = filterBag(full, query);
+    owner.bagDatas = filtered;
+    let result;
     showing = true;
-    try { originalShow.call(owner, filterBag(full, query)); }
+    try {
+      originalPage.call(owner);
+      result = originalShow.call(owner, filtered);
+    }
     finally { owner.bagDatas = full; showing = false; }
-    const count = filterBag(full, query).length;
-    status.visible = Boolean(query); status.text = `找到 ${count} 项`; empty.visible = Boolean(query) && count === 0;
-    syncSlots(); paint();
+    rememberInventory();
+    resultCount = filtered.length;
+    updateStatus();
+    syncSlots();
+    return result;
   }
-  function apply() { query = input.text.trim(); owner.curPage = 1; draw(); }
+  function apply() {
+    const wasSearching = Boolean(query);
+    query = input.text.trim(); owner.curPage = 1; draw();
+    if (wasSearching !== Boolean(query)) paint();
+  }
   function clear() { input.text = ''; apply(); }
   patch(owner, 'showBags', () => function (rows) { return draw(Array.isArray(rows) ? rows : []); });
   patch(owner, 'updatePageIdx', () => function () { return page(); });
-  // Native on/off requires the exact same callback identity. Leave both the
-  // view handlers and pooled manager handlers untouched across close/reopen.
-  let lastInventory = '';
   function inventoryKey() {
+    // RemainingTime is a clock-based getter. Only compare actual inventory data.
     return JSON.stringify((owner.bagDatas || []).map(row => [row?.ID, row?.BaseID,
-      row?.Count, row?.BitMark, row?.Expirydate, row?.RemainingTime,
+      row?.Count, row?.BitMark, row?.Expirydate,
       row?.baseInfo?.ItemName, row?.baseInfo?.name, row?.baseInfo?.sortindex]));
   }
+  function rememberInventory() {
+    lastRows = owner.bagDatas;
+    lastLength = lastRows?.length;
+    lastInventory = query ? inventoryKey() : '';
+  }
+  // Native handlers already update unfiltered slots. While searching, check
+  // for incremental changes that bypass showBags, such as native deletions.
   function refresh() {
-    const next = inventoryKey();
-    if (next !== lastInventory) { draw(); lastInventory = inventoryKey(); }
+    if (owner.bagDatas !== lastRows || owner.bagDatas?.length !== lastLength || (query && inventoryKey() !== lastInventory)) draw();
     else syncSlots();
   }
   listen(input, L.Event.INPUT, apply);
@@ -124,62 +147,72 @@ export function enhanceBagView(ctx, owner, getConfig) {
   listen(input, L.Event.BLUR, () => { restoreLabel(); paint(); });
   releases.push(restoreLabel);
   listen(button, L.Event.CLICK, () => { if (query) clear(); else apply(); input.focus = true; });
-  listen(button, L.Event.MOUSE_OVER, () => { hover = true; status.visible = true; status.text = query ? '清空搜索 · Esc' : '搜索道具 · Ctrl+F'; paint(); });
-  listen(button, L.Event.MOUSE_OUT, () => { hover = false; status.visible = Boolean(query); status.text = `找到 ${filterBag(owner.bagDatas || [], query).length} 项`; paint(); });
-  function updateSlot(slot, badge) {
+  listen(button, L.Event.MOUSE_OVER, () => { hover = true; updateStatus(); paint(); });
+  listen(button, L.Event.MOUSE_OUT, () => { hover = false; updateStatus(); paint(); });
+  function updateSlot(slot, state) {
+    const { badge } = state;
     const text = couponAmounts(slot.BaseData || slot.baseData, getConfig());
-    badge.visible = Boolean(text) && slot.visible !== false;
-    if (!text) return;
+    const shown = Boolean(text) && slot.visible !== false;
+    if (badge.visible !== shown) badge.visible = shown;
+    if (!shown) return;
+    if (badge.color !== palette.accent) badge.color = palette.accent;
+    if (badge.bgColor !== palette.bg) badge.bgColor = palette.bg;
 
+    const count = slot.countTxt;
+    const countX = count?.text ? count.x : null;
+    const countY = count?.text ? count.y : null;
+    const layout = [text, slot.width, slot.height, slot._x, slot._y, countX, countY];
+    if (state.layout && layout.every((value, i) => value === state.layout[i])) return;
+    state.layout = layout;
     const inset = 2;
     const height = 13;
     const padding = 4;
     const frameWidth = slot.width - 2 * inset;
-    const count = slot.countTxt;
-    const countLeft = count?.text ? count.x - slot._x : slot.width;
+    const countLeft = countX === null ? slot.width : countX - slot._x;
     const besideCount = Math.min(frameWidth, countLeft - inset - 2);
     badge.text = text;
     badge.fontSize = 10;
     while (badge.textWidth + padding > besideCount && badge.fontSize > 8) badge.fontSize--;
 
     let y = slot.height - inset - height;
-    if (count?.text && badge.textWidth + padding > besideCount) {
+    if (countY !== null && badge.textWidth + padding > besideCount) {
       // Keep long amounts inside the slot and clear of the native quantity.
-      y = Math.max(inset, Math.min(y, count.y - slot._y - height - 2));
+      y = Math.max(inset, Math.min(y, countY - slot._y - height - 2));
     }
     while (badge.textWidth + padding > frameWidth && badge.fontSize > 7) badge.fontSize--;
     badge.size(Math.min(frameWidth, Math.ceil(badge.textWidth) + padding), height);
     badge.pos(slot._x + inset, slot._y + y);
-    badge.color = theme.palette.accent; badge.bgColor = theme.palette.bg;
   }
   function syncSlots() {
-    for (const [slot, badge] of slots) if (!owner.bags.includes(slot)) { badge.destroy(true); slots.delete(slot); }
+    for (const [slot, { badge }] of slots) if (!owner.bags.includes(slot)) { badge.destroy(true); slots.delete(slot); }
     for (const slot of owner.bags) {
       if (!slot || typeof slot.updateItem !== 'function') continue;
-      let badge = slots.get(slot);
-      if (!badge) {
-        badge = new L.Text(); badge.name = 'sgs-toolbox-coupon-amount'; badge.zOrder = 110;
+      let state = slots.get(slot);
+      if (!state) {
+        const badge = new L.Text(); badge.name = 'sgs-toolbox-coupon-amount'; badge.zOrder = 110;
         Object.assign(badge, { font: 'Arial', bold: true, align: 'center', valign: 'middle', mouseEnabled: false }); owner.topSp.addChild(badge);
-        slots.set(slot, badge);
+        state = { badge, layout: null };
+        slots.set(slot, state);
         for (const key of ['updateItem', 'Move', 'initData', 'Clear']) if (typeof slot[key] === 'function') patch(slot, key, old => function (...args) {
-          const result = old.apply(this, args); if (!showing && !badge.destroyed) updateSlot(slot, badge); return result;
+          const result = old.apply(this, args); if (!showing && !badge.destroyed) updateSlot(slot, state); return result;
         });
       }
-      updateSlot(slot, badge);
+      updateSlot(slot, state);
     }
   }
-  const offTheme = theme.watch(() => { paint(); for (const [slot, badge] of slots) updateSlot(slot, badge); }, { target: root });
+  const offTheme = theme.watch(() => { palette = theme.palette; paint(); syncSlots(); }, { target: root });
   releases.push(offTheme);
   const destroy = () => release(); listen(owner, L.Event.DESTROY || 'destroy', destroy);
   let release = ctx.scope.add(() => {
     if (disposed) return; disposed = true;
     for (const off of releases.reverse()) off();
     input.focus = false; root.destroy(true); empty.destroy(true);
-    for (const badge of slots.values()) badge.destroy(true);
+    for (const { badge } of slots.values()) badge.destroy(true);
     slots.clear();
-    if (!owner.destroyed && owner.parent) { originalPage.call(owner); originalShow.call(owner, owner.bagDatas); }
+    if (query && !owner.destroyed && owner.parent) { originalPage.call(owner); originalShow.call(owner, owner.bagDatas); }
   });
-  draw(); lastInventory = inventoryKey();
+  // The native view has already drawn its current page when we attach.
+  rememberInventory();
   return { dispose: release, refresh, input, button };
 }
 
@@ -200,8 +233,9 @@ export function createBagEnhancements(ctx) {
     for (const [view, enhancement] of views) if (!found.includes(view)) { enhancement.dispose(); views.delete(view); }
     if (found.length) void load();
     for (const view of found) {
-      if (!views.has(view)) views.set(view, enhanceBagView(ctx, view, getConfig));
-      views.get(view).refresh();
+      const enhancement = views.get(view);
+      if (enhancement) enhancement.refresh();
+      else views.set(view, enhanceBagView(ctx, view, getConfig));
     }
   }
   tick(); ctx.scope.interval(tick, 500);

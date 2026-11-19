@@ -1,7 +1,7 @@
 import { singleRiderShopVisible } from '../../shared/native-shop.js';
 import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
 import { initialState, reduce, observedHandCandidates, handCandidates, zoneKey, metadata, sortCards, queryCards, deckComposition, wasSeen, ZONE_NAMES, REFERENCE, seatLabel } from './model.js';
-import { createNativeEnhancements, roundInfoBounds } from './native.js';
+import { createNativeEnhancements, REVEAL_OPACITY_LEVELS, revealOpacity, roundInfoBounds } from './native.js';
 import { skillHints, SKILL_HINT_GROUPS } from './skill-hints.js';
 
 export { initialState, reduce } from './model.js';
@@ -62,6 +62,7 @@ const STYLES = `
 .sgs-card-skill-hint{padding:7px 0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 30%,transparent);overflow-wrap:anywhere}.sgs-card-skill-hint:last-child{border-bottom:0}.sgs-card-skill-hint strong{display:block;color:var(--sgs-accent);font-size:12px;margin-bottom:3px}.sgs-card-skill-hint p{margin:0;color:var(--sgs-text);font-size:12px;line-height:1.65}
 
 .sgs-card-setting-grid{grid-template-columns:1fr;gap:0;margin:4px 0 0}.sgs-card-setting{justify-content:space-between;gap:12px;min-height:37px;padding:7px 2px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent);font-size:12px;cursor:pointer}.sgs-card-setting:last-child{border:0}.sgs-card-setting span{min-width:0;color:var(--sgs-text,#eee3cc)}.sgs-card-settings{padding:0 10px;margin-top:10px;border-radius:9px;background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-accent,#dbba70) 5%,transparent),#00000018);border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 40%,transparent)}.sgs-cards .sgs-fold>summary{padding:10px 0}.sgs-cards .sgs-segments{flex-wrap:nowrap;gap:2px}.sgs-cards .sgs-segments>button{border:0;background:transparent;font-size:11px;border-radius:5px;padding:4px 6px;color:var(--sgs-muted,#b7aa8c)}.sgs-cards .sgs-segments>button.is-active,.sgs-cards .sgs-segments>button[aria-pressed=true]{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent);color:var(--sgs-accent,#dbba70)}.sgs-cards select.sgs-select{padding:5px 27px 5px 9px;background-color:var(--sgs-bg,#201e1a);border-color:color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);font-size:11px}.sgs-card-section{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 45%,transparent)}.sgs-card-composition th,.sgs-card-composition td{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent)}.sgs-card-hud .sgs-card-hud-recent{background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-raised,#383327) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions{gap:3px;padding:2px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);border-radius:7px;background:linear-gradient(color-mix(in srgb,var(--sgs-surface,#2c2922) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions>button{border:0;background:transparent;padding:0 3px;font-size:14px;color:var(--sgs-muted,#b7aa8c)}.sgs-card-hud-actions>button[aria-expanded=true]{color:var(--sgs-accent,#dbba70);background:color-mix(in srgb,var(--sgs-accent,#dbba70) 10%,transparent);box-shadow:inset 0 -1px color-mix(in srgb,var(--sgs-accent,#dbba70) 50%,transparent)}.sgs-card-hud-list{border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:0 8px 24px #0004}
+.sgs-card-setting-grid{grid-template-columns:minmax(0,1fr)}.sgs-card-reveal-opacity{cursor:default;gap:4px 6px;flex-wrap:wrap;white-space:nowrap}.sgs-card-reveal-opacity .sgs-segments{flex:none;margin-left:auto}.sgs-card-reveal-opacity .sgs-segments>button{padding:4px 3px;font-variant-numeric:tabular-nums}
 @media(prefers-reduced-motion:no-preference){.sgs-cards button{transition:background 140ms,border-color 140ms}}
 `;
 
@@ -326,6 +327,21 @@ export function activate(ctx) {
     const status = element('p', 'sgs-card-status'); status.setAttribute('role', 'status'); root.append(status);
     const settingsBox = element('details', 'sgs-card-settings sgs-fold'); settingsBox.append(element('summary', '', '显示与操作设置'));
     const settingsGrid = element('div', 'sgs-card-setting-grid');
+    const opacityRow = element('div', 'sgs-card-setting sgs-card-reveal-opacity');
+    const opacityOptions = element('div', 'sgs-segments');
+    opacityOptions.setAttribute('role', 'group');
+    opacityOptions.setAttribute('aria-label', '明牌不透明度');
+    const opacityButtons = REVEAL_OPACITY_LEVELS.map(value => {
+      const button = element('button', '', `${value}%`);
+      button.type = 'button';
+      button.addEventListener('click', () => {
+        settings.set('revealOpacity', value);
+        refresh();
+      });
+      opacityOptions.append(button);
+      return [value, button];
+    });
+    opacityRow.append(element('span', '', '不透明度'), opacityOptions);
     const inputs = [];
     for (const [key, title, fallback] of SETTINGS) {
       const label = element('label', 'sgs-card-setting');
@@ -335,6 +351,7 @@ export function activate(ctx) {
         if (key === 'deck' || key === 'fourColors') refreshDeck();
       });
       label.append(element('span', '', title), input); settingsGrid.append(label); inputs.push([key, fallback, input]);
+      if (key === 'reveals') settingsGrid.append(opacityRow);
     }
     settingsBox.append(settingsGrid);
     function section(title) {
@@ -505,6 +522,8 @@ export function activate(ctx) {
       const state = currentState();
       updateHints();
       inputs.forEach(([key, fallback, input]) => { input.checked = setting(key, fallback); });
+      const opacity = revealOpacity(settings);
+      for (const [value, button] of opacityButtons) button.setAttribute('aria-pressed', String(value === opacity));
       for (const node of [status, inferenceSection.wrap, querySection, diagnostics]) node.hidden = !state.active;
       compositionSection.wrap.hidden = !state.active || !setting('deck');
       if (!state.active) {
@@ -578,8 +597,8 @@ export function activate(ctx) {
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.82', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "新增可选的山河图自动出牌，在符合条件的本人出牌阶段尝试使用指定牌，技能辅助操作时让行。优化明牌、牌堆和手牌整理。", minCoreVersion: '0.6.87', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.83', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "座位旁的明牌支持 60%、80% 和 100% 三档不透明度，默认 80%。", minCoreVersion: '0.6.87', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
     description: '记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数' },
   initialState, reduce, activate,
 };

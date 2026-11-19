@@ -1,8 +1,9 @@
 import { singleRiderShopVisible } from '../../shared/native-shop.js';
 import { getNativeTheme } from '../../ui/native-theme.js';
-import { placeStats } from './stats-model.js';
+import { overlaps, placeStats, placeStatsMarker } from './stats-model.js';
 import { officerColor } from './officer-style.js';
 import { createLampStrip } from './lamps-view.js';
+import { createStatsToggle, STATS_TOGGLE_SIZE } from './stats-toggle.js';
 
 export function displayRect(host, L) {
   if (!host || host.destroyed || host.visible === false || host.parent === null || !host.localToGlobal) return null;
@@ -84,16 +85,20 @@ export function portraitRect(ui, L) {
   return { x: a.x, y: a.y, width: b.x - a.x, height: b.y - a.y };
 }
 export function createStatsView(ctx) {
-  const entries = new Map(), theme = getNativeTheme(ctx);
-  let palette = theme.palette;
-  function disposeEntry(e) { e.lamps?.remove(); e.root.destroy(true); for (const part of e.parts) part.mask.destroy(true); }
-  function clear() { for (const e of entries.values()) disposeEntry(e); entries.clear(); }
+  const entries = new Map(), collapsed = new Set(), theme = getNativeTheme(ctx);
+  let palette = theme.palette, refresh = null;
+  function disposeEntry(e) { e.toggle.remove(); e.lamps.remove(); e.root.destroy(true); for (const part of e.parts) part.mask.destroy(true); }
+  function removeEntries() { for (const e of entries.values()) disposeEntry(e); entries.clear(); }
+  function clear() { removeEntries(); collapsed.clear(); refresh = null; }
   ctx.scope.add(clear);
-  ctx.scope.add(theme.watch(p => { palette = p; }));
+  ctx.scope.add(theme.watch(p => { palette = p; refresh?.(); }));
   const view = { scene: null, clear, update(rows, seats = rows.map(row => row.ui), mode = null) {
+    refresh = () => render(rows, seats, mode);
+    refresh();
+  } };
+  function render(rows, seats, mode) {
     const L = ctx.window?.Laya ?? ctx.window?.laya, stage = L?.stage;
-    if (!stage || !L.Sprite || !L.Text || !L.Point) { clear(); return; }
-    if (singleRiderShopVisible(ctx.window, ctx.game)) { clear(); return; }
+    if (!stage || !L.Sprite || !L.Text || !L.Point || !L.Rectangle || singleRiderShopVisible(ctx.window, ctx.game)) { removeEntries(); return; }
     const selection = mode === 'rank' ? rankedSelection(ctx, L, view.scene) : null;
     const occluders = selectionRects(selection, L);
     const mapped = rows.map(row => ({ ...row, rect: portraitRect(row.ui, L) })).filter(row => row.rect);
@@ -104,15 +109,33 @@ export function createStatsView(ctx) {
     for (const { ui } of portraits) for (const node of [ui.otherTopManager?.handCardSpr, ui.otherTopManager?.proptip]) {
       const r = displayRect(node, L); if (r) obstacles.push(r);
     }
+    const size = STATS_TOGGLE_SIZE, markers = new Map(), markerObstacles = [...obstacles, ...occluders];
+    // Pin the dots to their own seats before larger cards claim free space.
+    for (const row of mapped) {
+      if (!collapsed.has(row.id ?? row.ui)) continue;
+      const marker = placeStatsMarker(row.rect, markerObstacles, stage, size);
+      if (marker) { markers.set(row.ui, marker); markerObstacles.push(marker); }
+    }
+    const reserved = [...markers.values()];
     const active = new Set();
     for (const row of mapped) {
+      const id = row.id ?? row.ui, compact = collapsed.has(id);
+      const marker = markers.get(row.ui);
+      if (compact && !marker) continue;
       const height = (row.roles ? 110 : 86) + (row.lamps ? 94 : 0);
-      let position = null;
-      for (const width of [248, 224, 208]) { position = placeStats(row.rect, obstacles, stage, width, height); if (position) break; }
+      const cardObstacles = [...obstacles, ...reserved.filter(r => r !== marker)];
+      let card = null;
+      for (const width of [248, 224, 208]) { card = placeStats(row.rect, cardObstacles, stage, width, height); if (card) break; }
+      const position = compact ? marker : card;
       if (!position) continue;
-      obstacles.push(position); active.add(row.ui);
+      if (!compact) obstacles.push(position);
+      active.add(row.ui);
+      const toggle = compact ? { x: 0, y: 0 } : { x: card.width - size - 2, y: 2 };
+      const corner = { x: position.x + toggle.x, y: position.y + toggle.y, width: size, height: size };
+      const canCollapse = !compact && !occluders.some(r => overlaps(corner, r)) && placeStatsMarker(row.rect, markerObstacles, stage, size);
       let entry = entries.get(row.ui);
-      if (!entry || entry.root.destroyed) {
+      if (!entry || entry.root.destroyed || entry.id !== id) {
+        if (entry) disposeEntry(entry);
         const wrapper = new L.Sprite(); wrapper.name = 'sgs-player-stats'; wrapper.mouseEnabled = true; wrapper.mouseThrough = true; wrapper.zOrder = 90;
         const makePart = alpha => {
         const root = new L.Sprite(); root.name = 'sgs-player-stats-content'; root.mouseEnabled = false; root.alpha = alpha;
@@ -127,12 +150,25 @@ export function createStatsView(ctx) {
         const mask = new L.Sprite(); wrapper.addChild(root);
         return { root, background, lines, badge, badgeText, mask };
         };
-        entry = { root: wrapper, parts: [makePart(1), makePart(.5)], lamps: createLampStrip(ctx) };
+        entry = { id, root: wrapper, parts: [makePart(1), makePart(.5)], lamps: createLampStrip(ctx),
+          toggle: createStatsToggle(ctx, L, wrapper, () => {
+            if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
+            refresh?.();
+          }) };
         stage.addChild(wrapper); entries.set(row.ui, entry);
       }
-      entry.root.pos(position.x, position.y); entry.root.size(position.width, height);
+      entry.root.pos(position.x, position.y); entry.root.size(position.width, position.height);
+      entry.toggle.update(toggle,
+        { name: row.name, compact, visible: compact || Boolean(canCollapse), canExpand: Boolean(card), colors: palette });
+      entry.parts[0].root.visible = !compact;
+      if (compact) {
+        entry.parts[1].root.visible = false;
+        entry.lamps.remove();
+        continue;
+      }
       entry.lamps.update(row.lamps, { ...position, height, label: row.name }, L, entry.root);
       maskOverlap(entry, position, occluders, L);
+      const badgeX = position.width - size - 91;
       for (const e of entry.parts) {
       const { root, lines, badge } = e, p = palette;
       root.size(position.width, height);
@@ -143,13 +179,13 @@ export function createStatsView(ctx) {
       lines[0].fontSize = 14; lines[1].fontSize = row.second.length > 22 ? 12 : 14;
       lines[1].bold = true;
       if (row.roles) while (lines[2].textWidth > lines[2].width && lines[2].fontSize > 10) lines[2].fontSize--;
-      lines[0].width = position.width - 120;
+      lines[0].width = badgeX - 20;
       while (lines[0].textWidth > lines[0].width && lines[0].text.length > 2) lines[0].text = lines[0].text.replace(/…$/, '').slice(0, -1) + '…';
       root.ToolTip = row.name;
       lines[1].color = p.text; lines[2].color = row.roles ? p.text : row.streakState === 'win' ? p.accent : row.streakState === 'loss' ? p.danger : p.muted;
       lines[3].color = row.streakState === 'win' ? p.accent : row.streakState === 'loss' ? p.danger : p.muted;
       badge.graphics.clear();
-      badge.pos(position.width - 107, 10); e.badgeText.visible = !row.robot;
+      badge.pos(badgeX, 10); e.badgeText.visible = !row.robot;
       if (row.robot) {
         // Compact line icon, not a font-dependent emoji.
         badge.graphics.drawRect(5, 3, 18, 12, null, p.accent, 1.5);
@@ -163,10 +199,11 @@ export function createStatsView(ctx) {
         const label = e.badgeText; label.text = native?.officerText?.text || '官阶未知';
         label.font = native?.officerText?.font || 'Microsoft YaHei'; label.fontSize = 12; label.bold = true;
         label.color = officerColor(label.text, p.surface, p.muted); label.pos(texture ? 27 : 0, 1);
+        label.width = texture ? 56 : 83; label.wordWrap = false; label.overflow = 'hidden';
       }
       }
     }
     for (const [ui, e] of entries) if (!active.has(ui)) { disposeEntry(e); entries.delete(ui); }
-  } };
+  }
   return view;
 }

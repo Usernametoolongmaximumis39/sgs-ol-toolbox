@@ -9,26 +9,88 @@ const engine = process.env.SGS_LAYA_CORE || path.join(process.env.TEMP, 'sgsres/
 const clientPath = process.env.SGS_CLIENT_SOURCE || path.join(process.env.TEMP, 'sgs-client/game/sgsGame_a.sgs');
 const skinAtlasFixture = process.env.SGS_SKIN_ATLAS_FIXTURE;
 const skinAssets = skinAtlasFixture ? JSON.parse(await readFile(skinAtlasFixture, 'utf8')) : null;
+const officialSeatDir = process.env.SGS_YJCM_SEAT_FIXTURES;
+const officialPreviewDir = process.env.SGS_YJCM_PREVIEW_FIXTURES;
+const officialFormDir = process.env.SGS_YJCM_FORM_FIXTURES;
+const officialMotionDir = process.env.SGS_YJCM_MOTION_FIXTURES;
 const client = await readFile(clientPath, 'utf8');
 const extract = name => { const start = client.indexOf(`class ${name} extends`), end = client.indexOf('class ', start + 10); assert.ok(start >= 0 && end > start); return client.slice(start, end); };
 const cii = extract('cii'), newPage = extract('_ii'), panelClass = extract('lk');
 const { nativeMethod } = await nativeWallpaperFixture(clientPath);
 const seatSkin = nativeMethod('Kjt', 'SetSkin');
+const staticSkin = ['loadSkinComplete', 'playEffect', 'clearEffect', 'clearTempStaticSkin'].map(name => nativeMethod('Kjt', name));
+const seatAudio = ['PlaySkillSound', 'PlaySkillHurtSound', 'PlayDeadSound', 'GetSkinStyleByGeneralID'].map(name => nativeMethod('Xas', name));
+const seatSkillOwner = ['GetGeneralBySkillIdOnlyId', 'GetGeneralBySkillId', 'GetSkillFromWhichGeneral'].map(name => nativeMethod('Xas', name));
+const seatFormTrigger = nativeMethod('Xas', 'OnChangeOriSkinBySkill');
+const skillAudio = ['GetSoundUrl', 'SoundSkinID', 'getSkillSoundUrl'].map(name => nativeMethod('iZt', name));
+const skinEffects = ['useCardAniPlay', 'playGeneralSpEffect', 'aniEventNew'].map(name => nativeMethod('zzt', name));
+const roundEffects = ['playSkinRoundEffect', 'showSkinEffect', 'skinInWindowLoaded', 'clearSkinRoundEffect',
+  'changeRoundEffctSkin', 'changeRoundPlayCompelte', 'addRoundEffectList'].map(name => nativeMethod('zzt', name));
+const debutEffects = ['General_GradationChanged', 'RePlayDebutEffect', 'PlayDebutEffect', 'playRoundStart']
+  .map(name => nativeMethod('zzt', name));
 const selectorMethods = ['itemClick', 'closeSelectSure', 'destroy'].map(name => nativeMethod('XPt', name));
 const selectGeneralClose = nativeMethod('r_s', 'Close');
-const bundle = await build({ stdin: { contents: `export { ResourceScope } from './src/core/resources.js'; export { createNativeTheme } from './src/ui/native-theme.js'; export { enhanceSkinWindow, createNativeSkins } from './src/plugins/skins/native.js'; export { createLocalSkins } from './src/plugins/skins/local.js'; export { createMatchSkinSelector } from './src/plugins/skins/match-selector.js'; export { setupSkinFixture, createSkinFixtureOwner, provideSkinChromeTextures } from './tests/fixtures/skins-native-browser.js';`, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'NativeSkinCheck' });
-const output = path.resolve('test-results/skins'); await mkdir(output, { recursive: true });
+const previewFactory = nativeMethod('Els', 'showGeneralTipHandler');
+const previewLoadSkin = nativeMethod('tQi', 'loadSkin');
+const generalSkinTitle = nativeMethod('Eei', 'initTitle');
+const generalSkinCards = nativeMethod('Eei', 'showSkins');
+const chatRowLayout = nativeMethod('gQt', 'layoutBottomButtonBar');
+// Playwright can exercise audio playback without a connection to the official CDN.
+const silentClip = Buffer.alloc(44 + 16000, 128);
+silentClip.write('RIFF', 0); silentClip.writeUInt32LE(silentClip.length - 8, 4);
+silentClip.write('WAVEfmt ', 8); silentClip.writeUInt32LE(16, 16);
+silentClip.writeUInt16LE(1, 20); silentClip.writeUInt16LE(1, 22);
+silentClip.writeUInt32LE(8000, 24); silentClip.writeUInt32LE(8000, 28);
+silentClip.writeUInt16LE(1, 32); silentClip.writeUInt16LE(8, 34);
+silentClip.write('data', 36); silentClip.writeUInt32LE(silentClip.length - 44, 40);
+async function auditionFixture(filename) {
+  const mp3 = officialPreviewDir && await readFile(path.join(officialPreviewDir, filename)).catch(() => null);
+  return { headers: { 'access-control-allow-origin': '*' }, contentType: mp3 ? 'audio/mpeg' : 'audio/wav', body: mp3 || silentClip };
+}
+const bundle = await build({ stdin: { contents: `
+  export { ResourceScope } from './src/core/resources.js';
+  export { createNativeTheme } from './src/ui/native-theme.js';
+  export { enhanceSkinWindow, createNativeSkins } from './src/plugins/skins/native.js';
+  export { createLocalSkins } from './src/plugins/skins/local.js';
+  export { createYjcmCatalogue } from './src/plugins/skins/yjcm-catalogue.js';
+  export { createPortraitCache } from './src/plugins/skins/portrait-cache.js';
+  export { createMatchSkinSelector } from './src/plugins/skins/match-selector.js';
+  export { createFormPicker } from './src/plugins/skins/form-picker.js';
+  export { createYjcmPicker } from './src/plugins/skins/yjcm-picker.js';
+  export { createGeneralSkinsEntry } from './src/plugins/skins/general-skins-entry.js';
+  export { renderSkinPanel } from './src/plugins/skins/panel.js';
+  export { setupSkinFixture, createSkinFixtureOwner, provideSkinChromeTextures } from './tests/fixtures/skins-native-browser.js';
+`, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'NativeSkinCheck' });
+const output = path.resolve(process.env.SGS_SKINS_BROWSER_OUTPUT || 'test-results/skins');
+await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const page = await browser.newPage({ viewport: { width: 1200, height: 850 } });
+const yjcmSource = JSON.parse(await readFile(new URL('../tests/fixtures/yjcm-source.json', import.meta.url), 'utf8'));
 const errors = []; page.on('pageerror', error => errors.push(error.message));
 try {
-  await page.setContent('<html><body style="margin:0;background:#151513"></body></html>');
+  await page.route('https://skins-fixture.test/', route => route.fulfill({
+    contentType: 'text/html', body: '<html><body style="margin:0;background:#151513"></body></html>',
+  }));
+  await page.goto('https://skins-fixture.test/');
   await page.addScriptTag({ path: engine }); await page.addScriptTag({ content: bundle.outputFiles[0].text });
+  if (officialMotionDir) {
+    for (const file of ['laya.ani.min.js', 'spine-core-4.0.min.js', 'laya.spine.min.js']) {
+      await page.addScriptTag({ path: path.join(path.dirname(engine), file) });
+    }
+  }
   await page.evaluate(async assets => {
     NativeSkinCheck.setupSkinFixture();
     if (assets) await NativeSkinCheck.provideSkinChromeTextures(assets);
   }, skinAssets);
+  await page.evaluate(source => { window.yjcmSourceFixture = source; }, yjcmSource);
   await page.addScriptTag({ content: `window.CapturedSkinPage=(${cii});window.CapturedNewSkinPage=(${newPage});window.CapturedSkinPanel=(${panelClass});window.capturedSetSkin=({${seatSkin}}).SetSkin;` });
+  await page.addScriptTag({ content: `window.capturedStaticSkin={${staticSkin.join(',')}};` });
+  await page.addScriptTag({ content: `window.capturedSeatAudio={${seatAudio.join(',')}};window.capturedSeatForms={${seatFormTrigger}};window.capturedSkillAudio={${skillAudio.join(',')}};window.capturedSkinEffects={${skinEffects.join(',')}};` });
+  await page.addScriptTag({ content: `window.capturedSeatSkillOwner={${seatSkillOwner.join(',')}};` });
+  await page.addScriptTag({ content: `window.capturedRoundEffects={${roundEffects.join(',')}};` });
+  await page.addScriptTag({ content: `window.capturedDebutEffects={${debutEffects.join(',')}};` });
+  await page.addScriptTag({ content: `window.capturedChatRowLayout=({${chatRowLayout}}).layoutBottomButtonBar;` });
+  await page.addScriptTag({ content: `window.capturedPreviewFactory={${previewFactory}}.showGeneralTipHandler;window.capturedPreviewLoad={${previewLoadSkin}}.loadSkin;` });
   await page.evaluate(() => {
     NativeSkinCheck.createSkinFixtureOwner(); const f = skinFixture;
     f.originalForm = f.owner.formData;
@@ -223,26 +285,153 @@ try {
   assert.equal(await page.evaluate(() => Boolean(skinFixture.owner.getChildByName('sgs-toolbox-skin-controls'))), false);
   // Local file decode, GPU texture drawing and restoration on the Laya canvas.
   assert.deepEqual(await page.evaluate(async () => {
-    const general = { CardName: '演练武将', SkinId: 10101, IsDynamic: false, JueXingState: 2 };
+    const general = { CardId: 101, CardName: '演练武将', SkinId: 10101, IsDynamic: false, JueXingState: 2 };
     const avatar = new Laya.Sprite(); avatar.size(130, 180); avatar.pos(1020, 620);
     avatar.generalCard = general; avatar.SetSkin = window.capturedSetSkin;
-    const original = { skinID: 10101, SeatAnimateUrl: 'res/current.sk', ResType: 2 };
-    const animated = { skinID: 10102, SeatAnimateUrl: 'res/fixture.sk', ResType: 2 };
-    window.ZJt.I = () => ({ GetGeneralSkinBySkinID: id => id === 10102 ? animated : original });
+    const original = { skinID: 10101, skinlevel1: () => 4, SeatAnimateUrl: 'res/current.sk', SkinUrlInTip: 'res/current-tip.png', ResType: 2, NewSkinJudge: true,
+      SpellEffectData: [{ id: 9001, type: 1 }], spellEffectAnimUrl: () => 'old', GetSkinSkillGeneralUrl: () => 'old-awaken.png' };
+    const animated = { skinID: 10102, skinlevel1: () => 3, SeatAnimateUrl: 'res/fixture.sk', SkinUrlInTip: 'res/local-tip.png',
+      ResType: 2, NewSkinJudge: true,
+      IsManyStateDyskin: true, SkinSeatUrlJueXing: () => 'res/fixture.png',
+      SpellEffectData: [{ id: 9001, type: 1 }], spellEffectAnimUrl: () => 'new' };
+    const aige = { ...animated, skinID: 66103, NewSkinJudge: 2, ConMessage: '发动哀歌转换形态',
+      DynamicSkinBigSkeletonUrlNew: form => 'res/66103_' + form };
+    const deputySkin = { skinID: 10201, skinlevel1: () => 3, ShowEffectUrl: 'res/deputy-entry.sk' };
+    const skins = [original, animated, aige, deputySkin];
+    window.ZJt.I = () => ({
+      GetGeneralSkinBySkinID: id => skins.find(vo => vo.skinID === id),
+      GetOriSkinMulModeVoBySkillContext: () => '', GetOriSkinMulModeVoByImageId: () => null,
+      GetSpecialSkinById: () => null,
+    });
     window.kCt = { ResType_Spine: 3, ResType_Spine_AllBig: 4 };
     window.Kjt = { AVATAR_MAX_WIDTH: 130 }; window.hi = { top: 1 };
-    window.E$t = class extends Laya.Sprite { InitEffect(url) { this.url = url; } playEffect() { this.played = true; } };
+    window.E$t = class extends Laya.Sprite {
+      get EffectUrl() { return this.url; }
+      InitEffect(url) { this.url = url; }
+      playEffect() { this.played = true; }
+    };
     Object.assign(avatar, { skinItemID: 10101, clearMaskTween() {}, clearTempStaticSkin() {}, clearEffect() {}, getXline: () => 0,
-      removeSkeleton() { this.skeleton?.destroy(); this.skeleton = null; }, loadStatic(vo) { this.drawnSkin = vo.skinID; } });
+      removeSkeleton() { this.skeleton?.destroy(); this.skeleton = null; },
+      loadStatic(vo) { this.drawnSkin = vo.skinID; this.drawnForm = this.generalCard.JueXingState; } });
     avatar.skinTex = new Laya.Sprite();
     avatar.skinTex.graphics.drawRect(0, 0, 130, 180, '#766840');
     avatar.addChild(avatar.skinTex); Laya.stage.addChild(avatar);
-    const ui = { seat: { General: general, GeneralId: 101, IsSelf: true }, seatAvatar: avatar };
+    const sound = [], effects = [];
+    window.V2t = { IsInGame: true, SceneRightWidth: 0 };
+    window.hZt = { I: () => ({ SoundSets: { SkinSoundOverlap: true } }) };
+    window.FH = { I: () => ({ GetGeneralSkillSound: (id, skin, spell, voice, huashen, form) => [skin, form] }) };
+    window.M$t = { I: () => ({ GetSeatGeneralVoiceUrl: () => '' }) };
+    window.ID = { PlaySkillSound: url => sound.push(url) };
+    window.Xmt = { SHA: 1 };
+    window._1t = { GetInstance: () => ({ FirstSkillId: Xmt.SHA }) };
+    window.KG = { NEW_SKIN_PLAY_TYPE_sha: 'attack', NEW_SKIN_PLAY_TYPE_skill: 'skill' };
+    window.Kb = { ...window.Kb, SKIN_LV3: 3 };
+    window.LKi = { I: () => Laya.stage };
+    const roundLoads = [];
+    window.mNt = { GetResByUrl(url, caller, callback, _type, quality) {
+      roundLoads.push({ url, finish: texture => callback.call(caller, texture, url, quality) });
+    } };
+    const seat = Object.assign(new Laya.EventDispatcher(), capturedSeatAudio, capturedSeatForms, {
+      General: general, GeneralId: 101, IsSelf: true,
+      GetGeneralBySkillIdOnlyId: () => general, GetSkillFromWhichGeneral: () => general,
+      GetSeatState: () => null, oriSkinSkillCountCacheDict: { getNumberKey: () => 0, addNumberKey() {} },
+    });
+    window.zf = { DATA_JUEJUE2: 1 };
+    Object.defineProperties(seat, {
+      SkinID: { configurable: true, get: () => general.SkinId },
+      SkinItemID: { configurable: true, get: () => general.SkinId },
+    });
+    const skill = { ...capturedSkillAudio, ID: 9001, IsGeneral: true, SoundGeneralID: () => general.CardId,
+      DealSkinSkillEffect: () => null, DealSkinSkillEffectShowAndLayer: () => null };
+    const roundLayer = Laya.stage.addChild(new Laya.Sprite());
+    const ui = { ...capturedSkinEffects, ...capturedRoundEffects, seat, seatAvatar: avatar, playingNewSpEffect: {},
+      skinRoundEffectList: [], effectSprite: avatar, unscaledWidth: 130, unscaledHeight: 180,
+      get maxSeatSkinVO() { return seat.MaxSkinVO ?? skins.find(skin => skin.skinID === seat.SkinID); },
+      addRuntimeResRecord() {},
+      getEffectType: () => new E$t(),
+      addGameSceneEffect: effect => roundLayer.addChild(effect),
+      interruptPlayingNewSpEffect() { this.playingNewSpEffect = null; effects.push(['stopped']); },
+      onPlayNewSpEffect(type) {
+        if (!seat.General.IsDynamic) return;
+        effects.push([type, seat.SkinItemID]);
+        if (seat.SkinItemID === 66103) {
+          this.playingNewSpType = type;
+          this.playingSkinVo = aige;
+          this.playingNewSpEffect = {};
+          effects.at(-1).push(seat.DySkinType);
+        }
+      },
+      generalSpEffectStop1(_event, _skill, url) { effects.push(['second-stage', url]); },
+      skinHasXDJXSkill(skill) { return skill.ID > 0; },
+      skinSkillAnimStopped() { this.skinSkillGeneralUrl = this.skinSkillTxtUrl = ''; },
+      loadSkinHasSkillComplete() { effects.push(['awaken']); },
+      ddzGongJiImgLoaded(texture) { effects.push(['ddz', texture]); },
+    };
+    window.cAt = { gameWidth: 1200, gameHeight: 850 };
+    const previewTextures = new Map(['res/current-tip.png', 'res/local-tip.png'].map((url, index) => {
+      const source = document.createElement('canvas');
+      source.width = 185; source.height = 326;
+      const g = source.getContext('2d'); g.fillStyle = index ? '#426985' : '#736348';
+      g.fillRect(0, 0, source.width, source.height);
+      const bitmap = new Laya.Texture2D(source.width, source.height);
+      bitmap.loadImageSource(source);
+      const texture = new Laya.Texture(bitmap);
+      texture.url = url;
+      return [url, texture];
+    }));
+    window.tQi = class extends Laya.Sprite {
+      constructor() {
+        super();
+        this.name = 'GameGeneralToolTip'; this.size(501, 326);
+        const head = this.generalHead = new Laya.Sprite();
+        Object.defineProperty(head, 'skin', {
+          get: () => head.sourceUrl ?? '',
+          set: url => { head.sourceUrl = url; head.texture = previewTextures.get(url) ?? null; },
+        });
+        this.addChild(head);
+        const panel = this.contentContainer = new Laya.Sprite();
+        panel.pos(118, 49); panel.size(383, 302);
+        panel.graphics.drawRect(0, 0, panel.width, panel.height, 'rgba(26, 23, 19, .90)', '#766247');
+        const copy = new Laya.Text(); copy.text = '演练武将 · 技能说明'; copy.pos(14, 12); copy.fontSize = 18; copy.color = '#efe5d0';
+        panel.addChild(copy);
+        const skills = new Laya.Text(); skills.text = '西向\n出牌阶段各限一次，你可以将牌当【杀】或【决斗】使用。\n\n哀歌\n觉醒技，一回合内第二次有角色进入濒死状态后触发。';
+        skills.pos(14, 47); skills.width = 355; skills.wordWrap = true;
+        skills.fontSize = 16; skills.leading = 8; skills.color = '#e4d5a0'; panel.addChild(skills);
+        this.addChild(panel);
+        this.loadSkin = capturedPreviewLoad;
+      }
+      ShowToolTip(playerSeat, general, skinItemID) {
+        Object.assign(this, { playerSeat, general, skinItemID });
+        this.loadSkin();
+      }
+    };
+    const mask = new Laya.Sprite();
+    mask.size(130, 180); mask.mouseEnabled = true;
+    const topManager = ui.otherTopManager = { overMask: mask, seat, isZhu: true, getTipGeneral: () => seat.General };
+    const originalTip = mask.toolTip = capturedPreviewFactory.bind(topManager);
+    mask.on(Laya.Event.ROLL_OVER, mask, () => {
+      mask.openTip = mask.toolTip();
+      if (mask.openTip) Laya.stage.addChild(mask.openTip);
+    });
+    mask.on(Laya.Event.ROLL_OUT, mask, () => { mask.openTip?.destroy(); mask.openTip = null; });
+    avatar.addChild(mask);
+    avatar.canShowDyNamic = () => avatar.generalCard.IsDynamic;
+    seat.on('USE_CARD', ui, ui.useCardAniPlay);
+    function play() {
+      seat.PlaySkillSound(skill);
+      seat.event('USE_CARD', [1, 1]);
+      ui.playGeneralSpEffect({}, skill);
+    }
     const scene = {}, scope = new NativeSkinCheck.ResourceScope();
+    scope.add(() => roundLayer.destroy(true));
     const { settings } = skinFixture.ctx; settings.set('crossServer', true);
     settings.set('unlockDynamic', true);
-    const manager = { GetOnlineSKinList: () => [original, animated], GetSkinListBySkinID: () => [] };
-    const game = { getScene: () => scene, getSeatUIs: () => [ui], isInGame: () => true, getClass: () => manager };
+    const manager = { GetOnlineSKinList: () => skins, GetSkinListBySkinID: () => [] };
+    const spells = { GameSpells: { spell: [
+      { a: 3564, c: '西向' }, { a: 3565, c: '哀歌', b: '3,4,5,6,23' }, { a: 3566, c: '逐北' },
+    ] } };
+    const game = { getScene: () => scene, getSeatUIs: () => [ui], isInGame: () => true, getClass: () => manager,
+      getConfigData: key => key === 'cha_spell' ? spells : null };
     const local = NativeSkinCheck.createLocalSkins({ window, scope, game, settings });
     const canvas = document.createElement('canvas'); canvas.width = 130; canvas.height = 180;
     const art = canvas.getContext('2d'); art.fillStyle = '#31675c'; art.fillRect(0, 0, 130, 180);
@@ -251,40 +440,303 @@ try {
     const [target] = local.refresh();
     const automatic = avatar.drawnSkin === 10101 && avatar.skeleton?.played && avatar.skeleton.url === 'res/current.sk';
     settings.set('unlockSkin', true);
+    ui.playSkinRoundEffect();
+    const previousRound = roundLoads.shift();
     local.select(target, 10102);
+    previousRound.finish(previewTextures.get(original.SkinUrlInTip));
+    if (roundLayer.numChildren) throw Error('使用本地原生皮肤时，晚到的旧皮肤入场特效被挂到场景');
+    await Promise.resolve();
+    ui.playSkinRoundEffect();
+    const selectedRound = roundLoads.shift();
+    if (selectedRound?.url !== animated.SkinUrlInTip) throw Error('本地原生皮肤的入场特效仍使用原皮肤');
+    selectedRound.finish(previewTextures.get(animated.SkinUrlInTip));
+    if (!ui.skinRoundEffect?.played || roundLayer.numChildren !== 1) throw Error('新选中的原生皮肤无法播放入场特效');
+    ui.clearSkinRoundEffect();
+    play();
+    if (JSON.stringify(sound) !== JSON.stringify([[10102, 1]]) ||
+        JSON.stringify(effects) !== JSON.stringify([['stopped'], ['attack', 10102], ['skill', 10102]])) {
+      throw Error('本地皮肤的音效与特效未同时切换 ' + JSON.stringify({ sound, effects }));
+    }
     const dynamic = avatar.drawnSkin === 10102 && avatar.skeleton?.played && general.JueXingState === 2 && general.SkinId === 10101 && !general.IsDynamic;
     settings.set('unlockDynamic', false); local.refresh();
+    play();
+    if (sound.at(-1)?.[0] !== 10102 || effects.length !== 3) throw Error('静态本地皮肤仍播放旧特效或语音');
     const staticOverride = avatar.drawnSkin === 10102 && avatar.skeleton === null;
     local.reset(target);
+    play();
+    if (sound.at(-1)?.[0] !== 10101 || seat.PlaySkillSound !== capturedSeatAudio.PlaySkillSound ||
+        !seat.hasListener('USE_CARD')) throw Error('恢复原生皮肤后，语音或座位监听未恢复');
     const restored = avatar.drawnSkin === 10101 && avatar.skeleton === null;
-    const result = await local.importPortrait(target, new File([blob], 'fixture.png', { type: 'image/png' }));
-    window.localPortraitFixture = { avatar, local, target, scope };
+    general.CardId = seat.GeneralId = 661;
+    settings.set('unlockDynamic', true);
+    const [spCaoCao] = local.refresh();
+    local.select(spCaoCao, 66103);
+    seat.OnChangeOriSkinBySkill(661, 3564); // 西向
+    seat.OnChangeOriSkinBySkill(662, 3565); // 另一武将
+    if (avatar.drawnForm !== 1) throw Error('英桀虎变过早切换形态');
+    seat.OnChangeOriSkinBySkill(661, 3565); // 哀歌确认发动
+    if (avatar.drawnForm !== 2 || JSON.stringify(effects.at(-1)) !== JSON.stringify([4, 66103, 2])) {
+      throw Error('哀歌未切换为英桀虎变第二形态');
+    }
+    ui.aniEventNew(0, '', { name: 'Bshow' }); // local transition must not dispatch a global awakening event
+    seat.OnChangeOriSkinBySkill(661, 3565);
+    play();
+    ui.playingNewSpEffectEvent = {};
+    ui.aniEventNew(0, '', { name: 'Skill' });
+    if (JSON.stringify(sound.at(-1)) !== JSON.stringify([66103, 2]) ||
+        JSON.stringify(effects.slice(-3)) !== JSON.stringify([
+          ['attack', 66103, 2], ['skill', 66103, 2], ['second-stage', 'res/66103_2/jineng02.json'],
+        ])) throw Error('英桀虎变第二形态的语音或特效来源错误');
+    if (general.SkinId !== 10101 || general.JueXingState !== 2 || general.IsDynamic) throw Error('改写了原生武将数据');
+    local.reset(spCaoCao);
+    local.select(spCaoCao, 66103);
+    if (avatar.drawnForm !== 2 || effects.filter(([kind]) => kind === 4).length !== 1) throw Error('重新选择后丢失觉醒形态或重播转场');
+    local.reset(spCaoCao);
+    general.CardId = seat.GeneralId = 101;
+    settings.set('unlockDynamic', false);
+    const file = new File([blob], 'fixture.png', { type: 'image/png' });
+    const pending = [];
+    const originalZjt = window.Zjt;
+    const removeSkeleton = avatar.removeSkeleton;
+    window.Zjt = class extends Laya.Sprite {
+      CreateSpineEffectNew() {
+        this.SpineRole = { getCrtNameOrIndex: () => 'ChuChang' };
+        pending.push('entry');
+      }
+      CreateSpineEffectNewDaiJi() {
+        this.SpineRole = { getCrtNameOrIndex: () => 'DaiJi' };
+        pending.push('idle');
+      }
+      OnAddShowEvent() {}
+    };
+    avatar.removeSkeleton = function () {
+      removeSkeleton.call(this);
+      this.skinBigSps?.destroy();
+      this.skinBigSps = null;
+    };
+    avatar.OnCheckDySkinJuexing = () => pending.push('transition');
+    avatar.onPreLoadDyRes = () => {};
+    Object.assign(original, { ResType: 3, NewJudgeSkinID: () => 10101, DynamicSkinBigSkeletonUrlNew: () => 'res/10101' });
+    general.IsDynamic = true;
+    avatar.SetSkin(10101, avatar.x, '', 0, 1, false);
+    const entrance = avatar.skinBigSps;
+    const deputy = new Laya.Sprite();
+    deputy.size(130, 180);
+    deputy.generalCard = { CardId: 102, SkinId: 10201 };
+    deputy.SetSkin = () => {};
+    deputy.skinTex = deputy.addChild(new Laya.Sprite());
+    seat.General2 = deputy.generalCard;
+    seat.General2Id = 102;
+    ui.seatAvatarFu = deputy;
+    let maxSeatSkin = original;
+    Object.defineProperties(seat, {
+      Skin2ID: { configurable: true, get: () => seat.General2?.SkinId ?? 0 },
+      MaxSkinVO: { configurable: true, get() { return maxSeatSkin; } },
+    });
+    seat.GetGeneralBySkillId = id => id === 9001 ? general : deputy.generalCard;
+    const deputyTarget = local.refresh().find(target => target.deputy);
+    await local.importPortrait(deputyTarget, file);
+    seat.event('USE_CARD', [1, 1]);
+    if (ui.skinHasXDJXSkill({ ID: 9002 }) || !ui.skinHasXDJXSkill(skill) || effects.at(-1)?.[0] !== 'attack' ||
+        entrance.destroyed) throw Error('副将外服立绘误屏蔽主将皮肤，或未屏蔽副将专属觉醒演出');
+    local.reset(deputyTarget);
+    original.ShowEffectUrl = 'res/original-entry.sk';
+    ui.playSkinRoundEffect();
+    const playingRound = ui.spSkinRoundEffect;
+    if (!playingRound?.played) throw Error('原生皮肤的自带入场特效未进入播放');
+    delete original.ShowEffectUrl;
+    ui.playSkinRoundEffect();
+    const pendingRound = roundLoads.shift();
+    if (pendingRound?.url !== original.SkinUrlInTip) throw Error('原生皮肤的入场贴图未进入异步加载');
+    ui.addRoundEffectList();
+    const playingRoundIndicator = ui.skinRoundEffectList[0];
+    Object.assign(ui, { playingNewSpEffect: {}, needPlayChange: true,
+      skinSkillGeneralUrl: 'old-awaken.png', skinSkillTxtUrl: 'old-text.png' });
+    const result = await local.importPortrait(target, file);
+    if (!entrance.destroyed || ui.playingNewSpEffect || ui.needPlayChange || ui.skinSkillGeneralUrl) {
+      throw Error('应用外服立绘后，原皮肤的进行中入场、转场或觉醒演出未清理');
+    }
+    if (!playingRound.destroyed || !playingRoundIndicator?.destroyed || roundLayer.numChildren || ui.skinRoundEffectList.length) {
+      throw Error('外服立绘未清理旧皮肤的场景入场特效和回合提示');
+    }
+    pendingRound.finish(previewTextures.get(original.SkinUrlInTip));
+    if (roundLayer.numChildren) throw Error('晚到的原皮肤入场特效被挂到场景');
+    await Promise.resolve();
+    if (ui.skinRoundEffect) throw Error('晚到的原皮肤入场特效未清理');
+    ui.playSkinRoundEffect();
+    if (roundLoads.length || roundLayer.numChildren) throw Error('主将已换肤，原皮肤仍请求入场特效');
+    original.ShowEffectUrl = 'res/original-entry.sk';
+    capturedRoundEffects.showSkinEffect.call(ui, original.ShowEffectUrl, original.ResType);
+    if (roundLayer.numChildren) throw Error('已被客户端捕获的原皮肤专属入场仍被挂到场景');
+    await Promise.resolve();
+    if (ui.spSkinRoundEffect) throw Error('迟到的原皮肤专属入场特效未清理');
+    delete original.ShowEffectUrl;
+    maxSeatSkin = deputySkin;
+    ui.playSkinRoundEffect();
+    if (!ui.spSkinRoundEffect?.played || ui.spSkinRoundEffect.url !== deputySkin.ShowEffectUrl || roundLoads.length) {
+      throw Error('主将换肤后，原本应播放的副将入场特效被禁用');
+    }
+    ui.clearSkinRoundEffect();
+    deputy.destroy(true);
+    seat.General2 = seat.General2Id = ui.seatAvatarFu = null;
+    maxSeatSkin = original;
+    // The callback reference was captured before the portrait was installed.
+    // This is the native static form-change branch used by older skins.
+    window.gO = Laya.Sprite;
+    Object.assign(avatar, { needShowChangeAni: true, maskRect: new Laya.Rectangle(),
+      oldTexture: previewTextures.get('res/current-tip.png') });
+    const nativeFlash = { ...capturedStaticSkin, onPlayEffectComplete() {}, onEffectComplete() { this.clearEffect(); } };
+    // Install/restore the real native methods through the portrait lifecycle.
+    local.reset(target);
+    Object.assign(avatar, nativeFlash);
+    const oldTexture = avatar.oldTexture;
+    await local.importPortrait(target, file);
+    capturedStaticSkin.loadSkinComplete.call(avatar, previewTextures.get('res/local-tip.png'));
+    if (avatar.changSkinEffect || avatar.tempStaticSkin || avatar.skinTex.visible) throw Error('异步静态形态切换仍播放换肤火线');
+    const count = effects.length;
+    seat.event('USE_CARD', [1, 1]);
+    ui.loadSkinHasSkillComplete();
+    if (ui.playGeneralSpEffect({}, skill) !== false || ui.skinHasXDJXSkill(skill) || effects.length !== count) {
+      throw Error('应用外服立绘后，仍播放原皮肤的技能或攻击特效');
+    }
+    ui.ddzGongJiImgLoaded('original-texture');
+    if (effects.at(-1)?.[1] !== null) throw Error('通用攻击演出仍带原皮肤贴图');
+    avatar.SetSkin(10101, avatar.x, '', 0, 2);
+    if (pending.join() !== 'entry,idle,idle' || avatar.skinBigSps.visible || avatar.drawnForm !== 2) {
+      throw Error('原皮肤形态更新仍触发入场音效或转场');
+    }
+    local.reset(target);
+    ui.playSkinRoundEffect();
+    roundLoads.shift()?.finish(previewTextures.get(original.SkinUrlInTip));
+    if (!ui.skinRoundEffect?.played || !ui.skinRoundEffect.url.endsWith('/pifuchuchang2.sk')) {
+      throw Error('恢复原皮肤后，原生入场特效未恢复');
+    }
+    ui.clearSkinRoundEffect();
+    capturedStaticSkin.loadSkinComplete.call(avatar, oldTexture);
+    if (!avatar.changSkinEffect?.played || avatar.changSkinEffect.url !== 'res/assets/animate/game/huanfu/huanfu1.sk') {
+      throw Error('恢复原皮肤后，静态换肤动画未恢复');
+    }
+    avatar.clearTempStaticSkin();
+    avatar.clearEffect();
+    avatar.oldTexture = null;
+    avatar.needShowChangeAni = false;
+    avatar.SetSkin(10101, avatar.x, '', 0, 1);
+    seat.event('USE_CARD', [1, 1]);
+    if (pending.at(-1) !== 'transition' || effects.at(-1)?.[0] !== 'attack' || avatar.SetSkin !== capturedSetSkin ||
+        !ui.skinHasXDJXSkill(skill) || !ui.playGeneralSpEffect({}, skill)) throw Error('恢复原皮肤后，原生特效未恢复');
+    general.IsDynamic = false;
+    avatar.SetSkin(10101, avatar.x, '', 0, 1, false, false);
+    original.ResType = 2;
+    window.Zjt = originalZjt;
+    avatar.removeSkeleton = removeSkeleton;
+    await local.importPortrait(target, file);
+    window.localPortraitFixture = { avatar, local, target, scope, mask, originalTip };
     return [automatic, dynamic, staticOverride, restored, result, avatar.skinTex.visible, Boolean(avatar.getChildByName('sgs-local-skin-portrait')), general.SkinId];
   }), [true, true, true, true, true, false, true, 10101]);
   await page.screenshot({ path: path.join(output, 'local-portrait.png') });
+  await page.mouse.move(1030, 630);
+  await page.waitForFunction(() => localPortraitFixture.mask.openTip?.generalHead.texture?.width === 130);
   assert.deepEqual(await page.evaluate(() => {
-    const { avatar, scope } = window.localPortraitFixture; scope.dispose();
-    return [avatar.skinTex.visible, Boolean(avatar.getChildByName('sgs-local-skin-portrait'))];
-  }), [true, false]);
+    const { mask, target } = localPortraitFixture;
+    return [mask.openTip.generalHead.skin, mask.openTip.skinItemID, target.general.SkinId, mask.openTip.numChildren];
+  }), ['', 10101, 10101, 2]);
+  await page.screenshot({ path: path.join(output, 'local-portrait-hover.png') });
+  assert.equal(await page.evaluate(() => {
+    const { local, target, mask } = localPortraitFixture;
+    local.reset(target);
+    return mask.openTip.generalHead.skin;
+  }), 'res/current-tip.png');
+  await page.mouse.move(995, 605);
+  await page.waitForFunction(() => !localPortraitFixture.mask.openTip);
+  await page.evaluate(() => localPortraitFixture.local.select(localPortraitFixture.target, 10102));
+  // Laya drops mouse moves less than 10 ms apart, even if it has processed
+  // the earlier move and closed the tooltip.
+  await page.waitForTimeout(20);
+  await page.mouse.move(1030, 630);
+  await page.waitForFunction(() => localPortraitFixture.mask.openTip?.generalHead.skin === 'res/local-tip.png');
+  assert.deepEqual(await page.evaluate(() => {
+    const { mask, target } = localPortraitFixture;
+    return [mask.openTip.skinItemID, target.general.SkinId, target.seat.SkinID];
+  }), [10102, 10101, 10101]);
+  await page.screenshot({ path: path.join(output, 'local-native-skin-hover.png') });
+  assert.deepEqual(await page.evaluate(() => {
+    const { avatar, scope, mask, originalTip } = window.localPortraitFixture; scope.dispose();
+    return [avatar.skinTex.visible, Boolean(avatar.getChildByName('sgs-local-skin-portrait')), mask.openTip.generalHead.skin,
+      mask.toolTip === originalTip];
+  }), [true, false, 'res/current-tip.png', true]);
+  await page.mouse.move(995, 605);
+  await page.waitForFunction(() => !localPortraitFixture.mask.openTip);
   await page.addScriptTag({ content: `window.capturedSelector={${selectorMethods.join(',')}};window.capturedSelectGeneral={${selectGeneralClose}};` });
-  await page.evaluate(() => {
-    const { avatar, target } = localPortraitFixture;
-    const { seat } = target, ui = { seat, seatAvatar: avatar };
+  const setupMatchSelectorFixture = () => page.evaluate(() => {
+    const { avatar, target, mask } = localPortraitFixture;
     const scope = new NativeSkinCheck.ResourceScope();
+    const { seat } = target;
+    const effectSprite = avatar.addChild(new Laya.Sprite());
+    const sceneLayer = Laya.stage.addChild(new Laya.Sprite());
+    sceneLayer.name = 'SceneLayer';
+    const roundLayer = sceneLayer.addChild(new Laya.Sprite());
+    scope.add(() => sceneLayer.destroy(true));
+    scope.add(() => effectSprite.destroy(true));
+    const entranceSkin = { skinID: seat.SkinID, SkinUrlInTip: 'res/current-tip.png' };
+    const ui = { ...capturedDebutEffects, ...capturedRoundEffects, seat, seatAvatar: avatar, effectSprite,
+      skinRoundEffectList: [], maxSeatSkinVO: entranceSkin,
+      addGameSceneEffect: effect => roundLayer.addChild(effect),
+      unscaledWidth: avatar.width, unscaledHeight: avatar.height, lastDebutGradation: 0,
+      bottomManager: { SetGrade(value) { this.grade = value; } },
+      otherTopManager: { overMask: mask, SetGeneralGrade(value) { this.grade = value; } } };
+    const gradeChanged = 'GENERAL_GRADATION_CHANGED';
+    seat.on(gradeChanged, ui, capturedDebutEffects.General_GradationChanged);
+    scope.add(() => seat.off(gradeChanged, ui, capturedDebutEffects.General_GradationChanged));
     const settings = skinFixture.ctx.settings;
     const calls = [], notices = [];
-    let scene = {}, draft = true;
-    const game = { getScene: () => scene, getSeatUIs: () => draft ? [] : [ui], isInGame: () => true };
+    let scene = {}, draft = true, accountId = 1001, deferSkills = false, configReady;
+    const catalogue = [
+      { skinID: 10101, skinname: '已开通演练皮肤' },
+      { skinID: 10102, skinname: '未开通演练皮肤', SeatAnimateUrl: 'res/fixture.sk' },
+    ];
+    const tables = { character: { GameCharacters: { character: [{ a: 101, b: '谋陆逊', j: 31, k: 32, l: 33, m: 35 },
+      { a: 102, b: '界赵云', j: 36 }, { a: 758, b: '钟会', ai: '界', j: 3913, k: 3914 }] } },
+      cha_spell: { GameSpells: { spell: [{ a: 31, c: '谦逊' }, { a: 32, c: '连营' }, { a: 33, c: '牌面第三技' },
+        { a: 34, c: '后来获得' }, { a: 35, c: '牌面第四技' }, { a: 36, c: '龙胆' },
+        { a: 3913, c: '权计' }, { a: 3914, c: '自立', m: '3915' }, { a: 3915, c: '排异' }] } } };
+    const runtimeIndex = { loads: 0, finish: null };
+    const game = { getScene: () => scene, getSeatUIs: () => draft ? [] : [ui], isInGame: () => true,
+      getSelfSeatUI: () => draft ? null : ui,
+      getSelf: () => ({ ClientId: accountId }), getConfigData: name => deferSkills ? null : tables[name],
+      loadConfigData: name => {
+        if (name !== 'yjcm-skins') return configReady ?? Promise.resolve();
+        if (++runtimeIndex.loads === 1) return Promise.reject(new Error('演练配置暂不可用'));
+        if (runtimeIndex.loads > 2) return Promise.resolve(window.yjcmSourceFixture);
+        return new Promise(resolve => { runtimeIndex.finish = () => resolve(window.yjcmSourceFixture); });
+      },
+      getClass: name => name === 'GeneralSkinManager' ? {
+        GetOnlineSKinList: () => catalogue, GetSkinListBySkinID: () => [],
+      } : null };
+    const played = [];
+    seat.PlaySkillSound = capturedSeatAudio.PlaySkillSound;
+    seat.PlaySkillHurtSound = capturedSeatAudio.PlaySkillHurtSound;
+    seat.PlayDeadSound = capturedSeatAudio.PlayDeadSound;
+    seat.general = seat.General;
+    seat.GetGeneralBySkillIdOnlyId = () => seat.General;
+    seat.OnChangeOriSkinBySkill ??= () => {};
     const nativeTheme = NativeSkinCheck.createNativeTheme({ scope, window });
-    const ctx = { window, scope, settings, game, ui: { nativeTheme }, notify: message => notices.push(message) };
+    const ctx = { window, document, scope, settings, game, ui: { nativeTheme }, notify: message => notices.push(message) };
     const local = NativeSkinCheck.createLocalSkins(ctx);
+    window.yjcmRuntimeIndexFixture = runtimeIndex;
     settings.set('unlockSkin', false);
+    settings.set('crossServer', false);
     settings.set('unlockDynamic', true);
-    const check = NativeSkinCheck.createMatchSkinSelector(ctx, local);
-    window.V2t = { get SelfSeat() { return draft ? {} : seat; }, GetModeType: () => 0, ChecHasShareSkin: () => false };
+    const openForms = NativeSkinCheck.createFormPicker(ctx);
+    const openYjcm = NativeSkinCheck.createYjcmPicker(ctx, local, openForms);
+    const check = NativeSkinCheck.createMatchSkinSelector(ctx, local, openYjcm, openForms);
+    window.V2t = { SceneRightWidth: 0, get SelfSeat() { return draft ? {} : seat; }, GetModeType: () => 0, ChecHasShareSkin: () => false };
     window.Us = { IsGuildMatch: () => false, IsTZGJ: () => false, IsLuanDou: () => false };
     window.iA = { SET: 0 };
-    window.M$t = { I: () => ({ SendMsgSelectCharacterReq: id => calls.push(['general', id]) }) };
+    window.M$t = { I: () => ({ SendMsgSelectCharacterReq: id => calls.push(['general', id]),
+      GetSeatGeneralVoiceUrl: (_seat, _card, _skin, skill) => skill ? 'native:' + skill.ID : 'native:death' }) };
+    window.hZt = { I: () => ({ SoundSets: { SkinSoundOverlap: false } }) };
+    window.ID = { PlaySkillSound: url => played.push(url), PlayGeneralSkillSoundDelay: (_seat, _general, url) => played.push(url),
+      PlayDeadSound: url => played.push(url) };
     window.JJt = { I: () => ({ SelSkinNtf: () => calls.push(['finish-select']), SendClientGeneralSkinReq: (...args) => calls.push(['skin', ...args]) }) };
     window.XPt = { CLOSE_SKIN_WINDOW: 'CLOSE_SKIN_WINDOW' };
     Object.setPrototypeOf(capturedSelector, { destroy() {} });
@@ -302,7 +754,7 @@ try {
       const view = Object.assign(new Laya.EventDispatcher(), {
         realGeneralID: 101, defaultGeneralID: 101, clientID: 1001, closeSelectSkinId: 10101,
         closeSelectSure: capturedSelector.closeSelectSure, clickCheck: false, pannel: panel, pannelContent: content, itemList: [],
-        list: [{ skinID: 10101 }, { skinID: 10102, SeatAnimateUrl: 'res/fixture.sk' }],
+        list: catalogue,
       });
       owner.selectView = view;
       view.on(XPt.CLOSE_SKIN_WINDOW, owner, owner.Close);
@@ -324,11 +776,101 @@ try {
       Laya.stage.addChild(owner); check();
       window.matchSelectorFixture.owner = owner;
     }
-    window.matchSelectorFixture = { scope, settings, calls, notices, avatar, check, open,
+    window.matchSelectorFixture = { scope, settings, calls, notices, avatar, mask, ui, game, local, check, open, openYjcm, played,
+      mountToolbox() {
+        const root = document.createElement('div');
+        root.style.cssText = 'position:absolute;right:20px;top:20px;width:248px;padding:10px;background:#252119;color:#eee3cc';
+        document.body.append(root);
+        const off = NativeSkinCheck.renderSkinPanel(ctx, local, check, root, openYjcm, openForms);
+        scope.add(() => { off(); root.remove(); });
+      },
+      enableDualNative() {
+        Object.assign(catalogue[0], { IsManyStateDyskin: true, NewSkinJudge: 2, ConMessage: '小于3血切换形态2' });
+      },
+      confirmSkill(id) { seat.OnChangeOriSkinBySkill(101, id); },
       reveal() { draft = false; local.refresh(); },
+      nextMatch(id = accountId, beforeFirstPaint = false, deferVoice = false, debutGrade = 0, deferRoundEntrance = false) {
+        draft = true;
+        local.refresh();
+        avatar.SetSkin(avatar.generalCard.SkinId, avatar.x, '', 0, 1, false, false);
+        accountId = id;
+        scene = { SelfSeatUi: ui, parent: sceneLayer };
+        deferSkills = deferVoice;
+        configReady = deferVoice ? new Promise(resolve => { window.finishSkinSkills = () => { deferSkills = false; resolve(); }; }) : null;
+        if (beforeFirstPaint) {
+          const before = effectSprite.numChildren;
+          let debut, lateDebut, regular;
+          if (debutGrade) {
+            // The native rank callback runs when the general data arrives, before the first stage render.
+            seat.IsLegalOperable = true;
+            seat.Gradation = debutGrade;
+            ui.lastDebutGradation = 0;
+            seat.event(gradeChanged);
+            debut = effectSprite.getChildAt(before);
+            const asset = debutGrade === 4 ? 'jinlongkuang.sk' : 'yinlongkuang.sk';
+            if (!debut?.played || !debut.EffectUrl.endsWith('/' + asset)) throw Error('演练未生成原生金／银框入场特效');
+            ui.playRoundStart();
+            regular = effectSprite.getChildAt(before + 1);
+            Laya.timer.callLater(ui, () => {
+              // Stage.render invokes callLater after the Toolbox stage hook but before painting its children.
+              const priorCount = effectSprite.numChildren;
+              ui.lastDebutGradation = 0;
+              capturedDebutEffects.PlayDebutEffect.call(ui);
+              lateDebut = effectSprite.getChildAt(priorCount);
+            });
+          }
+          draft = false;
+          if (deferRoundEntrance) {
+            const skinTex = avatar.skinTex;
+            const ordinaryEffect = roundLayer.addChild(new Laya.Sprite());
+            let lateEntrance, enteredScene, painted = false;
+            avatar.skinTex = null;
+            try {
+              Laya.timer.callLater(ui, () => {
+                // The previously bound portrait loader completes inside Stage.render.
+                const url = entranceSkin.SkinUrlInTip;
+                capturedRoundEffects.skinInWindowLoaded.call(ui, { url }, url, 2);
+                lateEntrance = ui.skinRoundEffect;
+                enteredScene = lateEntrance?.parent === roundLayer;
+                if (lateEntrance) {
+                  const render = lateEntrance.render;
+                  lateEntrance.render = function (...args) { painted = true; return render.apply(this, args); };
+                }
+              });
+              Laya.stage._loop();
+              if (!lateEntrance?.played || !enteredScene || !lateEntrance.EffectUrl.endsWith('/pifuchuchang2.sk')) {
+                throw Error('演练未在换肤立绘就绪前挂载真正的原皮肤金色入场');
+              }
+              if (painted || !lateEntrance.destroyed || ui.skinRoundEffect || ordinaryEffect.parent !== roundLayer) {
+                throw Error('首帧仍渲染原皮肤金色入场，或误清理无关场景特效');
+              }
+            } finally {
+              ordinaryEffect.destroy();
+              avatar.skinTex = skinTex;
+            }
+          } else Laya.stage._loop();
+          if (debut) {
+            if (debut.parent || !debut.destroyed) throw Error('本地换肤首帧仍带武将等阶入场特效');
+            if (!lateDebut?.played || lateDebut.parent || !lateDebut.destroyed) throw Error('本地换肤未清理绘制同帧补挂的旧入场特效');
+            ui.RePlayDebutEffect();
+            seat.event(gradeChanged);
+            if (effectSprite.numChildren !== before + 1) throw Error('本地换肤时武将等阶入场特效仍可重播');
+            if (!regular?.played || regular.parent !== effectSprite || ui.bottomManager.grade !== debutGrade ||
+                ui.otherTopManager.grade !== debutGrade) throw Error('局内回合提示或武将等阶标记被误清理');
+            regular.destroy(true);
+          }
+          if (deferRoundEntrance) Laya.stage._loop();
+          return [avatar.skinTex.visible, Boolean(avatar.getChildByName('sgs-local-skin-portrait'))];
+        }
+        this.reveal();
+      },
+      useSkill(id, event) { seat.PlaySkillSound({ ID: id, IsGeneral: true, GetSoundUrl: () => 'native:' + id }, undefined, event); },
+      useDamageSkill(id, sound) { seat.PlaySkillHurtSound({ ID: id, IsGeneral: true, GetHurtSoundUrl: () => sound }); },
+      useDeath() { seat.PlayDeadSound(seat.General); },
       action() { return this.owner.selectView.pannelContent.getChildByName('sgs-local-skin-10102'); } };
     open('SelectSkinWindow');
   });
+  await setupMatchSelectorFixture();
   assert.equal(await page.evaluate(() => Boolean(matchSelectorFixture.action())), false);
   await page.evaluate(() => { matchSelectorFixture.settings.set('unlockSkin', true); matchSelectorFixture.check(); });
   const clickSelector = async (index, y) => {
@@ -359,12 +901,1439 @@ try {
   await page.keyboard.press('Enter');
   assert.equal(await page.evaluate(() => matchSelectorFixture.avatar.skinItemID), 10102);
   assert.equal(await page.evaluate(() => matchSelectorFixture.calls.filter(([type]) => type === 'skin').length), 1);
+  assert.deepEqual(await page.evaluate(() => {
+    const f = matchSelectorFixture, remembered = f.settings.get('localSkin.1001.101');
+    f.nextMatch(1002);
+    const other = f.avatar.skinItemID;
+    f.nextMatch(1001);
+    return [remembered, other, f.avatar.skinItemID];
+  }), [{ kind: 'native', id: 10102 }, 10101, 10102]);
+  const [bigArt, seatArt, sparseSeat, head, windowArt] = (await page.evaluate(() => {
+    const image = document.createElement('canvas'); image.width = 172; image.height = 206;
+    const g = image.getContext('2d'); g.fillStyle = '#28433e'; g.fillRect(18, 12, 136, 180);
+    g.fillStyle = '#d5b865'; g.fillRect(42, 46, 82, 88);
+    g.fillRect(70, 29, 40, 10);
+    const big = image.toDataURL().split(',')[1];
+    g.clearRect(18, 12, 136, 15);
+    g.fillStyle = '#9e8655'; g.fillRect(118, 12, 20, 15);
+    const seat = image.toDataURL().split(',')[1];
+    g.clearRect(0, 0, 172, 206);
+    g.fillRect(60, 12, 38, 180);
+    const sparseSeat = image.toDataURL().split(',')[1];
+    image.width = image.height = 100;
+    g.fillStyle = '#28433e'; g.fillRect(0, 0, 100, 100);
+    g.fillStyle = '#d5b865'; g.fillRect(30, 25, 40, 50);
+    const head = image.toDataURL().split(',')[1];
+    image.width = 321; image.height = 419;
+    g.fillStyle = '#884a34'; g.fillRect(0, 0, image.width, image.height);
+    g.clearRect(0, 0, 80, 100);
+    g.fillStyle = 'rgba(224, 100, 60, .5)'; g.fillRect(28, 42, 37, 39);
+    g.fillStyle = '#e7bd69'; g.fillRect(110, 55, 100, 245);
+    return [big, seat, sparseSeat, head, image.toDataURL().split(',')[1]];
+  })).map(uri => Buffer.from(uri, 'base64'));
+  const cachePage = await browser.newPage();
+  try {
+    const requests = new Map();
+    const fixture = 'https://skin-cache-fixture.test/';
+    let finishSharedDownload;
+    const sharedDownload = new Promise(resolve => { finishSharedDownload = resolve; });
+    await cachePage.route(fixture, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>cache</title>' }));
+    await cachePage.route('**/big/static/cache-*.png', async route => {
+      const file = new URL(route.request().url()).pathname.split('/').at(-1);
+      requests.set(file, (requests.get(file) ?? 0) + 1);
+      if (file === 'cache-shared.png') await sharedDownload;
+      return route.fulfill({ contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: bigArt });
+    });
+    await cachePage.goto(fixture);
+    const prepCache = async () => {
+      await cachePage.addScriptTag({ content: bundle.outputFiles[0].text });
+      await cachePage.evaluate(() => {
+        const scope = new NativeSkinCheck.ResourceScope();
+        const entry = name => ({ assets: [[1, name]] });
+        window.portraitCacheFixture = { scope, older: entry('cache-fixture'), recent: entry('cache-recent'), shared: entry('cache-shared'),
+          cache: NativeSkinCheck.createPortraitCache(window, scope) };
+      });
+    };
+    await prepCache();
+    assert.deepEqual(await cachePage.evaluate(async () => {
+      const { cache, older, recent, scope } = portraitCacheFixture;
+      await cache.load(older, scope.signal);
+      await cache.load(recent, scope.signal);
+      const db = await new Promise(resolve => {
+        const request = indexedDB.open('sgs-toolbox-cross-portrait');
+        request.onsuccess = () => resolve(request.result);
+      });
+      const record = await new Promise(resolve => {
+        const request = db.transaction('portraits').objectStore('portraits').get('recent');
+        request.onsuccess = () => resolve(request.result);
+      });
+      db.close();
+      return [record.key, record.blob.type];
+    }), ['[[1,"cache-recent"]]', 'image/png']);
+    await cachePage.reload();
+    await prepCache();
+    assert.deepEqual(await cachePage.evaluate(async () => {
+      const { cache, older, recent, scope } = portraitCacheFixture;
+      await cache.warm();
+      return [cache.get(recent)?.image.naturalWidth, (await cache.load(older, scope.signal))?.image.naturalWidth];
+    }), [172, 172]);
+    assert.deepEqual([...requests], [['cache-fixture.png', 1], ['cache-recent.png', 1]],
+      'the recent and older prepared portraits are decoded from disk after reloading');
+
+    const request = cachePage.waitForRequest(value => value.url().endsWith('/cache-shared.png'));
+    await cachePage.evaluate(() => {
+      const f = portraitCacheFixture;
+      f.first = new AbortController();
+      f.firstLoad = f.cache.load(f.shared, f.first.signal);
+      f.secondLoad = f.cache.load(f.shared, f.scope.signal);
+    });
+    await request;
+    await cachePage.evaluate(() => { portraitCacheFixture.first.abort(); });
+    finishSharedDownload();
+    assert.deepEqual(await cachePage.evaluate(async () => {
+      const { firstLoad, secondLoad } = portraitCacheFixture;
+      return [(await firstLoad)?.image.naturalWidth ?? null, (await secondLoad)?.image.naturalWidth];
+    }), [null, 172]);
+    assert.equal(requests.get('cache-shared.png'), 1, 'canceling one consumer leaves the shared download running');
+  } finally { await cachePage.close(); }
+  const pictureRequests = [];
+  const officialArt = new Map();
+  const motionArt = officialMotionDir ? new Map(await Promise.all(['800501-daiji2.sk', '800501-daiji2.png',
+    '7133801-daiji2.sk', '7133801-daiji2.png',
+    '8123201-daiji2.sk', '8123201-daiji2.png'].map(async name =>
+    ['big/dynamic/' + name.replace('-', '/'), await readFile(path.join(officialMotionDir, name))]))) : new Map();
+  if (officialMotionDir) {
+    for (const resource of ['seat/static/600501.png', 'window/600501.png', 'seat/static/500401.png']) officialArt.set(resource, seatArt);
+    officialArt.set('seat/static/5133801.png', await readFile(path.join(officialMotionDir, 'static-5133801.png')));
+    officialArt.set('seat/static/6123201.png', await readFile(path.join(officialMotionDir, 'static-6123201.png')));
+  }
+  const bindingPreview = officialSeatDir ? await readFile(path.join(officialSeatDir, 'window-523001.png')) : windowArt;
+  let finishWindow, finishSlowPreview, finishColdSeat;
+  await page.route('https://web.sanguosha.com/x/pc/res/assets/runtime/general/**', async route => {
+    const url = new URL(route.request().url());
+    const resource = url.pathname.split('/general/')[1];
+    pictureRequests.push(resource);
+    assert.equal(route.request().headers().cookie, undefined);
+    const headers = { 'access-control-allow-origin': '*' };
+    if (motionArt.has(resource)) await route.fulfill({ headers, contentType: resource.endsWith('.png') ? 'image/png' : 'application/octet-stream', body: motionArt.get(resource) });
+    else if (url.pathname.includes('/general/head/')) await route.fulfill({ headers, contentType: 'image/png', body: head });
+    else if (officialArt.has(resource)) await route.fulfill({ headers, contentType: 'image/png', body: officialArt.get(resource) });
+    else if (resource === 'window/523001.png') {
+      const requests = pictureRequests.filter(path => path === resource).length;
+      if (requests === 2) await new Promise(resolve => { finishWindow = resolve; });
+      await route.fulfill({ headers, contentType: 'image/png', body: requests === 1 ? bindingPreview : windowArt });
+    }
+    else if (resource === 'seat/static/523101.png') {
+      if (!finishSlowPreview) {
+        await new Promise(resolve => { finishSlowPreview = resolve; });
+        await route.fulfill({ headers, contentType: 'image/png', body: seatArt }).catch(() => {});
+      } else {
+        await new Promise(resolve => { finishColdSeat = resolve; });
+        await route.fulfill({ headers, contentType: 'image/png', body: seatArt });
+      }
+    }
+    else if (resource === 'big/static/523101.png') await route.fulfill({ headers, contentType: 'image/png', body: bigArt });
+    else if (url.pathname.endsWith('/seat/static/200102.png')) await route.fulfill({ headers, contentType: 'image/png', body: sparseSeat });
+    else if (['big/static/200102.png', 'big/static/523001.png'].includes(resource)) await route.fulfill({ headers, contentType: 'image/png', body: bigArt });
+    else if (url.pathname.endsWith('/seat/static/523001.png')) await route.fulfill({ headers, contentType: 'image/png', body: seatArt });
+    else await route.fulfill({ headers, status: 404 });
+  });
+  await page.evaluate(() => {
+    const f = matchSelectorFixture;
+    f.avatar.generalCard.CardName = '曹操';
+    f.settings.set('unlockSkin', false);
+    f.settings.set('unlockDynamic', false);
+    f.settings.set('crossServer', true);
+    f.open('ChangeSkinWindow');
+  });
+  const crossButton = await page.evaluate(() => {
+    const owner = matchSelectorFixture.owner, button = owner.getChildByName('sgs-yjcm-skin-selector');
+    const point = button.localToGlobal(new Laya.Point(button.width / 2, button.height / 2), true);
+    return { x: point.x, y: point.y, aboveList: button.y + button.height <= owner.selectView.pannel.y };
+  });
+  assert.equal(crossButton.aboveList, true);
+  await page.screenshot({ path: path.join(output, 'yjcm-native-entry.png') });
+  const picker = page.locator('[data-sgs-yjcm-skins]');
+  const query = picker.getByRole('searchbox', { name: '搜索所属武将' });
+  const apply = picker.getByRole('button', { name: '使用皮肤' });
+  const fullPictures = () => pictureRequests.filter(request => /^(seat\/static|big\/static|maxBig)\//.test(request));
+  const windowPictures = () => pictureRequests.filter(request => request.startsWith('window/'));
+  const portrait = () => page.evaluate(() => Boolean(matchSelectorFixture.avatar.getChildByName('sgs-local-skin-portrait')));
+  const visibleSeatPreview = () => page.waitForFunction(() =>
+    matchSelectorFixture.avatar.getChildByName('sgs-local-skin-seat-preview')?.visible);
+  async function leaveSeat() {
+    await page.waitForTimeout(20); // The Laya input handler throttles closely spaced mouse moves.
+    await page.mouse.move(995, 605);
+    await page.waitForFunction(() => !matchSelectorFixture.mask.openTip);
+  }
+  const samplePixels = (png, points) => page.evaluate(async ({ value, points }) => {
+    const source = new Image(); source.src = 'data:image/png;base64,' + value; await source.decode();
+    const canvas = document.createElement('canvas'); canvas.width = source.naturalWidth; canvas.height = source.naturalHeight;
+    const g = canvas.getContext('2d'); g.drawImage(source, 0, 0);
+    return points.map(([x, y]) => [...g.getImageData(x, y, 1, 1).data.slice(0, 3)]);
+  }, { value: png.toString('base64'), points });
+  async function chooseSkin() {
+    await query.fill('刘备');
+    const row = picker.getByRole('button', { name: /青梅煮酒.*200102/ });
+    await row.scrollIntoViewIfNeeded();
+    const thumb = row.locator('img:not([hidden])');
+    await thumb.waitFor();
+    await thumb.evaluate(img => img.decode());
+    assert.equal(await row.evaluate(node => {
+      const label = node.querySelector('.name'), info = node.querySelector('small'), img = node.querySelector('img');
+      const l = label.getBoundingClientRect(), i = info.getBoundingClientRect(), t = img.getBoundingClientRect();
+      return getComputedStyle(label).whiteSpace === 'nowrap' && i.top < l.bottom && i.bottom > l.top && t.left >= l.right && t.width === 36;
+    }), true);
+    await row.click();
+  }
+  function assertFullImageFallback() {
+    assert.deepEqual(fullPictures().slice(-2), ['seat/static/200102.png', 'big/static/200102.png']);
+  }
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(() => Laya.stage.focus?.name), 'sgs-yjcm-skin-selector');
+  assert.equal(await page.evaluate(() => yjcmRuntimeIndexFixture.loads), 0);
+  await page.keyboard.press('Enter');
+  assert.equal(await query.inputValue(), '曹操');
+  const retryIndex = picker.getByRole('button', { name: '重试加载' });
+  await retryIndex.waitFor();
+  await picker.getByText('索引加载失败详情').click();
+  await picker.getByText('演练配置暂不可用').waitFor();
+  await page.screenshot({ path: path.join(output, 'yjcm-index-retry.png') });
+  async function checkIndexLayout() {
+    for (const width of [248, 280, 420]) {
+      await page.setViewportSize({ width: width + 24, height: 320 });
+      for (const offset of [-2, -1, 0, 2]) {
+        assert.equal(await picker.evaluate((host, { width, offset }) => {
+          host.style.setProperty('--sgs-font-offset', offset + 'px');
+          const dialog = host.shadowRoot.querySelector('dialog');
+          const body = dialog.querySelector('.body');
+          const count = dialog.querySelector('.count');
+          return Math.abs(dialog.getBoundingClientRect().width - width) < 1 &&
+            parseFloat(getComputedStyle(dialog).fontSize) === 14 + offset &&
+            [body, count].every(node => node.scrollWidth <= node.clientWidth + 1);
+        }, { width, offset }), true);
+      }
+    }
+    await picker.evaluate(host => host.style.removeProperty('--sgs-font-offset'));
+    await page.setViewportSize({ width: 1200, height: 850 });
+  }
+  await checkIndexLayout();
+  await retryIndex.click();
+  await picker.getByText('正在建立皮肤和语音索引…').waitFor();
+  await page.screenshot({ path: path.join(output, 'yjcm-index-loading.png') });
+  await checkIndexLayout();
+  assert.deepEqual(await page.evaluate(() => {
+    const { avatar, local, settings } = matchSelectorFixture;
+    const key = 'localSkin.1001.101';
+    const previous = settings.get(key, null);
+    settings.set(key, { kind: 'cross', id: 523101, general: '武陆逊' });
+    const [target] = local.refresh();
+    const covered = !avatar.skinTex.visible && !avatar.getChildByName('sgs-local-skin-portrait');
+    const indexReady = Boolean(local.yjcm.current);
+    local.reset(target);
+    settings.set(key, previous);
+    return [covered, indexReady, avatar.skinTex.visible];
+  }), [true, false, true], 'the remembered choice covers the old art before the catalogue finishes and releases it when canceled');
+  await page.evaluate(() => yjcmRuntimeIndexFixture.finish());
+  assert.equal(fullPictures().length, 0, 'search only requests thumbnails');
+  await picker.locator('img:not([hidden])').first().waitFor();
+  assert.ok(pictureRequests.length < await picker.locator('[data-result]').count(), 'thumbnails outside the visible list are lazy');
+  await query.fill('陆逊');
+  const generalFilters = picker.getByRole('group', { name: '按所属武将筛选' });
+  await query.fill('诸葛亮');
+  assert.deepEqual(await generalFilters.getByRole('button').allTextContents(),
+    ['全部', '武诸葛亮', '谋诸葛亮', '神诸葛亮', '有诸葛亮', '诸葛亮']);
+  await page.screenshot({ path: path.join(output, 'yjcm-general-filter-order.png') });
+  await query.fill('陆逊');
+  const allGenerals = generalFilters.getByRole('button', { name: '全部', exact: true });
+  const plotLuxun = generalFilters.getByRole('button', { name: '谋陆逊', exact: true });
+  const resultRows = picker.locator('[data-result]');
+  assert.equal(await generalFilters.getByRole('button', { name: /界陆逊|体验/ }).count(), 0);
+  assert.equal(await allGenerals.getAttribute('aria-pressed'), 'true');
+  assert.match(await resultRows.first().getAttribute('title'), /神秀峥嵘.*武陆逊/);
+  const slowPreviewRequest = page.waitForRequest(request => request.url().endsWith('/seat/static/523101.png'));
+  await resultRows.first().click();
+  await slowPreviewRequest;
+  assert.equal(await apply.isEnabled(), true);
+  await plotLuxun.press('Enter');
+  assert.equal(await plotLuxun.getAttribute('aria-pressed'), 'true');
+  assert.equal(await apply.isEnabled(), true, 'filtering preserves the chosen artwork');
+  assert.equal(await picker.locator('.footer p').textContent(), '立绘 · 武陆逊 · 神秀峥嵘 #523101');
+  assert.equal(await query.inputValue(), '陆逊');
+  assert.equal(await resultRows.count(), 2);
+  assert.equal(await resultRows.filter({ hasText: '动态' }).count(), 1);
+  assert.ok((await resultRows.allTextContents()).every(text => text.includes('谋陆逊 · #')));
+  await allGenerals.click();
+  assert.match(await resultRows.first().getAttribute('title'), /神秀峥嵘.*武陆逊/);
+  await picker.locator('img:not([hidden])').first().waitFor();
+  await page.screenshot({ path: path.join(output, 'yjcm-search-results.png') });
+  await query.fill('界夏侯惇');
+  await picker.getByRole('button', { name: /经典形象.*夏侯惇.*101801/ }).click();
+  const mergedVoices = picker.getByRole('group', { name: '外服技能' });
+  assert.equal(await mergedVoices.getByRole('button', { name: '刚烈', exact: true }).count(), 1);
+  assert.equal(await mergedVoices.getByRole('button', { name: '清俭', exact: true }).count(), 1);
+  finishSlowPreview();
+  await picker.getByText('局内预览加载失败').waitFor();
+  assert.equal(await page.evaluate(() => matchSelectorFixture.avatar.skinTex.visible), true,
+    'a late preview cannot replace the avatar after a different selection fails');
+  await page.screenshot({ path: path.join(output, 'yjcm-merged-voices.png') });
+  await page.keyboard.press('Escape');
+  await picker.waitFor({ state: 'detached' });
+  const savedBeforePreview = await page.evaluate(() => matchSelectorFixture.settings.get('localSkin.1001.101', null));
+  await page.mouse.click(crossButton.x, crossButton.y);
+  await chooseSkin();
+  await picker.getByRole('img', { name: '青梅煮酒预览' }).waitFor();
+  await visibleSeatPreview();
+  assert.deepEqual(await page.evaluate(() => {
+    const { avatar, local, settings, useSkill, played } = matchSelectorFixture;
+    useSkill(31);
+    return [avatar.skinTex.visible, local.has(local.ownPortraitTarget(101)), settings.get('localSkin.1001.101', null), played.pop()];
+  }), [false, false, savedBeforePreview, 'native:31'], 'preview changes the seat picture without applying it or changing voice');
+  await page.screenshot({ path: path.join(output, 'yjcm-preview.png') });
+  const previewImage = await page.screenshot({ clip: { x: 1016, y: 616, width: 138, height: 188 } });
+  const previewPixel = await samplePixels(previewImage, [[4, 4], [133, 183]]);
+  assert.ok(previewPixel.every(rgb => rgb.every((channel, index) => Math.abs(channel - [34, 56, 51][index]) <= 2)),
+    'the seat is visible through the lighter backdrop');
+  await page.keyboard.press('Escape');
+  await picker.waitFor({ state: 'detached' });
+  assert.deepEqual(await page.evaluate(() => {
+    const { avatar } = matchSelectorFixture;
+    return [avatar.skinTex.visible, Boolean(avatar.getChildByName('sgs-local-skin-seat-preview'))];
+  }), [true, false], 'closing an unconfirmed preview restores native rendering');
+  await page.mouse.click(crossButton.x, crossButton.y);
+  await chooseSkin();
+  await visibleSeatPreview();
+  await picker.getByRole('img', { name: '青梅煮酒预览' }).waitFor();
+  const beforeApply = windowPictures().filter(path => path === 'window/200102.png').length;
+  const missingWindow = page.waitForResponse(response => response.url().endsWith('/window/200102.png'));
+  await apply.click();
+  await picker.waitFor({ state: 'detached' });
+  assertFullImageFallback();
+  assert.equal(await portrait(), true);
+  assert.equal(windowPictures().filter(path => path === 'window/200102.png').length, beforeApply + 1);
+  assert.equal((await missingWindow).status(), 404);
+  await page.mouse.move(1030, 630);
+  await page.waitForFunction(() => matchSelectorFixture.mask.openTip?.generalHead.skin === 'res/current-tip.png');
+  await leaveSeat();
+  const seatImage = await page.screenshot({ path: path.join(output, 'yjcm-seat-crop.png'), clip: { x: 1016, y: 616, width: 138, height: 188 } });
+  const seatPixel = await samplePixels(seatImage, [[4, 4], [133, 183], [3, 4], [134, 183]]);
+  assert.deepEqual(seatPixel.slice(0, 2), [[40, 67, 62], [40, 67, 62]], 'trimmed artwork reaches both corners of the native portrait');
+  assert.ok(seatPixel.slice(2).every(color => color.join() !== '40,67,62'), 'portrait pixels stay inside the seat');
+  await page.evaluate(() => {
+    const { avatar } = matchSelectorFixture;
+    avatar.size(65, 180);
+    avatar.scrollRect = new Laya.Rectangle(36, 0, 65, 180);
+  });
+  await page.waitForFunction(() => {
+    const sprite = matchSelectorFixture.avatar.getChildByName('sgs-local-skin-portrait');
+    return sprite.x === 36 && sprite.width === 65 && sprite.scrollRect.width === 65;
+  });
+  await page.evaluate(() => { const { avatar } = matchSelectorFixture; avatar.scrollRect = null; avatar.size(130, 180); });
+  assert.equal(await page.evaluate(() => Boolean(matchSelectorFixture.owner.parent)), false);
+  assert.equal(await page.evaluate(() => matchSelectorFixture.calls.filter(([type]) => type === 'skin').length), 1);
+  await page.evaluate(() => matchSelectorFixture.mountToolbox());
+  const toolboxEntry = page.getByRole('button', { name: '一将成名皮肤' });
+  await toolboxEntry.click();
+  await chooseSkin();
+  await visibleSeatPreview();
+  assert.equal(await page.evaluate(() => matchSelectorFixture.avatar.getChildByName('sgs-local-skin-portrait').visible), false);
+  await picker.getByRole('button', { name: '关闭' }).click();
+  assert.deepEqual(await page.evaluate(() => {
+    const { avatar } = matchSelectorFixture;
+    return [avatar.skinTex.visible, avatar.getChildByName('sgs-local-skin-portrait').visible];
+  }), [false, true], 'closing the preview reveals the currently applied portrait');
+  await page.getByRole('button', { name: '恢复原皮肤' }).click();
+  assert.equal(await portrait(), false);
+  await toolboxEntry.click();
+  await chooseSkin();
+  await picker.getByRole('img', { name: '青梅煮酒预览' }).waitFor();
+  const cachedSeatRequests = fullPictures();
+  await apply.click();
+  await picker.waitFor({ state: 'detached' });
+  assert.deepEqual(fullPictures(), cachedSeatRequests, 'reapplying uses the already loaded seat portrait');
+  assert.equal(await portrait(), true);
+  await page.evaluate(() => { matchSelectorFixture.open('ChangeSkinWindow'); });
+  await clickSelector(0, 73);
+  assert.equal(await portrait(), false, 'official selection clears the local portrait');
+  await toolboxEntry.click();
+  await query.fill('00000000000000');
+  await picker.getByText('未找到匹配的皮肤').waitFor();
+  await page.keyboard.press('Escape');
+  await picker.waitFor({ state: 'detached' });
+  await page.evaluate(() => {
+    const { avatar } = matchSelectorFixture;
+    avatar.size(146, 172);
+    const nameplate = new Laya.Sprite();
+    nameplate.name = 'fixture-nameplate';
+    nameplate.graphics.drawRect(0, 0, 110, 18, '#9a301e');
+    avatar.addChild(nameplate);
+  });
+  await toolboxEntry.click();
+  await query.fill('武诸葛亮');
+  await picker.getByRole('button', { name: /千古一相.*523001/ }).click();
+  const chosenArt = picker.getByRole('img', { name: '千古一相预览' });
+  await chosenArt.waitFor();
+  const chosenArtSrc = await chosenArt.getAttribute('src');
+  const artworkRequests = windowPictures();
+  const externalSkills = picker.getByRole('group', { name: '外服技能' });
+  const ownSkills = picker.getByRole('group', { name: '武将技能' });
+  await externalSkills.getByRole('button', { name: '保留原配音', exact: true }).click();
+  await ownSkills.getByRole('button', { name: /牌面第三技/ }).click();
+  await picker.getByRole('button', { name: '一键绑定' }).click();
+  assert.equal(await ownSkills.getByRole('button', { name: /谦逊/ }).locator('small').textContent(), '武诸葛亮 · 千古一相 #523001 · 尽瘁');
+  assert.equal(await ownSkills.getByRole('button', { name: /牌面第三技/ }).locator('small').textContent(), '保留原配音');
+  await externalSkills.getByRole('button', { name: '随机', exact: true }).click();
+  await ownSkills.getByRole('button', { name: /连营/ }).click();
+  assert.equal(await ownSkills.getByRole('button', { name: /连营/ }).locator('small').textContent(), '随机配音 · 武诸葛亮 · 千古一相 #523001');
+  const [zhugeSkill, zhugeDeath] = await Promise.all(['WuZhuGeLiang_JinCui_01.mp3', 'WuZhuGeLiang_Dead.mp3'].map(auditionFixture));
+  await page.route('https://web.sanguosha.com/x/pc/res/assets/runtime/voice/skin/wuzhugeliang01/**', route =>
+    route.fulfill(route.request().url().endsWith('_Dead.mp3') ? zhugeDeath : zhugeSkill));
+  await picker.getByRole('button', { name: '选配音' }).click();
+  await query.fill('武诸葛');
+  assert.equal(await chosenArt.getAttribute('src'), chosenArtSrc);
+  await picker.getByRole('button', { name: /经典形象.*123001/ }).click();
+  assert.equal(await chosenArt.getAttribute('src'), chosenArtSrc);
+  assert.deepEqual(windowPictures(), artworkRequests, 'browsing voice sources keeps the chosen artwork and skips voice-source art requests');
+  await externalSkills.getByRole('button', { name: '尽瘁', exact: true }).click();
+  await ownSkills.getByRole('button', { name: /牌面第四技/ }).click();
+  await externalSkills.getByRole('button', { name: '阵亡', exact: true }).click();
+  await ownSkills.getByRole('button', { name: /阵亡/ }).click();
+  await picker.locator('.voice-playback[data-playing]').waitFor();
+  assert.match(await picker.locator('audio').getAttribute('src'), /wuzhugeliang01\/WuZhuGeLiang_Dead\.mp3$/i);
+  assert.equal(await ownSkills.getByRole('button', { name: /牌面第四技/ }).locator('small').textContent(), '武诸葛亮 · 经典形象 #123001 · 尽瘁');
+  assert.equal(await ownSkills.getByRole('button', { name: /阵亡/ }).locator('small').textContent(), '武诸葛亮 · 经典形象 #123001 · 阵亡');
+  assert.equal(await ownSkills.getByRole('button', { name: /谦逊/ }).locator('small').textContent(), '武诸葛亮 · 千古一相 #523001 · 尽瘁');
+  assert.equal(await picker.locator('.footer p').textContent(), '立绘 · 武诸葛亮 · 千古一相 #523001');
+  const alignedVoiceRows = rows => rows.length === 5 && rows.slice(1).every((row, i) =>
+    row.left === rows[i].left && row.width === rows[i].width && row.top >= rows[i].bottom);
+  const voiceRowBounds = rows => rows.map(row => row.getBoundingClientRect().toJSON());
+  const ownVoiceRows = ownSkills.locator('button');
+  assert.equal(alignedVoiceRows(await ownVoiceRows.evaluateAll(voiceRowBounds)), true);
+  await page.screenshot({ path: path.join(output, 'yjcm-voice-bindings.png') });
+  for (const width of [248, 280, 420]) {
+    await page.setViewportSize({ width, height: 400 });
+    for (const offset of [-2, -1, 0, 2]) {
+      assert.equal(await picker.evaluate((host, { width, offset }) => {
+        host.style.setProperty('--sgs-font-offset', offset + 'px');
+        const dialog = host.shadowRoot.querySelector('dialog');
+        const boxes = [...dialog.querySelectorAll('.body, .selection, .voice-group, .footer')];
+        const bounds = dialog.getBoundingClientRect();
+        return Math.abs(bounds.width - (width - 24)) < 1 && boxes.every(box => box.scrollWidth <= box.clientWidth + 1) &&
+          parseFloat(getComputedStyle(dialog).fontSize) === 14 + offset;
+      }, { width, offset }), true);
+      assert.equal(alignedVoiceRows(await ownVoiceRows.evaluateAll(voiceRowBounds)), true);
+    }
+    if (width === 248) {
+      await picker.evaluate(host => {
+        for (const [key, value] of Object.entries({ scheme: 'light', bg: '#f7f3e9', text: '#372d1d',
+          border: '#b8a685', muted: '#665943', accent: '#825621', surface: '#eee6d5', raised: '#e5d8bd' })) {
+          host.style.setProperty('--sgs-' + key, value);
+        }
+        host.shadowRoot.querySelector('.voice-own').scrollIntoView({ block: 'end' });
+      });
+      await page.screenshot({ path: path.join(output, 'yjcm-voice-narrow-light.png') });
+    }
+  }
+  await page.setViewportSize({ width: 1200, height: 850 });
+  await apply.click();
+  await picker.waitFor({ state: 'detached' });
+  assert.deepEqual(fullPictures().slice(-2), ['seat/static/523001.png', 'big/static/523001.png']);
+  assert.equal(windowPictures().at(-1), 'window/523001.png');
+  await page.mouse.move(1030, 630);
+  await page.waitForFunction(() => matchSelectorFixture.mask.openTip?.generalHead.skin === 'res/current-tip.png');
+  const nativeHeadX = await page.evaluate(() => matchSelectorFixture.mask.openTip.generalHead.x);
+  finishWindow();
+  await page.waitForFunction(() => matchSelectorFixture.mask.openTip?.generalHead.texture?.width === 321);
+  const assertWindowPreview = () => page.evaluate(nativeX => {
+    const tip = matchSelectorFixture.mask.openTip;
+    const { generalHead: head, contentContainer: panel } = tip;
+    const start = tip.localToGlobal(new Laya.Point(head.x, head.y), true);
+    const width = head.texture.width * head.scaleX, height = head.texture.height * head.scaleY;
+    return head.visible && head.skin === '' && head.texture.width === 321 && head.texture.height === 419 &&
+      head.scaleX === head.scaleY && width >= 279 && width <= 280.01 && height <= 366.01 &&
+      head.x === nativeX && head.x + width > panel.x && tip.getChildIndex(head) < tip.getChildIndex(panel) &&
+      start.x >= 7.99 && start.x + width <= Laya.stage.width - 7.99 &&
+      start.y >= 7.99 && start.y + height <= Laya.stage.height - 7.99;
+  }, nativeHeadX);
+  assert.equal(await assertWindowPreview(), true, 'the complete window art uses the native anchor behind the skill panel');
+  const translucentPoint = await page.evaluate(() => {
+    const { generalHead: head } = matchSelectorFixture.mask.openTip;
+    const point = head.localToGlobal(new Laya.Point(45, 62), true);
+    return [Math.round(point.x), Math.round(point.y)];
+  });
+  const composite = await page.screenshot();
+  await page.evaluate(() => { matchSelectorFixture.mask.openTip.generalHead.alpha = 0; });
+  const underlay = await page.screenshot();
+  await page.evaluate(() => { matchSelectorFixture.mask.openTip.generalHead.alpha = 1; });
+  const [foreground] = await samplePixels(composite, [translucentPoint]);
+  const [background] = await samplePixels(underlay, [translucentPoint]);
+  const expected = [224, 100, 60].map((channel, index) => Math.round((channel + background[index]) / 2));
+  assert.ok(foreground.every((channel, index) => Math.abs(channel - expected[index]) <= 2),
+    `translucent window art blends with the scene: ${foreground} expected ${expected}`);
+  const played = await page.evaluate(() => {
+    const f = matchSelectorFixture;
+    const start = f.played.length;
+    for (const id of [31, 32, 32, 33, 34]) f.useSkill(id);
+    f.useDamageSkill(33, 'native:retained-hurt');
+    f.useDamageSkill(31, '');
+    f.useDamageSkill(31, 'native:hurt');
+    f.useSkill(35);
+    f.useDeath();
+    return f.played.slice(start);
+  });
+  assert.match(played.at(0), /wuzhugeliang02\/WuZhuGeLiang_JinCui/i);
+  assert.match(played.at(1), /^https:\/\/web\.sanguosha\.com\//);
+  assert.notEqual(played.at(1), played.at(2), 'unbound consecutive playback uses distinct clips');
+  assert.deepEqual(played.slice(3, 6), ['native:33', 'native:34', 'native:retained-hurt']);
+  assert.equal(played.at(6), '', 'damage without a native voice trigger stays quiet');
+  assert.match(played.at(7), /JinCui/i);
+  assert.match(played.at(8), /wuzhugeliang01\/WuZhuGeLiang_JinCui/i);
+  assert.match(played.at(9), /wuzhugeliang01\/WuZhuGeLiang_Dead/i);
+  await page.screenshot({ path: path.join(output, 'yjcm-window-preview.png') });
+  const desktopX = await page.evaluate(() => {
+    const tip = matchSelectorFixture.mask.openTip;
+    const previous = tip.x;
+    tip.x = 42;
+    return previous;
+  });
+  await page.waitForFunction(nativeX => {
+    const tip = matchSelectorFixture.mask.openTip, head = tip.generalHead;
+    const start = tip.localToGlobal(new Laya.Point(head.x, head.y), true);
+    const width = head.texture.width * head.scaleX;
+    return head.visible && head.scaleX === head.scaleY && Math.abs(start.x - (42 + nativeX)) < .01 &&
+      Math.abs(width - 144) < .01;
+  }, nativeHeadX);
+  await page.screenshot({ path: path.join(output, 'yjcm-window-preview-narrow.png') });
+  await page.evaluate(() => { matchSelectorFixture.mask.openTip.x = -12; });
+  await page.waitForFunction(() => {
+    const tip = matchSelectorFixture.mask.openTip, head = tip.generalHead;
+    const start = tip.localToGlobal(new Laya.Point(head.x, head.y), true);
+    return head.visible && Math.abs(start.x - 8) < .01 && Math.abs(head.texture.width * head.scaleX - 90) < .01;
+  });
+  await page.evaluate(x => { matchSelectorFixture.mask.openTip.x = x; }, desktopX);
+  await page.waitForFunction(() => matchSelectorFixture.mask.openTip.generalHead.scaleX * 321 >= 279);
+  await leaveSeat();
+  const alignedSeat = await page.screenshot({
+    path: path.join(output, 'yjcm-seat-nameplate.png'), clip: { x: 1020, y: 620, width: 146, height: 172 },
+  });
+  assert.deepEqual(await samplePixels(alignedSeat, [[80, 10], [80, 65], [114, 8], [140, 8], [140, 170]]),
+    [[154, 48, 30], [213, 184, 101], [40, 67, 62], [40, 67, 62], [40, 67, 62]],
+    'the complete source fills the top of the seat and leaves the native nameplate in front');
+  const beforeWarm = fullPictures().length;
+  assert.deepEqual(await page.evaluate(() => matchSelectorFixture.nextMatch(undefined, true, false, 4)), [false, true]);
+  assert.equal(fullPictures().length, beforeWarm, 'a warm remembered skin is ready at first paint without a portrait request');
+  assert.equal(await page.evaluate(() => {
+    matchSelectorFixture.useSkill(33);
+    return matchSelectorFixture.played.at(-1);
+  }), 'native:33', 'the original skin voice is retained in the next match');
+  assert.match(await page.evaluate(() => {
+    matchSelectorFixture.useSkill(31);
+    return matchSelectorFixture.played.at(-1);
+  }), /JinCui/i, 'confirmed bindings and cross-server art restore in the next match');
+  assert.match(await page.evaluate(() => {
+    matchSelectorFixture.useDeath();
+    return matchSelectorFixture.played.at(-1);
+  }), /wuzhugeliang01\/WuZhuGeLiang_Dead/i, 'death voice from the alternate skin restores in the next match');
+  const savedBeforeCold = await page.evaluate(() => {
+    const f = matchSelectorFixture;
+    const saved = f.settings.get('localSkin.1001.101');
+    f.settings.set('localSkin.1001.101', { kind: 'cross', id: 523101, general: '武陆逊' });
+    return saved;
+  });
+  const coldRequests = Promise.all([
+    page.waitForRequest(request => request.url().endsWith('/seat/static/523101.png')),
+    page.waitForRequest(request => request.url().endsWith('/big/static/523101.png'), { timeout: 3000 }),
+  ]);
+  assert.deepEqual(await page.evaluate(() => matchSelectorFixture.nextMatch(undefined, true, true, 3, true)), [false, false]);
+  await coldRequests; // The matching full artwork starts while the seat request is still held open.
+  assert.equal(await page.evaluate(() => matchSelectorFixture.avatar.skinTex.visible), false);
+  finishColdSeat();
+  await page.waitForFunction(() => matchSelectorFixture.avatar.getChildByName('sgs-local-skin-portrait'));
+  await page.evaluate(() => {
+    window.finishSkinSkills();
+    matchSelectorFixture.settings.set('localSkin.1001.101', { kind: 'cross', id: 123101, general: '武陆逊' });
+  });
+  assert.deepEqual(await page.evaluate(() => matchSelectorFixture.nextMatch(undefined, true)), [false, false]);
+  await page.waitForFunction(() => matchSelectorFixture.avatar.skinTex.visible &&
+    !matchSelectorFixture.avatar.getChildByName('sgs-local-skin-portrait'));
+  await page.evaluate(saved => {
+    const f = matchSelectorFixture;
+    const { ui } = f;
+    const before = ui.effectSprite.numChildren;
+    ui.RePlayDebutEffect();
+    const debut = ui.effectSprite.getChildAt(before);
+    if (!debut?.played || !debut.EffectUrl.endsWith('/yinlongkuang.sk')) throw Error('恢复原皮肤后未还原武将等阶入场特效');
+    debut.destroy(true);
+    f.settings.set('localSkin.1001.101', saved);
+    f.nextMatch();
+  }, savedBeforeCold);
+
+  for (const id of [1163001, 1163002]) {
+    for (const [directory, synthetic] of [['seat/static', seatArt], ['big/static', bigArt], ['window', windowArt]]) {
+      const resource = `${directory}/${id}.png`;
+      officialArt.set(resource, officialFormDir ? await readFile(path.join(officialFormDir, resource.replaceAll('/', '-'))) : synthetic);
+    }
+  }
+  let finishAlternate;
+  const alternateGate = new Promise(resolve => { finishAlternate = resolve; });
+  const alternateSeatUrl = 'https://web.sanguosha.com/x/pc/res/assets/runtime/general/seat/static/1163002.png';
+  await page.route(alternateSeatUrl, async route => {
+    await alternateGate;
+    await route.fulfill({ headers: { 'access-control-allow-origin': '*' }, contentType: 'image/png',
+      body: officialArt.get('seat/static/1163002.png') });
+  });
+  await page.route('https://web.sanguosha.com/x/pc/res/assets/runtime/voice/skin/mouzhouyu*/**', route =>
+    route.fulfill({ headers: { 'access-control-allow-origin': '*' }, contentType: 'audio/wav', body: silentClip }));
+  await page.evaluate(() => {
+    const f = matchSelectorFixture, render = new Laya.Sprite(), seatIndex = new Laya.Sprite();
+    render.pos(1020, 620);
+    render.zOrder = 50;
+    Laya.stage.addChild(render);
+    seatIndex.pos(-41, 145);
+    seatIndex.size(32, 32);
+    seatIndex.graphics.drawCircle(16, 16, 15, '#d49445', '#4b2819', 2);
+    Object.defineProperties(seatIndex, { renderX: { get() { return this.x; } }, renderY: { get() { return this.y; } },
+      renderWidth: { get() { return this.width; } }, renderHeight: { get() { return this.height; } } });
+    render.addChild(seatIndex);
+    Object.assign(f.ui.otherTopManager, { render, seatIndex });
+    f.scope.add(() => render.destroy(true));
+  });
+  const nativeAppearance = () => page.evaluate(() => {
+    const { generalCard } = matchSelectorFixture.avatar;
+    return [generalCard.SkinId, generalCard.JueXingState];
+  });
+  const appearanceBeforeForms = await nativeAppearance();
+  await toolboxEntry.click();
+  await query.fill('谋周瑜');
+  await picker.getByRole('button', { name: /经典形象.*1163001/ }).click();
+  await picker.getByRole('img', { name: '经典形象预览' }).waitFor();
+  const rules = page.locator('[data-sgs-skin-form-rules]');
+  await page.evaluate(() => matchSelectorFixture.settings.set('formRule.1001.101.cross.1163001', {
+    mode: 'custom', rules: [{ kind: 'none' }, { kind: 'every', times: 2, skills: [36] }],
+  }));
+  await picker.getByRole('button', { name: '形态规则' }).click();
+  await rules.getByText('旧规则绑定了其他武将的技能，请重新选择。').waitFor();
+  const reverse = rules.getByRole('group', { name: '形态二 → 形态一' });
+  const reverseSkill = reverse.getByLabel('技能 1', { exact: true });
+  assert.deepEqual(await reverseSkill.locator('option').allTextContents(), ['选择技能', '谦逊', '连营', '牌面第三技', '牌面第四技']);
+  assert.equal(await reverseSkill.inputValue(), '');
+  await reverseSkill.selectOption('31');
+  await rules.getByRole('button', { name: '确认规则' }).click();
+  await picker.getByRole('button', { name: '选配音' }).click();
+  await picker.getByRole('button', { name: /江山如画.*5163001/ }).click();
+  await externalSkills.getByRole('button', { name: '英谋', exact: true }).click();
+  await ownSkills.getByRole('button', { name: /^谦逊 / }).click();
+  await externalSkills.getByRole('button', { name: '保留原配音', exact: true }).click();
+  await ownSkills.getByRole('button', { name: /^牌面第三技 / }).click();
+  await apply.click();
+  await picker.waitFor({ state: 'detached' });
+  const formState = () => page.evaluate(() => {
+    const { render, seatIndex } = matchSelectorFixture.ui.otherTopManager;
+    const button = render.getChildByName('sgs-yjcm-seat-form');
+    return [button?.getChildByName('sgs-yjcm-form-number').text ?? null, seatIndex.alpha, Boolean(button?.visible)];
+  });
+  const formVoice = () => page.evaluate(() => {
+    const f = matchSelectorFixture;
+    f.useSkill(31);
+    f.useSkill(32);
+    f.useSkill(33);
+    f.useDeath();
+    return f.played.slice(-4).map(url => url.split('/').at(-2) ?? url);
+  });
+  assert.deepEqual(await formState(), ['1/2', 0, true]);
+  assert.deepEqual(await formVoice(), ['mouzhouyu02', 'mouzhouyu01', 'native:33', 'mouzhouyu01']);
+  const formRegion = { x: 965, y: 616, width: 208, height: 189 };
+  const firstForm = await page.screenshot({ path: path.join(output, 'yjcm-seat-form-1.png'), clip: formRegion });
+  const nextFormRequest = page.waitForRequest(request => request.url() === alternateSeatUrl);
+  await page.mouse.click(995, 781);
+  await nextFormRequest;
+  assert.deepEqual(await formState(), ['1/2', 0, true], 'the previous form remains active while the new portrait loads');
+  assert.deepEqual(await formVoice(), ['mouzhouyu02', 'mouzhouyu01', 'native:33', 'mouzhouyu01']);
+  finishAlternate();
+  await page.waitForFunction(() => matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-yjcm-seat-form')
+    ?.getChildByName('sgs-yjcm-form-number').text === '2/2');
+  assert.deepEqual(await formVoice(), ['mouzhouyu04', 'mouzhouyu03', 'native:33', 'mouzhouyu03']);
+  const secondForm = await page.screenshot({ path: path.join(output, 'yjcm-seat-form-2.png'), clip: formRegion });
+  if (officialFormDir) {
+    const points = [[71, 18], [126, 101], [187, 79]];
+    assert.notDeepEqual(await samplePixels(firstForm, points), await samplePixels(secondForm, points));
+  }
+  // Route the keyboard test to the game instead of the restored toolbox focus.
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-yjcm-seat-form')
+    ?.getChildByName('sgs-yjcm-form-number').text === '1/2');
+  assert.deepEqual(await formVoice(), ['mouzhouyu02', 'mouzhouyu01', 'native:33', 'mouzhouyu01']);
+  assert.deepEqual(await nativeAppearance(), appearanceBeforeForms);
+  assert.equal(await page.evaluate(() => matchSelectorFixture.settings.get('localSkin.1001.101').id), 1163001);
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-yjcm-seat-form')
+    ?.getChildByName('sgs-yjcm-form-number').text === '2/2');
+  await page.evaluate(() => matchSelectorFixture.confirmSkill(36));
+  assert.deepEqual(await formState(), ['2/2', 0, true]);
+  await page.evaluate(() => matchSelectorFixture.confirmSkill(31));
+  assert.deepEqual(await formState(), ['2/2', 0, true]);
+  await page.evaluate(() => matchSelectorFixture.confirmSkill(31));
+  await page.waitForFunction(() => matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-yjcm-seat-form')
+    ?.getChildByName('sgs-yjcm-form-number').text === '1/2');
+  await page.evaluate(() => matchSelectorFixture.local.reset(matchSelectorFixture.local.ownPortraitTarget(101)));
+  assert.deepEqual(await formState(), [null, 1, false], 'reset restores the native seat marker');
+
+  await page.evaluate(() => {
+    const f = matchSelectorFixture;
+    f.enableDualNative();
+    f.settings.set('unlockSkin', true);
+    f.open('ChangeSkinWindow');
+  });
+  await clickSelector(0, 136);
+  await rules.getByText('小于3血切换形态2', { exact: true }).waitFor();
+  await rules.getByRole('button', { name: '自定义' }).click();
+  const forward = rules.getByRole('group', { name: '形态一 → 形态二' });
+  await forward.getByLabel('触发条件').selectOption('every');
+  await forward.getByLabel('技能 1', { exact: true }).selectOption('32');
+  await reverse.getByLabel('触发条件').selectOption('hp');
+  await reverse.getByLabel('体力关系').selectOption('gte');
+  await reverse.getByLabel('体力阈值').fill('3');
+  await page.screenshot({ path: path.join(output, 'dual-form-rules.png') });
+  for (const width of [248, 280, 420]) {
+    await page.setViewportSize({ width, height: 480 });
+    for (const offset of [-1, 0, 2, 4]) {
+      await rules.evaluate((node, value) => node.style.setProperty('--sgs-font-offset', value + 'px'), offset);
+      assert.equal(await rules.getByRole('dialog').evaluate(dialog =>
+        dialog.scrollWidth <= dialog.clientWidth &&
+        [...dialog.querySelectorAll('.sgs-segments button')].every(button => button.scrollWidth <= button.clientWidth)), true,
+        `form editor fits at ${width}px and font offset ${offset}`);
+    }
+  }
+  await page.setViewportSize({ width: 280, height: 480 });
+  await rules.evaluate(node => {
+    for (const [key, value] of Object.entries({ scheme: 'light', surface: '#faf5e8', bg: '#fffaf2', raised: '#eee7d7',
+      border: '#c2b598', muted: '#625843', text: '#372e1d', accent: '#815612' })) node.style.setProperty('--sgs-' + key, value);
+  });
+  await page.screenshot({ path: path.join(output, 'dual-form-rules-narrow-light.png') });
+  await page.setViewportSize({ width: 1200, height: 850 });
+  await rules.getByRole('button', { name: '确认规则' }).click();
+  await rules.waitFor({ state: 'detached' });
+  await page.evaluate(() => matchSelectorFixture.confirmSkill(32));
+  const nativeForm = () => page.evaluate(() => matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-local-seat-form')
+    ?.getChildByName('sgs-yjcm-form-number').text);
+  await page.waitForFunction(() => matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-local-seat-form')
+    ?.getChildByName('sgs-yjcm-form-number').text === '2/2');
+  assert.equal(await nativeForm(), '2/2');
+  await page.evaluate(() => matchSelectorFixture.local.reset(matchSelectorFixture.local.refresh().find(target => target.isSelf)));
+  assert.equal(await nativeForm(), undefined);
+
+  if (officialMotionDir) {
+    await page.evaluate(() => { matchSelectorFixture.openYjcm({ initialQuery: '赵云' }); });
+    const linked = picker.getByRole('button', { name: /武动乾坤.*赵云.*600501.*动态/ });
+    assert.equal(await picker.getByRole('button', { name: /武动乾坤/ }).count(), 1);
+    await linked.click();
+    const moving = picker.getByRole('img', { name: '武动乾坤动态预览' });
+    await moving.waitFor();
+    const frame = await moving.evaluate(canvas => canvas.toDataURL());
+    await page.waitForFunction(previous => document.querySelector('[data-sgs-yjcm-skins]').shadowRoot.querySelector('canvas')?.toDataURL() !== previous, frame);
+    await page.screenshot({ path: path.join(output, 'yjcm-dynamic-picker.png') });
+    await checkIndexLayout();
+    await page.keyboard.press('Escape');
+    await picker.waitFor({ state: 'detached' });
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.evaluate(() => { matchSelectorFixture.openYjcm({ initialQuery: '赵云' }); });
+    const previousMotionRequests = pictureRequests.filter(resource => resource.startsWith('big/dynamic/')).length;
+    await linked.click();
+    await picker.getByRole('img', { name: '武动乾坤预览', exact: true }).waitFor();
+    assert.equal(await moving.count(), 0);
+    assert.equal(pictureRequests.filter(resource => resource.startsWith('big/dynamic/')).length, previousMotionRequests);
+    await page.keyboard.press('Escape');
+    await picker.waitFor({ state: 'detached' });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+    await page.evaluate(() => matchSelectorFixture.open('ChangeSkinWindow'));
+    await page.mouse.click(crossButton.x, crossButton.y);
+    await query.fill('赵云');
+    await linked.click();
+    const seatMotion = () => matchSelectorFixture.avatar.getChildByName('sgs-local-skin-seat-preview')?.getChildByName('sgs-yjcm-idle');
+    await page.waitForFunction(seatMotion);
+    const avatar = await page.evaluateHandle(seatMotion);
+    await apply.click();
+    await picker.waitFor({ state: 'detached' });
+    assert.equal(await avatar.evaluate(actor => actor.destroyed), true);
+    await page.waitForFunction(() => matchSelectorFixture.avatar.getChildByName('sgs-local-skin-portrait')?.getChildByName('sgs-yjcm-idle'));
+    await page.screenshot({ path: path.join(output, 'yjcm-dynamic-seat.png') });
+
+    const motionSeat = () => {
+      const { avatar, motionScene } = matchSelectorFixture;
+      const portrait = avatar.getChildByName('sgs-local-skin-portrait');
+      const actor = portrait?.getChildByName('sgs-yjcm-idle');
+      const overhang = motionScene.getChildByName('sgs-yjcm-idle-overhang');
+      return actor && { x: actor.x, y: actor.y, scaleX: actor.scaleX, scaleY: actor.scaleY,
+        width: portrait.width, height: portrait.height, overhang: overhang?.height };
+    };
+    await page.evaluate(async () => {
+      const fixture = matchSelectorFixture;
+      const { avatar, game, ui, local, settings } = fixture;
+      local.reset(local.refresh().find(target => target.isSelf));
+      const parent = avatar.parent, index = parent.getChildIndex(avatar), getScene = game.getScene;
+      const previousCountry = ui.countryUI, previousFrame = ui.otherTopManager.selfCover;
+      const unlockDynamic = settings.get('unlockDynamic', false);
+      settings.set('unlockDynamic', false);
+      const scene = fixture.motionScene = parent.addChild(new Laya.Sprite());
+      const seatView = scene.addChild(new Laya.Sprite());
+      seatView.addChild(avatar);
+      const chat = scene.chatViewUI = scene.addChild(new Laya.Sprite());
+      chat.pos(1020, 597);
+      chat.zOrder = 2;
+      const row = chat.bottomButtonBar = chat.addChild(new Laya.Sprite());
+      row.size(146, 18);
+      const input = chat.chatInput = row.addChild(new Laya.Sprite());
+      input.size(146, 18);
+      input.graphics.drawRect(0, 0, 146, 18, '#373029', '#686053', 1);
+      const emoji = chat.superFaceBtn = row.addChild(new Laya.Text());
+      Object.assign(emoji, { text: '☺', color: '#f4c85a', fontSize: 16 });
+      emoji.size(18, 18).pos(123, 0);
+      const plate = scene.addChild(new Laya.Sprite());
+      plate.pos(976, 620);
+      const bar = plate.addChild(new Laya.Sprite());
+      bar.size(94, 20);
+      bar.graphics.drawRect(0, 0, 94, 20, '#2e854c');
+      const name = plate.addChild(new Laya.Text()), glyph = plate.addChild(new Laya.Text());
+      Object.assign(name, { text: '滕芳兰', color: '#f8eddb', fontSize: 17 });
+      name.size(70, 20).pos(22, 0);
+      Object.assign(glyph, { text: '吴', color: '#fff8e8', fontSize: 17 });
+      glyph.size(20, 20);
+      ui.countryUI = { countryBg: bar, countryName: glyph, generalNameTxt: name, textSprite: plate };
+      const cover = ui.otherTopManager.selfCover = seatView.addChild(new Laya.Sprite());
+      cover.pos(1020, 620);
+      cover.graphics.drawRect(.5, .5, 145, 171, null, '#c9ba9d', 2);
+      avatar.getChildByName('fixture-nameplate').visible = false;
+      game.getScene = () => scene;
+      fixture.restoreMotionScene = () => {
+        parent.addChildAt(avatar, index);
+        scene.destroy(true);
+        game.getScene = getScene;
+        settings.set('unlockDynamic', unlockDynamic);
+        ui.countryUI = previousCountry;
+        ui.otherTopManager.selfCover = previousFrame;
+        avatar.getChildByName('fixture-nameplate').visible = true;
+        local.refresh();
+      };
+      avatar.size(146, 172);
+      const [target] = local.refresh();
+      const entry = fixture.motionEntry = { id: 6123201, general: '滕芳兰', name: '皓露沁兰', assets: [[0, '6123201']],
+        motion: { resource: '8123201', files: ['daiji2.sk'] } };
+      fixture.motionPreview = new AbortController();
+      await local.previewYjcm(target, entry, fixture.motionPreview.signal);
+    });
+    const motionChromeFolded = () => {
+      const { motionScene, ui } = matchSelectorFixture;
+      return ui.otherTopManager.selfCover.alpha === 0 && !motionScene.chatViewUI.chatInput.visible;
+    };
+    const motionChromeExpanded = () => {
+      const { motionScene, ui } = matchSelectorFixture;
+      return ui.otherTopManager.selfCover.alpha === 1 && motionScene.chatViewUI.chatInput.visible;
+    };
+    await page.waitForFunction(seatMotion);
+    assert.equal(await page.evaluate(motionChromeExpanded), true, 'a preview leaves both controls expanded');
+    await page.evaluate(async () => {
+      const fixture = matchSelectorFixture;
+      fixture.motionPreview.abort();
+      const [target] = fixture.local.refresh();
+      await fixture.local.applyYjcm(target, fixture.motionEntry, {}, new AbortController().signal);
+    });
+    await page.waitForFunction(motionSeat);
+    await page.waitForFunction(motionChromeFolded);
+    const fullSeat = await page.evaluate(motionSeat);
+    assert.equal(fullSeat.width, 146);
+    assert.ok(Math.abs(fullSeat.scaleX * 190 - fullSeat.width) < .01, 'the authored card face covers the seat width');
+    assert.ok(Math.abs(fullSeat.y - 115 * fullSeat.scaleY) < .01, 'the authored top edge stays flush with the seat');
+    assert.ok(Math.abs(fullSeat.y + 134 * fullSeat.scaleY - fullSeat.height) < .01, 'the bottom of the painted card stays visible');
+    const motionRegion = { x: 1016, y: 596, width: 157, height: 203 };
+    await page.screenshot({ path: path.join(output, 'tengfanglan-dynamic-seat.png'), clip: motionRegion });
+    await page.screenshot({ path: path.join(output, 'yjcm-dynamic-optimized.png'), clip: { x: 974, y: 596, width: 194, height: 199 } });
+    await page.evaluate(() => {
+      const { ui, local, motionScene } = matchSelectorFixture;
+      ui.countryUI.textSprite.getChildByName('sgs-seat-name-toggle').event('click');
+      motionScene.getChildByName('sgs-chat-row-toggle').event('click');
+      local.refresh();
+    });
+    assert.equal(await page.evaluate(motionChromeExpanded), true, 'manual expansion survives a refresh with the same motion');
+
+    await page.evaluate(() => {
+      const { avatar, local } = matchSelectorFixture;
+      avatar.size(74, 172);
+      avatar.scrollRect = new Laya.Rectangle(36, 0, 74, 172);
+      local.refresh();
+    });
+    await page.waitForFunction(() => matchSelectorFixture.avatar.getChildByName('sgs-local-skin-portrait')?.width === 74);
+    const halfSeat = await page.evaluate(motionSeat);
+    assert.equal(halfSeat.scaleX, fullSeat.scaleX, 'clipping a dual-general seat preserves the full portrait scale');
+    assert.equal(halfSeat.scaleY, fullSeat.scaleY);
+    assert.equal(halfSeat.y, fullSeat.y);
+    assert.equal(halfSeat.overhang, fullSeat.overhang);
+    assert.ok(Math.abs(halfSeat.x - fullSeat.x + 36) < .001, 'the crop uses the native horizontal viewport offset');
+    await page.evaluate(async () => {
+      const { avatar, local } = matchSelectorFixture;
+      avatar.size(146, 172);
+      avatar.scrollRect = matchSelectorFixture.motionNativeClip = new Laya.Rectangle(0, 0, 146, 172);
+      const [target] = local.refresh();
+      const entry = { id: 5133801, general: '乐貂蝉', name: '月下翩跹', assets: [[0, '5133801']],
+        motion: { resource: '7133801', files: ['daiji2.sk'] } };
+      await local.applyYjcm(target, entry, {}, new AbortController().signal);
+    });
+    await page.waitForFunction(motionSeat);
+    await page.waitForFunction(motionChromeFolded);
+    const yuexiaSeat = await page.evaluate(motionSeat);
+    assert.ok(Math.abs(yuexiaSeat.y - 115 * yuexiaSeat.scaleY) < .01, 'the headdress does not shift the painted panel down');
+    assert.ok(Math.abs(yuexiaSeat.overhang - 20 * yuexiaSeat.scaleY) < .01, 'the authored headroom extends above the seat');
+    assert.ok(Math.abs(yuexiaSeat.y + 134 * yuexiaSeat.scaleY - yuexiaSeat.height) < .01);
+    assert.equal(yuexiaSeat.scaleX, fullSeat.scaleX);
+    assert.equal(yuexiaSeat.scaleY, fullSeat.scaleY);
+    await page.evaluate(() => {
+      const { local, settings } = matchSelectorFixture;
+      settings.set('yjcmDynamicOptimization', false);
+      local.refresh();
+    });
+    assert.equal(await page.evaluate(motionChromeExpanded), true, 'turning off optimization restores both controls while the animation stays active');
+    await page.evaluate(() => {
+      const { avatar } = matchSelectorFixture;
+      avatar.getChildByName('sgs-local-skin-portrait').getChildByName('sgs-yjcm-idle').index = 0;
+    });
+    const topRegion = { x: 1020, y: 598, width: 146, height: 16 };
+    const paintedTop = await page.screenshot({ clip: topRegion });
+    const firstPose = await page.screenshot({ path: path.join(output, 'yuexia-dynamic-seat.png'), clip: motionRegion });
+    await page.evaluate(() => {
+      const { avatar } = matchSelectorFixture;
+      avatar.getChildByName('sgs-local-skin-portrait').getChildByName('sgs-yjcm-idle').index = 45;
+    });
+    const laterPose = await page.screenshot({ path: path.join(output, 'yuexia-dynamic-seat-later.png'), clip: motionRegion });
+    assert.notDeepEqual(laterPose, firstPose, 'a later frame of the original motion is still rendered');
+    await page.evaluate(() => {
+      const { avatar } = matchSelectorFixture;
+      avatar.getChildByName('sgs-local-skin-portrait').getChildByName('sgs-yjcm-idle').index = 0;
+    });
+    await page.evaluate(() => { matchSelectorFixture.motionScene.getChildByName('sgs-yjcm-idle-overhang').visible = false; });
+    assert.notDeepEqual(await page.screenshot({ clip: topRegion }), paintedTop, 'the animated headdress stays visible where it crosses the chat edge');
+    assert.equal(await page.evaluate(() => matchSelectorFixture.avatar.scrollRect === matchSelectorFixture.motionNativeClip), true);
+    await page.evaluate(() => {
+      const { local, settings } = matchSelectorFixture;
+      settings.set('yjcmDynamicOptimization', true);
+      local.refresh();
+    });
+    await page.waitForFunction(motionChromeFolded);
+
+    const missingMotion = page.waitForResponse(response => response.url().endsWith('/700401/daiji2.sk'));
+    await page.evaluate(async () => {
+      const { local } = matchSelectorFixture;
+      const [target] = local.refresh();
+      const entry = local.yjcm.current.findYjcmSkin(700401, '诸葛亮');
+      await local.applyYjcm(target, { ...entry, motion: { resource: '700401', files: ['daiji2.sk'] } }, {}, new AbortController().signal);
+    });
+    assert.equal((await missingMotion).status(), 404);
+    await page.waitForFunction(() => {
+      const portrait = matchSelectorFixture.avatar.getChildByName('sgs-local-skin-portrait');
+      return portrait?.visible && !portrait.getChildByName('sgs-yjcm-idle') &&
+        matchSelectorFixture.ui.otherTopManager.selfCover.alpha === 1 && matchSelectorFixture.motionScene.chatViewUI.chatInput.visible;
+    });
+    assert.equal(await page.evaluate(() => !matchSelectorFixture.motionScene.getChildByName('sgs-yjcm-idle-overhang')), true);
+    await page.evaluate(() => {
+      const fixture = matchSelectorFixture;
+      fixture.local.reset(fixture.local.refresh().find(target => target.isSelf));
+      fixture.restoreMotionScene();
+    });
+  }
+
+  for (const [resource, image] of [['window/193201.png', windowArt], ['seat/static/193201.png', seatArt], ['big/static/193201.png', bigArt]]) {
+    officialArt.set(resource, image);
+  }
+  const paiYiUrls = ['01', '02'].map(suffix =>
+    `https://web.sanguosha.com/x/pc/res/assets/runtime/voice/skin/zhonghui06/ZhongHui_PaiYi_${suffix}.mp3`);
+  for (const url of paiYiUrls) {
+    const clip = await auditionFixture(url.split('/').at(-1));
+    await page.route(url, route => route.fulfill(clip));
+  }
+  await page.evaluate(() => {
+    const f = matchSelectorFixture, { seat } = f.ui;
+    const general = seat.General;
+    const skills = new Set([3913, 3914]);
+    const properties = { CardId: 758, CardName: '界钟会', HasSkill: id => skills.has(id), HasSkillOnlyId: id => skills.has(id) };
+    const saveProperties = (object, keys) => Object.fromEntries(keys.map(key => [key, object[key]]));
+    const oldGeneral = saveProperties(general, Object.keys(properties));
+    const oldSeat = saveProperties(seat, ['GeneralId', ...Object.keys(capturedSeatSkillOwner)]);
+    f.local.reset(f.local.ownPortraitTarget(seat.GeneralId));
+    Object.assign(general, properties);
+    Object.assign(seat, capturedSeatSkillOwner, { GeneralId: 758 });
+    f.settings.set('crossServer', true);
+    f.nextMatch(1001);
+    f.openYjcm({ target: f.local.ownPortraitTarget(758), initialQuery: '钟会' });
+    f.learnPaiYi = () => skills.add(3915);
+    f.restoreGeneral = () => {
+      f.local.reset(f.local.ownPortraitTarget(758));
+      Object.assign(general, oldGeneral);
+      Object.assign(seat, oldSeat);
+    };
+  });
+  await picker.getByRole('button', { name: /界限突破.*193201/ }).click();
+  const paiYiSource = externalSkills.getByRole('button', { name: '排异', exact: true });
+  const paiYiTarget = ownSkills.getByRole('button', { name: /^排异 / });
+  assert.equal(await page.evaluate(() => matchSelectorFixture.ui.seat.GetGeneralBySkillIdOnlyId(3915)), null);
+  assert.equal(await paiYiTarget.locator('small').textContent(), '钟会 · 界限突破 #193201 · 排异');
+  await externalSkills.getByRole('button', { name: '保留原配音', exact: true }).click();
+  await paiYiTarget.click();
+  for (const url of paiYiUrls) {
+    await paiYiSource.click();
+    await picker.locator('.voice-playback[data-playing]').waitFor();
+    assert.equal(await picker.locator('audio').getAttribute('src'), url);
+  }
+  await paiYiTarget.focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await paiYiTarget.getAttribute('aria-pressed'), 'true');
+  await page.screenshot({ path: path.join(output, 'yjcm-derived-paiyi.png') });
+  for (const width of [248, 280, 420]) {
+    await page.setViewportSize({ width: width + 24, height: 480 });
+    for (const offset of [-2, -1, 0, 2]) {
+      assert.equal(await picker.evaluate((host, { width, offset }) => {
+        host.style.setProperty('--sgs-font-offset', offset + 'px');
+        const dialog = host.shadowRoot.querySelector('dialog');
+        const boxes = [...dialog.querySelectorAll('.body, .selection, .voice-group, [data-skill="3915"]')];
+        return Math.abs(dialog.getBoundingClientRect().width - width) < 1 &&
+          boxes.every(box => box.scrollWidth <= box.clientWidth + 1);
+      }, { width, offset }), true, `derived skill fits at ${width}px and font offset ${offset}`);
+    }
+  }
+  await page.setViewportSize({ width: 1200, height: 850 });
+  await apply.click();
+  await picker.waitFor({ state: 'detached' });
+  const paiYiPlayback = await page.evaluate(() => {
+    const f = matchSelectorFixture, start = f.played.length;
+    f.useSkill(3915, { GeneralID: 758 });
+    f.learnPaiYi();
+    f.useSkill(3915, { GeneralID: 758 });
+    f.useSkill(3915, { GeneralID: 758 });
+    const bindings = f.settings.get('localSkin.1001.758').bindings;
+    f.restoreGeneral();
+    return { sounds: f.played.slice(start), bindings };
+  });
+  assert.deepEqual(paiYiPlayback.bindings, { 3915: [440] });
+  assert.equal(paiYiPlayback.sounds[0], 'native:3915');
+  assert.deepEqual(paiYiPlayback.sounds.slice(1).sort(), paiYiUrls);
+
+  await page.evaluate(() => {
+    matchSelectorFixture.settings.set('unlockSkin', true);
+    matchSelectorFixture.open('ChangeSkinWindow');
+  });
+  await page.mouse.click(crossButton.x, crossButton.y);
+  await picker.getByRole('dialog').waitFor();
+  await chooseSkin();
+  await visibleSeatPreview();
   await page.evaluate(() => { matchSelectorFixture.open('ChangeSkinWindow'); matchSelectorFixture.scope.dispose(); });
-  assert.deepEqual(await page.evaluate(() => [Boolean(matchSelectorFixture.action()), matchSelectorFixture.avatar.skinItemID]), [false, 10101]);
+  await picker.waitFor({ state: 'detached' });
+  assert.deepEqual(await page.evaluate(() => {
+    const { avatar } = matchSelectorFixture;
+    return [Boolean(matchSelectorFixture.action()), avatar.skinItemID, avatar.skinTex.visible,
+      Boolean(avatar.getChildByName('sgs-local-skin-seat-preview'))];
+  }), [false, 10101, true, false]);
+  if (officialSeatDir) {
+    // The PNG routes now serve official art for paths previously served by synthetic fixtures.
+    await page.evaluate(() => {
+      matchSelectorFixture.owner.Close();
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.deleteDatabase('sgs-toolbox-cross-portrait');
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+        request.onblocked = () => reject(new Error('Synthetic portrait cache is still open'));
+      });
+    });
+    await setupMatchSelectorFixture();
+    await page.evaluate(() => {
+      const f = matchSelectorFixture;
+      f.owner.Close();
+      f.settings.values.delete('localSkin.1001.101');
+      f.settings.set('crossServer', true);
+      f.nextMatch();
+      f.mountToolbox();
+    });
+    for (const [id, name] of [[123001, '经典形象'], [523001, '千古一相']]) {
+      for (const directory of ['seat', 'big']) {
+        officialArt.set(`${directory}/static/${id}.png`, await readFile(path.join(officialSeatDir, `${directory}-static-${id}.png`)));
+      }
+      officialArt.set(`window/${id}.png`, await readFile(path.join(officialSeatDir, `window-${id}.png`)));
+      await toolboxEntry.click();
+      await query.fill('武诸葛亮');
+      await picker.getByRole('button', { name: new RegExp(name + '.*' + id) }).click();
+      await visibleSeatPreview();
+      await page.screenshot({ path: path.join(output, `yjcm-seat-preview-official-${id}.png`) });
+      await apply.click();
+      await picker.waitFor({ state: 'detached' });
+      assert.deepEqual(fullPictures().slice(-2), [`seat/static/${id}.png`, `big/static/${id}.png`]);
+      const screenshot = await page.screenshot({ path: path.join(output, `yjcm-seat-official-${id}.png`),
+        clip: { x: 1020, y: 620, width: 146, height: 172 } });
+      const edge = await samplePixels(screenshot, [[114, 2], [140, 2], [140, 15]]);
+      assert.ok(edge.every(rgb => rgb.some(channel => channel > 65)), 'official artwork fills the exposed card face');
+      await page.mouse.move(1030, 630);
+      await page.waitForFunction(() => matchSelectorFixture.mask.openTip?.generalHead.texture?.width === 321);
+      assert.equal(await assertWindowPreview(), true);
+      await page.screenshot({ path: path.join(output, `yjcm-window-official-${id}.png`) });
+      const restoration = await page.evaluate(() => {
+        const f = matchSelectorFixture, tip = f.mask.openTip, texture = tip.generalHead.texture;
+        f.local.reset(f.local.ownPortraitTarget(101));
+        return [tip.generalHead.skin, tip.generalHead.x, tip.generalHead.y, tip.generalHead.scaleX,
+          texture.destroyed, Boolean(f.avatar.getChildByName('sgs-local-skin-portrait'))];
+      });
+      assert.deepEqual(restoration, ['res/current-tip.png', 0, 0, 1, true, false]);
+      await leaveSeat();
+    }
+    await page.evaluate(() => matchSelectorFixture.scope.dispose());
+  }
+
+  officialArt.set('window/523101.png', officialPreviewDir ? await readFile(path.join(officialPreviewDir, 'window-523101.png')) : windowArt);
+  const xiongmuClips = await Promise.all(['xiongmu-01.mp3', 'xiongmu-02.mp3'].map(auditionFixture));
+  await page.route('https://web.sanguosha.com/x/pc/res/assets/runtime/voice/skin/wuluxun02/**', route =>
+    route.fulfill(xiongmuClips[route.request().url().endsWith('_01.mp3') ? 0 : 1]));
+  await page.addScriptTag({ content: `window.capturedGeneralSkin={${generalSkinTitle},${generalSkinCards}};` });
+  const hallEntryPosition = await page.evaluate(() => {
+    const { Laya: laya } = window;
+    const scope = new NativeSkinCheck.ResourceScope();
+    const settings = skinFixture.ctx.settings;
+    settings.set('crossServer', false);
+    const game = { isInGame: () => false, getSelf: () => ({ ClientId: 1001 }),
+      loadConfigData: () => Promise.reject(new Error('大厅演练必须沿用本机索引缓存')),
+      getConfigData: name => name === 'character' ? { GameCharacters: { character: [{ a: 302, j: 940, k: 703 }] } } :
+        { GameSpells: { spell: [{ a: 940, c: '龙胆' }, { a: 703, c: '涯角' }] } } };
+    const ctx = { window, document, scope, settings, game, ui: { nativeTheme: NativeSkinCheck.createNativeTheme({ scope, window }) } };
+    const local = NativeSkinCheck.createLocalSkins(ctx);
+    const view = Object.assign(new laya.Sprite(), { generalId: 302, generalInfo: { ItemNameSimpleNoColor: '界赵云', showName: '赵云' },
+      panel: new laya.Sprite(), showSkins: capturedGeneralSkin.showSkins,
+      initskinData() { this.baseSkinVos = ['经典形象', '赤胆龙心', '战场游龙', '武动乾坤']; } });
+    view.panel.UpdateDrawContent = () => {};
+    view.pos(330, 210); view.size(504, 430); view.addChild(view.panel);
+    view.graphics.drawRect(0, 0, view.width, view.height, '#28241f', '#776450', 1);
+    const prior = {};
+    for (const key of ['T$t', 'fO', 'CO', 'JJt', 'AM', 'mNt', 'le', 'p7i']) prior[key] = window[key];
+    window.T$t = class extends laya.Sprite {
+      textureList = [];
+      addDrawChild(node) { this.textureList.push(node); this.addChild(node); }
+    };
+    window.fO = class extends laya.Sprite {
+      constructor() { super(); this.size(300, 25); this.graphics.drawRect(0, 20, 300, 1, '#725644'); }
+      posInteger(x, y) { this.pos(x, y); }
+    };
+    window.CO = class extends laya.Text { posInteger(x, y) { this.pos(x, y); } };
+    window.JJt = { I: () => ({ GetHasAllSKinByGeneralId: () => [17, 18] }) };
+    window.AM = { FZLT: 'Microsoft YaHei' };
+    window.mNt = { GetRes: () => null };
+    window.le = { F: (_, a, b) => a + '/' + b };
+    window.p7i = class extends laya.Sprite {
+      constructor() { super(); this.size(90, 180); this.graphics.drawRect(0, 0, 90, 180, '#302a22', '#776450', 1); }
+      updateInfo(name) {
+        const label = new laya.Text();
+        Object.assign(label, { text: name, color: '#e8d6ad', fontSize: 14, width: 90, y: 155, align: 'center' });
+        this.addChild(label);
+      }
+    };
+    try { capturedGeneralSkin.initTitle.call(view); view.showSkins(); } finally { Object.assign(window, prior); }
+    laya.stage.addChild(view);
+    const openYjcm = NativeSkinCheck.createYjcmPicker(ctx, local);
+    NativeSkinCheck.createGeneralSkinsEntry(ctx, openYjcm);
+    const button = view.skinTitle.getChildByName('sgs-yjcm-general-skins');
+    const title = view.skinTitle.textureList.find(node => node.text === '界赵云');
+    const point = button.localToGlobal(new laya.Point(button.width / 2, button.height / 2), true);
+    const firstCard = view.baseSkinItems[0].localToGlobal(new laya.Point(0, 0), true);
+    window.hallSkinFixture = { view, scope, settings, openYjcm };
+    return { x: point.x, y: point.y, titleGap: title.x - button.x - button.width, cardGap: point.x - button.width / 2 - firstCard.x };
+  });
+  assert.equal(hallEntryPosition.cardGap, 0);
+  assert.ok(hallEntryPosition.titleGap >= 9);
+  await page.screenshot({ path: path.join(output, 'yjcm-hall-entry.png') });
+  await page.mouse.click(hallEntryPosition.x, hallEntryPosition.y);
+  assert.equal(await query.inputValue(), '赵云');
+  assert.equal(await picker.locator('.footer p').textContent(), '界赵云 · 局内仅自己可见');
+  await page.screenshot({ path: path.join(output, 'yjcm-hall-search.png') });
+  const zhaoYun = picker.getByRole('button', { name: /赤胆龙心.*506403/ });
+  await zhaoYun.click();
+  const nativeVoices = picker.getByRole('group', { name: '武将技能' });
+  const longDan = nativeVoices.getByRole('button', { name: /^龙胆 / });
+  const yaJiao = nativeVoices.getByRole('button', { name: /^涯角 / });
+  assert.equal(await longDan.locator('small').textContent(), '赵云 · 赤胆龙心 #506403 · 龙胆');
+  assert.equal(await yaJiao.locator('small').textContent(), '赵云 · 赤胆龙心 #506403 · 涯角');
+  await picker.getByRole('group', { name: '外服技能' }).getByRole('button', { name: '随机', exact: true }).click();
+  await longDan.click();
+  assert.equal(await longDan.locator('small').textContent(), '随机配音 · 赵云 · 赤胆龙心 #506403');
+  await externalSkills.getByRole('button', { name: '保留原配音', exact: true }).click();
+  await yaJiao.click();
+  await picker.getByRole('button', { name: '下次使用' }).click();
+  await picker.waitFor({ state: 'detached' });
+  assert.deepEqual(await page.evaluate(() => hallSkinFixture.settings.get('localSkin.1001.302').bindings), { 940: [], 703: 'native' });
+  await page.keyboard.press('Enter');
+  await zhaoYun.click();
+  assert.equal(await longDan.locator('small').textContent(), '随机配音 · 赵云 · 赤胆龙心 #506403');
+  assert.equal(await yaJiao.locator('small').textContent(), '保留原配音');
+  await query.fill('武陆逊');
+  const wuLuxun = picker.getByRole('button', { name: /神秀峥嵘.*523101/ });
+  await wuLuxun.click();
+  await picker.getByRole('img', { name: '神秀峥嵘预览' }).waitFor();
+  const xiongmu = picker.getByRole('button', { name: '雄幕', exact: true });
+  const audio = picker.locator('audio');
+  for (const suffix of ['01', '02', '01']) {
+    await xiongmu.click();
+    await picker.locator('.voice-playback[data-playing]').waitFor();
+    assert.match(await audio.getAttribute('src'), new RegExp('XiongMu_' + suffix + '\\.mp3$'));
+    assert.equal(await audio.evaluate(node => node.paused), false);
+  }
+  await page.screenshot({ path: path.join(output, 'yjcm-hall-audition.png') });
+  await longDan.click();
+  await audio.evaluate(node => { window.lastHallAudio = node; });
+  await picker.getByRole('button', { name: '下次使用' }).click();
+  await picker.waitFor({ state: 'detached' });
+  assert.deepEqual(await page.evaluate(() => {
+    const f = hallSkinFixture;
+    return [f.settings.get('localSkin.1001.302'), f.settings.get('crossServer'), lastHallAudio.paused, lastHallAudio.hasAttribute('src')];
+  }), [{ kind: 'cross', id: 523101, general: '武陆逊', bindings: { 940: [523] } }, false, true, false]);
+  await page.keyboard.press('Enter');
+  assert.equal(await query.inputValue(), '赵云', 'reopening with the keyboard restores the unprefixed query');
+  await query.fill('乐曹植');
+  await picker.getByRole('button', { name: /经典形象.*1134101/ }).click();
+  for (const [label, filename] of [
+    ['赋乐', 'YueCaoZhi_FuYue_01.mp3'],
+    ['文澜', 'YueCaoZhi_WenLan_01.mp3'],
+    ['阵亡', 'YueCaoZhi_Dead.mp3'],
+  ]) {
+    const url = 'https://web.sanguosha.com/x/pc/res/assets/runtime/voice/skin/yuecaozhi01/' + filename;
+    const sample = await auditionFixture(filename);
+    await page.route(url, route => route.fulfill(sample));
+    await externalSkills.getByRole('button', { name: label, exact: true }).click();
+    await picker.locator('.voice-playback[data-playing]').waitFor();
+    assert.equal(await audio.getAttribute('src'), url);
+    assert.equal(await audio.evaluate(node => node.paused), false);
+  }
+  await page.screenshot({ path: path.join(output, 'yjcm-hall-yue-cao-zhi.png') });
+  await page.evaluate(() => { hallSkinFixture.view.visible = false; });
+  await picker.waitFor({ state: 'detached' });
+  assert.equal(await page.evaluate(() => {
+    const f = hallSkinFixture;
+    const removed = !f.view.skinTitle.getChildByName('sgs-yjcm-general-skins');
+    f.scope.dispose();
+    return removed;
+  }), true);
+
+  const voiceIndexRefresh = await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('sgs-toolbox-yjcm-index-v1', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('catalogue', 'readwrite'), store = tx.objectStore('catalogue');
+        const request = store.get('latest');
+        request.onsuccess = () => {
+          const record = request.result;
+          record.savedAt = Date.now();
+          record.version = 'previous-official-version';
+          delete record.data.voiceSchema;
+          record.data.voiceSkins[193201] = record.data.voiceSkins[193201].map(([general, rows]) =>
+            [general, rows.filter(([skill]) => skill !== 440 && skill !== 1449)]);
+          store.put(record, 'latest');
+        };
+        tx.oncomplete = resolve;
+        tx.onabort = () => reject(tx.error);
+      });
+    } finally { db.close(); }
+    const scope = new NativeSkinCheck.ResourceScope(), loads = [];
+    const index = NativeSkinCheck.createYjcmCatalogue({ scope, window, game: {
+      async loadConfigData(name, { knownVersion }) {
+        loads.push([name, knownVersion ?? null]);
+        return window.yjcmSourceFixture;
+      },
+    } });
+    const hasPaiYi = catalogue => catalogue.yjcmSkillVoices(catalogue.findYjcmSkin(193201, '界钟会')).some(voice => voice.name === '排异');
+    try {
+      await index.warm();
+      const needsRefresh = index.needsRefresh;
+      const before = hasPaiYi(index.cached);
+      const after = hasPaiYi(await index.load());
+      return { needsRefresh, before, after, loads };
+    } finally { scope.dispose(); }
+  });
+  assert.deepEqual(voiceIndexRefresh, { needsRefresh: true, before: false, after: true, loads: [['yjcm-skins', null]] });
+
+  await page.evaluate(async artSource => {
+    const scene = new Laya.Sprite();
+    scene.pos(742, 464);
+    scene.graphics.drawRect(0, 0, 420, 164, '#182729', '#3e4f4c', 1);
+    scene.zOrder = 80;
+    Laya.stage.addChild(scene);
+    if (artSource) {
+      const image = new Image();
+      image.src = artSource;
+      await image.decode();
+      const bitmap = new Laya.Texture2D(image.naturalWidth, image.naturalHeight);
+      bitmap.loadImageSource(image, true);
+      const texture = new Laya.Texture(bitmap);
+      scene.graphics.drawTexture(texture, 264, 61, 146, 172);
+    }
+    const frame = scene.addChild(new Laya.Sprite());
+    frame.pos(264, 61);
+    frame.alpha = .8;
+    frame.graphics.drawRect(1, 1, 144, 170, null, '#d9d5c6', 2);
+    frame.graphics.drawRect(3, 3, 140, 166, null, '#252124', 2);
+    const plate = scene.addChild(new Laya.Sprite());
+    plate.pos(199, 80);
+    const bar = plate.addChild(new Laya.Sprite());
+    bar.size(97, 21);
+    bar.graphics.drawPoly(0, 0, [0, 0, 92, 0, 97, 11, 92, 21, 0, 21], '#2e854c', '#71b881', 1);
+    const glyph = plate.addChild(new Laya.Text());
+    Object.assign(glyph, { text: '蜀', fontSize: 19, bold: true, color: '#f7ffdd', stroke: 2, strokeColor: '#254d38' });
+    glyph.pos(3, 0); glyph.size(23, 21);
+    const name = plate.addChild(new Laya.Text());
+    Object.assign(name, { text: '滕芳兰', fontSize: 17, bold: true, color: '#fff4db', stroke: 2, strokeColor: '#153221' });
+    name.pos(28, 1); name.size(61, 19);
+    const drawPart = node => ({ render: plate, get alpha() { return node.alpha; }, set alpha(value) { node.alpha = value; },
+      get visible() { return node.visible; }, get renderVisible() { return node.visible; },
+      get renderX() { return node.x; }, get renderY() { return node.y; },
+      get renderWidth() { return node.width; }, get renderHeight() { return node.height; } });
+    const country = { render: plate, textSprite: plate, countryBg: drawPart(bar), countryName: drawPart(glyph), generalNameTxt: name };
+    const ui = scene.SelfSeatUi = { countryUI: country, otherTopManager: { selfCover: frame } };
+    const chat = scene.chatViewUI = scene.addChild(new Laya.Sprite());
+    chat.pos(99, 6); chat.size(310, 66);
+    const feed = chat.msgContainer = chat.addChild(new Laya.Text());
+    Object.assign(feed, { text: '【房间】准备好了', color: '#e2d9ae', fontSize: 14 });
+    feed.pos(7, 19);
+    const row = chat.bottomButtonBar = chat.addChild(new Laya.Sprite());
+    row.size(310, 22);
+    const background = chat.bottonBg = row.addChild(new Laya.Sprite());
+    background.size(310, 22);
+    background.posInteger = background.pos;
+    background.graphics.drawRect(0, 0, 310, 22, '#332c21', '#716047', 1);
+    const input = chat.chatInput = row.addChild(new Laya.Input());
+    input.size(220, 21);
+    input.color = '#f2e7c0';
+    input.fontSize = 13;
+    input.padding = [2, 5, 2, 5];
+    input.text = '待发送的消息';
+    const hint = chat.tipView = row.addChild(new Laya.Sprite());
+    hint.visible = false;
+    const send = chat.sendBtn = row.addChild(new Laya.Text());
+    Object.assign(send, { text: '发送', color: '#ffe3a3', fontSize: 14, align: 'center' });
+    send.size(40, 20); send.y = 2;
+    const emoji = chat.superFaceBtn = row.addChild(new Laya.Sprite());
+    emoji.size(19, 19); emoji.y = 1;
+    emoji.graphics.drawCircle(9, 9, 8, '#eac464', '#b78235', 1);
+    emoji.graphics.drawCircle(6, 7, 1, '#352719');
+    emoji.graphics.drawCircle(12, 7, 1, '#352719');
+    emoji.graphics.drawLines(0, 0, [5, 11, 9, 14, 13, 11], '#352719', 1);
+    const normalFace = chat.faceBtn = row.addChild(new Laya.Sprite());
+    normalFace.visible = false;
+    let emojiClicks = 0;
+    emoji.on('click', emoji, () => { emojiClicks++; });
+    chat.layoutBottomButtonBar = capturedChatRowLayout;
+    chat.checkTipView = function () { this.tipView.visible = true; };
+    chat.layoutBottomButtonBar();
+    const nativeEmojiX = emoji.x;
+    const scope = new NativeSkinCheck.ResourceScope();
+    const game = { isInGame: () => true, getScene: () => scene, getSelfSeatUI: () => ui, getSeatUIs: () => [] };
+    const settings = { get(_key, fallback) { return fallback; } };
+    NativeSkinCheck.createLocalSkins({ window, document, scope, game, settings,
+      ui: { nativeTheme: NativeSkinCheck.createNativeTheme({ scope, window }) } });
+    window.battleCollapseFixture = { scope, scene, bar, name, glyph, frame, plate, chat, row, nativeEmojiX,
+      get emojiClicks() { return emojiClicks; } };
+  }, officialMotionDir ? 'data:image/png;base64,' + officialArt.get('seat/static/6123201.png').toString('base64') : null);
+  const chromeRegion = { x: 718, y: 463, width: 447, height: 165 };
+  const clickBattleControl = async control => {
+    const point = await page.evaluate(key => {
+      const { plate, scene, chat } = battleCollapseFixture;
+      const node = key === 'name' ? plate.getChildByName('sgs-seat-name-toggle')
+        : key === 'former-name' ? battleCollapseFixture.name
+          : key === 'chat' ? scene.getChildByName('sgs-chat-row-toggle') : chat.superFaceBtn;
+      const p = node.localToGlobal(new Laya.Point(node.width / 2, node.height / 2), true);
+      return { x: p.x, y: p.y };
+    }, control);
+    await page.mouse.click(point.x, point.y);
+  };
+  await page.waitForFunction(() => battleCollapseFixture.plate.getChildByName('sgs-seat-name-toggle')?.visible &&
+    battleCollapseFixture.scene.getChildByName('sgs-chat-row-toggle')?.visible);
+  await page.screenshot({ path: path.join(output, 'battle-chrome-expanded.png'), clip: chromeRegion });
+  await clickBattleControl('name');
+  const factionFocusRing = () => page.evaluate(() => {
+    const button = battleCollapseFixture.plate.getChildByName('sgs-seat-name-toggle');
+    return button.graphics.getBounds().width > 0;
+  });
+  assert.equal(await factionFocusRing(), false, 'pointer collapse leaves only the original faction emblem');
+  await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(() => battleCollapseFixture.frame.alpha), .8);
+  assert.equal(await factionFocusRing(), true, 'keyboard operation still shows focus when it expands the name bar');
+  await page.keyboard.press('Space');
+  assert.equal(await factionFocusRing(), true);
+  await page.keyboard.press('Escape');
+  await clickBattleControl('chat');
+  const battleChrome = () => page.evaluate(() => {
+    const { scene, bar, name, glyph, frame, chat, nativeEmojiX, emojiClicks } = battleCollapseFixture;
+    const { chatInput, sendBtn, msgContainer, superFaceBtn, faceBtn, bottomButtonBar } = chat;
+    const toggle = scene.getChildByName('sgs-chat-row-toggle');
+    return { nameAlpha: name.alpha, barAlpha: bar.alpha, glyphAlpha: glyph.alpha, frameAlpha: frame.alpha, draft: chatInput.text,
+      input: chatInput.visible, send: sendBtn.visible && sendBtn.alpha > 0, feed: msgContainer.visible,
+      emoji: superFaceBtn.visible, normalFace: faceBtn.visible, emojiClicks,
+      movedRight: superFaceBtn.x > nativeEmojiX, emojiFits: superFaceBtn.x + superFaceBtn.width <= bottomButtonBar.width,
+      rightInset: toggle && chat.x + bottomButtonBar.x + bottomButtonBar.width - toggle.x - toggle.width,
+      sendAtNativeX: sendBtn.x === bottomButtonBar.width - 44,
+      toggleX: toggle?.x };
+  });
+  let battle = await battleChrome();
+  assert.deepEqual([battle.nameAlpha, battle.barAlpha, battle.glyphAlpha, battle.frameAlpha], [0, 0, 1, 0]);
+  assert.deepEqual([battle.input, battle.send, battle.feed, battle.emoji, battle.normalFace, battle.draft],
+    [false, false, true, true, false, '待发送的消息']);
+  assert.equal(battle.emojiFits, true);
+  assert.equal(battle.movedRight, true);
+  assert.equal(battle.rightInset, 2);
+  await page.screenshot({ path: path.join(output, 'battle-chrome-collapsed.png'), clip: chromeRegion });
+  await clickBattleControl('former-name');
+  assert.equal((await battleChrome()).nameAlpha, 0, 'the old name bar area releases its hit target');
+  await clickBattleControl('emoji');
+  assert.equal((await battleChrome()).emojiClicks, 1, 'the original emoji control still receives a click');
+  await page.evaluate(() => {
+    const { chat } = battleCollapseFixture;
+    chat.bottomButtonBar.width -= 36;
+    chat.layoutBottomButtonBar();
+    chat.checkTipView();
+  });
+  assert.equal(await page.evaluate(() => !battleCollapseFixture.chat.tipView.visible || battleCollapseFixture.chat.tipView.alpha === 0), true);
+  await clickBattleControl('name');
+  battle = await battleChrome();
+  assert.deepEqual([battle.nameAlpha, battle.frameAlpha], [1, .8], 'the faction click restores the native name bar and frame');
+  assert.equal(await factionFocusRing(), false);
+  await clickBattleControl('chat');
+  battle = await battleChrome();
+  assert.deepEqual([battle.input, battle.send, battle.draft], [true, true, '待发送的消息']);
+  assert.equal(battle.sendAtNativeX, true, 'expanding restores the native layout for the new width');
+  await page.keyboard.press('Enter');
+  assert.equal((await battleChrome()).input, false, 'the focused chat toggle also supports Enter');
+  await clickBattleControl('name');
+  assert.equal((await battleChrome()).nameAlpha, 0);
+  await page.evaluate(() => { battleCollapseFixture.scope.dispose(); });
+  battle = await battleChrome();
+  assert.deepEqual([battle.nameAlpha, battle.barAlpha, battle.frameAlpha, battle.input, battle.send, battle.draft, battle.toggleX],
+    [1, 1, .8, true, true, '待发送的消息', undefined]);
+  assert.equal(await page.evaluate(() => !battleCollapseFixture.plate.getChildByName('sgs-seat-name-toggle')), true);
   assert.deepEqual(errors, []);
-  await writeFile(path.join(output, 'result.json'), JSON.stringify({ passed: true, clientPath, skinAtlasFixture, checks: ['captured formData/selectGenerals/initItems', 'native canvas clicks and keyboard navigation', 'faction search keeps selection', 'quality tabs and original exclusion', 'multi-select dynamic', 'new/recent/discount ordering', 'new ownership gray', 'unique filtered totals', 'incomplete bag/account switch', 'advanced option and unload restoration', 'captured avatar SetSkin automatically animates the current skin, keeps a selected skin when disabling animation, and preserves general data', 'local file texture and restoration'], screenshots: ['quality.png', 'new.png', 'local-portrait.png'], errors }, null, 2));
-  await writeFile(path.join(output, 'match-selector-result.json'), JSON.stringify({ passed: true,
+  await writeFile(path.join(output, 'result.json'), JSON.stringify({ passed: true, clientPath, skinAtlasFixture, checks: ['captured formData/selectGenerals/initItems', 'native canvas clicks and keyboard navigation', 'faction search keeps selection', 'quality tabs and original exclusion', 'multi-select dynamic', 'new/recent/discount ordering', 'new ownership gray', 'unique filtered totals', 'incomplete bag/account switch', 'advanced option and unload restoration', 'captured avatar SetSkin automatically animates the current skin, keeps a selected skin when disabling animation, and preserves general data', 'captured skill voice, attack event and skill effects use the local skin and restore native behavior on reset', 'confirmed AiGe switches skin 66103 to form 2, plays one local transition and routes voice, attack and both skill stages to form 2', 'cross-server portrait stops in-flight entry and skill effects, skips native entry sound and form transitions, keeps generic attack rendering, isolates deputy changes, and restores native hooks on reset', 'captured scene entry clears running effects and round indicators, rejects a pending original portrait, keeps an untouched deputy entrance and restores the original entrance on reset', 'local file texture and restoration'], screenshots: ['quality.png', 'new.png', 'local-portrait.png'], errors }, null, 2));
+  await writeFile(path.join(output, 'match-selector-result.json'), JSON.stringify({ passed: true, officialPreviewFixtures: Boolean(officialPreviewDir),
+    officialFormFixtures: Boolean(officialFormDir),
+    officialDeathAudition: zhugeDeath.contentType === 'audio/mpeg',
     checks: ['native select and change windows', 'card and keyboard activation', 'draft-to-seat handoff',
-      'native compose and owned clicks', 'local-only skin selection', 'scope cleanup'], screenshot: 'match-selector-local.png' }, null, 2));
+      'native compose and owned clicks', 'local-only skin selection', 'Yjcm native and Toolbox entry, trial exclusion, merged standard and Jie results and voices, inline lazy head images, official path fallback and restoration',
+      'trimmed transparent margins, native seat clipping, split seat geometry and top-aligned seat artwork with restored background',
+      'window art loads separately, keeps transparent edges and grows to a 280-unit portrait, fits beside skill text at narrow positions, and preserves the native tip on HTTP failure',
+      'click-to-preview in the native seat before apply, cancel and late artwork handling, skill bindings, native skill audio selection and no repeated clip, acquired skills, remembered skins and account isolation',
+      'cached portrait replaces the original before first paint with zero portrait network requests; cold start masks the original before the catalogue is ready, loads without voice metadata, and restores native art on failure',
+      'first paint removes native gold or silver rank debuts running before the scene hook or attached by a same-frame callback, blocks their replay, keeps the grade and generic turn effect, and restores native debut after fallback',
+      'a captured skin loader that attaches pifuchuchang2 during Stage.render cannot draw the old gold entrance while the avatar is still unready',
+      'matching seat and full artwork download together; recent and older prepared portraits are decoded from IndexedDB after reload without re-downloading; canceling one consumer leaves a shared download running',
+      'separate art and voice selection, cross-skin skill and death binding, death audition, and cross-match restore',
+      'one row per skill or death binding with exact general and skin, and artwork retained across voice browsing and searches',
+      'Jie Zhong Hui can audition both Pai Yi clips and bind the skill before awakening; native playback uses the binding once the general learns it; old voice indexes refresh',
+      'local seat label swaps forms on click and keyboard, waits for artwork, keeps skill and death audio in the active form, and restores the native label on reset',
+      'dual-form rules use only the recipient card skills, old foreign skill bindings can be repaired, and a fresh skill count switches back after manual selection',
+      'general skin tab entry aligned with first card, unprefixed default query with full recipient name, saved random and original voice choices, lobby preference and click-to-play sequencing 1/2/1', 'scope cleanup'],
+    screenshots: ['match-selector-local.png', 'yjcm-native-entry.png', 'yjcm-search-results.png', 'yjcm-general-filter-order.png', 'yjcm-merged-voices.png', 'yjcm-preview.png', 'yjcm-seat-crop.png',
+      'yjcm-seat-nameplate.png', 'yjcm-window-preview.png', 'yjcm-voice-bindings.png', 'yjcm-voice-narrow-light.png', 'yjcm-seat-form-1.png', 'yjcm-seat-form-2.png',
+      'dual-form-rules.png', 'dual-form-rules-narrow-light.png', 'yjcm-hall-entry.png', 'yjcm-hall-search.png', 'yjcm-hall-audition.png', 'yjcm-hall-yue-cao-zhi.png', 'yjcm-derived-paiyi.png'] }, null, 2));
   console.log('Native skin UI checks passed: ' + output);
 } finally { await browser.close(); }

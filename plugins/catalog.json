@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.129"
+    "version": "0.6.149"
   },
   "plugins": [
     {
@@ -30,7 +30,7 @@
     {
       "id": "player-info",
       "name": "玩家信息",
-      "version": "0.4.20",
+      "version": "0.4.22",
       "icon": {
         "paths": [
           "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
@@ -45,9 +45,9 @@
       "minCoreVersion": "0.6.70",
       "apiVersion": 1,
       "description": "可选玩家资料卡与斗地主将灯检查，支持自定义关注武将、人机提示与自选身份补全",
-      "releaseNotes": "适配新版工具箱界面资源。玩家资料和将灯查询的用法沿用现有设置。",
-      "packageUrl": "packages/player-info/0.4.20.json",
-      "sha256": "bf8c5cb8458948f3f7b6858a046b34feba9bae5cd0351b7399ae68df4ae90e9d"
+      "releaseNotes": "牌局中的玩家统计卡片可收起为头像旁的小圆点，点击小圆点恢复，收起时会避让附近控件。",
+      "packageUrl": "packages/player-info/0.4.22.json",
+      "sha256": "fb45a55aacc3c8c924bafb7e33ca84286b7eaf8fec07c868fa89d0c5db4f31ca"
     },
     {
       "id": "native-cards",
@@ -196,7 +196,7 @@
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.82",
+      "version": "0.1.83",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -211,14 +211,14 @@
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
-      "releaseNotes": "新增可选的山河图自动出牌，在符合条件的本人出牌阶段尝试使用指定牌，技能辅助操作时让行。优化明牌、牌堆和手牌整理。",
-      "packageUrl": "packages/cards/0.1.82.json",
-      "sha256": "2ceff4f2c66a454a869d28de2bfc2a70b2c5a04a9e3805f12d5099e1d4c3b78d"
+      "releaseNotes": "座位旁的明牌支持 60%、80% 和 100% 三档不透明度，默认 80%。",
+      "packageUrl": "packages/cards/0.1.83.json",
+      "sha256": "bdc1cae6a68da19a2b6073484713cbe0337884f2908f7f510c40c5f8c1c2467e"
     },
     {
       "id": "play-assist",
       "name": "出牌辅助",
-      "version": "0.2.18",
+      "version": "0.2.19",
       "icon": {
         "paths": [
           "M4 5h10v14H4zM7 8h4M7 11h3",
@@ -233,14 +233,14 @@
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "长按技能辅助、自动确定与询问跳过。",
-      "releaseNotes": "补充强识摸牌与武娘取牌辅助，武娘优先选择可选防具、其他装备，再选择手牌；狂骨按当前体力选择回血或摸牌。仍需开启相应技能辅助，强识前半段选人和展示保留手动。",
-      "packageUrl": "packages/play-assist/0.2.18.json",
-      "sha256": "1b8d5173592aa42233b32467223b0697772c188b6af5a6a6297181c9913b0602"
+      "releaseNotes": "修复单骑场景误触发自动跳过无懈的问题。已开启该选项时，仅在山河图战斗中自动跳过相应询问。",
+      "packageUrl": "packages/play-assist/0.2.19.json",
+      "sha256": "e6744d57750dbb713d031fa3fa91f2e8263b0ba9bd24e95644b1ff4652b573ec"
     },
     {
       "id": "daily-rewards",
       "name": "日常领奖",
-      "version": "0.7.41",
+      "version": "0.7.43",
       "icon": {
         "paths": [
           "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -255,9 +255,9 @@
       "minCoreVersion": "0.6.38",
       "apiVersion": 1,
       "description": "自动领取签到、任务、邮件与活动奖励，按账号记录",
-      "releaseNotes": "修复部分任务、免费福利和节钺令奖励的状态识别与领取，补充未领取项目的核对提示。自动领取默认关闭，兑换可能消耗欢乐豆，共享兑换码仍需单独开启。",
-      "packageUrl": "packages/daily-rewards/0.7.41.json",
-      "sha256": "db9050d852bd9d4a4a86d121f7c14a6203bf795ea3a37240a2a4d52cb0ab349a"
+      "releaseNotes": "修复部分邮件附件一直显示待核对、无法续领的问题。游戏仍显示未领取的部分附件可补试一次。修复购买弹窗打开时自动兑换勾选仍露出的问题。自动领取和兑换按已有设置运行，兑换可能消耗欢乐豆。",
+      "packageUrl": "packages/daily-rewards/0.7.43.json",
+      "sha256": "0b9818d7b7b6f8f58be31f14177d8666d950b4bed894fbf9c27c50011b0c428c"
     },
     {
       "id": "seckill",
@@ -310,7 +310,7 @@
     {
       "id": "effects",
       "name": "特效屏蔽",
-      "version": "0.5.13",
+      "version": "0.5.14",
       "icon": {
         "paths": [
           "M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2",
@@ -325,14 +325,14 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "按需屏蔽对局特效与界面提醒，让画面更清爽",
-      "releaseNotes": "修复屏蔽公告或日历后大厅「更多」仍显示相应红点的问题，其他提醒继续按游戏状态显示。",
-      "packageUrl": "packages/effects/0.5.13.json",
-      "sha256": "9ce62fcc97334347a857f0fafa8dd73f331c022f12b958218c6a21ddd5bcb5d6"
+      "releaseNotes": "在开启相应屏蔽项时，可隐藏「业火淬魂」的出框演出，以及魔张飞「瞋视」等技能动画。",
+      "packageUrl": "packages/effects/0.5.14.json",
+      "sha256": "831f6e81e19fa9eb918ecda2387908fa5363dcdff7a0cff9a8a4134bfdc356da"
     },
     {
       "id": "skins",
       "name": "皮肤管理",
-      "version": "0.4.13",
+      "version": "0.4.56",
       "icon": {
         "paths": [
           "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
@@ -344,12 +344,12 @@
         "tools"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.103",
+      "minCoreVersion": "0.6.146",
       "apiVersion": 1,
       "description": "整理皮肤收藏、下载原图和在本地切换牌局皮肤",
-      "releaseNotes": "新增皮肤管理整理开关、详情页下载和背景快捷操作。可为本局已亮出的武将临时切换立绘或导入静态图片，效果仅在本机显示。",
-      "packageUrl": "packages/skins/0.4.13.json",
-      "sha256": "9d08fe3af72d290847b9a623ce95ffcba91323c5541d85cc993d23c0cae21acc"
+      "releaseNotes": "可为本局武将选择一将成名服皮肤，并按需联网加载立绘、配音与部分动皮演出。皮肤与配音仅本机可见或可听。支持切换已应用皮肤的形态、收起本方武将名条及聊天输入行，亦可在一将成名动皮播放时自动收起。首次打开外服皮肤列表需要联网建立索引。",
+      "packageUrl": "packages/skins/0.4.56.json",
+      "sha256": "72d75c4295750e0dab56d1e830687db451c60a4b8b9db5e0068ec915cd1fcbd6"
     },
     {
       "id": "wish-progress",
@@ -440,7 +440,7 @@
     {
       "id": "ledger",
       "name": "账本",
-      "version": "0.3.12",
+      "version": "0.3.13",
       "icon": {
         "paths": [
           "M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18",
@@ -455,9 +455,9 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "重要物品余额、登录收支与祈愿记录，背包道具搜索和抵价券满减角标",
-      "releaseNotes": "优化背包物品分类、账本流水和物品变化提醒。记录按账号保存在本机。",
-      "packageUrl": "packages/ledger/0.3.12.json",
-      "sha256": "f1b3bea02d69b4bf14b1a253a46351067c60cd9af05cc2e0d5a163ee37ff8cc4"
+      "releaseNotes": "优化背包搜索。支持 Esc 清空，显示匹配数量和空结果提示，背包物品变化后会更新搜索结果。",
+      "packageUrl": "packages/ledger/0.3.13.json",
+      "sha256": "07f3f27091cf54c8c7227faf56bb8604c9ab72d3e543c00fdf00aefd4e89abb6"
     },
     {
       "id": "recharge",

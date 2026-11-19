@@ -64,7 +64,7 @@ export function classifyEffect(data, name = '') {
   if (path === 'EFF_tao' || path.startsWith('OtherEffect/FX_MatchGame_huixie_')
       || /^(?:xuanhujishi|xinglinchunman|miaoshouhuichun)$/.test(path)) return 'heal';
   if (path.startsWith('EF_Equip_')) return 'equip';
-  if (path.startsWith('SkillEffect/')) return 'skill';
+  if (path.startsWith('SkillEffect/') || name === 'OL_FX_MatchGame_mozhangfei') return 'skill';
   if (path === 'Ol_guanjiexuanze') return 'selection';
   if (TRICK_NAMES.has(name) || /^(?:EF_Plot_|Plot_|EF_NanManRuQin|EFF_NanManRuQing)/.test(path)) return 'trick';
   return '';
@@ -314,6 +314,16 @@ export function createEffectController(ctx, changed = () => {}) {
         if (patch(scene, method, null, 'shake')) available.add('shake');
       }
       if (hasVisual) controller(read(() => scene.effectCtrl));
+      if (enabled('skill')) {
+        // The existing global battle effect manager also handles server-driven
+        // 瞋视 (入魔). Find its controller even when it is outside the scene tree.
+        const dispatcher = read(() => ctx.game.getDispatcher()) || read(() => scene.ged);
+        const handlers = read(() => dispatcher._events.SKILL_RUMO_NTF);
+        for (const handler of Array.isArray(handlers) ? handlers.slice(0, 16) : [handlers]) {
+          const manager = read(() => handler.caller);
+          if (typeof read(() => manager.PlayHighQulaliityEffectSYS) === 'function') controller(read(() => manager.effectCtrl));
+        }
+      }
       discovery(scene);
       extended.updateNotices();
       changed();

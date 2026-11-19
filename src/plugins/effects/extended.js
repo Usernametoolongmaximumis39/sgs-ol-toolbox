@@ -29,6 +29,8 @@ const PROB_WINDOWS = ['GetPropSpecialWindow', 'GetNewGeneralWindow', 'SkinNewGet
 const RECRUIT_VIEWS = ['GeneralOpenWindow', 'GeneralOpenNewbieView'];
 const RECRUIT_EFFECT = /^res\/assets\/animate\/hall\/generalopen\/zhaomuchaibao0[1-3]\.sk$/;
 const SKIN_NODES = ['outAvatarEffect', 'outAvatarEffect2', 'playingNewSpEffect', 'newFullScreenEffect'];
+const YEHUO_SKIN_ID = 75001;
+const SKIN_ACTION_TYPES = [1, 2, 3, 5]; // Interaction, skill, attack, second skill. Form changes have their own lifecycle.
 const HALL_AD_BADGES = [10049, 10307]; // Bottom_Notice, Bottom_Calendar
 const HALL_AD_MANAGERS = [
   ['decodeSyncGameDataEvent', 'NoticeRed'],
@@ -201,13 +203,13 @@ export function createExtendedEffects(ctx, api) {
       probStates.set(target, { name }); hideProb(target); finishProb(target);
     }
   }
-  function skinCategory(self, args, general = false) {
-    const seat = read(() => self.seat) || read(() => self.Seat);
+  const skinSeat = ui => read(() => ui.seat) || read(() => ui.Seat);
+  function skinCategory(seat, type, general = false) {
     const own = read(() => seat.IsSelf);
     // Unknown ownership must not be treated as an opponent.
     const side = own === true ? 'selfSkin' : own === false ? 'otherSkin' : '';
     if (enabled(side)) return side;
-    return enabled('skill') && (general || [2, 4, 5].includes(args[0])) ? 'skill' : '';
+    return enabled('skill') && (general || [2, 4, 5].includes(type)) ? 'skill' : '';
   }
   function skinNodes(self, category) {
     if (!category) return;
@@ -217,9 +219,20 @@ export function createExtendedEffects(ctx, api) {
     if (!alive(target)) return;
     for (const method of ['playGeneralSpEffect', 'onPlayNewSpEffect']) wrap(target, method,
       ['selfSkin', 'otherSkin', 'skill'], (self, args, invoke) => {
-        const result = invoke(); skinNodes(self, skinCategory(self, args, method === 'playGeneralSpEffect')); return result;
+        const general = method === 'playGeneralSpEffect';
+        const seat = skinSeat(self);
+        const category = skinCategory(seat, args[0], general);
+        // 业火淬魂's optional out-of-seat action also launches the secondary
+        // visuals. Skip that presentation before it hides the idle portrait or
+        // schedules any follow-ups. Native card/skill resolution is upstream.
+        if (!general && category && !args[3] && SKIN_ACTION_TYPES.includes(args[0])
+          && Number(read(() => seat.SkinItemID)) === YEHUO_SKIN_ID) {
+          hit(category);
+          return;
+        }
+        const result = invoke(); skinNodes(self, category); return result;
       });
-    skinNodes(target, skinCategory(target, []));
+    skinNodes(target, skinCategory(skinSeat(target)));
     const top = read(() => target.otherTopManager);
     skip(target, 'ShowBigFace', 'emotion', self => read(() => self.seat.IsSelf) === false);
     skip(top, 'ShowBigFace', 'emotion', self => read(() => self.seat.IsSelf) === false);

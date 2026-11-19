@@ -16,7 +16,7 @@ const getRecent = nativeMethod('GetWinRateInfoById(t,i){', 'CheckPaiweiHightligh
 const bundle = await build({ stdin: { contents: `export {createPlayerStats} from './src/plugins/player-info/stats.js';export {ResourceScope} from './src/core/resources.js';export {createNativeTheme} from './src/ui/native-theme.js';`, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'Check' });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 try {
- const page = await browser.newPage({ viewport: { width: 1280, height: 800 } }), errors = [];
+ const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, hasTouch: true }), errors = [];
  page.on('pageerror', e => errors.push(e.message));
  await page.setContent('<body style="margin:0"></body>');
  await page.addScriptTag({ path: process.env.SGS_LAYA_CORE || resolve('../小抄屏蔽服务器/公告语料整理/临时/laya.core.min.js') });
@@ -66,7 +66,8 @@ try {
   window.runtime = Check.createPlayerStats(ctx);
   window.tick = () => runtime.update({ inGame: true, modeId }, session); tick();
   window.layout = name => {
-    const positions = name === 'landlord' ? [[1140,615],[370,18],[580,18]]
+    const positions = name === 'single' ? [[1140,615],[480,18]]
+      : name === 'landlord' ? [[1140,615],[370,18],[580,18]]
       : name === 'farmer-left' ? [[1140,615],[480,18],[5,280]]
       : name === 'farmer-right' ? [[1140,615],[480,18],[930,280]]
       : [[1140,615],[480,18],[5,280],[930,280]];
@@ -90,6 +91,28 @@ try {
  await page.waitForFunction(() => calls.filter(c => c.rank).length === 2);
  await page.waitForTimeout(500);
  const values = () => page.evaluate(() => Laya.stage._children.filter(n => n.name === 'sgs-player-stats').map(n => ({ x: n.x, y: n.y, width: n.width, height: n.height, text: n._children[0]._children.filter(c => c instanceof Laya.Text).map(c => c.text) })));
+ const togglePoint = () => page.evaluate(() => {
+  const panel = Laya.stage.getChildByName('sgs-player-stats');
+  const toggle = panel.getChildByName('sgs-player-stats-toggle');
+  return { x: panel.x + toggle.x + toggle.width / 2, y: panel.y + toggle.y + toggle.height / 2 };
+ });
+ async function checkCompact(total, towardsRight) {
+  const panels = await page.evaluate(() => Laya.stage._children.filter(n => n.name === 'sgs-player-stats').map(panel => ({
+   width: panel.width, height: panel.height, expanded: panel.getChildAt(0).visible,
+   opacity: panel.getChildByName('sgs-player-stats-toggle').getChildAt(0).alpha,
+  })));
+  assert.equal(panels.length, total);
+  assert.deepEqual(panels[0], { width: 28, height: 28, expanded: false, opacity: .25 });
+  assert.ok(panels.slice(1).every(panel => panel.expanded), 'other players stay expanded');
+  const avatar = await page.evaluate(() => {
+   const { x, y, width } = seats[1].seatAvatar;
+   return { x, y, width };
+  });
+  const point = await togglePoint();
+  assert.deepEqual(point, { x: towardsRight ? avatar.x + avatar.width + 18 : avatar.x - 18, y: avatar.y + 18 }, 'dot hugs the matching portrait');
+  return point;
+ }
+ const firstButton = page.locator('[data-sgs-player-stats-toggle]').first();
  let panels = await values(); assert.equal(panels.length, 3); assert.ok(panels.some(p => p.text[1] === '胜率 65.8% · 无双枭雄 44星'));
  assert.ok(panels.some(p => p.text[2] === '3连胜'));
  assert.equal(await page.evaluate(() => calls.filter(c => c.tab === 1).length), 2, 'rank history fallback requested separately from season data');
@@ -101,6 +124,21 @@ try {
  for (const panel of panels) for (const bar of await page.evaluate(() => bars.map(b => ({ x: b.x, y: b.y, width: b.width, height: b.height }))))
   assert.ok(panel.x + panel.width <= bar.x || panel.x >= bar.x + bar.width || panel.y + panel.height <= bar.y || panel.y >= bar.y + bar.height);
  await page.screenshot({ path: `${out}/rank-dark.png` });
+ const rankToggle = await togglePoint();
+ await page.mouse.move(rankToggle.x, rankToggle.y);
+ assert.ok(await page.evaluate(() => Laya.stage.getChildByName('sgs-player-stats').getChildByName('sgs-player-stats-toggle').getChildAt(2).visible), 'hover shows the action label');
+ await page.mouse.click(rankToggle.x, rankToggle.y);
+ await page.mouse.move(1, 1);
+ const rankDot = await checkCompact(3, false);
+ await page.evaluate(() => { seats[1].seatAvatar.x -= 38; tick(); });
+ assert.deepEqual(await checkCompact(3, false), { x: rankDot.x - 38, y: rankDot.y });
+ await page.evaluate(() => { seats[1].seatAvatar.x += 38; tick(); });
+ await page.screenshot({ path: `${out}/rank-collapsed.png` });
+ assert.equal(await firstButton.getAttribute('aria-expanded'), 'false');
+ await firstButton.focus();
+ await page.keyboard.press('Enter');
+ assert.equal(await firstButton.getAttribute('aria-expanded'), 'true');
+ await firstButton.blur();
  // Reproduce native nested BP, window layers, game zoom, and an unregistered class.
  for (const kind of ['scene-bp', 'SelectNewPaiWeiGeneralWindow', 'PWRandomSelectGeneralWindow', 'PWStandardSelectGenralWindow']) {
   await page.evaluate(kind => {
@@ -155,13 +193,20 @@ try {
   for (const p of panels) for (const b of bars) assert.ok(p.x+p.width<=b.x || p.x>=b.x+b.width || p.y+p.height<=b.y || p.y>=b.y+b.height, name+' avoids live side hand strip');
   await page.screenshot({ path: `${out}/layout-${name}.png` });
  }
- await page.evaluate(() => layout('rank-right'));
+ await page.evaluate(() => layout('landlord'));
  await page.evaluate(() => { modeId = 148; session++; });
  await page.waitForFunction(() => calls.filter(c => c.tab === 9).length === 2); await page.waitForTimeout(300);
  panels = await values(); assert.ok(panels.some(p => p.text[1] === '胜率 62.0%'));
  assert.ok(panels.some(p => p.text[2] === '地主胜率 72% · 农民胜率 56%'));
  assert.ok(panels.some(p => p.text[3] === '3连胜'), 'redacted hundred records recover streak when recent cache is empty');
  await page.screenshot({ path: `${out}/ddz.png` });
+ const landlordToggle = await togglePoint();
+ await page.mouse.click(landlordToggle.x, landlordToggle.y, { delay: 80 });
+ await page.mouse.move(1, 1);
+ const landlordDot = await checkCompact(2, true);
+ await page.screenshot({ path: `${out}/ddz-collapsed.png` });
+ await page.mouse.click(landlordDot.x, landlordDot.y, { delay: 80 });
+ assert.equal(await firstButton.getAttribute('aria-expanded'), 'true');
  for (const name of ['landlord', 'farmer-left', 'farmer-right']) {
   await page.evaluate(name => layout(name), name); await page.waitForTimeout(300);
   const cards = await values(); assert.equal(cards.length, 2);
@@ -169,7 +214,7 @@ try {
   assert.ok(await page.evaluate(() => Laya.stage._children.filter(n=>n.name==='sgs-player-stats').every(n=>n._children[0]._children.filter(c=>c instanceof Laya.Text).every(t=>t.textWidth<=t.width))), 'DDZ text fits');
   await page.screenshot({ path: `${out}/ddz-${name}.png` });
  }
- await page.evaluate(() => layout('rank-right'));
+ await page.evaluate(() => layout('single'));
  await page.evaluate(() => { modeId = 160; session++; });
  await page.waitForFunction(() => calls.filter(c => c.tab === 12).length === 2); await page.waitForTimeout(300);
  assert.ok((await values()).some(p => p.text[1] === '胜率 62.0%'));
@@ -180,6 +225,10 @@ try {
  await page.evaluate(() => { modeId = 160; tick(); });
  await page.waitForTimeout(800);
  assert.ok((await values()).length > 0);
+ const soloToggle = await togglePoint();
+ await page.touchscreen.tap(soloToggle.x, soloToggle.y);
+ const soloDot = await checkCompact(1, true);
+ await page.screenshot({ path: `${out}/single-collapsed.png` });
  // The native shop must occlude player information, including its currency strip.
  await page.evaluate(() => {
   window.shop = new Laya.Sprite(); shop.name = 'RogueLike1v1GameShopWindow';
@@ -188,13 +237,20 @@ try {
   Laya.stage.addChild(shop); tick();
  });
  assert.equal(await page.evaluate(() => Laya.stage._children.filter(n => n.name === 'sgs-player-stats').length), 0);
+ assert.equal(await firstButton.count(), 0);
  await page.screenshot({ path: `${out}/single-shop.png` });
  await page.evaluate(() => { shop.visible = false; tick(); });
- assert.ok(await page.evaluate(() => Laya.stage._children.some(n => n.name === 'sgs-player-stats')));
- await page.evaluate(() => { shop.destroy(true); });
+ assert.deepEqual(await checkCompact(1, true), soloDot);
+ await page.touchscreen.tap(soloDot.x, soloDot.y);
+ assert.equal(await firstButton.getAttribute('aria-expanded'), 'true');
+ await page.touchscreen.tap(soloToggle.x, soloToggle.y);
+ await checkCompact(1, true);
+ await page.evaluate(() => { shop.destroy(true); session++; tick(); });
+ assert.equal(await page.locator('[data-sgs-player-stats-toggle][aria-expanded=false]').count(), 0, 'new battle resets compact cards');
  await page.evaluate(() => { account = 999; modeId = 132; session++; tick(); scope.dispose(); scope.dispose(); });
  await page.waitForTimeout(300); assert.equal((await values()).length, 0);
+ assert.equal(await firstButton.count(), 0);
  assert.deepEqual(errors, []);
- await writeFile(`${out}/report.json`, JSON.stringify({ passed: true, errors, checks: ['native record request methods replay', 'current-season response', 'official raw rank config schema', 'three mode whitelist', 'combined hundred rate', 'streak order', 'robot no query', 'hand-strip no intersection', 'dark/light Laya render', 'nested ranked BP and three window variants with partial transparency and rendered overlap pixel', 'game zoom preserves panel geometry', 'account/session cleanup', 'other mode no queries', 'dispose'] }, null, 2));
+ await writeFile(`${out}/report.json`, JSON.stringify({ passed: true, errors, checks: ['native record request methods replay', 'current-season response', 'official raw rank config schema', 'three mode whitelist', 'combined hundred rate', 'streak order', 'robot no query', 'hand-strip no intersection', 'dark/light Laya render', 'nested ranked BP and three window variants with partial transparency and rendered overlap pixel', 'game zoom preserves panel geometry', 'independent collapse with mouse, keyboard and touch', 'collapsed dots hug the matching portraits on both sides and follow seat movement', 'single-rider shop hides and restores compact card', 'account/session cleanup', 'other mode no queries', 'dispose'] }, null, 2));
  console.log('Player statistics browser checks passed.');
 } finally { await browser.close(); }

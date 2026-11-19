@@ -412,12 +412,24 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     }
   }
   function pluginCards() {
-    const list = [...(handlers.manager?.list() || [])].sort(comparePluginOrder);
+    const manager = handlers.manager;
+    const list = [...(manager?.list() || [])].sort(comparePluginOrder);
     const state = currentMarketState();
     const updates = new Map((state.catalog ? findPluginUpdates(list, state.catalog.plugins) : []).map(item => [item.id, item]));
     list.sort((a, b) => Number(updates.get(b.id)?.status === 'update') - Number(updates.get(a.id)?.status === 'update') || comparePluginOrder(a, b));
     content.append(el('h3', '已安装插件'));
-    if (!list.length) content.append(el('p', '暂无已安装插件。从下方市场安装，或导入插件包文件。', 'muted'));
+    if (manager?.initializing) { content.append(el('p', '正在读取已安装插件…', 'notice')); return; }
+    if (manager?.storageError) {
+      const error = el('p', userErrorMessage(manager.storageError), 'notice error');
+      error.setAttribute('role', 'alert'); content.append(error); return;
+    }
+    if (manager?.loadIssues?.size) {
+      const details = el('details', undefined, 'plugin-error'), summary = el('summary');
+      summary.append(svgIcon('alert'), el('span', `${manager.loadIssues.size} 个插件加载异常`));
+      const errors = [...manager.loadIssues].map(([id, issue]) => `${id}：${userErrorMessage(issue.message)}`);
+      details.append(summary, el('pre', errors.join('\n')));
+      content.append(details, el('p', '已保留安装记录。请刷新游戏重试。', 'notice'));
+    } else if (!list.length) content.append(el('p', '暂无已安装插件。从下方市场安装，或导入插件包文件。', 'muted'));
     for (const item of list) {
       const update = updates.get(item.id);
       const maintenance = { updating: '正在更新', waiting: '等待前置更新', restarting: '正在恢复' }[item.maintenance];
@@ -552,24 +564,25 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     if (state.error) { container.append(el('div', DEVELOPMENT ? '请检查目录地址、网络与跨域权限。' : '请检查网络后重试，已安装插件可继续使用。', 'muted')); return; }
     if (!state.catalog) { container.append(el('div', '点击连接后读取静态目录。目录离线不会停止已安装插件。', 'notice')); return; }
     const installed = new Map((handlers.manager?.list() || []).map(item => [item.id, item]));
+    const loadIssues = handlers.manager?.loadIssues;
     const filter = el('label', undefined, 'row');
     const toggle = styleSwitch(el('input')); toggle.type = 'checkbox'; toggle.checked = onlyUninstalled;
     toggle.addEventListener('change', () => { onlyUninstalled = toggle.checked; settings.set('marketOnlyUninstalled', onlyUninstalled); render(); });
     filter.append(el('span', '只显示未安装'), toggle); container.append(filter);
-    const count = state.catalog.plugins.filter(entry => !onlyUninstalled || !installed.has(entry.id)).length;
+    const count = state.catalog.plugins.filter(entry => !onlyUninstalled || (!installed.has(entry.id) && !loadIssues?.has(entry.id))).length;
     container.append(el('div', `${count} 个${onlyUninstalled ? '未安装' : '可用'}发布包`, 'muted'));
     if (!count) container.append(el('div', '目录中的插件均已安装', 'notice'));
 
     for (const entry of [...state.catalog.plugins].sort(comparePluginOrder)) {
       const card = el('section', undefined, 'card plugin-card'); pluginIdentity(card, entry);
       card.dataset.catalogKey = JSON.stringify([entry.id, entry.version]);
-      const current = installed.get(entry.id), same = current?.version === entry.version;
-      card.dataset.catalogInstalled = String(!!current);
+      const current = installed.get(entry.id), same = current?.version === entry.version, unavailable = !current && loadIssues?.has(entry.id);
+      card.dataset.catalogInstalled = String(!!current || !!unavailable);
       const bottom = el('div', undefined, 'plugin-bottom');
-      const status = el('span', current ? `已安装${same ? '此版本' : ' ' + current.version}` : '未安装', 'plugin-status');
+      const status = el('span', unavailable ? '已保存 · 加载异常' : current ? `已安装${same ? '此版本' : ' ' + current.version}` : '未安装', 'plugin-status');
       status.title = status.textContent; status.style.whiteSpace = 'normal'; bottom.append(status);
       const busy = installing.has(entry.id);
-      const install = button(busy ? '正在安装…' : same ? '已安装' : current ? '替换此版本' : '安装此版本', () => installEntry(entry));
+      const install = button(busy ? '正在安装…' : same ? '已安装' : current || unavailable ? '替换此版本' : '安装此版本', () => installEntry(entry));
       install.disabled = officialBusy || busy || same; install.style.marginLeft = 'auto'; install.style.flexShrink = '0';
       if (busy) card.setAttribute('aria-busy', 'true');
       bottom.append(install); card.append(bottom, ...releaseNotesBlock(entry)); renderDependencyPrompt(card, entry); markSearchable(card, entry); container.append(card);
@@ -629,7 +642,9 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     let completed = 0;
     try {
       const catalog = await client.getCatalog();
-      const plan = planOfficialPlugins(handlers.manager.list(), catalog.plugins);
+      const manager = handlers.manager, installed = manager.list();
+      const saved = [...(manager.loadIssues?.keys() || [])].filter(id => !installed.some(item => item.id === id));
+      const plan = planOfficialPlugins([...installed, ...saved.map(id => ({ id, name: id, enabled: false, active: false }))], catalog.plugins);
       for (const entry of plan) {
         if (scope.closed) return;
         if (handlers.market() !== client) throw new Error('市场地址已改变，请重新连接后重试。');
@@ -647,6 +662,8 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
   }
   function renderMarket() {
     renderCoreUpgrade();
+    const manager = handlers.manager;
+    if (manager?.initializing || manager?.storageError) { pluginCards(); return; }
     const pack = el('section', undefined, 'card');
     pack.append(el('strong', '官方插件套装'), el('div', `一键补齐 ${officialPluginIds.length} 个官方插件；保留已有版本、设置和停用状态。`, 'notice'));
     const complete = button(officialBusy ? '正在补齐…' : '一键补齐官方插件', completeOfficialPlugins);
@@ -687,7 +704,9 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     const cleanups = [];
     renderedCleanup = () => { for (const clean of cleanups.splice(0)) { try { clean(); } catch {} } };
     const installed = handlers.manager?.list() || [], market = currentMarketState();
-    const failures = installed.filter(item => !item.maintenance && (item.error || (item.enabled && !item.active))).length;
+    const failedPlugins = new Set(handlers.manager?.loadIssues?.keys());
+    for (const item of installed) if (!item.maintenance && (item.error || (item.enabled && !item.active))) failedPlugins.add(item.id);
+    const failures = failedPlugins.size, storageError = !!handlers.manager?.storageError;
     const upgrades = market.catalog ? findPluginUpdates(installed, market.catalog.plugins).filter(item => item.status === 'update').length : 0;
     const manage = shadow.querySelector('[data-category="manage"]'); manage.querySelector('.nav-alert')?.remove();
     const coreUpgrade = MICROCLIENT ? !!microUpdate?.newer && !microUpdate?.pending : coreUpdateStatus()?.order > 0;
@@ -695,9 +714,9 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     updateHint.hidden = !coreUpgrade && !upgrades;
     updateHint.parentElement.classList.toggle('has-update', !updateHint.hidden);
     updateHint.title = [coreUpgrade && '核心可升级', upgrades && `${upgrades} 个插件可更新`, '点击前往更新'].filter(Boolean).join(' · ');
-    const alerts = [coreUpgrade && '核心可升级', failures && `${failures} 个插件异常`, upgrades && `${upgrades} 个插件可更新`].filter(Boolean).join(' · ');
+    const alerts = [coreUpgrade && '核心可升级', storageError && '插件存储读取失败', failures && `${failures} 个插件异常`, upgrades && `${upgrades} 个插件可更新`].filter(Boolean).join(' · ');
     manage.title = alerts || '管理';
-    if (alerts) { const badge = el('i', String(failures || (upgrades + Number(coreUpgrade))), `nav-alert${failures ? ' is-error' : ''}`); badge.setAttribute('aria-label', alerts); manage.append(badge); }
+    if (alerts) { const badge = el('i', storageError ? '!' : String(failures || (upgrades + Number(coreUpgrade))), `nav-alert${failures || storageError ? ' is-error' : ''}`); badge.setAttribute('aria-label', alerts); manage.append(badge); }
     for (const b of shadow.querySelectorAll('[data-category]')) b.setAttribute('aria-selected', String(b.dataset.category === active));
     renderedKey = active + ':' + (active === 'game' ? gameView : active === 'manage' ? management : '');
     if (active === 'manage') { renderManagement(cleanups); filterPlugins(); }

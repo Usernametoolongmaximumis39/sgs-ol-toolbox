@@ -399,7 +399,7 @@ export function createGameAdapter(win, scope) {
     getCardMeta, getCardFaceCatalog, loadCardFaceCatalog, getSnapshot, getClass, getServerProxy, getActivityManager, getMessageTargets, getCountdown, getSelf,
     getRemainingSlash, isInGame: () => isGameScene(getScene()), canReserveViewport,
     getConfigData: name => configs?.getConfigData(name) || null,
-    loadConfigData: name => configs ? configs.loadConfigData(name) : Promise.reject(new Error('配置读取不可用')),
+    loadConfigData: (name, options) => configs ? configs.loadConfigData(name, options) : Promise.reject(new Error('配置读取不可用')),
     onSceneChange(fn) {
       if (typeof fn !== 'function') throw new TypeError('Scene subscriber must be a function');
       listeners.add(fn); return () => listeners.delete(fn);

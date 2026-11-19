@@ -2,7 +2,7 @@ import { createQuandaoDisplay } from './quandao.js';
 import { read, field } from '../../shared/info-runtime.js';
 import { SHANHE_BATTLE_SCENE } from '../../shared/shanhe-scenes.js';
 import { EXTRA_IDS, skillKind } from './strategies.js';
-import { createExtended, isShanhe, redShaOwnTurn } from './extended.js';
+import { createExtended, redShaOwnTurn } from './extended.js';
 
 // Static baseline: 小抄 1.6.75 uO/uE. Conditional judgement skills need 洛神 / 界洛神.
 export const SKILL_IDS = Object.freeze([62,769,726,3295,3310,792,3750,3753,295,250,784,445,49,716,101,3269,273,97,3260,102,891,484,3876,...EXTRA_IDS]);
@@ -374,9 +374,8 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       return true;
     }
     if ([specify,skill,selection].includes(13)) {
-      if (!opt.skipWuxie) return;
-      const shanhe = isShanhe(s.scene, gc) || gc?.IsPveRoguelike || s.scene.name === SHANHE_BATTLE_SCENE;
-      if (!shanhe) return cancel(s);
+      const sceneName = s.scene.SceneName || s.scene.sceneName || s.scene.name;
+      if (!opt.skipWuxie || sceneName !== SHANHE_BATTLE_SCENE) return;
       const mine = Number(self.seat.Index), inquiry = wuxie;
       const ownTurn = currentSeat === null ? read(() => self.seat.InOwnRound2) === true : currentSeat === mine;
       if (ownTurn && inquiry && [mine, 250, 255].includes(inquiry.recipient) && cancel(s)) {

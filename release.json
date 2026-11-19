@@ -1,14 +1,14 @@
 {
-  "version": "0.6.129",
+  "version": "0.6.149",
   "editions": {
     "full": {
-      "bytes": 3537743,
+      "bytes": 3823479,
       "plugins": 21,
       "updatesTo": "full",
       "toolboxUpdatesTo": "lite"
     },
     "lite": {
-      "bytes": 482283,
+      "bytes": 489844,
       "plugins": 0,
       "updatesTo": "lite",
       "toolboxUpdatesTo": "lite"
@@ -22,8 +22,8 @@
     },
     {
       "id": "player-info",
-      "version": "0.4.20",
-      "sha256": "bf8c5cb8458948f3f7b6858a046b34feba9bae5cd0351b7399ae68df4ae90e9d"
+      "version": "0.4.22",
+      "sha256": "fb45a55aacc3c8c924bafb7e33ca84286b7eaf8fec07c868fa89d0c5db4f31ca"
     },
     {
       "id": "native-cards",
@@ -62,18 +62,18 @@
     },
     {
       "id": "cards",
-      "version": "0.1.82",
-      "sha256": "2ceff4f2c66a454a869d28de2bfc2a70b2c5a04a9e3805f12d5099e1d4c3b78d"
+      "version": "0.1.83",
+      "sha256": "bdc1cae6a68da19a2b6073484713cbe0337884f2908f7f510c40c5f8c1c2467e"
     },
     {
       "id": "play-assist",
-      "version": "0.2.18",
-      "sha256": "1b8d5173592aa42233b32467223b0697772c188b6af5a6a6297181c9913b0602"
+      "version": "0.2.19",
+      "sha256": "e6744d57750dbb713d031fa3fa91f2e8263b0ba9bd24e95644b1ff4652b573ec"
     },
     {
       "id": "daily-rewards",
-      "version": "0.7.41",
-      "sha256": "db9050d852bd9d4a4a86d121f7c14a6203bf795ea3a37240a2a4d52cb0ab349a"
+      "version": "0.7.43",
+      "sha256": "0b9818d7b7b6f8f58be31f14177d8666d950b4bed894fbf9c27c50011b0c428c"
     },
     {
       "id": "seckill",
@@ -87,13 +87,13 @@
     },
     {
       "id": "effects",
-      "version": "0.5.13",
-      "sha256": "9ce62fcc97334347a857f0fafa8dd73f331c022f12b958218c6a21ddd5bcb5d6"
+      "version": "0.5.14",
+      "sha256": "831f6e81e19fa9eb918ecda2387908fa5363dcdff7a0cff9a8a4134bfdc356da"
     },
     {
       "id": "skins",
-      "version": "0.4.13",
-      "sha256": "9d08fe3af72d290847b9a623ce95ffcba91323c5541d85cc993d23c0cae21acc"
+      "version": "0.4.56",
+      "sha256": "72d75c4295750e0dab56d1e830687db451c60a4b8b9db5e0068ec915cd1fcbd6"
     },
     {
       "id": "wish-progress",
@@ -117,8 +117,8 @@
     },
     {
       "id": "ledger",
-      "version": "0.3.12",
-      "sha256": "f1b3bea02d69b4bf14b1a253a46351067c60cd9af05cc2e0d5a163ee37ff8cc4"
+      "version": "0.3.13",
+      "sha256": "07f3f27091cf54c8c7227faf56bb8604c9ab72d3e543c00fdf00aefd4e89abb6"
     },
     {
       "id": "recharge",

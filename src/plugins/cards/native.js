@@ -9,6 +9,12 @@ import { createHandGrouping, setHandGroupingMode } from './hand-groups.js';
 import { ResourceScope } from '../../core/resources.js';
 
 export const SORT_INHIBITOR_SKILL = 0xde2;
+export const REVEAL_OPACITY_LEVELS = Object.freeze([60, 80, 100]);
+
+export function revealOpacity(settings) {
+  const value = settings.get('revealOpacity', 80);
+  return REVEAL_OPACITY_LEVELS.includes(value) ? value : 80;
+}
 
 function ownUi(game) {
   try { return game.getSelfSeatUI?.() ?? game.getScene?.()?.SelfSeatUi ?? null; } catch { return null; }
@@ -401,6 +407,8 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
       });
       if (revealWrites.length) revealClip = revealWindowClip(window, game, bounds);
     }
+    const opacity = String(revealOpacity(settings) / 100);
+    if (seatLayer.style.opacity !== opacity) seatLayer.style.opacity = opacity;
     if (seatLayer.style.clipPath !== revealClip) seatLayer.style.clipPath = revealClip;
     revealWrites.forEach(write => write());
     for (const box of revealBoxes.values()) if (!visibleReveals.has(box)) box.remove();
