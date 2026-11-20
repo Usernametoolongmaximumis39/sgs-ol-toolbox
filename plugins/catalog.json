@@ -352,6 +352,28 @@
       "sha256": "72d75c4295750e0dab56d1e830687db451c60a4b8b9db5e0068ec915cd1fcbd6"
     },
     {
+      "id": "stargazing",
+      "name": "自助观星",
+      "version": "0.1.0",
+      "icon": {
+        "paths": [
+          "M12 2l2.6 6.6L22 12l-7.4 3.4L12 22l-2.6-6.6L2 12l7.4-3.4L12 2Z",
+          "M19 3v4m-2-2h4"
+        ]
+      },
+      "priority": 32768,
+      "categories": [
+        "tools"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.6.180",
+      "apiVersion": 1,
+      "description": "在游戏内按栏目查看和搜索第三方观星报告。",
+      "releaseNotes": "首次提供自助观星，可按栏目和关键词查看活动预测。",
+      "packageUrl": "packages/stargazing/0.1.0.json",
+      "sha256": "18594da083adb645d3df3ed34449dce77dc9c14375c059dd659271063ca1d8d1"
+    },
+    {
       "id": "wish-progress",
       "name": "心愿进度",
       "version": "0.1.2",
