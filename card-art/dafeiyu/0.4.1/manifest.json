@@ -1,0 +1,829 @@
+{
+  "schemaVersion": 1,
+  "name": "大肥鱼卡面",
+  "version": "0.4.1",
+  "pixelRatio": 3,
+  "cardPixels": {
+    "width": 405,
+    "height": 570
+  },
+  "cards": [
+    {
+      "name": "Sha",
+      "label": "杀",
+      "group": "standard",
+      "kind": "基本",
+      "sourceSha256": "6859ba2e628f9754e395cfd99ffd8d96487feaca483eaecc76633069a97969bf",
+      "sourceBytes": 2786449
+    },
+    {
+      "name": "Shan",
+      "label": "闪",
+      "group": "standard",
+      "kind": "基本",
+      "sourceSha256": "1cb09e80cc8778a07956780819ed93e7f5a1080231ded4550254414d7500d9dc",
+      "sourceBytes": 2229091
+    },
+    {
+      "name": "Tao",
+      "label": "桃",
+      "group": "standard",
+      "kind": "基本",
+      "sourceSha256": "e1ddf77fd24355442b7479d950998aadbca6eb564ede109dc3282d7eed7e726d",
+      "sourceBytes": 2347505
+    },
+    {
+      "name": "HuoSha",
+      "label": "火杀",
+      "group": "maneuver",
+      "kind": "基本",
+      "sourceSha256": "0843bf7afd837e3b0cd727a4a5dd8bcf8273808d82be370899b39a140678bbb8",
+      "sourceBytes": 2511601
+    },
+    {
+      "name": "LeiSha",
+      "label": "雷杀",
+      "group": "maneuver",
+      "kind": "基本",
+      "sourceSha256": "492d49dcefd0e6e1201202b3a0c00190d4580ca3f6132f8f85b2829b9d40d0b2",
+      "sourceBytes": 2578239
+    },
+    {
+      "name": "Jiu",
+      "label": "酒",
+      "group": "maneuver",
+      "kind": "基本",
+      "sourceSha256": "aecbb41e9dfb62f8656d0b81413d26c177f63b23ef09ad84f9c47cd51aa41e14",
+      "sourceBytes": 2392459
+    },
+    {
+      "name": "JueDou",
+      "label": "决斗",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceSha256": "37849f163408e73eda6e52643fa0a655f5a16b27dde82ad038a798c13e025204",
+      "sourceBytes": 2672740
+    },
+    {
+      "name": "ShunShouQianYang",
+      "label": "顺手牵羊",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceSha256": "9ac4188ef86e88c0f8e75883c8e21b0d2412451225339c1795722af44abecb10",
+      "sourceBytes": 2384937
+    },
+    {
+      "name": "GuoHeChaiQiao",
+      "label": "过河拆桥",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceSha256": "c4752c626604a3cd4bab4bda3bfa11659b33a991791ed1874b66e042ac5c942c",
+      "sourceBytes": 2429080
+    },
+    {
+      "name": "WuZhongShengYou",
+      "label": "无中生有",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceSha256": "afbc4204865b02fb2f6ca50de2498a11166e96045b2b9c9f0c94e1db2d751e11",
+      "sourceBytes": 2435386
+    },
+    {
+      "name": "JieDaoShaRen",
+      "label": "借刀杀人",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceSha256": "489c07424a0371191a14004cdb07a88c1fc4d91f17de0a6847b4b0e9ae0b25aa",
+      "sourceBytes": 2507916
+    },
+    {
+      "name": "WuXieKeJi",
+      "label": "无懈可击",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceSha256": "8b824c19b7408366b525dcc9af2d888183b8e6439bc75577f3ec71b334928af1",
+      "sourceBytes": 2343747
+    },
+    {
+      "name": "WanJianQiFa",
+      "label": "万箭齐发",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceSha256": "c7cae982158eae325094b7e24e3d079ca30f7487a95ff462f1a6e0bb9c4fda8d",
+      "sourceBytes": 3053526
+    },
+    {
+      "name": "NanManRuQin",
+      "label": "南蛮入侵",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceSha256": "6197e4b925f57b1396c5fa8c552c9d76f936a7c6b00028541a76a14b67c5e23a",
+      "sourceBytes": 2735425
+    },
+    {
+      "name": "TaoYuanJieYi",
+      "label": "桃园结义",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceSha256": "c980785a153eaeb9ba2b2ec63279a375a31af89c81a7892461ced6465b1d7373",
+      "sourceBytes": 2427667
+    },
+    {
+      "name": "WuGuFengDeng",
+      "label": "五谷丰登",
+      "group": "standard",
+      "kind": "锦囊",
+      "sourceSha256": "f1a2d797c08975dd9defc6bb8e1eca9ab2feb897dfefb1dac8a2a3a1a8362abe",
+      "sourceBytes": 2742907
+    },
+    {
+      "name": "LeBuSiShu",
+      "label": "乐不思蜀",
+      "group": "standard",
+      "kind": "延时锦囊",
+      "sourceSha256": "3aab6f3262dbb80506d0262655b5ce19c21fbcbbaa5f8f3a0ec5b1387c843307",
+      "sourceBytes": 2446758
+    },
+    {
+      "name": "ShanDian",
+      "label": "闪电",
+      "group": "standard",
+      "kind": "延时锦囊",
+      "sourceSha256": "dee11c3bfd8578f746a56eb56205352855faf61d884296556ba1f654a9c1bd1b",
+      "sourceBytes": 2557698
+    },
+    {
+      "name": "HuoGong",
+      "label": "火攻",
+      "group": "maneuver",
+      "kind": "锦囊",
+      "sourceSha256": "e7057558774298c73547064c6d44aa75f90ef91ea3ce2cec55977e8469500bc5",
+      "sourceBytes": 2661061
+    },
+    {
+      "name": "TieSuoLianHuan",
+      "label": "铁索连环",
+      "group": "maneuver",
+      "kind": "锦囊",
+      "sourceSha256": "2eb37f3e3ca610ec172f36d5974ff7526a90bbb1dea607504e0076d4db395bb8",
+      "sourceBytes": 2479098
+    },
+    {
+      "name": "BingLiangCunDuan",
+      "label": "兵粮寸断",
+      "group": "maneuver",
+      "kind": "延时锦囊",
+      "sourceSha256": "8ea8ab4fd0cf5506fa1ade0ca60bb486aae527940eb11d7d6045b8e5bc1c831f",
+      "sourceBytes": 2438608
+    },
+    {
+      "name": "ZhuGeLianNu",
+      "label": "诸葛连弩",
+      "group": "standard",
+      "kind": "武器",
+      "sourceSha256": "7ceb70550ac9e7dedabeca04820b396d841131d5790a8f6288b853270d07fcb4",
+      "sourceBytes": 2601159
+    },
+    {
+      "name": "CiXiongShuangGuJian",
+      "label": "雌雄双股剑",
+      "group": "standard",
+      "kind": "武器",
+      "sourceSha256": "78b8ad9f2bddf6ffc6b5c27b636a77a62b077da2aae1e11e986ce1daf3289614",
+      "sourceBytes": 2592271
+    },
+    {
+      "name": "QingGangJian",
+      "label": "青釭剑",
+      "group": "standard",
+      "kind": "武器",
+      "sourceSha256": "174ee2cfbd1856594b93d48b5712917bb35cfacca81a5ea3d6290aca3b63fe51",
+      "sourceBytes": 2641032
+    },
+    {
+      "name": "QingLongYanYueDao",
+      "label": "青龙偃月刀",
+      "group": "standard",
+      "kind": "武器",
+      "sourceSha256": "5eef25005c5158b2eea40cec58f2a70ec66d307bf9a1e1beb20c8697dff5f562",
+      "sourceBytes": 2764295
+    },
+    {
+      "name": "ZhangBaSheMao",
+      "label": "丈八蛇矛",
+      "group": "standard",
+      "kind": "武器",
+      "sourceSha256": "92378d0caa080a79c33c5fb4bb726f56b780888806e1a63c2cf4c74c78513fb7",
+      "sourceBytes": 2684135
+    },
+    {
+      "name": "GuanShiFu",
+      "label": "贯石斧",
+      "group": "standard",
+      "kind": "武器",
+      "sourceSha256": "552bfbc8b602a266f26987d082da8e5febb7f5b69199dfd63a47e6cbeb314dab",
+      "sourceBytes": 2514249
+    },
+    {
+      "name": "FangTianHuaJi",
+      "label": "方天画戟",
+      "group": "standard",
+      "kind": "武器",
+      "sourceSha256": "21ef8d5a8d37722d872ce1b67370921676a71b5e6052671e02f34d3c05f155e7",
+      "sourceBytes": 2479751
+    },
+    {
+      "name": "QiLinGong",
+      "label": "麒麟弓",
+      "group": "standard",
+      "kind": "武器",
+      "sourceSha256": "a43829b9d8fff768e12d6589c43da2108d7d610236cf5038b328823336205d53",
+      "sourceBytes": 2940426
+    },
+    {
+      "name": "HanBingJian",
+      "label": "寒冰剑",
+      "group": "standard",
+      "kind": "武器",
+      "sourceSha256": "e11c23e1388886931f5642878ce8b4fe37cad54680eae37bd9491fa17478e41d",
+      "sourceBytes": 2495548
+    },
+    {
+      "name": "GuDingDao",
+      "label": "古锭刀",
+      "group": "maneuver",
+      "kind": "武器",
+      "sourceSha256": "0c9ab54c7755eed9102c9a22d34b1e170598b59ec1481216ae67e6c820beeee2",
+      "sourceBytes": 2854913
+    },
+    {
+      "name": "ZhuQueYuShan",
+      "label": "朱雀羽扇",
+      "group": "maneuver",
+      "kind": "武器",
+      "sourceSha256": "cbc4761e889584721bed1055c9d8d33fdfbdf68b417000c749cdff349828e8b9",
+      "sourceBytes": 2732792
+    },
+    {
+      "name": "BaGuaZhen",
+      "label": "八卦阵",
+      "group": "standard",
+      "kind": "防具",
+      "sourceSha256": "5034ffa583631833f57349d05dbf0d20af6bcb6d82bc2d79f148c2c622b52aff",
+      "sourceBytes": 2234554
+    },
+    {
+      "name": "RenWangDun",
+      "label": "仁王盾",
+      "group": "standard",
+      "kind": "防具",
+      "sourceSha256": "7e171fc9f63a74cf92e452be260ea18975313b26006609c23e08eac4a78f032b",
+      "sourceBytes": 2493541
+    },
+    {
+      "name": "TengJia",
+      "label": "藤甲",
+      "group": "maneuver",
+      "kind": "防具",
+      "sourceSha256": "aebf232a363f8fdcbe3f79aa85d3d1dcf980cf964250a9a212eb2ce33a26178b",
+      "sourceBytes": 2663073
+    },
+    {
+      "name": "BaiYinShiZi",
+      "label": "白银狮子",
+      "group": "maneuver",
+      "kind": "防具",
+      "sourceSha256": "2ef775d7d77c3f74c343261dd76f098778245141e4785077ae22d2e836079437",
+      "sourceBytes": 2479134
+    },
+    {
+      "name": "ChiTu",
+      "label": "赤兔",
+      "group": "standard",
+      "kind": "坐骑",
+      "sourceSha256": "ad13fd555129d10abd5397cf82b300c1346aba44311b460e77efd2e8d987aeb2",
+      "sourceBytes": 2619185
+    },
+    {
+      "name": "DaWan",
+      "label": "大宛",
+      "group": "standard",
+      "kind": "坐骑",
+      "sourceSha256": "d75a3deb03c8b94adeda1c9fc1b85dcf86a1a10cf596a8cca6ead0d6477b4319",
+      "sourceBytes": 2579155
+    },
+    {
+      "name": "ZiXing",
+      "label": "紫騂",
+      "group": "standard",
+      "kind": "坐骑",
+      "sourceSha256": "5ba55286ca2e1816e5f30ee7559468108607b3cbd410c5876392f49782a55d6d",
+      "sourceBytes": 2437189
+    },
+    {
+      "name": "DiLu",
+      "label": "的卢",
+      "group": "standard",
+      "kind": "坐骑",
+      "sourceSha256": "f3e89f90fb71df868c26bbfae74b923ed5bd746a4837b5aa9a7f06b8a646f9be",
+      "sourceBytes": 2692392
+    },
+    {
+      "name": "JueYing",
+      "label": "绝影",
+      "group": "standard",
+      "kind": "坐骑",
+      "sourceSha256": "64d7c1381631fa6986c6e92ea26baa097fc8e440051e6f112f47a8c54a631653",
+      "sourceBytes": 2458598
+    },
+    {
+      "name": "ZhuaHuangFeiDian",
+      "label": "爪黄飞电",
+      "group": "standard",
+      "kind": "坐骑",
+      "sourceSha256": "4b5be5aeedc4fe9a3ac8f48d0fa421187a4ef033500c3222b6c0fc90ca3ff50c",
+      "sourceBytes": 2662208
+    },
+    {
+      "name": "HuaLiu",
+      "label": "骅骝",
+      "group": "maneuver",
+      "kind": "坐骑",
+      "sourceSha256": "384f6ee58ee38c5d7d1bdc6e0ce5492a2e99879471042f5ba2822a6786608178",
+      "sourceBytes": 2369873
+    },
+    {
+      "name": "MuNiuLiuMa",
+      "label": "木牛流马",
+      "group": "treasure",
+      "kind": "宝物",
+      "sourceSha256": "42a9451911f4ab4755cc275ae65fa75091466415157380c5741d9fb579156727",
+      "sourceBytes": 2584987
+    },
+    {
+      "name": "HunTianYi",
+      "label": "浑天仪",
+      "group": "derived",
+      "kind": "宝物",
+      "sourceSha256": "6768ac534aea4074876135e2dbf6a25dad195203bc5840f7f8de4c5d7c2d8a9a",
+      "sourceBytes": 2532971
+    },
+    {
+      "name": "QiongShu",
+      "label": "琼梳",
+      "group": "derived",
+      "kind": "宝物",
+      "sourceSha256": "f667832de3da1d25644373c58ab767e3bee23dea8261677c228626b05c63a8d7",
+      "sourceBytes": 2399186
+    },
+    {
+      "name": "XiShu",
+      "label": "犀梳",
+      "group": "derived",
+      "kind": "宝物",
+      "sourceSha256": "772732044a3cce406c8f839e93ed5533bce9e91f68669e19246e6e0ffcb5dad7",
+      "sourceBytes": 2308604
+    },
+    {
+      "name": "JinShu",
+      "label": "金梳",
+      "group": "derived",
+      "kind": "宝物",
+      "sourceSha256": "c4a2063a4e5ed32b6982d851ec924c1270bb432f622c3283c69eb2da147cf5a3",
+      "sourceBytes": 2311766
+    },
+    {
+      "name": "ShuFaZiJinGuan",
+      "label": "束发紫金冠",
+      "group": "derived",
+      "kind": "宝物",
+      "sourceSha256": "e2b760901171fe186a7d799e8a9c2b890610b3f286000f0394657b1138d67c5c",
+      "sourceBytes": 2506523
+    },
+    {
+      "name": "LingLongShiManDai",
+      "label": "玲珑狮蛮带",
+      "group": "derived",
+      "kind": "防具",
+      "sourceSha256": "c64fad47130c090f1325a364a6b07930e60b29ca42bcdf3f626794e49f2a84d0",
+      "sourceBytes": 2500590
+    },
+    {
+      "name": "HongMianBaiHuaPao",
+      "label": "红锦百花袍",
+      "group": "derived",
+      "kind": "防具",
+      "sourceSha256": "e6d8e9a800843bbfd58ba3be05369de4b72d273f4c35dd063518c139be8bb899",
+      "sourceBytes": 2656209
+    },
+    {
+      "name": "WuShuangFangTianJi",
+      "label": "无双方天戟",
+      "group": "derived",
+      "kind": "武器",
+      "sourceSha256": "df49de36b285fdbc5d950ae58ac2d0d2c64db64c267efa53313b934cd0774f4b",
+      "sourceBytes": 2433176
+    },
+    {
+      "name": "XiaoLianNu",
+      "label": "小型连弩",
+      "kind": "武器",
+      "range": 1,
+      "group": "shanhetu",
+      "sourceSha256": "cfb28f8f4ccdcc3eca4a54ba44ed4b14650dd24e9e1c0b83f2b7b9d6172b7c47",
+      "sourceBytes": 288257
+    },
+    {
+      "name": "GuiLongZhanYueDao",
+      "label": "鬼龙斩月刀",
+      "kind": "武器",
+      "range": 3,
+      "group": "shanhetu",
+      "baseName": "QingLongYanYueDao",
+      "sourceSha256": "5eef25005c5158b2eea40cec58f2a70ec66d307bf9a1e1beb20c8697dff5f562",
+      "sourceBytes": 2764295
+    },
+    {
+      "name": "ChiYanZhenHunQin",
+      "label": "赤炎镇魂琴",
+      "kind": "武器",
+      "range": 4,
+      "group": "shanhetu",
+      "sourceSha256": "39fed25fd50af852299cbda1d426e0df347711353efdf94684de9a6994048dc8",
+      "sourceBytes": 301267
+    },
+    {
+      "name": "XiuLuoLianYuJi",
+      "label": "修罗炼狱戟",
+      "kind": "武器",
+      "range": 4,
+      "group": "shanhetu",
+      "baseName": "FangTianHuaJi",
+      "sourceSha256": "21ef8d5a8d37722d872ce1b67370921676a71b5e6052671e02f34d3c05f155e7",
+      "sourceBytes": 2479751
+    },
+    {
+      "name": "LuanFengHeMingJian",
+      "label": "鸾凤和鸣剑",
+      "kind": "武器",
+      "range": 3,
+      "group": "shanhetu",
+      "sourceSha256": "5e6bcd57e18aad6e9c8fd8143b3f7fe12d0dfba4787d517bf9b35af0bf504103",
+      "sourceBytes": 302351
+    },
+    {
+      "name": "SanJianLiangRenDao",
+      "label": "三尖两刃刀",
+      "kind": "武器",
+      "range": 3,
+      "group": "shanhetu",
+      "sourceSha256": "06af5ebcc6dc158dac3dc27ef2713cc73a16b9d99ea557290d805d9e2cd51ce0",
+      "sourceBytes": 290377
+    },
+    {
+      "name": "WuLiuJian",
+      "label": "吴六剑",
+      "kind": "武器",
+      "range": 2,
+      "group": "shanhetu",
+      "sourceSha256": "c62086410c508a99416bf0c9bdd0ac392c2045d803b4115ccf8f39c2df9a758f",
+      "sourceBytes": 312202
+    },
+    {
+      "name": "QiBaoDao",
+      "label": "七宝刀",
+      "kind": "武器",
+      "range": 2,
+      "group": "shanhetu",
+      "sourceSha256": "d0a16500d5504019e464ea0e300dbd3b5bcd9074e59c07a6a246f27ceca64044",
+      "sourceBytes": 302274
+    },
+    {
+      "name": "BaiBiDao",
+      "label": "百辟刀",
+      "kind": "武器",
+      "range": 2,
+      "group": "shanhetu",
+      "sourceSha256": "d739791e85ef1351859c68a30c8486d3e0b55ddc985ca9afb43f9c46e6f3d590",
+      "sourceBytes": 301517
+    },
+    {
+      "name": "BinTieShuangJi",
+      "label": "镔铁双戟",
+      "kind": "武器",
+      "range": 3,
+      "group": "shanhetu",
+      "sourceSha256": "785f75d68c39ded46633f79bafd2cb5f0eec9a10d4af00b1c9603e51bbe7a566",
+      "sourceBytes": 290545
+    },
+    {
+      "name": "JiuJieBian",
+      "label": "五行鹤翎扇",
+      "kind": "武器",
+      "range": 4,
+      "group": "shanhetu",
+      "sourceSha256": "18c6a3105cbb511eae9fcb321de4b2083732642ed9d2a880fe9c242aed6a400d",
+      "sourceBytes": 311567
+    },
+    {
+      "name": "LiuXingChui",
+      "label": "乌铁锁链",
+      "kind": "武器",
+      "range": 3,
+      "group": "shanhetu",
+      "sourceSha256": "dc4a18485cece9c45d55ed3ee5a8b13dbac323b4b945f2e744f5ed4fcbd711a5",
+      "sourceBytes": 288383
+    },
+    {
+      "name": "JinWuLuoRiGong",
+      "label": "金乌落日弓",
+      "kind": "武器",
+      "range": 9,
+      "group": "shanhetu",
+      "sourceSha256": "3d7296b57d5fc1922c50896ec70f5686e94c6fb6cc03641ccee7689d59fbd383",
+      "sourceBytes": 310845
+    },
+    {
+      "name": "XingTianPoJunFu",
+      "label": "刑天破军斧",
+      "kind": "武器",
+      "range": 4,
+      "group": "shanhetu",
+      "sourceSha256": "047ac8f2265f330e428937656544765f75fa832b29f85b58dbdb630eeafde1fb",
+      "sourceBytes": 303188
+    },
+    {
+      "name": "ShiQuanJian",
+      "label": "断魂",
+      "kind": "武器",
+      "range": 2,
+      "group": "shanhetu",
+      "sourceSha256": "6dc4ff2f88a88c18f6808be7000c69438406b29a0235d352a46101c3c06ed61b",
+      "sourceBytes": 287223
+    },
+    {
+      "name": "LeiQie",
+      "label": "雷震",
+      "kind": "武器",
+      "range": 2,
+      "group": "shanhetu",
+      "sourceSha256": "e2402d9af9331b3effcabd174ebdf1683a04f82c822b45d9ef906490a0a17966",
+      "sourceBytes": 294064
+    },
+    {
+      "name": "ShouLiJian",
+      "label": "暗器飞刃",
+      "kind": "武器",
+      "range": 5,
+      "group": "shanhetu",
+      "sourceSha256": "468b2a8d2d25cb32155c465481186a12641658ebd7871410b408e417204a9025",
+      "sourceBytes": 292628
+    },
+    {
+      "name": "TongZiQieAnGang",
+      "label": "斩魂刀",
+      "kind": "武器",
+      "range": 3,
+      "group": "shanhetu",
+      "sourceSha256": "a2bda038aaae3a80b70ec54b1e70c4c312d01ab5811301bcc7583d05375f1978",
+      "sourceBytes": 307666
+    },
+    {
+      "name": "YaoDaoCunZheng",
+      "label": "妖刀赤瞳",
+      "kind": "武器",
+      "range": 3,
+      "group": "shanhetu",
+      "sourceSha256": "538073428db2cdcc049982b009283f2f81265fcdf84c03c2fb54fde75e8501ec",
+      "sourceBytes": 307915
+    },
+    {
+      "name": "ChiXueQingFeng",
+      "label": "赤血青锋",
+      "kind": "武器",
+      "range": 2,
+      "group": "shanhetu",
+      "baseName": "QingGangJian",
+      "sourceSha256": "174ee2cfbd1856594b93d48b5712917bb35cfacca81a5ea3d6290aca3b63fe51",
+      "sourceBytes": 2641032
+    },
+    {
+      "name": "YiTianShiNi",
+      "label": "倚天弑逆",
+      "kind": "武器",
+      "range": 4,
+      "group": "shanhetu",
+      "sourceSha256": "37f440f932b99ddec115ef933b2d7359ef62f0d026f524ac69cf1a3a3b41d7d6",
+      "sourceBytes": 296366
+    },
+    {
+      "name": "GuoFengYuPao",
+      "label": "国风玉袍",
+      "kind": "防具",
+      "group": "shanhetu",
+      "sourceSha256": "c20b65115418dcf1e9169db2c5d25578a01c803704f5d2dc98d3950fcae7436c",
+      "sourceBytes": 286234
+    },
+    {
+      "name": "QiMenBaZhen",
+      "label": "奇门八阵",
+      "kind": "防具",
+      "group": "shanhetu",
+      "sourceSha256": "9e65891baebca43d57c7149f155017caa73b3f82f70451dd079b07a8ad7e53c8",
+      "sourceBytes": 306343
+    },
+    {
+      "name": "YuLinJia",
+      "label": "黑光铠",
+      "kind": "防具",
+      "group": "shanhetu",
+      "sourceSha256": "8b7452ed3d87fa4de51e81e6bd03c5d2fc7cd10c8b89afda2ecdbdf4b7ee8ac6",
+      "sourceBytes": 295785
+    },
+    {
+      "name": "HuXinJing",
+      "label": "护心镜",
+      "kind": "防具",
+      "group": "shanhetu",
+      "sourceSha256": "4d2aa18abed7f8b96201ef5464f9589a17e400b27e84b5316b6e3f5740dca8ef",
+      "sourceBytes": 309642
+    },
+    {
+      "name": "ZengJuZu",
+      "label": "铁甲胄",
+      "kind": "防具",
+      "group": "shanhetu",
+      "sourceSha256": "eea255936da62c170967bbc1a7e8c6019a27c73fced4c9d86d7fac848c9b9e1b",
+      "sourceBytes": 303171
+    },
+    {
+      "name": "SanShou",
+      "label": "三首",
+      "kind": "防具",
+      "group": "shanhetu",
+      "sourceSha256": "cefc6348d76e0f1930303fcbc00a29d34507a4677728569d68072bb6914a2b70",
+      "sourceBytes": 293226
+    },
+    {
+      "name": "JinHuanXianLinJia",
+      "label": "金环衔鳞甲",
+      "kind": "防具",
+      "group": "shanhetu",
+      "sourceSha256": "dbbd37b279efc16db4581032b04c1588725ad6434469dd84e2ae1f484f8af0b5",
+      "sourceBytes": 293438
+    },
+    {
+      "name": "GouXiang",
+      "label": "钩镶",
+      "kind": "防具",
+      "group": "shanhetu",
+      "sourceSha256": "225c9f9b0d507e54182d0d19bc0b0c86d00809c813f5e2e8e544e1f018737c5b",
+      "sourceBytes": 296734
+    },
+    {
+      "name": "JueChenJinGe",
+      "label": "绝尘金戈",
+      "kind": "坐骑",
+      "distance": 1,
+      "group": "shanhetu",
+      "sourceSha256": "9068deeedb50fd10603014c86d11937cd03faade3742e27ee430c1a24ab3768c",
+      "sourceBytes": 294503
+    },
+    {
+      "name": "QiCaiShenLu",
+      "label": "七彩神鹿",
+      "kind": "坐骑",
+      "distance": -1,
+      "group": "shanhetu",
+      "sourceSha256": "11120416203e95cd78cf83d2ad907b6166c833af099e25f23068ca170dd88cff",
+      "sourceBytes": 284464
+    },
+    {
+      "name": "XuWangZhiMian",
+      "label": "虚妄之冕",
+      "kind": "宝物",
+      "group": "shanhetu",
+      "sourceSha256": "2992e80fccf74000c7c415680d7be2aa4871cf9e42766829a7c6be364c799cf9",
+      "sourceBytes": 299037
+    },
+    {
+      "name": "TianJiTu",
+      "label": "天机图",
+      "kind": "宝物",
+      "group": "shanhetu",
+      "sourceSha256": "f14e5a3e2847856fdced9e59004d9214b12146db5082fbf59639f5d4040e3531",
+      "sourceBytes": 300082
+    },
+    {
+      "name": "TaiGongYinFu",
+      "label": "太公阴符",
+      "kind": "宝物",
+      "group": "shanhetu",
+      "sourceSha256": "fbcab5597e98b4d55d8fc686a5f7ed03d6f1ef57ea4806ed6b4a464065d4a2a1",
+      "sourceBytes": 293004
+    },
+    {
+      "name": "SanLve",
+      "label": "三略",
+      "kind": "宝物",
+      "group": "shanhetu",
+      "sourceSha256": "bb48ec56c35bdd0d510b605dee3299dee6c67a655f095c0fe496021e408405ce",
+      "sourceBytes": 293556
+    },
+    {
+      "name": "ShanRangZhaoShu",
+      "label": "禅让诏书",
+      "kind": "宝物",
+      "group": "shanhetu",
+      "sourceSha256": "4f19da11b5b7a7e67de8c182e53d8c37aad6bcd62fe19e98254066b9317e9f03",
+      "sourceBytes": 304133
+    },
+    {
+      "name": "SheLingJi",
+      "label": "蛇灵髻",
+      "kind": "宝物",
+      "group": "shanhetu",
+      "sourceSha256": "d3dce73d959f897a4f031113d08d8f4dca103e96ec176e65ac5e01f80ee9de52",
+      "sourceBytes": 291532
+    },
+    {
+      "name": "ZhaoGuJing",
+      "label": "照骨镜",
+      "kind": "宝物",
+      "group": "shanhetu",
+      "sourceSha256": "2649c6a6e08ce1cc2a12b590c809da75815287859c82a41fc3dbec54d9bc060e",
+      "sourceBytes": 298383
+    },
+    {
+      "name": "BaZhiJing",
+      "label": "昆仑镜",
+      "kind": "宝物",
+      "group": "shanhetu",
+      "sourceSha256": "12bc7384b5e9b392b1e14a5092a81541e872c44b178e5f8fc919c40bdf97370c",
+      "sourceBytes": 297832
+    },
+    {
+      "name": "BaChiQiongGouYu",
+      "label": "螭纹玉佩",
+      "kind": "宝物",
+      "group": "shanhetu",
+      "sourceSha256": "f6a96bbde6806a5ffb18ae9e80f3092fd21fa573af0fcb2c184232a5bb981e56",
+      "sourceBytes": 289351
+    },
+    {
+      "name": "PingAnYuShou",
+      "label": "平安符",
+      "kind": "宝物",
+      "group": "shanhetu",
+      "sourceSha256": "6ed4f9b18c432b7305c49c24aa71a7b6bd14ed1951c707b229d0387b938045b8",
+      "sourceBytes": 293043
+    },
+    {
+      "name": "TongQue",
+      "label": "铜雀",
+      "kind": "宝物",
+      "group": "shanhetu",
+      "sourceSha256": "7b5ad823075e5936d178c5ad5a330a43db43dbc86feb2801ab37b2816b82af80",
+      "sourceBytes": 282046
+    }
+  ],
+  "files": [
+    {
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.1/card.atlas",
+      "fallbackUrls": [],
+      "bytes": 19529,
+      "sha256": "41224ff9933c22a719f43c5fefcee10f46afeb2174f6200c0571b920103834cc"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.1/cards.png",
+      "fallbackUrls": [],
+      "bytes": 8029754,
+      "sha256": "a33367319d22211e83d4a264a6cf85ae3861504beda9e42473b69d3c040cefb7"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.1/cards1.png",
+      "fallbackUrls": [],
+      "bytes": 8017484,
+      "sha256": "124456d5b04bc9dd7925692f1c5fb34b042338ebf3af11e13ba7814e81ac17c5"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.1/cards2.png",
+      "fallbackUrls": [],
+      "bytes": 8351306,
+      "sha256": "40884bc44c0c265f6b14153e4ac7fcd6add10e29dc7456a4bd62fb56d8fe85fe"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.1/cards3.png",
+      "fallbackUrls": [],
+      "bytes": 7625789,
+      "sha256": "97cc1666a12da8f252ee566bf0682a6918244079c0666b35961c813b1495887a"
+    }
+  ],
+  "creation": "44 refined image_gen illustrations plus 8 general-derived equipment illustrations including 4 polished Lv Lingqi edits; code-native card typography/layout at 3x resolution. No downloaded sticker artwork used. The Shanhetu expansion uses generated illustrations and shared base art for named weapon variants.",
+  "references": [
+    "https://aigengtu.com/zh/whale-chan",
+    "https://github.com/lmy414/bluedafeiyu",
+    "https://www.sanguosha.com/news/20140521_4929_0717"
+  ],
+  "attribution": "Character reference: 上善无形／溟月, ZipZipPipe／女仆鲸鱼娘; chibi community adaptation. Not official DeepSeek or Sanguosha artwork. New layout/illustration compilation shared noncommercially under CC BY-NC-SA 4.0, subject to underlying character rights."
+}

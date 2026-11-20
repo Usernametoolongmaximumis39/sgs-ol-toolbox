@@ -11,22 +11,26 @@ import { verifyPackage } from '../src/core/packages.js';
 import { bundlePlugin, makePluginPackage } from '../tools/plugin-packages.mjs';
 import plugin from '../src/plugins/dafeiyu-cards/index.js';
 import { cards, replaceCards } from '../src/plugins/dafeiyu-cards/coverage.js';
+import { localCards } from '../src/plugins/dafeiyu-cards/local-resources.js';
+
+const expectedCards = [...replaceCards, ...localCards.map(card => card.name)];
 
 test('dafeiyu package contains only its pinned external references and exact Lite scope', async () => {
   const styles = [];
-  plugin.activate({ cardStyles: { register: style => styles.push(style) } });
+  plugin.activate({ core: { distribution: 'lite' }, cardStyles: { register: style => styles.push(style) } });
   assert.equal(styles.length, 1);
   assert.equal(plugin.manifest.name, '大肥鱼卡面');
   assert.equal(styles[0].name, plugin.manifest.name);
   assert.equal(styles[0].id, 'dafeiyu-cards.beta');
   const atlas = validateCardAtlas(styles[0].atlas);
   assert.equal(atlas.pixelRatio, 3);
-  assert.equal(atlas.pages.length, 3);
+  assert.equal(atlas.pages.length, 4);
   assert.equal(plugin.manifest.minCoreVersion, '0.6.9');
   assert.equal(atlas.preview, 'Sha');
   assert.match(atlas.previewImage, /^data:image\/png;base64,/);
   assert(atlas.previewImage.length <= 160 * 1024);
-  assert.equal(new Set(atlas.replaceCards).size, 52);
+  assert.equal(new Set(atlas.replaceCards).size, 94);
+  assert.deepEqual(atlas.replaceCards, expectedCards);
   assert.deepEqual(Object.fromEntries(['standard', 'maneuver', 'treasure', 'derived'].map(group => [group, cards.filter(card => card.group === group).length])),
     { standard: 32, maneuver: 11, treasure: 1, derived: 8 });
   assert.equal(cards.find(card => card.name === 'MuNiuLiuMa').kind, '宝物');
@@ -82,7 +86,7 @@ test('dafeiyu installs offline and preserves independent selections across the c
   assert.deepEqual(registry.selection, selection);
 });
 
-test('dafeiyu applies all 52 exact names, preserves suit/rank, and restores a reused card outside its scope', t => {
+test('dafeiyu applies all 94 exact names, preserves suit/rank, and restores a reused card outside its scope', t => {
   const scope = new ResourceScope(), values = new Map(), original = {}, rank = {}, suit = {};
   const make = name => ({ theCard: { ResName: name, IsEmpty: false }, isNewCardUI: true,
     bmpFace: { texture: original }, bmpFace2: { visible: true }, bmpName: { visible: true }, bmpDesc: { visible: true },
@@ -90,7 +94,7 @@ test('dafeiyu applies all 52 exact names, preserves suit/rank, and restores a re
     getCardFaceBaseTexture() {}, updateNewCardFace() { this.bmpFace2.visible = true; },
     SetCardFace() { this.bmpFace.texture = original; this.updateNewCardFace(); },
   });
-  const uis = [...replaceCards, 'ShanShan', 'GuoZhanSha', 'Activity2026'].map(make);
+  const uis = [...expectedCards, 'ShanShan', 'GuoZhanSha', 'Activity2026'].map(make);
   const registry = new CardStyleRegistry({
     window: { Laya: { Texture2D: class { loadImageSource() {} }, Texture: class { destroy() { this.destroyed = true; } } } },
     document: {}, game: { getSelfSeatUI: () => ({ cardContainer: { cardUis: uis } }) },
@@ -103,12 +107,12 @@ test('dafeiyu applies all 52 exact names, preserves suit/rank, and restores a re
   let unregister;
   plugin.activate({ cardStyles: { register: style => { unregister = registry.register(style, 'dafeiyu-cards'); } } });
   registry.selectSide('face', 'dafeiyu-cards.beta');
-  for (const ui of uis.slice(0, 52)) {
+  for (const ui of uis.slice(0, expectedCards.length)) {
     assert.notEqual(ui.bmpFace.texture, original, ui.theCard.ResName);
     assert.equal(ui.bmpFace2.visible, false); assert.equal(ui.bmpName.visible, false);
     assert.equal(ui.bmpNumber.texture, rank); assert.equal(ui.bmpFlower.texture, suit);
   }
-  for (const ui of uis.slice(52)) { assert.equal(ui.bmpFace.texture, original); assert.equal(ui.bmpName.visible, true); }
+  for (const ui of uis.slice(expectedCards.length)) { assert.equal(ui.bmpFace.texture, original); assert.equal(ui.bmpName.visible, true); }
   const reused = uis[0]; reused.theCard.ResName = 'Activity2026'; reused.SetCardFace();
   assert.equal(reused.bmpFace.texture, original); assert.equal(reused.bmpName.visible, true);
   reused.theCard.ResName = 'MuNiuLiuMa'; reused.SetCardFace(); assert.notEqual(reused.bmpFace.texture, original);

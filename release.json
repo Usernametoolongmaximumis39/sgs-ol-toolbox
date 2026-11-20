@@ -1,8 +1,8 @@
 {
-  "version": "0.6.149",
+  "version": "0.6.150",
   "editions": {
     "full": {
-      "bytes": 3823479,
+      "bytes": 3823305,
       "plugins": 21,
       "updatesTo": "full",
       "toolboxUpdatesTo": "lite"
@@ -37,8 +37,8 @@
     },
     {
       "id": "dafeiyu-cards",
-      "version": "0.4.3",
-      "sha256": "3792c5fd8f9aac3abd4351db6a77ca95ae22ee9510f293a78a853b8e269ee6e8"
+      "version": "0.4.4",
+      "sha256": "00cef6e26828ae31ffdf5f12d3bc3843d1a55441cb692486363f8c28c44fab0b"
     },
     {
       "id": "backgrounds",
@@ -128,36 +128,34 @@
   ],
   "assets": [
     {
-      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.3.0/card.atlas",
-      "bytes": 9676,
-      "sha256": "445a7cf515c93774448c0c4576b33703a2a775144212477be9a5273051d92459",
-      "fallbackUrls": [
-        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.3.0/card.atlas"
-      ]
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.1/card.atlas",
+      "fallbackUrls": [],
+      "bytes": 19529,
+      "sha256": "41224ff9933c22a719f43c5fefcee10f46afeb2174f6200c0571b920103834cc"
     },
     {
-      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.3.0/cards.png",
-      "bytes": 6019399,
-      "sha256": "63feb16cad91ce7415ac2d0ceac57a25dd46f4da37dd87c8710196998afe153c",
-      "fallbackUrls": [
-        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.3.0/cards.png"
-      ]
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.1/cards.png",
+      "fallbackUrls": [],
+      "bytes": 8029754,
+      "sha256": "a33367319d22211e83d4a264a6cf85ae3861504beda9e42473b69d3c040cefb7"
     },
     {
-      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.3.0/cards1.png",
-      "bytes": 6113702,
-      "sha256": "e27930df7749ed66e51488120ea1ac511225ffa8f830b21a0dfb5216f5590caa",
-      "fallbackUrls": [
-        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.3.0/cards1.png"
-      ]
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.1/cards1.png",
+      "fallbackUrls": [],
+      "bytes": 8017484,
+      "sha256": "124456d5b04bc9dd7925692f1c5fb34b042338ebf3af11e13ba7814e81ac17c5"
     },
     {
-      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.3.0/cards2.png",
-      "bytes": 5313485,
-      "sha256": "d91c812096a7187bfcd03819cb993252c2a745732fd9d4fb7ef983a6ce9ed962",
-      "fallbackUrls": [
-        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.3.0/cards2.png"
-      ]
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.1/cards2.png",
+      "fallbackUrls": [],
+      "bytes": 8351306,
+      "sha256": "40884bc44c0c265f6b14153e4ac7fcd6add10e29dc7456a4bd62fb56d8fe85fe"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.1/cards3.png",
+      "fallbackUrls": [],
+      "bytes": 7625789,
+      "sha256": "97cc1666a12da8f252ee566bf0682a6918244079c0666b35961c813b1495887a"
     }
   ]
 }

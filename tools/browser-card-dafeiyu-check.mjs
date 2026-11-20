@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { access, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
@@ -10,14 +10,20 @@ import { parseCardFrames, validateCardAtlas } from '../src/core/card-atlas.js';
 
 const shanheLocal = process.argv.includes('--shanhetu-local');
 const resource = shanheLocal ? { ...publicResource, ...localResource } : publicResource;
-const coverage = shanheLocal ? [...publishedCards, ...localCards] : publishedCards;
-const sample = shanheLocal ? '护心镜' : '束发紫金冠';
-if (shanheLocal) {
+const coverage = [...publishedCards, ...localCards];
+const sample = '护心镜';
+const assetVersion = new URL(resource.index.url).pathname.split('/').at(-2);
+const localArt = new URL('../release/card-art/dafeiyu/', import.meta.url);
+const hasLocalArt = await access(new URL(assetVersion + '/manifest.json', localArt)).then(() => true, error => {
+  if (error.code !== 'ENOENT') throw error;
+  return false;
+});
+const art = hasLocalArt ? localArt : new URL('../card-art/dafeiyu/', import.meta.url);
+const assetRoot = new URL(assetVersion + '/', art);
+if (hasLocalArt) {
   const deck = JSON.parse(await readFile(new URL('../assets/dafeiyu/revisions/shanhetu-2026-11-18/prompts.json', import.meta.url), 'utf8'));
   assert.deepEqual(localCards, deck.cards.map(({ name, label }) => ({ name, label })), 'all 42 agreed cards are registered');
 }
-const assetVersion = new URL(resource.index.url).pathname.split('/').at(-2);
-const assetRoot = new URL('../release/card-art/dafeiyu/' + assetVersion + '/', import.meta.url);
 const descriptor = validateCardAtlas(resource), assetBytes = new Map(), dimensions = [];
 for (const spec of [descriptor.index, ...descriptor.pages]) {
   const name = new URL(spec.url).pathname.split('/').at(-1), bytes = await readFile(new URL(name, assetRoot));
@@ -29,7 +35,7 @@ for (const spec of [descriptor.index, ...descriptor.pages]) {
 const index = JSON.parse(assetBytes.get(descriptor.index.url));
 const frames = parseCardFrames(index, dimensions, descriptor);
 assert.equal(descriptor.pixelRatio, 3);
-assert.equal(descriptor.pages.length, shanheLocal ? 4 : 3);
+assert.equal(descriptor.pages.length, 4);
 assert([...frames.values()].every(frame => frame.w === 405 && frame.h === 570));
 assert.deepEqual([...frames.keys()].sort(), coverage.map(card => card.name + '_png.png').sort(), 'all and only registered exact frames');
 const artManifest = JSON.parse(await readFile(new URL('manifest.json', assetRoot), 'utf8'));
@@ -39,10 +45,11 @@ assert.equal(new Set(originals.map(card => card.sourceSha256)).size, originals.l
 for (const card of artManifest.cards.filter(card => card.baseName)) {
   assert.equal(card.sourceSha256, artManifest.cards.find(base => base.name === card.baseName)?.sourceSha256, card.name + ' shared illustration');
 }
-const previous = JSON.parse(await readFile(new URL('../release/card-art/dafeiyu/0.2.0/manifest.json', import.meta.url), 'utf8'));
-const changedSources = artManifest.cards.filter(card => card.group !== 'shanhetu' && card.sourceSha256 !== previous.cards.find(old => old.name === card.name)?.sourceSha256).map(card => card.name).sort();
-assert.deepEqual(changedSources, ['HongMianBaiHuaPao', 'LingLongShiManDai', 'ShuFaZiJinGuan', 'WuShuangFangTianJi'].sort(), 'only the four completed Lv Lingqi illustrations change; the other 48 source images are retained');
-for (const card of artManifest.cards) {
+const previous = JSON.parse(await readFile(new URL('0.3.0/manifest.json', art), 'utf8'));
+for (const card of previous.cards) {
+  assert.equal(artManifest.cards.find(current => current.name === card.name)?.sourceSha256, card.sourceSha256, card.name + ' retains its published illustration');
+}
+if (hasLocalArt) for (const card of artManifest.cards) {
   const bytes = await readFile(new URL('../' + card.sourceFile, import.meta.url));
   assert.equal(createHash('sha256').update(bytes).digest('hex'), card.sourceSha256, card.name + ' source integrity');
 }
@@ -146,7 +153,7 @@ try {
         book.panel.addChild(item);
         return item.cardFace.cardUi;
       };
-      const bookCard = shanheLocal ? 'HuXinJing' : coverage.at(-1).name;
+      const bookCard = 'HuXinJing';
       const listed = addBookItem(bookCard, '图鉴列表', 1010);
       const missing = addBookItem('ActivityMissing', '无同名卡面', 1120);
       detail.cardFace = makeFace(bookCard, '图鉴详情', 1010, 250);
@@ -179,10 +186,8 @@ try {
     }), { cause: error });
   });
   assert.equal(await option.getAttribute('aria-pressed'), 'false', 'preview must not select a card face');
-  if (shanheLocal) {
-    await catalog.getByRole('searchbox').fill('赤血青锋');
-    await catalog.getByRole('img', { name: '赤血青锋 · 大肥鱼卡面' }).waitFor();
-  }
+  await catalog.getByRole('searchbox').fill('赤血青锋');
+  await catalog.getByRole('img', { name: '赤血青锋 · 大肥鱼卡面' }).waitFor();
   await catalog.getByRole('searchbox').fill(sample);
   const preview = catalog.getByRole('img', { name: sample + ' · 大肥鱼卡面' });
   await preview.waitFor();

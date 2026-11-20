@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.149"
+    "version": "0.6.150"
   },
   "plugins": [
     {
@@ -85,7 +85,7 @@
     {
       "id": "dafeiyu-cards",
       "name": "大肥鱼卡面",
-      "version": "0.4.3",
+      "version": "0.4.4",
       "icon": {
         "paths": [
           "M3 5h13v16H3Z",
@@ -100,10 +100,10 @@
       "contractVersion": 1,
       "minCoreVersion": "0.6.9",
       "apiVersion": 1,
-      "description": "三倍高清大肥鱼卡面与鲸浪藏锋卡背，含军争卡组和衍生装备，图片按需加载",
-      "releaseNotes": "调整卡面资源兼容性，正式版继续按需加载现有高清卡面和卡背。",
-      "packageUrl": "packages/dafeiyu-cards/0.4.3.json",
-      "sha256": "3792c5fd8f9aac3abd4351db6a77ca95ae22ee9510f293a78a853b8e269ee6e8"
+      "description": "三倍高清大肥鱼卡面与鲸浪藏锋卡背，含军争卡组、衍生装备和山河图装备，图片按需加载",
+      "releaseNotes": "新增 42 张山河图装备卡面，可在工具箱外观页和游戏内卡牌图鉴预览。新版卡面按需从 GitHub 加载。",
+      "packageUrl": "packages/dafeiyu-cards/0.4.4.json",
+      "sha256": "00cef6e26828ae31ffdf5f12d3bc3843d1a55441cb692486363f8c28c44fab0b"
     },
     {
       "id": "backgrounds",
