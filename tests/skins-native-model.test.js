@@ -4,6 +4,7 @@ import { nativeSkinState, matchesSkin, skinTotals, readCrystalCatalogue, readDyn
 import { bindVoicesInOrder, configuredCardSkills, createCrossVoice, DEATH_VOICE, NATIVE_VOICE, remapVoiceBindings, resolveVoiceBindings, withDerivedSkills } from '../src/plugins/skins/cross-voice.js';
 import { createYjcmIndex, yjcmVoiceReference } from '../src/plugins/skins/yjcm.js';
 import { buildYjcmData } from '../src/plugins/skins/yjcm-data.js';
+import { mobileCloudVoice } from '../src/plugins/skins/mobile-voice.js';
 import yjcmSource from './fixtures/yjcm-source.json' with { type: 'json' };
 
 const { findYjcmSkin, findYjcmVoice, hasYjcmVoices, searchYjcmSkins, yjcmSkillVoices, yjcmSkinVoices } = createYjcmIndex(buildYjcmData(yjcmSource));
@@ -47,6 +48,36 @@ test('cross-server skill bindings follow card order and wrap on the shorter list
     { 101: [523], 102: [524], 103: [523] });
 });
 
+test('one-click binds same names first and cycles the remaining voices separately for each form', () => {
+  const skills = [{ id: 1, name: '权计' }, { id: 2, name: '自立' }, { id: 3, name: '排异' }];
+  const form = (id, name, clip) => [
+    { id, name, urls: [clip] },
+    { id: id + 1, name, urls: [clip] },
+    { id: id + 2, name: '另一个名称', urls: ['alias'], clipKeys: new Map([['alias', clip]]) },
+    { id: id + 3, name: '肆恣', urls: [clip + '-sizi'] },
+    { id: id + 4, name: '克昌', urls: [clip + '-kechang'] },
+  ];
+  const first = form(101, '权计', 'first'), second = form(201, '自立', 'second');
+  assert.deepEqual(bindVoicesInOrder(skills, first, { 1: [104] }), { 1: [101, 102], 2: [104], 3: [105] });
+  assert.deepEqual(bindVoicesInOrder(skills, second), { 1: [204], 2: [201, 202], 3: [205] });
+  assert.deepEqual(bindVoicesInOrder(skills, first, { 2: NATIVE_VOICE }), { 1: [101, 102], 3: [104, 105] });
+  assert.equal(createCrossVoice(skills, first.slice(0, 3), {}).replaces(2), false);
+});
+
+test('playback checks clip identity across aliases, skills and forms even when object URLs change', () => {
+  const skills = [{ id: 1, name: '权计' }, { id: 2, name: '排异' }];
+  const first = { id: 10, name: '权计', urls: ['blob:first'], clipKeys: new Map([['blob:first', 'shared']]) };
+  const second = { id: 20, name: '排异', urls: ['blob:copy', 'blob:other'], clipKeys: new Map([['blob:copy', 'shared']]) };
+  const history = {};
+  const base = createCrossVoice(skills, [first, second], {}, history);
+  const altered = createCrossVoice(skills, [second], {}, history);
+  assert.equal(base.next(1), 'blob:first');
+  assert.equal(altered.next(2), 'blob:other');
+  assert.equal(altered.next(2), 'blob:copy');
+  assert.equal(base.next(1), undefined, 'a lone duplicate falls through to the native skill voice');
+  assert.equal(base.next(1), 'blob:first');
+});
+
 test('unbound skills draw from all clips without immediate repeats and acquired skills keep native voice', () => {
   const skills = [{ id: 101 }, { id: 102 }];
   const voices = [{ id: 201, urls: ['one'] }, { id: 202, urls: ['two'] }];
@@ -79,6 +110,32 @@ test('keeping a skill native survives restoration and cannot be replaced by one-
   assert.equal(playback.replaces(715), false);
   assert.equal(playback.next(715), undefined);
   assert.equal(playback.next(716), 'alliance');
+});
+
+test('mobile card clips stay out of skill bindings and unidentified clips require explicit selection', () => {
+  assert.deepEqual(mobileCloudVoice('wuzhong'), { name: '无中生有', kind: 'card' });
+  assert.deepEqual(mobileCloudVoice('juedou'), { name: '决斗', kind: 'card' });
+  assert.deepEqual(mobileCloudVoice('nanman'), { name: '南蛮入侵', kind: 'card' });
+  assert.deepEqual(mobileCloudVoice('160_shan'), { name: '闪', kind: 'card' });
+  assert.deepEqual(mobileCloudVoice('shanjia'), { name: 'shanjia', kind: 'unidentified' });
+  const skills = [{ id: 10, name: '武圣' }, { id: 20, name: '决斗' }, { id: 30, name: 'shanjia' }];
+  const voices = [
+    { id: 101, ...mobileCloudVoice('wusheng'), urls: ['skill'] },
+    { id: 102, ...mobileCloudVoice('juedou'), urls: ['card-1', 'card-2'] },
+    { id: 103, ...mobileCloudVoice('shanjia'), urls: ['unidentified'] },
+    { id: DEATH_VOICE, name: '阵亡', urls: ['death'] },
+  ];
+  const read = reference => reference === 'card-ref' ? voices[1] : undefined;
+  const playback = bindings => createCrossVoice(skills, voices, bindings, {}, read, { randomForUnbound: false });
+  assert.deepEqual(resolveVoiceBindings(skills, voices), { 10: [101], [DEATH_VOICE]: [DEATH_VOICE] });
+  assert.deepEqual(bindVoicesInOrder(skills, voices), { 10: [101], [DEATH_VOICE]: [DEATH_VOICE] });
+  assert.equal(playback({}).next(10), 'skill');
+  assert.equal(playback({}).next(20), undefined);
+  assert.equal(playback({ 20: [] }).next(20), 'skill');
+  assert.equal(playback({ 20: [102] }).next(20), undefined);
+  assert.equal(playback({ 20: ['card-ref'] }).next(20), undefined);
+  assert.equal(playback({ 30: [103] }).next(30), 'unidentified');
+  assert.equal(playback({}).next(DEATH_VOICE), 'death');
 });
 
 test('mixed skins use their scoped sources and keep death out of random skill speech', () => {

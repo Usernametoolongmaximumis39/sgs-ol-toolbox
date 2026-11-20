@@ -1,4 +1,4 @@
-import { textNode } from './controls.js';
+import { createNativeCatalogueButton } from './native-catalogue-button.js';
 
 function isVisible(view, stage) {
   for (let node = view; node; node = node.parent) {
@@ -31,56 +31,60 @@ function findSkinList(stage) {
   return null;
 }
 
-export function createGeneralSkinsEntry(ctx, openYjcm) {
+export function createGeneralSkinsEntry(ctx, openYjcm, openMobile) {
   const theme = ctx.ui.nativeTheme;
   let entry;
   function attach(laya, list) {
     const { stage } = laya, { view, title, label, id, name } = list;
-    const button = new laya.Sprite();
-    button.name = 'sgs-yjcm-general-skins';
-    button.size(102, 24);
-    button.mouseEnabled = true;
-    button.zOrder = 40;
-    const caption = textNode(laya, '一将成名皮肤', 0, 0, button.width, button.height, theme.palette.text, 12);
-    button.addChild(caption);
-    title.addChild(button);
-    let hovered = false, closePicker;
+    let closePicker;
     function active() {
       return !ctx.scope.signal.aborted && isVisible(view, stage) && view.skinTitle === title &&
         Number(view.generalId) === id && view.generalInfo?.ItemNameSimpleNoColor === name;
     }
-    function paint() {
-      const focused = stage.focus === button;
-      theme.surface(button, { hover: hovered, selected: focused });
-      caption.color = hovered || focused ? theme.palette.accent : theme.palette.text;
+    const entries = [];
+    for (const [open, buttonName, text, width] of [
+      [openYjcm, 'sgs-yjcm-general-skins', '一将成名皮肤', openMobile ? 86 : 102],
+      [openMobile, '__sgsSkinToolMobileGeneralEntry', '移动版皮肤', 76],
+    ]) {
+      if (!open) continue;
+      const action = createNativeCatalogueButton(laya, title, theme, { name: buttonName, text, width, height: 24, fontSize: 12 }, () => {
+        if (!active()) return;
+        paint();
+        closePicker?.();
+        closePicker = open({ general: { id, name, isSelf: true }, initialQuery: view.generalInfo.showName || name });
+      });
+      entries.push(action);
     }
     function update() {
+      const gap = 6;
+      const totalWidth = entries.reduce((width, { button }) => width + button.width, 0) + gap * (entries.length - 1);
       const card = view.baseSkinItems?.[0];
+      // The title's local coordinates inherit the native window's scale.
       const cardLeft = card && card.parent === title.parent ? card.x - title.x : NaN;
-      const nameLeft = label.x - button.width - 9;
-      button.pos(Math.round(Number.isFinite(cardLeft) ? Math.min(cardLeft, nameLeft) : nameLeft),
-        Math.round((title.height - button.height) / 2));
-      button.visible = button.x >= 0;
+      const nameLeft = label.x - totalWidth - 9;
+      let left = Math.round(Number.isFinite(cardLeft) ? Math.min(cardLeft, nameLeft) : nameLeft);
+      const visible = left >= 0;
+      for (const { button } of entries) {
+        button.pos(left, Math.round((title.height - button.height) / 2));
+        button.visible = visible;
+        if (!visible && stage.focus === button) stage.focus = null;
+        left += button.width + gap;
+      }
     }
-    function choose() {
-      if (!active() || !button.visible) return;
-      stage.focus = button;
-      paint();
-      closePicker = openYjcm({ general: { id, name, isSelf: true }, initialQuery: view.generalInfo.showName || name });
-    }
-    button.on('click', button, event => { event?.stopPropagation?.(); choose(); });
-    button.on('mouseover', button, () => { hovered = true; paint(); });
-    button.on('mouseout', button, () => { hovered = false; paint(); });
+    const paint = () => entries.forEach(action => action.paint());
     const offTheme = theme.watch(paint);
     const offKeys = ctx.scope.listen(ctx.window, 'keydown', event => {
-      if (!active() || !button.visible || !isVisible(title, stage) || event.defaultPrevented ||
+      if (!active() || !entries[0]?.button.visible || !isVisible(title, stage) || event.defaultPrevented ||
           event.composedPath()[0]?.closest?.('input,select,textarea,button,[contenteditable]')) return;
-      if (event.key === 'Tab' && !event.shiftKey && !stage.focus) {
-        event.preventDefault(); stage.focus = button; paint();
-      } else if (stage.focus === button && (event.key === 'Enter' || event.key === ' ')) {
-        event.preventDefault(); choose();
-      } else if (stage.focus === button && event.key === 'Tab') {
-        stage.focus = null; paint();
+      const index = entries.findIndex(({ button }) => stage.focus === button);
+      if (index >= 0 && (event.key === 'Enter' || event.key === ' ')) {
+        event.preventDefault();
+        entries[index].choose();
+      } else if (event.key === 'Tab' && (index >= 0 || (!stage.focus && !event.shiftKey))) {
+        const next = entries[index + (event.shiftKey ? -1 : 1)];
+        if (next) event.preventDefault();
+        stage.focus = next?.button ?? null;
+        paint();
       }
     });
     paint();
@@ -89,8 +93,7 @@ export function createGeneralSkinsEntry(ctx, openYjcm) {
       closePicker?.();
       offTheme();
       offKeys();
-      if (stage.focus === button) stage.focus = null;
-      if (!button.destroyed) button.destroy(true);
+      for (const action of entries) action.dispose();
     } };
   }
   function check() {

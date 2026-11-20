@@ -8,7 +8,7 @@ const options = [
   ['unlockDynamic', '本地解锁动态', false],
   ['otherPlayers', '切换他人皮肤', false],
   ['crossServer', '更换其他服务器皮肤', false],
-  ['yjcmDynamicOptimization', '一将成名服动态优化', true, 'crossServer'],
+  ['yjcmDynamicOptimization', '皮肤显示优化', true],
 ];
 
 const styles = `
@@ -26,10 +26,11 @@ const styles = `
 [data-sgs-skin-settings] .skin-actions{display:flex;flex-wrap:wrap;gap:.45em}
 [data-sgs-skin-settings] button{min-height:30px;white-space:nowrap;font-size:inherit}
 [data-sgs-skin-settings] .skin-use{color:var(--sgs-accent);border-color:var(--sgs-accent)}
-[data-sgs-skin-settings] .skin-yjcm{justify-self:start;max-width:100%;margin-top:.3em}
+[data-sgs-skin-settings] .skin-catalogues{display:flex;gap:.45em;min-width:0;margin-top:.3em}
+[data-sgs-skin-settings] .skin-catalogues button{min-width:0;max-width:100%;padding-inline:.55em}
 `;
 
-export function renderSkinPanel(ctx, local, reconfigure, container, openYjcm, openForms) {
+export function renderSkinPanel(ctx, local, reconfigure, container, openYjcm, openForms, openMobile) {
   const doc = ctx.document, releases = [];
   const element = (tag, text, cls) => {
     const node = doc.createElement(tag);
@@ -42,19 +43,17 @@ export function renderSkinPanel(ctx, local, reconfigure, container, openYjcm, op
   const style = element('style', CONTROL_STYLES + styles);
   const children = element('div', '', 'skin-children');
   const localOptions = element('div', '', 'skin-local-options');
-  const crossOptions = element('div', '', 'skin-children');
   const toggles = new Map();
   for (const [key, title, fallback, prerequisite] of options) {
     const label = element('label', '', 'skin-option');
     const input = styleSwitch(element('input')); input.type = 'checkbox';
     input.checked = ctx.settings.get(key, fallback) === true;
-    if (prerequisite === 'crossServer') {
-      label.title = '需要开启「更换其他服务器皮肤」。';
+    if (key === 'yjcmDynamicOptimization') {
+      label.title = '为本方出框立绘自动收起武将名条和聊天输入行。';
       input.setAttribute('aria-description', label.title);
     }
     label.append(element('span', title), input);
-    const group = key === 'advanced' ? root : prerequisite === 'advanced' ? children
-      : prerequisite === 'crossServer' ? crossOptions : localOptions;
+    const group = key === 'advanced' ? root : prerequisite === 'advanced' ? children : localOptions;
     group.append(label);
     toggles.set(key, input);
     listen(input, 'change', () => {
@@ -70,9 +69,22 @@ export function renderSkinPanel(ctx, local, reconfigure, container, openYjcm, op
   const localHint = element('p');
   localOptions.prepend(localHint);
   const unlockHint = element('p', '在游戏的「选择皮肤」窗口试用未开通皮肤。');
-  const yjcm = element('button', '一将成名皮肤', 'skin-yjcm');
-  yjcm.type = 'button';
-  localOptions.append(crossOptions, unlockHint, yjcm);
+  const catalogues = element('div', '', 'skin-catalogues');
+  for (const [open, title, cls] of [
+    [openYjcm, '一将成名皮肤', 'skin-yjcm'],
+    [openMobile, '移动版皮肤', 'skin-mobile'],
+  ]) {
+    if (!open) continue;
+    const button = element('button', title, cls);
+    button.type = 'button';
+    catalogues.append(button);
+    listen(button, 'click', () => {
+      update();
+      closeCatalogue?.();
+      closeCatalogue = open({ target: selected && cross(selected) ? selected : undefined, trigger: button, onApply: update });
+    });
+  }
+  localOptions.append(unlockHint, catalogues);
   const picker = element('div', '', 'skin-local-picker');
   const waiting = element('p'), seat = element('select', '', 'sgs-select'), skin = element('select', '', 'sgs-select');
   function field(label, input) {
@@ -139,10 +151,6 @@ export function renderSkinPanel(ctx, local, reconfigure, container, openYjcm, op
     if (changed) setMessage('');
   }
   listen(seat, 'change', () => update(true));
-  listen(yjcm, 'click', () => {
-    update();
-    closeCatalogue = openYjcm({ target: selected && cross(selected) ? selected : undefined, trigger: yjcm, onApply: update });
-  });
   listen(use, 'click', () => {
     if (!selected || !skin.value) return;
     const target = selected, option = entries.find(entry => entry.id === Number(skin.value));

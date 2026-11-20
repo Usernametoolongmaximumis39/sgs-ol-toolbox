@@ -20,7 +20,7 @@ const bundle = await build({stdin:{contents:`export { CardStyleRegistry } from '
 await mkdir('test-results',{recursive:true});
 const browser = await chromium.launch({channel:'chrome',headless:true});
 const page = await browser.newPage({viewport:{width:1000,height:780},hasTouch:true}), errors=[];
-page.on('pageerror',e=>errors.push(e.message));
+page.on('pageerror',e=>errors.push(e.stack || e.message));
 try {
   await page.route('http://localhost/**',route=>route.fulfill({contentType:'text/html',body:'<body style="margin:0;background:#26332d"></body>'}));
   const host=page.locator('[data-sgs-toolbox="core"]');
@@ -48,7 +48,7 @@ try {
     const hand={cardUis:cards,createNormalCardUi(card){return addCard(card.IsEmpty,390);}},self={cardContainer:hand};
     window.CtrUtil = { AllDatas: { 'sys_playcard.sgs': playcards }, Ctr: { Ofb_Dec: value => value } };
     const configLoads = [];
-    const configWindow = { get CtrUtil() { return window.CtrUtil; }, location: { origin: 'https://web.sanguosha.com' },
+    const configWindow = { get Laya() { return window.Laya; }, get CtrUtil() { return window.CtrUtil; }, location: { origin: 'https://web.sanguosha.com' },
       resourceVersion: 'cards-fixture', fetch(url, options) {
         return new Promise((resolve, reject) => configLoads.push({
           url, credentials: options.credentials, reject,
@@ -56,7 +56,7 @@ try {
         }));
       } };
     const game = CardCheck.createGameAdapter(configWindow, scope);
-    const registry=new CardStyleRegistry({window,document,game:{...game,getSelfSeatUI:()=>self},settings,scope});
+    const registry=new CardStyleRegistry({window,document,game:{...game,getSelfSeatUI:()=>game.getSelfSeatUI() || self},settings,scope});
     let releases=[]; const enable=()=>CardCheck.gold.activate({cardStyles:{register:s=>{const off=registry.register(s,'gold-cards');releases.push(off);return off;}}});
     enable();
     const officialFixtures = { cardFace_0: originals.face, cardBack_0: originals.back,
@@ -65,7 +65,7 @@ try {
     CardCheck.nativeCards.activate({cardStyles:{register:s=>scope.add(registry.register(s,'native-cards'))}});
     const shell=createShell({window,document,scope,settings});const themes=new ThemeRegistry(settings,t=>shell.applyTheme(t));
     shell.setHandlers({cardStyles:registry,themes,manager:{list:()=>[]},market:()=>null});
-    window.check={hand,scope,settings,registry,cards,originals,officialFixtures,shell,themes,enable,disable:()=>{releases.forEach(f=>f());releases=[];},addCard,configLoads};
+    window.check={hand,scope,settings,registry,cards,originals,officialFixtures,shell,themes,enable,disable:()=>{releases.forEach(f=>f());releases=[];},addCard,configLoads,Native};
   },{ method, playcards, configArchive });
   await host.locator('[data-category="manage"]').click();await host.getByRole('button',{name:'外观',exact:true}).click();
   const workshop = host.locator('.card-style-workshop .plugin-toggle');
@@ -106,6 +106,85 @@ try {
     if(first.bmpFace.texture!==check.officialFixtures.cardBack_5)throw Error('immediate face/back refresh failed');
     // No waiting for the 400ms interval, no refreshNative call here.
   });
+  const firstFrames = await page.evaluate(async () => {
+    const { registry, originals, officialFixtures, Native } = check;
+    const sceneLayer = new Laya.Sprite(); sceneLayer.name = 'SceneLayer';
+    const scene = new Laya.Sprite(); scene.name = 'GameScene';
+    const outer = new Laya.Sprite(), hand = new Laya.Sprite(), drawLayer = new Laya.Sprite();
+    scene.SelfSeatUi = { cardContainer: hand };
+    scene.addChild(outer); outer.addChild(hand); hand.addChild(drawLayer);
+    hand.cardUis = [];
+    const makeCard = (empty, x) => {
+      const card = new Laya.Sprite(); card.pos(x, 410);
+      Object.assign(card, { isNewCardUI: true, theCard: { IsEmpty: empty, ResName: 'Sha' },
+        bmpFace: new Laya.Sprite(), bmpFace2: { visible: !empty }, bmpName: { visible: true },
+        bmpFlower: { visible: true }, bmpNumber: { visible: true }, SetCardFace: Native.prototype.SetCardFace,
+        getCardFaceBaseTexture: () => originals.face, updateNewCardFace() {}, measure() {} });
+      card.addChild(card.bmpFace); card.SetCardFace(null);
+      const render = card.bmpFace.render;
+      const firstPaint = new Promise(resolve => {
+        card.bmpFace.render = function (...args) {
+          this.render = render;
+          resolve(this.texture === officialFixtures.cardFace_10 ? 'custom face'
+            : this.texture === officialFixtures.cardBack_5 ? 'custom back'
+            : this.texture === originals.face ? 'original face'
+            : this.texture === originals.back ? 'original back' : 'other');
+          return render.apply(this, args);
+        };
+      });
+      return { card, firstPaint };
+    };
+    const flatLayer = new Laya.Sprite();
+    let flatX = 60;
+    flatLayer.addDrawChild = function (bitmap) {
+      const texture = bitmap.texture;
+      this.graphics.drawTexture(texture, flatX, 560);
+      flatX += 110;
+      return texture;
+    };
+    drawLayer.addChild(flatLayer);
+    const face = makeCard(false, 60), back = makeCard(true, 170), other = makeCard(true, 280);
+    hand.cardUis.push(face.card, back.card);
+    drawLayer.addChild(face.card); drawLayer.addChild(back.card); drawLayer.addChild(other.card);
+    registry.selectScope('self');
+    Laya.stage.addChild(sceneLayer);
+    sceneLayer.addChild(scene);
+    check.finishFirstFrames = () => { sceneLayer.destroy(true); registry.selectScope('all'); };
+    let timeout;
+    const deadline = new Promise((_, reject) => {
+      timeout = setTimeout(() => reject(new Error('Laya never drew a card under test')), 2000);
+    });
+    try {
+      const entry = await Promise.race([deadline, Promise.all([face.firstPaint, back.firstPaint, other.firstPaint])]);
+      const nextFace = makeCard(false, 60), nextBack = makeCard(true, 170);
+      // A nested draw layer created after entry uses no previously discovered card factory.
+      const animation = new Laya.Sprite(); drawLayer.addChild(animation);
+      face.card.removeSelf(); back.card.removeSelf();
+      hand.cardUis.splice(0, 2, nextFace.card, nextBack.card);
+      animation.addChild(nextFace.card); animation.addChild(nextBack.card);
+      const duringMatch = await Promise.race([deadline, Promise.all([nextFace.firstPaint, nextBack.firstPaint])]);
+      const flat = [makeCard(false, 0).card, makeCard(true, 0).card];
+      hand.cardUis.push(...flat);
+      const flatDraw = flat.map(card => {
+        card.bmpFace.on(Laya.Event.MOUSE_DOWN, card, () => {});
+        const drawn = flatLayer.addDrawChild(card.bmpFace);
+        return drawn === (card.theCard.IsEmpty ? officialFixtures.cardBack_5 : officialFixtures.cardFace_10);
+      });
+      return { entry, duringMatch, flatDraw };
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+  try {
+    await page.screenshot({ path: 'test-results/card-styles-first-frame.png', clip: { x: 45, y: 390, width: 350, height: 320 } });
+  } finally {
+    await page.evaluate(() => check.finishFirstFrames?.());
+  }
+  assert.deepEqual(firstFrames, {
+    entry: ['custom face', 'custom back', 'original back'],
+    duringMatch: ['custom face', 'custom back'],
+    flatDraw: [true, true],
+  }, 'selected sides must apply before the first Laya render during entry and later card insertion');
   for(const width of [248,280,420]) for(const light of [false,true]) {
     await page.evaluate(({width,light})=>{check.shell.host.style.width=width+'px';check.shell.applyTheme({...CardCheck.BLACK_GOLD.tokens,...(light?{bg:'#f6f0e4',surface:'#fffaf0',raised:'#ebe2cf',text:'#312a20',muted:'#746957',accent:'#826121',border:'#c7b89b',scheme:'light'}:{})});check.shell.host.shadowRoot.querySelector('.card-style-workshop').scrollIntoView({block:'center'});},{width,light});
     await page.waitForTimeout(300);
@@ -446,6 +525,6 @@ try {
   assert.deepEqual(await page.evaluate(() => check.registry.listLocalFaces().map(face => face.card)), ['HuoSha']);
   await page.evaluate(() => check.scope.dispose());
   assert.deepEqual(errors,[]);
-  const evidence={...result,officialSourceSha256:createHash('sha256').update(source).digest('hex'),checks:'native SetCardFace replay with official Laya; synchronous new-card creation, independent sides, pool transition, poker exclusion, restore, cleanup, sticky tabs, keyboard collapse; custom back import and deletion; uniform face background without card catalog, shared texture for different cards, native artwork and other layers, legacy fallback, persistent independent modes and deletion; catalog loading from a simulated official archive, failure and keyboard retry; custom face exact card match, invalid import, replacement, restore; 248/280/420px, four text sizes, dark and light, keyboard and touch; tablet portrait, landscape and split-screen viewport sizes',limitations:'Controlled native-method replay; native resource cache uses colored fixture textures, not official artwork or a logged-in game.'};
+  const evidence={...result,firstFrames,officialSourceSha256:createHash('sha256').update(source).digest('hex'),checks:'native SetCardFace replay with official Laya; first rendered frame during scene entry and nested card insertion, replacement before flat graphics submission, synchronous new-card creation, independent sides, pool transition, poker exclusion, restore, cleanup, sticky tabs, keyboard collapse; custom back import and deletion; uniform face background without card catalog, shared texture for different cards, native artwork and other layers, legacy fallback, persistent independent modes and deletion; catalog loading from a simulated official archive, failure and keyboard retry; custom face exact card match, invalid import, replacement, restore; 248/280/420px, four text sizes, dark and light, keyboard and touch; tablet portrait, landscape and split-screen viewport sizes',limitations:'Controlled native-method replay; native resource cache uses colored fixture textures, not official artwork or a logged-in game.'};
   await writeFile('test-results/card-styles-check.json',JSON.stringify(evidence,null,2));console.log(evidence);
 } finally {await browser.close();}

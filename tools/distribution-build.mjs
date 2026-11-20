@@ -18,7 +18,15 @@ export async function bundleCore({ root, edition, packages, microclient = false 
   if (edition === 'lite' && inputs.some(file => /(?:^|\/)src\/plugins\//.test(file))) throw new Error('Lite imports a plugin implementation');
   // A second syntax pass removes platform branches after Chrome 85 lowering.
   // Do not retain unreachable browser-only settings/help in the microclient.
-  const code = microclient ? (await transform(result.outputFiles[0].text, { target: 'chrome85', minifySyntax: true, legalComments: 'inline' })).code : result.outputFiles[0].text;
+  const pageCode = result.outputFiles[0].text;
+  let code;
+  if (microclient) {
+    code = (await transform(pageCode, { target: 'chrome85', minifySyntax: true, legalComments: 'inline' })).code;
+  } else {
+    const loader = await build({ absWorkingDir: root, entryPoints: [resolve(root, 'src/core/userscript.js')], bundle: true,
+      format: 'iife', target: 'es2022', globalName: 'Userscript', write: false, minifySyntax: true });
+    code = `(() => {\n${loader.outputFiles[0].text}\nUserscript.runUserscript(function (sgsToolboxMobileSkinPort) {\n${pageCode}\n});\n})();\n`;
+  }
   return { code, inputs };
 }
 
@@ -39,7 +47,14 @@ export function userscriptHeader({ edition, version, toolboxSvg }) {
 ${dev ? '// @match        http://127.0.0.1:17321/dev/*\n' : ''}${update}// @exclude      *://web.sanguosha.com/10/*
 // @exclude      *://web.sanguosha.com/10th/*
 // @run-at       document-start
-// @grant        none
+// @inject-into  content
+// @sandbox      DOM
+// @grant        GM_xmlhttpRequest
+// @grant        GM.xmlHttpRequest
+// @connect      waym.sanguosha.cn
+// @connect      mres.sanguosha.cn
+// @connect      download.sanguosha.cn
+// @connect      gx.95chong.cn
 // ==/UserScript==
 
 `;

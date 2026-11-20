@@ -2,11 +2,20 @@ import { mkdir, readFile, writeFile, readdir } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
+import { build } from 'esbuild';
 import { bundleCore } from './distribution-build.mjs';
 import { validateRepositoryPlugins } from './plugin-validation.mjs';
 import { pluginReleases, makePluginPackage } from './plugin-packages.mjs';
 import { CORE_VERSION } from '../src/core/version.js';
 import { zipFiles } from './microclient-zip.mjs';
+
+export async function buildMicroclientHost(root) {
+  const security = await build({ absWorkingDir: root, stdin: {
+    contents: "export { toolboxDownloadRequest, mobileSkinPartialLength } from './src/core/mobile-skin-download.js';", resolveDir: root,
+  }, bundle: true, format: 'iife', target: 'node12', globalName: 'MobileSkinSecurity', write: false });
+  const host = await readFile(resolve(root, 'microclient/host.cjs'), 'utf8');
+  return Buffer.from(host.replace("'use strict';", "'use strict';\n" + security.outputFiles[0].text));
+}
 
 export async function buildMicroclient({ root = resolve(import.meta.dirname, '..'), out = resolve(root, 'release/microclient'), editions = ['full', 'lite'] } = {}) {
   if (!editions.length || editions.some(edition => !['full', 'lite'].includes(edition))) throw new Error('Microclient builds support full/lite only');
@@ -15,7 +24,7 @@ export async function buildMicroclient({ root = resolve(import.meta.dirname, '..
   if (!Array.isArray(selected) || new Set(selected).size !== selected.length || selected.some(id => !pluginReleases.some(spec => spec.id === id))) throw new Error('Invalid microclient Full whitelist');
   for (const id of selected) for (const dep of bundles.find(b => b.manifest.id === id).manifest.dependencies || []) if (!selected.includes(dep)) throw new Error('Microclient Full dependency must be explicitly selected: ' + dep);
   const packages = await Promise.all(selected.map(id => makePluginPackage(bundles.find(b => b.manifest.id === id))));
-  const host = await readFile(resolve(root, 'microclient/host.cjs')), preload = await readFile(resolve(root, 'microclient/preload.cjs'));
+  const host = await buildMicroclientHost(root), preload = await readFile(resolve(root, 'microclient/preload.cjs'));
   const readme = await readFile(resolve(root, 'public-docs/microclient/README.txt'), 'utf8').catch(error => {
     if (error.code !== 'ENOENT') throw error;
     return readFile(resolve(root, 'microclient/README.txt'), 'utf8');
@@ -39,7 +48,8 @@ export async function buildMicroclient({ root = resolve(import.meta.dirname, '..
     const put = async (path, data) => { data = Buffer.isBuffer(data) ? data : Buffer.from(data); files.push({ path, data }); await mkdir(resolve(dir, path, '..'), { recursive: true }); await writeFile(resolve(dir, path), data); };
     await put('payload/toolbox.js', source);
     await put('approved-payloads.json', JSON.stringify(approved, null, 2) + '\n');
-    for (const name of ['host.cjs', 'preload.cjs']) await put('payload/' + name, await readFile(resolve(root, 'microclient', name)));
+    await put('payload/host.cjs', host);
+    await put('payload/preload.cjs', preload);
     for (const name of ['install.bat', 'uninstall.bat', 'restore.bat', 'installer.ps1', 'official-windows.json', 'switch-channel.bat', 'switch-channel.ps1']) {
       let text = await readFile(resolve(root, 'microclient', name), 'utf8');
       if (name.endsWith('.ps1')) text = '\ufeff' + text.replace(/^\ufeff/, '');

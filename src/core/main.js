@@ -22,10 +22,19 @@ import { gameViewForScene } from './game-view.js';
 import { account } from '../shared/info-runtime.js';
 import { CORE_VERSION, REPLACED_CARD_PACKAGES, REPLACED_REWARD_PACKAGES, REPLACED_EFFECT_PACKAGES, REPLACED_SKIN_PACKAGES, REPLACED_SHANHETU_PACKAGES, REPLACED_THEME_PACKAGES, REPLACED_BAISHENG_PACKAGES, REPLACED_APPEARANCE_PACKAGES } from './version.js';
 
-export function boot(win = window) {
-  return startOwnedRuntime(win, EDITION, api => initialize(win, api));
+export function boot(win = window, mobileSkinPort) {
+  let ownsPort = false;
+  const ready = startOwnedRuntime(win, EDITION, api => {
+    ownsPort = true;
+    if (mobileSkinPort) api.scope.add(() => { mobileSkinPort.postMessage({ close: true }); mobileSkinPort.close(); });
+    return initialize(win, api, mobileSkinPort);
+  });
+  if (!mobileSkinPort) return ready;
+  return ready.finally(() => {
+    if (!ownsPort) { mobileSkinPort.postMessage({ close: true }); mobileSkinPort.close(); }
+  });
 }
-async function initialize(win, api) {
+async function initialize(win, api, mobileSkinPort) {
   if (!MICROCLIENT && installRefreshReentry(win)) return api;
   const scope = api.scope;
   if (!MICROCLIENT) installTouchPreview(win, scope);
@@ -35,7 +44,7 @@ async function initialize(win, api) {
   const settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : 'sgstoolbox:'), journal = new SessionJournal();
   const diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
   Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
-  const game = createGameAdapter(win, scope);
+  const game = createGameAdapter(win, scope, mobileSkinPort);
   const shell = createShell({ window: win, document: win.document, settings, scope,
     getFeedbackAccount: () => account({ game }),
     canReserveGameViewport: () => MICROCLIENT || Boolean(DEVELOPMENT && win.__SGS_TOOLBOX_DEMO__) || game.canReserveViewport(),
@@ -101,4 +110,5 @@ async function initialize(win, api) {
   else if (manager.errors.length) shell.notify(manager.errors.join('；'));
   return api;
 }
-boot(window).catch(error => { console.error('[三国杀OL工具箱]', error); });
+boot(window, typeof sgsToolboxMobileSkinPort === 'undefined' ? undefined : sgsToolboxMobileSkinPort)
+  .catch(error => { console.error('[三国杀OL工具箱]', error); });

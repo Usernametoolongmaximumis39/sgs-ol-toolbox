@@ -98,7 +98,7 @@ export async function loadYjcmEffectTemplate(win, resource, file, signal, shared
   return { ...loaded, spine };
 }
 
-function animationBounds(actor, spine) {
+export function animationBounds(actor, spine) {
   let { x, y, width, height } = actor.getSelfBounds();
   if (!(width > 1 && height > 1) && spine) {
     const position = new spine.Vector2(), size = new spine.Vector2();
@@ -235,13 +235,18 @@ export async function playYjcmSeatMotion(win, spec, signal, show) {
   else show(first);
 }
 
+export function yjcmSeatTransform(x, y, width, height) {
+  // Map the whole authored card to the OL seat, whose aspect ratio differs.
+  const scaleX = width / seatFrame.width, scaleY = height / seatFrame.height;
+  return { x: x - seatFrame.x * scaleX, y: y - seatFrame.y * scaleY, scaleX, scaleY };
+}
+
 export function fitYjcmMotion({ actor, bounds, seatPanel, framed }, x, y, width, height) {
   if (framed) {
-    // Map the whole authored card to the OL seat, whose aspect ratio differs.
-    const scaleX = width / seatFrame.width, scaleY = height / seatFrame.height;
-    actor.scale(scaleX, scaleY);
-    actor.pos(x - seatFrame.x * scaleX, y - seatFrame.y * scaleY);
-    return Math.max(seatFrame.overhang, seatFrame.y - bounds.y) * scaleY;
+    const transform = yjcmSeatTransform(x, y, width, height);
+    actor.scale(transform.scaleX, transform.scaleY);
+    actor.pos(transform.x, transform.y);
+    return Math.max(seatFrame.overhang, seatFrame.y - bounds.y) * transform.scaleY;
   }
   const frame = seatPanel ?? bounds;
   const scale = (seatPanel ? Math.max : Math.min)(width / frame.width, height / frame.height);
@@ -251,12 +256,12 @@ export function fitYjcmMotion({ actor, bounds, seatPanel, framed }, x, y, width,
   return (seatPanel?.overhang ?? 0) * scale;
 }
 
-export async function previewYjcmMotion(win, entry, canvas, signal) {
-  if (!entry.motion || signal.aborted || win.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+export async function previewSeatMotion(win, canvas, signal, load) {
+  if (signal.aborted || win.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
   const laya = win.Laya ?? win.laya;
   const context = canvas.getContext('2d');
   if (!context || !laya?.Sprite?.prototype.drawToCanvas) return;
-  const motion = await loadYjcmMotion(win, entry.motion, signal);
+  const motion = await load();
   if (!motion) return;
   if (signal.aborted) { motion.dispose(); return; }
   const root = new laya.Sprite();
@@ -279,9 +284,14 @@ export async function previewYjcmMotion(win, entry, canvas, signal) {
     finally { frame?.destroy(); }
   }
   signal.addEventListener('abort', dispose, { once: true });
-  fitYjcmMotion(motion, 0, 0, canvas.width, canvas.height);
+  if (motion.fit) motion.fit(0, 0, canvas.width, canvas.height);
+  else fitYjcmMotion(motion, 0, 0, canvas.width, canvas.height);
   root.addChild(motion.actor);
   if (!draw()) return;
   timer = win.setInterval(draw, 100);
   return true;
+}
+
+export function previewYjcmMotion(win, entry, canvas, signal) {
+  if (entry.motion) return previewSeatMotion(win, canvas, signal, () => loadYjcmMotion(win, entry.motion, signal));
 }

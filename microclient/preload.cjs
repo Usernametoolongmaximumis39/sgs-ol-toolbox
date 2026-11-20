@@ -20,9 +20,47 @@
       try { window.postMessage({type:'sgs-toolbox-alipay-result', id:m.id, result:await electron.ipcRenderer.invoke('sgs-toolbox:alipay:v1', m.url)}, window.location.origin); }
       catch (e) { window.postMessage({type:'sgs-toolbox-alipay-result', id:m.id, error:e.message}, window.location.origin); }
     });
+    if (window.addEventListener) window.addEventListener('message', async event => {
+      const message = event.data;
+      if (event.source !== window || event.origin !== window.location.origin || message?.type !== 'sgs-toolbox-mobile-skin-request' ||
+          typeof message.id !== 'string' || !/^[a-f0-9]{32}$/.test(message.id)) return;
+      if (message.cancel === true) { electron.ipcRenderer.send('sgs-toolbox:mobile-skin-cancel:v1', message.id); return; }
+      if (typeof message.url !== 'string' || message.url.length > 512 || !Number.isSafeInteger(message.limit)) return;
+      const range = message.range;
+      if (range !== undefined && (!range || typeof range !== 'object' || Object.keys(range).length > 2 ||
+          Object.values(range).some(value => !Number.isSafeInteger(value)))) return;
+      try {
+        const bytes = await electron.ipcRenderer.invoke('sgs-toolbox:mobile-skin:v1', { id: message.id, url: message.url, limit: message.limit, range });
+        window.postMessage({ type: 'sgs-toolbox-mobile-skin-result', id: message.id, bytes }, window.location.origin, [bytes]);
+      } catch (error) {
+        const detail = error.message.replace(/^Error invoking remote method 'sgs-toolbox:mobile-skin:v1': (?:Error: )?/, '');
+        window.postMessage({ type: 'sgs-toolbox-mobile-skin-result', id: message.id, error: detail }, window.location.origin);
+      }
+    });
     const source = electron.ipcRenderer.sendSync('sgs-toolbox:source:v1');
     if (!source) throw new Error('工具箱微端脚本不可用，请重新运行安装包');
     const bridge = '(' + function () {
+      window.__SGS_TOOLBOX_MOBILE_SKIN_REQUEST__ = ({ url, limit, range }, signal) => new Promise((resolve, reject) => {
+        const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), value => value.toString(16).padStart(2, '0')).join('');
+        const finish = () => {
+          window.removeEventListener('message', receive);
+          signal?.removeEventListener('abort', cancel);
+        };
+        const cancel = () => {
+          finish();
+          window.postMessage({ type: 'sgs-toolbox-mobile-skin-request', id, cancel: true }, location.origin);
+          reject(new Error('移动版皮肤资源下载已取消'));
+        };
+        const receive = event => {
+          if (event.source !== window || event.origin !== location.origin || event.data?.type !== 'sgs-toolbox-mobile-skin-result' || event.data.id !== id) return;
+          finish();
+          if (event.data.error) reject(new Error(event.data.error)); else resolve(event.data.bytes);
+        };
+        if (signal?.aborted) { reject(new Error('移动版皮肤资源下载已取消')); return; }
+        window.addEventListener('message', receive);
+        signal?.addEventListener('abort', cancel, { once: true });
+        window.postMessage({ type: 'sgs-toolbox-mobile-skin-request', id, url, limit, range }, location.origin);
+      });
       window.__SGS_TOOLBOX_ALIPAY_REQUEST__ = options => {
         const id = Date.now() + ':' + Math.random(); let done = false;
         const finish = () => { done = true; clearTimeout(timer); window.removeEventListener('message', receive); };

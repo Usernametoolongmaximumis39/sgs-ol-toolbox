@@ -1,14 +1,14 @@
 {
-  "version": "0.6.150",
+  "version": "0.6.182",
   "editions": {
     "full": {
-      "bytes": 3823305,
-      "plugins": 21,
+      "bytes": 4243399,
+      "plugins": 22,
       "updatesTo": "full",
       "toolboxUpdatesTo": "lite"
     },
     "lite": {
-      "bytes": 489844,
+      "bytes": 520897,
       "plugins": 0,
       "updatesTo": "lite",
       "toolboxUpdatesTo": "lite"
@@ -62,8 +62,8 @@
     },
     {
       "id": "cards",
-      "version": "0.1.83",
-      "sha256": "bdc1cae6a68da19a2b6073484713cbe0337884f2908f7f510c40c5f8c1c2467e"
+      "version": "0.1.84",
+      "sha256": "a9bc6daef42a99fa2447f7a09688fb8c7e90fc192db749905c609c757b5537d7"
     },
     {
       "id": "play-assist",
@@ -72,8 +72,8 @@
     },
     {
       "id": "daily-rewards",
-      "version": "0.7.43",
-      "sha256": "0b9818d7b7b6f8f58be31f14177d8666d950b4bed894fbf9c27c50011b0c428c"
+      "version": "0.7.44",
+      "sha256": "7b80441564daca21e7a1a5e70d423fbe2f1b3169f07d90152c22e365133fa29d"
     },
     {
       "id": "seckill",
@@ -92,8 +92,13 @@
     },
     {
       "id": "skins",
-      "version": "0.4.56",
-      "sha256": "72d75c4295750e0dab56d1e830687db451c60a4b8b9db5e0068ec915cd1fcbd6"
+      "version": "0.4.87",
+      "sha256": "9b9309b3b999a17be6d5d2413622db189bdcfae51e76ec3b3325a23683457a28"
+    },
+    {
+      "id": "stargazing",
+      "version": "0.1.0",
+      "sha256": "18594da083adb645d3df3ed34449dce77dc9c14375c059dd659271063ca1d8d1"
     },
     {
       "id": "wish-progress",

@@ -190,6 +190,43 @@ try {
   await page.evaluate(() => window[Symbol.for('sgs.ol.toolbox.core')].manager.reload('daily-rewards'));
   await status.filter({ hasText: '本轮已确认 0 项，另有 1 项待核对' }).waitFor();
   assert.equal(await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.sent.length), 1);
+  const rewardConfig = JSON.parse(await readFile('tests/fixtures/rewards-privilege-military-config.json', 'utf8'));
+  const catalog = JSON.parse(await readFile('release/market/catalog.json', 'utf8'));
+  const rewardPackage = JSON.parse(await readFile(`release/market/${catalog.plugins.find(item => item.id === 'daily-rewards').packageUrl}`, 'utf8'));
+  const start = Date.parse('2026-11-13T16:00:00+08:00') / 1000;
+  await page.evaluate(async ({ rewardConfig, rewardPackage, start }) => {
+    const api = window[Symbol.for('sgs.ol.toolbox.core')], demo = window.__SGS_TOOLBOX_DEMO__;
+    const settings = api.settings.namespace('daily-rewards'), proxy = demo.scene.proxy;
+    demo.configs['ff_dbs_pay_gift.sgs'] = rewardConfig.pay;
+    demo.configs['sys_gs_dbs_fs_goodsbaseinfo.sgs'] = rewardConfig.goods;
+    demo.sent.length = 0;
+    const cards = Object.assign(Object.create(Object.getPrototypeOf(demo.mail)), { _events: {}, proxy,
+      IsCardActive: id => id === 2, IsClaimedToday: () => false,
+      GetCardStateById: () => ({ start_time: { toNumber: () => start } }), getSec: value => value.toNumber(),
+      SendNewPrivilegeCardDataReq() { this.event('UPDATE_NEW_PRIVILEGE_CARD_DATA'); },
+      SendNewPrivilegeCardDailyRewardReq(id) {
+        demo.sent.push(id);
+        proxy.event(160121, { Protocol: { Data: { ProtoObj: { card_id: id, result: 1 } } } });
+      },
+    });
+    proxy.on(160119, cards, () => {});
+    await api.manager.install(rewardPackage);
+    settings.set('account:41:attempts', { day: '2026-11-13', items: {
+      'welfare:new-card:2': { status: 'confirmed', at: Date.parse('2026-11-13T08:00:00+08:00') },
+    } });
+    settings.set('account:41:options', { schemaVersion: 2, automatic: true, sign: false, mail: false, tasks: false, welfare: true, activities: false, codes: false });
+    await api.manager.reload('daily-rewards');
+  }, { rewardConfig, rewardPackage, start });
+  await status.filter({ hasText: '本轮完成，已确认领取 1 项' }).waitFor();
+  assert.deepEqual(await page.evaluate(start => {
+    const api = window[Symbol.for('sgs.ol.toolbox.core')], demo = window.__SGS_TOOLBOX_DEMO__;
+    const { items } = api.settings.namespace('daily-rewards').get('account:41:attempts');
+    return [demo.sent, items['welfare:new-card:2'].status, items[`welfare:new-card:2:${start}`].status];
+  }, start), [[2], 'confirmed', 'confirmed']);
+  await host.screenshot({ path: 'test-results/reward-issues/weekly-card-renewal.png' });
+  await page.evaluate(() => window[Symbol.for('sgs.ol.toolbox.core')].manager.reload('daily-rewards'));
+  await status.filter({ hasText: '本轮完成，已确认领取 0 项' }).waitFor();
+  assert.deepEqual(await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.sent), [2]);
   assert.deepEqual(errors, []);
-  console.log('PASS: daily reward issues, Jieyue tier and five-star quest, and read-but-unclaimed mail recovery.');
+  console.log('PASS: daily reward issues, Jieyue tier, five-star quest, mail recovery, and same-day weekly card renewal.');
 } finally { await browser.close(); await market.close(); }

@@ -1,6 +1,7 @@
 import { loadYjcmPortrait } from './yjcm.js';
+import { loadMobilePortrait } from './mobile-skins.js';
 
-const keyFor = entry => JSON.stringify(entry.assets);
+const keyFor = entry => JSON.stringify(entry.source === 'mobile' ? ['mobile', ...entry.assets] : entry.assets);
 const diskEntries = 6, diskBytes = 24 * 1024 * 1024;
 
 export function createPortraitCache(win, scope) {
@@ -108,7 +109,8 @@ export function createPortraitCache(win, scope) {
       retain(key, cached);
       return cached;
     }
-    const result = await loadYjcmPortrait(win, entry, signal);
+    const loader = entry.source === 'mobile' ? loadMobilePortrait : loadYjcmPortrait;
+    const result = await loader(win, entry, signal);
     if (!result || signal.aborted) return;
     const { blob, ...artwork } = result;
     retain(key, artwork);

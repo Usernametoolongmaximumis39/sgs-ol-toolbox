@@ -8,15 +8,19 @@ const headLimit = 256 * 1024;
 const normalize = value => String(value || '').normalize('NFKC').trim().toLowerCase();
 const generalPrefixOrder = ['武', '威', '谋', '乐', '神', '星', 'sp', '食', '烈', '忍', '爻'];
 
+export function generalPrefixRank(prefix, order) {
+  if (!prefix) return order.length + 1;
+  const rank = order.indexOf(prefix);
+  return rank < 0 ? order.length : rank;
+}
+
 function generalFilterRank(general, alias) {
   // The official catalogue includes 神 directly in the base name.
   const prefix = alias ? normalize(general.slice(0, -alias.length)) : /^神/.exec(general)?.[0];
-  if (!prefix) return generalPrefixOrder.length + 1;
-  const rank = generalPrefixOrder.indexOf(prefix);
-  return rank < 0 ? generalPrefixOrder.length : rank;
+  return generalPrefixRank(prefix, generalPrefixOrder);
 }
 
-export const yjcmVoiceReference = (entry, id) => entry.id + ':' + id + ':' + entry.general;
+export const yjcmVoiceReference = (entry, id, form) => entry.id + (form ? '#' + form : '') + ':' + id + ':' + entry.general;
 
 export function createYjcmIndex({ skins, generals, alternateSkinAssets, voiceFiles, voiceNames, voiceSkins, dynamicSkins = {}, motion = {}, effects = {} }) {
   if (!skins?.length || !generals?.length || !voiceFiles?.length || !voiceNames?.length || !voiceSkins || !alternateSkinAssets) {
@@ -27,6 +31,7 @@ export function createYjcmIndex({ skins, generals, alternateSkinAssets, voiceFil
   const displayId = id => staticIds.get(id) ?? id;
   const generalsByName = new Map(generals.map(row => [row[0], row]));
   const listedEntries = new Map();
+  const formsByEntry = new WeakMap();
   let catalogue;
 
   function jieVariant(general) {
@@ -85,8 +90,13 @@ export function createYjcmIndex({ skins, generals, alternateSkinAssets, voiceFil
   }
 
   function yjcmSkinForms(entry) {
-    const assets = alternateSkinAssets[entry.id] ?? alternateSkinAssets[entry.dynamicId];
-    return assets ? [entry, { ...entry, assets, motion: motion[entry.id]?.[1], effects: effects[entry.id]?.[1] }] : [entry];
+    let forms = formsByEntry.get(entry);
+    if (!forms) {
+      const assets = alternateSkinAssets[entry.id] ?? alternateSkinAssets[entry.dynamicId];
+      forms = assets ? [entry, { ...entry, assets, motion: motion[entry.id]?.[1], effects: effects[entry.id]?.[1] }] : [entry];
+      formsByEntry.set(entry, forms);
+    }
+    return forms;
   }
 
   function voiceRows(entry, skin = entry.id) {
@@ -111,7 +121,8 @@ export function createYjcmIndex({ skins, generals, alternateSkinAssets, voiceFil
         if (!voice.urls.includes(url)) voice.urls.push(url);
       }
     }
-    return [...voices.values()].sort((a, b) => Number(a.id === DEATH_VOICE) - Number(b.id === DEATH_VOICE));
+    return [...voices.values()].filter(voice => voice.urls.length)
+      .sort((a, b) => Number(a.id === DEATH_VOICE) - Number(b.id === DEATH_VOICE));
   }
 
   function yjcmSkillVoices(entry) {
@@ -119,13 +130,14 @@ export function createYjcmIndex({ skins, generals, alternateSkinAssets, voiceFil
   }
 
   function findYjcmVoice(reference, form) {
-    const match = /^([1-9]\d*):(-1|[1-9]\d*):(.+)$/.exec(reference);
+    const match = /^([1-9]\d*)(?:#([12]))?:(-1|[1-9]\d*):(.+)$/.exec(reference);
     if (!match) return;
-    const [, skin, skill, general] = match;
+    const [, skin, sourceForm, skill, general] = match;
     const entry = findYjcmSkin(Number(skin), general);
     if (!entry) return;
     const id = Number(skill);
-    const voice = yjcmSkinVoices(entry, form, Number(skin)).find(item => item.id === id || item.aliases.includes(id));
+    const voice = yjcmSkinVoices(entry, sourceForm ? Number(sourceForm) : form, Number(skin))
+      .find(item => item.id === id || item.aliases.includes(id));
     if (voice) return { ...voice, entry };
   }
 
@@ -158,23 +170,27 @@ export function createYjcmIndex({ skins, generals, alternateSkinAssets, voiceFil
     return { all: withVoicesFirst(previouslyShown.reverse()), categories };
   }
 
-  return { findYjcmSkin, findYjcmVoice, hasYjcmVoices, searchYjcmSkins, yjcmSkillVoices, yjcmSkinVoices, yjcmSkinForms };
+  return { findYjcmSkin, findYjcmVoice, hasYjcmVoices, searchYjcmSkins, yjcmSkillVoices, yjcmSkinVoices, yjcmSkinForms,
+    findSkin: findYjcmSkin, findVoice: findYjcmVoice, hasVoices: hasYjcmVoices, searchSkins: searchYjcmSkins,
+    skinVoices: yjcmSkinVoices, skinForms: yjcmSkinForms };
 }
 
-async function fetchPng(win, url, signal, limit, priority = 'auto') {
+const png = ['image/png'];
+
+export async function fetchSkinImage(win, url, signal, limit, priority = 'auto', types = png) {
   const response = await win.fetch(url, { credentials: 'omit', redirect: 'error', signal, priority });
   if (!response.ok) throw new Error('HTTP ' + response.status);
   if (Number(response.headers.get('content-length')) > limit) throw new Error('图片超过大小限制');
   const blob = await response.blob();
-  if (!blob.size || blob.size > limit || blob.type !== 'image/png') throw new Error('官方地址未返回可用的 PNG');
+  if (!blob.size || blob.size > limit || !types.includes(blob.type)) throw new Error('官方地址未返回可用的图片');
   return blob;
 }
 
 export function loadYjcmHead(win, stem, signal) {
-  return fetchPng(win, base + 'head/' + stem + '.png', signal, headLimit);
+  return fetchSkinImage(win, base + 'head/' + stem + '.png', signal, headLimit);
 }
 
-export async function readYjcmImage(win, url, signal, inspect, priority) {
+export async function readSkinImage(win, url, signal, inspect, priority, types, maxEdge = 4096) {
   if (signal.aborted) return;
   const controller = new win.AbortController();
   const abort = () => controller.abort();
@@ -182,7 +198,7 @@ export async function readYjcmImage(win, url, signal, inspect, priority) {
   const timer = win.setTimeout(abort, 8000);
   let objectUrl;
   try {
-    const blob = await fetchPng(win, url, controller.signal, imageLimit, priority);
+    const blob = await fetchSkinImage(win, url, controller.signal, imageLimit, priority, types);
     if (signal.aborted) return;
     objectUrl = win.URL.createObjectURL(blob);
     const image = new win.Image();
@@ -190,7 +206,7 @@ export async function readYjcmImage(win, url, signal, inspect, priority) {
     await image.decode();
     if (signal.aborted) return;
     if (controller.signal.aborted) throw new Error('请求超时');
-    if (Math.max(image.naturalWidth, image.naturalHeight) > 4096) throw new Error('图片长边超过 4096 像素');
+    if (Math.max(image.naturalWidth, image.naturalHeight) > maxEdge) throw new Error(`图片长边超过 ${maxEdge} 像素`);
     return inspect(image, blob);
   } catch (error) {
     if (!signal.aborted) throw controller.signal.aborted ? new Error('请求超时') : error;
@@ -200,6 +216,8 @@ export async function readYjcmImage(win, url, signal, inspect, priority) {
     signal.removeEventListener('abort', abort);
   }
 }
+
+export const readYjcmImage = readSkinImage;
 
 export async function loadYjcmWindow(win, entry, signal) {
   // The native tooltip uses the static skin resource, also used for the
@@ -229,7 +247,7 @@ function portraitPixels(document, image, maxSize) {
   return context.getImageData(0, 0, width, height);
 }
 
-export function seatPortraitPanel({ width, height, data }) {
+export function seatPortraitPanel({ width, height, data }, minimumCoverage = .6) {
   const heights = new Uint16Array(width + 1);
   let best, bestArea = 0;
 
@@ -245,7 +263,7 @@ export function seatPortraitPanel({ width, height, data }) {
         const left = stack.length ? stack.at(-1) + 1 : 0;
         const panelWidth = x - left;
         const area = panelWidth * panelHeight;
-        if (panelWidth >= width * .6 && panelHeight >= height * .6 && area > bestArea) {
+        if (panelWidth >= width * minimumCoverage && panelHeight >= height * minimumCoverage && area > bestArea) {
           best = { left, top: y + 1 - panelHeight, right: x, bottom: y + 1 };
           bestArea = area;
         }

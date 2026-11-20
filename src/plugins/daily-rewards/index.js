@@ -9,8 +9,8 @@ import { createExchangeUI } from './exchange-ui.js';
 
 
 export default {
-  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.43', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "修复部分邮件附件一直显示待核对、无法续领的问题。游戏仍显示未领取的部分附件可补试一次。修复购买弹窗打开时自动兑换勾选仍露出的问题。自动领取和兑换按已有设置运行，兑换可能消耗欢乐豆。", minCoreVersion: '0.6.38', categories: ['automation'], icon: PLUGIN_ICONS['daily-rewards'], priority: 20000,
+  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.44', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "修复新一期周卡或月卡生效后，旧领取记录可能阻挡每日奖励领取的问题。自动领取沿用已有设置，兑换仍可能消耗欢乐豆。", minCoreVersion: '0.6.38', categories: ['automation'], icon: PLUGIN_ICONS['daily-rewards'], priority: 20000,
     description: '自动领取签到、任务、邮件与活动奖励，按账号记录' },
   activate(ctx) {
     const native = createNativeAdapter(ctx);

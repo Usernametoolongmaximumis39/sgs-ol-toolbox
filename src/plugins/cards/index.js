@@ -597,8 +597,8 @@ export function activate(ctx) {
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.83', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "座位旁的明牌支持 60%、80% 和 100% 三档不透明度，默认 80%。", minCoreVersion: '0.6.87', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.84', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "补充界姜维「挑衅」在出牌阶段的剩余技能次数提示。", minCoreVersion: '0.6.87', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
     description: '记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数' },
   initialState, reduce, activate,
 };

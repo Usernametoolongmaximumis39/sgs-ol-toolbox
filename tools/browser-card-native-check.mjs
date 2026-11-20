@@ -129,6 +129,17 @@ try {
     await page.evaluate(({ limit, used }) => Object.assign(nativeCheck.renChe, { limit, used }), { limit, used });
     await page.waitForFunction(remaining => nativeCheck.self._children.filter(n => n.name === 'sgs-toolbox-skill-count').at(-1)?.text === remaining, remaining);
   }
+  await page.evaluate(() => {
+    nativeCheck.tiaoxin = { used: 0, settled: 0 };
+    nativeCheck.self.skillItems.at(-1).Skill = {
+      SkillId: 985, TimelimitRound: 2, GetSkillUseCountInRound: () => nativeCheck.tiaoxin.used,
+      Seat: { Index: 0, InDealRound: true, GetStateValue: () => nativeCheck.tiaoxin.settled },
+    };
+  });
+  for (const [used, settled, remaining] of [[0, 0, '1'], [1, 2, '0'], [1, 1, '1'], [2, 1, '0']]) {
+    await page.evaluate(({ used, settled }) => Object.assign(nativeCheck.tiaoxin, { used, settled }), { used, settled });
+    await page.waitForFunction(expected => nativeCheck.self._children.filter(n => n.name === 'sgs-toolbox-skill-count').at(-1)?.text === expected, remaining);
+  }
   await page.evaluate(() => nativeCheck.self.skillItems[0].Skill.GetSkillUseCountInRound = () => 2);
   await page.waitForFunction(() => nativeCheck.self._children.find(n => n.name === 'sgs-toolbox-skill-count').text === '1');
   const measure = () => page.evaluate(() => {

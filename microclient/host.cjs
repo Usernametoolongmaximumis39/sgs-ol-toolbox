@@ -76,19 +76,38 @@ function saveUpdate(value) {
   try { fs.writeFileSync(temp, JSON.stringify(value), { mode: 0o600 }); fs.renameSync(temp, file); }
   finally { try { fs.unlinkSync(temp); } catch (_) {} }
 }
-function download(url, limit, timeout) {
-  return new Promise((resolve, reject) => {
-    const request = https.get(url, response => {
-      if (response.statusCode !== 200) { response.resume(); reject(new Error('更新服务器返回 ' + response.statusCode)); return; }
+function startDownload(url, limit, timeout, label = '更新', resource) {
+  let request;
+  const promise = new Promise((resolve, reject) => {
+    const receive = response => {
+      let expectedLength;
+      try {
+        if (resource?.range) expectedLength = MobileSkinSecurity.mobileSkinPartialLength(resource, response.statusCode,
+          response.headers?.['content-range'], response.headers?.['content-length'], response.headers?.['content-encoding']);
+        else if (response.statusCode !== 200) { response.resume(); reject(new Error(label + '服务器返回 ' + response.statusCode)); return; }
+        if (Number(response.headers?.['content-length']) > limit) throw new Error(label + '文件过大');
+      } catch (error) { request.destroy(error); return; }
       const chunks = []; let size = 0;
-      response.on('data', chunk => { size += chunk.length; if (size > limit) request.destroy(new Error('更新文件过大')); else chunks.push(chunk); });
-      response.on('end', () => resolve(Buffer.concat(chunks)));
+      response.on('data', chunk => {
+        size += chunk.length;
+        if (size > (expectedLength ?? limit)) request.destroy(new Error(label + '文件过大'));
+        else chunks.push(chunk);
+      });
+      response.on('end', () => {
+        if (expectedLength !== undefined && size !== expectedLength) reject(new Error('移动版安装包分段响应长度不符'));
+        else resolve(Buffer.concat(chunks));
+      });
       response.on('error', reject);
-    });
-    const deadline = setTimeout(() => request.destroy(new Error('更新下载超时')), timeout);
+    };
+    request = resource?.headers ? https.get(url, { headers: { ...resource.headers, 'Accept-Encoding': 'identity' } }, receive) : https.get(url, receive);
+    const deadline = setTimeout(() => request.destroy(new Error(label + '下载超时')), timeout);
     request.once('close', () => clearTimeout(deadline));
     request.on('error', reject);
   });
+  return { promise, cancel() { request?.destroy(new Error(label + '下载已取消')); } };
+}
+function download(url, limit, timeout) {
+  return startDownload(url, limit, timeout).promise;
 }
 let updating = false;
 async function updateScript(action) {
@@ -133,6 +152,27 @@ ipcMain.handle('sgs-toolbox:update:v1', async (event, action) => {
   if (!allowed(event)) throw new Error('仅允许官方游戏主页面更新工具箱');
   return updateScript(action);
 });
+const mobileSkinJobs = new WeakMap();
+ipcMain.handle('sgs-toolbox:mobile-skin:v1', async (event, message) => {
+  if (!allowed(event)) throw new Error('仅允许官方游戏主页面读取移动版皮肤');
+  const { id, url, limit, range } = message ?? {};
+  if (typeof id !== 'string' || !/^[a-f0-9]{32}$/.test(id)) throw new Error('无效的移动版皮肤下载请求');
+  // This validator is bundled before host.cjs by build-microclient.mjs.
+  const request = MobileSkinSecurity.toolboxDownloadRequest(url, limit, range);
+  const label = request.label || '移动版皮肤资源';
+  let jobs = mobileSkinJobs.get(event.sender);
+  if (!jobs) mobileSkinJobs.set(event.sender, jobs = new Map());
+  if (jobs.has(id) || jobs.size >= 24) throw new Error(`${label}下载请求过多，请稍后重试`);
+  const job = startDownload(request.url, request.limit, request.timeout, label, request);
+  jobs.set(id, job);
+  try {
+    const bytes = await job.promise;
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  } finally { jobs.delete(id); }
+});
+ipcMain.on('sgs-toolbox:mobile-skin-cancel:v1', (event, id) => {
+  if (allowed(event)) mobileSkinJobs.get(event.sender)?.get(id)?.cancel();
+});
 ipcMain.handle('sgs-toolbox:channel-shell:v1', (event, request) => {
   const url = event.senderFrame ? event.senderFrame.url : event.sender.getURL();
   if (!/^file:/i.test(url) || !/index_wd\.html(?:[?#]|$)/i.test(url)) throw new Error('仅允许微端外壳切换游戏渠道');
@@ -152,7 +192,9 @@ app.on('web-contents-created', function (_, contents) {
   contents.on('did-start-navigation', remember);
   contents.on('will-redirect', remember);
   contents.on('did-frame-navigate', function (_, url, _status, _text, mainFrame, processId, routingId) { remember(_, url, false, mainFrame, processId, routingId); });
-  contents.once('destroyed', function () { navigations.delete(id); mainFrames.delete(id); });
+  const cancelSkinJobs = () => { for (const job of mobileSkinJobs.get(contents)?.values() ?? []) job.cancel(); };
+  contents.on('did-start-navigation', (_, _url, inPlace, mainFrame) => { if (mainFrame && !inPlace) cancelSkinJobs(); });
+  contents.once('destroyed', function () { cancelSkinJobs(); navigations.delete(id); mainFrames.delete(id); });
 });
 function isGameURL(value) {
   try {

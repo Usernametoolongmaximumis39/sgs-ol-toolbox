@@ -1,4 +1,4 @@
-// 三国杀OL工具箱 · 微端 LITE · 0.6.150
+// 三国杀OL工具箱 · 微端 LITE · 0.6.182
 (() => {
   function installRefreshReentry() {
     return !1;
@@ -849,7 +849,20 @@
   var LOCAL_FACE_STYLE = Object.freeze({ id: "local-card-face", name: "\u81EA\u5B9A\u4E49\u5361\u9762", localFace: !0 }), LOCAL_FACE_BACKGROUND_STYLE = Object.freeze({ id: "local-card-face-background", localFaceBackground: !0 }), LOCAL_FACE_WIDTH = 405, LOCAL_FACE_HEIGHT = 570, FACE_BACKGROUND_RECORD = "$background", localFaceKey = (card) => `${LOCAL_FACE_STYLE.id}.${card}`, COLOR = /^#[0-9a-f]{6}$/i, own = (node, key) => {
     var _a2;
     return node && ((_a2 = Object.getOwnPropertyDescriptor(node, key)) == null ? void 0 : _a2.value);
-  }, CARD_LISTS = ["_children", "cardUis", "cardUIs", "cardUiList", "cardUIList", "virtualCardUis", "tempHandCardUis", "additionalCardUis", "muniuCardUis", "stateCardUis", "pileCardUis", "seatUIs"], CARD_NODES = ["cardContainer", "seatContainer", "SelfSeatUi", "selfSeatUI", "desktopCardContainer", "discardCardContainer", "cardUi", "cardUI"], isCardUI = (node) => node && !node.destroyed && node.bmpFace && typeof node.SetCardFace == "function" && typeof node.getCardFaceBaseTexture == "function" && typeof node.updateNewCardFace == "function", NO_BOOK_FACES = Object.freeze([]);
+  }, CARD_LISTS = ["_children", "cardUis", "cardUIs", "cardUiList", "cardUIList", "virtualCardUis", "tempHandCardUis", "additionalCardUis", "muniuCardUis", "stateCardUis", "pileCardUis", "regionCardUIs", "seatUIs"], CARD_NODES = ["cardContainer", "seatContainer", "SelfSeatUi", "selfSeatUI", "desktopCardContainer", "discardCardContainer", "cardUi", "cardUI"], isCardUI = (node) => node && !node.destroyed && node.bmpFace && typeof node.SetCardFace == "function" && typeof node.getCardFaceBaseTexture == "function" && typeof node.updateNewCardFace == "function", NO_BOOK_FACES = Object.freeze([]);
+  function flatCardForBitmap(bitmap, event) {
+    var _a2;
+    let handlers = (_a2 = own(bitmap, "_events")) == null ? void 0 : _a2[event];
+    for (let handler of Array.isArray(handlers) ? handlers : [handlers]) {
+      let ui = handler == null ? void 0 : handler.caller;
+      if ((ui == null ? void 0 : ui.bmpFace) === bitmap && isCardUI(ui)) return ui;
+    }
+    return null;
+  }
+  function nativeCardResourceName(path) {
+    var _a2;
+    return typeof path == "string" ? (_a2 = /(?:^|\/)(card(?:Face|Back)_\d{1,5})(?:\.png)?(?:\?[^#]*)?$/.exec(path)) == null ? void 0 : _a2[1] : void 0;
+  }
   function cardBookFaces(node, listType, detailType) {
     if (typeof detailType == "function" && node instanceof detailType) {
       let ui = own(own(node, "cardFace"), "cardUi");
@@ -872,7 +885,7 @@
     if (valid(direct)) return direct;
     for (let cache2 of [(_c = L == null ? void 0 : L.Loader) == null ? void 0 : _c.textureMap, (_d = L == null ? void 0 : L.Loader) == null ? void 0 : _d.loadedMap, (_e = L == null ? void 0 : L.Loader) == null ? void 0 : _e._loadedMap])
       for (let key of Object.keys(cache2 || {}).slice(0, 6e4)) {
-        if (key.split("?")[0].split("/").at(-1) !== name + ".png") continue;
+        if (nativeCardResourceName(key) !== name) continue;
         let texture = (_f = cache2[key]) != null && _f.bitmap ? cache2[key] : (_h = (_g = L == null ? void 0 : L.loader) == null ? void 0 : _g.getRes) == null ? void 0 : _h.call(_g, key);
         if (valid(texture)) return texture;
       }
@@ -896,7 +909,7 @@
   }
   var CardStyleRegistry = class {
     constructor({ window: win, document: doc, game, settings, scope }) {
-      Object.assign(this, { win, doc, game, settings, scope }), this.styles = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set(), this.textures = /* @__PURE__ */ new Map(), this.bindings = /* @__PURE__ */ new Map(), this.nativeResources = /* @__PURE__ */ new Map(), this.nativeAttempts = /* @__PURE__ */ new Map(), this.previews = /* @__PURE__ */ new WeakMap(), this.factories = /* @__PURE__ */ new Map(), this.pools = /* @__PURE__ */ new Map(), this.insertions = /* @__PURE__ */ new Map(), this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds = /* @__PURE__ */ new Set(), this.selfHand = null, this.bookFaces = /* @__PURE__ */ new WeakSet(), this.scene = null, this.atlases = /* @__PURE__ */ new Map(), this.images = /* @__PURE__ */ new Map(), this.previewAtlasId = "", this.localBacks = /* @__PURE__ */ new Map(), this.localFaces = /* @__PURE__ */ new Map(), this.localFaceCatalog = null, this.localFaceCatalogPending = null, this.localFaceCatalogError = "", this.localFaceBackground = null, this.status = "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2", this.closed = !1, scope.interval(() => this.refreshNative(), 400), game.onSceneChange && scope.add(game.onSceneChange(() => this.refreshNative())), scope.add(() => {
+      Object.assign(this, { win, doc, game, settings, scope }), this.styles = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set(), this.textures = /* @__PURE__ */ new Map(), this.bindings = /* @__PURE__ */ new Map(), this.nativeResources = /* @__PURE__ */ new Map(), this.nativeAttempts = /* @__PURE__ */ new Map(), this.previews = /* @__PURE__ */ new WeakMap(), this.factories = /* @__PURE__ */ new Map(), this.pools = /* @__PURE__ */ new Map(), this.insertions = /* @__PURE__ */ new Map(), this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds = /* @__PURE__ */ new Set(), this.selfHand = null, this.bookFaces = /* @__PURE__ */ new WeakSet(), this.scene = null, this.atlases = /* @__PURE__ */ new Map(), this.images = /* @__PURE__ */ new Map(), this.previewAtlasId = "", this.localBacks = /* @__PURE__ */ new Map(), this.localFaces = /* @__PURE__ */ new Map(), this.localFaceCatalog = null, this.localFaceCatalogPending = null, this.localFaceCatalogError = "", this.localFaceBackground = null, this.status = "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2", this.closed = !1, scope.interval(() => this.refreshNative(), 400), game.onSceneChange && scope.add(game.onSceneChange(() => this.queueRefresh())), scope.add(() => {
         this.closed = !0, this.restore(), this.clearTextures(), this.nativeResources.clear(), this.nativeAttempts.clear(), this.localBacks.clear(), this.localFaces.clear(), this.localFaceBackground = null, this.listeners.clear();
       }), this.localBacksReady = win.indexedDB ? this.loadLocalBacks() : Promise.resolve(), this.localFacesReady = win.indexedDB ? this.loadLocalFaces() : Promise.resolve();
     }
@@ -1088,6 +1101,12 @@
     setStatus(value) {
       this.status !== value && (this.status = value, this.emit());
     }
+    queueRefresh(emit = !1) {
+      this.closed || (this.refreshNeedsEmit ||= emit, !this.refreshQueued && (this.refreshQueued = !0, queueMicrotask(() => {
+        let notify = this.refreshNeedsEmit;
+        this.refreshQueued = !1, this.refreshNeedsEmit = !1, !this.closed && (this.refreshNative(), notify && !this.closed && this.emit());
+      })));
+    }
     clearTextures(id) {
       var _a2;
       for (let [key, image] of this.images) (!id || key === id) && (image.onload = image.onerror = null, image.src = "", this.images.delete(key));
@@ -1201,7 +1220,7 @@
       if (!image) {
         image = new this.win.Image(), this.images.set(id, image);
         let update = () => {
-          !this.closed && this.images.get(id) === image && (this.refreshNative(), this.emit());
+          !this.closed && this.images.get(id) === image && this.queueRefresh(!0);
         };
         image.onload = image.onerror = update, image.src = url;
       }
@@ -1246,8 +1265,9 @@
       return this.textures.get(key);
     }
     restore() {
+      var _a2;
       for (let local of [...this.factories.values(), ...this.pools.values(), ...this.insertions.values()]) local.dispose();
-      this.factories.clear(), this.pools.clear(), this.insertions.clear();
+      this.factories.clear(), this.pools.clear(), this.insertions.clear(), (_a2 = this.nativeLoaderScope) == null || _a2.dispose(), this.nativeLoaderScope = null, this.nativeLoader = null;
       for (let b of this.bindings.values()) b.release();
       this.bindings.clear(), this.bookFaces = /* @__PURE__ */ new WeakSet();
     }
@@ -1282,13 +1302,9 @@
               let node = ui[key];
               node && (binding.layers.has(node) || binding.layers.set(node, node.visible), node.visible !== !1 && (node.visible = !1, flush(node)));
             }
-            binding.applied = texture, binding.inApply = !0;
-            try {
-              let dirty = ui.bmpFace.texture !== texture || ui.bmpFace.invalidateUpdateFlag === !0;
-              ui.bmpFace.texture = texture, dirty && flush(ui.bmpFace);
-            } finally {
-              binding.inApply = !1;
-            }
+            binding.applied = texture;
+            let dirty = ui.bmpFace.texture !== texture || ui.bmpFace.invalidateUpdateFlag === !0;
+            ui.bmpFace.texture = texture, dirty && flush(ui.bmpFace);
           };
           let registry = this, bitmap = ui.bmpFace, ownTexture = Object.getOwnPropertyDescriptor(bitmap, "texture"), textureOwner = bitmap, descriptor = ownTexture;
           for (; !descriptor && (textureOwner = Object.getPrototypeOf(textureOwner)); ) descriptor = Object.getOwnPropertyDescriptor(textureOwner, "texture");
@@ -1354,10 +1370,15 @@
       }
     }
     applySafely(binding, immediate) {
-      try {
-        binding.apply(immediate), binding.error = "";
-      } catch (error) {
-        binding.error = error.message, binding.reason = "\u7EB9\u7406\u5E94\u7528\u5931\u8D25\uFF1A" + error.message, this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
+      if (!(binding.inNative || binding.inApply)) {
+        binding.inApply = !0;
+        try {
+          binding.apply(immediate), binding.error = "";
+        } catch (error) {
+          binding.error = error.message, binding.reason = "\u7EB9\u7406\u5E94\u7528\u5931\u8D25\uFF1A" + error.message, this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
+        } finally {
+          binding.inApply = !1;
+        }
       }
     }
     captureCard(card) {
@@ -1392,59 +1413,48 @@
         });
     }
     captureBranch(root) {
+      this.scanCards([root], (ui) => this.captureCard(ui));
+    }
+    watchInsertions(node) {
+      var _a2;
+      if (this.insertions.has(node) || !Object.isExtensible(node)) return;
+      let children2 = ["addChild", "addChildAt"].filter((key) => typeof node[key] == "function"), draws = ["addDrawChild", "addDrawChildAt"].filter((key) => typeof node[key] == "function");
+      if (!children2.length && !draws.length) return;
+      let local = new ResourceScope(), registry = this;
+      this.insertions.set(node, local);
+      let patch = (key, wrap) => {
+        try {
+          local.patch(node, key, wrap);
+        } catch {
+        }
+      };
+      for (let key of children2) patch(key, (original) => function(child, ...args) {
+        let result = original.call(this, child, ...args);
+        if (!child || child === this || child.destroyed) return result;
+        try {
+          (this === registry.win.Laya.stage || this.name === "SceneLayer" || this.layerOrder === 2 || this === registry.scene) && (registry.syncScene(), registry.queueRefresh()), registry.captureBranch(child);
+        } catch (error) {
+          registry.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
+        }
+        return result;
+      });
+      let mouseDown = ((_a2 = this.win.Laya.Event) == null ? void 0 : _a2.MOUSE_DOWN) || "mousedown";
+      for (let key of draws) patch(key, (original) => function(child, ...args) {
+        let ui = flatCardForBitmap(child, mouseDown);
+        return ui && (this === registry.selfHand && registry.rememberSelf(ui.theCard), registry.captureCard(ui)), original.call(this, child, ...args);
+      });
+    }
+    scanCards(queue, onCard) {
       var _a2, _b2, _c, _d;
-      let queue = [root], seen = /* @__PURE__ */ new Set(), listType = (_b2 = (_a2 = this.game).getClass) == null ? void 0 : _b2.call(_a2, "CardsBookWindow"), detailType = (_d = (_c = this.game).getClass) == null ? void 0 : _d.call(_c, "CardBookDetailWindow");
+      let seen = /* @__PURE__ */ new Set(), listType = (_b2 = (_a2 = this.game).getClass) == null ? void 0 : _b2.call(_a2, "CardsBookWindow"), detailType = (_d = (_c = this.game).getClass) == null ? void 0 : _d.call(_c, "CardBookDetailWindow");
       for (let i2 = 0; i2 < queue.length && i2 < 6e3; i2++) {
         let node = queue[i2];
         if (!(!node || typeof node != "object" || seen.has(node) || node.destroyed)) {
-          seen.add(node), this.hookFactory(node), isCardUI(node) && this.captureCard(node);
-          for (let ui of cardBookFaces(node, listType, detailType))
-            this.bookFaces.add(ui), queue.push(ui);
-          for (let key of CARD_LISTS) {
-            let value = own(node, key);
-            Array.isArray(value) && queue.push(...value.slice(0, 2048));
+          if (seen.add(node), isCardUI(node)) {
+            onCard(node);
+            continue;
           }
-          for (let key of CARD_NODES) {
-            let value = own(node, key);
-            value && queue.push(value);
-          }
-        }
-      }
-    }
-    watchInsertions() {
-      var _a2, _b2, _c, _d;
-      let roots = /* @__PURE__ */ new Set([(_a2 = this.win.Laya) == null ? void 0 : _a2.stage, (_c = (_b2 = this.game).getScene) == null ? void 0 : _c.call(_b2)]), level = [(_d = this.win.Laya) == null ? void 0 : _d.stage];
-      for (let depth = 0; depth < 2; depth++) {
-        let next = [];
-        for (let parent of level) {
-          let children2 = own(parent, "_children");
-          if (Array.isArray(children2)) for (let child of children2.slice(0, 64)) {
-            if (roots.size >= 160) break;
-            roots.add(child), next.push(child);
-          }
-        }
-        level = next;
-      }
-      for (let [node, local] of this.insertions) (!roots.has(node) || node.destroyed) && (local.dispose(), this.insertions.delete(node));
-      let registry = this;
-      for (let node of roots) {
-        if (!node || node.destroyed || this.insertions.has(node)) continue;
-        let local = new ResourceScope();
-        this.insertions.set(node, local);
-        for (let key of ["addChild", "addChildAt"]) typeof node[key] == "function" && local.patch(node, key, (original) => function(child, ...args) {
-          let result = original.call(this, child, ...args);
-          return registry.captureBranch(child), result;
-        });
-      }
-    }
-    discover() {
-      var _a2, _b2, _c, _d, _e, _f, _g, _h, _i;
-      let queue = [(_a2 = this.win.Laya) == null ? void 0 : _a2.stage, (_c = (_b2 = this.game).getScene) == null ? void 0 : _c.call(_b2), (_e = (_d = this.game).getSelfSeatUI) == null ? void 0 : _e.call(_d)], seen = /* @__PURE__ */ new Set(), found = /* @__PURE__ */ new Set(), listType = (_g = (_f = this.game).getClass) == null ? void 0 : _g.call(_f, "CardsBookWindow"), detailType = (_i = (_h = this.game).getClass) == null ? void 0 : _i.call(_h, "CardBookDetailWindow");
-      this.bookFaces = /* @__PURE__ */ new WeakSet();
-      for (let i2 = 0; i2 < queue.length && i2 < 6e3; i2++) {
-        let node = queue[i2];
-        if (!(!node || typeof node != "object" || seen.has(node) || node.destroyed)) {
-          seen.add(node), this.hookFactory(node), isCardUI(node) && found.add(node);
+          this.watchInsertions(node), this.hookFactory(node);
           for (let ui of cardBookFaces(node, listType, detailType))
             this.bookFaces.add(ui), queue.push(ui);
           for (let key of CARD_LISTS) {
@@ -1457,11 +1467,44 @@
           }
         }
       }
-      for (let [owner, local] of this.factories) seen.has(owner) || (local.dispose(), this.factories.delete(owner));
+      return seen;
+    }
+    syncScene() {
+      var _a2, _b2, _c, _d, _e, _f, _g;
+      let scene = (_b2 = (_a2 = this.game).getScene) == null ? void 0 : _b2.call(_a2);
+      scene !== this.scene && (this.scene = scene, this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds.clear(), this.bookFaces = /* @__PURE__ */ new WeakSet());
+      let seat = (_d = (_c = this.game).getSelfSeatUI) == null ? void 0 : _d.call(_c);
+      this.selfHand = seat == null ? void 0 : seat.cardContainer;
+      for (let ui of ((_e = this.selfHand) == null ? void 0 : _e.cardUis) || ((_f = this.selfHand) == null ? void 0 : _f.cardUIs) || ((_g = this.selfHand) == null ? void 0 : _g.cardUiList) || []) this.rememberSelf(ui.theCard);
+      return seat;
+    }
+    discover(seat) {
+      var _a2;
+      let found = /* @__PURE__ */ new Set();
+      this.bookFaces = /* @__PURE__ */ new WeakSet();
+      let seen = this.scanCards([(_a2 = this.win.Laya) == null ? void 0 : _a2.stage, this.scene, seat], (ui) => found.add(ui));
+      for (let ui of this.bindings.keys()) {
+        let parent = own(ui, "drawParent");
+        !ui.destroyed && seen.has(parent) && own(ui.bmpFace, "render") === parent && found.add(ui);
+      }
+      for (let hooks of [this.factories, this.insertions]) for (let [owner, local] of hooks)
+        seen.has(owner) || (local.dispose(), hooks.delete(owner));
       return found;
     }
+    watchNativeResources(face, back) {
+      var _a2, _b2;
+      let loader = face || back ? (_a2 = this.win.Laya) == null ? void 0 : _a2.Loader : null;
+      if (this.nativeLoader === loader || ((_b2 = this.nativeLoaderScope) == null || _b2.dispose(), this.nativeLoader = loader, !loader)) return;
+      let local = this.nativeLoaderScope = new ResourceScope(), registry = this;
+      for (let key of ["cacheTexture", "cacheRes"])
+        typeof loader[key] == "function" && local.patch(loader, key, (original) => function(path, ...args) {
+          var _a3, _b3, _c, _d;
+          let result = original.call(this, path, ...args), name = nativeCardResourceName(path);
+          return name && (name === ((_b3 = (_a3 = registry.styleFor("face")) == null ? void 0 : _a3.native) == null ? void 0 : _b3.face) || name === ((_d = (_c = registry.styleFor("back")) == null ? void 0 : _c.native) == null ? void 0 : _d.back)) && (registry.nativeAttempts.delete(name), registry.queueRefresh()), result;
+        });
+    }
     refreshNative() {
-      var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+      var _a2, _b2, _c, _d, _e, _f, _g, _h, _i;
       if (this.closed) return;
       let { face, back: backId } = this.selection, customFaceSelected = face === LOCAL_FACE_STYLE.id, backgroundId = LOCAL_FACE_BACKGROUND_STYLE.id, background = face === backgroundId ? this.localFaceBackground : null;
       for (let id of this.images.keys())
@@ -1479,25 +1522,23 @@
         let after = [...this.nativeResources.values()];
         (before.length !== after.length || after.some((t, i2) => t !== before[i2])) && this.emit();
       }
-      let scene = (_d = (_c = this.game).getScene) == null ? void 0 : _d.call(_c);
-      scene !== this.scene && (this.scene = scene, this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds.clear()), this.selfHand = (_g = (_f = (_e = this.game).getSelfSeatUI) == null ? void 0 : _f.call(_e)) == null ? void 0 : _g.cardContainer;
-      for (let ui of ((_h = this.selfHand) == null ? void 0 : _h.cardUis) || ((_i = this.selfHand) == null ? void 0 : _i.cardUIs) || ((_j = this.selfHand) == null ? void 0 : _j.cardUiList) || []) this.rememberSelf(ui.theCard);
-      let back = this.styleFor("back"), localImage = back != null && back.localBackImage ? this.imageFor(back.id, back.localBackImage) : null, faceImage = background ? this.imageFor(backgroundId, background.url) : null;
+      let back = this.styleFor("back"), backSource = (back == null ? void 0 : back.localBackImage) || ((_c = back == null ? void 0 : back.atlas) == null ? void 0 : _c.backImage), backImage = backSource ? this.imageFor(back.id, backSource) : null, faceImage = background ? this.imageFor(backgroundId, background.url) : null;
+      if (customFaceSelected) for (let [card, row] of this.localFaces) this.imageFor(localFaceKey(card), row.url);
       if (!(back || selectedAtlas || faceImage || customFaceSelected && this.localFaces.size)) {
         this.restore(), this.setStatus(this.current ? "\u6240\u9009\u5957\u88C5\u5DF2\u505C\u7528\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F" : "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2");
         return;
       }
-      if (!((_k = this.win.Laya) != null && _k.Texture2D) || !((_l = this.win.Laya) != null && _l.Texture)) {
+      if (!((_d = this.win.Laya) != null && _d.Texture2D) || !((_e = this.win.Laya) != null && _e.Texture)) {
         this.setStatus("\u7B49\u5F85\u6E38\u620F\u539F\u751F\u6E32\u67D3\u5668");
         return;
       }
       try {
-        this.watchInsertions();
-        let found = this.discover();
+        this.watchNativeResources((_f = selectedAtlas == null ? void 0 : selectedAtlas.native) == null ? void 0 : _f.face, (_g = back == null ? void 0 : back.native) == null ? void 0 : _g.back);
+        let found = this.discover(this.syncScene());
         for (let [ui, binding] of this.bindings) found.has(ui) || (binding.release(), this.bindings.delete(ui));
         for (let ui of found)
           this.bindCard(ui);
-        let waiting = [(_m = selectedAtlas == null ? void 0 : selectedAtlas.native) == null ? void 0 : _m.face, (_n = back == null ? void 0 : back.native) == null ? void 0 : _n.back].some((name) => name && !this.nativeTexture(name)), localStatus = localImage && (localImage.complete ? localImage.naturalWidth !== LOCAL_BACK_WIDTH || localImage.naturalHeight !== LOCAL_BACK_HEIGHT ? "\u81EA\u5B9A\u4E49\u5361\u80CC\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u80CC" : "" : "\u6B63\u5728\u52A0\u8F7D\u81EA\u5B9A\u4E49\u5361\u80CC"), backgroundStatus = faceImage && (faceImage.complete ? faceImage.naturalWidth !== LOCAL_FACE_WIDTH || faceImage.naturalHeight !== LOCAL_FACE_HEIGHT ? "\u5361\u9762\u5E95\u56FE\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u9762" : "" : "\u6B63\u5728\u52A0\u8F7D\u5361\u9762\u5E95\u56FE"), atlas = this.atlases.get(selectedAtlas == null ? void 0 : selectedAtlas.id), prefix = atlas != null && atlas.error ? "\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25\uFF0C\u5DF2\u4FDD\u7559\u6E38\u620F\u5916\u89C2\uFF1A" + atlas.error : atlas != null && atlas.loading ? "\u6B63\u5728\u52A0\u8F7D\u5B8C\u6574\u5361\u9762\uFF0C\u5F53\u524D\u4FDD\u7559\u6E38\u620F\u5916\u89C2" : null, faces = atlas != null && atlas.data ? [...this.bindings].filter(([ui]) => {
+        let waiting = [(_h = selectedAtlas == null ? void 0 : selectedAtlas.native) == null ? void 0 : _h.face, (_i = back == null ? void 0 : back.native) == null ? void 0 : _i.back].some((name) => name && !this.nativeTexture(name)), localStatus = backImage && (backImage.complete ? backImage.naturalWidth !== (back.localBackImage ? LOCAL_BACK_WIDTH : LOCAL_FACE_WIDTH) || backImage.naturalHeight !== (back.localBackImage ? LOCAL_BACK_HEIGHT : LOCAL_FACE_HEIGHT) ? "\u81EA\u5B9A\u4E49\u5361\u80CC\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u80CC" : "" : "\u6B63\u5728\u52A0\u8F7D\u81EA\u5B9A\u4E49\u5361\u80CC"), backgroundStatus = faceImage && (faceImage.complete ? faceImage.naturalWidth !== LOCAL_FACE_WIDTH || faceImage.naturalHeight !== LOCAL_FACE_HEIGHT ? "\u5361\u9762\u5E95\u56FE\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u9762" : "" : "\u6B63\u5728\u52A0\u8F7D\u5361\u9762\u5E95\u56FE"), atlas = this.atlases.get(selectedAtlas == null ? void 0 : selectedAtlas.id), prefix = atlas != null && atlas.error ? "\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25\uFF0C\u5DF2\u4FDD\u7559\u6E38\u620F\u5916\u89C2\uFF1A" + atlas.error : atlas != null && atlas.loading ? "\u6B63\u5728\u52A0\u8F7D\u5B8C\u6574\u5361\u9762\uFF0C\u5F53\u524D\u4FDD\u7559\u6E38\u620F\u5916\u89C2" : null, faces = atlas != null && atlas.data ? [...this.bindings].filter(([ui]) => {
           var _a3;
           return !((_a3 = ui.theCard) != null && _a3.IsEmpty);
         }) : [], applied = faces.filter(([ui, b]) => b.applied && !b.reason && !b.error && ui.bmpFace.texture === b.applied).length, fallback = [...new Set(faces.filter(([, b]) => b.reason).map(([, b]) => b.reason))], detail = atlas != null && atlas.data ? ` \xB7 \u5B8C\u6574\u5361\u9762 R3 \u5DF2\u66FF\u6362 ${applied}/${faces.length}${fallback.length ? " \xB7 \u56DE\u9000\uFF1A" + fallback.join("\uFF1B") : ""}` : "";
@@ -1506,7 +1547,7 @@
         this.restore(), this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
       }
     }
-  }, CORE_VERSION = "0.6.150", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
+  }, CORE_VERSION = "0.6.182", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
     "43a4cbff657c319e8b7b1bf2ec7689e0a557fc9bb17a9090d24a2163d1857dda",
@@ -3766,6 +3807,200 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       cache2.clear(), pending.clear(), archivePromise = null;
     }), { getConfigData, loadConfigData };
   }
+  var STARGAZING_SITE = "https://gx.95chong.cn/", STARGAZING_REPORT = STARGAZING_SITE + "api/report", MiB = 1024 * 1024, cloudRoot = "https://mres.sanguosha.cn", cloudPrefix = "/update_cloud/public/", pictures = /^ui\/(?:face|sface|bface|icon)\/(?:skin|char)(?:\/(?:horSkin|horChar))?\/[a-f0-9]{32}\.(?:png|jpe?g)$/i, sounds = /^audio\/(?:skill|dead|effect|victory)\/[a-f0-9]{32}\.mp3$/i, motion = /^ui\/face\/skin\/dynamicSkin\/[a-f0-9]{32}\.zip$/i, configZips = /^\/\/config\/clients_[1-9]\d?\.\d{1,2}\.\d{1,2}_formal_\d{12}_[a-z0-9]{4,16}\/config(_list|[1-9]\d{0,2})\.zip$/, pcDownload = /^\/pcgame\/81002\/[1-9]\d?\.\d{1,2}\.\d{1,2}\/(gameInfo\.json|game_\d{8,16}_\d{6,12}\.zip)$/, configParams = {
+    subv: "0",
+    l: "0",
+    ct: "windows",
+    dm: "PC",
+    sv: "Windows",
+    vc: "1",
+    pkg: "com.bf.sgs.hdexp",
+    area: "0",
+    is_gzip: "0",
+    HWthirdAc: "0",
+    astc: "0",
+    config_list_inc: "1",
+    is_xxtea: "1"
+  }, installerArchiveLimit = 4294967295, installerRangeLimit = 24 * MiB, installerSuffixLimit = 65557;
+  function validConfigQuery(params) {
+    let keys = Array.from(params.keys()), selectors = ["c", "v", "key_v"];
+    return new Set(keys).size !== keys.length || keys.length !== Object.keys(configParams).length + selectors.length || Object.entries(configParams).some(([name, value]) => params.get(name) !== value) ? !1 : /^(?:[A-Za-z0-9+/]{16}|[A-Za-z0-9+/]{22}==)$/.test(params.get("c") ?? "") && /^(?:[A-Za-z0-9+/]{22}==|[A-Za-z0-9+/]{27}=|[A-Za-z0-9+/]{32})$/.test(params.get("v") ?? "") && /^\d{11}$/.test(params.get("key_v") ?? "");
+  }
+  function installerRange(range, limit2) {
+    if (range && typeof range == "object") {
+      let { suffix, start, end } = range, fields = Object.keys(range);
+      if (fields.length === 1 && fields[0] === "suffix" && Number.isSafeInteger(suffix) && suffix >= 1 && suffix <= Math.min(limit2, installerSuffixLimit))
+        return { range: { suffix }, headers: { Range: `bytes=-${suffix}` }, limit: suffix };
+      if (fields.length === 2 && fields.includes("start") && fields.includes("end") && Number.isSafeInteger(start) && Number.isSafeInteger(end) && start >= 0 && end >= start && end < installerArchiveLimit && end - start + 1 <= limit2)
+        return { range: { start, end }, headers: { Range: `bytes=${start}-${end}` }, limit: end - start + 1 };
+    }
+    throw new Error("\u79FB\u52A8\u7248\u5B89\u88C5\u5305\u4EC5\u5141\u8BB8\u8BFB\u53D6\u6307\u5B9A\u7684\u6709\u9650\u533A\u95F4");
+  }
+  function mobileSkinRequest(value, requestedLimit, range) {
+    var _a2;
+    let url;
+    try {
+      typeof value == "string" && value.length <= 512 && (url = new URL(value));
+    } catch {
+    }
+    if (!url || url.username || url.password || value.includes("#")) throw new Error("\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90\u5730\u5740\u65E0\u6548");
+    let versionHost = url.origin === "https://waym.sanguosha.cn", configMetadata = versionHost && url.pathname === "/config/";
+    if (configMetadata ? !validConfigQuery(url.searchParams) : url.search) throw new Error("\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90\u5730\u5740\u65E0\u6548");
+    let max2, installer = !1;
+    if (configMetadata ? max2 = 128 * 1024 : versionHost && url.pathname === "/update/cloud.php" && (max2 = 16 * 1024), url.origin === cloudRoot && url.pathname.startsWith(cloudPrefix)) {
+      let asset = url.pathname.slice(cloudPrefix.length);
+      /^cloud_[1-9]\d{4,11}\.zip$/.test(asset) ? max2 = 16 * MiB : motion.test(asset) ? max2 = 64 * MiB : pictures.test(asset) ? max2 = 12 * MiB : sounds.test(asset) && (max2 = 4 * MiB);
+    } else if (url.origin === cloudRoot) {
+      let config = configZips.exec(url.pathname);
+      config && (max2 = config[1] === "_list" ? 256 * 1024 : 4 * MiB);
+    } else if (url.origin === "https://download.sanguosha.cn") {
+      let file = (_a2 = pcDownload.exec(url.pathname)) == null ? void 0 : _a2[1];
+      file && (installer = file !== "gameInfo.json", max2 = installer ? installerRangeLimit : 16 * 1024);
+    }
+    if (!max2) throw new Error("\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90\u5730\u5740\u4E0D\u5728\u6E38\u5361\u5141\u8BB8\u8303\u56F4\u5185");
+    if (requestedLimit !== void 0 && (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1))
+      throw new Error("\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90\u4E0B\u8F7D\u4E0A\u9650\u65E0\u6548");
+    if (!installer && range !== void 0) throw new Error("\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90\u7C7B\u578B\u4E0D\u652F\u6301\u5206\u6BB5\u8BFB\u53D6");
+    let limit2 = Math.min(requestedLimit ?? max2, max2);
+    return {
+      url: url.href,
+      limit: limit2,
+      timeout: max2 >= 16 * MiB ? 9e4 : 25e3,
+      ...installer ? installerRange(range, limit2) : {}
+    };
+  }
+  var stargazingRequest = Object.freeze({ url: STARGAZING_REPORT, limit: MiB, timeout: 25e3, label: "\u89C2\u661F\u6570\u636E" });
+  function mobileSkinResponseBytes(bytes, limit2, expectedLength, label = "\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90") {
+    if (Object.prototype.toString.call(bytes) !== "[object ArrayBuffer]" || !bytes.byteLength)
+      throw new Error(`${label}\u54CD\u5E94\u65E0\u6548`);
+    if (bytes.byteLength > limit2) throw new Error(`${label}\u8D85\u8FC7\u4E0B\u8F7D\u4E0A\u9650`);
+    if (expectedLength !== void 0 && bytes.byteLength !== expectedLength) throw new Error("\u79FB\u52A8\u7248\u5B89\u88C5\u5305\u5206\u6BB5\u54CD\u5E94\u957F\u5EA6\u4E0D\u7B26");
+    return bytes;
+  }
+  function mobileSkinPartialLength(request, status, contentRange, contentLength, contentEncoding) {
+    if (status !== 206) throw new Error(`\u79FB\u52A8\u7248\u5B89\u88C5\u5305\u672A\u8FD4\u56DE\u6307\u5B9A\u5206\u6BB5\uFF08HTTP ${status}\uFF09`);
+    let fields = /^bytes (0|[1-9]\d{0,9})-(0|[1-9]\d{0,9})\/([1-9]\d{0,9})$/i.exec(contentRange ?? ""), [start, end, total] = ((fields == null ? void 0 : fields.slice(1)) ?? []).map(Number), { range, limit: limit2 } = request, length = end - start + 1;
+    if (!fields || end >= total || total > installerArchiveLimit || length < 1 || length > limit2 || (range.suffix === void 0 ? start !== range.start || end !== range.end : end !== total - 1 || length !== Math.min(total, range.suffix)) || contentLength != null && (!/^\d+$/.test(contentLength) || Number(contentLength) !== length) || contentEncoding != null && !/^identity$/i.test(contentEncoding))
+      throw new Error("\u79FB\u52A8\u7248\u5B89\u88C5\u5305\u5206\u6BB5\u54CD\u5E94\u8303\u56F4\u6216\u957F\u5EA6\u65E0\u6548");
+    return length;
+  }
+  async function fetchResource(win, request, signal) {
+    var _a2, _b2;
+    let { url, limit: limit2, headers, label = "\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90" } = request, overLimit = () => new Error(`${label}\u8D85\u8FC7\u4E0B\u8F7D\u4E0A\u9650`), response = await win.fetch(url, {
+      credentials: "omit",
+      redirect: "error",
+      signal,
+      headers,
+      ...request.label ? { cache: "no-store", referrerPolicy: "no-referrer" } : {}
+    }), expectedLength;
+    try {
+      if (request.range)
+        expectedLength = mobileSkinPartialLength(
+          request,
+          response.status,
+          response.headers.get("content-range"),
+          response.headers.get("content-length"),
+          response.headers.get("content-encoding")
+        );
+      else {
+        if (!response.ok) throw new Error(`${label}\u4E0D\u53EF\u7528\uFF08HTTP ${response.status}\uFF09`);
+        if (Number(response.headers.get("content-length")) > limit2) throw overLimit();
+      }
+    } catch (error) {
+      throw (_a2 = response.body) == null || _a2.cancel().catch(() => {
+      }), error;
+    }
+    let reader = (_b2 = response.body) == null ? void 0 : _b2.getReader();
+    if (!reader) return mobileSkinResponseBytes(await response.arrayBuffer(), limit2, expectedLength, label);
+    let chunks = [], size = 0;
+    try {
+      for (; ; ) {
+        let { value, done } = await reader.read();
+        if (done) break;
+        if (size += value.byteLength, size > (expectedLength ?? limit2)) throw overLimit();
+        chunks.push(value);
+      }
+    } catch (error) {
+      throw reader.cancel().catch(() => {
+      }), error;
+    } finally {
+      reader.releaseLock();
+    }
+    let bytes = new Uint8Array(size), offset = 0;
+    for (let chunk of chunks)
+      bytes.set(chunk, offset), offset += chunk.byteLength;
+    return mobileSkinResponseBytes(bytes.buffer, limit2, expectedLength, label);
+  }
+  function createGameAssetDownloads(win, scope, port) {
+    let pending = /* @__PURE__ */ new Map(), nextId = 0;
+    port && (port.onmessage = ({ data }) => {
+      let accept = pending.get(data == null ? void 0 : data.id);
+      accept && accept(data);
+    });
+    async function download(request, signal) {
+      var _a2;
+      let label = request.label || "\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90", cancelError = () => new Error(`${label}\u4E0B\u8F7D\u5DF2\u53D6\u6D88`), timeoutError = () => new Error(`${label}\u4E0B\u8F7D\u8D85\u65F6`), validate = (bytes) => mobileSkinResponseBytes(bytes, request.limit, void 0, label), owner = scope == null ? void 0 : scope.signal;
+      if (signal != null && signal.aborted || owner != null && owner.aborted) throw cancelError();
+      if (port) return new Promise((resolve, reject) => {
+        let id = ++nextId, finish = (done, value) => {
+          pending.delete(id) && (win.clearTimeout(timer2), signal == null || signal.removeEventListener("abort", cancel2), owner == null || owner.removeEventListener("abort", cancel2), done(value));
+        }, abort = (error) => {
+          try {
+            port.postMessage({ id, cancel: !0 });
+          } finally {
+            finish(reject, error);
+          }
+        }, cancel2 = () => abort(cancelError()), timer2 = win.setTimeout(() => abort(timeoutError()), request.timeout + 2e3);
+        pending.set(id, (data) => {
+          if (typeof data.error == "string") {
+            finish(reject, new Error(data.error));
+            return;
+          }
+          try {
+            finish(resolve, validate(data.bytes));
+          } catch (error) {
+            finish(reject, error);
+          }
+        }), signal == null || signal.addEventListener("abort", cancel2, { once: !0 }), owner == null || owner.addEventListener("abort", cancel2, { once: !0 });
+        try {
+          port.postMessage({ id, url: request.url, limit: request.limit, range: request.range });
+        } catch (error) {
+          finish(reject, error);
+        }
+      });
+      let controller = new AbortController(), cancel = () => controller.abort(), timer = win.setTimeout(cancel, request.timeout);
+      signal == null || signal.addEventListener("abort", cancel, { once: !0 }), owner == null || owner.addEventListener("abort", cancel, { once: !0 });
+      let nativeDownload = typeof win.__SGS_TOOLBOX_MOBILE_SKIN_REQUEST__ == "function";
+      try {
+        return nativeDownload ? validate(await win.__SGS_TOOLBOX_MOBILE_SKIN_REQUEST__(request, controller.signal)) : await fetchResource(win, request, controller.signal);
+      } catch (error) {
+        if (signal != null && signal.aborted || owner != null && owner.aborted) throw cancelError();
+        if (controller.signal.aborted) throw timeoutError();
+        if (request.label)
+          throw nativeDownload && (_a2 = error == null ? void 0 : error.message) != null && _a2.includes("\u4E0D\u5728\u6E38\u5361\u5141\u8BB8\u8303\u56F4\u5185") ? new Error("\u5F53\u524D\u5FAE\u7AEF\u63A5\u5165\u5C42\u5C1A\u672A\u652F\u6301\u8BFB\u53D6\u89C2\u661F\u7AD9") : !nativeDownload && (error == null ? void 0 : error.name) === "TypeError" ? new Error("\u65E0\u6CD5\u8FDE\u63A5\u89C2\u661F\u7AD9\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u548C\u7528\u6237\u811A\u672C\u7684\u7AD9\u70B9\u8BBF\u95EE\u6743\u9650") : error;
+        if (!nativeDownload && (error == null ? void 0 : error.name) === "TypeError") {
+          let stage = request.url.endsWith("/cloud.php") ? "\u8BFB\u53D6\u7248\u672C" : /\/cloud_\d+\.zip$/.test(request.url) ? "\u4E0B\u8F7D\u7D22\u5F15" : "\u4E0B\u8F7D\u7D20\u6750", detail = "\u5F53\u524D\u5FAE\u7AEF\u63A5\u5165\u5C42\u7F3A\u5C11\u8DE8\u57DF\u4E0B\u8F7D\u901A\u9053\uFF0C\u8BF7\u7528\u65B0\u7248\u5FAE\u7AEF\u5B89\u88C5\u5305\u5347\u7EA7\u63A5\u5165\u5C42\u3002";
+          throw new Error(`\u79FB\u52A8\u7248\u76AE\u80A4${stage}\u5931\u8D25\u3002${detail}`, { cause: error });
+        }
+        throw error;
+      } finally {
+        win.clearTimeout(timer), signal == null || signal.removeEventListener("abort", cancel), owner == null || owner.removeEventListener("abort", cancel);
+      }
+    }
+    return {
+      async downloadMobileSkinAsset(value, { signal, limit: limit2, range } = {}) {
+        return download(mobileSkinRequest(value, limit2, range), signal);
+      },
+      async readStargazingReport({ signal } = {}) {
+        let bytes = await download(stargazingRequest, signal);
+        try {
+          return JSON.parse(new TextDecoder("utf-8", { fatal: !0 }).decode(bytes));
+        } catch {
+          throw new Error("\u89C2\u661F\u7AD9\u8FD4\u56DE\u4E86\u65E0\u6CD5\u8BFB\u53D6\u7684\u62A5\u8868");
+        }
+      }
+    };
+  }
   var GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/, STARTUP_SCENE = /(?:^|\.)(?:LoginScene|CreateUserScene|CreateRoleScene|MainNullScene|LoadingScene)$/, read4 = (fn) => {
     try {
       return fn();
@@ -3810,7 +4045,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function isGameScene(scene) {
     return alive(scene) && !!(read4(() => scene.SelfSeatUi) || read4(() => scene.selfSeatUI) || read4(() => scene.seatContainer.seatUIs) || sceneName(scene) === "GameScene");
   }
-  function createGameAdapter(win, scope) {
+  function createGameAdapter(win, scope, mobileSkinPort) {
     let configs = scope ? createConfigData(win, scope) : null, selfClass = null, selfSearchAt = -1 / 0, current = null, stage = null, dispatcher = null, dispatcherOwner = null, providers = /* @__PURE__ */ new Set(), definitionTables = /* @__PURE__ */ new WeakMap(), listeners = /* @__PURE__ */ new Set();
     function walk(predicate, root = read4(() => win.Laya.stage)) {
       let queue = root ? [root] : [], seen = /* @__PURE__ */ new Set();
@@ -4097,6 +4332,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       canReserveViewport,
       getConfigData: (name) => (configs == null ? void 0 : configs.getConfigData(name)) || null,
       loadConfigData: (name, options) => configs ? configs.loadConfigData(name, options) : Promise.reject(new Error("\u914D\u7F6E\u8BFB\u53D6\u4E0D\u53EF\u7528")),
+      ...createGameAssetDownloads(win, scope, mobileSkinPort),
+      supportsMobileSkinConfig: !0,
       onSceneChange(fn) {
         if (typeof fn != "function") throw new TypeError("Scene subscriber must be a function");
         return listeners.add(fn), () => listeners.delete(fn);
@@ -4639,7 +4876,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     return visit(target), result;
   }
-  var officialPluginIds = Object.freeze(["social", "player-info", "native-cards", "yjcm-cards", "dafeiyu-cards", "backgrounds", "gold-cards", "shanhetu", "shanhetu-beta", "cards", "play-assist", "daily-rewards", "seckill", "gaizhu", "effects", "skins", "wish-progress", "themes", "baisheng", "appearances", "ledger", "recharge"]);
+  var officialPluginIds = Object.freeze(["social", "player-info", "native-cards", "yjcm-cards", "dafeiyu-cards", "backgrounds", "gold-cards", "shanhetu", "shanhetu-beta", "cards", "play-assist", "daily-rewards", "seckill", "gaizhu", "effects", "skins", "stargazing", "wish-progress", "themes", "baisheng", "appearances", "ledger", "recharge"]);
   function planOfficialPlugins(installed, catalog) {
     let latest = /* @__PURE__ */ new Map();
     for (let entry of catalog)
@@ -5818,7 +6055,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
     }), form;
   }
-  var feedbackIcon = { paths: ["M20 16h-8l-5 4v-4H4V4h16z", "M8 8h8M8 12h6"] }, categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix, size) => `${prefix}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
+  var feedbackIcon = { paths: ["M20 16h-8l-5 4v-4H4V4h16z", "M8 8h8M8 12h6"] }, categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], COMPACT_OPACITIES = [60, 80, 100], DEFAULT_COMPACT_OPACITY = 80, scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix, size) => `${prefix}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
 /* A moving perimeter marker keeps the folded HUD easy to locate without covering controls. */
 .hud-locator{display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible;color:var(--sgs-accent)}
 .hud-locator rect{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;x:1px;y:1px;width:calc(100% - 2px);height:calc(100% - 2px);rx:10px;stroke-dasharray:18 8 3 71;animation:hud-locator-flow 3.6s linear infinite,hud-locator-breathe 2.4s ease-in-out infinite}
@@ -5880,7 +6117,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .toast[data-position=top]{top:22px;top:calc(22px + env(safe-area-inset-top, 0px));bottom:auto;box-sizing:border-box;max-width:min(36em,calc(100vw - 32px));text-align:center;overflow-wrap:anywhere;pointer-events:none}
 :host([data-collapsed]) .nav,:host([data-collapsed]) .content,:host([data-collapsed]) .status,:host([data-collapsed]) .footer{display:none}:host([data-collapsed]) .brand{display:none}
 .compact{display:none;align-items:center;height:38px;padding:0 7px 0 10px;cursor:grab;touch-action:none;white-space:nowrap;user-select:none;-webkit-user-select:none}.compact:active{cursor:grabbing}.compact .slash{display:flex;align-items:center;gap:9px;flex:1;min-width:0;height:100%;color:var(--sgs-accent)}.slash-seal{display:grid;place-items:center;flex:none;width:25px;height:27px;font:20px/1 "KaiTi","STKaiti","FangSong",serif;color:var(--sgs-accent);text-shadow:0 1px 1px #0009;background:radial-gradient(ellipse,color-mix(in srgb,var(--sgs-accent) 9%,transparent),transparent 72%)}.slash-reading{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:32px;height:34px}.slash-label{font:9px/10px var(--sgs-font);letter-spacing:1px;color:var(--sgs-muted)}.compact [data-slash]{font:600 21px/23px "Cambria","Georgia",serif;font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--sgs-accent) 42%,var(--sgs-text));text-shadow:0 1px 2px #0008;letter-spacing:.3px}.compact[data-count-state="empty"] [data-slash]{color:var(--sgs-muted)}.compact[data-count-state="unknown"] [data-slash]{color:var(--sgs-muted);font-size:19px}.compact[data-count-state="unlimited"] [data-slash]{font-size:24px}.compact[data-count-size="long"] [data-slash]{font-size:15px;letter-spacing:0}.compact-actions{display:flex;align-items:center;gap:1px;padding-left:6px;margin-left:6px;position:relative}.compact-actions::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:1px;background:linear-gradient(transparent,color-mix(in srgb,var(--sgs-accent) 30%,transparent),transparent)}.compact button{display:grid;place-items:center;flex:none;width:28px;height:30px;padding:5px;border:0;border-radius:7px;background:transparent;color:var(--sgs-muted);box-shadow:none;transition:background 140ms,color 140ms,transform 140ms}.compact button:hover{color:var(--sgs-text);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 13%,transparent),color-mix(in srgb,var(--sgs-accent) 4%,transparent))}.compact button:active{transform:translateY(1px);background:color-mix(in srgb,var(--sgs-accent) 15%,transparent)}.compact button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:-2px;background:color-mix(in srgb,var(--sgs-accent) 9%,transparent)}.compact svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.compact [data-expand] svg{width:16px;height:16px}
-:host([data-collapsed]){width:156px!important;min-width:156px;max-width:156px}:host([data-collapsed]) .shell{position:relative;width:100%!important;max-width:100%;min-width:0;resize:none;border:1px solid color-mix(in srgb,var(--sgs-border) 65%,transparent);border-radius:11px;background:linear-gradient(165deg,var(--sgs-raised) 0%,var(--sgs-bg) 40%,color-mix(in srgb,var(--sgs-bg) 82%,#000) 100%);box-shadow:0 3px 8px #0004,0 12px 28px #0002,inset 0 1px color-mix(in srgb,var(--sgs-text) 9%,transparent),inset 0 -1px #0005}:host([data-collapsed]) .shell::before{content:'';position:absolute;pointer-events:none;top:0;left:15px;right:15px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--sgs-accent) 40%,transparent),transparent)}:host([data-collapsed]) .compact{display:flex}
+:host([data-collapsed]){width:156px!important;min-width:156px;max-width:156px}
+:host([data-collapsed]) .shell{position:relative;isolation:isolate;width:100%!important;max-width:100%;min-width:0;resize:none;border:1px solid color-mix(in srgb,var(--sgs-border) 65%,transparent);border-radius:11px;background:transparent;box-shadow:0 3px 8px #0004,0 12px 28px #0002,inset 0 1px color-mix(in srgb,var(--sgs-text) 9%,transparent),inset 0 -1px #0005}
+:host([data-collapsed]) .shell::after{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:var(--sgs-compact-opacity);background-color:var(--sgs-bg);background-image:linear-gradient(165deg,var(--sgs-raised) 0%,var(--sgs-bg) 40%,color-mix(in srgb,var(--sgs-bg) 82%,#000) 100%)}
+:host([data-collapsed]) .shell::before{content:'';position:absolute;pointer-events:none;top:0;left:15px;right:15px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--sgs-accent) 40%,transparent),transparent)}
+:host([data-collapsed]) .compact{display:flex}
 
 .compact-summary{display:none}:host([data-collapsed]) .compact-summary:not(:empty){display:grid;gap:3px;padding:6px 9px 8px;border-top:1px solid var(--sgs-border);max-height:35vh;overflow:auto}.compact-summary-row{display:flex;align-items:baseline;gap:6px;min-width:0;font-size:11px}.compact-summary-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.compact-summary-row b{flex:none;color:var(--sgs-accent);font-variant-numeric:tabular-nums;font-weight:500}
 .ui-icon{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
@@ -5888,7 +6129,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 /* Light palettes use crisp ink and softer depth rather than dark-theme shadows. */
 :host([data-theme-scheme=light]){--sgs-success:#32613e}
 :host([data-theme-scheme=light]) .slash-seal,:host([data-theme-scheme=light]) .compact [data-slash]{text-shadow:none}
-:host([data-theme-scheme=light][data-collapsed]) .shell{background:linear-gradient(165deg,var(--sgs-surface),var(--sgs-bg) 65%);box-shadow:0 3px 8px #0002,0 8px 20px #0001,inset 0 1px #fff8}
+:host([data-theme-scheme=light][data-collapsed]) .shell{box-shadow:0 3px 8px #0002,0 8px 20px #0001,inset 0 1px #fff8}
+:host([data-theme-scheme=light][data-collapsed]) .shell::after{background-image:linear-gradient(165deg,var(--sgs-surface),var(--sgs-bg) 65%)}
 ${CONTROL_STYLES}
 button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%,var(--sgs-surface)),var(--sgs-surface));border-color:color-mix(in srgb,var(--sgs-border) 60%,transparent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 4%,transparent);transition:background 140ms,border-color 140ms,color 140ms}button:active:not(:disabled){background:var(--sgs-bg)}button:disabled{cursor:not-allowed}.nav button,.footer button{box-shadow:none}.tabs{gap:2px;padding:3px;border-radius:8px;background:var(--sgs-surface);box-shadow:inset 0 1px 3px #0004}.tabs button{border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);padding:6px 2px}.tabs button.active{background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 17%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent);color:var(--sgs-accent)}
 .settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 1 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
@@ -5933,6 +6175,11 @@ ${FEEDBACK_STYLES}
       host.style.setProperty("--sgs-font-offset", `${choice[2]}px`);
     };
     applyFontSize();
+    let getCompactOpacity = () => {
+      let saved = settings.get("compactOpacity", DEFAULT_COMPACT_OPACITY);
+      return COMPACT_OPACITIES.includes(saved) ? saved : DEFAULT_COMPACT_OPACITY;
+    }, applyCompactOpacity = () => host.style.setProperty("--sgs-compact-opacity", String(getCompactOpacity() / 100));
+    applyCompactOpacity();
     let scaleSheet = (node) => {
       if (node.nodeType === 1)
         for (let sheet of [...node.matches("style") ? [node] : [], ...node.querySelectorAll("style")]) {
@@ -6070,7 +6317,19 @@ ${FEEDBACK_STYLES}
         }
         content.append(choices), edgeHeading.append(helpTip(doc, mobileDevice() ? "\u62D6\u5230\u53F3\u8FB9\u7F18\u540E\u6536\u8D77\u81F3\u53F3\u4FA7\uFF1B\u70B9\u51FB\u8FB9\u6761\u6216\u5411\u5DE6\u5212\u5C55\u5F00\uFF0C\u5411\u53F3\u5212\u6216\u70B9\u51FB\u9762\u677F\u5916\u6536\u8D77\u3002\u79FB\u52A8\u7AEF\u6682\u4E0D\u652F\u6301\u56FA\u5B9A\u4FA7\u680F\u3002" : "\u62D6\u5230\u53F3\u8FB9\u7F18\u65F6\uFF1A\u65E0\u64CD\u4F5C\u4FDD\u6301\u60AC\u6D6E\uFF1B\u56FA\u5B9A\u4E3A\u4FA7\u680F\u5E76\u4E3A\u6E38\u620F\u753B\u5E03\u7559\u51FA\u7A7A\u95F4\u3002\u5FAE\u7AEF\u6682\u4E0D\u652F\u6301\u9760\u8FB9\u6536\u8D77\u3002"));
       }
-      content.append(el("h3", "\u622A\u56FE"));
+      let opacityHeading = el("h3", "\u6536\u8D77\u680F\u4E0D\u900F\u660E\u5EA6");
+      opacityHeading.id = "compact-opacity-heading";
+      let opacityChoices = el("div", void 0, "sgs-segments");
+      opacityChoices.setAttribute("role", "group"), opacityChoices.setAttribute("aria-labelledby", opacityHeading.id);
+      let selectedOpacity = getCompactOpacity();
+      for (let value of COMPACT_OPACITIES) {
+        let choice = button(`${value}%`, () => {
+          settings.set("compactOpacity", value), applyCompactOpacity();
+          for (let option of opacityChoices.children) option.setAttribute("aria-pressed", String(option === choice));
+        });
+        choice.setAttribute("aria-pressed", String(value === selectedOpacity)), opacityChoices.append(choice);
+      }
+      content.append(opacityHeading, opacityChoices, el("h3", "\u622A\u56FE"));
       let cleanRow = el("label", void 0, "row");
       cleanRow.append(el("span", "\u622A\u56FE\u65F6\u9690\u85CF\u5DE5\u5177\u7BB1 UI"));
       let clean2 = el("input");
@@ -6768,16 +7027,21 @@ ${FEEDBACK_STYLES}
     for (let handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) if (valid(read5(() => handler.caller))) return handler.caller;
     return null;
   }
-  function boot(win = window) {
-    return startOwnedRuntime(win, EDITION, (api) => initialize(win, api));
+  function boot(win = window, mobileSkinPort) {
+    let ownsPort = !1, ready = startOwnedRuntime(win, EDITION, (api) => (ownsPort = !0, mobileSkinPort && api.scope.add(() => {
+      mobileSkinPort.postMessage({ close: !0 }), mobileSkinPort.close();
+    }), initialize(win, api, mobileSkinPort)));
+    return mobileSkinPort ? ready.finally(() => {
+      ownsPort || (mobileSkinPort.postMessage({ close: !0 }), mobileSkinPort.close());
+    }) : ready;
   }
-  async function initialize(win, api) {
+  async function initialize(win, api, mobileSkinPort) {
     var _a2, _b2, _c;
     let scope = api.scope;
     installMicroCompatibility(win, scope);
     let onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
     Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
-    let game = createGameAdapter(win, scope), shell = createShell({
+    let game = createGameAdapter(win, scope, mobileSkinPort), shell = createShell({
       window: win,
       document: win.document,
       settings,
@@ -6846,7 +7110,7 @@ ${FEEDBACK_STYLES}
       shell.setStatus(bridge.error || (ready ? capture.received ? `\u5DF2\u6536 ${capture.received} \u6761\u6D88\u606F \xB7 ${journal.incomplete ? "\u7F3A\u5C11\u5F00\u5C40\u8BB0\u5F55" : "\u672C\u5C40\u8BB0\u5F55\u4E2D"}` : capture.targets.length ? "\u6D88\u606F\u5165\u53E3\u5DF2\u8FDE\u63A5 \xB7 \u7B49\u5F85\u6536\u5305" : "\u672A\u63A5\u5165\u6E38\u620F\u6D88\u606F \xB7 \u4EC5\u539F\u751F\u663E\u793A\u53EF\u7528" : "\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6"));
     }, 500), !win.__SGS_TOOLBOX_DEMO__ && !((_c = win.Laya) != null && _c.stage) && (shell.host.style.display = "none"), await manager2.init(), scope.closed ? null : (Object.assign(api, { manager: manager2, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager2.storageError ? shell.notify("\u65E0\u6CD5\u8BFB\u53D6\u63D2\u4EF6\u5B58\u50A8\uFF0C\u8BF7\u5237\u65B0\u6E38\u620F\u91CD\u8BD5\u3002") : manager2.loadIssues.size ? shell.notify(`${manager2.loadIssues.size} \u4E2A\u63D2\u4EF6\u52A0\u8F7D\u5F02\u5E38\uFF0C\u5DF2\u4FDD\u7559\u5B89\u88C5\u8BB0\u5F55\u3002`) : manager2.errors.length && shell.notify(manager2.errors.join("\uFF1B")), api);
   }
-  boot(window).catch((error) => {
+  boot(window, typeof sgsToolboxMobileSkinPort > "u" ? void 0 : sgsToolboxMobileSkinPort).catch((error) => {
     console.error("[\u4E09\u56FD\u6740OL\u5DE5\u5177\u7BB1]", error);
   });
 })();

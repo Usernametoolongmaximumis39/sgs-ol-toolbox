@@ -6,11 +6,13 @@ import { readCatalogue, readInventory, collectSkins, summarizeSkins, filterSkins
 import { createSkinCollection, resolveSkinRuntime } from '../src/plugins/skins/runtime.js';
 import { ResourceScope } from '../src/core/resources.js';
 import { createLocalSkins } from '../src/plugins/skins/local.js';
+import { updateVoiceBindingsForForms, voiceBindingsForForm } from '../src/plugins/skins/cross-voice.js';
 import { indexFormSkills, indexOfficialFormRules, localSkinForm, skinFormInfo } from '../src/plugins/skins/local-forms.js';
 import { createFormProgress, normalizeFormRule } from '../src/plugins/skins/form-rules.js';
 import { createYjcmIndex } from '../src/plugins/skins/yjcm.js';
 import { buildYjcmData } from '../src/plugins/skins/yjcm-data.js';
-import { yjcmBattleEvents, yjcmSkinAction } from '../src/plugins/skins/yjcm-effects.js';
+import { isYjcmSkillEffect, listYjcmEffects, normalizeYjcmEffectBindings, resolveYjcmEffect, yjcmBattleEvents,
+  yjcmSkinAction } from '../src/plugins/skins/yjcm-effects.js';
 import yjcmSource from './fixtures/yjcm-source.json' with { type: 'json' };
 
 const { findYjcmSkin, findYjcmVoice, searchYjcmSkins, yjcmSkinForms, yjcmSkinVoices } = createYjcmIndex(buildYjcmData(yjcmSource));
@@ -26,9 +28,9 @@ test('Yjcm indexes battle clips by the dynamic skin and exact active form', () =
   source.Skills.SpellDesc.push({ SpellId: 8971, Name: '竭雨' }, { SpellId: 8972, Name: '焚天' });
   source.GeneralSkinInfoConfig.SkinSpineConf = [
     { SkinID: 8163801, AttackAnimateInfos: [
-      { SkillID: '1', FileNames: 'chuchang2.skel', AnimateNames: 'gongji' },
-      { SkillID: '8971|8972', FileNames: 'chuchang2.skel', AnimateNames: 'jineng', Center: 1 },
-    ], DefenceAnimateInfos: [{ SkillID: '1', FileName: 'shouji', AnimateName: 'play' },
+      { SkillID: '1', FileNames: 'chuchang2.skel', AnimateNames: 'gongji', SoundName: '620701_1' },
+      { SkillID: '8971|8972', FileNames: 'chuchang2.skel', AnimateNames: 'jineng', Center: 1, SoundName: '../invalid' },
+    ], DefenceAnimateInfos: [{ SkillID: '1', FileName: 'shouji', AnimateName: 'play', SoundName: 'hit_cue' },
       { SkillID: '8971', FileName: 'shouji3', AnimateName: 'play' }] },
     { SkinID: 8163801, AwakeType: 7, EnterSceneAnimateInfoInGame: [{ Index: 1, FileName: 'daiji6' }],
       AttackAnimateInSeatInfos: [{ SkillID: '2|8972', FileNames: 'daiji5', AnimateNames: 'play' }] },
@@ -39,13 +41,16 @@ test('Yjcm indexes battle clips by the dynamic skin and exact active form', () =
   assert.equal(entry.id, 6163801);
   assert.equal(first.resource, '8163801');
   assert.deepEqual(first.enter.clips, [{ file: 'chuchang.sk', name: 0 }]);
+  assert.equal(yjcmSkinAction(first, 1).sound, '620701_1.mp3');
   assert.equal(yjcmSkinAction(first, 1).impact.file, 'shouji.sk');
+  assert.equal(yjcmSkinAction(first, 1).impact.sound, 'hit_cue.mp3');
   assert.equal(yjcmSkinAction(first, 42, '竭雨').placement, 'center');
   assert.equal(yjcmSkinAction(first, 42, '竭雨').impact.file, 'shouji3.sk');
+  assert.equal(yjcmSkinAction(first, 42, '竭雨').sound, undefined);
   assert.equal(yjcmSkinAction(first, 42, '焚天').impact, undefined);
   assert.equal(yjcmSkinAction(first, 8971, '他技'), undefined);
   assert.equal(second.resource, '8163802');
-  assert.deepEqual(second.enter, { clips: [{ file: 'daiji6.sk', name: 0 }], placement: 'seat', replace: true });
+  assert.deepEqual(second.enter, { clips: [{ file: 'daiji6.sk', name: 0 }], placement: 'seat', replace: true, clipToSeat: true });
   assert.equal(yjcmSkinAction(second, 2).clips[0].file, 'daiji5.sk');
   assert.equal(yjcmSkinAction(second, 1), undefined);
 });
@@ -86,6 +91,89 @@ test('Yjcm battle effects use confirmed card types and the skill owner in a spli
   events.cardEffect([2, 2]);
   assert.deepEqual(calls, [[1, 'skill', 88, '隽谋', [3]], [0, 'attack', 1, '', [2]],
     [0, 'attack', 1, '', undefined], [0, 'dodge', 2, '', undefined]]);
+});
+
+test('Yjcm preserves dedicated skill effects and plays confirmed converted Slashes on their owner', () => {
+  const deputy = {}, calls = [];
+  const seat = { GetGeneralBySkillIdOnlyId: id => id === 88 ? deputy : null };
+  const choice = { target: { general: deputy, deputy: true }, playYjcmEffect(...args) {
+    calls.push(args);
+    return args[1] !== 90;
+  } };
+  const events = yjcmBattleEvents({ game: {} }, seat, () => [choice]);
+  events.skillEffect({ Skill: { SkillId: 90, FromSkillId: 88, Name: '测试', UsedVirtualSkill: { ID: 1, CardUseType: 1 } }, DestSeatIDs: [2] });
+  events.skillEffect({ Skill: { SkillId: 90, FromSkillId: 88, Name: '测试', UsedVirtualSkill: { ID: 1, CardUseType: 2 } }, DestSeatIDs: [3] });
+  events.skillEffect({ Skill: { SkillId: 88, Name: '测试', UsedVirtualSkill: { ID: 1, CardUseType: 1 } }, DestSeatIDs: [4] });
+  assert.deepEqual(calls, [['skill', 90, '测试', [2]], ['attack', 1, '', [2]],
+    ['skill', 90, '测试', [3]], ['skill', 88, '测试', [4]]]);
+});
+
+test('Yjcm preserves physical attack fallback to the deputy when the primary has no attack plan', () => {
+  const calls = [];
+  const main = { target: { deputy: false },
+    playYjcmEffect() { calls.push('main'); return false; } };
+  const deputy = { target: { deputy: true }, playYjcmEffect() { calls.push('deputy'); return true; } };
+  const ctx = { game: { getCardMeta: () => ({ name: '杀' }) } };
+  const events = yjcmBattleEvents(ctx, {}, () => [deputy, main]);
+  events.cardEffect([66, 1]);
+  assert.deepEqual(calls, ['main', 'deputy']);
+});
+
+test('Yjcm binds only skill effects to skills and keeps general effects available for preview', () => {
+  const action = (id, file, name) => ({ id, clips: [{ file, name: 0 }], name, placement: 'near' });
+  const enter = { clips: [{ file: 'chuchang.sk', name: 0 }], placement: 'seat' };
+  const transition = { clips: [{ file: 'transition.skel', name: 0 }], placement: 'seat', shared: true };
+  const attack = action(1, 'gongji.sk');
+  const dodge = action(2, 'shan.sk');
+  const skill = action(45, 'jineng.sk', '谋定');
+  const alternate = action(46, 'jineng2.sk', '筹策');
+  const spec = { enter, actions: [attack, dodge, skill, alternate], transition };
+  const secondForm = { actions: [attack, alternate] };
+  const options = listYjcmEffects(spec);
+  assert.deepEqual(options.map(effect => effect.plan), [enter, attack, dodge, skill, alternate, transition]);
+  assert.deepEqual(options.filter(isYjcmSkillEffect).map(effect => effect.plan), [skill, alternate]);
+  const [entryEffect, attackEffect, dodgeEffect, skillEffect, secondEffect, transitionEffect] = options;
+  const old = {
+    1: { 1: skillEffect.key, 2: null, 88: secondEffect.key, 89: null,
+      90: entryEffect.key, 91: attackEffect.key, 92: dodgeEffect.key, 93: transitionEffect.key,
+      94: 'invalid', '-2': 'enter', '05': skillEffect.key },
+    2: { 88: skillEffect.key }, 3: { 88: secondEffect.key },
+  };
+  const configured = normalizeYjcmEffectBindings(old);
+  assert.deepEqual(configured, { 1: { 88: secondEffect.key, 89: null }, 2: { 88: skillEffect.key } });
+  assert.equal(resolveYjcmEffect(spec, 1, '').plan, attack);
+  assert.equal(resolveYjcmEffect(spec, 89, ' 谋定 ').plan, skill);
+  assert.equal(resolveYjcmEffect(spec, 45, '他技'), undefined);
+  assert.equal(resolveYjcmEffect(spec, 45, ''), undefined);
+  assert.equal(resolveYjcmEffect(spec, 1, '', old).plan, attack);
+  assert.equal(resolveYjcmEffect(spec, 2, '', old).plan, dodge);
+  for (const id of [90, 91, 92, 93]) assert.equal(resolveYjcmEffect(spec, id, '谋定', old).plan, skill);
+  assert.equal(resolveYjcmEffect(spec, 88, '他技', configured).plan, alternate);
+  assert.equal(resolveYjcmEffect(spec, 89, '谋定', configured), undefined);
+  assert.equal(resolveYjcmEffect(secondForm, 88, '筹策', configured, 2).plan, alternate);
+  assert.equal(resolveYjcmEffect(secondForm, 1, '', configured, 2).plan, attack);
+  assert.equal(resolveYjcmEffect({ actions: [] }, 1, '', configured), undefined);
+});
+
+test('mobile attacks use the card trigger while new skill bindings use the special performance', () => {
+  const attack = { key: 'mobile:attack', id: 1 }, special = { key: 'mobile:special', name: '特殊演出', bindable: true };
+  const spec = { actions: [attack, special] };
+  assert.deepEqual(listYjcmEffects(spec).filter(isYjcmSkillEffect).map(effect => effect.key), ['mobile:special']);
+  assert.equal(resolveYjcmEffect(spec, 1, '').plan, attack);
+  assert.equal(resolveYjcmEffect(spec, 88, '特殊演出'), undefined);
+  const config = normalizeYjcmEffectBindings({ 3: { 88: 'mobile:special', 89: 'mobile:attack' } }, 3);
+  assert.equal(resolveYjcmEffect(spec, 88, '狂骨', config, 3).plan, special);
+  assert.equal(resolveYjcmEffect(spec, 89, '狂骨', config, 3).plan, attack);
+});
+
+test('voice bindings keep legacy defaults and edits on stable mobile form IDs', () => {
+  const first = { source: 'mobile', number: '83502' }, third = { source: 'mobile', number: '83502#2' };
+  const legacy = { 42: 'native', 81: [1] }, edited = { 42: 'native', 81: [7] };
+  const config = updateVoiceBindingsForForms(legacy, [first, third], new Map([[1, edited]]));
+  assert.deepEqual(voiceBindingsForForm(legacy, third, 2), legacy);
+  assert.deepEqual(voiceBindingsForForm(config, first, 1), legacy);
+  assert.deepEqual(voiceBindingsForForm(config, third, 3), edited);
+  assert.deepEqual(voiceBindingsForForm(updateVoiceBindingsForForms(config, [first], new Map([[0, {}]])), third, 3), edited);
 });
 
 test('Yjcm static catalogue searches owning generals and their aliases without duplicating shared skins', () => {
@@ -183,6 +271,7 @@ test('Yjcm alternate portraits preserve the skin ID and separate same-skill and 
       for (const group of groups) {
         assert.ok(group.urls.length && group.urls.every(url => url.includes('/' + folder + '/')));
         assert.deepEqual(findYjcmVoice(`${id}:${group.id}:谋陆逊`, form).urls, group.urls);
+        assert.deepEqual(findYjcmVoice(`${id}#${form}:${group.id}:谋陆逊`, 3 - form).urls, group.urls);
       }
     }
   }
@@ -333,7 +422,8 @@ test('skin tools panel has independent persisted switches and does not read inve
     h.render();
     assert.deepEqual(switches().map(input => input.checked), [true, true, true, false, false, false, false, true]);
     const [crossServer, optimize] = switches().slice(-2);
-    assert.equal(optimize.disabled, true);
+    assert.equal(optimize.disabled, false);
+    assert.equal(optimize.labels[0].textContent, '皮肤显示优化');
     crossServer.click();
     assert.equal(optimize.disabled, false);
     optimize.click();
@@ -571,6 +661,147 @@ test('manual switching starts fresh counters and waits for a new HP threshold en
   assert.equal(use(81), 2);
 });
 
+test('a branching form graph migrates only the same legacy edges and keeps conversion phase separate', () => {
+  const transitions = [{ from: 1, to: 2 }, { from: 1, to: 3 }];
+  const legacy = { mode: 'custom', rules: [
+    { kind: 'conversion', from: 'yang', skill: 81 },
+    { kind: 'every', times: 2, skills: [82] },
+    { kind: 'hp', compare: 'gte', hp: 3 },
+  ] };
+  const converted = normalizeFormRule(legacy, 3, transitions);
+  assert.deepEqual(converted, { mode: 'custom', rules: [
+    { from: 1, to: 2, kind: 'conversion', phase: 'yang', skill: 81 },
+    { from: 1, to: 3, kind: 'none' },
+  ] });
+  assert.deepEqual(normalizeFormRule(converted, 3, [...transitions].reverse()).rules, [...converted.rules].reverse());
+  assert.equal(normalizeFormRule(converted, 3), null);
+  assert.equal(normalizeFormRule({ mode: 'custom', rules: [
+    { from: 1, to: 3, kind: 'conversion', phase: 'invalid', skill: 81 },
+  ] }, 3, transitions), null);
+
+  const nativeSkill = { IsSwitchSkill: true, switchValue: 1, IsSecondState: false };
+  const target = { general: { GetSkill: id => id === 81 ? nativeSkill : null } };
+  const progress = createFormProgress({ count: 3, transitions, config: converted, target,
+    getConversionSkillIds: () => new Set([81]) });
+  assert.equal(progress.update({ conversion: { id: 81, skill: nativeSkill, phase: 'yin' } }), 2);
+  assert.deepEqual(progress.destinations(), [1, 3]);
+  assert.equal(progress.update({ conversion: { id: 81, skill: nativeSkill, phase: 'yang' } }), 2);
+});
+
+test('branch rules stop at terminal forms and manual switching can leave them', () => {
+  const transitions = [{ from: 1, to: 2 }, { from: 1, to: 3 }];
+  const target = { seat: { Hp: 3 } };
+  let uses = 7;
+  const config = { mode: 'custom', rules: [
+    { from: 1, to: 3, kind: 'every', times: 2, skills: [81] },
+    { from: 1, to: 2, kind: 'hp', compare: 'lte', hp: 2 },
+  ] };
+  const create = options => createFormProgress({ count: 3, transitions, config, target,
+    getSkillCount: () => uses, getCardSkillIds: () => new Set([81]), ...options });
+  const progress = create();
+  assert.deepEqual(progress.destinations(), [2, 3]);
+  assert.equal(progress.advance(), 1, 'a branch needs an explicit destination');
+  assert.equal(progress.advance(4), 1);
+  uses++;
+  assert.equal(progress.update({ skill: 81 }), 1, 'counts start from the entry into the source form');
+  uses++;
+  assert.equal(progress.update({ skill: 81 }), 3);
+  assert.equal(progress.update({ skill: 81 }), 3, 'there is no automatic exit from the third form');
+  assert.deepEqual(progress.destinations(), [1, 2]);
+  assert.equal(progress.advance(1), 1);
+  assert.equal(progress.update({ skill: 81 }), 1, 'manual return starts a new entry count');
+  uses++;
+  assert.equal(progress.update({ skill: 81 }), 1);
+  uses++;
+  assert.equal(progress.update({ skill: 81 }), 3);
+
+  const hpPath = create();
+  target.seat.Hp = 2;
+  assert.equal(hpPath.update(), 2);
+  assert.equal(hpPath.advance(3), 3);
+  assert.equal(create().advance(3), 3, 'manual selection can take the second branch directly');
+  const unknown = create({ transitions: [] });
+  assert.deepEqual(unknown.destinations(), [2, 3]);
+  assert.equal(unknown.advance(), 1);
+  assert.equal(unknown.update({ initial: true }), 1);
+});
+
+test('a complex form graph uses the first matching route and keeps other directed edges independent', () => {
+  const transitions = [{ from: 1, to: 3 }, { from: 1, to: 2 }, { from: 3, to: 4 }, { from: 4, to: 1 }];
+  const target = { seat: { Hp: 3 } };
+  const config = { mode: 'custom', rules: [
+    { from: 1, to: 2, kind: 'hp', compare: 'lte', hp: 2 },
+    { from: 1, to: 3, kind: 'hp', compare: 'lte', hp: 2 },
+    { from: 3, to: 4, kind: 'hp', compare: 'lte', hp: 2 },
+  ] };
+  const progress = createFormProgress({ count: 4, transitions, config, target });
+  target.seat.Hp = 2;
+  assert.equal(progress.update(), 3, 'simultaneous conditions use the graph order');
+  assert.equal(progress.update(), 3, 'entry resets the new form’s HP threshold baseline');
+  target.seat.Hp = 3;
+  progress.update();
+  target.seat.Hp = 2;
+  assert.equal(progress.update(), 4);
+  assert.equal(progress.advance(1), 1);
+  assert.equal(progress.update(), 1, 'a manual return rebases both outgoing conditions');
+});
+
+test('mobile custom form rules support six directional pairs and preserve disabled conditions', () => {
+  const customTransitions = true;
+  const transitions = [{ from: 1, to: 2 }, { from: 1, to: 3 }];
+  const rules = [
+    { from: 1, to: 2, kind: 'none' },
+    { from: 1, to: 3, kind: 'hp', compare: 'lte', hp: 2, enabled: false },
+    { from: 2, to: 1, kind: 'none' },
+    { from: 2, to: 3, kind: 'hp', compare: 'lte', hp: 2 },
+    { from: 3, to: 1, kind: 'none' },
+    { from: 3, to: 2, kind: 'conversion', phase: 'yang', skill: 81, enabled: false },
+  ];
+  const config = { mode: 'custom', rules };
+  assert.deepEqual(normalizeFormRule(config, 3, transitions, { customTransitions }), config);
+  const target = { seat: { Hp: 4 } };
+  const progress = createFormProgress({ count: 3, transitions, customTransitions, config, target });
+  assert.deepEqual(progress.destinations(), [2, 3]);
+  assert.equal(progress.hasConversion, false);
+  target.seat.Hp = 2;
+  assert.equal(progress.update(), 1, 'disabled HP condition cannot advance the current form');
+  assert.equal(progress.advance(3), 3, 'a disabled automatic rule does not block manual selection');
+  assert.equal(progress.advance(1), 1);
+  assert.equal(progress.advance(2), 2);
+  assert.deepEqual(progress.destinations(), [1, 3]);
+  target.seat.Hp = 3;
+  progress.update();
+  target.seat.Hp = 2;
+  assert.equal(progress.update(), 3);
+  assert.equal(progress.advance(1), 1);
+});
+
+test('mobile form rule validation protects the route limit, defaults and existing settings', () => {
+  const customTransitions = true;
+  const opts = { customTransitions };
+  const transitions = [{ from: 1, to: 2 }, { from: 1, to: 3 }];
+  const makeConfig = rules => ({ mode: 'custom', rules });
+  const rule = (from, to) => ({ from, to, kind: 'none' });
+  const six = [rule(1, 2), rule(1, 4), rule(2, 1), rule(2, 3), rule(3, 4), rule(4, 2)];
+  assert.deepEqual(normalizeFormRule(makeConfig(six), 4, [], opts).rules, six);
+  assert.equal(normalizeFormRule(makeConfig([...six, rule(4, 3)]), 4, [], opts), null);
+  assert.equal(normalizeFormRule(makeConfig([rule(2, 2)]), 4, [], opts), null);
+  assert.equal(normalizeFormRule(makeConfig([rule(1, 5)]), 4, [], opts), null);
+  assert.equal(normalizeFormRule(makeConfig([rule(1, 2), rule(1, 2)]), 4, [], opts), null);
+  const legacy = makeConfig([{ kind: 'every', skills: [81], times: 2 }, { kind: 'none' }, { kind: 'none' }]);
+  assert.deepEqual(normalizeFormRule(legacy, 3, transitions, opts).rules, [
+    { from: 1, to: 2, kind: 'every', skills: [81], times: 2 }, rule(1, 3),
+  ]);
+  const manual = createFormProgress({ count: 3, transitions, customTransitions, config: { mode: 'manual' } });
+  assert.deepEqual(manual.destinations(), [2, 3]);
+  manual.advance(2);
+  assert.deepEqual(manual.destinations(), [1, 3]);
+  const stopped = createFormProgress({ count: 3, transitions, customTransitions, config: makeConfig([]) });
+  assert.deepEqual(stopped.destinations(), [2, 3], 'an empty custom graph still allows manual switching');
+  const unknown = createFormProgress({ count: 3, customTransitions });
+  assert.deepEqual(unknown.destinations(), [2, 3]);
+});
+
 test('dual forms count only the selected general card using its printed skills', () => {
   const h = harness(), scene = {};
   const makeSeat = (id, isSelf) => {
@@ -624,4 +855,80 @@ test('dual forms count only the selected general card using its printed skills',
     self.seat.OnChangeOriSkinBySkill(900, 81);
     assert.equal(self.seatAvatar.form, 1, 'an old direction with a foreign skill stays inactive');
   } finally { h.close(); }
+});
+
+test('dual forms follow confirmed Yin and Yang transitions of the card’s derived conversion skill', () => {
+  const h = harness(), scene = {};
+  const makeSkill = (id, isSwitch = true) => ({
+    ID: id, IsSwitchSkill: isSwitch, switchValue: 1, get IsSecondState() { return this.switchValue === 2; },
+  });
+  const cardSkills = new Map(), foreignSkills = new Map([[84, makeSkill(84)]]);
+  const general = { SkinId: 0, GetSkill: id => cardSkills.get(id) };
+  const deputy = { SkinId: 0, GetSkill: id => foreignSkills.get(id) };
+  const seatState = { StateSkillId: 0, Value: 0 }, listeners = new Map();
+  const seat = {
+    General: general, GeneralId: 900, General2: deputy, General2Id: 901, IsSelf: true,
+    GetSeatState: id => id === 251 ? seatState : null,
+    GetGeneralSkill: id => general.GetSkill(id) ?? deputy.GetSkill(id),
+    OnChangeOriSkinBySkill() {},
+    on(event, _owner, handler) { listeners.set(event, handler); },
+    off(event) { listeners.delete(event); },
+  };
+  const avatar = { generalCard: general, skinItemID: 0, SetSkin(id, _x, _offset, _scale, form) {
+    this.skinItemID = id;
+    this.form = form;
+  } };
+  const configs = {
+    character: { GameCharacters: { character: [{ a: 900, j: 80 }, { a: 901, j: 84 }] } },
+    cha_spell: { GameSpells: { spell: [
+      { a: 80, c: '洗墨', b: '3,4,5', m: '81' }, { a: 81, c: '飞白', b: '3,4,5,13' },
+      { a: 83, c: '临时获得的转换技', b: '3,13' }, { a: 84, c: '副将转换技', b: '3,13' },
+    ] } },
+  };
+  const ui = { seat, seatAvatar: avatar };
+  Object.assign(h.game, { getScene: () => scene, getSeatUIs: () => [ui], isInGame: () => true,
+    getConfigData: name => configs[name] });
+  h.source.skin.GetOnlineSKinList = () => [{ skinID: 90001, IsManyStateDyskin: true, NewSkinJudge: 2 }];
+  h.settings.set('unlockSkin', true);
+  const change = (id, value) => {
+    seat.GetGeneralSkill(id).switchValue = value;
+    Object.assign(seatState, { StateSkillId: id, Value: value });
+    listeners.get('UPDATE_SWITCH_SKILL')();
+  };
+  const rule = (id, from = 'yang') => ({ mode: 'custom', rules: [
+    { kind: 'conversion', skill: id, from },
+    { kind: 'conversion', skill: id, from: 'yin' },
+  ] });
+  try {
+    const local = createLocalSkins(h.ctx);
+    const [target] = local.refresh();
+    assert.equal(normalizeFormRule(rule(81, 'other')), null);
+    local.select(target, 90001, rule(81));
+    cardSkills.set(81, makeSkill(81));
+    listeners.get('SKILL_CHANGE')();
+    seat.OnChangeOriSkinBySkill(900, 81);
+    assert.equal(avatar.form, 1, 'a skill use does not by itself change phase');
+    change(84, 2);
+    assert.equal(avatar.form, 1);
+    change(81, 2);
+    assert.equal(avatar.form, 2);
+    change(81, 2);
+    assert.equal(avatar.form, 2, 'repeated notices do not switch again');
+    change(81, 0);
+    change(81, 1);
+    assert.equal(avatar.form, 2, 'reset and reinitialization are not a Yin-to-Yang transition');
+    change(81, 2);
+    change(81, 1);
+    assert.equal(avatar.form, 1);
+    assert.deepEqual(local.formRule(900, 'native', 90001), rule(81));
+
+    // A conversion skill gained from outside the card cannot satisfy an old
+    // saved rule, even if the client now lists the skill on the same general.
+    cardSkills.set(83, makeSkill(83));
+    local.select(target, 90001, rule(83));
+    change(83, 2);
+    assert.equal(avatar.form, 1);
+  } finally { h.close(); }
+  assert.equal(listeners.has('UPDATE_SWITCH_SKILL'), false);
+  assert.equal(listeners.has('SKILL_CHANGE'), false);
 });

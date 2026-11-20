@@ -1,7 +1,8 @@
 const component = /^[A-Za-z0-9_-]+$/;
 export const yjcmClipFile = /^[A-Za-z0-9_-]+\.(sk|skel)$/;
+export const yjcmEffectSoundFile = /^[A-Za-z0-9_-]+\.mp3$/;
 export const yjcmSkillName = name => typeof name === 'string' ? name.normalize('NFKC').trim() : '';
-export const YJCM_EFFECT_SCHEMA = 2;
+export const YJCM_EFFECT_SCHEMA = 3;
 
 function clip(file, name = 0, extension = '.sk') {
   if (typeof file !== 'string') return;
@@ -16,11 +17,15 @@ function position(row, threshold, mirror = false) {
     threshold, mirror };
 }
 
+function soundFile(row) {
+  return typeof row.SoundName === 'string' && component.test(row.SoundName) ? row.SoundName + '.mp3' : undefined;
+}
+
 function companion(rows, id) {
   const row = rows?.find(row => String(row.SkillID).split('|').some(value => Number(value) === id));
   const animation = clip(row?.FileName, row?.AnimateName || 0);
   if (animation) return { ...animation, x: Number(row.OffSetX) || 0, y: Number(row.OffSetY) || 0,
-    scale: (Number(row.Scale) || 100) / 100 };
+    scale: (Number(row.Scale) || 100) / 100, sound: soundFile(row) };
 }
 
 export function yjcmFormEffects(form, skin, spine, skillNames, awake, staticSkin) {
@@ -29,7 +34,7 @@ export function yjcmFormEffects(form, skin, spine, skillNames, awake, staticSkin
   const seatEntry = spine?.EnterSceneAnimateInfoInGame?.find(row => row.Index === 1);
   const entry = seatEntry ? clip(seatEntry.FileName) : !skin.IsNoChuChangEffect && clip('chuchang');
   const enter = entry && (seatEntry || skin.IsNewChuChang || staticSkin?.IsNewChuChang
-    ? { clips: [entry], placement: 'seat', replace: true }
+    ? { clips: [entry], placement: 'seat', replace: true, ...(seatEntry ? { clipToSeat: true } : {}) }
     : { clips: [entry], placement: 'near', replace: true,
       position: position(form.DynamicDebut ?? skin.DynamicDebut ?? {}, 200) });
 
@@ -42,7 +47,7 @@ export function yjcmFormEffects(form, skin, spine, skillNames, awake, staticSkin
       const action = {
         clips, placement: inSeat ? 'seat' : row.Center ? 'center' : 'near', replace: true,
         position: position(row, 250, true), maxCount: Number(row.MaxCount) || 0,
-        background: !inSeat ? clip(spine.BgAnimateName) : undefined,
+        background: !inSeat ? clip(spine.BgAnimateName) : undefined, sound: soundFile(row),
       };
       return ids.map(id => ({ ...action, id, name: id > 2 ? skillNames.get(id) : undefined,
         projectile: companion(spine.DefenceBallisticAnimateInfos, id),

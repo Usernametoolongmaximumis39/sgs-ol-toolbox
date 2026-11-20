@@ -1,6 +1,7 @@
 // Read-only client adapter. Field paths checked against upstream 1.6.76 and
 // 95chong 1.0.51. Never call ClassUtils.getInstance/new window constructors.
 import { createConfigData } from './config-data.js';
+import { createGameAssetDownloads } from './mobile-skin-download.js';
 import { cardFrameName } from './card-atlas.js';
 import { nativeSeat, nativeSeatId, nativeSeatOccupied, nativeSeatPosition } from './seat.js';
 const GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/;
@@ -60,7 +61,7 @@ function isGameScene(scene) {
     || read(() => scene.seatContainer.seatUIs) || sceneName(scene) === 'GameScene');
 }
 
-export function createGameAdapter(win, scope) {
+export function createGameAdapter(win, scope, mobileSkinPort) {
   const configs = scope ? createConfigData(win, scope) : null;
   let selfClass = null, selfSearchAt = -Infinity;
   let current = null, stage = null, dispatcher = null, dispatcherOwner = null;
@@ -400,6 +401,8 @@ export function createGameAdapter(win, scope) {
     getRemainingSlash, isInGame: () => isGameScene(getScene()), canReserveViewport,
     getConfigData: name => configs?.getConfigData(name) || null,
     loadConfigData: (name, options) => configs ? configs.loadConfigData(name, options) : Promise.reject(new Error('配置读取不可用')),
+    ...createGameAssetDownloads(win, scope, mobileSkinPort),
+    supportsMobileSkinConfig: true,
     onSceneChange(fn) {
       if (typeof fn !== 'function') throw new TypeError('Scene subscriber must be a function');
       listeners.add(fn); return () => listeners.delete(fn);

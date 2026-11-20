@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { CardStyleRegistry } from '../src/core/card-styles.js';
+import { CardStyleRegistry, LOCAL_FACE_STYLE } from '../src/core/card-styles.js';
 import { ResourceScope } from '../src/core/resources.js';
 import { Settings } from '../src/core/storage.js';
 import { PluginManager } from '../src/core/plugins.js';
@@ -39,7 +39,55 @@ test('new native cards are styled synchronously at creation and pool checkout, w
   registry.select('native-cards.general');sceneListener();const external=function(){return 'external';};hand.createNormalCardUi=external;scope.dispose();assert.equal(hand.createNormalCardUi,external);assert.equal(pool.BorrowObject,nativeBorrow);assert.equal(sceneListener,null);
 });
 
-test('native cards: exact official resources, delayed cache, native refresh and borrowed ownership', t => {
+test('selected individual card images start loading in the lobby before their cards enter the scene', async t => {
+  const scope = new ResourceScope(), data = new Map(), imageLoads = new Map();
+  const settings = { get: (key, fallback) => data.get(key) ?? fallback, set: (key, value) => data.set(key, value) };
+  class Image {
+    complete = false;
+    set src(url) { if (url) imageLoads.set(url, this); }
+    finish() {
+      this.complete = true;
+      this.naturalWidth = 405;
+      this.naturalHeight = 570;
+      this.onload?.();
+    }
+  }
+  class Texture2D {
+    loadImageSource(image) { assert(image.complete); }
+  }
+  class Texture {
+    constructor(bitmap) { this.bitmap = bitmap; }
+    destroy() {}
+  }
+  const hand = { cardUis: [] };
+  const registry = new CardStyleRegistry({ window: { Image, Laya: { Texture, Texture2D } }, document: {},
+    game: { getSelfSeatUI: () => ({ cardContainer: hand }) }, settings, scope });
+  t.after(() => scope.dispose());
+  const url = 'data:image/png;base64,c2hh';
+  registry.localFaces.set('Sha', { card: 'Sha', name: '杀', label: '杀', url });
+  registry.refreshNative();
+  assert.equal(imageLoads.size, 0, 'unselected custom images are not loaded');
+  registry.selectSide('face', LOCAL_FACE_STYLE.id);
+  const image = imageLoads.get(url);
+  assert(image, 'decoding must start before a card is created');
+
+  const original = { width: 93, height: 130 };
+  const card = { theCard: { IsEmpty: false, ResName: 'Sha' }, isNewCardUI: true,
+    bmpFace: { texture: original }, getCardFaceBaseTexture() { return original; }, updateNewCardFace() {},
+    SetCardFace() { this.bmpFace.texture = original; } };
+  hand.cardUis.push(card);
+  registry.refreshNative();
+  assert.equal(card.bmpFace.texture, original, 'an asset still decoding keeps the native card visible');
+  assert.equal(imageLoads.get(url), image, 'entering the scene reuses the decoding image');
+  image.finish();
+  await Promise.resolve();
+  assert.notEqual(card.bmpFace.texture, original, 'decode completion applies the art without a polling interval');
+  const textured = card.bmpFace.texture;
+  card.SetCardFace();
+  assert.equal(card.bmpFace.texture, textured, 'a ready image is reused synchronously');
+});
+
+test('native cards: exact official resources, delayed cache, native refresh and borrowed ownership', async t => {
   const scope = new ResourceScope(), data = new Map(), cache = {};
   const settings = { get: (k,d) => data.has(k) ? data.get(k) : d, set: (k,v) => data.set(k,v) };
   const texture = name => ({ name, bitmap: {}, width: 93, height: 130, destroy() { assert.fail('must never destroy official textures'); } });
@@ -49,21 +97,28 @@ test('native cards: exact official resources, delayed cache, native refresh and 
     SetCardFace() { this.bmpFace.texture = this.theCard.IsEmpty ? originalBack : originalFace; },
   });
   const cards = [makeCard(false), makeCard(true)];
-  const registry = new CardStyleRegistry({ window: { Laya: { Texture2D() {}, Texture() {}, Loader: { textureMap: cache } } }, document: {},
+  const loader = { textureMap: cache, cacheTexture(path, value) { cache[path] = value; } };
+  const cacheTexture = loader.cacheTexture;
+  const registry = new CardStyleRegistry({ window: { Laya: { Texture2D() {}, Texture() {}, Loader: loader } }, document: {},
     game: { getSelfSeatUI: () => ({cardContainer: {cardUis:cards}}) }, settings, scope });
   t.after(() => scope.dispose()); const releases = [];
   nativeCards.activate({cardStyles:{register:s=>releases.push(registry.register(s,'native-cards'))}});
   assert.deepEqual(registry.list().map(s=>s.native), [{face:'cardFace_0',back:'cardBack_0'},{face:'cardFace_10',back:'cardBack_5'}]);
   registry.select('native-cards.general');assert.match(registry.status,/等待官方/);assert.equal(cards[0].bmpFace.texture,originalFace);
   const face=texture('general face'),back=texture('general back');
-  cache['res/atlas/card/cardFace_10.png?v=2']=face;
-  registry.nativeAttempts.clear();registry.refreshNative();assert.equal(cards[0].bmpFace.texture,face,'loaded face applies independently'); assert.equal(cards[1].bmpFace.texture,originalBack);
-  cache['res/atlas/card/cardBack_5.png']=back;cache['res/atlas/card/cardFace_0.png']=originalFace;cache['res/atlas/card/cardBack_0.png']=originalBack;
-  registry.nativeAttempts.clear();registry.refreshNative();assert.equal(cards[0].bmpFace.texture,face);assert.equal(cards[1].bmpFace.texture,back);
+  loader.cacheTexture('res/atlas/card/cardFace_10.png?v=2', face);
+  await Promise.resolve();
+  assert.equal(cards[0].bmpFace.texture,face,'late cache entry bypasses the previous miss and applies independently'); assert.equal(cards[1].bmpFace.texture,originalBack);
+  loader.cacheTexture('res/atlas/card/cardBack_5.png', back);
+  loader.cacheTexture('res/atlas/card/cardFace_0.png', originalFace);
+  loader.cacheTexture('res/atlas/card/cardBack_0.png', originalBack);
+  await Promise.resolve();
+  assert.equal(cards[0].bmpFace.texture,face);assert.equal(cards[1].bmpFace.texture,back);
   cards[0].SetCardFace();assert.equal(cards[0].bmpFace.texture,face);assert.equal(face.width,93);
   cards[1].theCard.IsEmpty=false;cards[1].SetCardFace();assert.equal(cards[1].bmpFace.texture,face);
   registry.select('native-cards.classic');assert.equal(cards[0].bmpFace.texture,originalFace);
   registry.select('native-cards.general');releases.forEach(fn=>fn());assert.equal(cards[0].bmpFace.texture,originalFace);assert.equal(registry.textures.size,0);
+  assert.equal(loader.cacheTexture, cacheTexture);
   assert.throws(()=>registry.register({id:'bad.x',name:'bad',native:{face:'https://x',back:'cardBack_0'}},'bad'),/原生/);
 });
 

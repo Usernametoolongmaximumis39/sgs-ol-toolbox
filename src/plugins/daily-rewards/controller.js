@@ -17,6 +17,20 @@ function savedAttemptText(entry) {
 // Old ledgers have no explicit workflow group. Keep their dependent steps
 // together, while independent task IDs, mails and activity awards can proceed.
 const militaryTier = /^activity:(jd|new-jd|ddz-tll):tier:\d+:\d+:[01]$/;
+function blockedByNewCardAttempt(key, items) {
+  const card = /^welfare:new-card:(\d+)(?::(\d+))?$/.exec(key);
+  if (!card) return false;
+  const [, id, start] = card;
+  const legacyKey = `welfare:new-card:${id}`;
+  // If the term is unknown, a saved claim for any term might be for this one.
+  if (!start) return Object.keys(items).some(key => key.startsWith(`${legacyKey}:`));
+  const previous = items[legacyKey];
+  if (!previous) return false;
+  // The old entry left out the activation, so it only belongs to an earlier
+  // term when its timestamp is strictly before the current term's start.
+  return !(Number.isFinite(previous.at) && previous.at > 0 && previous.at < Number(start) * 1000);
+}
+
 export function rewardWorkflowGroup(action) {
   const key = String(action.key || '');
   // Old tier attempts used a pass-wide group. The key still identifies
@@ -394,6 +408,7 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
             (Number(prior.attempts) || 1) < item.maxRejectedAttempts;
         };
         const action = plan.actions.find(item => {
+          if (blockedByNewCardAttempt(item.key, ledger.items)) return false;
           const group = rewardWorkflowGroup(item);
           const tier = militaryTier.exec(item.key);
           const recovery = item.mailRecovery;

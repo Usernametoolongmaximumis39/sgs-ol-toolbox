@@ -76,6 +76,50 @@ test('new card exclusion reads current reward data and leaves no unknown-content
   assert.equal(item.eligible(), false); assert.equal(item.send(), false); assert.deepEqual(f.sent, []);
 });
 
+for (const oldLedger of [false, true]) {
+  test(`weekly card can be claimed once per activation on the same day (old ledger: ${oldLedger})`, async t => {
+    const f = fixture(), data = new Map(), scope = new ResourceScope();
+    t.after(() => scope.dispose());
+    const settings = { get: (key, fallback) => data.get(key) ?? fallback, set: (key, value) => data.set(key, structuredClone(value)) };
+    const ledgerKey = 'account:41:attempts', legacyKey = 'welfare:new-card:2';
+    const morning = Date.parse('2026-11-14T08:00:00+08:00');
+    const activation = { start_time: morning / 1000 - 7 * 86400 + 6 * 3600, expire_time: morning / 1000 + 6 * 3600 };
+    let now = morning;
+    f.cards.active.delete(1);
+    f.cards.IsCardActive = id => id === 2 && now / 1000 < activation.expire_time;
+    f.cards.GetCardStateById = id => id === 2 ? activation : null;
+    f.cards.getSec = value => typeof value?.toNumber === 'function' ? value.toNumber() : value;
+    if (oldLedger) settings.set(ledgerKey, { day: f.adapter.day(), items: { [legacyKey]: { status: 'confirmed', at: morning } } });
+    const controller = createRewardsController({ adapter: f.adapter, settings, scope, now: () => now });
+    controller.options({ ...selected, automatic: true, sign: false, mail: false, tasks: false, activities: false, codes: false });
+    await controller.run();
+    const morningRequests = oldLedger ? [] : [['card', 2]];
+    assert.deepEqual(f.sent, morningRequests);
+    // Extending the expiry alone is still the same active term.
+    activation.expire_time += 3600;
+    await controller.run();
+    assert.deepEqual(f.sent, morningRequests);
+    const staleAction = planWelfare(f.adapter, selected).actions[0];
+    // After expiry, the server starts a new term and makes the daily reward available again.
+    now += 8 * 3600000;
+    await controller.run();
+    assert.deepEqual(f.sent, morningRequests);
+    const renewedAt = now / 1000;
+    activation.start_time = { toNumber: () => renewedAt };
+    activation.expire_time = renewedAt + 7 * 86400;
+    assert.equal(staleAction.send(), false);
+    await controller.run();
+    assert.equal(controller.snapshot().confirmed, 1);
+    const today = settings.get(ledgerKey).items;
+    assert.equal(today[`${legacyKey}:${renewedAt}`].status, 'confirmed');
+    assert.equal(today[oldLedger ? legacyKey : staleAction.key].status, 'confirmed');
+    await controller.run();
+    delete f.cards.GetCardStateById;
+    await controller.run();
+    assert.deepEqual(f.sent, [...morningRequests, ['card', 2]]);
+  });
+}
+
 test('official shortened military config claims earned free/owned deluxe tiers individually', async () => {
   const f = fixture(), items = planRewards(f.adapter, selected).actions.filter(row => row.key.startsWith('activity:'));
   assert.equal(items.length, 6);

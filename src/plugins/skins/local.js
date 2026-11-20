@@ -6,16 +6,21 @@ import { bindPortraitAvatar, bindAvatarSkinTransition, bindSkinPresentation, bin
 import { indexFormSkills, indexOfficialFormRules, isRepeatingSkinRule, localSkinForm, skinFormInfo } from './local-forms.js';
 import { createSkinPreviews } from './local-preview.js';
 import { account } from '../../shared/info-runtime.js';
-import { configuredCardSkills, createCrossVoice, loadCardSkills, playCrossDeath, playCrossVoice } from './cross-voice.js';
+import { configuredCardSkills, createCrossVoice, isBindableVoice, loadCardSkills, normalizeVoiceOptions,
+  playCrossCard, playCrossDeath, playCrossVoice, voiceBindingsForForm, voiceClipKey } from './cross-voice.js';
+import { createMobileMvpVoice } from './mobile-mvp-voice.js';
 import { loadYjcmWindow } from './yjcm.js';
-import { fitYjcmMotion, playYjcmSeatMotion } from './yjcm-motion.js';
-import { createYjcmEffects, yjcmBattleEvents, yjcmSkinAction } from './yjcm-effects.js';
+import { fitYjcmMotion, playYjcmSeatMotion, yjcmSeatTransform } from './yjcm-motion.js';
+import { allowsSkinEffects, createYjcmEffects, normalizeYjcmEffectBindings, resolveYjcmEffect, skinEffectVolume, yjcmBattleEvents } from './yjcm-effects.js';
 import { createYjcmCatalogue } from './yjcm-catalogue.js';
+import { createMobileCatalogue, loadMobileAudio, loadMobileMotion, loadMobilePreview, resizeMobileArtwork } from './mobile-skins.js';
+import { mobileBattleViewport } from './mobile-effects.js';
+import { mobileSeatLayout } from './mobile-portrait-layout.js';
 import { createPortraitCache } from './portrait-cache.js';
 import { createSeatFormButton } from './seat-form-button.js';
 import { createSeatNameToggle } from './seat-name.js';
 import { createChatRowToggle } from './chat-row.js';
-import { createFormProgress, normalizeFormRule } from './form-rules.js';
+import { CARD_SKILL_DETAILS, createFormProgress, nativeConversionUpdate, normalizeFormRule } from './form-rules.js';
 
 const imageTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const portraitLayers = ['skinTex', 'skinBigSps', 'spineSkeleon', 'skeleton', 'skeletonBg', 'skeletonTop', 'tempStaticSkin'];
@@ -23,6 +28,21 @@ const portraitName = 'sgs-local-skin-portrait';
 const hiddenPortraitLayers = new WeakMap();
 const setting = (ctx, key) => ctx.settings.get(key, false) === true;
 const seatAvatar = (ui, deputy) => deputy ? ui.seatAvatarFu ?? ui.fuSeatUI?.seatAvatar : ui.seatAvatar;
+const isCrossSkin = kind => kind === 'cross' || kind === 'mobile';
+const crossSkinKind = entry => entry.source === 'mobile' ? 'mobile' : 'cross';
+async function loadCrossWindow(win, entry, signal) {
+  if (entry.source !== 'mobile') return loadYjcmWindow(win, entry, signal);
+  const image = await loadMobilePreview(win, entry, signal);
+  if (image) return resizeMobileArtwork(win.document, image);
+}
+
+function seatArtwork(win, entry, image) {
+  if (entry.source !== 'mobile') return { image };
+  const { top, hasArtworkAbove } = mobileSeatLayout(win.document, image, entry.nativePortrait);
+  const artwork = resizeMobileArtwork(win.document, image);
+  const seatTop = top ? top * (artwork.naturalHeight ?? artwork.height) / image.naturalHeight : 0;
+  return { image: artwork, seatTop, hasArtworkAbove };
+}
 
 function currentSkin(target) {
   const { general } = target;
@@ -41,6 +61,8 @@ function animationLayer(avatar) {
 export function createLocalSkins(ctx) {
   const choices = new Map(), imports = new Map(), pending = new Map(), rememberedAttempts = new Map();
   const yjcm = createYjcmCatalogue(ctx);
+  const mobile = createMobileCatalogue(ctx);
+  const catalogueFor = kind => kind === 'mobile' ? mobile : yjcm;
   const artworkCache = createPortraitCache(ctx.window, ctx.scope);
   const updateSeatFormButton = createSeatFormButton(ctx);
   const updateSeatName = createSeatNameToggle(ctx);
@@ -56,7 +78,8 @@ export function createLocalSkins(ctx) {
   let scene, inGame, lastAutoDynamic, owner = '', seatPreview;
   let optimizedChoices = [], automaticCollapse;
   let entryStage, releaseEntry, entryLayer, releaseEntryLayer, lastEntry, lobbyPreload;
-  let nextCatalogueRetry = 0;
+  const nextCatalogueRetry = new Map();
+  const canRestore = kind => catalogueFor(kind).current || Date.now() >= (nextCatalogueRetry.get(kind) ?? 0);
   let failedAnimations = new WeakMap();
   let formUses = new WeakMap(), useOrder = 0;
   const refreshPreviews = createSkinPreviews(ctx.scope, ctx.window, () =>
@@ -119,24 +142,59 @@ export function createLocalSkins(ctx) {
   function ruleKey(general, kind, skin, accountId = account(ctx).id) {
     return accountId && `formRule.${accountId}.${general}.${kind}.${skin}`;
   }
-  function formRule(general, kind, skin) {
+  function formRule(general, kind, skin, count = 2, transitions) {
     const key = ruleKey(general, kind, skin);
-    return key ? normalizeFormRule(ctx.settings.get(key, null)) : null;
+    return key ? normalizeFormRule(ctx.settings.get(key, null), count, transitions, { customTransitions: kind === 'mobile' }) : null;
   }
   function saveFormRule(general, kind, skin, config) {
     const key = ruleKey(general, kind, skin);
     if (key && (config || ctx.settings.get(key, null))) ctx.settings.set(key, config);
+  }
+  function effectBindingKey(general, entry, accountId = account(ctx).id) {
+    if (!accountId || !Number.isSafeInteger(general) || general < 1 || !entry) return;
+    const id = entry.id;
+    const suffix = crossSkinKind(entry) === 'mobile' ?
+      (/^cloud-(?:char-)?[1-9]\d*(?:#[1-9]\d*)?$/.test(id) ? 'mobile.' + id : undefined) :
+      (Number.isSafeInteger(id) && id > 0 ? id : undefined);
+    if (suffix) return `effectBindings.${accountId}.${general}.${suffix}`;
+  }
+  function effectBindings(recipient, entry) {
+    const key = effectBindingKey(recipient?.id, entry);
+    const maxForm = entry?.source === 'mobile' ? mobile.current?.skinForms(entry).length : undefined;
+    return key ? normalizeYjcmEffectBindings(ctx.settings.get(key, null), maxForm) : {};
+  }
+  function saveEffectBindings(general, entry, config, accountId) {
+    const key = effectBindingKey(general, entry, accountId);
+    if (!key || config === undefined) return;
+    const previous = ctx.settings.get(key, null) ?? null;
+    const next = Object.keys(config).length ? config : null;
+    if (JSON.stringify(previous) !== JSON.stringify(next)) ctx.settings.set(key, next);
   }
   function save(id, selection, accountId = owner) {
     if (!accountId) return;
     const key = memoryKey(id, accountId);
     if (ctx.settings.get(key, null) !== selection) ctx.settings.set(key, selection);
   }
-  function rememberYjcm(id, entry, bindings, config = formRule(id, 'cross', entry.id)) {
+  function portraitSelection(kind, entry, bindings, startingForm, voiceOptions) {
+    const audio = normalizeVoiceOptions(voiceOptions);
+    return { kind, id: entry.id, general: entry.general, bindings, ...(startingForm !== undefined && { form: startingForm }),
+      ...(kind === 'mobile' && (audio.card || audio.victory) && { voiceOptions: audio }) };
+  }
+  function rememberYjcm(id, entry, bindings, config, effectConfig, startingForm, voiceOptions) {
     const accountId = account(ctx).id;
     if (!accountId) throw new Error('登录后可保存到下次对局。');
-    save(id, { kind: 'cross', id: entry.id, general: entry.general, bindings }, accountId);
-    if (yjcm.current?.yjcmSkinForms(entry).length === 2) saveFormRule(id, 'cross', entry.id, normalizeFormRule(config));
+    const kind = crossSkinKind(entry);
+    save(id, portraitSelection(kind, entry, bindings, startingForm, voiceOptions), accountId);
+    const catalogue = catalogueFor(kind).current;
+    const count = catalogue?.skinForms(entry).length, transitions = catalogue?.skinTransitions?.(entry);
+    if (effectConfig !== undefined) {
+      saveEffectBindings(id, entry, normalizeYjcmEffectBindings(effectConfig, kind === 'mobile' ? count : undefined), accountId);
+    }
+    if (count > 1) {
+      const rule = config === undefined ? formRule(id, kind, entry.id, count, transitions) :
+        normalizeFormRule(config, count, transitions, { customTransitions: kind === 'mobile' });
+      saveFormRule(id, kind, entry.id, rule);
+    }
     if (!setting(ctx, 'crossServer') || artworkCache.get(entry)) return;
     lobbyPreload?.abort();
     const controller = lobbyPreload = new ctx.window.AbortController();
@@ -221,7 +279,7 @@ export function createLocalSkins(ctx) {
     if (attempt) return attempt.cover && allowsPortrait(attempt.target) ? 'cross' : undefined;
     if (!owner || !(seat.IsSelf === true || ui === ctx.game.getSelfSeatUI?.())) return;
     const selection = remembered(id);
-    if (selection?.kind === 'cross' && setting(ctx, 'crossServer') && (yjcm.current || Date.now() >= nextCatalogueRetry)) return 'cross';
+    if (isCrossSkin(selection?.kind) && setting(ctx, 'crossServer') && canRestore(selection.kind)) return 'cross';
     if (selection?.kind === 'native' && setting(ctx, 'unlockSkin') && selection.id !== currentSkin({ general }).id) return 'pending-native';
   }
   function clearWaitingRoundEntrance(ui) {
@@ -273,13 +331,21 @@ export function createLocalSkins(ctx) {
     const covered = () => [...rememberedAttempts.values()].filter(({ target, cover }) => cover && target.ui === ui && target.seat === seat);
     const portraits = () => [...selected().filter(choice => choice.portrait), ...covered()].filter(currentPortrait);
     const findVoice = general => portraits().find(({ target, voice }) => voice && target.general === general);
+    const cardVoice = (name, event) => {
+      const owner = Number(event?.GeneralID);
+      const candidates = portraits();
+      if (owner > 0) return candidates.find(({ target }) => target.id === owner)?.voice?.card?.(name);
+      return candidates.find(({ target }) => !target.deputy)?.voice?.card?.(name) ??
+        candidates.find(({ target }) => target.deputy)?.voice?.card?.(name);
+    };
     const previous = presentations.get(ui);
     if (!covered().length && !selected().some(choice => choice.portrait || changedNative(choice))) {
       previous?.dispose();
       presentations.delete(ui);
     } else if (previous) previous.refreshEvents();
     else presentations.set(ui, bindSkinPresentation(ctx.scope, ui, seat, () => selected().filter(currentNative), portraits, {
-      skillVoice: (play, args, damage) => playCrossVoice(seat, findVoice, play, args, damage),
+      skillVoice: (play, args, damage) => damage || args[1] !== 'card' || args[0]?.IsGeneral !== false ?
+        playCrossVoice(seat, findVoice, play, args, damage) : playCrossCard(seat, cardVoice, play, args),
       deathVoice: (play, args) => playCrossDeath(seat, findVoice, play, args),
       ...yjcmBattleEvents(ctx, seat, portraits),
     }));
@@ -290,18 +356,33 @@ export function createLocalSkins(ctx) {
     const record = formUses.get(target.general);
     return record?.id === target.id && record.seat === target.seat ? record.uses : undefined;
   }
+  const refreshMvpVoice = createMobileMvpVoice(ctx, (seat, general) => {
+    if (scene !== ctx.game.getScene?.() || owner !== account(ctx).id) return;
+    return [...choices.values()].find(choice => {
+      const { target, voice } = choice;
+      return voice?.victory && Number(target.seat.Index) === seat && target.id === general && currentPortrait(choice);
+    })?.voice.victory;
+  });
   function formProgress(target, config, options) {
-    let cardSkillIds;
+    let cardSkillIds, conversionSkillIds;
     const getCardSkillIds = () => {
       if (cardSkillIds) return cardSkillIds;
       const skills = read(() => configuredCardSkills(ctx, target.id));
       if (skills) cardSkillIds = new Set(skills.map(skill => skill.id));
       return cardSkillIds;
     };
+    const getConversionSkillIds = () => {
+      if (conversionSkillIds) return conversionSkillIds;
+      const skills = read(() => configuredCardSkills(ctx, target.id, CARD_SKILL_DETAILS));
+      if (skills) conversionSkillIds = new Set(skills.filter(skill => skill.conversion).map(skill => skill.id));
+      return conversionSkillIds;
+    };
     if (config?.rules?.some(rule => rule.skills) && !getCardSkillIds()) {
       void loadCardSkills(ctx, target.id).catch(() => {});
+    } else if (config?.rules?.some(rule => rule.kind === 'conversion') && !getConversionSkillIds()) {
+      void loadCardSkills(ctx, target.id, CARD_SKILL_DETAILS).catch(() => {});
     }
-    return createFormProgress({ target, config, getCardSkillIds,
+    return createFormProgress({ target, config, getCardSkillIds, getConversionSkillIds,
       getSkillCount: skill => usesFor(target)?.get(skill)?.cardCount ?? 0, ...options });
   }
   function refreshFormData() {
@@ -377,18 +458,31 @@ export function createLocalSkins(ctx) {
         }));
       }
       if (typeof seat.on === 'function' && typeof seat.off === 'function') {
-        const update = () => {
+        const update = event => {
           for (const target of observer.targets) {
             const choice = choices.get(target.key);
-            if (!matchesTarget(choice?.target, target)) continue;
-            if (choice.portrait && choice.progress && isCurrent(target, allowsPortrait(target))) syncPortraitForm(choice);
-            else if (choice.option?.forms && isCurrent(target)) syncSelectedSkin(target, choice);
+            if (!matchesTarget(choice?.target, target) || (event && !choice.progress?.hasConversion)) continue;
+            if (choice.portrait && choice.progress && isCurrent(target, allowsPortrait(target))) syncPortraitForm(choice, event);
+            else if (choice.option?.forms && isCurrent(target)) syncSelectedSkin(target, choice, event);
           }
         };
-        for (const event of ['GENERAL_HP_CHANGED', 'GENERAL_SKIN_CHANGED']) {
-          seat.on(event, observer, update);
-          release.push(ctx.scope.add(() => seat.off(event, observer, update)));
-        }
+        const watch = (event, handler) => {
+          seat.on(event, observer, handler);
+          release.push(ctx.scope.add(() => seat.off(event, observer, handler)));
+        };
+        watch('GENERAL_HP_CHANGED', () => update());
+        watch('GENERAL_SKIN_CHANGED', () => update());
+        watch('SKILL_CHANGE', () => {
+          for (const target of observer.targets) {
+            const choice = choices.get(target.key);
+            if (choice?.progress?.hasConversion && matchesTarget(choice.target, target)) choice.progress.rebaseConversion();
+          }
+        });
+        watch('UPDATE_SWITCH_SKILL', () => {
+          if (!observer.targets.some(target => choices.get(target.key)?.progress?.hasConversion)) return;
+          const conversion = nativeConversionUpdate(seat);
+          if (conversion) update({ conversion });
+        });
       }
       observer.dispose = () => { for (const off of release) off(); };
       formObservers.set(seat, observer);
@@ -515,7 +609,7 @@ export function createLocalSkins(ctx) {
     const sameOwner = owner === nextOwner;
     if (!sameOwner) {
       selfVoiceHistory.clear();
-      nextCatalogueRetry = 0;
+      nextCatalogueRetry.clear();
     }
     if (!sameOwner || !setting(ctx, 'crossServer')) lobbyPreload?.abort();
     owner = nextOwner;
@@ -555,6 +649,7 @@ export function createLocalSkins(ctx) {
         if (allowsPortrait(target)) {
           choice.portrait.refresh();
           choice.effects?.refresh();
+          if (choice.kind === 'mobile' && !allowsSkinEffects(ctx)) choice.portrait.stopMobileEffect();
           if (choice.progress) syncPortraitForm(choice);
         }
         else restore(key, target);
@@ -582,9 +677,9 @@ export function createLocalSkins(ctx) {
         continue;
       }
       const previous = remembered(target.id);
-      if (previous?.kind === 'cross' && allowsPortrait(target) && !rememberedAttempts.has(target.key) && !imports.has(target.key) &&
+      if (isCrossSkin(previous?.kind) && allowsPortrait(target) && !rememberedAttempts.has(target.key) && !imports.has(target.key) &&
           target.avatar.skinTex && target.avatar.width > 0 && target.avatar.height > 0 &&
-          (yjcm.current || Date.now() >= nextCatalogueRetry)) {
+          canRestore(previous.kind)) {
         restoreCrossPortrait(target, previous);
         continue;
       }
@@ -623,10 +718,9 @@ export function createLocalSkins(ctx) {
   }
   function updateBattleChrome(active) {
     const self = active && (ctx.game.getSelfSeatUI?.() ?? active.SelfSeatUi ?? active.selfSeatUI);
-    const optimize = self && active === scene && setting(ctx, 'crossServer') &&
-      ctx.settings.get('yjcmDynamicOptimization', true) === true;
+    const optimize = self && active === scene && ctx.settings.get('yjcmDynamicOptimization', true) === true;
     const next = optimize ? [...choices.values()].filter(choice =>
-      choice.target.isSelf && choice.target.ui === self && choice.portrait?.motionPlaying) : [];
+      choice.target.isSelf && choice.target.ui === self && choice.portrait?.needsChromeClearance) : [];
     if (next.some(choice => !optimizedChoices.includes(choice))) automaticCollapse = {};
     else if (!next.length) automaticCollapse = undefined;
     optimizedChoices = next;
@@ -694,10 +788,11 @@ export function createLocalSkins(ctx) {
     const controller = new ctx.window.AbortController();
     const attempt = { target, kind: 'cross', controller, selectedId: selection.id };
     rememberedAttempts.set(target.key, attempt);
-    let catalogue = yjcm.current ?? yjcm.cached;
-    const findEntry = () => catalogue?.findYjcmSkin(selection.id, selection.general);
+    const source = catalogueFor(selection.kind);
+    let catalogue = source.current ?? source.cached;
+    const findEntry = () => catalogue?.findSkin(selection.id, selection.general);
     const entry = findEntry();
-    if (!entry || !artworkCache.get(entry)) {
+    if (selection.kind !== 'mobile' && (!entry || !artworkCache.get(entry))) {
       attempt.cover = hidePortraitLayers(target.avatar);
       const active = () => attempt.cover && isCurrent(target, allowsPortrait(target));
       attempt.releaseAvatar = bindPortraitAvatar(ctx.scope, target, currentSkin(target), active, attempt.cover.refresh);
@@ -712,18 +807,26 @@ export function createLocalSkins(ctx) {
       releaseCover(attempt);
       attempt.controller = null;
       if (isCurrent(target, allowsPortrait(target))) ctx.notify?.('外服皮肤加载超时，已恢复原皮肤。');
-    }, 8000);
+    }, selection.kind === 'mobile' ? 60000 : 8000);
     const cancelTimeout = ctx.scope.add(() => ctx.window.clearTimeout(timer));
     async function apply() {
-      if (!entry && !yjcm.current) {
-        await yjcm.warm();
+      if (selection.kind === 'mobile') {
+        const available = entry ?? await source.resolveSkin(selection.id, selection.general);
+        if (!available || controller.signal.aborted) return;
+        catalogue = available.download ? source.current : source.legacy;
+        await applyYjcm(target, available, selection.bindings ?? {}, controller.signal, undefined, attempt, catalogue,
+          undefined, selection.form, selection.voiceOptions);
+        return;
+      }
+      if (!entry && !source.current) {
+        await source.warm?.();
         if (controller.signal.aborted) return;
-        catalogue = yjcm.current ?? yjcm.cached;
+        catalogue = source.current ?? source.cached;
         if (!findEntry()) {
-          try { catalogue = await yjcm.load(); }
+          try { catalogue = await source.load(); }
           catch (error) {
             if (!controller.signal.aborted) {
-              nextCatalogueRetry = Date.now() + 30000;
+              nextCatalogueRetry.set(selection.kind, Date.now() + 30000);
               if (rememberedAttempts.get(target.key) === attempt) rememberedAttempts.delete(target.key);
             }
             throw error;
@@ -732,7 +835,7 @@ export function createLocalSkins(ctx) {
       }
       const available = entry ?? findEntry();
       if (!available || controller.signal.aborted) return;
-      const config = selection.id === available.id ? undefined : formRule(target.id, 'cross', selection.id);
+      const config = selection.id === available.id ? undefined : formRule(target.id, selection.kind, selection.id);
       await applyYjcm(target, available, selection.bindings ?? {}, controller.signal, config, attempt, catalogue);
     }
     void apply().catch(error => {
@@ -762,9 +865,9 @@ export function createLocalSkins(ctx) {
     const applied = selectedSkin(target, original, option, setting(ctx, 'unlockDynamic'), 1, progress, { initial: true });
     const choice = applySkin(target, original, applied, option, { progress });
     if (progress) {
-      choice.formControl = { count: 2, get current() { return choice.applied.form; }, advance(signal) {
+      choice.formControl = { count: 2, get current() { return choice.applied.form; }, destinations: progress.destinations, advance(signal, to) {
         if (signal.aborted || choices.get(target.key) !== choice || !isCurrent(target)) return;
-        progress.advance();
+        progress.advance(to);
         if (!syncSelectedSkin(target, choice, { manual: true })) {
           progress.setForm(choice.applied.form);
           throw new Error('当前座位未能切换皮肤形态。');
@@ -828,9 +931,12 @@ export function createLocalSkins(ctx) {
     try {
       const artwork = artworkCache.get(entry) ?? await artworkCache.load(entry, controller.signal);
       if (!artwork || controller.signal.aborted || account(ctx).id !== accountId || !isCurrent(target, allowsPortrait(target))) return;
-      preview.portrait = preparePortrait(target, artwork.image, true, artwork.seatBounds, true);
+      const { image, ...framing } = seatArtwork(ctx.window, entry, artwork.image);
+      preview.portrait = preparePortrait(target, image, {
+        trimPadding: !entry.nativePortrait, seatBounds: artwork.seatBounds, preview: true, alignTop: entry.nativePortrait, ...framing,
+      });
       preview.portrait.refresh();
-      preview.portrait.animate(ctx.window, entry.motion);
+      preview.portrait.animate(ctx.window, entry);
       return artwork.image;
     } catch (error) {
       preview.release();
@@ -843,7 +949,10 @@ export function createLocalSkins(ctx) {
     choice.progress.update(event);
     void choice.renderForm();
   }
-  async function applyYjcm(target, entry, bindings, signal, config, attempt, catalogue = yjcm.current) {
+  async function applyYjcm(target, entry, bindings, signal, config, attempt, catalogue, effectConfig, startingForm, voiceOptions) {
+    const kind = crossSkinKind(entry);
+    const source = catalogueFor(kind);
+    catalogue ??= source.current;
     if (!attempt) {
       target = liveTarget(target);
       cancelRemembered(target);
@@ -851,70 +960,144 @@ export function createLocalSkins(ctx) {
     const accountId = owner;
     const startScene = scene;
     const request = {};
+    const forms = catalogue.skinForms(entry);
+    const count = forms.length;
+    const initial = kind === 'mobile' ? Math.max(0, forms.findIndex(form =>
+      (form.number ?? form.id) === (startingForm ?? entry.number ?? entry.id))) + 1 : 1;
+    const initialForm = forms[initial - 1];
     if (!attempt) imports.set(target.key, request);
     let artwork;
     try {
-      artwork = artworkCache.get(entry) ?? await artworkCache.load(entry, signal);
+      const preparation = catalogue.prepare?.(entry, bindings);
+      if (preparation) await preparation;
+      artwork = artworkCache.get(initialForm) ?? await artworkCache.load(initialForm, signal);
       if ((attempt ? rememberedAttempts.get(target.key) !== attempt : imports.get(target.key) !== request) ||
           !artwork || signal.aborted || startScene !== ctx.game.getScene?.() ||
           !isCurrent(target, allowsPortrait(target)) || account(ctx).id !== accountId) return;
     } finally { if (imports.get(target.key) === request) imports.delete(target.key); }
-    const forms = catalogue.yjcmSkinForms(entry);
     let updatedForms;
     function latestForm(index) {
-      if (!yjcm.current || yjcm.current === catalogue) return forms[index];
+      if (!source.current || source.current === catalogue) return forms[index];
       if (!updatedForms) {
-        const updated = yjcm.current.findYjcmSkin(entry.id, entry.general);
-        updatedForms = updated ? yjcm.current.yjcmSkinForms(updated) : [];
+        const updated = source.current.findSkin(entry.id, entry.general);
+        updatedForms = updated ? source.current.skinForms(updated) : [];
       }
       return updatedForms[index] ?? forms[index];
     }
-    const rule = forms.length === 2 ? normalizeFormRule(config === undefined ? formRule(target.id, 'cross', entry.id) : config) : null;
-    const progress = forms.length > 1 ? formProgress(target, rule, { count: forms.length }) : null;
-    const hasBindings = Object.keys(bindings ?? {}).length > 0;
-    const needsVoiceSkills = hasBindings || (yjcm.current ?? catalogue).hasYjcmVoices(entry) || yjcm.needsRefresh;
+    const primary = forms[0];
+    const transitions = catalogue.skinTransitions?.(entry);
+    const customTransitions = kind === 'mobile';
+    const rulesAvailable = count > 1;
+    const rule = !rulesAvailable ? null : config === undefined ?
+      formRule(target.id, kind, primary.id, count, transitions) : normalizeFormRule(config, count, transitions, { customTransitions });
+    const progress = count > 1 ? formProgress(target, rule, { count, form: initial, transitions, customTransitions }) : null;
+    const audio = normalizeVoiceOptions(kind === 'mobile' ? voiceOptions : undefined);
+    const formVoiceBindings = forms.map((form, index) => voiceBindingsForForm(bindings, form, index + 1));
+    const hasBindings = formVoiceBindings.some(config => Object.keys(config).length);
+    const needsVoiceSkills = hasBindings || (source.current ?? catalogue).hasVoices(entry) || source.needsRefresh;
+    const needsSkillNames = needsVoiceSkills || forms.some(form => form.mobileMotion || form.effects?.actions.length);
     const skillOptions = { includeDerived: true };
-    let skills = needsVoiceSkills ? read(() => configuredCardSkills(ctx, target.id, skillOptions)) : null;
+    let skills = needsSkillNames ? read(() => configuredCardSkills(ctx, target.id, skillOptions)) : null;
     const playback = target.isSelf ? selfVoiceHistory.get(target.id) ?? {} : {};
+    const voiceFiles = new Map();
+    function audible(voice) {
+      if (!voice?.load) return voice;
+      const clips = voice.urls.flatMap(path => voiceFiles.has(path) ? [[voiceFiles.get(path), voiceClipKey(voice, path)]] : []);
+      return { ...voice, urls: clips.map(([url]) => url), clipKeys: new Map(clips) };
+    }
     function voiceAt(index) {
-      const voiceCatalogue = yjcm.current ?? catalogue;
-      const voiceEntry = voiceCatalogue === catalogue ? entry : voiceCatalogue.findYjcmSkin(entry.id, entry.general) ?? entry;
-      if (!hasBindings && !voiceCatalogue.hasYjcmVoices(voiceEntry)) return null;
-      const form = forms.length > 1 ? index : undefined;
-      return createCrossVoice(skills ?? [], voiceCatalogue.yjcmSkinVoices(voiceEntry, form, attempt?.selectedId ?? entry.id), bindings, playback,
-        reference => voiceCatalogue.findYjcmVoice(reference, form));
+      const voiceCatalogue = source.current ?? catalogue;
+      const voiceEntry = voiceCatalogue === catalogue ? entry : voiceCatalogue.findSkin(entry.id, entry.general) ?? entry;
+      if (!hasBindings && !audio.victory && !voiceCatalogue.hasVoices(voiceEntry)) return null;
+      const form = count > 1 ? index : undefined;
+      return createCrossVoice(skills ?? [], voiceCatalogue.skinVoices(voiceEntry, form, attempt?.selectedId ?? entry.id).map(audible),
+        formVoiceBindings[index - 1], playback, reference => audible(voiceCatalogue.findVoice(reference, form)), audio);
     }
     releaseCover(attempt);
-    const choice = installPortrait(target, artwork.image, {
-      trimPadding: true, seatBounds: artwork.seatBounds, voice: voiceAt(1),
-      loadPreview: signal => loadYjcmWindow(ctx.window, entry, signal),
+    const { image, ...framing } = seatArtwork(ctx.window, initialForm, artwork.image);
+    const choice = installPortrait(target, image, {
+      trimPadding: !initialForm.nativePortrait, seatBounds: artwork.seatBounds, alignTop: initialForm.nativePortrait, ...framing, voice: voiceAt(initial),
+      loadPreview: signal => loadCrossWindow(ctx.window, initialForm, signal),
     });
-    choice.portrait.animate(ctx.window, latestForm(0).motion, refreshBattleChrome);
+    choice.kind = kind;
+    choice.selection = portraitSelection(kind, entry, bindings, startingForm, audio);
+    if (attempt) choice.selection.id = attempt.selectedId;
+    if (audio.victory) refreshMvpVoice();
     const active = () => choices.get(target.key) === choice && account(ctx).id === accountId &&
       isCurrent(target, allowsPortrait(target));
-    const effects = choice.effects = createYjcmEffects(ctx, target, active);
-    const activeForm = () => latestForm((choice.formControl?.current ?? 1) - 1);
-    const effectSpec = () => activeForm().effects;
+    if (entry.download && needsVoiceSkills) {
+      const win = ctx.window;
+      const controller = new win.AbortController();
+      choice.disposeVoice = () => {
+        controller.abort();
+        for (const url of voiceFiles.values()) win.URL.revokeObjectURL(url);
+        voiceFiles.clear();
+      };
+      const selectedVoices = new Set(formVoiceBindings.flatMap(config =>
+        Object.values(config).flatMap(refs => Array.isArray(refs) ? refs : [])));
+      const linked = [...selectedVoices].filter(ref => typeof ref === 'string').map(ref => catalogue.findVoice(ref));
+      const clips = new Map();
+      const formOrder = [initial, ...forms.map((_form, i) => i + 1).filter(form => form !== initial)];
+      const localVoices = formOrder.flatMap(form => catalogue.skinVoices(entry, form))
+        .filter(voice => voice.kind !== 'unidentified' || selectedVoices.has(voice.id) || voice.aliases?.some(id => selectedVoices.has(id)));
+      const extra = voice => voice.kind === 'victory' && audio.victory || voice.kind === 'card' && audio.card;
+      for (const voice of [...localVoices.filter(extra), ...localVoices.filter(isBindableVoice), ...linked]) {
+        if (voice?.load) for (const path of voice.urls) clips.set(path, voice);
+      }
+      const queue = clips.entries();
+      async function loadVoices() {
+        for (const [path, voice] of queue) {
+          if (controller.signal.aborted || !active()) return;
+          const url = await loadMobileAudio(win, voice, path, controller.signal).catch(() => undefined);
+          if (!url) continue;
+          if (!active() || controller.signal.aborted) { win.URL.revokeObjectURL(url); return; }
+          voiceFiles.set(path, url);
+          choice.voice = voiceAt(choice.formControl?.current ?? initial);
+        }
+      }
+      for (let i = 0; i < Math.min(4, clips.size); i++) void loadVoices();
+    }
+    const effects = choice.effects = kind === 'cross' ? createYjcmEffects(ctx, target, active) : null;
+    const activeForm = () => latestForm((choice.formControl?.current ?? initial) - 1);
+    const effectSpec = () => kind === 'mobile' ? choice.portrait.mobileEffects() : activeForm().effects;
+    const effectRules = effectConfig === undefined ? effectBindings(target, entry) :
+      normalizeYjcmEffectBindings(effectConfig, kind === 'mobile' ? count : undefined);
     choice.playYjcmEffect = (kind, skill, name, targets) => {
       const spec = effectSpec();
-      const plan = kind === 'enter' || kind === 'transition' ? spec?.[kind] : yjcmSkinAction(spec, skill, name);
-      return effects.play(spec, plan, kind, choice.portrait, targets);
+      const form = choice.formControl?.current ?? initial;
+      const skillName = name || skills?.find(item => item.id === skill)?.name;
+      const plan = kind === 'enter' || kind === 'transition' ? spec?.[kind] : resolveYjcmEffect(spec, skill, skillName, effectRules, form)?.plan;
+      if (effects) return effects.play(spec, plan, kind, choice.portrait, targets);
+      if (!plan || !allowsSkinEffects(ctx)) return false;
+      const viewport = plan.key === 'mobile:attack' ? mobileBattleViewport(ctx, target.avatar) : undefined;
+      return choice.portrait.playMobileEffect(plan, { kind, viewport, volume: () => skinEffectVolume(ctx) });
     };
-    choice.playYjcmEffect('enter');
-    effects.warm(effectSpec());
-    if (yjcm.needsRefresh) void yjcm.load().then(() => {
+    function playIdle(form, entering = false) {
+      choice.portrait.animate(ctx.window, form, () => {
+        if (entering && kind === 'mobile' && active()) choice.playYjcmEffect('enter');
+        refreshBattleChrome();
+      });
+    }
+    playIdle(latestForm(initial - 1), true);
+    if (kind === 'cross') choice.playYjcmEffect('enter');
+    effects?.warm(effectSpec());
+    if (source.needsRefresh) void source.load().then(() => {
       if (!active()) return;
-      choice.voice = voiceAt(choice.formControl?.current ?? 1);
-      choice.portrait.animate(ctx.window, activeForm().motion, refreshBattleChrome);
-      effects.warm(effectSpec());
+      choice.voice = voiceAt(choice.formControl?.current ?? initial);
+      playIdle(activeForm());
+      effects?.warm(effectSpec());
     }).catch(() => {});
     if (progress) {
       choice.progress = progress;
-      const control = choice.formControl = { current: 1, count: forms.length, async advance(signal) {
-        if (signal.aborted || !active()) return;
-        progress.advance();
-        await choice.renderForm();
-      } };
+      const control = choice.formControl = {
+        current: initial, count,
+        destinations: () => control.current === progress.current ? progress.destinations() : [],
+        async advance(signal, to) {
+          if (signal.aborted || !active() || control.current !== progress.current) return;
+          progress.advance(to);
+          await choice.renderForm();
+        },
+      };
       let requested;
       choice.renderForm = async () => {
         const next = progress.current;
@@ -931,8 +1114,12 @@ export function createLocalSkins(ctx) {
         const form = forms[next - 1];
         try {
           const art = artworkCache.get(form) ?? await artworkCache.load(form, controller.signal);
-          if (!art || controller.signal.aborted || !active()) return;
-          const portrait = preparePortrait(target, art.image, true, art.seatBounds);
+          if (controller.signal.aborted || !active()) return;
+          if (!art) throw new Error('当前形态的立绘暂不可用。');
+          const { image, ...framing } = seatArtwork(ctx.window, form, art.image);
+          const portrait = preparePortrait(target, image, {
+            trimPadding: !form.nativePortrait, seatBounds: art.seatBounds, alignTop: form.nativePortrait, ...framing,
+          });
           const { portrait: previousPortrait, preview: previousPreview } = choice;
           choice.previewRequest?.abort();
           choice.portrait = portrait;
@@ -943,11 +1130,11 @@ export function createLocalSkins(ctx) {
           if (previousPreview !== previousPortrait) previousPreview?.dispose();
           previousPortrait.dispose();
           portrait.refresh();
-          portrait.animate(ctx.window, latestForm(next - 1).motion, refreshBattleChrome);
-          choice.playYjcmEffect('transition');
-          effects.warm(effectSpec());
+          playIdle(latestForm(next - 1), true);
+          if (kind === 'cross') choice.playYjcmEffect('transition');
+          effects?.warm(effectSpec());
           seatPreview?.portrait?.refresh();
-          void loadPortraitPreview(choice, ctx.window.Laya ?? ctx.window.laya, signal => loadYjcmWindow(ctx.window, form, signal));
+          void loadPortraitPreview(choice, ctx.window.Laya ?? ctx.window.laya, signal => loadCrossWindow(ctx.window, form, signal));
         } catch (error) {
           if (!controller.signal.aborted && active()) {
             progress.setForm(control.current);
@@ -963,29 +1150,33 @@ export function createLocalSkins(ctx) {
       syncPortraitForm(choice, { initial: true });
       updateFormButton();
     }
-    if (!attempt && progress) saveFormRule(target.id, 'cross', entry.id, rule);
-    if (!attempt && target.isSelf) {
-      save(target.id, { kind: 'cross', id: entry.id, general: entry.general, bindings });
-    }
+    if (!attempt && rulesAvailable) saveFormRule(target.id, kind, primary.id, rule);
+    if (!attempt && effectConfig !== undefined) saveEffectBindings(target.id, entry, effectRules, accountId);
+    if (!attempt && target.isSelf) save(target.id, choice.selection);
     if (needsVoiceSkills && target.isSelf) selfVoiceHistory.set(target.id, playback);
-    if (needsVoiceSkills && !skills) void loadCardSkills(ctx, target.id, skillOptions).then(result => {
+    if (needsSkillNames && !skills) void loadCardSkills(ctx, target.id, skillOptions).then(result => {
       if (result && active()) {
         skills = result;
-        choice.voice = voiceAt(choice.formControl?.current ?? 1);
+        if (needsVoiceSkills) choice.voice = voiceAt(choice.formControl?.current ?? initial);
       }
     }).catch(() => {});
     return true;
   }
-  function preparePortrait(target, image, trimPadding, seatBounds, preview) {
+  function preparePortrait(target, image, {
+    trimPadding = false, seatBounds, preview = false, alignTop = false, seatTop = 0, hasArtworkAbove = false,
+  } = {}) {
     const { window: win } = ctx;
     const laya = win.Laya ?? win.laya, { avatar } = target;
     if (!avatar?.skinTex || !laya?.Texture2D || !laya?.Texture || !laya?.Sprite || !laya?.Rectangle) throw new Error('当前座位不支持外服立绘。');
     const source = seatBounds ? cropPortrait(win.document, image, seatBounds)
       : trimPadding ? trimPortraitPadding(win.document, image) : image;
-    return createPortrait(laya, avatar, source, Boolean(seatBounds), preview, target.isSelf ? ctx.game.getScene?.() : null);
+    return createPortrait(laya, avatar, source, Boolean(seatBounds) || alignTop, preview,
+      target.isSelf ? ctx.game.getScene?.() : null, {
+        seatTop: source === image ? seatTop : 0, hasArtworkAbove: source === image && hasArtworkAbove,
+      });
   }
-  function installPortrait(target, image, { trimPadding = false, seatBounds, loadPreview, voice } = {}) {
-    const portrait = preparePortrait(target, image, trimPadding, seatBounds);
+  function installPortrait(target, image, { loadPreview, voice, ...placement } = {}) {
+    const portrait = preparePortrait(target, image, placement);
     const choice = { target, portrait, preview: loadPreview ? null : portrait, voice };
     try {
       restore(target.key, target);
@@ -1067,14 +1258,24 @@ export function createLocalSkins(ctx) {
     const choice = choices.get(target.key);
     return Boolean((choice?.option || choice?.portrait) && matchesTarget(choice.target, target));
   }
-  return { yjcm, refresh, allows, options, select, selectNative, clearNative, hasOwnGeneral, ownPortraitTarget, importPortrait, previewYjcm, applyYjcm, rememberYjcm, has, formRule, officialForms,
-    bindings(target, entry) {
-      const accountId = account(ctx).id;
-      const selection = target?.isSelf && accountId && ctx.settings.get(memoryKey(target.id, accountId), null);
-      return selection?.kind === 'cross' && (selection.id === entry.id || selection.id === entry.dynamicId) &&
-          yjcm.current?.findYjcmSkin(selection.id, selection.general)?.general === entry.general
-        ? selection.bindings : undefined;
-    },
+  function portraitBinding(recipient, kind, entry) {
+    if (!recipient) return;
+    const accountId = account(ctx).id;
+    const choice = choices.get(recipient.key);
+    const active = owner === accountId && choice?.selection && matchesTarget(choice.target, recipient) && currentPortrait(choice);
+    const selection = active ? choice.selection :
+      recipient.isSelf && accountId && ctx.settings.get(memoryKey(recipient.id, accountId), null);
+    if (selection?.kind !== kind) return;
+    if (!entry) return selection;
+    const catalogue = catalogueFor(kind).current;
+    const selected = catalogue?.findSkin(selection.id, selection.general);
+    const base = selected && catalogue.skinForms(selected)[0];
+    if (base && base.id === entry.id && base.general === entry.general) return selection;
+  }
+  return { yjcm, mobile, refresh, allows, options, select, selectNative, clearNative, hasOwnGeneral, ownPortraitTarget, importPortrait, previewYjcm, applyYjcm, rememberYjcm, has, formRule, officialForms, effectBindings,
+    portraitBinding,
+    bindings: (target, entry) => portraitBinding(target, crossSkinKind(entry), entry)?.bindings,
+    voiceOptions: (target, entry) => normalizeVoiceOptions(portraitBinding(target, crossSkinKind(entry), entry)?.voiceOptions),
     reset(target) {
       target = liveTarget(target);
       cancelRemembered(target);
@@ -1092,7 +1293,7 @@ function cropPortrait(doc, image, { x, y, width, height }) {
 }
 
 function trimPortraitPadding(doc, image) {
-  const { naturalWidth: width, naturalHeight: height } = image;
+  const width = image.naturalWidth ?? image.width, height = image.naturalHeight ?? image.height;
   const sample = Math.min(1, 256 / Math.max(width, height));
   const canvas = doc.createElement('canvas');
   const w = canvas.width = Math.max(1, Math.round(width * sample));
@@ -1122,6 +1323,7 @@ function trimPortraitPadding(doc, image) {
 
 function disposePortrait(choice) {
   choice.effects?.dispose();
+  choice.disposeVoice?.();
   choice.releaseAvatar?.();
   choice.formRequest?.abort();
   choice.previewRequest?.abort();
@@ -1143,10 +1345,10 @@ function createImageTexture(laya, image) {
   return { texture, dispose() { texture.destroy(); bitmap.destroy(); } };
 }
 
-function createPortraitOverhang(laya, avatar, portrait, getActor) {
+function createPortraitOverhang(laya, avatar, portrait, name, paint) {
   const layer = new laya.Sprite();
   const origin = new laya.Point(), unitX = new laya.Point(), unitY = new laya.Point();
-  layer.name = 'sgs-yjcm-idle-overhang';
+  layer.name = name;
   layer.mouseEnabled = false;
   layer.customRenderEnable = true;
   layer.customRender = (context, x, y) => {
@@ -1166,40 +1368,75 @@ function createPortraitOverhang(laya, avatar, portrait, getActor) {
       context.transform(unitX.x - origin.x, unitX.y - origin.y, unitY.x - origin.x, unitY.y - origin.y, x + origin.x, y + origin.y);
       context.clipRect(0, -layer.height, portrait.width, layer.height);
       context.globalAlpha *= alpha;
-      getActor()?.render(context, 0, 0);
-    } finally { context.restore(); }
+      // The spine triangle batch can otherwise keep the clip of the card draw
+      // even though this pass uses a different viewport.
+      context.breakNextMerge?.();
+      paint(context);
+    } finally {
+      context.restore();
+      context.breakNextMerge?.();
+    }
   };
   return layer;
 }
 
-function createPortrait(laya, avatar, image, alignTop, preview, scene) {
+function portraitFrame(avatar) {
+  const clip = avatar.scrollRect;
+  const { x = 0, y = 0, width = avatar.width, height = avatar.height } = clip ?? {};
+  if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0 ||
+      !(avatar.width > 0 && avatar.height > 0)) return;
+  // OL ShowType shrinks the display width to a half-seat but still clips the full card.
+  const split = clip && (avatar.showType === 2 || avatar.showType === 3);
+  const declaredWidth = avatar.constructor?.AVATAR_MAX_WIDTH;
+  const restoredWidth = split || (x > 0 && avatar.width === width) ?
+    (Number.isFinite(declaredWidth) && declaredWidth > 0 ? declaredWidth : split ? width * 2 : width + x * 2) : 0;
+  const fullWidth = Math.max(avatar.width, x + width, restoredWidth);
+  const fullHeight = Math.max(avatar.height, y + height);
+  return { x, y, width, height, fullWidth, fullHeight };
+}
+
+function createPortrait(laya, avatar, image, alignTop, preview, scene, { seatTop, hasArtworkAbove }) {
   const art = createImageTexture(laya, image);
   const { texture } = art;
-  const sourceWidth = texture.width, sourceHeight = texture.height;
-  let sprite, lastBounds, motion, motionSpec, motionRequest, activeMotion, overhang, overhangAnchor;
+  const sourceWidth = texture.width, bodyHeight = texture.height - seatTop;
+  let sprite, lastBounds, frameTransform, clipped, motion, motionSpec, motionRequest, activeMotion, overhang, overhangAnchor;
+  let staticDraw;
   let effectHidden = false;
   const layers = hidePortraitLayers(avatar, preview);
+  function paintOverhang(context) {
+    if (motion?.renderOverhang) motion.renderOverhang(context);
+    else if (motion) motion.actor.render(context, 0, 0);
+    else context.drawTexture(texture, ...staticDraw);
+  }
   function draw() {
-    const clip = avatar.scrollRect;
-    const x = clip?.x || 0, y = clip?.y || 0;
-    const width = clip?.width || avatar.width, height = clip?.height || avatar.height;
-    if (!(width > 0 && height > 0)) return false;
-    const fullWidth = x > 0 ? Math.max(avatar.width, avatar.constructor.AVATAR_MAX_WIDTH || width + x * 2) : avatar.width;
-    const key = [x, y, width, height, fullWidth, avatar.height].join('/');
+    const frame = portraitFrame(avatar);
+    if (!frame) return false;
+    const { x, y, width, height, fullWidth, fullHeight } = frame;
+    const key = [x, y, width, height, fullWidth, fullHeight].join('/');
     if (lastBounds === key) return true;
-    const scale = Math.max(fullWidth / sourceWidth, avatar.height / sourceHeight);
-    const imageWidth = sourceWidth * scale, imageHeight = sourceHeight * scale;
+    const scale = Math.max(fullWidth / sourceWidth, fullHeight / bodyHeight);
+    const imageWidth = sourceWidth * scale, imageHeight = bodyHeight * scale;
     // Seat artwork places faces near the top. Crop excess height below them.
-    const imageY = alignTop ? 0 : (avatar.height - imageHeight) / 2;
+    const imageY = alignTop ? 0 : (fullHeight - imageHeight) / 2;
     sprite.pos(x, y);
     sprite.size(width, height);
     sprite.scrollRect = new laya.Rectangle(0, 0, width, height);
     sprite.graphics.clear();
+    frameTransform = yjcmSeatTransform(-x, -y, fullWidth, fullHeight);
+    clipped = x !== 0 || y !== 0 || width < fullWidth || height < fullHeight;
+    let heightAbove = seatTop * scale;
     if (motion) {
-      const heightAbove = fitYjcmMotion(motion, -x, -y, fullWidth, avatar.height);
-      if (heightAbove && !overhang) overhang = createPortraitOverhang(laya, avatar, sprite, () => motion?.actor);
-      if (overhang) overhang.height = y === 0 ? heightAbove : 0;
-    } else sprite.graphics.drawTexture(texture, (fullWidth - imageWidth) / 2 - x, imageY - y, imageWidth, imageHeight);
+      heightAbove = motion.fit ? motion.fit(-x, -y, fullWidth, fullHeight)
+        : fitYjcmMotion(motion, -x, -y, fullWidth, fullHeight);
+    } else {
+      staticDraw = [(fullWidth - imageWidth) / 2 - x, imageY - y - heightAbove, imageWidth, texture.height * scale];
+      sprite.graphics.drawTexture(texture, ...staticDraw);
+    }
+    if (heightAbove && !overhang) {
+      const name = seatTop || motion?.renderOverhang ? 'sgs-mobile-seat-overhang' : 'sgs-yjcm-idle-overhang';
+      overhang = createPortraitOverhang(laya, avatar, sprite, name, paintOverhang);
+    }
+    if (overhang) overhang.height = y === 0 ? heightAbove : 0;
     lastBounds = key;
     return true;
   }
@@ -1213,15 +1450,17 @@ function createPortrait(laya, avatar, image, alignTop, preview, scene) {
   }
   function refresh() {
     sprite.visible = draw() && !effectHidden && !hiddenPortraitLayers.has(sprite);
+    if (!sprite.visible) motion?.stopEffect?.();
     if (overhang) {
-      // Like the native layout, keep the card inside its clip and let the headdress clear the chat edge.
+      // Mobile character artwork sits behind the chat controls.
       const chat = scene?.chatViewUI;
       const anchor = chat?.parent === scene && scene?.contains?.(avatar) ? chat : avatar;
       const parent = anchor.parent;
       if (parent && (overhang.parent !== parent || overhangAnchor !== anchor)) {
         overhang.removeSelf();
         overhang.zOrder = anchor.zOrder;
-        parent.addChildAt(overhang, parent.getChildIndex(anchor) + 1);
+        const behindChat = (seatTop || motion?.renderOverhang) && anchor === chat;
+        parent.addChildAt(overhang, parent.getChildIndex(anchor) + (behindChat ? 0 : 1));
         overhangAnchor = anchor;
       }
     }
@@ -1234,23 +1473,38 @@ function createPortrait(laya, avatar, image, alignTop, preview, scene) {
     if (!draw()) throw new Error('当前座位立绘区域不可用。');
     avatar.addChildAt(sprite, 0);
   } catch (error) { dispose(); throw error; }
-  return { texture, dispose, get motionPlaying() { return motion?.actor.parent === sprite; }, effectAnchor(host) {
+  return { texture, dispose, get needsChromeClearance() {
+    return !avatar.mask && overhang?.height > 0 && Boolean(motion || hasArtworkAbove);
+  },
+    mobileEffects() { return motion?.effects; },
+    stopMobileEffect() { motion?.stopEffect?.(); },
+    playMobileEffect(plan, options) { return motion?.playEffect?.(plan, options) ?? false; },
+    effectAnchor(host) {
+    if (sprite.destroyed || !draw()) return;
     const actor = motion?.actor;
-    if (!actor || actor.destroyed || sprite.destroyed) return;
-    const point = host.globalToLocal(sprite.localToGlobal(new laya.Point(actor.x, actor.y)));
-    const lower = host.globalToLocal(sprite.localToGlobal(new laya.Point(actor.x, actor.y + actor.scaleY)));
-    const right = host.globalToLocal(sprite.localToGlobal(new laya.Point(actor.x + actor.scaleX, actor.y)));
+    // Entry clips can start while their idle is loading. Use the same authored card frame in that case.
+    const { x, y, scaleX, scaleY } = actor?.parent === sprite ? actor : frameTransform;
+    const point = host.globalToLocal(sprite.localToGlobal(new laya.Point(x, y)));
+    const lower = host.globalToLocal(sprite.localToGlobal(new laya.Point(x, y + scaleY)));
+    const right = host.globalToLocal(sprite.localToGlobal(new laya.Point(x + scaleX, y)));
     return { x: point.x, y: point.y, scale: Math.abs(lower.y - point.y), scaleX: Math.abs(right.x - point.x) };
+  }, effectClip(host) {
+    if (sprite.destroyed || !draw() || !clipped) return;
+    const first = host.globalToLocal(sprite.localToGlobal(new laya.Point(0, 0)));
+    const last = host.globalToLocal(sprite.localToGlobal(new laya.Point(sprite.width, sprite.height)));
+    return new laya.Rectangle(Math.min(first.x, last.x), Math.min(first.y, last.y),
+      Math.abs(last.x - first.x), Math.abs(last.y - first.y));
   }, setEffectHidden(hidden) {
     if (sprite.destroyed) return;
     effectHidden = hidden;
     refresh();
-  }, animate(win, spec, onStarted) {
+  }, animate(win, entry, onStarted) {
+    const spec = entry.mobileMotion ? `${entry.mobileMotion}:${entry.mobileForm ?? ''}` : entry.motion;
     if (!spec || spec === motionSpec || win.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     motionSpec = spec;
     motionRequest?.abort();
     const controller = motionRequest = new win.AbortController();
-    void playYjcmSeatMotion(win, spec, controller.signal, animation => {
+    function show(animation) {
       if (sprite.destroyed) { controller.abort(); return; }
       const started = activeMotion !== controller;
       if (started) {
@@ -1258,13 +1512,17 @@ function createPortrait(laya, avatar, image, alignTop, preview, scene) {
         activeMotion = controller;
         motionRequest = null;
       }
-      animation.actor.name = 'sgs-yjcm-idle';
+      animation.actor.name = entry.mobileMotion ? 'sgs-mobile-idle' : 'sgs-yjcm-idle';
       sprite.addChild(animation.actor);
       motion = animation;
       lastBounds = null;
       refresh();
       if (started) onStarted?.();
-    }).catch(() => controller.abort());
+    }
+    const loading = entry.mobileMotion ? loadMobileMotion(win, entry, controller.signal).then(animation => {
+      if (animation) show(animation);
+    }) : playYjcmSeatMotion(win, spec, controller.signal, show);
+    void loading.catch(() => controller.abort());
   }, refresh };
 }
 

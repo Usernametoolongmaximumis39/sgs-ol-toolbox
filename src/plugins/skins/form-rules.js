@@ -12,24 +12,95 @@ export const FORM_HP_COMPARE = [
   ['lt', '低于'], ['lte', '不高于'], ['gt', '高于'], ['gte', '不少于'],
 ];
 
-export function normalizeFormRule(input) {
-  if (input?.mode === 'manual') return { mode: 'manual' };
-  if (input?.mode !== 'custom' || !Array.isArray(input.rules) || input.rules.length !== 2) return null;
-  const rules = [];
-  for (const rule of input.rules) {
-    if (rule?.kind === 'none') rules.push({ kind: 'none' });
-    else if (rule?.kind === 'hp' && FORM_HP_COMPARE.some(([id]) => id === rule.compare) &&
-        Number.isInteger(rule.hp) && rule.hp >= 0 && rule.hp <= 999) {
-      rules.push({ kind: 'hp', compare: rule.compare, hp: rule.hp });
-    } else if (['once', 'every', 'any', 'all'].includes(rule?.kind)) {
-      const combination = rule.kind === 'any' || rule.kind === 'all';
-      if (!Array.isArray(rule.skills) || rule.skills.length !== (combination ? 2 : 1) ||
-          new Set(rule.skills).size !== rule.skills.length || rule.skills.some(id => !Number.isSafeInteger(id) || id <= 0)) return null;
-      const times = combination ? 1 : rule.times;
-      if (!Number.isInteger(times) || times < 1 || times > 999) return null;
-      rules.push({ kind: rule.kind, skills: [...rule.skills], times });
-    } else return null;
+export const FORM_CONVERSION_RULE = ['conversion', '转换技切换阴阳'];
+export const FORM_CONVERSION_DIRECTIONS = [['yang', '阳 → 阴'], ['yin', '阴 → 阳']];
+export const CARD_SKILL_DETAILS = { includeDerived: true, includeDetails: true };
+export const CUSTOM_FORM_RULE_LIMIT = 6;
+const SEAT_CONVERSION_STATE = 251;
+
+function conversionPhase(value) {
+  return value === 1 ? 'yang' : value === 2 ? 'yin' : null;
+}
+
+export function nativeConversionSkill(target, id) {
+  const skill = read(() => target.general.GetSkill(id));
+  return read(() => skill.IsSwitchSkill) === true ? skill : null;
+}
+
+export function nativeConversionPhase(skill) {
+  if (read(() => skill.switchValue) === 0) return null;
+  const second = read(() => skill.IsSecondState);
+  return second === true ? 'yin' : second === false ? 'yang' : null;
+}
+
+export function nativeConversionUpdate(seat) {
+  // UPDATE_SWITCH_SKILL carries no arguments. The client writes the skill ID
+  // and its phase to DATA_SWITCH before emitting the event.
+  const state = read(() => seat.GetSeatState(SEAT_CONVERSION_STATE));
+  const id = read(() => state.StateSkillId);
+  if (!Number.isSafeInteger(id) || id <= 0) return null;
+  const skill = read(() => seat.GetGeneralSkill(id));
+  return skill ? { id, skill, phase: conversionPhase(read(() => state.Value)) } : null;
+}
+
+const cycleTransitions = count => Array.from({ length: count }, (_, i) => ({ from: i + 1, to: (i + 1) % count + 1 }));
+const edgeKey = ({ from, to }) => `${from}:${to}`;
+
+function normalizeCondition(rule) {
+  if (rule?.kind === 'none') return { kind: 'none' };
+  if (rule?.kind === 'hp' && FORM_HP_COMPARE.some(([id]) => id === rule.compare) &&
+      Number.isInteger(rule.hp) && rule.hp >= 0 && rule.hp <= 999) {
+    return { kind: 'hp', compare: rule.compare, hp: rule.hp };
   }
+  if (rule?.kind === 'conversion') {
+    const phase = rule.phase ?? rule.from;
+    if (FORM_CONVERSION_DIRECTIONS.some(([from]) => from === phase) && Number.isSafeInteger(rule.skill) && rule.skill > 0) {
+      return { kind: 'conversion', from: phase, skill: rule.skill };
+    }
+  }
+  if (['once', 'every', 'any', 'all'].includes(rule?.kind)) {
+    const combination = rule.kind === 'any' || rule.kind === 'all';
+    if (!Array.isArray(rule.skills) || rule.skills.length !== (combination ? 2 : 1) ||
+        new Set(rule.skills).size !== rule.skills.length || rule.skills.some(id => !Number.isSafeInteger(id) || id <= 0)) return null;
+    const times = combination ? 1 : rule.times;
+    if (Number.isInteger(times) && times >= 1 && times <= 999) return { kind: rule.kind, skills: [...rule.skills], times };
+  }
+  return null;
+}
+
+export function normalizeFormRule(input, count = 2, transitions, { customTransitions = false } = {}) {
+  if (input?.mode === 'manual') return { mode: 'manual' };
+  if (input?.mode !== 'custom' || !Array.isArray(input.rules)) return null;
+  const tagged = input.rules.some(rule => typeof rule?.from === 'number' || rule?.to !== undefined);
+  if (!customTransitions && transitions === undefined) {
+    if (tagged || input.rules.length !== count) return null;
+    const rules = input.rules.map(normalizeCondition);
+    return rules.every(Boolean) ? { mode: 'custom', rules } : null;
+  }
+  if (customTransitions ? input.rules.length > CUSTOM_FORM_RULE_LIMIT : !transitions.length) return null;
+  const allowed = new Set((transitions ?? []).map(edgeKey));
+  const saved = new Map();
+  // The old ordered rules described a cycle. Restore only edges that still exist.
+  if (!tagged && input.rules.length !== count && !(customTransitions && !input.rules.length)) return null;
+  const legacy = !tagged && input.rules.length ? cycleTransitions(count) : null;
+  for (const [i, rule] of input.rules.entries()) {
+    const edge = legacy?.[i] ?? rule;
+    if (!edge || !Number.isSafeInteger(edge.from) || !Number.isSafeInteger(edge.to) ||
+        edge.from < 1 || edge.to < 1 || edge.from > count || edge.to > count || edge.from === edge.to) return null;
+    const key = edgeKey(edge);
+    if ((!customTransitions || legacy) && !allowed.has(key)) continue;
+    const off = customTransitions && (rule?.enabled === false || rule?.kind === 'off');
+    const condition = normalizeCondition(rule) ?? (off ? { kind: 'none' } : null);
+    if (!condition || saved.has(key)) return null;
+    const { from, to } = edge;
+    const record = condition.kind === 'conversion'
+      ? { from, to, kind: condition.kind, phase: condition.from, skill: condition.skill }
+      : { from, to, ...condition };
+    if (off) record.enabled = false;
+    saved.set(key, record);
+  }
+  const rules = customTransitions && !legacy ? [...saved.values()] :
+    (transitions ?? []).map(edge => saved.get(edgeKey(edge)) ?? { ...edge, kind: 'none' });
   return { mode: 'custom', rules };
 }
 
@@ -46,49 +117,99 @@ function hpMatches(rule, hp) {
 
 // Track the actual form separately from the native form the client would pick.
 // Entry snapshots discard conditions already satisfied by a manual switch.
-export function createFormProgress({ form = 1, count = 2, config, target, getSkillCount, getCardSkillIds, official }) {
-  let current = form, lastOfficial = form, entryCounts, activeHp;
+export function createFormProgress({ form = 1, count = 2, transitions, customTransitions = false, config, target, getSkillCount,
+  getCardSkillIds, getConversionSkillIds, official }) {
+  let current = form, lastOfficial = form, activeRules;
+  const settings = transitions === undefined && !customTransitions ? config :
+    normalizeFormRule(config, count, transitions, { customTransitions });
+  const rules = settings?.rules ?? [];
+  const defaultEdges = transitions ?? (customTransitions ? [] : cycleTransitions(count));
+  const edges = customTransitions && settings?.mode === 'custom' ? rules : defaultEdges;
+  const exits = new Map();
+  for (const [index, { from, to, enabled }] of edges.entries()) {
+    if (enabled === false) continue;
+    if (!exits.has(from)) exits.set(from, []);
+    exits.get(from).push({ to, condition: rules[index] });
+  }
+  const conversions = new Map();
+  const conversionSkills = new Set(rules.filter(rule => rule.kind === 'conversion' && rule.enabled !== false).map(rule => rule.skill));
   const hp = () => read(() => target.seat.Hp);
-  const rule = () => config?.rules?.[current - 1];
+  const forms = Array.from({ length: count }, (_, index) => index + 1);
+  const destinations = () => forms.filter(form => form !== current);
+  function rebaseConversion() {
+    for (const id of conversionSkills) {
+      const skill = nativeConversionSkill(target, id);
+      if (skill && conversions.get(id)?.skill !== skill) {
+        conversions.set(id, { skill, phase: nativeConversionPhase(skill) });
+      } else if (!skill) conversions.delete(id);
+    }
+  }
   function enter(next) {
     current = next;
-    entryCounts = rule()?.skills?.map(getSkillCount);
-    activeHp = rule()?.kind === 'hp' && hpMatches(rule(), hp());
+    activeRules = (exits.get(next) ?? []).filter(({ condition }) => condition && condition.kind !== 'none').map(({ to, condition }) => ({
+      to, condition, entryCounts: condition.skills?.map(getSkillCount),
+      activeHp: condition.kind === 'hp' && hpMatches(condition, hp()),
+    }));
+  }
+  function advance(to) {
+    const reachable = destinations();
+    const next = to === undefined && reachable.length === 1 ? reachable[0] : to;
+    if (reachable.includes(next)) enter(next);
+    return current;
   }
   enter(form);
+  rebaseConversion();
   const progress = {
     get current() { return current; },
     count,
-    update({ skill, initial = false } = {}) {
-      if (!config && official) {
+    hasConversion: conversionSkills.size > 0,
+    destinations,
+    advance,
+    rebaseConversion,
+    update({ skill, initial = false, conversion } = {}) {
+      if (conversion) {
+        const { id, skill: nativeSkill, phase } = conversion;
+        if (!conversionSkills.has(id) || nativeConversionSkill(target, id) !== nativeSkill) return current;
+        const previous = conversions.get(id);
+        conversions.set(id, { skill: nativeSkill, phase });
+        if (phase && previous?.skill === nativeSkill && phase !== previous.phase && getConversionSkillIds?.()?.has(id)) {
+          const route = activeRules.find(({ condition }) => condition.kind === 'conversion' && condition.skill === id &&
+            previous.phase === (condition.phase ?? condition.from));
+          if (route) enter(route.to);
+        }
+        return current;
+      }
+      if (!settings && official) {
         const next = official(lastOfficial);
         if (next !== lastOfficial) {
-          current = official.repeat?.() ? current % count + 1 : next;
+          const routes = exits.get(current) ?? [];
+          if (official.repeat?.()) {
+            if (routes.length === 1) enter(routes[0].to);
+          } else if (transitions === undefined && !customTransitions || routes.some(({ to }) => to === next)) enter(next);
           lastOfficial = next;
         }
         return current;
       }
-      const condition = rule();
-      if (!condition) return current;
-      let met = false;
-      if (condition.kind === 'hp') {
-        const matches = hpMatches(condition, hp());
-        met = matches && (initial || !activeHp);
-        activeHp = matches;
-      } else if (condition.skills?.includes(skill)) {
+      const route = activeRules.find(state => {
+        const { condition, entryCounts } = state;
+        if (condition.kind === 'hp') {
+          const matches = hpMatches(condition, hp());
+          const crossed = matches && (initial || !state.activeHp);
+          state.activeHp = matches;
+          return crossed;
+        }
+        if (!condition.skills?.includes(skill)) return false;
         const cardSkills = getCardSkillIds();
         // Saved rules from earlier versions can reference another general.
-        if (!cardSkills || !condition.skills.every(id => cardSkills.has(id))) return current;
+        if (!cardSkills || !condition.skills.every(id => cardSkills.has(id))) return false;
+        if (condition.kind === 'once') return getSkillCount(skill) === condition.times;
         const counts = condition.skills.map((id, i) => getSkillCount(id) - entryCounts[i]);
-        if (condition.kind === 'once') met = getSkillCount(skill) === condition.times;
-        else if (condition.kind === 'all') met = counts.every(value => value > 0);
-        else met = counts.some(value => value >= condition.times);
-      }
-      if (met) enter(current % count + 1);
+        return condition.kind === 'all' ? counts.every(value => value > 0) : counts.some(value => value >= condition.times);
+      });
+      if (route) enter(route.to);
       return current;
     },
     setForm: enter,
-    advance() { enter(current % count + 1); return current; },
   };
   return progress;
 }

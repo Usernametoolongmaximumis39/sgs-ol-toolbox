@@ -17,6 +17,13 @@ export function skillCount(skill, seen = new Set(), state = {}, scene = {}) {
   const observed = () => state.skillUses?.complete ? state.skillUses.counts[`${id}:${seat.Index}`] || 0 : null;
   const result = (limit, used) => ({ remaining: count(limit) && count(used) ? Math.max(0, limit - used) : null });
   if (id === 0xea7) return result(seat.MaxHp, observed());
+  if (id === 985) { // 界姜维「挑衅」的原生上限为 2，座位状态 286 可提前耗尽次数。
+    if (!seat.InDealRound) return null;
+    const used = skill.GetSkillUseCountInRound?.(), settled = seat.GetStateValue?.(286);
+    if (!count(used) || !count(settled)) return { remaining: null };
+    const limit = skill.TimelimitRound;
+    return result(limit, Math.max(used, settled, 1));
+  }
   if (id === 4009) { // 刃掣的原生上限随本回合弃牌堆中的【杀】变化，最低为 1。
     return seat.InDealRound ? result(skill.TimelimitRound, skill.GetSkillUseCountInRound?.()) : null;
   }

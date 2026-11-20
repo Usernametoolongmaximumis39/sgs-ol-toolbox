@@ -47,8 +47,10 @@ export function createYjcmCatalogue(ctx) {
     return warmed ??= transaction('readonly', store => store.get('latest')).then(record => {
       if (!scope.signal.aborted && record?.data) {
         cachedHasMotion = record.data.motion && record.data.dynamicSkins;
-        const hasEffects = cachedHasMotion && record.data.effectSchema === YJCM_EFFECT_SCHEMA && Boolean(record.data.effects);
-        cachedIsCurrent = hasEffects && record.data.motionSchema === YJCM_MOTION_SCHEMA &&
+        const effectSchema = record.data.effectSchema;
+        // Schema 2 plans remain playable while the added sound and clipping flags refresh.
+        const hasEffects = cachedHasMotion && Boolean(record.data.effects) && (effectSchema === 2 || effectSchema === YJCM_EFFECT_SCHEMA);
+        cachedIsCurrent = hasEffects && effectSchema === YJCM_EFFECT_SCHEMA && record.data.motionSchema === YJCM_MOTION_SCHEMA &&
           record.data.voiceSchema === YJCM_VOICE_SCHEMA;
         cachedIndex = createYjcmIndex(hasEffects ? record.data : { ...record.data, effects: undefined });
         return record;

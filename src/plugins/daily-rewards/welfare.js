@@ -5,6 +5,12 @@ const read = fn => { try { return fn(); } catch { return undefined; } };
 const list = value => Array.isArray(value) ? value.slice(0, 4096) : [];
 const positive = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
 const valid = adapter => !adapter.signal?.aborted && (!adapter.valid || adapter.valid());
+
+function cardPeriodStart(cards, id) {
+  const seconds = read(() => cards.getSec(cards.GetCardStateById(id)?.start_time));
+  return Number.isSafeInteger(seconds) && seconds > 0 ? seconds : 0;
+}
+
 export const managerSpecs = {
   WelfareManger: { events: ['ClientLotteryRep', 'decodeClientChopTreeInfoRep'], guard: value => typeof value.ReqJbpInfo === 'function' },
   NewPrivilegeCardManager: { events: ['decodeServerNewPrivilegeCardDataResp', 'decodeServerNewPrivilegeCardDailyRewardResp', 160119, 160121, 160122], guard: value => typeof value.IsCardActive === 'function' && typeof value.SendNewPrivilegeCardDailyRewardReq === 'function' },
@@ -200,13 +206,17 @@ export function planWelfare(adapter, selected) {
       const id = Number(row.ID);
       if (!positive(id) || ![1, 2].includes(Number(row.type)) || Number(row.open) !== 1 || !row.reward_e) continue;
       const current = () => list(read(() => adapter.config('ff_dbs_pay_gift.sgs').root.new_card.new_card_content)).find(value => Number(value.ID) === id);
-      const eligible = () => Number(current()?.open) === 1 && !!current()?.reward_e && cards.IsCardActive(id) === true && cards.IsClaimedToday(id) === false;
+      const start = cardPeriodStart(cards, id);
+      const samePeriod = () => cardPeriodStart(cards, id) === start;
+      const eligible = () => samePeriod() && Number(current()?.open) === 1 && !!current()?.reward_e && cards.IsCardActive(id) === true && cards.IsClaimedToday(id) === false;
       const proxy = cards.proxy || adapter.proxy?.();
       const reply = packet => packet?.Protocol?.Data?.ProtoObj;
       const matches = packet => Number(reply(packet)?.card_id) === id;
       const events = ['decodeServerNewPrivilegeCardDailyRewardResp', 160121];
-      if (read(eligible)) add(`new-card:${id}`, `新${Number(row.type) === 2 ? '周' : '月'}卡每日奖励`, cards, eligible,
-        () => cards.IsClaimedToday(id) === true, () => cards.SendNewPrivilegeCardDailyRewardReq(id),
+      // An extension can move the expiry without starting another term.
+      const key = start ? `new-card:${id}:${start}` : `new-card:${id}`;
+      if (read(eligible)) add(key, `新${Number(row.type) === 2 ? '周' : '月'}卡每日奖励`, cards, eligible,
+        () => samePeriod() && cards.IsClaimedToday(id) === true, () => cards.SendNewPrivilegeCardDailyRewardReq(id),
         [{ event: 'UPDATE_NEW_PRIVILEGE_CARD_DAILY_REWARD', accept: value => Number(Array.isArray(value) ? value[0] : value) === id },
           ...events.map(event => ({ manager: proxy, event, accept: packet => matches(packet) && reply(packet).result === 1 }))],
         { rewards: () => current()?.reward_e,

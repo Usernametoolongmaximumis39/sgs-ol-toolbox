@@ -11,11 +11,26 @@ const localFaceKey = card => `${LOCAL_FACE_STYLE.id}.${card}`;
 
 const COLOR = /^#[0-9a-f]{6}$/i;
 const own = (node, key) => node && Object.getOwnPropertyDescriptor(node, key)?.value;
-const CARD_LISTS = ['_children','cardUis','cardUIs','cardUiList','cardUIList','virtualCardUis','tempHandCardUis','additionalCardUis','muniuCardUis','stateCardUis','pileCardUis','seatUIs'];
+const CARD_LISTS = ['_children','cardUis','cardUIs','cardUiList','cardUIList','virtualCardUis','tempHandCardUis','additionalCardUis','muniuCardUis','stateCardUis','pileCardUis','regionCardUIs','seatUIs'];
 const CARD_NODES = ['cardContainer','seatContainer','SelfSeatUi','selfSeatUI','desktopCardContainer','discardCardContainer','cardUi','cardUI'];
 const isCardUI = node => node && !node.destroyed && node.bmpFace && typeof node.SetCardFace === 'function'
   && typeof node.getCardFaceBaseTexture === 'function' && typeof node.updateNewCardFace === 'function';
 const NO_BOOK_FACES = Object.freeze([]);
+
+function flatCardForBitmap(bitmap, event) {
+  // NormalCardUi.Draw inserts the individual flat bitmaps, not the CardUi.
+  // addCardEvent attaches the face's native mouse handler with the UI as caller.
+  const handlers = own(bitmap, '_events')?.[event];
+  for (const handler of Array.isArray(handlers) ? handlers : [handlers]) {
+    const ui = handler?.caller;
+    if (ui?.bmpFace === bitmap && isCardUI(ui)) return ui;
+  }
+  return null;
+}
+
+function nativeCardResourceName(path) {
+  return typeof path === 'string' ? /(?:^|\/)(card(?:Face|Back)_\d{1,5})(?:\.png)?(?:\?[^#]*)?$/.exec(path)?.[1] : undefined;
+}
 
 function cardBookFaces(node, listType, detailType) {
   if (typeof detailType === 'function' && node instanceof detailType) {
@@ -42,7 +57,7 @@ export function findNativeCardTexture(L, name) {
   if (valid(direct)) return direct;
   for (const cache of [L?.Loader?.textureMap, L?.Loader?.loadedMap, L?.Loader?._loadedMap]) {
     for (const key of Object.keys(cache || {}).slice(0, 60000)) {
-      if (key.split('?')[0].split('/').at(-1) !== name + '.png') continue;
+      if (nativeCardResourceName(key) !== name) continue;
       const texture = cache[key]?.bitmap ? cache[key] : L?.loader?.getRes?.(key);
       if (valid(texture)) return texture;
     }
@@ -92,7 +107,7 @@ export class CardStyleRegistry {
     this.localFaceBackground = null;
     this.status = '跟随游戏原始外观'; this.closed = false;
     scope.interval(() => this.refreshNative(), 400);
-    if (game.onSceneChange) scope.add(game.onSceneChange(() => this.refreshNative()));
+    if (game.onSceneChange) scope.add(game.onSceneChange(() => this.queueRefresh()));
     scope.add(() => { this.closed = true; this.restore(); this.clearTextures(); this.nativeResources.clear(); this.nativeAttempts.clear(); this.localBacks.clear(); this.localFaces.clear(); this.localFaceBackground = null; this.listeners.clear(); });
     this.localBacksReady = win.indexedDB ? this.loadLocalBacks() : Promise.resolve();
     this.localFacesReady = win.indexedDB ? this.loadLocalFaces() : Promise.resolve();
@@ -292,6 +307,20 @@ export class CardStyleRegistry {
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   emit() { for (const fn of [...this.listeners]) { try { fn(); } catch (e) { console.warn('[卡牌样式]',e); } } }
   setStatus(value) { if (this.status !== value) { this.status = value; this.emit(); } }
+  queueRefresh(emit = false) {
+    if (this.closed) return;
+    this.refreshNeedsEmit ||= emit;
+    if (this.refreshQueued) return;
+    this.refreshQueued = true;
+    queueMicrotask(() => {
+      const notify = this.refreshNeedsEmit;
+      this.refreshQueued = false;
+      this.refreshNeedsEmit = false;
+      if (this.closed) return;
+      this.refreshNative();
+      if (notify && !this.closed) this.emit();
+    });
+  }
   clearTextures(id) {
     for (const [key, image] of this.images) if (!id || key === id) { image.onload = image.onerror = null; image.src = ''; this.images.delete(key); }
     for (const [key, entry] of this.atlases) if (!id || key === id) {
@@ -413,7 +442,7 @@ export class CardStyleRegistry {
       image = new this.win.Image();
       this.images.set(id, image);
       const update = () => {
-        if (!this.closed && this.images.get(id) === image) { this.refreshNative(); this.emit(); }
+        if (!this.closed && this.images.get(id) === image) this.queueRefresh(true);
       };
       image.onload = image.onerror = update;
       image.src = url;
@@ -466,6 +495,9 @@ export class CardStyleRegistry {
   restore() {
     for (const local of [...this.factories.values(), ...this.pools.values(), ...this.insertions.values()]) local.dispose();
     this.factories.clear(); this.pools.clear(); this.insertions.clear();
+    this.nativeLoaderScope?.dispose();
+    this.nativeLoaderScope = null;
+    this.nativeLoader = null;
     for (const b of this.bindings.values()) b.release(); this.bindings.clear();
     this.bookFaces = new WeakSet();
   }
@@ -511,11 +543,8 @@ export class CardStyleRegistry {
           if (node.visible !== false) { node.visible = false; flush(node); }
         }
         binding.applied = texture;
-        binding.inApply = true;
-        try {
-          const dirty = ui.bmpFace.texture !== texture || ui.bmpFace.invalidateUpdateFlag === true;
-          ui.bmpFace.texture = texture; if (dirty) flush(ui.bmpFace);
-        } finally { binding.inApply = false; }
+        const dirty = ui.bmpFace.texture !== texture || ui.bmpFace.invalidateUpdateFlag === true;
+        ui.bmpFace.texture = texture; if (dirty) flush(ui.bmpFace);
       };
       const registry = this;
       // Some native state/skill refreshes assign the face directly rather than
@@ -579,8 +608,11 @@ export class CardStyleRegistry {
     this.applySafely(this.bindings.get(ui), immediate);
   }
   applySafely(binding, immediate) {
+    if (binding.inNative || binding.inApply) return;
+    binding.inApply = true;
     try { binding.apply(immediate); binding.error = ''; }
     catch (error) { binding.error = error.message; binding.reason = '纹理应用失败：' + error.message; this.setStatus('卡牌外观未应用：' + error.message); }
+    finally { binding.inApply = false; }
   }
   captureCard(card) {
     try { this.bindCard(card, true); }
@@ -620,46 +652,50 @@ export class CardStyleRegistry {
     }
   }
   captureBranch(root) {
-    const queue=[root],seen=new Set();
-    const listType = this.game.getClass?.('CardsBookWindow'), detailType = this.game.getClass?.('CardBookDetailWindow');
-    for(let i=0;i<queue.length&&i<6000;i++){
-      const node=queue[i];if(!node||typeof node!=='object'||seen.has(node)||node.destroyed)continue;seen.add(node);
-      this.hookFactory(node);if(isCardUI(node))this.captureCard(node);
-      for (const ui of cardBookFaces(node, listType, detailType)) {
-        this.bookFaces.add(ui);
-        queue.push(ui);
+    this.scanCards([root], ui => this.captureCard(ui));
+  }
+  watchInsertions(node) {
+    if (this.insertions.has(node) || !Object.isExtensible(node)) return;
+    const children = ['addChild', 'addChildAt'].filter(key => typeof node[key] === 'function');
+    const draws = ['addDrawChild', 'addDrawChildAt'].filter(key => typeof node[key] === 'function');
+    if (!children.length && !draws.length) return;
+    const local = new ResourceScope(), registry = this;
+    this.insertions.set(node, local);
+    const patch = (key, wrap) => {
+      try { local.patch(node, key, wrap); }
+      catch { /* Read-only display methods are covered by discovery. */ }
+    };
+    for (const key of children) patch(key, original => function (child, ...args) {
+      const result = original.call(this, child, ...args);
+      if (!child || child === this || child.destroyed) return result;
+      try {
+        if (this === registry.win.Laya.stage || this.name === 'SceneLayer' || this.layerOrder === 2 || this === registry.scene) {
+          registry.syncScene();
+          registry.queueRefresh();
+        }
+        registry.captureBranch(child);
+      } catch (error) { registry.setStatus('卡牌外观未应用：' + error.message); }
+      return result;
+    });
+    const mouseDown = this.win.Laya.Event?.MOUSE_DOWN || 'mousedown';
+    for (const key of draws) patch(key, original => function (child, ...args) {
+      const ui = flatCardForBitmap(child, mouseDown);
+      if (ui) {
+        if (this === registry.selfHand) registry.rememberSelf(ui.theCard);
+        registry.captureCard(ui);
       }
-      for(const key of CARD_LISTS){const value=own(node,key);if(Array.isArray(value))queue.push(...value.slice(0,2048));}
-      for(const key of CARD_NODES){const value=own(node,key);if(value)queue.push(value);}
-    }
+      return original.call(this, child, ...args);
+    });
   }
-  watchInsertions() {
-    // Stage, current scene and the existing first two display-layer levels.
-    // Patch instances only; a newly attached window is scanned before return.
-    const roots=new Set([this.win.Laya?.stage,this.game.getScene?.()]);
-    let level=[this.win.Laya?.stage];
-    for(let depth=0;depth<2;depth++){
-      const next=[];for(const parent of level){const children=own(parent,'_children');if(Array.isArray(children))for(const child of children.slice(0,64)){if(roots.size>=160)break;roots.add(child);next.push(child);}}
-      level=next;
-    }
-    for(const [node,local]of this.insertions)if(!roots.has(node)||node.destroyed){local.dispose();this.insertions.delete(node);}
-    const registry=this;
-    for(const node of roots){if(!node||node.destroyed||this.insertions.has(node))continue;
-      const local=new ResourceScope();this.insertions.set(node,local);
-      for(const key of ['addChild','addChildAt'])if(typeof node[key]==='function')local.patch(node,key,original=>function(child,...args){
-        const result=original.call(this,child,...args);registry.captureBranch(child);return result;
-      });
-    }
-  }
-  discover() {
+  scanCards(queue, onCard) {
     // Only display children and the known flat-card containers; never walk models/getters.
-    const queue = [this.win.Laya?.stage, this.game.getScene?.(), this.game.getSelfSeatUI?.()], seen = new Set(), found = new Set();
+    const seen = new Set();
     const listType = this.game.getClass?.('CardsBookWindow'), detailType = this.game.getClass?.('CardBookDetailWindow');
-    this.bookFaces = new WeakSet();
     for (let i = 0; i < queue.length && i < 6000; i++) {
       const node = queue[i]; if (!node || typeof node !== 'object' || seen.has(node) || node.destroyed) continue; seen.add(node);
+      if (isCardUI(node)) { onCard(node); continue; }
+      this.watchInsertions(node);
       this.hookFactory(node);
-      if (isCardUI(node)) found.add(node);
       for (const ui of cardBookFaces(node, listType, detailType)) {
         this.bookFaces.add(ui);
         queue.push(ui);
@@ -667,8 +703,50 @@ export class CardStyleRegistry {
       for (const key of CARD_LISTS) { const a = own(node,key); if (Array.isArray(a)) queue.push(...a.slice(0,2048)); }
       for (const key of CARD_NODES) { const value = own(node,key); if (value) queue.push(value); }
     }
-    for (const [owner, local] of this.factories) if (!seen.has(owner)) { local.dispose(); this.factories.delete(owner); }
+    return seen;
+  }
+  syncScene() {
+    const scene = this.game.getScene?.();
+    if (scene !== this.scene) {
+      this.scene = scene; this.selfModels = new WeakSet(); this.selfIds.clear(); this.bookFaces = new WeakSet();
+    }
+    const seat = this.game.getSelfSeatUI?.();
+    this.selfHand = seat?.cardContainer;
+    for (const ui of this.selfHand?.cardUis || this.selfHand?.cardUIs || this.selfHand?.cardUiList || []) this.rememberSelf(ui.theCard);
+    return seat;
+  }
+  discover(seat) {
+    const found = new Set();
+    this.bookFaces = new WeakSet();
+    const seen = this.scanCards([this.win.Laya?.stage, this.scene, seat], ui => found.add(ui));
+    for (const ui of this.bindings.keys()) {
+      const parent = own(ui, 'drawParent');
+      if (!ui.destroyed && seen.has(parent) && own(ui.bmpFace, 'render') === parent) found.add(ui);
+    }
+    for (const hooks of [this.factories, this.insertions]) for (const [owner, local] of hooks) {
+      if (!seen.has(owner)) { local.dispose(); hooks.delete(owner); }
+    }
     return found;
+  }
+  watchNativeResources(face, back) {
+    const loader = face || back ? this.win.Laya?.Loader : null;
+    if (this.nativeLoader === loader) return;
+    this.nativeLoaderScope?.dispose();
+    this.nativeLoader = loader;
+    if (!loader) return;
+    const local = this.nativeLoaderScope = new ResourceScope(), registry = this;
+    for (const key of ['cacheTexture', 'cacheRes']) {
+      if (typeof loader[key] !== 'function') continue;
+      local.patch(loader, key, original => function (path, ...args) {
+        const result = original.call(this, path, ...args);
+        const name = nativeCardResourceName(path);
+        if (name && (name === registry.styleFor('face')?.native?.face || name === registry.styleFor('back')?.native?.back)) {
+          registry.nativeAttempts.delete(name);
+          registry.queueRefresh();
+        }
+        return result;
+      });
+    }
   }
   refreshNative() {
     if (this.closed) return;
@@ -699,26 +777,25 @@ export class CardStyleRegistry {
       const after = [...this.nativeResources.values()];
       if (before.length !== after.length || after.some((t, i) => t !== before[i])) this.emit();
     }
-    const scene = this.game.getScene?.();
-    if (scene !== this.scene) { this.scene = scene; this.selfModels = new WeakSet(); this.selfIds.clear(); }
-    this.selfHand = this.game.getSelfSeatUI?.()?.cardContainer;
-    for (const ui of this.selfHand?.cardUis || this.selfHand?.cardUIs || this.selfHand?.cardUiList || []) this.rememberSelf(ui.theCard);
     const back = this.styleFor('back');
-    const localImage = back?.localBackImage ? this.imageFor(back.id, back.localBackImage) : null;
+    const backSource = back?.localBackImage || back?.atlas?.backImage;
+    const backImage = backSource ? this.imageFor(back.id, backSource) : null;
     const faceImage = background ? this.imageFor(backgroundId, background.url) : null;
+    if (customFaceSelected) for (const [card, row] of this.localFaces) this.imageFor(localFaceKey(card), row.url);
     const style = back || selectedAtlas || faceImage || (customFaceSelected && this.localFaces.size);
     if (!style) { this.restore(); this.setStatus(this.current ? '所选套装已停用，当前跟随游戏' : '跟随游戏原始外观'); return; }
     if (!this.win.Laya?.Texture2D || !this.win.Laya?.Texture) { this.setStatus('等待游戏原生渲染器'); return; }
     try {
-      this.watchInsertions();
-      const found = this.discover();
+      this.watchNativeResources(selectedAtlas?.native?.face, back?.native?.back);
+      const found = this.discover(this.syncScene());
       for (const [ui,binding] of this.bindings) if (!found.has(ui)) { binding.release(); this.bindings.delete(ui); }
       for (const ui of found) {
         this.bindCard(ui);
       }
       const waiting = [selectedAtlas?.native?.face, back?.native?.back].some(name => name && !this.nativeTexture(name));
-      const localStatus = localImage && (!localImage.complete ? '正在加载自定义卡背' :
-        localImage.naturalWidth !== LOCAL_BACK_WIDTH || localImage.naturalHeight !== LOCAL_BACK_HEIGHT ? '自定义卡背加载失败，当前跟随游戏卡背' : '');
+      const localStatus = backImage && (!backImage.complete ? '正在加载自定义卡背' :
+        backImage.naturalWidth !== (back.localBackImage ? LOCAL_BACK_WIDTH : LOCAL_FACE_WIDTH)
+        || backImage.naturalHeight !== (back.localBackImage ? LOCAL_BACK_HEIGHT : LOCAL_FACE_HEIGHT) ? '自定义卡背加载失败，当前跟随游戏卡背' : '');
       const backgroundStatus = faceImage && (!faceImage.complete ? '正在加载卡面底图' :
         faceImage.naturalWidth !== LOCAL_FACE_WIDTH || faceImage.naturalHeight !== LOCAL_FACE_HEIGHT ? '卡面底图加载失败，当前跟随游戏卡面' : '');
       const atlas = this.atlases.get(selectedAtlas?.id);

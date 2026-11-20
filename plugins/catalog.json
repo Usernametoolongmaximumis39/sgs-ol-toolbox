@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.150"
+    "version": "0.6.182"
   },
   "plugins": [
     {
@@ -196,7 +196,7 @@
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.83",
+      "version": "0.1.84",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -211,9 +211,9 @@
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
-      "releaseNotes": "座位旁的明牌支持 60%、80% 和 100% 三档不透明度，默认 80%。",
-      "packageUrl": "packages/cards/0.1.83.json",
-      "sha256": "bdc1cae6a68da19a2b6073484713cbe0337884f2908f7f510c40c5f8c1c2467e"
+      "releaseNotes": "补充界姜维「挑衅」在出牌阶段的剩余技能次数提示。",
+      "packageUrl": "packages/cards/0.1.84.json",
+      "sha256": "a9bc6daef42a99fa2447f7a09688fb8c7e90fc192db749905c609c757b5537d7"
     },
     {
       "id": "play-assist",
@@ -240,7 +240,7 @@
     {
       "id": "daily-rewards",
       "name": "日常领奖",
-      "version": "0.7.43",
+      "version": "0.7.44",
       "icon": {
         "paths": [
           "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -255,9 +255,9 @@
       "minCoreVersion": "0.6.38",
       "apiVersion": 1,
       "description": "自动领取签到、任务、邮件与活动奖励，按账号记录",
-      "releaseNotes": "修复部分邮件附件一直显示待核对、无法续领的问题。游戏仍显示未领取的部分附件可补试一次。修复购买弹窗打开时自动兑换勾选仍露出的问题。自动领取和兑换按已有设置运行，兑换可能消耗欢乐豆。",
-      "packageUrl": "packages/daily-rewards/0.7.43.json",
-      "sha256": "0b9818d7b7b6f8f58be31f14177d8666d950b4bed894fbf9c27c50011b0c428c"
+      "releaseNotes": "修复新一期周卡或月卡生效后，旧领取记录可能阻挡每日奖励领取的问题。自动领取沿用已有设置，兑换仍可能消耗欢乐豆。",
+      "packageUrl": "packages/daily-rewards/0.7.44.json",
+      "sha256": "7b80441564daca21e7a1a5e70d423fbe2f1b3169f07d90152c22e365133fa29d"
     },
     {
       "id": "seckill",
@@ -332,7 +332,7 @@
     {
       "id": "skins",
       "name": "皮肤管理",
-      "version": "0.4.56",
+      "version": "0.4.87",
       "icon": {
         "paths": [
           "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
@@ -344,12 +344,12 @@
         "tools"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.146",
+      "minCoreVersion": "0.6.159",
       "apiVersion": 1,
       "description": "整理皮肤收藏、下载原图和在本地切换牌局皮肤",
-      "releaseNotes": "可为本局武将选择一将成名服皮肤，并按需联网加载立绘、配音与部分动皮演出。皮肤与配音仅本机可见或可听。支持切换已应用皮肤的形态、收起本方武将名条及聊天输入行，亦可在一将成名动皮播放时自动收起。首次打开外服皮肤列表需要联网建立索引。",
-      "packageUrl": "packages/skins/0.4.56.json",
-      "sha256": "72d75c4295750e0dab56d1e830687db451c60a4b8b9db5e0068ec915cd1fcbd6"
+      "releaseNotes": "新增移动版皮肤入口，可按需联网加载静态原画、动皮、语音和部分特效。支持手动切换可用的多形态皮肤，以及选择支持的登场、技能特效和胜利配音。调整局内动皮和头像布局，修复势周瑜水火形态共用原画的显示问题。外服及导入皮肤只在自己这边显示或播放。资源加载和演出受来源及设备支持限制。",
+      "packageUrl": "packages/skins/0.4.87.json",
+      "sha256": "9b9309b3b999a17be6d5d2413622db189bdcfae51e76ec3b3325a23683457a28"
     },
     {
       "id": "stargazing",

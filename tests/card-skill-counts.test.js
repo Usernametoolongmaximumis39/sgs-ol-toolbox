@@ -22,7 +22,30 @@ test('dynamic limits retain previously counted one-use and zero-use states', () 
   assert.equal(skillCount(skill({ SkillId: 0x35a, SpecialModeDesc: '每回合限三次', TimelimitRound: 1 })).remaining, 2);
   assert.equal(skillCount(skill({ SkillId: 0xc4e, opFlag1: 1, Seat: { InDealRound: true, InOwnRound2: true } })).remaining, 1);
   assert.equal(skillCount(skill({ SkillId: 0xe62, Seat: { InDealRound: true, GetSkillBuffInfo: () => [4] } })).remaining, 3);
-  assert.equal(skillCount(skill({ SkillId: 0x3d9, TimelimitRound: 2, GetSkillUseCountInRound: () => 0, Seat: { InDealRound: true, GetStateValue: () => 0 } })).remaining, null);
+});
+test('Jie Jiang Wei displays the second Tiao Xin only when the native use state permits it', () => {
+  let used = 0, settled = 0;
+  const tiaoxin = skill({ SkillId: 985, SpecialModeDesc: '',
+    TimelimitRound: 2, GetSkillUseCountInRound: () => used,
+    Seat: { InDealRound: true, GetStateValue: key => key === 286 ? settled : undefined } });
+  assert.equal(skillCount(tiaoxin).remaining, 1);
+  used = 1;
+  settled = 1;
+  assert.equal(skillCount(tiaoxin).remaining, 1);
+  settled = 2;
+  assert.equal(skillCount(tiaoxin).remaining, 0);
+  used = 2;
+  settled = 1;
+  assert.equal(skillCount(tiaoxin).remaining, 0);
+  used = settled = 0;
+  assert.equal(skillCount(tiaoxin).remaining, 1);
+  used = undefined;
+  assert.equal(skillCount(tiaoxin).remaining, null);
+  used = 0;
+  settled = undefined;
+  assert.equal(skillCount(tiaoxin).remaining, null);
+  tiaoxin.Seat.InDealRound = false;
+  assert.equal(skillCount(tiaoxin), null);
 });
 test('RenChe displays the native play-phase limit from the first use, even at one', () => {
   let limit = 1, used = 0;

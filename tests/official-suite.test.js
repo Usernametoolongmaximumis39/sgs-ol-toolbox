@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { officialPluginIds, planOfficialPlugins } from '../src/market/official.js';
 import { fullBundledPackages, pluginReleases } from '../tools/plugin-packages.mjs';
+import microclientFull from '../microclient/bundled-plugins.json' with { type: 'json' };
 const catalog = () => officialPluginIds.map(id => ({ id, name: id, version: '1.0.0', ...(id === 'gaizhu' ? { dependencies: ['baisheng'] } : {}) }));
 test('official suite matches maintainer release identities and orders prerequisites', () => {
   assert.deepEqual([...officialPluginIds].sort(), pluginReleases.filter(p => !p.localOnly).map(p => p.id).sort());
   const plan = planOfficialPlugins([], [...catalog(), { id: 'community.example', version: '2.0.0' }]);
   assert.equal(plan.length, officialPluginIds.length);
+  assert.ok(plan.some(p => p.id === 'stargazing'));
   assert.ok(plan.findIndex(p => p.id === 'baisheng') < plan.findIndex(p => p.id === 'gaizhu'));
   assert.ok(!plan.some(p => p.id === 'community.example'));
 });
@@ -22,4 +24,10 @@ test('Shanhe Beta is available in the official suite without being bundled in Fu
   const bundled = fullBundledPackages(entries.map(manifest => ({ manifest }))).map(pkg => pkg.manifest.id);
   assert.ok(bundled.includes('shanhetu'));
   assert.ok(!bundled.includes('shanhetu-beta'));
+});
+
+test('Full browser and microclient both include stargazing', () => {
+  const bundled = fullBundledPackages(catalog().map(manifest => ({ manifest })));
+  assert.ok(bundled.some(pkg => pkg.manifest.id === 'stargazing'));
+  assert.ok(microclientFull.includes('stargazing'));
 });

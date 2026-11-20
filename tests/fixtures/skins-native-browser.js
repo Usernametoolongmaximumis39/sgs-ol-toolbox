@@ -1,5 +1,21 @@
 // Synthetic account/artwork. Original captured client methods are injected by
 // the browser check; no third-party game source is distributed with the plugin.
+export function measureSkinButtons(parent, firstName, secondName, boundary, axis) {
+  const { Laya } = window;
+  const point = (node, x, y) => node.localToGlobal(new Laya.Point(x, y), true);
+  const buttons = [firstName, secondName].map(name => {
+    const button = parent.getChildByName(name);
+    if (!button?.visible || !button.mouseEnabled) throw new Error(`Missing usable skin button ${name}`);
+    const topLeft = point(button, 0, 0);
+    const bottomRight = point(button, button.width, button.height);
+    const caption = button.getChildAt(0);
+    return { left: topLeft.x, top: topLeft.y, right: bottomRight.x, bottom: bottomRight.y,
+      click: point(button, button.width / 2, button.height / 2),
+      textFits: caption.textWidth <= button.width && caption.textHeight <= button.height };
+  });
+  return { buttons, boundary: point(boundary, 0, 0)[axis], parent: point(parent, 0, 0).x };
+}
+
 export function setupSkinFixture() {
   const L = window.Laya;
   L.init(1200, 850); L.stage.bgColor = '#151513';

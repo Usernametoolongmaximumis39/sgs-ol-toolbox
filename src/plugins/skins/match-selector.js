@@ -1,5 +1,6 @@
 import { textNode } from './controls.js';
 import { read } from './native-model.js';
+import { createNativeCatalogueButton } from './native-catalogue-button.js';
 
 const windows = new Set(['SelectSkinWindow', 'ChangeSkinWindow']);
 
@@ -25,59 +26,50 @@ function findSelector(stage) {
   return null;
 }
 
-function attachSelector(ctx, local, laya, owner, openYjcm, openForms) {
+function attachSelector(ctx, local, laya, owner, openYjcm, openForms, openMobile) {
   const view = owner.selectView, content = view.pannelContent, stage = laya.stage;
   const scene = ctx.game.getScene();
   const selectingGeneral = owner._className_ === 'SelectSkinWindow';
   const visible = () => !ctx.scope.signal.aborted && ctx.game.isInGame?.() && scene === ctx.game.getScene() &&
     owner.selectView === view && view.pannelContent === content && isVisible(owner, stage);
   const nativeEnabled = () => ctx.settings.get('unlockSkin', false) === true;
-  const yjcmEnabled = () => openYjcm && !selectingGeneral && ctx.settings.get('crossServer', false) === true;
-  const enabled = () => visible() && (nativeEnabled() || yjcmEnabled());
+  const crossEnabled = () => (openYjcm || openMobile) && !selectingGeneral && ctx.settings.get('crossServer', false) === true;
+  const enabled = () => visible() && (nativeEnabled() || crossEnabled());
   const generalId = () => Number(view.realGeneralID);
   const portraitTarget = () => local.ownPortraitTarget(Number(owner.generalID) || generalId());
   const actions = new Map();
   const theme = ctx.ui.nativeTheme;
-  let crossAction, closeCatalogue;
+  const crossActions = [];
+  let closeCatalogue;
   let palette = theme.palette;
-  function addCatalogueAction(panel) {
-    const button = new laya.Sprite();
-    button.name = 'sgs-yjcm-skin-selector';
-    button.size(112, 30);
-    button.pos(Math.max(10, panel.x), Math.max(6, Math.floor((panel.y - button.height) / 2)));
-    button.mouseEnabled = true;
-    button.zOrder = 40;
-    const label = textNode(laya, '一将成名皮肤', 0, 0, button.width, button.height, palette.text, 13);
-    button.addChild(label);
-    owner.addChild(button);
-    let hovered = false;
-    function paint() {
-      const focused = stage.focus === button;
-      theme.surface(button, { hover: hovered, selected: focused });
-      label.color = hovered || focused ? palette.accent : palette.text;
+  function layoutCatalogueActions(panel) {
+    if (!crossActions.length) for (const [open, name, text, width] of [
+      [openYjcm, 'sgs-yjcm-skin-selector', '一将成名皮肤', openMobile ? 96 : 112],
+      [openMobile, '__sgsSkinToolMobileEntry', '移动版皮肤', 86],
+    ]) {
+      if (!open) continue;
+      crossActions.push(createNativeCatalogueButton(laya, owner, theme, { name, text, width, height: 30, fontSize: 13 }, () => {
+        const target = visible() && crossEnabled() && portraitTarget();
+        if (!target) return;
+        for (const action of crossActions) action.paint();
+        closeCatalogue?.();
+        closeCatalogue = open({ target, onApply() {
+          if (!visible()) return;
+          view.clickCheck = false;
+          owner.Close();
+        } });
+      }));
     }
-    function choose() {
-      const target = visible() && yjcmEnabled() && portraitTarget();
-      if (!target) return;
-      closeCatalogue = openYjcm({ target, onApply() {
-        if (!visible()) return;
-        view.clickCheck = false;
-        owner.Close();
-      } });
+    let left = Math.max(10, panel.x);
+    for (const { button } of crossActions) {
+      button.pos(left, Math.max(6, Math.floor((panel.y - button.height) / 2)));
+      left += button.width + 6;
     }
-    button.on('click', button, event => { event?.stopPropagation?.(); choose(); });
-    button.on('mouseover', button, () => { hovered = true; paint(); });
-    button.on('mouseout', button, () => { hovered = false; paint(); });
-    paint();
-    return { button, choose, paint };
   }
-  function removeCatalogueAction() {
+  function removeCatalogueActions() {
     closeCatalogue?.();
     closeCatalogue = null;
-    if (!crossAction) return;
-    if (stage.focus === crossAction.button) stage.focus = null;
-    if (!crossAction.button.destroyed) crossAction.button.destroy(true);
-    crossAction = null;
+    for (const action of crossActions.splice(0)) action.dispose();
   }
   function show(card, option) {
     const button = new laya.Sprite(), badge = new laya.Sprite();
@@ -140,7 +132,7 @@ function attachSelector(ctx, local, laya, owner, openYjcm, openForms) {
   const unwatch = theme.watch(colors => {
     palette = colors;
     for (const action of actions.values()) action.paint();
-    crossAction?.paint();
+    for (const action of crossActions) action.paint();
   });
   const unpatch = ctx.scope.patch(view, 'closeSelectSure', original => function (...args) {
     if (scene === ctx.game.getScene()) {
@@ -151,8 +143,7 @@ function attachSelector(ctx, local, laya, owner, openYjcm, openForms) {
   });
   const offKeys = ctx.scope.listen(ctx.window, 'keydown', event => {
     if (!enabled() || event.defaultPrevented || event.composedPath()[0]?.closest?.('input,select,textarea,button,[contenteditable]')) return;
-    const items = [...actions.values()];
-    if (crossAction) items.push(crossAction);
+    const items = [...actions.values(), ...crossActions];
     const index = items.findIndex(action => stage.focus === action.button);
     if (index >= 0 && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault(); items[index].choose();
@@ -162,7 +153,7 @@ function attachSelector(ctx, local, laya, owner, openYjcm, openForms) {
         event.preventDefault();
         stage.focus = next.button;
         const panel = view.pannel, bar = panel?.vScrollBar;
-        if (next !== crossAction && bar && (next.button.y < bar.value || next.button.y + next.button.height > bar.value + panel.height)) bar.value = next.button.y;
+        if (next.option && bar && (next.button.y < bar.value || next.button.y + next.button.height > bar.value + panel.height)) bar.value = next.button.y;
         next.paint();
       } else stage.focus = null;
       items[index]?.paint();
@@ -170,8 +161,8 @@ function attachSelector(ctx, local, laya, owner, openYjcm, openForms) {
   });
   return { enabled, check() {
     const panel = view.pannel;
-    if (yjcmEnabled() && panel?.y >= 36 && portraitTarget()) crossAction ||= addCatalogueAction(panel);
-    else removeCatalogueAction();
+    if (crossEnabled() && panel?.y >= 36 && portraitTarget()) layoutCatalogueActions(panel);
+    else removeCatalogueActions();
     const canChoose = nativeEnabled() && (selectingGeneral || local.hasOwnGeneral(generalId()));
     if (!Array.isArray(view.list)) return;
     const cards = new Map();
@@ -194,23 +185,23 @@ function attachSelector(ctx, local, laya, owner, openYjcm, openForms) {
     }
   }, dispose() {
     offKeys(); unpatch(); unwatch();
-    removeCatalogueAction();
+    removeCatalogueActions();
     for (const [card, action] of actions) remove(card, action);
   } };
 }
 
-export function createMatchSkinSelector(ctx, local, openYjcm, openForms) {
+export function createMatchSkinSelector(ctx, local, openYjcm, openForms, openMobile) {
   let attached;
   function check() {
     if (attached && !attached.enabled()) { attached.dispose(); attached = null; }
     if (!attached && !ctx.scope.signal.aborted && ctx.game.isInGame?.() &&
-        (ctx.settings.get('unlockSkin', false) === true || (openYjcm && ctx.settings.get('crossServer', false) === true))) {
+        (ctx.settings.get('unlockSkin', false) === true || ((openYjcm || openMobile) && ctx.settings.get('crossServer', false) === true))) {
       const laya = ctx.window.Laya ?? ctx.window.laya;
       if (!laya?.Sprite || !laya.Text || !ctx.ui.nativeTheme?.surface) return;
       const owner = findSelector(laya.stage);
       if (owner && typeof owner.selectView.closeSelectSure === 'function' &&
           (owner._className_ === 'ChangeSkinWindow' || ctx.settings.get('unlockSkin', false) === true)) {
-        attached = attachSelector(ctx, local, laya, owner, openYjcm, openForms);
+        attached = attachSelector(ctx, local, laya, owner, openYjcm, openForms, openMobile);
       }
     }
     attached?.check();

@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
+import { zipSync, strToU8 } from 'fflate';
 import { nativeWallpaperFixture } from './native-wallpaper-fixture.mjs';
+import { makeMobileBootstrapLibrary, mobileBootstrapFixture } from '../tests/fixtures/mobile-config-bootstrap.js';
+import { makeMobileConfigRelease } from '../tests/fixtures/mobile-config-release.js';
 
 const engine = process.env.SGS_LAYA_CORE || path.join(process.env.TEMP, 'sgsres/game/laya.core.min.js');
 const clientPath = process.env.SGS_CLIENT_SOURCE || path.join(process.env.TEMP, 'sgs-client/game/sgsGame_a.sgs');
@@ -13,6 +17,7 @@ const officialSeatDir = process.env.SGS_YJCM_SEAT_FIXTURES;
 const officialPreviewDir = process.env.SGS_YJCM_PREVIEW_FIXTURES;
 const officialFormDir = process.env.SGS_YJCM_FORM_FIXTURES;
 const officialMotionDir = process.env.SGS_YJCM_MOTION_FIXTURES;
+const mobileMotionZip = process.env.SGS_MOBILE_MOTION_FIXTURE && await readFile(process.env.SGS_MOBILE_MOTION_FIXTURE);
 const client = await readFile(clientPath, 'utf8');
 const extract = name => { const start = client.indexOf(`class ${name} extends`), end = client.indexOf('class ', start + 10); assert.ok(start >= 0 && end > start); return client.slice(start, end); };
 const cii = extract('cii'), newPage = extract('_ii'), panelClass = extract('lk');
@@ -20,6 +25,7 @@ const { nativeMethod } = await nativeWallpaperFixture(clientPath);
 const seatSkin = nativeMethod('Kjt', 'SetSkin');
 const staticSkin = ['loadSkinComplete', 'playEffect', 'clearEffect', 'clearTempStaticSkin'].map(name => nativeMethod('Kjt', name));
 const seatAudio = ['PlaySkillSound', 'PlaySkillHurtSound', 'PlayDeadSound', 'GetSkinStyleByGeneralID'].map(name => nativeMethod('Xas', name));
+const mvpAudio = ['showMvpEgg', 'playRandomSound'].map(name => nativeMethod('O_s', name));
 const seatSkillOwner = ['GetGeneralBySkillIdOnlyId', 'GetGeneralBySkillId', 'GetSkillFromWhichGeneral'].map(name => nativeMethod('Xas', name));
 const seatFormTrigger = nativeMethod('Xas', 'OnChangeOriSkinBySkill');
 const skillAudio = ['GetSoundUrl', 'SoundSkinID', 'getSkillSoundUrl'].map(name => nativeMethod('iZt', name));
@@ -49,6 +55,7 @@ async function auditionFixture(filename) {
 }
 const bundle = await build({ stdin: { contents: `
   export { ResourceScope } from './src/core/resources.js';
+  export { createMobileSkinDownload } from './src/core/mobile-skin-download.js';
   export { createNativeTheme } from './src/ui/native-theme.js';
   export { enhanceSkinWindow, createNativeSkins } from './src/plugins/skins/native.js';
   export { createLocalSkins } from './src/plugins/skins/local.js';
@@ -59,7 +66,7 @@ const bundle = await build({ stdin: { contents: `
   export { createYjcmPicker } from './src/plugins/skins/yjcm-picker.js';
   export { createGeneralSkinsEntry } from './src/plugins/skins/general-skins-entry.js';
   export { renderSkinPanel } from './src/plugins/skins/panel.js';
-  export { setupSkinFixture, createSkinFixtureOwner, provideSkinChromeTextures } from './tests/fixtures/skins-native-browser.js';
+  export { setupSkinFixture, createSkinFixtureOwner, provideSkinChromeTextures, measureSkinButtons } from './tests/fixtures/skins-native-browser.js';
 `, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'NativeSkinCheck' });
 const output = path.resolve(process.env.SGS_SKINS_BROWSER_OUTPUT || 'test-results/skins');
 await mkdir(output, { recursive: true });
@@ -67,13 +74,19 @@ const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const page = await browser.newPage({ viewport: { width: 1200, height: 850 } });
 const yjcmSource = JSON.parse(await readFile(new URL('../tests/fixtures/yjcm-source.json', import.meta.url), 'utf8'));
 const errors = []; page.on('pageerror', error => errors.push(error.message));
+function assertButtonPair([yjcm, mobile], surface) {
+  assert.ok(mobile.left > yjcm.right, `${surface}: mobile follows Yjcm on the right`);
+  assert.ok(Math.abs(mobile.top - yjcm.top) < 1 && Math.abs(mobile.bottom - yjcm.bottom) < 1,
+    `${surface}: both buttons stay in one row with equal height`);
+  assert.ok(yjcm.textFits && mobile.textFits, `${surface}: both labels fit`);
+}
 try {
   await page.route('https://skins-fixture.test/', route => route.fulfill({
     contentType: 'text/html', body: '<html><body style="margin:0;background:#151513"></body></html>',
   }));
   await page.goto('https://skins-fixture.test/');
   await page.addScriptTag({ path: engine }); await page.addScriptTag({ content: bundle.outputFiles[0].text });
-  if (officialMotionDir) {
+  if (officialMotionDir || mobileMotionZip) {
     for (const file of ['laya.ani.min.js', 'spine-core-4.0.min.js', 'laya.spine.min.js']) {
       await page.addScriptTag({ path: path.join(path.dirname(engine), file) });
     }
@@ -85,7 +98,7 @@ try {
   await page.evaluate(source => { window.yjcmSourceFixture = source; }, yjcmSource);
   await page.addScriptTag({ content: `window.CapturedSkinPage=(${cii});window.CapturedNewSkinPage=(${newPage});window.CapturedSkinPanel=(${panelClass});window.capturedSetSkin=({${seatSkin}}).SetSkin;` });
   await page.addScriptTag({ content: `window.capturedStaticSkin={${staticSkin.join(',')}};` });
-  await page.addScriptTag({ content: `window.capturedSeatAudio={${seatAudio.join(',')}};window.capturedSeatForms={${seatFormTrigger}};window.capturedSkillAudio={${skillAudio.join(',')}};window.capturedSkinEffects={${skinEffects.join(',')}};` });
+  await page.addScriptTag({ content: `window.capturedSeatAudio={${seatAudio.join(',')}};window.capturedMvpAudio={${mvpAudio.join(',')}};window.capturedSeatForms={${seatFormTrigger}};window.capturedSkillAudio={${skillAudio.join(',')}};window.capturedSkinEffects={${skinEffects.join(',')}};` });
   await page.addScriptTag({ content: `window.capturedSeatSkillOwner={${seatSkillOwner.join(',')}};` });
   await page.addScriptTag({ content: `window.capturedRoundEffects={${roundEffects.join(',')}};` });
   await page.addScriptTag({ content: `window.capturedDebutEffects={${debutEffects.join(',')}};` });
@@ -700,9 +713,13 @@ try {
         { a: 34, c: '后来获得' }, { a: 35, c: '牌面第四技' }, { a: 36, c: '龙胆' },
         { a: 3913, c: '权计' }, { a: 3914, c: '自立', m: '3915' }, { a: 3915, c: '排异' }] } } };
     const runtimeIndex = { loads: 0, finish: null };
+    class GameMvpFixture {}
+    Object.assign(GameMvpFixture.prototype, capturedMvpAudio);
     const game = { getScene: () => scene, getSeatUIs: () => draft ? [] : [ui], isInGame: () => true,
       getSelfSeatUI: () => draft ? null : ui,
       getSelf: () => ({ ClientId: accountId }), getConfigData: name => deferSkills ? null : tables[name],
+      supportsMobileSkinConfig: true,
+      downloadMobileSkinAsset: NativeSkinCheck.createMobileSkinDownload(window, scope),
       loadConfigData: name => {
         if (name !== 'yjcm-skins') return configReady ?? Promise.resolve();
         if (++runtimeIndex.loads === 1) return Promise.reject(new Error('演练配置暂不可用'));
@@ -711,13 +728,17 @@ try {
       },
       getClass: name => name === 'GeneralSkinManager' ? {
         GetOnlineSKinList: () => catalogue, GetSkinListBySkinID: () => [],
-      } : null };
+      } : name === 'GameMvpWindow' ? GameMvpFixture : null };
     const played = [];
     seat.PlaySkillSound = capturedSeatAudio.PlaySkillSound;
     seat.PlaySkillHurtSound = capturedSeatAudio.PlaySkillHurtSound;
     seat.PlayDeadSound = capturedSeatAudio.PlayDeadSound;
     seat.general = seat.General;
+    seat.Index ??= 0;
     seat.GetGeneralBySkillIdOnlyId = () => seat.General;
+    const ownerOfSkill = seat.GetSkillFromWhichGeneral;
+    seat.GetSkillFromWhichGeneral = skillId => skillId === 8 ? null : ownerOfSkill.call(seat, skillId);
+    scope.add(() => { seat.GetSkillFromWhichGeneral = ownerOfSkill; });
     seat.OnChangeOriSkinBySkill ??= () => {};
     const nativeTheme = NativeSkinCheck.createNativeTheme({ scope, window });
     const ctx = { window, document, scope, settings, game, ui: { nativeTheme }, notify: message => notices.push(message) };
@@ -728,7 +749,8 @@ try {
     settings.set('unlockDynamic', true);
     const openForms = NativeSkinCheck.createFormPicker(ctx);
     const openYjcm = NativeSkinCheck.createYjcmPicker(ctx, local, openForms);
-    const check = NativeSkinCheck.createMatchSkinSelector(ctx, local, openYjcm, openForms);
+    const openMobile = options => openYjcm(options, 'mobile');
+    const check = NativeSkinCheck.createMatchSkinSelector(ctx, local, openYjcm, openForms, openMobile);
     window.V2t = { SceneRightWidth: 0, get SelfSeat() { return draft ? {} : seat; }, GetModeType: () => 0, ChecHasShareSkin: () => false };
     window.Us = { IsGuildMatch: () => false, IsTZGJ: () => false, IsLuanDou: () => false };
     window.iA = { SET: 0 };
@@ -775,17 +797,33 @@ try {
       }
       Laya.stage.addChild(owner); check();
       window.matchSelectorFixture.owner = owner;
+      window.matchSelectorFixture.title = title;
     }
-    window.matchSelectorFixture = { scope, settings, calls, notices, avatar, mask, ui, game, local, check, open, openYjcm, played,
+    window.matchSelectorFixture = { scope, settings, calls, notices, avatar, mask, ui, game, local, check, open, openYjcm, openForms, played,
       mountToolbox() {
         const root = document.createElement('div');
         root.style.cssText = 'position:absolute;right:20px;top:20px;width:248px;padding:10px;background:#252119;color:#eee3cc';
         document.body.append(root);
-        const off = NativeSkinCheck.renderSkinPanel(ctx, local, check, root, openYjcm, openForms);
+        const off = NativeSkinCheck.renderSkinPanel(ctx, local, check, root, openYjcm, openForms, openMobile);
         scope.add(() => { off(); root.remove(); });
       },
       enableDualNative() {
         Object.assign(catalogue[0], { IsManyStateDyskin: true, NewSkinJudge: 2, ConMessage: '小于3血切换形态2' });
+      },
+      enableConversion() {
+        const spells = tables.cha_spell.GameSpells.spell;
+        spells.find(spell => spell.a === 32).m = '37';
+        spells.push({ a: 37, b: '3,13', c: '演练衍生转换技' });
+        const conversion = { ID: 37, IsSwitchSkill: true, switchValue: 1, get IsSecondState() { return this.switchValue === 2; } };
+        const dataSwitch = { StateSkillId: 37, Value: 1 };
+        seat.GetSeatState = id => id === 251 ? dataSwitch : null;
+        seat.GetGeneralSkill = id => id === 37 ? conversion : null;
+        seat.General.GetSkill = seat.GetGeneralSkill;
+        this.changeConversion = value => {
+          dataSwitch.Value = value;
+          conversion.switchValue = value;
+          seat.event('UPDATE_SWITCH_SKILL');
+        };
       },
       confirmSkill(id) { seat.OnChangeOriSkinBySkill(101, id); },
       reveal() { draft = false; local.refresh(); },
@@ -865,6 +903,35 @@ try {
         this.reveal();
       },
       useSkill(id, event) { seat.PlaySkillSound({ ID: id, IsGeneral: true, GetSoundUrl: () => 'native:' + id }, undefined, event); },
+      useCardVoice(name, event, source = 'card') {
+        const before = played.length;
+        seat.PlaySkillSound({ ID: 8, IsGeneral: false, SkillName: name, GetSoundUrl: () => 'native:card:' + name }, source, event);
+        return played.splice(before).at(-1);
+      },
+      playMvp({ egg = true, seatId = seat.Index, generalId = seat.General.CardId } = {}) {
+        const match = { MvpResult: { SeatID: seatId, GeneralId: generalId } };
+        const window = Object.assign(new GameMvpFixture(), { gameResult: match, generalID: generalId });
+        const stubs = {
+          DM: { I: () => ({ GetMvpEgg: () => egg ? { AMusicArr: ['native:mvp-egg'] } : null }) },
+          lr: { Init() {}, RandomFromSync: () => 0 },
+          Ps: { I: () => ({ makeUpRootResouceToUrl: (_path, file) => file.slice(0, -4) }) },
+          BNt: { I: () => ({ GetRandomGeneralSkillSoundURL: () => 'native:mvp-random' }) },
+        };
+        const original = Object.fromEntries(Object.keys(stubs).map(name => [name, globalThis[name]]));
+        const playSound = Laya.SoundManager.playSound;
+        const mvp = [];
+        const before = played.length;
+        Object.assign(globalThis, stubs);
+        Laya.SoundManager.playSound = url => { mvp.push(url); return { stop() {} }; };
+        try {
+          window.showMvpEgg(generalId);
+          window.playRandomSound();
+          return [played.splice(before), mvp];
+        } finally {
+          Object.assign(globalThis, original);
+          Laya.SoundManager.playSound = playSound;
+        }
+      },
       useDamageSkill(id, sound) { seat.PlaySkillHurtSound({ ID: id, IsGeneral: true, GetHurtSoundUrl: () => sound }); },
       useDeath() { seat.PlayDeadSound(seat.General); },
       action() { return this.owner.selectView.pannelContent.getChildByName('sgs-local-skin-10102'); } };
@@ -931,6 +998,115 @@ try {
     g.fillStyle = '#e7bd69'; g.fillRect(110, 55, 100, 245);
     return [big, seat, sparseSeat, head, image.toDataURL().split(',')[1]];
   })).map(uri => Buffer.from(uri, 'base64'));
+  const cors = { 'access-control-allow-origin': '*' };
+  const md5 = body => createHash('md5').update(body).digest('hex');
+  const cloudRoot = 'https://mres.sanguosha.cn/update_cloud/public/';
+  const cloudRequests = [];
+  const configRequests = [];
+  const mobileFilterGenerals = [
+    [9761, '诸葛亮'], [9762, '界·诸葛亮'], [9763, '星诸葛亮'],
+    [9764, '谋·诸葛亮'], [9765, '势诸葛亮'], [9766, '魔·诸葛亮'],
+  ];
+  let configRelease = makeMobileConfigRelease({ generals: mobileFilterGenerals }), configUnavailable = false;
+  const installerRoot = mobileBootstrapFixture.installerRoot;
+  const installerPath = installerRoot + mobileBootstrapFixture.filename;
+  const installer = Buffer.from(zipSync({ [mobileBootstrapFixture.member]: makeMobileBootstrapLibrary() }));
+  const rangeCors = { ...cors, 'access-control-allow-headers': 'range', 'access-control-allow-methods': 'GET, OPTIONS',
+    'access-control-expose-headers': 'content-range' };
+  await page.route(installerRoot + 'gameInfo.json', route => {
+    configRequests.push('installer');
+    return route.fulfill({ headers: cors, json: { zip_info: { file_name: mobileBootstrapFixture.filename,
+      md5: mobileBootstrapFixture.digest, size: installer.length } } });
+  });
+  await page.route(installerPath, async route => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: rangeCors });
+    const header = await route.request().headerValue('range');
+    const range = /^bytes=(\d*)-(\d+)$/.exec(header);
+    assert.ok(range, 'installer is only requested in ranges');
+    const start = range[1] ? Number(range[1]) : Math.max(0, installer.length - Number(range[2]));
+    const end = range[1] ? Number(range[2]) : installer.length - 1;
+    configRequests.push('range');
+    return route.fulfill({ status: 206, headers: { ...rangeCors,
+      'content-range': `bytes ${start}-${end}/${installer.length}` }, body: installer.subarray(start, end + 1) });
+  });
+  await page.route('https://waym.sanguosha.cn/config/?**', route => {
+    configRequests.push('metadata');
+    assert.equal(new URL(route.request().url()).searchParams.get('key_v'), mobileBootstrapFixture.keyVersion);
+    return configUnavailable ? route.fulfill({ status: 503, headers: cors }) : route.fulfill({ headers: cors, json: configRelease.metadata });
+  });
+  await page.route(url => url.origin === 'https://mres.sanguosha.cn' && /^\/{1,2}config\//.test(url.pathname), route => {
+    const url = route.request().url(), archive = configRelease.archives.get(url);
+    assert.ok(archive, `requested the published configuration ZIP ${url}`);
+    configRequests.push('shard');
+    return route.fulfill({ headers: cors, contentType: 'application/zip', body: Buffer.from(archive) });
+  });
+  const dict = [];
+  const mobileCardClip = Buffer.from(silentClip), mobileUnidentifiedClip = Buffer.from(silentClip);
+  const guanYuCardClip = Buffer.from(silentClip), victoryClip = Buffer.from(silentClip);
+  mobileCardClip[mobileCardClip.length - 1] = 129;
+  mobileUnidentifiedClip[mobileUnidentifiedClip.length - 1] = 130;
+  guanYuCardClip[guanYuCardClip.length - 1] = 135;
+  victoryClip[victoryClip.length - 1] = 139;
+  const formDeaths = ['', '#1', '#2'].map((suffix, index) => {
+    const clip = Buffer.from(silentClip);
+    clip[clip.length - 1] = 136 + index;
+    return [`audio/dead/die${suffix ? 'skin' : ''}_83501${suffix}.mp3`, clip, 'audio/mpeg'];
+  });
+  const formSkills = ['huwei', 'zili', 'tiaoxin'].map((skill, index) => {
+    const clip = Buffer.from(silentClip);
+    clip[clip.length - 1] = 140 + index;
+    return [`audio/skill/SKILL_83501${index ? '#' + index : ''}_${skill}_1.mp3`, clip, 'audio/mpeg'];
+  });
+  const jiangWeiClips = ['huitian', 'shenpei', 'tiantao', 'xingzhen'].map((code, index) => {
+    const clip = Buffer.from(silentClip);
+    clip[clip.length - 1] = 131 + index;
+    return [`audio/skill/SKILL_87002_${code}_1.mp3`, clip, 'audio/mpeg'];
+  });
+  for (const [resource, body, contentType] of [
+    ['ui/bface/skin/1805_1.jpg', windowArt, 'image/jpeg'],
+    ['ui/face/skin/1805.png', seatArt, 'image/png'],
+    ['ui/icon/skin/1805.png', head, 'image/png'],
+    ['ui/face/skin/94401.png', seatArt, 'image/png'],
+    ['audio/skill/SKILL_1805_tuxi_1.mp3', silentClip, 'audio/mpeg'],
+    ['audio/skill/SKILL_1805_juedou_1.mp3', mobileCardClip, 'audio/mpeg'],
+    ['audio/skill/SKILL_1805_9999_1.mp3', mobileUnidentifiedClip, 'audio/mpeg'],
+    ['ui/face/skin/5203.png', head, 'image/png'],
+    ['ui/face/skin/87001.png', head, 'image/png'],
+    ['ui/face/skin/87002.png', sparseSeat, 'image/png'],
+    ['ui/face/char/577.png', seatArt, 'image/png'],
+    ['ui/bface/char/577_1.jpg', windowArt, 'image/jpeg'],
+    ['ui/icon/char/577.png', head, 'image/png'],
+    ...mobileFilterGenerals.map(([id]) => [`ui/face/char/${id}.png`, head, 'image/png']),
+    ['ui/face/skin/30011.png', seatArt, 'image/png'],
+    ['ui/face/skin/30012.png', seatArt, 'image/png'],
+    ['ui/face/skin/30012#1.png', bigArt, 'image/png'],
+    ['ui/face/skin/83501.png', seatArt, 'image/png'],
+    ['ui/face/skin/83501#1.png', bigArt, 'image/png'],
+    ['ui/face/skin/83501#2.png', windowArt, 'image/png'],
+    ['audio/skill/SKILL_30011_juedou_1.mp3', guanYuCardClip, 'audio/mpeg'],
+    ['audio/victory/victskin_30011.mp3', victoryClip, 'audio/mpeg'],
+    ['audio/skill/SKILL_83501_juedou_1.mp3', guanYuCardClip, 'audio/mpeg'],
+    ...jiangWeiClips, ...formDeaths, ...formSkills,
+    ...(mobileMotionZip ? [['ui/face/skin/10305.png', seatArt, 'image/png'],
+      ['ui/face/skin/dynamicSkin/10305_1.zip', mobileMotionZip, 'application/zip']] : []),
+  ]) {
+    const parsed = path.posix.parse(resource), code = md5(body);
+    const file = `${parsed.dir}/${code}${parsed.ext}`;
+    dict.push(`        ["${resource}"] = {file="${file}",code="${code}",size=${body.length}},`);
+    await page.route(cloudRoot + file, route => {
+      cloudRequests.push(resource);
+      return route.fulfill({ headers: cors, contentType, body });
+    });
+  }
+  const cloudZip = Buffer.from(zipSync({ cloud: strToU8(`return {\n    version = "461009",\n    dic = {\n${dict.join('\n')}\n    }\n}\n`) }));
+  await page.route('https://waym.sanguosha.cn/update/cloud.php', route => {
+    cloudRequests.push('version');
+    return route.fulfill({ headers: cors, json: { cloud: { version: '461009', md5: md5(cloudZip), url: cloudRoot } } });
+  });
+  await page.route(cloudRoot + 'cloud_461009.zip', route => {
+    cloudRequests.push('zip');
+    return route.fulfill({ headers: cors, contentType: 'application/zip', body: cloudZip });
+  });
   const cachePage = await browser.newPage();
   try {
     const requests = new Map();
@@ -1052,8 +1228,36 @@ try {
     return { x: point.x, y: point.y, aboveList: button.y + button.height <= owner.selectView.pannel.y };
   });
   assert.equal(crossButton.aboveList, true);
+  const mobilePicker = page.locator('[data-sgs-mobile-skins]');
+  const mobileResults = mobilePicker.locator('.results');
+  const selectedMobileSkin = mobileResults.locator('.result[aria-pressed=true]');
+  const mobileQuery = mobilePicker.getByRole('searchbox', { name: '搜索移动版武将名、皮肤名或编号' });
+  const mobileRow = mobileResults.getByRole('button', { name: /登锋陷阵.*1805/ });
+  const mobileClose = mobilePicker.getByRole('button', { name: '关闭' });
+  for (const [scaleX, scaleY] of [[1, 1], [.72, .72], [1.13, .85]]) {
+    const pair = await page.evaluate(({ scaleX, scaleY }) => {
+      const { owner, title, check } = matchSelectorFixture;
+      owner.scale(scaleX, scaleY);
+      check();
+      const geometry = NativeSkinCheck.measureSkinButtons(owner, 'sgs-yjcm-skin-selector', '__sgsSkinToolMobileEntry', title, 'x');
+      geometry.listTop = owner.selectView.pannel.localToGlobal(new Laya.Point(), true).y;
+      return geometry;
+    }, { scaleX, scaleY });
+    assertButtonPair(pair.buttons, `match selector at ${scaleX} × ${scaleY}`);
+    assert.ok(pair.buttons[1].right <= pair.boundary && pair.buttons[1].bottom <= pair.listTop,
+      'match entries stay clear of the title and the skin list');
+    if (scaleX < 1) {
+      await page.mouse.click(pair.buttons[1].click.x, pair.buttons[1].click.y);
+      await mobilePicker.getByRole('heading', { name: '移动版皮肤' }).waitFor();
+      assert.equal(await mobileQuery.inputValue(), '曹操');
+      await mobileClose.click();
+      await mobilePicker.waitFor({ state: 'detached' });
+    }
+  }
+  await page.evaluate(() => { matchSelectorFixture.owner.scale(1, 1); Laya.stage.focus = null; });
   await page.screenshot({ path: path.join(output, 'yjcm-native-entry.png') });
   const picker = page.locator('[data-sgs-yjcm-skins]');
+  const crossResults = picker.locator('.results');
   const query = picker.getByRole('searchbox', { name: '搜索所属武将' });
   const apply = picker.getByRole('button', { name: '使用皮肤' });
   const fullPictures = () => pictureRequests.filter(request => /^(seat\/static|big\/static|maxBig)\//.test(request));
@@ -1074,7 +1278,7 @@ try {
   }, { value: png.toString('base64'), points });
   async function chooseSkin() {
     await query.fill('刘备');
-    const row = picker.getByRole('button', { name: /青梅煮酒.*200102/ });
+    const row = crossResults.getByRole('button', { name: /青梅煮酒.*200102/ });
     await row.scrollIntoViewIfNeeded();
     const thumb = row.locator('img:not([hidden])');
     await thumb.waitFor();
@@ -1090,6 +1294,10 @@ try {
     assert.deepEqual(fullPictures().slice(-2), ['seat/static/200102.png', 'big/static/200102.png']);
   }
   await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(() => Laya.stage.focus?.name), 'sgs-yjcm-skin-selector');
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(() => Laya.stage.focus?.name), '__sgsSkinToolMobileEntry');
+  await page.keyboard.press('Shift+Tab');
   assert.equal(await page.evaluate(() => Laya.stage.focus?.name), 'sgs-yjcm-skin-selector');
   assert.equal(await page.evaluate(() => yjcmRuntimeIndexFixture.loads), 0);
   await page.keyboard.press('Enter');
@@ -1168,7 +1376,7 @@ try {
   await picker.locator('img:not([hidden])').first().waitFor();
   await page.screenshot({ path: path.join(output, 'yjcm-search-results.png') });
   await query.fill('界夏侯惇');
-  await picker.getByRole('button', { name: /经典形象.*夏侯惇.*101801/ }).click();
+  await crossResults.getByRole('button', { name: /经典形象.*夏侯惇.*101801/ }).click();
   const mergedVoices = picker.getByRole('group', { name: '外服技能' });
   assert.equal(await mergedVoices.getByRole('button', { name: '刚烈', exact: true }).count(), 1);
   assert.equal(await mergedVoices.getByRole('button', { name: '清俭', exact: true }).count(), 1);
@@ -1233,6 +1441,26 @@ try {
   assert.equal(await page.evaluate(() => matchSelectorFixture.calls.filter(([type]) => type === 'skin').length), 1);
   await page.evaluate(() => matchSelectorFixture.mountToolbox());
   const toolboxEntry = page.getByRole('button', { name: '一将成名皮肤' });
+  const mobileToolboxEntry = page.getByRole('button', { name: '移动版皮肤' });
+  for (const width of [248, 280, 420]) for (const offset of [-2, -1, 0, 2]) {
+    const pair = await mobileToolboxEntry.evaluate((mobile, { width, offset }) => {
+      const panel = mobile.closest('[data-sgs-skin-settings]');
+      const container = panel.parentElement;
+      const first = panel.querySelector('.skin-yjcm');
+      container.style.width = width + 'px';
+      container.style.fontSize = 14 + offset + 'px';
+      const bounds = [first, mobile].map(button => ({ ...button.getBoundingClientRect().toJSON(),
+        textFits: button.scrollWidth <= button.clientWidth + 1 && getComputedStyle(button).whiteSpace === 'nowrap' }));
+      return { bounds, panelRight: panel.getBoundingClientRect().right };
+    }, { width, offset });
+    assertButtonPair(pair.bounds, `${width}px toolbox panel at ${14 + offset}px text`);
+    assert.ok(pair.bounds[1].right <= pair.panelRight + 1);
+  }
+  await mobileToolboxEntry.evaluate(mobile => {
+    const { style } = mobile.closest('[data-sgs-skin-settings]').parentElement;
+    style.width = '248px';
+    style.fontSize = '';
+  });
   await toolboxEntry.click();
   await chooseSkin();
   await visibleSeatPreview();
@@ -1244,6 +1472,299 @@ try {
   }), [false, true], 'closing the preview reveals the currently applied portrait');
   await page.getByRole('button', { name: '恢复原皮肤' }).click();
   assert.equal(await portrait(), false);
+  await mobileToolboxEntry.click();
+  await mobileQuery.fill('94401');
+  const mobileCardSwitch = mobilePicker.getByRole('switch', { name: '替换同名卡牌配音' });
+  const mobileMvpSwitch = mobilePicker.getByRole('switch', { name: '替换 MVP 语音' });
+  await mobileResults.getByRole('button', { name: /94401/ }).waitFor();
+  assert.equal(cloudRequests.filter(name => name === 'zip').length, 1, 'the verified cloud index is reused');
+  assert.equal(configRequests.filter(name => name === 'installer').length, 1, 'the install bootstrap is stored for later refreshes');
+  assert.ok(configRequests.includes('range') && configRequests.includes('shard'), `official configuration requests: ${configRequests.join(', ')}`);
+  assert.ok(!cloudRequests.some(name => name.startsWith('audio/')), 'browsing does not fetch voice files');
+  await mobileQuery.fill('诸葛亮');
+  const mobileGeneralFilters = mobilePicker.getByRole('group', { name: '按所属武将筛选' });
+  const mobileFilterRows = mobilePicker.locator('[data-result]');
+  const allMobileGenerals = mobileGeneralFilters.getByRole('button', { name: '全部', exact: true });
+  assert.deepEqual(await mobileGeneralFilters.getByRole('button').allTextContents(),
+    ['全部', '魔·诸葛亮', '势诸葛亮', '谋·诸葛亮', '星诸葛亮', '界·诸葛亮', '诸葛亮']);
+  assert.equal(await mobileFilterRows.count(), mobileFilterGenerals.length);
+  assert.equal(await allMobileGenerals.getAttribute('aria-pressed'), 'true');
+  await page.screenshot({ path: path.join(output, 'mobile-general-filter-order.png') });
+  for (const width of [420, 280, 248]) {
+    await page.setViewportSize({ width, height: 650 });
+    for (const offset of [-2, -1, 0, 2]) {
+      await mobilePicker.evaluate((host, size) => host.style.setProperty('--sgs-font-offset', `${size}px`), offset);
+      assert.ok(await mobileGeneralFilters.evaluate((filters, narrow) => {
+        const buttons = [...filters.children];
+        const top = buttons[0].getBoundingClientRect().top;
+        return (!narrow || filters.scrollWidth > filters.clientWidth) &&
+          buttons.every(button => Math.abs(button.getBoundingClientRect().top - top) < 1 &&
+            button.scrollWidth <= button.clientWidth + 1);
+      }, width === 248), `mobile general filters stay on one line at ${width}px and font offset ${offset}px`);
+    }
+  }
+  const jieMobileGeneral = mobileGeneralFilters.getByRole('button', { name: '界·诸葛亮', exact: true });
+  await jieMobileGeneral.click();
+  assert.equal(await jieMobileGeneral.getAttribute('aria-pressed'), 'true');
+  assert.equal(await mobileFilterRows.count(), 1);
+  assert.equal(await mobileFilterRows.locator('small').textContent(), '界·诸葛亮 · #char-9762');
+  assert.equal(await mobileQuery.inputValue(), '诸葛亮');
+  await page.screenshot({ path: path.join(output, 'mobile-general-filter-248.png') });
+  await allMobileGenerals.press('Enter');
+  assert.equal(await allMobileGenerals.getAttribute('aria-pressed'), 'true');
+  assert.equal(await mobileFilterRows.count(), mobileFilterGenerals.length);
+  await mobilePicker.evaluate(host => host.style.removeProperty('--sgs-font-offset'));
+  await page.setViewportSize({ width: 1200, height: 850 });
+  await mobileQuery.fill('87001');
+  await mobileResults.getByRole('button', { name: /神姜维.*87001/ }).waitFor();
+  await mobileQuery.fill('挥师北伐');
+  await mobileResults.getByRole('button', { name: /挥师北伐.*5203/ }).waitFor();
+  await mobileQuery.fill('张温');
+  await mobileResults.getByRole('button', { name: /经典形象.*张温.*char-577/ }).click();
+  await mobilePicker.getByRole('img', { name: '经典形象预览' }).waitFor();
+  assert.equal(await mobileCardSwitch.isVisible(), false, 'skins without card voices hide the replacement switch');
+  assert.ok(cloudRequests.includes('ui/bface/char/577_1.jpg'), 'classic artwork loads from the character catalogue');
+  assert.ok(cloudRequests.includes('ui/face/char/577.png'), 'the character portrait also previews on the seat');
+  await mobileQuery.fill('剑引天霖');
+  await mobileResults.getByRole('button', { name: /剑引天霖.*87002/ }).click();
+  await mobilePicker.getByRole('img', { name: '剑引天霖预览' }).waitFor();
+  const mobileSkills = mobilePicker.getByRole('group', { name: '外服技能' });
+  for (const name of ['回天', '神霈', '天涛', '星魂']) {
+    assert.equal(await mobileSkills.getByRole('button', { name, exact: true }).isVisible(), true);
+  }
+  assert.equal(await mobilePicker.locator('.voice-unidentified').isVisible(), false);
+  await mobileSkills.getByRole('button', { name: '星魂', exact: true }).click();
+  await mobilePicker.locator('.voice-playback[data-playing]').filter({ hasText: '星魂' }).waitFor();
+  assert.ok(cloudRequests.includes('audio/skill/SKILL_87002_xingzhen_1.mp3'));
+  await page.screenshot({ path: path.join(output, 'mobile-jiangwei-skill-names.png') });
+  await mobileQuery.fill('30011');
+  await mobileResults.getByRole('button', { name: /#30011$/ }).click();
+  const victory = mobilePicker.getByRole('button', { name: '试听胜利配音', exact: true });
+  assert.equal(await victory.isVisible(), true, 'victory audio can be played without expanding a list');
+  assert.ok(await mobileMvpSwitch.evaluate(input => {
+    const label = input.closest('label');
+    return label.previousElementSibling.matches('.voice-victory') &&
+      label.getBoundingClientRect().top >= label.previousElementSibling.getBoundingClientRect().bottom;
+  }));
+  await victory.press('Enter');
+  await mobilePicker.locator('.voice-playback[data-playing]').filter({ hasText: '胜利' }).waitFor();
+  assert.equal(await victory.getAttribute('aria-pressed'), null);
+  await page.screenshot({ path: path.join(output, 'mobile-official-victory-voice.png') });
+  await mobileClose.click();
+  configUnavailable = true;
+  await mobileToolboxEntry.click();
+  await mobileQuery.fill('87001');
+  await mobileResults.getByRole('button', { name: /神姜维.*87001/ }).waitFor();
+  await mobilePicker.getByText(/使用缓存/).waitFor();
+  await mobileClose.click();
+  configUnavailable = false;
+  configRelease = makeMobileConfigRelease({ title: '官方刷新演练', date: '202611200901', generals: mobileFilterGenerals });
+  await mobileToolboxEntry.click();
+  await mobileQuery.fill('87001');
+  await mobileResults.getByRole('button', { name: /官方刷新演练.*87001/ }).waitFor();
+  assert.equal(configRequests.filter(name => name === 'installer').length, 1);
+  await mobileQuery.fill('张辽');
+  await mobileRow.click();
+  await mobilePicker.getByRole('img', { name: '登锋陷阵预览' }).waitFor();
+  await visibleSeatPreview();
+  await mobilePicker.getByRole('button', { name: '突袭', exact: true }).click();
+  await mobilePicker.locator('.voice-playback[data-playing]').waitFor();
+  assert.match(await mobilePicker.locator('audio').getAttribute('src'), /^blob:/);
+  assert.ok(cloudRequests.includes('audio/skill/SKILL_1805_tuxi_1.mp3'));
+  const mobileCardAudio = mobilePicker.getByRole('button', { name: '决斗', exact: true });
+  const cardDetails = mobilePicker.locator('.voice-card');
+  assert.equal(await mobileCardSwitch.isChecked(), false);
+  assert.equal(await mobileMvpSwitch.isChecked(), false);
+  assert.equal(await mobileCardAudio.isVisible(), false);
+  assert.equal(await cardDetails.getAttribute('open'), null);
+  await cardDetails.locator('summary').focus();
+  await cardDetails.locator('summary').press('Enter');
+  await mobileCardAudio.click();
+  await mobilePicker.locator('.voice-playback[data-playing]').filter({ hasText: '决斗' }).waitFor();
+  assert.equal(await mobileCardAudio.getAttribute('aria-pressed'), null, 'card voices are outside skill bindings');
+  assert.equal(await mobilePicker.getByRole('button', { name: '突袭', exact: true }).getAttribute('aria-pressed'), 'true');
+  assert.ok(cloudRequests.includes('audio/skill/SKILL_1805_juedou_1.mp3'));
+  const unidentifiedDetails = mobilePicker.locator('.voice-unidentified');
+  assert.equal(await unidentifiedDetails.getAttribute('open'), null);
+  await unidentifiedDetails.locator('summary').click();
+  assert.equal(await unidentifiedDetails.getByRole('button', { name: '9999', exact: true }).isVisible(), true);
+  for (const width of [248, 280, 420]) {
+    await page.setViewportSize({ width: width + 24, height: 420 });
+    for (const offset of [-2, -1, 0, 2]) {
+      assert.equal(await mobilePicker.evaluate((host, { width, offset }) => {
+        host.style.setProperty('--sgs-font-offset', offset + 'px');
+        const dialog = host.shadowRoot.querySelector('dialog');
+        const body = dialog.querySelector('.body');
+        const art = dialog.querySelector('.art');
+        const image = art.querySelector('img');
+        return Math.abs(dialog.getBoundingClientRect().width - width) < 1 &&
+          parseFloat(getComputedStyle(dialog).fontSize) === 14 + offset && body.scrollWidth <= body.clientWidth + 1 &&
+          image.getBoundingClientRect().width <= art.getBoundingClientRect().width + 1 && getComputedStyle(image).objectFit === 'contain';
+      }, { width, offset }), true, `mobile preview fits at ${width}px and font offset ${offset}px`);
+    }
+    if (width === 248) {
+      await mobilePicker.locator('.body').evaluate(node => { node.scrollTop = 0; });
+      await page.screenshot({ path: path.join(output, 'mobile-skins-picker-248.png') });
+      await mobileCardAudio.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: path.join(output, 'mobile-card-voice-248.png') });
+    }
+  }
+  await page.setViewportSize({ width: 1200, height: 850 });
+  await mobilePicker.getByRole('button', { name: '使用皮肤' }).click();
+  await mobilePicker.waitFor({ state: 'detached' });
+  assert.equal(await portrait(), true);
+  assert.equal(await page.evaluate(() => matchSelectorFixture.settings.get('localSkin.1001.101').kind), 'mobile');
+  assert.equal(await page.evaluate(() => matchSelectorFixture.calls.filter(([type]) => type === 'skin').length), 1,
+    'mobile skin stays local');
+  assert.equal(cloudRequests.filter(name => name === 'audio/skill/SKILL_1805_juedou_1.mp3').length, 1,
+    'card voice is not preloaded with replacement disabled');
+  assert.ok(!cloudRequests.includes('audio/skill/SKILL_1805_9999_1.mp3'), 'unbound unknown clips are not preloaded');
+  assert.equal(await page.evaluate(() => matchSelectorFixture.useCardVoice('决斗')), 'native:card:决斗');
+  assert.deepEqual(await page.evaluate(() => matchSelectorFixture.playMvp()), [['native:mvp-egg'], []]);
+  assert.deepEqual(await page.evaluate(() => matchSelectorFixture.playMvp({ egg: false })), [['native:mvp-random'], []]);
+  assert.deepEqual(await page.evaluate(() => {
+    const { avatar, local } = matchSelectorFixture;
+    const original = [avatar.width, avatar.height];
+    const geometry = [];
+    for (const [width, height] of [original, [102, 148], [160, 160]]) {
+      avatar.size(width, height);
+      local.refresh();
+      const sprite = avatar.getChildByName('sgs-local-skin-portrait');
+      const draw = sprite.graphics.cmds?.[0] ?? sprite.graphics._one;
+      geometry.push([sprite.scrollRect.width, sprite.scrollRect.height, draw.width >= width - 1 && draw.height >= height - 1,
+        Math.abs(draw.width / draw.height - draw.texture.width / draw.texture.height) < .01]);
+    }
+    avatar.size(...original);
+    local.refresh();
+    return geometry;
+  }), [[130, 180, true, true], [102, 148, true, true], [160, 160, true, true]],
+  'mobile art scales proportionally and covers the native seat at different aspect ratios');
+  await page.screenshot({ path: path.join(output, 'mobile-skins-avatar.png'), clip: { x: 1016, y: 616, width: 138, height: 188 } });
+  await page.getByRole('button', { name: '恢复原皮肤' }).click();
+  assert.equal(await portrait(), false);
+  await mobileToolboxEntry.click();
+  await mobileQuery.fill('张辽');
+  await mobileRow.click();
+  await mobilePicker.getByRole('button', { name: '一键绑定' }).click();
+  await mobileCardSwitch.check();
+  await mobileMvpSwitch.check();
+  await mobilePicker.getByText('无胜利配音时静音。').waitFor();
+  for (const width of [248, 280, 420]) {
+    await page.setViewportSize({ width: width + 24, height: 560 });
+    for (const offset of [-2, -1, 0, 2]) {
+      assert.ok(await mobilePicker.locator('.voice-extras').evaluate((options, { width, offset }) => {
+        options.getRootNode().host.style.setProperty('--sgs-font-offset', offset + 'px');
+        const dialog = options.closest('dialog'), body = options.closest('.body');
+        const texts = [...options.querySelectorAll('label > span')].map(span => span.firstChild);
+        texts.push(options.querySelector('small').firstChild);
+        return Math.abs(dialog.getBoundingClientRect().width - width) < 1 &&
+          parseFloat(getComputedStyle(dialog).fontSize) === 14 + offset &&
+          body.scrollWidth <= body.clientWidth + 1 && [...options.querySelectorAll('label')].every(label => {
+            const area = label.getBoundingClientRect(), text = label.querySelector('span').getBoundingClientRect();
+            const toggle = label.querySelector('input').getBoundingClientRect();
+            return area.height >= 36 && toggle.width >= 30 && text.right < toggle.left && toggle.right <= area.right;
+          }) && texts.every(text => {
+            const range = document.createRange();
+            range.selectNodeContents(text);
+            return range.getClientRects().length === 1;
+          });
+      }, { width, offset }), `mobile voice switches fit at ${width}px and font offset ${offset}px`);
+    }
+    if (width === 248) {
+      await mobileMvpSwitch.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: path.join(output, 'mobile-voice-replacement-248.png') });
+    }
+  }
+  await page.setViewportSize({ width: 1200, height: 850 });
+  await mobilePicker.getByRole('button', { name: '使用皮肤' }).click();
+  await mobilePicker.waitFor({ state: 'detached' });
+  const enabledMobileSelection = await page.evaluate(() => matchSelectorFixture.settings.get('localSkin.1001.101'));
+  assert.deepEqual(enabledMobileSelection.voiceOptions, { card: true, victory: true });
+  assert.deepEqual(Object.keys(enabledMobileSelection.bindings), ['31', '32', '33', '35']);
+  assert.ok(Object.values(enabledMobileSelection.bindings).every(ref => ref[0] === enabledMobileSelection.bindings['31'][0]),
+    'one available mobile skill voice binds to all four target skills in order');
+  await page.waitForFunction(async () => {
+    const url = matchSelectorFixture.useCardVoice('决斗');
+    return url?.startsWith('blob:') && new Uint8Array(await (await fetch(url)).arrayBuffer()).at(-1) === 129;
+  });
+  assert.equal(await page.evaluate(() => matchSelectorFixture.useCardVoice('杀')), 'native:card:杀');
+  assert.equal(await page.evaluate(() => matchSelectorFixture.useCardVoice('决斗', null, 'skill')), 'native:card:决斗');
+  assert.deepEqual(await page.evaluate(() => matchSelectorFixture.playMvp()), [[], []],
+    'explicit MVP replacement suppresses both native paths without a victory clip');
+  assert.deepEqual(await page.evaluate(() => matchSelectorFixture.playMvp({ egg: false })), [[], []]);
+  assert.deepEqual(await page.evaluate(() => matchSelectorFixture.playMvp({ seatId: 1 })), [['native:mvp-egg'], []]);
+
+  await mobileToolboxEntry.click();
+  await mobileQuery.fill('30011');
+  await mobileResults.getByRole('button', { name: /#30011$/ }).click();
+  assert.equal(await mobileCardSwitch.isChecked(), false, 'preserve independent skin options');
+  assert.equal(await mobileMvpSwitch.isChecked(), false);
+  await mobileCardSwitch.check();
+  await mobileMvpSwitch.check();
+  await mobilePicker.getByRole('button', { name: '使用皮肤' }).click();
+  await mobilePicker.waitFor({ state: 'detached' });
+  // Read both clips through the actual runtime Blob URLs after the next match
+  // re-applies the skin from its stored selection.
+  await page.evaluate(() => matchSelectorFixture.nextMatch());
+  await page.waitForFunction(async () => {
+    const [native, [victory]] = matchSelectorFixture.playMvp();
+    const card = matchSelectorFixture.useCardVoice('决斗');
+    if (native.length || !victory?.startsWith('blob:') || !card?.startsWith('blob:')) return false;
+    const samples = await Promise.all([victory, card].map(async source =>
+      new Uint8Array(await (await fetch(source)).arrayBuffer()).at(-1)));
+    return samples[0] === 139 && samples[1] === 135;
+  });
+  await mobileToolboxEntry.click();
+  await selectedMobileSkin.waitFor();
+  assert.match(await selectedMobileSkin.textContent(), /#30011/);
+  assert.equal(await mobileCardSwitch.isChecked(), true, 'the card toggle restores from the stored preference');
+  assert.equal(await mobileMvpSwitch.isChecked(), true);
+  await mobileCardSwitch.uncheck();
+  await mobileMvpSwitch.uncheck();
+  await mobilePicker.getByRole('button', { name: '使用皮肤' }).click();
+  await mobilePicker.waitFor({ state: 'detached' });
+  assert.equal(await page.evaluate(() => matchSelectorFixture.useCardVoice('决斗')), 'native:card:决斗');
+  assert.deepEqual(await page.evaluate(() => matchSelectorFixture.playMvp()), [['native:mvp-egg'], []]);
+  await page.getByRole('button', { name: '恢复原皮肤' }).click();
+  if (mobileMotionZip) {
+    await mobileToolboxEntry.click();
+    await mobileQuery.fill('10305');
+    await mobileResults.getByRole('button', { name: /猪年圣诞.*10305.*动态/ }).click();
+    await page.waitForFunction(() => matchSelectorFixture.avatar.getChildByName('sgs-local-skin-seat-preview')
+      ?.getChildByName('sgs-mobile-idle')?.numChildren === 2);
+    await mobilePicker.getByRole('button', { name: '使用皮肤' }).click();
+    await mobilePicker.waitFor({ state: 'detached' });
+    await page.waitForFunction(() => matchSelectorFixture.avatar.getChildByName('sgs-local-skin-portrait')
+      ?.getChildByName('sgs-mobile-idle')?.numChildren === 2);
+    const mobileBounds = await page.evaluate(() => {
+      const { avatar, local } = matchSelectorFixture;
+      const previous = [avatar.width, avatar.height, avatar.scrollRect];
+      const layer = avatar.getChildByName('sgs-local-skin-portrait');
+      const person = layer.getChildByName('sgs-mobile-idle').getChildAt(1);
+      avatar.scrollRect = null;
+      avatar.size(146, 172);
+      local.refresh();
+      const single = [person.scaleX, person.scaleY, person.x];
+      avatar.scrollRect = new Laya.Rectangle(36, 0, 74, 172);
+      local.refresh();
+      const deputy = [person.scaleX, person.scaleY, person.x, layer.scrollRect.width];
+      avatar.scrollRect = previous[2];
+      avatar.size(previous[0], previous[1]);
+      local.refresh();
+      return { single, deputy };
+    });
+    const { single, deputy } = mobileBounds;
+    assert.ok(single[0] > 0 && single[0] === single[1]);
+    assert.deepEqual(deputy.slice(0, 2), single.slice(0, 2), 'deputy preserves the complete mobile rig scale');
+    assert.ok(Math.abs(deputy[2] - single[2] + 36) < 1e-6 && deputy[3] === 74, 'deputy crops the intended part of the rig');
+    await page.screenshot({ path: path.join(output, 'mobile-skins-dynamic.png'), clip: { x: 1016, y: 616, width: 138, height: 188 } });
+    await mobileToolboxEntry.click();
+    await mobilePicker.locator('.skin-effects[open]:not([hidden])').waitFor();
+    assert.match(await selectedMobileSkin.textContent(), /猪年圣诞.*#10305/);
+    await mobileClose.click();
+    await page.getByRole('button', { name: '恢复原皮肤' }).click();
+    assert.equal(await portrait(), false);
+  }
   await toolboxEntry.click();
   await chooseSkin();
   await picker.getByRole('img', { name: '青梅煮酒预览' }).waitFor();
@@ -1270,7 +1791,7 @@ try {
   });
   await toolboxEntry.click();
   await query.fill('武诸葛亮');
-  await picker.getByRole('button', { name: /千古一相.*523001/ }).click();
+  await crossResults.getByRole('button', { name: /千古一相.*523001/ }).click();
   const chosenArt = picker.getByRole('img', { name: '千古一相预览' });
   await chosenArt.waitFor();
   const chosenArtSrc = await chosenArt.getAttribute('src');
@@ -1291,7 +1812,7 @@ try {
   await picker.getByRole('button', { name: '选配音' }).click();
   await query.fill('武诸葛');
   assert.equal(await chosenArt.getAttribute('src'), chosenArtSrc);
-  await picker.getByRole('button', { name: /经典形象.*123001/ }).click();
+  await crossResults.getByRole('button', { name: /经典形象.*123001/ }).click();
   assert.equal(await chosenArt.getAttribute('src'), chosenArtSrc);
   assert.deepEqual(windowPictures(), artworkRequests, 'browsing voice sources keeps the chosen artwork and skips voice-source art requests');
   await externalSkills.getByRole('button', { name: '尽瘁', exact: true }).click();
@@ -1341,21 +1862,21 @@ try {
   assert.equal(windowPictures().at(-1), 'window/523001.png');
   await page.mouse.move(1030, 630);
   await page.waitForFunction(() => matchSelectorFixture.mask.openTip?.generalHead.skin === 'res/current-tip.png');
-  const nativeHeadX = await page.evaluate(() => matchSelectorFixture.mask.openTip.generalHead.x);
   finishWindow();
   await page.waitForFunction(() => matchSelectorFixture.mask.openTip?.generalHead.texture?.width === 321);
-  const assertWindowPreview = () => page.evaluate(nativeX => {
+  const assertWindowPreview = () => page.evaluate(() => {
     const tip = matchSelectorFixture.mask.openTip;
     const { generalHead: head, contentContainer: panel } = tip;
     const start = tip.localToGlobal(new Laya.Point(head.x, head.y), true);
     const width = head.texture.width * head.scaleX, height = head.texture.height * head.scaleY;
+    const overlap = head.x + width - panel.x;
     return head.visible && head.skin === '' && head.texture.width === 321 && head.texture.height === 419 &&
       head.scaleX === head.scaleY && width >= 279 && width <= 280.01 && height <= 366.01 &&
-      head.x === nativeX && head.x + width > panel.x && tip.getChildIndex(head) < tip.getChildIndex(panel) &&
+      overlap > 0 && overlap <= width / 6 + .01 && tip.getChildIndex(head) < tip.getChildIndex(panel) &&
       start.x >= 7.99 && start.x + width <= Laya.stage.width - 7.99 &&
       start.y >= 7.99 && start.y + height <= Laya.stage.height - 7.99;
-  }, nativeHeadX);
-  assert.equal(await assertWindowPreview(), true, 'the complete window art uses the native anchor behind the skill panel');
+  });
+  assert.equal(await assertWindowPreview(), true, 'the skill panel overlaps only the right edge of the full-size portrait');
   const translucentPoint = await page.evaluate(() => {
     const { generalHead: head } = matchSelectorFixture.mask.openTip;
     const point = head.localToGlobal(new Laya.Point(45, 62), true);
@@ -1396,19 +1917,19 @@ try {
     tip.x = 42;
     return previous;
   });
-  await page.waitForFunction(nativeX => {
+  await page.waitForFunction(() => {
     const tip = matchSelectorFixture.mask.openTip, head = tip.generalHead;
     const start = tip.localToGlobal(new Laya.Point(head.x, head.y), true);
     const width = head.texture.width * head.scaleX;
-    return head.visible && head.scaleX === head.scaleY && Math.abs(start.x - (42 + nativeX)) < .01 &&
-      Math.abs(width - 144) < .01;
-  }, nativeHeadX);
+    return head.visible && head.scaleX === head.scaleY && Math.abs(start.x - 8) < .01 &&
+      Math.abs(width - 182.4) < .01;
+  });
   await page.screenshot({ path: path.join(output, 'yjcm-window-preview-narrow.png') });
   await page.evaluate(() => { matchSelectorFixture.mask.openTip.x = -12; });
   await page.waitForFunction(() => {
     const tip = matchSelectorFixture.mask.openTip, head = tip.generalHead;
     const start = tip.localToGlobal(new Laya.Point(head.x, head.y), true);
-    return head.visible && Math.abs(start.x - 8) < .01 && Math.abs(head.texture.width * head.scaleX - 90) < .01;
+    return head.visible && Math.abs(start.x - 8) < .01 && Math.abs(head.texture.width * head.scaleX - 117.6) < .01;
   });
   await page.evaluate(x => { matchSelectorFixture.mask.openTip.x = x; }, desktopX);
   await page.waitForFunction(() => matchSelectorFixture.mask.openTip.generalHead.scaleX * 321 >= 279);
@@ -1502,36 +2023,348 @@ try {
     const { generalCard } = matchSelectorFixture.avatar;
     return [generalCard.SkinId, generalCard.JueXingState];
   });
+  const formState = () => page.evaluate(() => {
+    const { render, seatIndex } = matchSelectorFixture.ui.otherTopManager;
+    const button = render.getChildByName('sgs-yjcm-seat-form');
+    return [button?.getChildByName('sgs-yjcm-form-number').text ?? null, seatIndex.alpha, Boolean(button?.visible)];
+  });
+  const waitForSeatForm = expected => page.waitForFunction(value => matchSelectorFixture.ui.otherTopManager.render
+    .getChildByName('sgs-yjcm-seat-form')?.getChildByName('sgs-yjcm-form-number').text === value, expected);
+  const seatFormGeometry = () => page.evaluate(() => {
+    const { render, seatIndex } = matchSelectorFixture.ui.otherTopManager;
+    const button = render.getChildByName('sgs-yjcm-seat-form');
+    const point = (node, x, y) => node.localToGlobal(new Laya.Point(x, y), true);
+    const expected = point(render, seatIndex.renderX + seatIndex.renderWidth / 2, seatIndex.renderY + seatIndex.renderHeight / 2);
+    const center = point(button, button.width / 2, button.height / 2);
+    return {
+      center, aligned: Math.abs(expected.x - center.x) < 1 && Math.abs(expected.y - center.y) < 1,
+    };
+  });
+  const clickSeatForm = async () => {
+    const { center, aligned } = await seatFormGeometry();
+    assert.equal(aligned, true, 'the form button is centered in the native seat-marker slot');
+    await page.mouse.click(center.x, center.y);
+  };
+  const waitForMobileDeath = expected => page.waitForFunction(async marker => {
+    const fixture = matchSelectorFixture;
+    const plays = fixture.played.length;
+    fixture.useDeath();
+    const url = fixture.played.splice(plays).at(-1);
+    if (!url?.startsWith('blob:')) return false;
+    const clip = new Uint8Array(await (await fetch(url)).arrayBuffer());
+    return clip.at(-1) === marker;
+  }, expected);
   const appearanceBeforeForms = await nativeAppearance();
+  const rules = page.locator('[data-sgs-skin-form-rules]');
+  const seatFormChoices = page.locator('[data-sgs-seat-form-choices]');
+  const seatChoice = name => seatFormChoices.getByRole('button', { name, exact: true });
+  const seatFormInteractive = () => page.evaluate(() => {
+    const button = matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-yjcm-seat-form');
+    return Boolean(button?.mouseEnabled || (button && Laya.stage.focus === button));
+  });
+  const openWeiYanForms = async () => {
+    await mobileToolboxEntry.click();
+    await mobileQuery.fill('83501#2');
+    await mobileResults.getByRole('button', { name: /经典形象.*83501/ }).click();
+  };
+  const mobileForms = mobilePicker.getByRole('group', { name: '皮肤形态' });
+  const mobileFormNames = ['第一形态', '第二形态', '第三形态'];
+  const mobileFormButton = index => mobileForms.getByRole('button', { name: mobileFormNames[index - 1], exact: true });
+  await mobileToolboxEntry.click();
+  await mobileQuery.fill('30012#1');
+  await mobileResults.getByRole('button', { name: /#30012$/ }).click();
+  assert.equal(await mobileForms.getByRole('button').count(), 2);
+  await mobileFormButton(2).click();
+  assert.equal(await mobileFormButton(2).getAttribute('aria-pressed'), 'true', 'forms with unknown transitions still support previews');
+  await mobilePicker.getByRole('button', { name: '形态规则' }).click();
+  await rules.getByRole('button', { name: '自定义' }).click();
+  const customRoute = name => rules.getByRole('switch', { name: '启用 ' + name, exact: true });
+  const firstToSecond = customRoute('第一形态 → 第二形态');
+  const secondToFirst = customRoute('第二形态 → 第一形态');
+  assert.equal(await firstToSecond.isChecked(), false);
+  assert.equal(await secondToFirst.isChecked(), false, 'unverified skins offer opt-in edges without inventing defaults');
+  await secondToFirst.check();
+  await rules.getByRole('button', { name: '确认规则' }).click();
+  await mobilePicker.getByRole('button', { name: '使用皮肤' }).click();
+  await mobilePicker.waitFor({ state: 'detached' });
+  await waitForSeatForm('2/2');
+  await clickSeatForm();
+  await waitForSeatForm('1/2');
+  assert.equal(await seatFormInteractive(), true, 'manual switching remains available without a reverse rule');
+  await clickSeatForm();
+  await waitForSeatForm('2/2');
+  await page.getByRole('button', { name: '恢复原皮肤' }).click();
+  await openWeiYanForms();
+  assert.equal(await mobilePicker.locator('.result').count(), 1, 'searching for a form number finds one skin family');
+  assert.equal(await mobileForms.getByRole('button').count(), 3);
+  assert.deepEqual(await mobileForms.getByRole('button').allTextContents(), mobileFormNames);
+  for (const form of [1, 2, 3]) {
+    if (form === 3) await mobileFormButton(form).press('Enter');
+    else await mobileFormButton(form).click();
+    await mobilePicker.locator('.art img').waitFor();
+    await mobileSkills.getByRole('button', { name: '阵亡', exact: true }).click();
+    await mobilePicker.locator('.voice-playback[data-playing]').filter({ hasText: '阵亡' }).waitFor();
+    assert.ok(cloudRequests.includes(formDeaths[form - 1][0]), 'audition plays the selected form');
+  }
+  assert.equal(await mobileFormButton(3).getAttribute('aria-pressed'), 'true');
+  assert.ok(cloudRequests.includes('ui/face/skin/83501#2.png'), 'the third form uses its own portrait');
+  await mobilePicker.getByRole('button', { name: '一键绑定' }).click();
+  await mobilePicker.getByText('已为 3 个形态绑定配音。', { exact: true }).waitFor();
+  await mobileCardSwitch.check();
+  await mobilePicker.getByRole('button', { name: '关闭', exact: true }).click();
+  assert.equal(await portrait(), false, 'an unfinished draft does not apply the skin');
+  await mobileToolboxEntry.click();
+  await mobileFormButton(3).waitFor();
+  assert.equal(await mobileQuery.inputValue(), '83501#2');
+  assert.equal(await mobileFormButton(3).getAttribute('aria-pressed'), 'true');
+  assert.equal(await mobileCardSwitch.isChecked(), true);
+  for (const [index, name] of ['虎威', '自立', '挑衅'].entries()) {
+    await mobileFormButton(index + 1).click();
+    const voice = mobilePicker.getByRole('group', { name: '武将技能' }).getByRole('button', { name: /谦逊/ }).locator('small');
+    assert.match(await voice.textContent(), new RegExp(name + '$'));
+  }
+  await mobileCardSwitch.uncheck();
+  for (const width of [248, 280, 420]) {
+    await page.setViewportSize({ width: width + 24, height: 420 });
+    for (const offset of [-2, -1, 0, 2]) {
+      assert.ok(await mobileForms.evaluate((group, { width, offset }) => {
+        group.getRootNode().host.style.setProperty('--sgs-font-offset', offset + 'px');
+        const dialog = group.closest('dialog'), body = group.closest('.body');
+        return Math.abs(dialog.getBoundingClientRect().width - width) < 1 &&
+          parseFloat(getComputedStyle(dialog).fontSize) === 14 + offset &&
+          body.scrollWidth <= body.clientWidth + 1 &&
+          [...group.querySelectorAll('button')].every(button => button.scrollWidth <= button.clientWidth + 1);
+      }, { width, offset }), `mobile form chooser fits at ${width}px and font offset ${offset}px`);
+    }
+    if (width === 248) {
+      await mobileFormButton(3).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: path.join(output, 'mobile-forms-248.png') });
+    }
+    if (width === 280) {
+      const light = { scheme: 'light', surface: '#faf5e8', bg: '#fffaf2', raised: '#eee7d7',
+        border: '#c2b598', muted: '#625843', text: '#372e1d', accent: '#815612' };
+      const previous = await mobilePicker.evaluate((host, tokens) => Object.fromEntries(Object.entries(tokens).map(([key, color]) => {
+        const property = '--sgs-' + key;
+        const value = host.style.getPropertyValue(property);
+        host.style.setProperty(property, color);
+        return [property, value];
+      })), light);
+      await mobilePicker.locator('.selection').evaluate(selection => selection.scrollIntoView({ block: 'start' }));
+      await page.screenshot({ path: path.join(output, 'mobile-forms-280-light.png') });
+      await mobilePicker.evaluate((host, tokens) => {
+        for (const [property, value] of Object.entries(tokens)) host.style.setProperty(property, value);
+      }, previous);
+    }
+  }
+  await page.setViewportSize({ width: 1200, height: 850 });
+  const weiYanRuleKey = 'formRule.1001.101.mobile.cloud-83501';
+  await page.evaluate(key => matchSelectorFixture.settings.set(key, {
+    mode: 'custom', rules: [
+      { kind: 'every', times: 1, skills: [31] },
+      { kind: 'every', times: 1, skills: [32] },
+      { kind: 'every', times: 1, skills: [32] },
+    ],
+  }), weiYanRuleKey);
+  const openWeiYanRules = () => mobilePicker.getByRole('button', { name: '形态规则' }).click();
+  await openWeiYanRules();
+  const formDirections = rules.locator('.directions fieldset');
+  const toSecond = rules.getByRole('group', { name: '第一形态 → 第二形态', exact: true });
+  const toThird = rules.getByRole('group', { name: '第一形态 → 第三形态', exact: true });
+  assert.deepEqual(await formDirections.locator('legend').allTextContents(), [
+    '第一形态 → 第二形态', '第一形态 → 第三形态', '第二形态 → 第一形态',
+    '第二形态 → 第三形态', '第三形态 → 第一形态', '第三形态 → 第二形态',
+  ]);
+  assert.deepEqual(await rules.getByRole('switch').evaluateAll(inputs => inputs.map(input => input.checked)),
+    [true, true, false, false, false, false]);
+  await customRoute('第一形态 → 第三形态').uncheck();
+  assert.equal(await toThird.getByLabel('触发条件').isVisible(), false);
+  await customRoute('第一形态 → 第三形态').check();
+  assert.equal(await toSecond.getByLabel('触发条件').inputValue(), 'every');
+  assert.equal(await toThird.getByLabel('触发条件').inputValue(), 'none', 'the previous cycle rules do not become a new branch trigger');
+  await toThird.getByLabel('触发条件').selectOption('every');
+  await toThird.getByLabel('技能 1', { exact: true }).selectOption('32');
+  const confirmRules = () => rules.getByRole('button', { name: '确认规则' }).click();
+  const applyMobileSkin = async () => {
+    await mobilePicker.getByRole('button', { name: '使用皮肤' }).click();
+    await mobilePicker.waitFor({ state: 'detached' });
+  };
+  for (const width of [248, 280, 420]) {
+    await page.setViewportSize({ width: width + 20, height: 420 });
+    for (const offset of [-2, -1, 0, 2]) {
+      assert.ok(await rules.getByRole('dialog').evaluate((dialog, { width, offset }) => {
+        dialog.getRootNode().host.style.setProperty('--sgs-font-offset', offset + 'px');
+        const labels = [...dialog.querySelectorAll('.directions legend')];
+        return Math.abs(dialog.getBoundingClientRect().width - width) < 1 &&
+          parseFloat(getComputedStyle(dialog).fontSize) === 13 + offset &&
+          dialog.scrollWidth <= dialog.clientWidth + 1 && labels.every(label => {
+            const range = document.createRange();
+            range.selectNodeContents(label);
+            return range.getClientRects().length === 1;
+          });
+      }, { width, offset }), `branch rules fit at ${width}px and font offset ${offset}px`);
+    }
+  }
+  await page.setViewportSize({ width: 1200, height: 850 });
+  await page.screenshot({ path: path.join(output, 'mobile-three-form-rules.png') });
+  await confirmRules();
+  await applyMobileSkin();
+  await waitForSeatForm('3/3');
+  await mobileToolboxEntry.click();
+  await selectedMobileSkin.waitFor();
+  assert.match(await selectedMobileSkin.textContent(), /势[·・]?魏延.*#83501/);
+  assert.equal(await mobileFormButton(3).getAttribute('aria-pressed'), 'true', 'reopening restores the bound mobile skin and its saved starting form');
+  await page.screenshot({ path: path.join(output, 'mobile-bound-settings.png') });
+  await mobilePicker.getByRole('button', { name: '关闭', exact: true }).click();
+  assert.deepEqual(await formState(), ['3/3', 0, true], 'the mobile form badge uses the native seat-marker slot');
+  await waitForMobileDeath(138);
+  await page.screenshot({ path: path.join(output, 'mobile-seat-form-3.png'), clip: { x: 972, y: 616, width: 200, height: 190 } });
+  const nextMatch = () => page.evaluate(() => matchSelectorFixture.nextMatch());
+  const confirmMobileSkill = id => page.evaluate(skill => matchSelectorFixture.confirmSkill(skill), id);
+  await nextMatch();
+  await waitForSeatForm('3/3');
+  await confirmMobileSkill(31);
+  await confirmMobileSkill(32);
+  assert.deepEqual(await formState(), ['3/3', 0, true], 'the saved third form has no automatic exit');
+  await clickSeatForm();
+  await seatChoice('第一形态').click();
+  await waitForSeatForm('1/3');
+  await waitForMobileDeath(136);
+
+  await mobileToolboxEntry.click();
+  await selectedMobileSkin.waitFor();
+  await mobileFormButton(1).click();
+  await openWeiYanRules();
+  await toSecond.locator('select[aria-label="技能 1"]').locator('option[value="31"]').waitFor({ state: 'attached' });
+  assert.equal(await toSecond.getByLabel('技能 1', { exact: true }).inputValue(), '31');
+  assert.equal(await toThird.getByLabel('技能 1', { exact: true }).inputValue(), '32');
+  await confirmRules();
+  await mobileFormButton(1).click();
+  await applyMobileSkin();
+  await waitForSeatForm('1/3');
+  const resizeMobileSeat = clipped => page.evaluate(useClip => {
+    const { avatar, local } = matchSelectorFixture;
+    avatar.size(...(useClip ? [120, 148] : [130, 180]));
+    avatar.scrollRect = useClip ? new Laya.Rectangle(30, 5, 70, 138) : null;
+    local.refresh();
+  }, clipped);
+  await resizeMobileSeat(true);
+  assert.ok((await seatFormGeometry()).aligned, 'the form button stays aligned with the seat marker after the portrait is cropped');
+  assert.deepEqual(await page.evaluate(() => {
+    const { width, height } = matchSelectorFixture.avatar.getChildByName('sgs-local-skin-portrait').scrollRect;
+    return [width, height];
+  }), [70, 138], 'the portrait still follows its own clip');
+  await resizeMobileSeat(false);
+  await waitForMobileDeath(136);
+  await confirmMobileSkill(31);
+  await waitForSeatForm('2/3');
+  await waitForMobileDeath(137);
+  await confirmMobileSkill(32);
+  assert.deepEqual(await formState(), ['2/3', 0, true], 'a confirmed skill cannot leave the second form');
+  assert.equal(await seatFormInteractive(), true);
+  await nextMatch();
+  await waitForSeatForm('1/3');
+  await confirmMobileSkill(32);
+  await waitForSeatForm('3/3');
+  await waitForMobileDeath(138);
+  await nextMatch();
+  await waitForSeatForm('1/3');
+  assert.equal(await seatFormInteractive(), true);
+  await clickSeatForm();
+  await seatChoice('第二形态').waitFor();
+  assert.deepEqual(await formState(), ['1/3', 0, true], 'opening the branch chooser does not switch forms');
+  await page.screenshot({ path: path.join(output, 'mobile-seat-form-choices.png') });
+  for (const width of [248, 280, 420]) {
+    await page.setViewportSize({ width: width + 20, height: 420 });
+    for (const offset of [-2, -1, 0, 2]) {
+      assert.ok(await seatFormChoices.getByRole('dialog').evaluate((dialog, { width, offset }) => {
+        dialog.getRootNode().host.style.setProperty('--sgs-font-offset', offset + 'px');
+        return Math.abs(dialog.getBoundingClientRect().width - Math.min(width, 300)) < 1 &&
+          dialog.scrollWidth <= dialog.clientWidth + 1 &&
+          [...dialog.querySelectorAll('.choices button')].every(button => {
+            const range = document.createRange();
+            range.selectNodeContents(button);
+            return range.getClientRects().length === 1;
+          });
+      }, { width, offset }), `seat form choices fit at ${width}px and font offset ${offset}px`);
+    }
+  }
+  await page.setViewportSize({ width: 1200, height: 850 });
+  await seatChoice('第二形态').click();
+  await seatFormChoices.waitFor({ state: 'detached' });
+  await waitForSeatForm('2/3');
+  assert.equal(await seatFormInteractive(), true);
+  await nextMatch();
+  await waitForSeatForm('1/3');
+  await clickSeatForm();
+  await seatChoice('第二形态').waitFor();
+  await page.keyboard.press('Escape');
+  await seatFormChoices.waitFor({ state: 'detached' });
+  assert.deepEqual(await formState(), ['1/3', 0, true], 'escape leaves the first form active');
+  await page.keyboard.press('Enter');
+  await seatChoice('第二形态').waitFor();
+  assert.equal(await seatChoice('第二形态').evaluate(node => node.getRootNode().activeElement === node), true);
+  await page.keyboard.press('Tab');
+  assert.equal(await seatChoice('第三形态').evaluate(node => node.getRootNode().activeElement === node), true);
+  await page.keyboard.press('Enter');
+  await seatFormChoices.waitFor({ state: 'detached' });
+  await waitForSeatForm('3/3');
+  assert.equal(await seatFormInteractive(), true);
+  assert.deepEqual(await nativeAppearance(), appearanceBeforeForms, 'mobile form controls keep native skin data');
+  await page.evaluate(() => matchSelectorFixture.local.reset(matchSelectorFixture.local.ownPortraitTarget(101)));
+  assert.deepEqual(await formState(), [null, 1, false], 'reset removes the form control and keeps the seat marker');
+  await page.evaluate(() => {
+    const fixture = matchSelectorFixture;
+    fixture.settings.set('localSkin.1001.101', { kind: 'mobile', id: 'cloud-83501#1', general: '势魏延', bindings: {} });
+    fixture.nextMatch();
+  });
+  await waitForSeatForm('2/3');
+  await waitForMobileDeath(137);
+  await mobileToolboxEntry.click();
+  await selectedMobileSkin.waitFor();
+  assert.match(await selectedMobileSkin.textContent(), /势[·・]?魏延.*#83501/);
+  assert.equal(await mobileFormButton(2).getAttribute('aria-pressed'), 'true', 'a binding stored under an old form ID opens its skin family on that form');
+  await mobilePicker.getByRole('button', { name: '关闭', exact: true }).click();
+  await page.evaluate(() => matchSelectorFixture.local.reset(matchSelectorFixture.local.ownPortraitTarget(101)));
+
   await toolboxEntry.click();
   await query.fill('谋周瑜');
-  await picker.getByRole('button', { name: /经典形象.*1163001/ }).click();
+  await crossResults.getByRole('button', { name: /经典形象.*1163001/ }).click();
   await picker.getByRole('img', { name: '经典形象预览' }).waitFor();
-  const rules = page.locator('[data-sgs-skin-form-rules]');
   await page.evaluate(() => matchSelectorFixture.settings.set('formRule.1001.101.cross.1163001', {
     mode: 'custom', rules: [{ kind: 'none' }, { kind: 'every', times: 2, skills: [36] }],
   }));
   await picker.getByRole('button', { name: '形态规则' }).click();
   await rules.getByText('旧规则绑定了其他武将的技能，请重新选择。').waitFor();
-  const reverse = rules.getByRole('group', { name: '形态二 → 形态一' });
+  const reverse = rules.getByRole('group', { name: '第二形态 → 第一形态' });
   const reverseSkill = reverse.getByLabel('技能 1', { exact: true });
   assert.deepEqual(await reverseSkill.locator('option').allTextContents(), ['选择技能', '谦逊', '连营', '牌面第三技', '牌面第四技']);
   assert.equal(await reverseSkill.inputValue(), '');
   await reverseSkill.selectOption('31');
+  await rules.getByRole('button', { name: '关闭', exact: true }).click();
+  await picker.getByRole('button', { name: '一键绑定' }).click();
+  await picker.getByText('已为 2 个形态绑定配音。', { exact: true }).waitFor();
+  await picker.getByRole('group', { name: '皮肤形态' }).getByRole('button', { name: '第二形态' }).click();
+  await page.keyboard.press('Escape');
+  await picker.waitFor({ state: 'detached' });
+  await toolboxEntry.click();
+  const secondYjcmForm = picker.getByRole('group', { name: '皮肤形态' }).getByRole('button', { name: '第二形态' });
+  await secondYjcmForm.waitFor();
+  assert.equal(await secondYjcmForm.getAttribute('aria-pressed'), 'true');
+  assert.equal(await query.inputValue(), '谋周瑜');
+  assert.match(await ownSkills.getByRole('button', { name: /谦逊/ }).locator('small').textContent(), /融火$/);
+  await picker.getByRole('button', { name: '形态规则' }).click();
+  await reverseSkill.locator('option[value="31"]').waitFor({ state: 'attached' });
+  assert.equal(await reverseSkill.inputValue(), '31', 'an unconfirmed form-rule field survives closing both windows');
   await rules.getByRole('button', { name: '确认规则' }).click();
+  await picker.getByRole('group', { name: '皮肤形态' }).getByRole('button', { name: '第一形态' }).click();
   await picker.getByRole('button', { name: '选配音' }).click();
-  await picker.getByRole('button', { name: /江山如画.*5163001/ }).click();
+  await crossResults.getByRole('button', { name: /江山如画.*5163001/ }).click();
   await externalSkills.getByRole('button', { name: '英谋', exact: true }).click();
   await ownSkills.getByRole('button', { name: /^谦逊 / }).click();
   await externalSkills.getByRole('button', { name: '保留原配音', exact: true }).click();
   await ownSkills.getByRole('button', { name: /^牌面第三技 / }).click();
   await apply.click();
   await picker.waitFor({ state: 'detached' });
-  const formState = () => page.evaluate(() => {
-    const { render, seatIndex } = matchSelectorFixture.ui.otherTopManager;
-    const button = render.getChildByName('sgs-yjcm-seat-form');
-    return [button?.getChildByName('sgs-yjcm-form-number').text ?? null, seatIndex.alpha, Boolean(button?.visible)];
-  });
   const formVoice = () => page.evaluate(() => {
     const f = matchSelectorFixture;
     f.useSkill(31);
@@ -1541,11 +2374,12 @@ try {
     return f.played.slice(-4).map(url => url.split('/').at(-2) ?? url);
   });
   assert.deepEqual(await formState(), ['1/2', 0, true]);
+  assert.ok((await seatFormGeometry()).aligned, 'Yjcm and mobile use the same native seat-marker position');
   assert.deepEqual(await formVoice(), ['mouzhouyu02', 'mouzhouyu01', 'native:33', 'mouzhouyu01']);
   const formRegion = { x: 965, y: 616, width: 208, height: 189 };
   const firstForm = await page.screenshot({ path: path.join(output, 'yjcm-seat-form-1.png'), clip: formRegion });
   const nextFormRequest = page.waitForRequest(request => request.url() === alternateSeatUrl);
-  await page.mouse.click(995, 781);
+  await clickSeatForm();
   await nextFormRequest;
   assert.deepEqual(await formState(), ['1/2', 0, true], 'the previous form remains active while the new portrait loads');
   assert.deepEqual(await formVoice(), ['mouzhouyu02', 'mouzhouyu01', 'native:33', 'mouzhouyu01']);
@@ -1558,14 +2392,24 @@ try {
     const points = [[71, 18], [126, 101], [187, 79]];
     assert.notDeepEqual(await samplePixels(firstForm, points), await samplePixels(secondForm, points));
   }
-  // Route the keyboard test to the game instead of the restored toolbox focus.
-  await page.keyboard.press('Enter');
+  const pressSeatForm = async () => {
+    await page.waitForFunction(() => {
+      const button = matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-yjcm-seat-form');
+      return button?.mouseEnabled && Laya.stage.focus === button;
+    });
+    await page.evaluate(() => {
+      const focused = document.activeElement;
+      (focused?.shadowRoot?.activeElement ?? focused)?.blur();
+    });
+    await page.keyboard.press('Enter');
+  };
+  await pressSeatForm();
   await page.waitForFunction(() => matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-yjcm-seat-form')
     ?.getChildByName('sgs-yjcm-form-number').text === '1/2');
   assert.deepEqual(await formVoice(), ['mouzhouyu02', 'mouzhouyu01', 'native:33', 'mouzhouyu01']);
   assert.deepEqual(await nativeAppearance(), appearanceBeforeForms);
   assert.equal(await page.evaluate(() => matchSelectorFixture.settings.get('localSkin.1001.101').id), 1163001);
-  await page.keyboard.press('Enter');
+  await pressSeatForm();
   await page.waitForFunction(() => matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-yjcm-seat-form')
     ?.getChildByName('sgs-yjcm-form-number').text === '2/2');
   await page.evaluate(() => matchSelectorFixture.confirmSkill(36));
@@ -1576,7 +2420,7 @@ try {
   await page.waitForFunction(() => matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-yjcm-seat-form')
     ?.getChildByName('sgs-yjcm-form-number').text === '1/2');
   await page.evaluate(() => matchSelectorFixture.local.reset(matchSelectorFixture.local.ownPortraitTarget(101)));
-  assert.deepEqual(await formState(), [null, 1, false], 'reset restores the native seat marker');
+  assert.deepEqual(await formState(), [null, 1, false], 'reset removes the form control');
 
   await page.evaluate(() => {
     const f = matchSelectorFixture;
@@ -1587,7 +2431,7 @@ try {
   await clickSelector(0, 136);
   await rules.getByText('小于3血切换形态2', { exact: true }).waitFor();
   await rules.getByRole('button', { name: '自定义' }).click();
-  const forward = rules.getByRole('group', { name: '形态一 → 形态二' });
+  const forward = rules.getByRole('group', { name: '第一形态 → 第二形态' });
   await forward.getByLabel('触发条件').selectOption('every');
   await forward.getByLabel('技能 1', { exact: true }).selectOption('32');
   await reverse.getByLabel('触发条件').selectOption('hp');
@@ -1616,16 +2460,69 @@ try {
   await page.evaluate(() => matchSelectorFixture.confirmSkill(32));
   const nativeForm = () => page.evaluate(() => matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-local-seat-form')
     ?.getChildByName('sgs-yjcm-form-number').text);
-  await page.waitForFunction(() => matchSelectorFixture.ui.otherTopManager.render.getChildByName('sgs-local-seat-form')
-    ?.getChildByName('sgs-yjcm-form-number').text === '2/2');
+  const waitNativeForm = expected => page.waitForFunction(form => matchSelectorFixture.ui.otherTopManager.render
+    .getChildByName('sgs-local-seat-form')?.getChildByName('sgs-yjcm-form-number').text === form, expected);
+  await waitNativeForm('2/2');
   assert.equal(await nativeForm(), '2/2');
   await page.evaluate(() => matchSelectorFixture.local.reset(matchSelectorFixture.local.refresh().find(target => target.isSelf)));
   assert.equal(await nativeForm(), undefined);
 
+  await page.evaluate(() => {
+    const f = matchSelectorFixture;
+    f.enableConversion();
+    f.open('ChangeSkinWindow');
+  });
+  await clickSelector(0, 136);
+  await rules.getByRole('button', { name: '自定义' }).click();
+  await forward.getByLabel('触发条件').selectOption('conversion');
+  await reverse.getByLabel('触发条件').selectOption('conversion');
+  assert.equal(await forward.getByLabel('转换技', { exact: true }).inputValue(), '37');
+  assert.deepEqual(await forward.getByLabel('转换技', { exact: true }).locator('option').allTextContents(),
+    ['选择技能', '演练衍生转换技（衍生）']);
+  assert.equal(await forward.getByLabel('阴阳变化').inputValue(), 'yang');
+  assert.equal(await reverse.getByLabel('阴阳变化').inputValue(), 'yin');
+  for (const width of [248, 280, 420]) {
+    await page.setViewportSize({ width, height: 480 });
+    for (const offset of [-1, 0, 2, 4]) {
+      await rules.evaluate((node, value) => node.style.setProperty('--sgs-font-offset', value + 'px'), offset);
+      assert.equal(await rules.getByRole('dialog').evaluate(dialog => dialog.scrollWidth <= dialog.clientWidth &&
+        [...dialog.querySelectorAll('.directions select')].filter(select => select.offsetParent).every(select =>
+          select.getBoundingClientRect().right <= dialog.getBoundingClientRect().right)), true,
+      `conversion rule editor fits at ${width}px with font offset ${offset}`);
+    }
+  }
+  await page.setViewportSize({ width: 280, height: 480 });
+  await rules.evaluate(node => {
+    for (const [key, value] of Object.entries({ scheme: 'light', surface: '#faf5e8', bg: '#fffaf2', raised: '#eee7d7',
+      border: '#c2b598', muted: '#625843', text: '#372e1d', accent: '#815612' })) node.style.setProperty('--sgs-' + key, value);
+  });
+  await page.screenshot({ path: path.join(output, 'dual-form-conversion-narrow-light.png') });
+  await rules.getByRole('button', { name: '确认规则' }).click();
+  await rules.waitFor({ state: 'detached' });
+  await page.setViewportSize({ width: 1200, height: 850 });
+  assert.equal(await nativeForm(), '1/2');
+  await page.evaluate(() => matchSelectorFixture.changeConversion(2));
+  await waitNativeForm('2/2');
+  assert.equal(await nativeForm(), '2/2');
+  await page.evaluate(() => matchSelectorFixture.changeConversion(2));
+  assert.equal(await nativeForm(), '2/2');
+  await page.evaluate(() => matchSelectorFixture.changeConversion(1));
+  await waitNativeForm('1/2');
+  assert.equal(await nativeForm(), '1/2');
+  await page.evaluate(() => {
+    const f = matchSelectorFixture;
+    f.local.reset(f.local.refresh().find(target => target.isSelf));
+    f.openForms({ generalId: 102, name: '普通武将演练', value: { mode: 'custom' } });
+  });
+  await rules.getByRole('dialog').waitFor();
+  await page.waitForFunction(() => document.querySelector('[data-sgs-skin-form-rules]').shadowRoot.querySelector('.skill-status').hidden);
+  assert.equal(await forward.getByLabel('触发条件').locator('option[value=conversion]').count(), 0);
+  await rules.getByRole('button', { name: '关闭' }).click();
+
   if (officialMotionDir) {
     await page.evaluate(() => { matchSelectorFixture.openYjcm({ initialQuery: '赵云' }); });
-    const linked = picker.getByRole('button', { name: /武动乾坤.*赵云.*600501.*动态/ });
-    assert.equal(await picker.getByRole('button', { name: /武动乾坤/ }).count(), 1);
+    const linked = crossResults.getByRole('button', { name: /武动乾坤.*赵云.*600501.*动态/ });
+    assert.equal(await crossResults.getByRole('button', { name: /武动乾坤/ }).count(), 1);
     await linked.click();
     const moving = picker.getByRole('img', { name: '武动乾坤动态预览' });
     await moving.waitFor();
@@ -1834,6 +2731,24 @@ try {
         matchSelectorFixture.ui.otherTopManager.selfCover.alpha === 1 && matchSelectorFixture.motionScene.chatViewUI.chatInput.visible;
     });
     assert.equal(await page.evaluate(() => !matchSelectorFixture.motionScene.getChildByName('sgs-yjcm-idle-overhang')), true);
+    if (mobileMotionZip) {
+      await page.evaluate(async () => {
+        const { local } = matchSelectorFixture;
+        const target = local.refresh().find(seat => seat.isSelf);
+        const catalogue = local.mobile.current;
+        await local.applyYjcm(target, catalogue.findSkin('cloud-83501', '势魏延'), {}, new AbortController().signal);
+      });
+      assert.equal(await page.evaluate(motionChromeExpanded), true, 'in-frame mobile art does not collapse the controls');
+      await page.evaluate(async () => {
+        const { local } = matchSelectorFixture;
+        const target = local.refresh().find(seat => seat.isSelf);
+        await local.applyYjcm(target, local.mobile.current.findSkin('cloud-10305'), {}, new AbortController().signal);
+      });
+      await page.waitForFunction(() => matchSelectorFixture.avatar.getChildByName('sgs-local-skin-portrait')
+        ?.getChildByName('sgs-mobile-idle')?.numChildren === 2);
+      await page.waitForFunction(motionChromeFolded);
+      await page.screenshot({ path: path.join(output, 'mobile-skin-display-optimized.png'), clip: { x: 974, y: 567, width: 194, height: 228 } });
+    }
     await page.evaluate(() => {
       const fixture = matchSelectorFixture;
       fixture.local.reset(fixture.local.refresh().find(target => target.isSelf));
@@ -1871,11 +2786,17 @@ try {
       Object.assign(seat, oldSeat);
     };
   });
-  await picker.getByRole('button', { name: /界限突破.*193201/ }).click();
+  await crossResults.getByRole('button', { name: /界限突破.*193201/ }).click();
   const paiYiSource = externalSkills.getByRole('button', { name: '排异', exact: true });
   const paiYiTarget = ownSkills.getByRole('button', { name: /^排异 / });
   assert.equal(await page.evaluate(() => matchSelectorFixture.ui.seat.GetGeneralBySkillIdOnlyId(3915)), null);
   assert.equal(await paiYiTarget.locator('small').textContent(), '钟会 · 界限突破 #193201 · 排异');
+  await picker.getByRole('button', { name: '一键绑定' }).click();
+  for (const name of ['权计', '自立', '排异']) {
+    assert.deepEqual(await ownSkills.getByRole('button', { name: new RegExp(`^${name} `) }).locator('small span').allTextContents(),
+      [`钟会 · 界限突破 #193201 · ${name}`]);
+  }
+  await page.screenshot({ path: path.join(output, 'same-name-voice-bindings.png') });
   await externalSkills.getByRole('button', { name: '保留原配音', exact: true }).click();
   await paiYiTarget.click();
   for (const url of paiYiUrls) {
@@ -1912,7 +2833,7 @@ try {
     f.restoreGeneral();
     return { sounds: f.played.slice(start), bindings };
   });
-  assert.deepEqual(paiYiPlayback.bindings, { 3915: [440] });
+  assert.deepEqual(paiYiPlayback.bindings, { 3913: [438], 3914: [439], 3915: [440], '-1': [-1] });
   assert.equal(paiYiPlayback.sounds[0], 'native:3915');
   assert.deepEqual(paiYiPlayback.sounds.slice(1).sort(), paiYiUrls);
 
@@ -1995,6 +2916,7 @@ try {
     const settings = skinFixture.ctx.settings;
     settings.set('crossServer', false);
     const game = { isInGame: () => false, getSelf: () => ({ ClientId: 1001 }),
+      downloadMobileSkinAsset: async (url, { signal }) => (await fetch(url, { signal })).arrayBuffer(),
       loadConfigData: () => Promise.reject(new Error('大厅演练必须沿用本机索引缓存')),
       getConfigData: name => name === 'character' ? { GameCharacters: { character: [{ a: 302, j: 940, k: 703 }] } } :
         { GameSpells: { spell: [{ a: 940, c: '龙胆' }, { a: 703, c: '涯角' }] } } };
@@ -2032,22 +2954,32 @@ try {
     try { capturedGeneralSkin.initTitle.call(view); view.showSkins(); } finally { Object.assign(window, prior); }
     laya.stage.addChild(view);
     const openYjcm = NativeSkinCheck.createYjcmPicker(ctx, local);
-    NativeSkinCheck.createGeneralSkinsEntry(ctx, openYjcm);
+    NativeSkinCheck.createGeneralSkinsEntry(ctx, openYjcm, options => openYjcm(options, 'mobile'));
     const button = view.skinTitle.getChildByName('sgs-yjcm-general-skins');
     const title = view.skinTitle.textureList.find(node => node.text === '界赵云');
     const point = button.localToGlobal(new laya.Point(button.width / 2, button.height / 2), true);
     const firstCard = view.baseSkinItems[0].localToGlobal(new laya.Point(0, 0), true);
-    window.hallSkinFixture = { view, scope, settings, openYjcm };
-    return { x: point.x, y: point.y, titleGap: title.x - button.x - button.width, cardGap: point.x - button.width / 2 - firstCard.x };
+    window.hallSkinFixture = { view, scope, settings, openYjcm, title };
+    return { x: point.x, y: point.y, cardGap: point.x - button.width / 2 - firstCard.x };
   });
-  assert.equal(hallEntryPosition.cardGap, 0);
-  assert.ok(hallEntryPosition.titleGap >= 9);
+  assert.ok(hallEntryPosition.cardGap <= 0);
+  for (const [scaleX, scaleY] of [[1, 1], [.72, .72], [1.13, .85]]) {
+    const pair = await page.evaluate(({ scaleX, scaleY }) => {
+      const { view, title } = hallSkinFixture;
+      view.scale(scaleX, scaleY);
+      return NativeSkinCheck.measureSkinButtons(view.skinTitle, 'sgs-yjcm-general-skins', '__sgsSkinToolMobileGeneralEntry', title, 'x');
+    }, { scaleX, scaleY });
+    assertButtonPair(pair.buttons, `hall skin header at ${scaleX} × ${scaleY}`);
+    assert.ok(pair.buttons[0].left >= pair.parent && pair.buttons[1].right <= pair.boundary - 8 * scaleX,
+      'hall entries fit in the header and leave room for the general name');
+  }
+  await page.evaluate(() => hallSkinFixture.view.scale(1, 1));
   await page.screenshot({ path: path.join(output, 'yjcm-hall-entry.png') });
   await page.mouse.click(hallEntryPosition.x, hallEntryPosition.y);
   assert.equal(await query.inputValue(), '赵云');
   assert.equal(await picker.locator('.footer p').textContent(), '界赵云 · 局内仅自己可见');
   await page.screenshot({ path: path.join(output, 'yjcm-hall-search.png') });
-  const zhaoYun = picker.getByRole('button', { name: /赤胆龙心.*506403/ });
+  const zhaoYun = crossResults.getByRole('button', { name: /赤胆龙心.*506403/ });
   await zhaoYun.click();
   const nativeVoices = picker.getByRole('group', { name: '武将技能' });
   const longDan = nativeVoices.getByRole('button', { name: /^龙胆 / });
@@ -2063,11 +2995,11 @@ try {
   await picker.waitFor({ state: 'detached' });
   assert.deepEqual(await page.evaluate(() => hallSkinFixture.settings.get('localSkin.1001.302').bindings), { 940: [], 703: 'native' });
   await page.keyboard.press('Enter');
-  await zhaoYun.click();
+  assert.match(await picker.locator('.result[aria-pressed=true]').textContent(), /赤胆龙心/);
   assert.equal(await longDan.locator('small').textContent(), '随机配音 · 赵云 · 赤胆龙心 #506403');
   assert.equal(await yaJiao.locator('small').textContent(), '保留原配音');
   await query.fill('武陆逊');
-  const wuLuxun = picker.getByRole('button', { name: /神秀峥嵘.*523101/ });
+  const wuLuxun = crossResults.getByRole('button', { name: /神秀峥嵘.*523101/ });
   await wuLuxun.click();
   await picker.getByRole('img', { name: '神秀峥嵘预览' }).waitFor();
   const xiongmu = picker.getByRole('button', { name: '雄幕', exact: true });
@@ -2088,9 +3020,10 @@ try {
     return [f.settings.get('localSkin.1001.302'), f.settings.get('crossServer'), lastHallAudio.paused, lastHallAudio.hasAttribute('src')];
   }), [{ kind: 'cross', id: 523101, general: '武陆逊', bindings: { 940: [523] } }, false, true, false]);
   await page.keyboard.press('Enter');
-  assert.equal(await query.inputValue(), '赵云', 'reopening with the keyboard restores the unprefixed query');
+  assert.match(await picker.locator('.result[aria-pressed=true]').textContent(), /神秀峥嵘.*武陆逊/,
+    'reopening with the keyboard opens the saved skin even when it belongs to a different general');
   await query.fill('乐曹植');
-  await picker.getByRole('button', { name: /经典形象.*1134101/ }).click();
+  await crossResults.getByRole('button', { name: /经典形象.*1134101/ }).click();
   for (const [label, filename] of [
     ['赋乐', 'YueCaoZhi_FuYue_01.mp3'],
     ['文澜', 'YueCaoZhi_WenLan_01.mp3'],
@@ -2107,10 +3040,30 @@ try {
   await page.screenshot({ path: path.join(output, 'yjcm-hall-yue-cao-zhi.png') });
   await page.evaluate(() => { hallSkinFixture.view.visible = false; });
   await picker.waitFor({ state: 'detached' });
+  await page.evaluate(() => { hallSkinFixture.view.visible = true; hallSkinFixture.view.scale(.84, .78); });
+  await page.waitForFunction(() => hallSkinFixture.view.skinTitle.getChildByName('__sgsSkinToolMobileGeneralEntry')?.visible);
+  const hallMobile = await page.evaluate(() => {
+    const button = hallSkinFixture.view.skinTitle.getChildByName('__sgsSkinToolMobileGeneralEntry');
+    return button.localToGlobal(new Laya.Point(button.width / 2, button.height / 2), true);
+  });
+  await page.mouse.click(hallMobile.x, hallMobile.y);
+  assert.equal(await mobileQuery.inputValue(), '赵云');
+  await mobileQuery.fill('张辽');
+  await mobileRow.click();
+  await mobilePicker.getByRole('img', { name: '登锋陷阵预览' }).waitFor();
+  await mobilePicker.getByRole('button', { name: '下次使用' }).click();
+  await mobilePicker.waitFor({ state: 'detached' });
+  assert.equal(await page.evaluate(() => hallSkinFixture.settings.get('localSkin.1001.302').kind), 'mobile');
+  await page.mouse.click(hallMobile.x, hallMobile.y);
+  await selectedMobileSkin.waitFor();
+  assert.match(await selectedMobileSkin.textContent(), /登锋陷阵/);
+  await page.evaluate(() => { hallSkinFixture.view.visible = false; });
+  await mobilePicker.waitFor({ state: 'detached' });
   assert.equal(await page.evaluate(() => {
-    const f = hallSkinFixture;
-    const removed = !f.view.skinTitle.getChildByName('sgs-yjcm-general-skins');
-    f.scope.dispose();
+    const { view, scope } = hallSkinFixture;
+    const removed = !view.skinTitle.getChildByName('sgs-yjcm-general-skins') &&
+      !view.skinTitle.getChildByName('__sgsSkinToolMobileGeneralEntry');
+    scope.dispose();
     return removed;
   }), true);
 
@@ -2329,11 +3282,25 @@ try {
       'separate art and voice selection, cross-skin skill and death binding, death audition, and cross-match restore',
       'one row per skill or death binding with exact general and skin, and artwork retained across voice browsing and searches',
       'Jie Zhong Hui can audition both Pai Yi clips and bind the skill before awakening; native playback uses the binding once the general learns it; old voice indexes refresh',
-      'local seat label swaps forms on click and keyboard, waits for artwork, keeps skill and death audio in the active form, and restores the native label on reset',
+      'local seat label swaps forms on click and keyboard, waits for artwork, keeps skill and death audio in the active form, and restores the native marker on reset',
       'dual-form rules use only the recipient card skills, old foreign skill bindings can be repaired, and a fresh skill count switches back after manual selection',
-      'general skin tab entry aligned with first card, unprefixed default query with full recipient name, saved random and original voice choices, lobby preference and click-to-play sequencing 1/2/1', 'scope cleanup'],
+      'Yin and Yang switching follows the derived conversion skill only, ignores repeated snapshots, and is unavailable for a card without a conversion skill',
+      'general skin tab entry aligned with first card, unprefixed default query with full recipient name, saved random and original voice choices, lobby preference and click-to-play sequencing 1/2/1',
+      'the lobby and match editors reopen the bound Yjcm or mobile skin, even when it belongs to a different general or uses a saved mobile variant',
+      'mobile entry to the right of Yjcm in the toolbox, hall and match, native coordinates under uniform and nonuniform scaling, and panel/picker at 248/280/420px with four font sizes',
+      'mobile search, original art from the character catalogue, gallery portrait and audition, local use and reset, proportional seat cropping, and remembered lobby skin',
+      'mobile general filters follow 魔/势/谋/星/界/标 order, stay in one scrollable row, and filter only the selected general',
+      'mobile form search returns one skin, three uniformly named forms share previews and voice audition, and all six directed custom rules can be enabled independently',
+      'mobile manual form choices support every available form by click or keyboard, including leaving a form with no automatic exit',
+      'mobile form preferences preserve valid older rules and starting forms, old saved variant IDs still restore, and Yjcm and mobile share the same seat-marker position independently of portrait clipping',
+      'mobile official configuration cold start with HTTP Range, official names and voice IDs, hot update and cached fallback',
+      'mobile card and MVP toggles default off, persist across matches, exact card name falls back when unavailable, and MVP replacement plays or suppresses both native variants',
+      'scope cleanup'],
     screenshots: ['match-selector-local.png', 'yjcm-native-entry.png', 'yjcm-search-results.png', 'yjcm-general-filter-order.png', 'yjcm-merged-voices.png', 'yjcm-preview.png', 'yjcm-seat-crop.png',
       'yjcm-seat-nameplate.png', 'yjcm-window-preview.png', 'yjcm-voice-bindings.png', 'yjcm-voice-narrow-light.png', 'yjcm-seat-form-1.png', 'yjcm-seat-form-2.png',
-      'dual-form-rules.png', 'dual-form-rules-narrow-light.png', 'yjcm-hall-entry.png', 'yjcm-hall-search.png', 'yjcm-hall-audition.png', 'yjcm-hall-yue-cao-zhi.png', 'yjcm-derived-paiyi.png'] }, null, 2));
+      'dual-form-rules.png', 'dual-form-rules-narrow-light.png', 'dual-form-conversion-narrow-light.png', 'yjcm-hall-entry.png', 'yjcm-hall-search.png', 'yjcm-hall-audition.png', 'yjcm-hall-yue-cao-zhi.png', 'yjcm-derived-paiyi.png',
+      'mobile-skins-avatar.png', 'mobile-skins-picker-248.png', 'mobile-general-filter-order.png', 'mobile-general-filter-248.png',
+      'mobile-jiangwei-skill-names.png', 'mobile-official-victory-voice.png', 'mobile-voice-replacement-248.png',
+      'mobile-forms-248.png', 'mobile-forms-280-light.png', 'mobile-three-form-rules.png', 'mobile-bound-settings.png', 'mobile-seat-form-3.png', 'mobile-seat-form-choices.png'] }, null, 2));
   console.log('Native skin UI checks passed: ' + output);
 } finally { await browser.close(); }

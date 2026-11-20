@@ -178,7 +178,7 @@ try {
   const compactBackgrounds = new Set();
   for (const id of ids) {
     await choose(id); await host.getByRole('button', { name: '折叠面板', exact: true }).click();
-    const base = await host.locator('.shell').evaluate(node => getComputedStyle(node).backgroundImage);
+    const base = await host.locator('.shell').evaluate(node => getComputedStyle(node, '::after').backgroundImage);
     compactBackgrounds.add(base);
     for (const [backdrop, color] of [['dark', '#111614'], ['light', '#ece9e1']]) {
       await page.evaluate(color => { document.body.style.background = color; document.documentElement.style.background = color; }, color);

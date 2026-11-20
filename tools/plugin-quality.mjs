@@ -190,11 +190,32 @@ export const pluginQuality = {
     ],
     "tests": [
       "tests/skins.test.js",
-      "tests/skins-native-model.test.js"
+      "tests/skins-native-model.test.js",
+      "tests/mobile-cloud.test.js",
+      "tests/mobile-skin-names.test.js",
+      "tests/mobile-config-bootstrap.test.js",
+      "tests/mobile-config-data.test.js",
+      "tests/mobile-config-rebuild.test.js"
     ],
     "browser": [
       "tools/browser-skins-native-check.mjs",
-      "tools/browser-yjcm-skin-effects-check.mjs"
+      "tools/browser-yjcm-skin-effects-check.mjs",
+      "tools/browser-mobile-skin-bridge-check.mjs",
+      "tools/browser-mobile-motion-check.mjs",
+      "tools/browser-mobile-seat-layout-check.mjs"
+    ]
+  },
+  "stargazing": {
+    "docs": [
+      "docs/stargazing.md"
+    ],
+    "tests": [
+      "tests/stargazing.test.js",
+      "tests/mobile-skin-bridge.test.js"
+    ],
+    "browser": [
+      "tools/browser-stargazing-check.mjs",
+      "tools/browser-mobile-skin-bridge-check.mjs"
     ]
   },
   "wish-progress": {

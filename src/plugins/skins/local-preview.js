@@ -2,6 +2,7 @@ import { read } from './native-model.js';
 
 const windowPortraitWidth = 280;
 const windowPortraitHeight = 366;
+const windowPortraitVisibleRatio = 5 / 6;
 const portraitMargin = 8;
 
 function visibleCanvas(win, laya, stage) {
@@ -47,14 +48,16 @@ function windowPortraitPlacement(win, tip, texture, nativeX) {
   const left = Math.min(a.x, b.x) + portraitMargin;
   const right = Math.max(a.x, b.x) - portraitMargin;
   const top = Math.min(a.y, b.y) + portraitMargin, bottom = Math.max(a.y, b.y) - portraitMargin;
-  const width = Math.min(windowPortraitWidth, screenWidth * .34, right - left, panel.x - portraitMargin - left);
+  const width = Math.min(windowPortraitWidth, screenWidth * .34, right - left, (panel.x - left) / windowPortraitVisibleRatio);
   const height = Math.min(windowPortraitHeight, screenHeight * .62, bottom - top);
   const scale = Math.min(width / texture.width, height / texture.height);
   if (!(scale > 0 && Number.isFinite(scale))) return;
   const drawWidth = texture.width * scale, drawHeight = texture.height * scale;
   const centerY = panel.y + panel.height / 2;
-  // Anchor the illustration where OL draws its own art, behind the skill panel.
-  return { scale, width: drawWidth, height: drawHeight, x: Math.max(left, Math.min(right - drawWidth, nativeX)),
+  // OL's original left edge leaves much of a wider illustration under the skill panel.
+  // Keep the main part of the illustration to the left and let its right edge overlap.
+  const panelAnchor = panel.x - drawWidth * windowPortraitVisibleRatio;
+  return { scale, width: drawWidth, height: drawHeight, x: Math.max(left, Math.min(right - drawWidth, nativeX, panelAnchor)),
     y: Math.max(top, Math.min(bottom - drawHeight, centerY - drawHeight / 2)) };
 }
 
