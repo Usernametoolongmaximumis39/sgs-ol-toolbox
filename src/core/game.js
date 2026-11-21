@@ -29,6 +29,12 @@ function cardId(card) {
   return number(read(() => card.CardId), read(() => card.CardID), read(() => card.ID), read(() => card.Id), read(() => card.id), read(() => card.cardId), read(() => card.cardID));
 }
 function cardIds(cards) { return [...new Set(list(cards).map(cardId).filter(id => Number.isInteger(id) && id > 0))]; }
+export function projectDeckCardMeta(value) {
+  if (!value || value.unknown) return null;
+  const suit = Number(value.suit), number = Number(value.number), type = Number(value.type);
+  if (!(suit >= 1 && suit <= 4 && number >= 1 && number <= 13)) return null;
+  return { suit, number, type: Number.isInteger(type) ? type : 0 };
+}
 function publicHandIds(seat, ui) {
   const shown = [], cached = [], hidden = new Set();
   // Only the client's explicit public-hand fields are observations. Do not read
@@ -60,13 +66,19 @@ function isGameScene(scene) {
   return alive(scene) && Boolean(read(() => scene.SelfSeatUi) || read(() => scene.selfSeatUI)
     || read(() => scene.seatContainer.seatUIs) || sceneName(scene) === 'GameScene');
 }
+function isReplayScene(scene) {
+  // Resume means reconnect, not replay. Require explicit replay evidence.
+  return Boolean(read(() => scene?.IsReplay) || read(() => scene?.isReplay) || alive(read(() => scene?.replayBar)));
+}
 
-export function createGameAdapter(win, scope, mobileSkinPort) {
+export function createGameAdapter(win, scope, mobileSkinPort, { watchScene = true } = {}) {
   const configs = scope ? createConfigData(win, scope) : null;
   let selfClass = null, selfSearchAt = -Infinity;
   let current = null, stage = null, dispatcher = null, dispatcherOwner = null;
   let providers = new Set();
   let definitionTables = new WeakMap();
+  let deckDefinitions = null;
+  let sceneCycle = null;
   const listeners = new Set();
 
   function walk(predicate, root = read(() => win.Laya.stage)) {
@@ -82,19 +94,22 @@ export function createGameAdapter(win, scope, mobileSkinPort) {
   }
 
   function getDispatcher() {
-    if (alive(dispatcher) && alive(dispatcherOwner)) return dispatcher;
-    dispatcher = dispatcherOwner = null;
-    walk(node => {
-      // Read ged on existing UI objects, never a fabricated PopUpWindow.
-      const candidate = read(() => node.ged);
-      if (alive(candidate) && object(read(() => candidate._events))) {
-        dispatcher = candidate; dispatcherOwner = node; return true;
-      }
-      if (read(() => node._events.SWITCH_SCENE) || read(() => node._events.HIDE_WINDOW)) {
-        dispatcher = dispatcherOwner = node; return true;
-      }
-      return false;
-    });
+    if (sceneCycle && 'dispatcher' in sceneCycle) return sceneCycle.dispatcher;
+    if (!alive(dispatcher) || !alive(dispatcherOwner)) {
+      dispatcher = dispatcherOwner = null;
+      walk(node => {
+        // Read ged on existing UI objects, never a fabricated PopUpWindow.
+        const candidate = read(() => node.ged);
+        if (alive(candidate) && object(read(() => candidate._events))) {
+          dispatcher = candidate; dispatcherOwner = node; return true;
+        }
+        if (read(() => node._events.SWITCH_SCENE) || read(() => node._events.HIDE_WINDOW)) {
+          dispatcher = dispatcherOwner = node; return true;
+        }
+        return false;
+      });
+    }
+    if (sceneCycle) sceneCycle.dispatcher = dispatcher;
     return dispatcher;
   }
 
@@ -112,9 +127,11 @@ export function createGameAdapter(win, scope, mobileSkinPort) {
   }
 
   function stageScene() {
+    if (sceneCycle && 'rendered' in sceneCycle) return sceneCycle.rendered;
     const layer = walk(node => node.name === 'SceneLayer' || node.layerOrder === 2);
-    if (!layer) return null;
-    return children(layer).filter(node => node !== layer && alive(node) && read(() => node.visible) !== false).at(-1) || null;
+    const scene = layer && (children(layer).filter(node => node !== layer && alive(node) && read(() => node.visible) !== false).at(-1) || null);
+    if (sceneCycle) sceneCycle.rendered = scene;
+    return scene;
   }
 
   function canReserveViewport() {
@@ -127,8 +144,9 @@ export function createGameAdapter(win, scope, mobileSkinPort) {
   }
 
   function getScene() {
+    if (sceneCycle && 'scene' in sceneCycle) return sceneCycle.scene;
     const nextStage = read(() => win.Laya.stage) || null;
-    if (stage !== nextStage) { stage = nextStage; dispatcher = dispatcherOwner = null; providers = new Set(); }
+    if (stage !== nextStage) { stage = nextStage; dispatcher = dispatcherOwner = null; providers = new Set(); deckDefinitions = null; }
     const demo = read(() => win.__SGS_TOOLBOX_DEMO__.scene);
     const manager = demo ? null : eventCaller('SWITCH_SCENE', value => 'CurrentScene' in value);
     const managerScene = read(() => manager.CurrentScene);
@@ -137,11 +155,19 @@ export function createGameAdapter(win, scope, mobileSkinPort) {
     const next = alive(demo) ? demo : rendered
       || (alive(managerScene) && read(() => managerScene.visible) !== false ? managerScene : null)
       || walk(node => read(() => node.visible) !== false && (GAME_SCENE.test(sceneName(node)) || isGameScene(node)));
+    if (sceneCycle) sceneCycle.scene = next || null;
     if (next !== current) {
-      current = next || null; providers = new Set(); dispatcher = dispatcherOwner = null;
+      current = next || null; providers = new Set(); dispatcher = dispatcherOwner = null; deckDefinitions = null;
+      if (sceneCycle) delete sceneCycle.dispatcher;
       for (const fn of [...listeners]) { try { fn(current); } catch { /* Subscriber isolation. */ } }
     }
     return current;
+  }
+
+  function withSceneCycle(run) {
+    if (sceneCycle) return run();
+    sceneCycle = {};
+    try { return run(); } finally { sceneCycle = null; }
   }
 
   const selfUI = scene => read(() => scene.SelfSeatUi) || read(() => scene.selfSeatUI) || null;
@@ -259,8 +285,8 @@ export function createGameAdapter(win, scope, mobileSkinPort) {
     }
   }
 
-  function getCardDefinition(id) {
-    for (const { records } of cardDefinitions()) {
+  function getCardDefinition(id, definitions = cardDefinitions()) {
+    for (const { records } of definitions) {
       const card = records.get(id);
       if (card) return card;
     }
@@ -293,44 +319,89 @@ export function createGameAdapter(win, scope, mobileSkinPort) {
     return catalog;
   }
 
-  function getCardMeta(id) {
-    id = number(id);
-    if (!Number.isInteger(id) || id <= 0) return { id, name: '未知牌', unknown: true };
-    const scene = getScene(), demo = read(() => win.__SGS_TOOLBOX_DEMO__.cards[id]);
-    if (demo) return { ...demo, id };
-    let card;
+  function* ownCardModels(scene) {
     // Self hand models seed the definition provider; never read opponents'
     // hidden HandCards to obtain knowledge about their current hand.
     for (const item of handUIs(selfUI(scene))) {
       const observed = model(item);
       if (!observed) continue;
       registerProviders(observed);
-      if (cardId(observed) === id) card = observed;
+      yield observed;
     }
-    if (!card) for (const provider of providers) {
+  }
+
+  function getProviderCard(id) {
+    for (const provider of providers) {
       const candidate = read(() => provider.GetInstance(id));
-      if (object(candidate) && (cardId(candidate) === undefined || cardId(candidate) === id)) { card = candidate; break; }
+      if (!object(candidate)) continue;
+      const candidateId = cardId(candidate);
+      if (candidateId === undefined || candidateId === id) return candidate;
     }
+    return null;
+  }
+
+  function getCardName(card, definition) {
+    return read(() => card?.CardName) || read(() => card?.cardName) || read(() => card?.Name) || read(() => card?.name)
+      || read(() => definition?.CardName) || read(() => definition?.Name) || read(() => definition?.name);
+  }
+
+  function getCardProperties(card, definition) {
+    return {
+      suit: number(read(() => card?.FlowerOnSeat), read(() => card?.CardFlower), read(() => card?.Flower), read(() => card?.suit),
+        read(() => definition?.color), read(() => definition?.CardSuit), read(() => definition?.suit)),
+      number: number(read(() => card?.CardNumber), read(() => card?.Number), read(() => card?.number),
+        read(() => definition?.number), read(() => definition?.CardNumber), read(() => definition?.Number)),
+      type: number(read(() => card?.CardType), read(() => card?.Type), read(() => card?.type),
+        read(() => definition?.type), read(() => definition?.CardType), read(() => definition?.Type)),
+    };
+  }
+
+  function getCardMeta(id) {
+    id = number(id);
+    if (!Number.isInteger(id) || id <= 0) return { id, name: '未知牌', unknown: true };
+    const scene = getScene(), demo = read(() => win.__SGS_TOOLBOX_DEMO__?.cards?.[id]);
+    if (demo) return { ...demo, id };
+    let card;
+    for (const observed of ownCardModels(scene)) if (cardId(observed) === id) card = observed;
+    card ||= getProviderCard(id);
     const definition = getCardDefinition(id);
     if (!card && !definition) return { id, name: `牌 #${id}`, unknown: true };
-    const name = read(() => card.CardName) || read(() => card.cardName) || read(() => card.Name) || read(() => card.name)
-      || read(() => definition.CardName) || read(() => definition.Name) || read(() => definition.name);
-    const cardClass = read(() => definition.cardClass) || read(() => card.cardInfo.cardClass) || read(() => card.cardClass)
-      || read(() => card.cardInfo.Class) || read(() => card.className) || read(() => card.ClassName)
-      || read(() => definition.Class) || read(() => definition.class) || read(() => definition.className);
-    const firstSkillId = number(read(() => card.FirstSkillId));
+    const name = getCardName(card, definition);
+    const cardClass = read(() => definition?.cardClass) || read(() => card?.cardInfo?.cardClass) || read(() => card?.cardClass)
+      || read(() => card?.cardInfo?.Class) || read(() => card?.className) || read(() => card?.ClassName)
+      || read(() => definition?.Class) || read(() => definition?.class) || read(() => definition?.className);
+    const firstSkillId = number(read(() => card?.FirstSkillId));
     return {
       id, name: typeof name === 'string' && name ? name : `牌 #${id}`,
-      suit: number(read(() => card.FlowerOnSeat), read(() => card.CardFlower), read(() => card.Flower), read(() => card.suit),
-        read(() => definition.color), read(() => definition.CardSuit), read(() => definition.suit)),
-      number: number(read(() => card.CardNumber), read(() => card.Number), read(() => card.number),
-        read(() => definition.number), read(() => definition.CardNumber), read(() => definition.Number)),
-      type: number(read(() => card.CardType), read(() => card.Type), read(() => card.type),
-        read(() => definition.type), read(() => definition.CardType), read(() => definition.Type)),
+      ...getCardProperties(card, definition),
       unknown: !(typeof name === 'string' && name),
       ...(typeof cardClass === 'string' && cardClass ? { cardClass } : {}),
       ...(firstSkillId > 0 ? { firstSkillId } : {}),
     };
+  }
+
+  function getDeckCardMeta(ids, scene) {
+    const demo = read(() => win.__SGS_TOOLBOX_DEMO__?.cards), ownCards = new Map();
+    for (const card of ownCardModels(scene)) ownCards.set(cardId(card), card);
+    const definitions = [...new Set(cardDefinitions())];
+    // Public table indexes are replaced if a new table arrives. Live card
+    // models can change even when the scene, deck and table stay the same.
+    const stable = !demo && !providers.size && !ownCards.size && Object.isFrozen(ids);
+    if (stable && deckDefinitions?.ids === ids && deckDefinitions.definitions.length === definitions.length
+      && definitions.every((index, i) => index === deckDefinitions.definitions[i])) return deckDefinitions.metadata;
+    const metadata = {};
+    for (const id of ids) {
+      const value = read(() => {
+        const fixture = read(() => demo?.[id]);
+        if (fixture) return projectDeckCardMeta(fixture);
+        const card = ownCards.get(id) || getProviderCard(id), definition = getCardDefinition(id, definitions);
+        const name = getCardName(card, definition);
+        return typeof name === 'string' && name ? projectDeckCardMeta(getCardProperties(card, definition)) : null;
+      });
+      if (value) metadata[id] = stable ? Object.freeze(value) : value;
+    }
+    deckDefinitions = stable ? { ids, definitions, metadata: Object.freeze(metadata) } : null;
+    return metadata;
   }
 
   function getCountdown() {
@@ -360,7 +431,7 @@ export function createGameAdapter(win, scope, mobileSkinPort) {
     return count === undefined ? null : Math.max(0, count);
   }
 
-  function getSnapshot() {
+  function getSnapshot(deckIds) {
     const scene = getScene(), self = selfUI(scene), selfSeatId = seatId(self);
     const selfSeat = read(() => self.cardContainer.seat) || seatData(self);
     const ownModels = read(() => selfSeat.HandCards) ?? read(() => selfSeat.handCards);
@@ -368,14 +439,13 @@ export function createGameAdapter(win, scope, mobileSkinPort) {
     const mode = read(() => getClass('GameContext').GetModeVO());
     const countdown = read(() => self.countdownTimer) || read(() => scene.countdownTimer);
     const remaining = alive(countdown) ? number(read(() => countdown.RemainValue)) : undefined;
-    return {
+    const snapshot = {
       sceneName: sceneName(scene), inGame: isGameScene(scene),
       modeId: number(read(() => scene.ModeID), read(() => scene.modeId), read(() => mode.ModeID), read(() => mode.Id), read(() => mode.id)),
       selfSeatId, handCardIds,
       emptySeatIds: list(read(() => scene.seatContainer.seatUIs) || read(() => scene.seatUIs))
         .filter(ui => alive(ui) && !nativeSeatOccupied(ui)).map(seatId).filter(id => id !== undefined),
-      // Resume means reconnect, not replay. Require explicit replay evidence.
-      isReplay: Boolean(read(() => scene.IsReplay) || read(() => scene.isReplay) || alive(read(() => scene.replayBar))),
+      isReplay: isReplayScene(scene),
       countdownRemaining: remaining === undefined ? null : Math.max(0, remaining),
       seats: seats(scene).map(ui => {
         const seat = seatData(ui), id = seatId(ui);
@@ -391,14 +461,16 @@ export function createGameAdapter(win, scope, mobileSkinPort) {
         return result;
       }).filter(item => item.seatId !== undefined),
     };
+    if (Array.isArray(deckIds) && deckIds.length) snapshot.cardMeta = getDeckCardMeta(deckIds, scene);
+    return snapshot;
   }
 
-  scope?.interval(() => { getScene(); }, 500);
-  scope?.add(() => { listeners.clear(); providers.clear(); definitionTables = new WeakMap(); dispatcher = dispatcherOwner = current = stage = null; });
+  if (watchScene) scope?.interval(() => { getScene(); }, 500);
+  scope?.add(() => { listeners.clear(); providers.clear(); definitionTables = new WeakMap(); deckDefinitions = null; dispatcher = dispatcherOwner = current = stage = null; });
   return {
-    getScene, getDispatcher, getSelfSeatUI: () => selfUI(getScene()), getSeatUIs: () => seats(getScene()),
+    getScene, withSceneCycle, getDispatcher, getSelfSeatUI: () => selfUI(getScene()), getSeatUIs: () => seats(getScene()),
     getCardMeta, getCardFaceCatalog, loadCardFaceCatalog, getSnapshot, getClass, getServerProxy, getActivityManager, getMessageTargets, getCountdown, getSelf,
-    getRemainingSlash, isInGame: () => isGameScene(getScene()), canReserveViewport,
+    getRemainingSlash, isInGame: () => isGameScene(getScene()), isReplay: (scene = getScene()) => isReplayScene(scene), canReserveViewport,
     getConfigData: name => configs?.getConfigData(name) || null,
     loadConfigData: (name, options) => configs ? configs.loadConfigData(name, options) : Promise.reject(new Error('配置读取不可用')),
     ...createGameAssetDownloads(win, scope, mobileSkinPort),

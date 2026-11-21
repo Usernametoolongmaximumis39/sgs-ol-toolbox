@@ -49,6 +49,21 @@ function fixture(t, options={}) {
 }
 const flush = () => new Promise(r=>setTimeout(r,15));
 
+test('one snapshot per assist tick and deferred actions recheck a changed scene', async t => {
+  const f = fixture(t, { autoConfirm: true, quandaoCount: true });
+  const getSnapshot = f.ctx.game.getSnapshot, getScene = f.ctx.game.getScene;
+  let snapshots = 0, scenes = 0;
+  f.ctx.game.getSnapshot = () => { snapshots++; return getSnapshot(); };
+  f.ctx.game.getScene = () => { scenes++; return getScene(); };
+  f.self.cardContainer.selectCardContext = { message: '请选择牌', SelectCountMin: 1, SelectCountMax: 1 };
+  f.self.cardContainer.cardUis = [{ selected: true }];
+  f.runtime.tick();
+  assert.deepEqual([snapshots, scenes], [1, 1]);
+  f.setScene({});
+  await flush();
+  assert.equal(f.calls, 0);
+});
+
 test('山河图 gives ready skills priority over selecting and confirming ordinary cards', async t => {
   const f = fixture(t, { skillLock: true, rapid: true });
   f.runtime.dispose();

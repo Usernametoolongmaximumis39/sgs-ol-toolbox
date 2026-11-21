@@ -1,8 +1,8 @@
-import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
+import { EFFECTS_ICON } from '../../ui/plugin-icons.js';
 import { OPTIONS, OTHER_OPTIONS, OPTION_GROUPS, EFFECT_LEVELS, createEffectController } from './native.js';
 
-export const manifest = { id: 'effects', name: '特效屏蔽', version: '0.5.14', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "在开启相应屏蔽项时，可隐藏「业火淬魂」的出框演出，以及魔张飞「瞋视」等技能动画。", minCoreVersion: '0.6.37', categories: ['tools'], icon: PLUGIN_ICONS['effects'], priority: 20000,
+export const manifest = { id: 'effects', name: '特效屏蔽', version: '0.5.15', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "适配新版工具箱界面，沿用现有演出屏蔽设置。", minCoreVersion: '0.6.37', categories: ['tools'], icon: EFFECTS_ICON, priority: 20000,
     description: '按需屏蔽对局特效与界面提醒，让画面更清爽' };
 export function activate(ctx) {
   const panels = new Set();

@@ -1,6 +1,6 @@
+import { read } from '../../shared/safe-read.js';
 // The client keeps newer activity/login rewards in a second quest manager.
 // Discover its existing proxy caller; never create one or accept a new quest.
-const read = fn => { try { return fn(); } catch { return undefined; } };
 // Recharge progress is already completed and requires no payment at claim time.
 const repeatableConditions = new Set([1, 2, 3, 4, 6, 7, 60, 61]);
 // REQ_GET_REFINE_STONE is the main quest for owning five-star generals.

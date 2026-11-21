@@ -1,4 +1,6 @@
-import { CONFIRMED_BAISHENG_HASHES } from './confirmed-mode-hashes.js';
+import { confirmedBaishengHashes } from './confirmed-mode-hashes.js';
+import { nativeModeId } from './model.js';
+export { nativeModeId } from './model.js';
 // An index bound only; classification requires an exact SHA-256 match, never
 // candidate count, chosen generals, match duration, or date alone.
 export const needsModeReview = row => row.modeClassification === 'baisheng' || (row.source === 'xiaochao' && row.mode === 26
@@ -15,7 +17,7 @@ export async function reviewModeEvidence(records, accountId, { crypto = globalTh
         [...new Set(row.general)].sort((a, b) => a - b), row.selected === null ? null : [...new Set(row.selected)].sort((a, b) => a - b)]);
       const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(identity));
       const hash = [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
-      if (CONFIRMED_BAISHENG_HASHES.has(hash)) matched.add(row);
+      if (confirmedBaishengHashes().has(hash)) matched.add(row);
     }));
   }
   if (signal?.aborted) throw new Error('历史模式核对已取消');
@@ -23,9 +25,6 @@ export async function reviewModeEvidence(records, accountId, { crypto = globalTh
   return records.filter(row => !matched.has(row));
 }
 
-// Native game model IDs and old collector's normalized labels are separate
-// number spaces. In particular native 35 is AI and native 44 is DLZ, not DDZ/1v1.
-export function nativeModeId(value) { return new Map([[132, 26], [148, 35], [149, 35], [160, 44]]).get(Number(value)) || 0; }
 export function nativeModeEvidence(context) {
   let value, source;
   try {

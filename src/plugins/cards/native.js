@@ -10,10 +10,17 @@ import { ResourceScope } from '../../core/resources.js';
 
 export const SORT_INHIBITOR_SKILL = 0xde2;
 export const REVEAL_OPACITY_LEVELS = Object.freeze([60, 80, 100]);
+export const REVEAL_COLUMN_LEVELS = Object.freeze([4, 5, 6, 7, 8]);
+const DEFAULT_REVEAL_COLUMNS = 7;
 
 export function revealOpacity(settings) {
   const value = settings.get('revealOpacity', 80);
   return REVEAL_OPACITY_LEVELS.includes(value) ? value : 80;
+}
+
+export function revealColumns(settings) {
+  const value = settings.get('revealColumns', DEFAULT_REVEAL_COLUMNS);
+  return REVEAL_COLUMN_LEVELS.includes(value) ? value : DEFAULT_REVEAL_COLUMNS;
 }
 
 function ownUi(game) {
@@ -244,6 +251,7 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
   overlay.append(seatLayer, labelLayer);
   let ownedButton = null, original = null, previousSignature = '', lockedMode = settings.get('lockedSort', null);
   let disposed = false, restoreSelectionWindow = null, patchedSelectionPrototype = null;
+  let labelSignature = '';
   let lastScene;
   const autoPlay = createShanheAutoPlay(ctx);
   const sortControls = createSortControls(ctx, {
@@ -264,13 +272,6 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
     }
     ownedButton = null; original = null;
     previousSignature = '';
-  }
-
-  function position(element, anchor) {
-    if (!anchor) { element.hidden = true; return; }
-    element.hidden = false;
-    element.style.left = `${Math.max(0, Math.min(window.innerWidth - 24, anchor.x))}px`;
-    element.style.top = `${Math.max(0, Math.min(window.innerHeight - 24, anchor.y))}px`;
   }
 
   function updateSelectionOrder() {
@@ -307,7 +308,8 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
     const visibleReveals = new Set();
     if (!state.active) {
       seatLayer.replaceChildren();
-      labelLayer.replaceChildren();
+      if (labelLayer.hasChildNodes()) labelLayer.replaceChildren();
+      labelSignature = '';
       seatLayer.style.clipPath = '';
       countdowns.clear(); skillCounts.clear(); sortControls.hide(); handGrouping.detach(); releaseOriginal();
       restoreSelectionWindow?.(); restoreSelectionWindow = null; patchedSelectionPrototype = null;
@@ -337,6 +339,8 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
       };
       const { innerWidth, innerHeight } = window;
       const fourColors = settings.get('fourColors', false);
+      const columns = revealColumns(settings);
+      const rowWidth = columns * 42 - 2;
       const describe = id => {
         const { locations, tags } = state.cards[id];
         return [id, tags, locations.map(location => {
@@ -355,23 +359,24 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
         const avatar = ui.seatAvatar ?? ui.SeatAvatar;
         const clip = avatar?.scrollRect;
         const top = avatar && nativeAnchor(window, avatar, Number(clip?.x) || 0, Number(clip?.y) || 0, bounds);
-        // A standard native portrait is 172 game units high. Use its visible
-        // height in CSS pixels, including per-seat and canvas scaling. Cap at
-        // 40 × 54 CSS pixels per card when desktop portraits grow larger.
-        const scale = Math.min(1, top && anchor.y > top.y ? (anchor.y - top.y) / 172 : 1);
-        const left = Math.max(0, anchor.x - 20 * scale);
+        // Scale the default seven-card row with the visible portrait height.
+        const portraitScale = Math.min(1, top && anchor.y > top.y ? (anchor.y - top.y) / 172 : 1);
+        const left = Math.max(0, anchor.x - 20 * portraitScale);
         const right = avatar && nativeAnchor(window, avatar,
           (Number(clip?.x) || 0) + Number(clip?.width ?? avatar.width),
           (Number(clip?.y) || 0) + Number(clip?.height ?? avatar.height), bounds);
-        let available = innerWidth - left - 4;
-        if (right && right.x > anchor.x) available = Math.min(available, right.x - anchor.x + 40 * scale);
+        let available = Math.min(innerWidth - left - 4, (DEFAULT_REVEAL_COLUMNS * 42 - 2) * portraitScale);
+        if (right && right.x > anchor.x) available = Math.min(available, right.x - anchor.x + 40 * portraitScale);
+        const sameRowHeight = 54 * Math.max(portraitScale, available / rowWidth);
         for (const other of seats) {
           if (other === ui || !nativeSeatOccupied(other)) continue;
           const next = anchorFor(other);
-          if (next && next.x > anchor.x && Math.abs(next.y - anchor.y) < 54 * scale)
+          if (next && next.x > anchor.x && Math.abs(next.y - anchor.y) < sameRowHeight)
             available = Math.min(available, next.x - anchor.x - 4);
         }
-        const revealWidth = Math.max(1, Math.min(344 * scale, available, ((known.length + possible.length) * 42 - 2) * scale));
+        const scale = Math.max(1, available) / rowWidth;
+        const visibleColumns = Math.min(columns, known.length + possible.length);
+        const revealWidth = (visibleColumns * 42 - 2) * scale;
         revealWrites.push(() => {
           const key = String(seatId);
           const box = revealBoxes.get(key) ?? node('div', 'sgs-card-seat-reveal');
@@ -391,6 +396,8 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
           }
           const revealScale = String(scale);
           if (box.style.getPropertyValue('--sgs-reveal-scale') !== revealScale) box.style.setProperty('--sgs-reveal-scale', revealScale);
+          const gridColumns = String(visibleColumns);
+          if (box.style.getPropertyValue('--sgs-reveal-columns') !== gridColumns) box.style.setProperty('--sgs-reveal-columns', gridColumns);
           const layout = {
             width: revealWidth,
             left: Math.max(0, Math.min(innerWidth - revealWidth - 4, left)),
@@ -412,7 +419,7 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
     if (seatLayer.style.clipPath !== revealClip) seatLayer.style.clipPath = revealClip;
     revealWrites.forEach(write => write());
     for (const box of revealBoxes.values()) if (!visibleReveals.has(box)) box.remove();
-    labelLayer.replaceChildren();
+    const labels = [];
     skillCounts.update(self, state, settings.get('skillCounts', true));
     if (settings.get('labels', true)) {
       for (const ui of self?.cardContainer?.cardUis || []) {
@@ -423,9 +430,19 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
         if (record.locations.length !== 1 || record.locations[0] !== zoneKey(5, state.selfSeatId)) continue;
         const anchor = handSourceAnchor(window, ui);
         if (!anchor) continue;
-        const label = node('span', 'sgs-card-source-label', tags.at(-1));
-        label.title = tags.join(' · '); position(label, anchor); labelLayer.append(label);
+        labels.push({ text: tags.at(-1), title: tags.join(' · '),
+          left: `${Math.max(0, Math.min(window.innerWidth - 24, anchor.x))}px`,
+          top: `${Math.max(0, Math.min(window.innerHeight - 24, anchor.y))}px` });
       }
+    }
+    const labelKey = JSON.stringify(labels);
+    if (labelKey !== labelSignature) {
+      labelSignature = labelKey;
+      labelLayer.replaceChildren(...labels.map(({ text, title, left, top }) => {
+        const label = node('span', 'sgs-card-source-label', text);
+        label.title = title; label.style.left = left; label.style.top = top;
+        return label;
+      }));
     }
     countdowns.update([...new Set([self, ...seats].filter(Boolean))], settings.get('countdown', true));
     updateSelectionOrder();

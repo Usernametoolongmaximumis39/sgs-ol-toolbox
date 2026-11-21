@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createLobbyEntry, isLobbyEntry } from '../src/plugins/gaizhu/lobby.js';
 import { createNationRun, isNationGame, isNationRoom } from '../src/plugins/gaizhu/nation.js';
 import { createNative } from '../src/plugins/gaizhu/native.js';
+import { createPluginNative } from '../src/core/plugin-native.js';
 
 const identity = { ModeID: 74, RuleTypeID: 1, Section: 4 };
 const nation = { ModeID: 28, RuleTypeID: 5, Section: 4 };
@@ -22,6 +23,7 @@ function setup() {
       getDispatcher: () => ({ SwitchScene: name => operations.push(['switch', name]) }),
     },
   };
+  ctx.native = createPluginNative(ctx);
   const native = {
     matching(regex) { return state.window && regex.test(state.window.name) ? [state.window] : []; },
     openAi() { operations.push(['ai']); return true; },

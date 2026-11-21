@@ -12,6 +12,9 @@ const source = JSON.parse(await readFile(path.join(fixtures, 'source.json'), 'ut
 const bundle = await build({ stdin: { contents: `
   export { ResourceScope } from './src/core/resources.js';
   export { BLACK_GOLD } from './src/core/themes.js';
+  export { createPluginNative } from './src/core/plugin-native.js';
+  export { createNativeTheme } from './src/ui/native-theme.js';
+  export { mountPluginUI } from './src/ui/plugin-ui.js';
   export { createLocalSkins } from './src/plugins/skins/local.js';
   export { createYjcmPicker } from './src/plugins/skins/yjcm-picker.js';
   export { buildYjcmData } from './src/plugins/skins/yjcm-data.js';
@@ -167,6 +170,8 @@ try {
       muted: '#675742', accent: '#884f1c', border: '#c5ad8e', scheme: 'light' } };
     const themes = { current: dark, subscribe(listener) { themeListeners.add(listener); return () => themeListeners.delete(listener); } };
     const ctx = { scope, window, document, game, settings, themes };
+    ctx.ui = { ...SkinEffectsCheck.mountPluginUI(ctx, () => ctx), nativeTheme: SkinEffectsCheck.createNativeTheme(ctx) };
+    ctx.native = SkinEffectsCheck.createPluginNative(ctx);
     const local = SkinEffectsCheck.createLocalSkins(ctx);
     const openPicker = SkinEffectsCheck.createYjcmPicker(ctx, local);
     await local.yjcm.warm();

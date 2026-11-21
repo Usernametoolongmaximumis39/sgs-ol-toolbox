@@ -163,6 +163,19 @@ function createGalleryCatalogue(win, scope) {
 const headLimit = 2 * 1024 * 1024, artworkLimit = 12 * 1024 * 1024, voiceLimit = 4 * 1024 * 1024;
 const skinId = id => 'cloud-' + id;
 const zhouYuFormNames = { 91401: '初始形态', '91401#1': '火形态', '91401#2': '水形态' };
+const attendants = ['张让', '赵忠', '孙璋', '毕岚', '夏恽', '韩悝', '栗嵩', '段珪', '郭胜', '高望'];
+// The mobile release stores these variants under separate resource IDs.
+// Keep those IDs for saved selections, voice references and motion layouts.
+const attendantForms = new Map();
+for (const [family, forms] of [
+  ['73001', [['73001', '十人合集'],
+    ['7300101', '张让、赵忠'], ['7300102', '毕岚、高望'], ['7300103', '韩悝、段珪、孙璋'], ['7300104', '郭胜、栗嵩、夏恽'],
+    ...attendants.map((name, index) => [`${731 + index}01`, name])]],
+  ['char-730', [['char-730', '十人原画'], ...attendants.map((name, index) => [`char-${731 + index}`, name]),
+    ['char-752', '十人异画'], ...attendants.map((name, index) => [`char-${741 + index}`, `${name}·异画`])]],
+]) {
+  forms.forEach(([id, label], order) => attendantForms.set(id, { family, label, order }));
+}
 // Match the native selectors by resource ID, even if a cloud snapshot omits a form.
 const limitedChoice = [['', '#1'], ['', '#2']];
 const limitedUse = [['', '#1']];
@@ -175,8 +188,10 @@ const mobileTransitions = {
   83501: limitedChoice, 83502: limitedChoice, 89001: limitedUse, 91401: limitedChoice,
 };
 function compareSkinId(left, right) {
-  const [a, aForm = 0] = left.split('#'), [b, bForm = 0] = right.split('#');
-  return Number(b) - Number(a) || Number(aForm) - Number(bForm);
+  const aAttendant = attendantForms.get(left), bAttendant = attendantForms.get(right);
+  const [a, aForm = 0] = (aAttendant?.family ?? left).replace(/^char-/, '').split('#');
+  const [b, bForm = 0] = (bAttendant?.family ?? right).replace(/^char-/, '').split('#');
+  return Number(b) - Number(a) || (aAttendant?.order ?? Number(aForm)) - (bAttendant?.order ?? Number(bForm));
 }
 
 function pickMotion(row, config) {
@@ -198,6 +213,7 @@ function mobileSkinRows(skins) {
 function matchingCharacterArt(index, skinRows, official) {
   const matches = new Map();
   for (const row of skinRows) {
+    if (attendantForms.has(row.id)) continue;
     const config = official?.skins.get(row.id);
     if (!config?.classic || row.id.includes('#') || !row.portrait) continue;
     const character = index.characters.get(String(config.generalId));
@@ -216,8 +232,8 @@ function createCloudCatalogue(index, download, legacy, { data: official, status:
   const duplicates = new Set([...matchingArt.values()].map(row => Number(row.id)));
   const originals = [...index.characters.values()]
     .filter(row => row.portrait || row.standing || row.previews.length || row.landscapes.length)
-    .sort((a, b) => compareSkinId(a.id, b.id))
-    .map(row => ({ ...row, id: `char-${row.id}`, characterId: Number(row.id) }));
+    .map(row => ({ ...row, id: `char-${row.id}`, characterId: Number(row.id) }))
+    .sort((a, b) => compareSkinId(a.id, b.id));
   const originalName = id => official?.generals.get(id) ?? mobileGeneralName(id);
   const provisional = id => official?.provisionalGenerals?.has(id);
   const currentNames = new Set(originals.filter(row => !provisional(row.characterId))
@@ -225,6 +241,8 @@ function createCloudCatalogue(index, download, legacy, { data: official, status:
   for (const row of [...skins, ...originals]) {
     const characterId = row.characterId;
     const [base, form] = row.id.split('#');
+    const attendant = attendantForms.get(row.id);
+    const family = attendant?.family ?? base;
     const original = form ? index.skins.get(base) : undefined;
     const portrait = row.portrait ?? original?.portrait;
     const characterArt = matchingArt.get(row.id);
@@ -241,22 +259,23 @@ function createCloudCatalogue(index, download, legacy, { data: official, status:
     const mobileMotion = ownMotion ?? sharedMotion;
     const mobileForm = sharedMotion ? '#' + form : '';
     if (!art && !mobileMotion) continue;
-    const general = characterId ? originalName(characterId)
-      : config?.general || mobileOwner(base);
+    const general = attendant ? '十常侍' : characterId ? originalName(characterId) : config?.general || mobileOwner(base);
     if (characterId && !general) continue;
-    const name = characterId ? '经典形象' : config?.title || mobileSkinName(base);
-    const formName = zhouYuFormNames[row.id] ?? (form ? config?.formName || formLabel(Number(form) + 1) : '');
-    const title = name ? name + (form ? ` · ${formName}` : '') : `皮肤 ${row.id}`;
+    const name = characterId ? '经典形象' : attendant ? mobileSkinName(family) : config?.title || mobileSkinName(base);
+    const formName = attendant?.label ?? zhouYuFormNames[row.id] ?? (form ? config?.formName || formLabel(Number(form) + 1) : '');
+    const title = name ? name + (form || row.id !== family ? ` · ${formName}` : '') : `皮肤 ${row.id}`;
     const ownerAliases = config?.generalIds.map(id => official.generals.get(id)) ?? [];
     const head = row.head ?? original?.head ?? characterArt?.head ?? portrait ?? art;
     const urls = [art, portrait].filter(Boolean).map(path => index.resources.get(path).url);
     const loadVoice = (path, signal) => download(path, { signal, limit: voiceLimit });
     const voices = mobileCatalogueVoices(row, original, official, index.resources).map(voice => ({ ...voice, load: loadVoice }));
     const id = skinId(row.id);
-    const classic = Boolean(characterId || (!form && config?.classic));
+    const classic = Boolean(characterId || (!attendant && !form && config?.classic));
     const entry = { id, number: row.id, name: title, formName, general: general || '未标注武将', head, art, portrait,
+      backgroundArt: row.landscapes[0] ?? characterArt?.landscapes[0],
       source: 'mobile', assets: urls.length ? urls : [index.resources.get(mobileMotion).url],
       nativePortrait: Boolean(portrait), download, mobileMotion, mobileForm, mobileMotionLayout: exactConfig?.motion,
+      ...(attendant && { mobileFamily: attendant.family, formButtonLabel: attendant.label }),
       details: { voices }, searchable: normalize([general, mobileSearchName(general), ...ownerAliases,
         ...ownerAliases.map(mobileSearchName), name, config?.officialTitle, formName, row.id,
         classic ? '经典形象 原皮 原画' : ''].join(' ')),
@@ -264,10 +283,16 @@ function createCloudCatalogue(index, download, legacy, { data: official, status:
     entries.set(id, entry);
     // Some alternate figures share a published character's name and are still
     // marked "coming soon". Keep the stable lookup while favoring current art.
-    if (characterId && (duplicates.has(characterId) ||
+    if (characterId && !attendant && (duplicates.has(characterId) ||
         (provisional(characterId) && currentNames.has(general)))) continue;
-    if (!families.has(base)) families.set(base, []);
-    families.get(base).push(entry);
+    if (!families.has(family)) families.set(family, []);
+    families.get(family).push(entry);
+  }
+  for (const family of ['73001', 'char-730']) {
+    const forms = families.get(family);
+    if (!forms) continue;
+    forms[0].name = family === '73001' ? mobileSkinName(family) : '经典形象';
+    forms[0].isDynamic = forms.some(entry => entry.mobileMotion);
   }
   function findSkin(id, name) {
     return entries.get(id) ?? legacy.current?.findSkin(Number(id), name);
@@ -286,7 +311,10 @@ function createCloudCatalogue(index, download, legacy, { data: official, status:
     }
     return { all, categories: sortMobileCategories(categories) };
   }
-  function skinForms(entry) { return entry.number ? families.get(entry.number.split('#')[0]) ?? [entry] : [entry]; }
+  function skinForms(entry) {
+    const family = attendantForms.get(entry.number)?.family ?? entry.number?.split('#')[0];
+    return families.get(family) ?? [entry];
+  }
   function skinTransitions(entry) {
     const base = entry.number?.split('#')[0];
     const transitions = mobileTransitions[base];
@@ -379,6 +407,20 @@ const readImage = (win, url, signal, inspect) => readSkinImage(win, url, signal,
 export async function loadMobilePreview(win, entry, signal) {
   if (!entry.download) return readImage(win, entry.art, signal, image => image);
   return (await readCloudImage(win, entry, entry.art, signal))?.image;
+}
+
+export async function loadMobileArtwork(win, entry, signal) {
+  if (!entry.download) return readImage(win, entry.art, signal,
+    (image, blob) => image.naturalWidth > image.naturalHeight ? blob : undefined);
+  const read = async path => {
+    const artwork = await readCloudImage(win, entry, path, signal);
+    if (artwork && artwork.image.naturalWidth > artwork.image.naturalHeight) return artwork.blob;
+  };
+  if (entry.backgroundArt && entry.backgroundArt !== entry.art) {
+    const landscape = await read(entry.backgroundArt).catch(() => undefined);
+    if (landscape || signal.aborted) return landscape;
+  }
+  return read(entry.art);
 }
 
 export async function loadMobilePortrait(win, entry, signal) {

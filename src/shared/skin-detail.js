@@ -15,14 +15,19 @@ export function watchSkinDetail(scope, owner, hide) {
   }));
   return { get closing() { return closing; }, dispose() { [...releases].reverse().forEach(fn => fn()); } };
 }
+export function isSkinDetail(node) {
+  return typeof node?.showMaxSkinWindow === 'function' && typeof node.updateSkinInfo === 'function'
+    && Boolean(node.skinData?.skinBaseVo && node.skinImg);
+}
+
 export function findSkinDetail(stage) {
   const queue = stage ? [stage] : [];
   for (let i = 0; i < queue.length && i < 4000; i++) {
     const node = queue[i];
     if (!node || node.destroyed || node.visible === false) continue;
-    if (node.skinData?.skinBaseVo && node.skinImg && typeof node.showMaxSkinWindow === 'function'
-      && typeof node.updateSkinInfo === 'function') return node;
-    if (Array.isArray(node._children)) queue.push(...node._children);
+    if (isSkinDetail(node)) return node;
+    const children = node._children;
+    if (Array.isArray(children)) for (let j = 0; j < children.length && queue.length < 4000; j++) queue.push(children[j]);
   }
   return null;
 }

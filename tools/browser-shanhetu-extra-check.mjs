@@ -77,11 +77,13 @@ try {
     const assist = cold.locator('[data-plugin-group=play-assist]');
     const extension = coldGroup.getByRole('button', { name: '拓展', exact: true });
     const score = coldGroup.locator('.shb-score');
+    const rebirthDeduction = score.locator('dt:has-text("重生扣分") + dd');
     const ending = coldGroup.locator('.shb-panel details').filter({ hasText: '从龙之功' });
     await extension.press('Enter');
     await score.getByText('约 7,280', { exact: true }).waitFor();
     assert.equal(await assist.count(), 0);
     await score.locator('summary').press('Enter');
+    assert.equal(await rebirthDeduction.textContent(), '0');
     await coldGroup.getByText('结局倾向', { exact: true }).press('Enter');
     await ending.locator('summary').press('Enter');
     await ending.getByText('1/2', { exact: true }).waitFor();
@@ -174,11 +176,13 @@ try {
     await cold.evaluate(() => {
       const { manager } = shanheFixture;
       manager.AllDatas.gameData.itemId = [2091];
+      manager.AllDatas.gameData.dyingCnt = 1;
       manager.AllDatas.chapterData.record = { fightScore: 324, items: [2091] };
       manager.AllDatas.chapterData.accday = 1;
       manager.event('CLIENT_ROGUE_ALL_DATA_REP');
     });
     await score.getByText('约 524', { exact: true }).waitFor();
+    assert.equal(await rebirthDeduction.textContent(), '0');
     await score.getByText('⌊⌊(324 + 200) × 1⌋ × (1 + 0%)⌋ = 524', { exact: true }).waitFor();
     await loss.getByText('累计 1 月 · max(500, 150 × 1 − 100)', { exact: true }).waitFor();
     assert.equal(await loss.locator('dd').textContent(), '500');
@@ -200,9 +204,9 @@ try {
     await score.getByText('约 30', { exact: true }).waitFor();
     await cold.evaluate(() => { shanheFixture.rebirthUses = 1; });
     await score.getByText('约 0', { exact: true }).waitFor();
-    await score.getByText('在乘难度系数前扣除', { exact: true }).waitFor();
+    assert.equal(await rebirthDeduction.textContent(), '−500');
     await cold.evaluate(() => shanheFixture.proxy.event('decodeRogueLikeRestartGameRep', { Protocol: { Data: { ProtoObj: { error_code: 0 } } } }));
-    await score.getByText('在乘难度系数前扣除', { exact: true }).waitFor({ state: 'detached' });
+    await rebirthDeduction.filter({ hasText: /^0$/ }).waitFor();
     await cold.evaluate(() => {
       shanheFixture.rebirthUses = 0;
       shanheFixture.proxy.event('MsgGamePlayCardNtf');
@@ -215,25 +219,54 @@ try {
     await cold.evaluate(() => {
       const { manager } = shanheFixture;
       manager.AllDatas.chapterData.record.fightScore = 30;
-      manager.AllDatas.gameData.dyingCnt = 1;
+      manager.AllDatas.gameData.dyingCnt = 2;
       manager.event('CLIENT_ROGUE_ALL_DATA_REP');
     });
     await score.getByText('游戏下发的战斗小计', { exact: true }).waitFor();
     await score.getByText('约 0', { exact: true }).waitFor();
-    await score.getByText('在乘难度系数前扣除', { exact: true }).waitFor();
+    assert.equal(await rebirthDeduction.textContent(), '−500');
     await score.getByText('max(0, ⌊⌊(30 + 0 − 500) × 1⌋ × (1 + 0%)⌋) = 0', { exact: true }).waitFor();
     assert.equal(await loss.locator('dd').textContent(), '500');
     await score.scrollIntoViewIfNeeded();
     await cold.screenshot({ path: resolve(out, 'score-rebirth-separate.png') });
+    for (const result of [{ seasonId: 6, score: 900 }, { seasonId: 5 }]) {
+      await cold.evaluate(result => {
+        const { manager } = shanheFixture;
+        manager.GameOverData = result;
+        manager.event('CLIENT_ROGUE_GAMEOVER_REP');
+      }, result);
+      assert.equal(await score.locator('.shb-score-title').textContent(), '分数预估');
+    }
     await cold.evaluate(() => {
-      const { manager } = shanheFixture;
+      const fixture = shanheFixture, { manager } = fixture;
+      fixture.finishedGeneral = manager.AllDatas.gameData.myGeneral;
+      manager.AllDatas.gameData.myGeneral = null;
+      manager.GameOverData = { seasonId: 5, bWin: false, score: 30 };
+      manager.event('CLIENT_ROGUE_GAMEOVER_REP');
+      manager.event('CLIENT_ROGUE_ALL_DATA_REP');
+    });
+    await score.getByText('战绩分', { exact: true }).waitFor();
+    await score.getByText('游戏已结算', { exact: true }).waitFor();
+    assert.equal(await score.locator('.shb-score-total').textContent(), '30');
+    assert.equal(await rebirthDeduction.count(), 0);
+    await cold.screenshot({ path: resolve(out, 'score-rebirth-official.png') });
+    await cold.evaluate(() => {
+      const fixture = shanheFixture, { manager } = fixture;
+      manager.AllDatas.gameData.myGeneral = fixture.finishedGeneral;
       manager.AllDatas.seasonData.uniqueLogId++;
       manager.AllDatas.chapterData.record = { fightScore: 0, items: [] };
       manager.AllDatas.gameData.dyingCnt = 0;
       manager.event('CLIENT_ROGUE_ALL_DATA_REP');
     });
     await score.getByText('约 0', { exact: true }).waitFor();
-    await score.getByText('在乘难度系数前扣除', { exact: true }).waitFor({ state: 'detached' });
+    await rebirthDeduction.filter({ hasText: /^0$/ }).waitFor();
+    await cold.evaluate(() => {
+      const { manager } = shanheFixture;
+      manager.GameOverData = { seasonId: 5, bWin: true, score: 0 };
+      manager.event('CLIENT_ROGUE_GAMEOVER_REP');
+    });
+    await score.getByText('战绩分', { exact: true }).waitFor();
+    assert.equal(await score.locator('.shb-score-total').textContent(), '0');
 
     for (const mode of ['direct', 'adventure', 'retained-fight', 'mid-month']) {
       await cold.evaluate(mode => {
@@ -436,7 +469,7 @@ try {
   await scoreSummary.getByText('约 10,360', { exact: true }).waitFor();
   await scoreSummary.press('Enter');
   await score.getByText('⌊⌊(1,000 + 850) × 5.6⌋ × (1 + 0%)⌋ = 10,360', { exact: true }).waitFor();
-  assert.deepEqual(await score.locator('dl').first().locator('dd').allTextContents(), ['1,000', '500', '100', '50', '200', '850', '×5.6', '+0%']);
+  assert.deepEqual(await score.locator('dl').first().locator('dd').allTextContents(), ['1,000', '500', '100', '50', '200', '850', '0', '×5.6', '+0%']);
   await page.evaluate(() => {
     const { manager } = shanheFixture;
     manager.AllDatas.chapterData.record.fightScore = 1294;

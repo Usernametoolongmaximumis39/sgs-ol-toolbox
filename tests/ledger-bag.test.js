@@ -60,6 +60,48 @@ test('bag discovery ignores scene transitions and hidden branches while looking 
   assert.deepEqual(findBagViews(stage), [owner]);
   scope.dispose();
 });
+test('native window cache reads the displayed tab and ignores a detached cached profile', () => {
+  const { ctx, scope, stage, owner } = fixture();
+  const profile = new Node(), other = new Node(), cache = new Map();
+  profile.addChild(owner); profile.addChild(other); profile.viewStack = { displayedChild: other };
+  const dispatcher = { _events: { OPEN_WINDOW: { caller: { WindowInstanceDict: { getStringKey: name => cache.get(name) } } } } };
+  ctx.game.getDispatcher = () => dispatcher;
+  const original = owner.showBags;
+  const runtime = createBagEnhancements(ctx);
+  cache.set('UserInfoWindow', profile); profile.viewStack.displayedChild = owner;
+  runtime.tick(); assert.equal(owner.showBags, original);
+  stage.addChild(profile);
+  Object.defineProperty(stage, '_children', { get() { assert.fail('Scanned the stage despite a recognized window cache'); } });
+  runtime.tick(); assert.notEqual(owner.showBags, original);
+  profile.viewStack.displayedChild = other;
+  runtime.tick(); assert.equal(owner.showBags, original);
+  scope.dispose();
+});
+
+test('coupon badges are made in frame batches for current eligible slots and are released on close', () => {
+  const f = fixture(Array.from({ length: 27 }, (_, i) => goods(i + 1, i < 26 ? '抵价券' : '普通', i < 26)));
+  const frames = new Map(); let nextFrame = 0;
+  f.ctx.window.requestAnimationFrame = fn => { frames.set(++nextFrame, fn); return nextFrame; };
+  f.ctx.window.cancelAnimationFrame = id => frames.delete(id);
+  const advance = () => { for (const [id, fn] of [...frames]) { frames.delete(id); fn(); } };
+  const slot = f.owner.bags[0], original = slot.updateItem;
+  f.owner.bags = [slot, ...Array.from({ length: 26 }, () => ({ ...slot }))];
+  f.owner.showBags(f.owner.bagDatas);
+  const e = enhanceBagView(f.ctx, f.owner, () => config);
+  const count = () => f.owner.topSp._children.filter(n => n.visible).length;
+  assert.equal(count(), 12);
+  const reused = f.owner.bags.at(-1);
+  reused.updateItem(goods(100, '普通', false));
+  advance(); assert.equal(count(), 24);
+  advance(); assert.equal(count(), 25);
+  assert.equal(f.owner.topSp._children.length, 25);
+  e.dispose();
+  assert.equal(slot.updateItem, original);
+  assert.equal(count(), 0);
+  assert.equal(frames.size, 0);
+  f.scope.dispose();
+});
+
 test('search paginates filtered slots while retaining the complete native inventory', () => {
   const f = fixture(); const original = f.owner.showBags; const e = enhanceBagView(f.ctx, f.owner, () => config);
   e.input.text = '抵价券'; e.input.event('input');

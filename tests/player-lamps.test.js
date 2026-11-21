@@ -5,7 +5,9 @@ import { readFileSync } from 'node:fs';
 import { ResourceScope } from '../src/core/resources.js';
 import { DEFAULT_GENERALS, lampSettings, resolveWatchSettings, watchedGenerals, generalCatalogue, classifyLamps, projectBattleLamp, ddzGeneralPool, ddzModePool, ddzSearchCatalogue } from '../src/plugins/player-info/lamps-model.js';
 import { createBattleLamps, lampManager, lampNickname } from '../src/plugins/player-info/lamps.js';
+import { createPluginNative } from '../src/core/plugin-native.js';
 import { createPlayerSettings, renderPlayerSettings } from '../src/plugins/player-info/settings.js';
+import { mountPluginUI } from '../src/ui/plugin-ui.js';
 const config = { GameCharacters: { character: [
   { id:1,name:'吕布',name_prefix:'魔' }, { id:2,name:'吕布',name_prefix:'界' }, {id:3,name:'吕布',name_prefix:'神'},
   {id:4,name:'裴秀'}, {id:5,name:'曹婴'}, {id:6,name:'诸葛亮',name_prefix:'谋'},
@@ -87,6 +89,7 @@ test('battle prefetch, complete packets, role gate, frame updates, mode and acco
   const m={ReqOtherbuygeneral(n){calls.push(n);}};
   class User{static TryGetUserDataUid(name){return name==='甲'?1000000002:1000000003;}}
   const ctx={scope,window:dom.window,document:dom.window.document,getState:()=>({sessionId:session}),game:{getSelf:()=>({ClientId:who,constructor:User}),getSnapshot:()=>({inGame:true,modeId:mode}),getSeatUIs:()=>seats,getServerProxy:()=>proxy,getClass:n=>n==='GeneralManager'?m:null,getConfigData:()=>config}};
+  ctx.native=createPluginNative(ctx);
   let refreshes=0;const lamps=createBattleLamps(ctx,()=>opts,()=>refreshes++);
   const update=()=>lamps.update({inGame:true,modeId:mode},session);
   const send=async(e,p)=>{for(const h of listeners.get(e)||[])h.f.call(h.c,{Protocol:p});await new Promise(r=>setTimeout(r,5));};
@@ -105,6 +108,7 @@ test('battle prefetch, complete packets, role gate, frame updates, mode and acco
 test('settings dependency, search replacement, persistence and panel cleanup',()=>{
   const dom=new JSDOM('<main></main>'),scope=new ResourceScope(),saved=new Map();
   const ctx={scope,window:dom.window,document:dom.window.document,storage:{get:k=>saved.get(k),set:(k,v)=>saved.set(k,v)}};
+  ctx.ui=mountPluginUI(ctx,()=>ctx);
   const options=createPlayerSettings(ctx,()=>{}),host=ctx.document.querySelector('main');
   const dispose=renderPlayerSettings(ctx,host,options,{searchCatalogue:()=>ddzSearchCatalogue(generalCatalogue(config),new Set([1,2,3,4,5,6]))});
   const [cards,lamps]=host.querySelectorAll('input[type=checkbox]');
@@ -146,6 +150,7 @@ test('runtime search waits for DDZ config, never exposes all characters, and fol
   const ctx={scope,window:dom.window,document:dom.window.document,game:{getSelf:()=>({ClientId:100}),getClass:()=>null,getServerProxy:()=>null,
     getConfigData:name=>name==='character'?config:currentPool,
     loadConfigData(name){loads.push(name);return name==='hd_fight_lord_config'?new Promise(resolve=>{resolvePool=resolve;}):Promise.resolve(null);}}};
+  ctx.native=createPluginNative(ctx);
   const lamps=createBattleLamps(ctx,()=>lampSettings());assert.equal(lamps.searchCatalogue(),null);
   await new Promise(resolve=>setTimeout(resolve,0));assert.deepEqual(loads,['hd_fight_lord_config','sys_ss_gamelabel_config']);
   resolvePool({Root:{CycID:[{cycID:1,generalOpen:'1,2'}]}});await new Promise(resolve=>setTimeout(resolve,0));
@@ -178,6 +183,7 @@ test('search reads the open native DDZ window model, independent of its visible/
   const window={ClassName:'ModeGeneralPoolWindow',info:{ModeID:148,Section:3},vo:{Id:8,InFactGeneralList:[1,4],CantCloseGeneralList:[5]},generalInfoList:[{Id:1}]};
   dom.window.Laya={stage:{_children:[window]}};
   const ctx={scope,window:dom.window,game:{getSelf:()=>({ClientId:100}),getClass:()=>null,getServerProxy:()=>null,getConfigData:n=>n==='character'?config:null,loadConfigData:()=>assert.fail('native pool needs no config query')}};
+  ctx.native=createPluginNative(ctx);
   const lamps=createBattleLamps(ctx,()=>lampSettings());
   assert.deepEqual([...lamps.searchCatalogue().keys()],[1,4,5]);
   window.vo.InFactGeneralList=[3];assert.deepEqual([...lamps.searchCatalogue().keys()],[3,5]);
@@ -185,6 +191,7 @@ test('search reads the open native DDZ window model, independent of its visible/
 test('native manager discovery accepts current PB event and canonicalizes cross-server display names',()=>{
   const native={ReqOtherbuygeneral(){},realName:n=>n.replace(/\[[0-9]+\]/,'')};
   const ctx={game:{getClass:()=>null,getServerProxy:()=>({_events:{decodeClientSelfBuyGeneralRep:{caller:native}}})}};
+  ctx.native=createPluginNative(ctx);
   assert.equal(lampManager(ctx),native);
   assert.equal(lampNickname({NickNameForLocal:'待字包轻语[12]'},native),'待字包轻语');
   assert.equal(lampNickname({NickNameForLocal:'',Nickname:'真实昵称'},null),'真实昵称');

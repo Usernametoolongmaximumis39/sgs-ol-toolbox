@@ -10,7 +10,8 @@ import vm from 'node:vm';
 import { JSDOM } from 'jsdom';
 import { bundleCore } from '../tools/distribution-build.mjs';
 import { buildMicroclient } from '../tools/build-microclient.mjs';
-import { installMicroAPIs, legacyMicroCSS } from '../src/core/micro-compatibility.js';
+import { installMicroAPIs, installMicroCompatibility, legacyMicroCSS } from '../src/core/micro-compatibility.js';
+import { ResourceScope } from '../src/core/resources.js';
 
 const root = resolve(import.meta.dirname, '..'), sha = data => createHash('sha256').update(data).digest('hex');
 const OFFICIAL_MAIN_TEXT = 'const package = require("./package.json");\r\nglobal.PackageId = package.packageId;\r\n';
@@ -59,6 +60,75 @@ test('old Chromium receives the APIs used by unchanged market packages', () => {
 test('old Chromium color mixing preserves weights, transparency, focus and inset', () => {
   const css = legacyMicroCSS('a:focus-visible{color:color-mix(in srgb,var(--sgs-accent,#fff) 25%,transparent);inset:0 2px;overflow:clip}', () => '#fff', s => s === 'transparent' ? [0,0,0,0] : [255,255,255,255]);
   assert.match(css, /rgba\(255,255,255,0.25\)/); assert.match(css, /a:focus\{/); assert.match(css, /top:0;right:2px;bottom:0;left:2px/); assert.match(css, /overflow:hidden/);
+});
+test('old Chromium reuses translated styles through text updates and refreshes on stylesheet or theme changes', async t => {
+  const dom = new JSDOM('', { runScripts: 'outside-only' }), win = dom.window, doc = win.document;
+  const scope = new ResourceScope();
+  t.after(() => { scope.dispose(); win.close(); });
+  const host = doc.createElement('div'), shadow = host.attachShadow({ mode: 'open' });
+  host.dataset.sgsToolbox = 'compat-test';
+  host.style.setProperty('--accent', 'red');
+  const label = doc.createElement('span'), source = doc.createElement('style');
+  source.textContent = '.one,.two{color:color-mix(in srgb,var(--accent) 25%,transparent);background:color-mix(in srgb,var(--accent) 10%,transparent)}';
+  shadow.append(label, source);
+  doc.body.append(host);
+  const counts = { styles: 0, computed: 0, pixels: 0 };
+  const findStyles = shadow.querySelectorAll.bind(shadow);
+  shadow.querySelectorAll = selector => { counts.styles++; return findStyles(selector); };
+  win.getComputedStyle = element => {
+    counts.computed++;
+    return { getPropertyValue: name => element.dataset.themeScheme === 'light' ? 'blue' : element.style.getPropertyValue(name) };
+  };
+  const colors = { red: [255, 0, 0, 255], blue: [0, 0, 255, 255], transparent: [0, 0, 0, 0] };
+  win.HTMLCanvasElement.prototype.getContext = () => ({
+    clearRect() {}, fillRect() {},
+    getImageData() { counts.pixels++; return { data: colors[this.fillStyle] }; },
+  });
+  const flush = () => new Promise(resolve => setImmediate(resolve));
+
+  installMicroCompatibility(win, scope);
+  const fallback = shadow.querySelector('[data-micro-fallback]');
+  assert.match(fallback.textContent, /rgba\(255,0,0,0.25\)/);
+  assert.deepEqual(counts, { styles: 1, computed: 1, pixels: 2 });
+
+  for (let i = 0; i < 3; i++) {
+    label.textContent = 'round ' + i;
+    label.firstChild.data += ' updated';
+    const row = doc.createElement('div');
+    row.innerHTML = '<span>cards</span>';
+    shadow.append(row);
+    row.remove();
+    await flush();
+  }
+  assert.deepEqual(counts, { styles: 1, computed: 1, pixels: 2 });
+
+  host.style.display = 'block';
+  await flush();
+  host.dataset.themeScheme = 'light';
+  await flush();
+  assert.match(fallback.textContent, /rgba\(0,0,255,0.25\)/);
+  assert.deepEqual(counts, { styles: 1, computed: 3, pixels: 3 });
+
+  const panel = doc.createElement('section'), lateStyle = doc.createElement('style');
+  lateStyle.textContent = '.late{color:color-mix(in srgb,red 20%,transparent)}';
+  panel.append(lateStyle);
+  shadow.append(panel);
+  await flush();
+  assert.equal(shadow.lastChild, fallback);
+  assert.match(fallback.textContent, /\.late\{color:rgba\(255,0,0,0.2\)/);
+  assert.equal(counts.pixels, 3);
+  lateStyle.firstChild.data = '.late{overflow:clip}';
+  await flush();
+  assert.match(fallback.textContent, /\.late\{overflow:hidden\}/);
+  panel.remove();
+  await flush();
+  assert.doesNotMatch(fallback.textContent, /\.late\{/);
+
+  scope.dispose();
+  assert.equal(fallback.isConnected, false);
+  source.textContent = '.new{overflow:clip}';
+  await flush();
+  assert.equal(shadow.querySelector('[data-micro-fallback]'), null);
 });
 test('microclient preload and source IPC accept only top-level official OL game pages', async () => {
   const handlers = {}, host = await readFile(join(root, 'microclient/host.cjs'), 'utf8'), preload = await readFile(join(root, 'microclient/preload.cjs'), 'utf8');
@@ -253,6 +323,52 @@ test('installer offers a y-confirmed force path when verification fails and keep
     await writeManifest(false);
     pass('');
     assert(!('forced' in JSON.parse(await readFile(join(resources, 'app/sgs-toolbox-install.json'), 'utf8'))));
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+test('installer offers a y-confirmed force uninstall/restore when verification fails', { skip: process.platform !== 'win32', timeout: 180000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'sgs-micro-force-uninstall-')), resources = join(directory, 'SGSOL/resources'), pkg = join(directory, 'package');
+  const archive = asar({ 'main.js': OFFICIAL_MAIN_TEXT, 'package.json': '{"name":"SGSOL","version":"1.1.6"}', 'script/electron_renderer.js': 'OFFICIAL_PRELOAD', 'script/electron_frame.js': FRAME_TEXT, 'index_wd.html': SHELL_HTML });
+  const files = Object.entries({ 'main.js': OFFICIAL_MAIN_TEXT, 'package.json': '{"name":"SGSOL","version":"1.1.6"}', 'script/electron_renderer.js': 'OFFICIAL_PRELOAD', 'script/electron_frame.js': FRAME_TEXT, 'index_wd.html': SHELL_HTML }).map(([path, data]) => ({ path, sha256: sha(data) }));
+  const payload = [];
+  try {
+    await mkdir(resources, { recursive: true }); await mkdir(join(pkg, 'payload'), { recursive: true });
+    await writeFile(join(directory, 'SGSOL/SGSOL.exe'), 'test fixture only'); await writeFile(join(resources, 'app.asar'), archive);
+    await writeFile(join(directory, 'user-data-sentinel'), 'plugins/settings/disabled/rollback remain');
+    await writeFile(join(pkg, 'installer.ps1'), '﻿' + (await readFile(join(root, 'microclient/installer.ps1'), 'utf8')).replace(/^﻿/, ''));
+    await writeFile(join(pkg, 'official-windows.json'), JSON.stringify({ format: 'sgs-toolbox-official-windows-v2', variants: [{ channel: 'official', version: '1.1.6', platform: 'win32', sha256: sha(archive), resources: [], files }] }));
+    for (const name of ['host.cjs', 'preload.cjs']) { const data = await readFile(join(root, 'microclient', name)); await writeFile(join(pkg, 'payload', name), data); payload.push({ path: name, sha256: sha(data) }); }
+    await writeFile(join(pkg, 'payload/toolbox.js'), 'void 0;'); payload.push({ path: 'toolbox.js', sha256: sha('void 0;') });
+    await writeFile(join(pkg, 'approved-payloads.json'), JSON.stringify([{ toolboxSha256: sha('void 0;'), hostSha256: payload.find(f => f.path === 'host.cjs').sha256, preloadSha256: payload.find(f => f.path === 'preload.cjs').sha256 }]));
+    await writeFile(join(pkg, 'payload.json'), JSON.stringify({ format: 'sgs-toolbox-microclient-v1', edition: 'lite', version: '0.0.0-test', files: payload }));
+    const run = (action, input = '') => spawnSync(join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe'), ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(pkg, 'installer.ps1'), '-Resources', resources, '-Action', action], { input, encoding: 'utf8', timeout: 60000, windowsHide: true });
+    const pass = (action, input) => { const result = run(action, input); assert.equal(result.status, 0, result.stdout + result.stderr); return result; };
+    const fail = (action, input) => { const result = run(action, input); assert.equal(result.status, 1, result.stdout + result.stderr); return result; };
+
+    pass('Install');
+    assert.equal(existsSync(join(resources, 'app')), true);
+    // A modified install and a residual script fail verification; without y nothing changes.
+    await writeFile(join(resources, 'app/main.js'), 'tampered');
+    await mkdir(join(resources, 'xc-ext')); await writeFile(join(resources, 'xc-ext/xc-ext.js'), 'residual old script');
+    fail('Uninstall', '\n');
+    assert.equal(existsSync(join(resources, 'app')), true);
+    assert.equal(existsSync(join(resources, 'app.asar')), false);
+    // y restores the official archive, removes the replaced app directory and keeps scripts outside app.
+    pass('Uninstall', 'y\n');
+    assert.equal(sha(await readFile(join(resources, 'app.asar'))), sha(archive));
+    assert(!(await readdir(resources)).includes('app'));
+    assert(!(await readdir(resources)).includes('sgs-toolbox-official.asar'));
+    assert.equal(await readFile(join(resources, 'xc-ext/xc-ext.js'), 'utf8'), 'residual old script');
+    assert.equal(await readFile(join(directory, 'user-data-sentinel'), 'utf8'), 'plugins/settings/disabled/rollback remain');
+
+    // restore.bat shares the forced path, including when the install record is missing.
+    await rm(join(resources, 'xc-ext'), { recursive: true, force: true });
+    pass('Install');
+    await rm(join(resources, 'app/sgs-toolbox-install.json'));
+    fail('Restore', '\n');
+    assert.equal(existsSync(join(resources, 'app')), true);
+    pass('Restore', 'y\n');
+    assert.equal(sha(await readFile(join(resources, 'app.asar'))), sha(archive));
+    assert(!(await readdir(resources)).includes('app'));
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

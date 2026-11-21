@@ -117,5 +117,19 @@
     "toolboxSha256": "cbed80b894caa98c22f2446f12d81f35bf44ce96cfed1c8d946eba71919631c7",
     "hostSha256": "9f242c5754d18fa22f1fd440eac6fce92a796424a998bf8e50051715372505a9",
     "preloadSha256": "11272dae53e5551d2aa09d050336419e938482e09d00c0d78803f1f0fa4a0c53"
+  },
+  {
+    "version": "0.6.182",
+    "edition": "full",
+    "toolboxSha256": "408a347f8dcc5c07c39cd8e000f4d2b3fdae2ceafe7cf584fa2b47e548d9fdd0",
+    "hostSha256": "92943e53311ce6f7ccfd98880d2c929511f20cd5aa65f5c1024c5386d2bd6542",
+    "preloadSha256": "9c0acf281af4fbe2dfac86c1cf3daabcb581d1fdb3f0adecf040dfc6b68266c5"
+  },
+  {
+    "version": "0.6.182",
+    "edition": "lite",
+    "toolboxSha256": "6cb557661cf082c9c3c00888a960f46c4ac82768577d38fc151da7cb17fa60fc",
+    "hostSha256": "92943e53311ce6f7ccfd98880d2c929511f20cd5aa65f5c1024c5386d2bd6542",
+    "preloadSha256": "9c0acf281af4fbe2dfac86c1cf3daabcb581d1fdb3f0adecf040dfc6b68266c5"
   }
 ]

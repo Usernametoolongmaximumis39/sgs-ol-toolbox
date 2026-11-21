@@ -37,6 +37,17 @@
         window.postMessage({ type: 'sgs-toolbox-mobile-skin-result', id: message.id, error: detail }, window.location.origin);
       }
     });
+    if (window.addEventListener) window.addEventListener('message', async event => {
+      const message = event.data;
+      if (event.source !== window || event.origin !== window.location.origin || message?.type !== 'sgs-toolbox-private-sync-http' ||
+          typeof message.id !== 'string' || !/^[a-f0-9]{32}$/.test(message.id)) return;
+      const { id, url, body, device } = message;
+      if (message.cancel === true) { electron.ipcRenderer.send('sgs-toolbox:private-sync-http-cancel:v1', id); return; }
+      if (typeof url !== 'string' || url.length > 512 || typeof body !== 'string' || body.length > 24 * 1024 * 1024) return;
+      const send = data => window.postMessage({ type: 'sgs-toolbox-private-sync-http-result', id, ...data }, window.location.origin);
+      try { send({ reply: await electron.ipcRenderer.invoke('sgs-toolbox:private-sync-http:v1', { id, url, body, device }) }); }
+      catch (error) { send({ error: error.message }); }
+    });
     const source = electron.ipcRenderer.sendSync('sgs-toolbox:source:v1');
     if (!source) throw new Error('工具箱微端脚本不可用，请重新运行安装包');
     const bridge = '(' + function () {

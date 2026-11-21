@@ -1,4 +1,5 @@
 import { mountPluginUI } from '../src/ui/plugin-ui.js';
+import { createNativeTheme } from '../src/ui/native-theme.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
@@ -123,7 +124,7 @@ function harness(t, data = fixtureData()) {
   const configs = fixtureConfig(); let panel, cleanup;
   const ctx = { window: dom.window, document: dom.window.document, scope, settings, game: { getScene: () => scene, getSelf: () => ({ ClientId: account }), getServerProxy: () => proxy, getClass: () => null, getConfigData: key => configs[key], onSceneChange: fn => { sceneListeners.push(fn); return () => { sceneListeners = sceneListeners.filter(x => x !== fn); }; } },
     ui: { registerPanel(spec) { panel = spec; cleanup = spec.render(dom.window.document.querySelector('main')); return () => cleanup?.(); } } };
-  Object.assign(ctx.ui, mountPluginUI(ctx, () => ctx));
+  Object.assign(ctx.ui, mountPluginUI(ctx, () => ctx), { nativeTheme: createNativeTheme(ctx) });
   scope.add(activate(ctx));
   return { dom, ctx, manager, scope, configs, scene, get opened() { return opened; }, get panel() { return panel; }, tick() { pulses.forEach(fn => fn()); }, account(id) { account = id; this.tick(); }, switch(name) { scene.SceneName = name; sceneListeners.forEach(fn => fn()); }, async ready() { await new Promise(resolve => setTimeout(resolve, 5)); } };
 }

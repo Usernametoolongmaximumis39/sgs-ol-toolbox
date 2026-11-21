@@ -45,13 +45,14 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
   const extended = createExtended(ctx, {button,choice,locked:id=>locks.has(id),hasKind:kind=>EXTRA_IDS.some(id=>locks.has(id) && skillKind(id)===kind)});
   function persist() { ctx.settings.set('rememberedSkillIds', [...remembered]); }
   function gameContext() { return read(() => ctx.game.getClass('GameContext')); }
-  function alive(s = state) {
+  function alive(s = state, scene) {
+    if (disposed || ctx.scope.signal.aborted || !s || s !== state || ended || !visible(s.self)
+      || s.self.seat?.IsDead || s.self.seat?.IsAiControl || s.scene.IsViewer === true) return false;
+    if ((scene ?? ctx.game.getScene()) !== s.scene) return false;
     const gc = gameContext(), snap = read(() => ctx.game.getSnapshot());
-    return !disposed && !ctx.scope.signal.aborted && s && s === state && !ended &&
-      ctx.game.getScene() === s.scene && visible(s.self) && !s.self.seat?.IsDead && !s.self.seat?.IsAiControl &&
-      // GameContext is closure-local in production builds, not a registered
-      // Laya class. Native handlers still enforce its operation restrictions.
-      snap?.inGame === true && !snap?.isReplay && s.scene.IsViewer !== true && gc?.IsViewer !== true &&
+    // GameContext is closure-local in production builds, not a registered
+    // Laya class. Native handlers still enforce its operation restrictions.
+    return snap?.inGame === true && !snap?.isReplay && gc?.IsViewer !== true &&
       read(() => gc.IsViewerOrReplay()) !== true && read(() => gc.CanOperationInGame()) !== false;
   }
   function notify() { onChange(); }
@@ -487,23 +488,25 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     if (!self?.seat || !self.cardContainer) { clear(); resetRound(); return; }
     if (!state && !ended) bind(scene,self);
     if (state) syncBar(state);
-    return self;
+    return { scene, self };
   }
   function tick() {
     if (disposed || ctx.scope.signal.aborted) return;
     try {
-      const self = syncState();
-      if (!self) return;
+      const currentState = syncState();
+      if (!currentState) return;
+      const { scene, self } = currentState;
+      const s = state, live = alive(s, scene);
       // Pause/temporary operation restrictions suspend execution, not this round's configuration.
-      quandao.update(self, Boolean(getSettings().quandaoCount) && alive());
-      if (!alive()) return;
+      quandao.update(self, Boolean(getSettings().quandaoCount) && live);
+      if (!live || state !== s || ended || disposed || ctx.scope.signal.aborted) return;
       const current = list(self.skillItems).filter(item => !item.destroyed && (supported(item) || getSettings().rapid));
-      for (const [item,b] of state.bindings) if (!current.includes(item) || Number(item.Skill?.SkillId) !== b.id) { b.dispose(); state.bindings.delete(item); }
+      for (const [item,b] of s.bindings) if (!current.includes(item) || Number(item.Skill?.SkillId) !== b.id) { b.dispose(); s.bindings.delete(item); }
       for (const item of current) {
-        if (!state.bindings.has(item)) state.bindings.set(item,bindSkill(state,item));
-        state.bindings.get(item).rapid();
+        if (!s.bindings.has(item)) s.bindings.set(item,bindSkill(s,item));
+        s.bindings.get(item).rapid();
       }
-      paint(); schedule(state); notify();
+      paint(); schedule(s); notify();
     } catch (error) { clear(); ctx.reportError?.(error); }
   }
   function dispose() { if (disposed) return; disposed = true; clear(); proxyCleanup.forEach(fn => fn()); releases.splice(0).reverse().forEach(fn => fn()); }

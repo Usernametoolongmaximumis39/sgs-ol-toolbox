@@ -8,7 +8,7 @@ import { rewardTokens } from '../src/plugins/shanhetu/reward-tokens.js';
 const fallback = tokens => tokens.map(t => t.fallback ?? t.text).join('');
 test('the shared catalogue has labelled small images and aliases mode variants to category art', () => {
   for (const name of ['stat_hp','stat_card','stat_draw','stat_sha','stat_armor','equipment','warning','rogue_money_icon']) {
-    const icon = infoIcon(name); assert.ok(icon.label); assert.match(icon.data,/^data:image\/(png;base64,|svg\+xml;charset=utf-8,)/);
+    const icon = infoIcon(name); assert.ok(icon.label); assert.match(icon.data,/^data:image\/(webp;base64,|svg\+xml;charset=utf-8,)/);
     assert.ok(icon.data.length < 40000); assert.equal(infoIcon(name),icon);
   }
   for (const family of ['zhanfa','skill','card','equip']) for (const variant of [1,2]) {

@@ -30,8 +30,10 @@ export async function bundlePluginEntry(entry, { root = resolve(import.meta.dirn
     || within(file, resolve(root, 'src/shared'))
     || ['resources.js', 'themes.js', 'seat.js'].some(name => file === resolve(root, 'src/core', name));
   const globalName = id === 'cards' ? 'SGSCards' : 'SGSPlugin';
+  const compact = pluginReleases.some(spec => spec.id === id && spec.compact);
   const bundled = await build({ absWorkingDir: root, entryPoints: [entry], bundle: true,
     format: 'iife', globalName, target: 'es2022', write: false, metafile: true,
+    minifySyntax: compact, minifyWhitespace: compact,
     logLevel: 'silent', logOverride: { 'unsupported-dynamic-import': 'error', 'unsupported-require-call': 'error' },
     plugins: [{ name: 'plugin-boundaries', setup(api) {
       api.onResolve({ filter: /.*/ }, async args => {

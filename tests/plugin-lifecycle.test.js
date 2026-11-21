@@ -9,6 +9,57 @@ import { ResourceScope } from '../src/core/resources.js';
 import { ThemeRegistry } from '../src/core/themes.js';
 import { CardStyleRegistry } from '../src/core/card-styles.js';
 import { BackgroundRegistry } from '../src/core/backgrounds.js';
+import { createPluginNative } from '../src/core/plugin-native.js';
+
+test('shared native observation projects immediately, drops cross-account deliveries and releases both scopes', async t => {
+  const owner = new ResourceScope(), child = new ResourceScope(), handlers = new Map(), delivered = [], gaps = [];
+  t.after(() => { child.dispose(); owner.dispose(); });
+  let id = 1;
+  const proxy = {
+    on(type, caller, fn) { handlers.set(type, fn); },
+    off(type, caller, fn) { assert.equal(handlers.get(type), fn); handlers.delete(type); },
+  };
+  const ctx = { scope: owner, game: { getSelf: () => ({ ClientId: id, NickName: '甲' }), getServerProxy: () => proxy } };
+  const native = createPluginNative(ctx);
+  const watch = () => native.observe({ Packet: packet => ({ value: packet.value }) },
+    (type, packet, account) => delivered.push([type, packet.value, account.id]), detail => gaps.push(detail), { scope: child });
+  const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+  watch();
+  const packet = { value: 1 };
+  handlers.get('Packet')(packet); packet.value = 2;
+  await flush();
+  assert.deepEqual(delivered, [['Packet', 1, '1']]);
+
+  handlers.get('Packet')(packet); id = 2;
+  await flush();
+  assert.equal(delivered.length, 1);
+  for (let i = 0; i < 257; i++) handlers.get('Packet')(packet);
+  await flush();
+  assert.deepEqual(gaps, [{ reason: 'overflow', type: 'Packet' }]);
+  assert.equal(delivered.length, 1);
+
+  const stale = handlers.get('Packet'); stale(packet);
+  child.dispose(); stale(packet);
+  await flush();
+  assert.equal(handlers.size, 0);
+  assert.equal(delivered.length, 1);
+  assert.equal(owner.cleanups.length, 0);
+
+  let received = 0;
+  const stop = native.observe({ Packet: () => true }, () => { received++; stop(); });
+  handlers.get('Packet')(packet);
+  handlers.get('Packet')(packet);
+  await flush();
+  assert.equal(received, 1);
+  assert.equal(handlers.size, 0);
+
+  const secondChild = new ResourceScope();
+  native.observe({ Packet: () => true }, () => {}, undefined, { scope: secondChild });
+  owner.dispose();
+  assert.equal(handlers.size, 0);
+  assert.equal(secondChild.closed, false);
+  assert.equal(secondChild.cleanups.length, 0);
+});
 
 // All real packages, only declared prerequisites, no login, scene or protocol sends.
 // This verifies shared lifecycle obligations; per-feature fixtures cover gameplay.

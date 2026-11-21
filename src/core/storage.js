@@ -1,8 +1,16 @@
 export class Settings {
-  constructor(storage, prefix = 'sgstoolbox:') { this.storage = storage; this.prefix = prefix; }
+  constructor(storage, prefix = 'sgstoolbox:', listeners = new Set()) { this.storage = storage; this.prefix = prefix; this.listeners = listeners; }
   get(key, fallback) { try { const raw = this.storage?.getItem(this.prefix + key); return raw === null || raw === undefined ? fallback : JSON.parse(raw); } catch { return fallback; } }
-  set(key, value) { this.storage?.setItem(this.prefix + key, JSON.stringify(value)); return value; }
-  namespace(id) { return new Settings(this.storage, this.prefix + id + ':'); }
+  set(key, value) {
+    const fullKey = this.prefix + key;
+    this.storage?.setItem(fullKey, JSON.stringify(value));
+    for (const listener of this.listeners) {
+      try { listener(fullKey); } catch { /* The setting has already been saved. */ }
+    }
+    return value;
+  }
+  subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
+  namespace(id) { return new Settings(this.storage, this.prefix + id + ':', this.listeners); }
 }
 
 export class PackageStore {

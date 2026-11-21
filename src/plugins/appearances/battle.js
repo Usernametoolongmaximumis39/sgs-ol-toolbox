@@ -31,27 +31,10 @@ export function retainedScope(row) {
   if (row.rawMode == null || row.rawGroup == null) return true;
   return eligibleMode(row.rawMode, row.rawGroup) === row.mode;
 }
-export function robotStatus(players) {
-  if (!players.length) return null;
-  const states = players.map(p => {
-    const flags = ['IsRobot', 'isRobot', 'IsProtectRobot', 'IsProtectNickRobot', 'isProjectRobot'].map(k => read(() => p[k]));
-    if (flags.some(v => v === true)) return true;
-    return flags.some(v => v === false) ? false : null;
-  });
-  return states.includes(true) ? true : states.every(v => v === false) ? false : null;
-}
-export function nativeRobots(ctx) {
-  const context = read(() => ctx.game.getClass('GameContext'));
-  // A single-rider table has two seats. No nickname or ID-range heuristics.
-  const seats = [0, 1].map(i => read(() => context.GetSeat(i)));
-  if (seats.some(s => !s || !read(() => s.PlayerInfo))) return null;
-  return robotStatus(seats.flatMap(s => [s, read(() => s.PlayerInfo)]));
-}
 export function projectSettlement(packet, selfSeat) {
   const players = field(packet, 'Players');
   if (!Array.isArray(players) || players.length > 8) throw new Error('结算玩家列表格式无效');
-  const rows = players.map(p => ({ seat: p.SeatID, result: p.Result, figure: p.Figure, userId: p.userId,
-    isRobot: p.isRobot, isProjectRobot: p.isProjectRobot }));
+  const rows = players.map(p => ({ seat: p.SeatID, result: p.Result, figure: p.Figure, userId: p.userId }));
   const own = rows.filter(p => p.seat === selfSeat);
   const rawTime = field(packet, 'time');
   return { selfSeat, players: rows, own: own.length === 1 ? own[0] : null,

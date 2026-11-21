@@ -7,6 +7,7 @@ import { ResourceScope } from '../src/core/resources.js';
 import { PluginManager } from '../src/core/plugins.js';
 import { SessionJournal } from '../src/core/session.js';
 import { Settings } from '../src/core/storage.js';
+import { ThemeRegistry } from '../src/core/themes.js';
 
 test('background package requires enabled skins and preserves static preference through its lifecycle without accumulating UI', async t => {
   const dom = new JSDOM('<main></main>', { url: 'https://example.test/' });
@@ -15,7 +16,7 @@ test('background package requires enabled skins and preserves static preference 
   const backgrounds = new BackgroundRegistry({ window: dom.window, game, settings, scope });
   const manager = new PluginManager({ journal: new SessionJournal(), settings,
     store: { async list() { return []; }, async put(row) { records.set(row.id, structuredClone(row)); } },
-    context: { window: dom.window, document: dom.window.document, game, backgrounds, themes: {}, notify() {},
+    context: { window: dom.window, document: dom.window.document, game, backgrounds, themes: new ThemeRegistry(settings), notify() {},
       ui: { registerPanel(panel) {
         const host = dom.window.document.createElement('section'); dom.window.document.body.append(host);
         const cleanup = panel.render(host); return () => { cleanup(); host.remove(); };

@@ -15,6 +15,9 @@ const STYLES = `
 .sgs-ledger .income{color:var(--sgs-accent)}.sgs-ledger .expense{color:var(--sgs-text)}
 .sgs-ledger .asset-id{font-size:9px;color:var(--sgs-muted);margin-left:auto;font-variant-numeric:tabular-nums;flex:none}.sgs-ledger h3{font:600 12px var(--sgs-font);margin:16px 0 8px}
 .sgs-ledger .reward-list{font-size:11px;overflow-wrap:anywhere}.sgs-ledger .warning{border-left:2px solid var(--sgs-accent);padding-left:8px;color:var(--sgs-muted)}
+.sgs-ledger .ledger-sync{padding-top:8px;border-top:1px solid var(--sgs-border);margin-top:8px}
+.sgs-ledger .ledger-sync .bar{display:flex;flex-wrap:wrap;gap:6px}
+.sgs-ledger .ledger-sync .bar button{white-space:nowrap}
 .sgs-ledger-detail{box-sizing:border-box;margin:0;position:fixed;z-index:2147483646;width:min(620px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:18px;background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:12px;box-shadow:0 12px 40px #0006}
 .sgs-ledger-detail .detail-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}.sgs-ledger-detail h1{font-size:19px;font-weight:600;margin:0}.sgs-ledger-detail .detail-heading button{width:30px;padding:5px}.sgs-ledger-detail .detail-heading button span{display:none}
 .sgs-ledger-detail .list{max-height:none;overflow:visible}.sgs-ledger-detail .warning{font-size:11px;line-height:1.7}
@@ -28,7 +31,7 @@ const STYLES = `
 const time = at => new Date(at).toLocaleString('zh-CN', { hour12: false });
 const format = n => n === null ? '未知' : n.toLocaleString('zh-CN');
 const rewardsText = items => items.map(i => `${i.name} × ${format(i.delta)}`).join('、');
-const sourceNames = { DbsCcUserGoodshintNtf: '物品到账通知', DbsCcUpdategoodsAttribNtf: '背包数量变化', DbsCcUserDelgoodsNtf: '背包物品移除', DbsCUpdatauserYaunbaoNtf: '元宝收支通知', 120004: '祈愿台成功确认', ClientLoginRep: '登录确认' };
+const sourceNames = { DbsCcUserGoodshintNtf: '物品到账通知', DbsCcUpdategoodsAttribNtf: '背包数量变化', DbsCcUserDelgoodsNtf: '背包物品移除', DbsCUpdatauserYaunbaoNtf: '元宝收支通知', 120004: '祈愿台成功确认', decodeClientSecretExploreRep: '祈愿台成功确认', ClientLoginRep: '登录确认' };
 const reasonNames = { 1: '赠送', 2: '购买', 3: '系统赠送', 5: '礼包', 8: '任务奖励', 9: '排位奖励', 15: '签到奖励', 26: '合成', 27: '分解', 58: '祈福', 2010: '祈愿台奖励' };
 function setup(ctx, container) {
   const ui = ctx.ui.panel(container); ui.root.classList.add('sgs-ledger');
@@ -43,18 +46,29 @@ export function renderPanel(ctx, container, controller) {
   const account = el('p', 'muted'), assets = el('div', 'assets'), note = el('p', 'muted'), bar = el('div', 'bar'), error = errorBlock(ui);
   const refreshButton = ui.button('刷新配置', 'refresh', () => controller.load(true));
   bar.append(ui.button('详细账本', 'info', () => openDetails(ctx, controller)), refreshButton);
-  const prayerTitle = el('h3', '', '祈愿台 · 本次登录'), prayers = el('div'), help = el('p', 'muted', '收支分别累计 · 全部日志仅保存在本机');
+  const prayerTitle = el('h3', '', '祈愿台 · 本次登录'), prayers = el('div'), help = el('p', 'muted');
+  const syncSection = el('div', 'ledger-sync'), syncBar = el('div', 'bar'), syncStatus = el('p', 'muted'), syncError = errorBlock(ui);
+  syncStatus.setAttribute('role', 'status');
+  const syncButton = ui.button('同步账本', 'refresh', () => controller.syncLedger());
+  syncBar.append(syncButton); syncSection.append(syncBar, syncStatus, syncError.node);
   const settings = el('details', 'alert-settings'), settingsBody = el('div', 'thresholds'), settingsHelp = el('p', 'muted', '仅比较 7 天内记录 · 0 为关闭'), settingSummary = el('summary'), settingStatus = el('span', 'setting-status');
   settingSummary.append(el('span', '', '预警设置'), settingStatus);
   const rules = el('p', 'rules', '元宝含绑定、限时；玉玺含碎片（10 片 = 1 枚）。如意结仅记录收支。');
   settings.append(settingSummary, settingsHelp, settingsBody, rules);
   let settingsKey = '';
-  root.append(account, note, assets, settings, bar, error.node, prayerTitle, prayers, help);
+  root.append(account, note, assets, settings, bar, syncSection, error.node, prayerTitle, prayers, help);
   function draw() {
     const v = controller.view({ currentOnly: true });
     refreshButton.disabled = v.loadingConfig; refreshButton.lastChild.textContent = v.loadingConfig ? '读取中…' : '刷新配置';
     account.hidden = Boolean(v.who.id);
     account.textContent = '等待登录';
+    syncSection.hidden = !v.sync;
+    syncButton.disabled = !v.sync?.bound || v.loading || Boolean(v.sync?.busy);
+    const statusText = v.sync?.status || (!v.who.id ? '登录后可同步余额和流水'
+      : v.sync?.bound ? '等待云同步' : '在「管理 → 云同步」绑定当前账号');
+    if (syncStatus.textContent !== statusText) syncStatus.textContent = statusText;
+    syncError.update(v.sync?.error);
+    help.textContent = v.sync?.bound ? '登录后及在线时每分钟向已绑定服务器同步账号资料、余额与流水' : '收支分别累计 · 日志保存在本机';
     note.textContent = v.session ? '本次登录 · ' + (v.session.incomplete ? '记录曾中断' : '仅含已观察收支') : '登录后开始观察';
     note.title = v.session ? '观察起于 ' + time(v.session.at) : '';
     const enabled = v.items.filter(row => canAlert(row.ID, row.name) && row.threshold > 0).length;
@@ -67,7 +81,13 @@ export function renderPanel(ctx, container, controller) {
       if (icon) img.src = icon; else img.hidden = true;
       img.onerror = () => { img.hidden = true; }; head.append(img, name);
       const flow = el('div', 'flow'); flow.append(el('span', 'income', `收入 +${format(row.income)}`), el('span', 'expense', `消耗 −${format(row.expense)}`));
-      item.append(head, el('div', 'balance', format(row.count)), flow);
+      const prior = row.count === null ? row.syncedBalance : null;
+      item.append(head, el('div', 'balance', format(prior?.count ?? row.count)));
+      if (prior) {
+        const label = el('div', 'asset-change muted', '上次同步');
+        label.title = time(prior.at); item.append(label);
+      }
+      item.append(flow);
       if (Number(row.ID) === 100016) item.title = '元宝余额合计：普通 + 绑定 + 限时；收支仅含已观察到的通知';
       const change = row.comparison;
       if (change?.delta) item.append(el('div', 'asset-change muted', '较上次 ' + (change.delta > 0 ? '+' : '−') + format(Math.abs(change.delta))));
@@ -137,7 +157,7 @@ export function openDetails(ctx, controller) {
   function draw() {
     if (!alive || win.closed || ctx.scope.signal.aborted) return;
     const v = controller.view(), rows = selected(v).sort((a, b) => b.at - a.at), pages = Math.max(1, Math.ceil(rows.length / 100)); page = Math.max(0, Math.min(page, pages - 1));
-    who.textContent = v.who.id ? `${v.who.nickname || '当前账号'} · ${v.who.id} · 仅保存在当前浏览器` : '等待登录';
+    who.textContent = v.who.id ? `${v.who.nickname || '当前账号'} · ${v.who.id} · ${v.sync?.bound ? '含云同步记录' : '仅保存在当前浏览器'}` : '等待登录';
     status.textContent = `仅记录插件运行期间观察到的流水，首次背包快照不计为收入。${v.session?.incomplete ? '本次登录记录曾中断，收支不完整。' : ''}`;
     error.update(v.error); count.textContent = `${v.loading ? '正在读取本机历史… · ' : ''}筛选结果 ${rows.length} 条 · 收入与消耗分别统计`;
     prev.disabled = page === 0; next.disabled = page + 1 >= pages; pageText.textContent = `${page + 1} / ${pages} 页`; summary.replaceChildren();
@@ -154,10 +174,10 @@ export function openDetails(ctx, controller) {
       const items = el('div', 'log-items');
       for (const i of row.items) { const n = el('span', i.delta > 0 ? 'income' : 'expense', `${i.name} ${i.delta > 0 ? '+' : '−'}${format(Math.abs(i.delta))}`); n.title = `物品 ID ${i.id}`; items.append(n); }
       article.append(items);
-      if (row.prayer) article.append(el('p', 'reward-list', row.prayer.matched ? `获得：${rewardsText(row.rewards)}` : '奖励通知未关联，待核对'));
+      if (row.prayer) article.append(el('p', 'reward-list', row.synced ? '奖励到账见道具流水' : row.prayer.matched ? `获得：${rewardsText(row.rewards)}` : '奖励通知未关联，待核对'));
       if (row.note) article.append(el('p', '', row.note));
       const reason = row.type == null ? '' : row.source === 'DbsCcUserGoodshintNtf' ? reasonNames[row.type] || `原因类型 ${row.type}` : `原因代码 ${row.type}`;
-      article.append(el('p', 'muted', `${sourceNames[row.source] || '其他记录'}${reason ? ` · ${reason}` : ''}${row.giver ? ` · 赠送者 ${row.giver}` : ''}${row.reconciled ? ' · 已与到账通知去重' : ''}${row.linkedPrayer ? ' · 已关联祈愿台成功回包' : ''}`));
+      article.append(el('p', 'muted', `${row.synced ? '同步记录 · ' : ''}${sourceNames[row.source] || '其他记录'}${reason ? ` · ${reason}` : ''}${row.giver ? ` · 赠送者 ${row.giver}` : ''}${row.reconciled ? ' · 已与到账通知去重' : ''}${row.linkedPrayer ? ' · 已关联祈愿台成功回包' : ''}`));
       const details = el('details'), raw = el('p'); raw.textContent = JSON.stringify(row, null, 2); details.append(el('summary', '', '具体日志 · 物品 ID 与记录详情'), raw); article.append(details); logs.append(article);
     }
     if (!rows.length) logs.append(el('p', 'empty', '没有符合筛选条件的日志'));

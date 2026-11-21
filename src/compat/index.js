@@ -2,7 +2,9 @@ import { OFFICIAL_ROOTS, FORK_ROOTS, EXTENSION_ROOTS, SOURCE_NAMES } from './pro
 
 const TOOLBOX = '[data-sgs-toolbox]';
 const GAME = '#bgDiv,#layaContainer,#laya_container,#GameDiv,canvas,iframe';
+const PROTECTED = `${TOOLBOX},${GAME}`;
 const FORBIDDEN_TAGS = new Set(['HTML', 'BODY', 'HEAD', 'SCRIPT', 'STYLE', 'LINK', 'META']);
+const BRAND = /(?:小抄|桌游助手)/;
 const FEATURE_LABELS = ['卡牌', '记牌', '明牌', '山河图', '配置', '工具', '百胜战功', '皮肤收集', '战绩出框', '聊天表情', '自助观星', '杀批账本'];
 
 /**
@@ -30,8 +32,7 @@ export function createCompatibility({ window, document = window?.document, onSta
     if (!el || el.nodeType !== 1 || el.ownerDocument !== document || !el.style) return true;
     if (FORBIDDEN_TAGS.has(el.tagName)) return true;
     // Never hide our root, an ancestor containing it, or native game surfaces.
-    return Boolean(el.matches(TOOLBOX) || el.closest(TOOLBOX) || el.querySelector(TOOLBOX)
-      || el.matches(GAME) || el.closest(GAME) || el.querySelector(GAME));
+    return Boolean(el.closest(PROTECTED) || el.querySelector(PROTECTED));
   }
 
   function ownHidden(el) {
@@ -68,9 +69,12 @@ export function createCompatibility({ window, document = window?.document, onSta
   }
 
   function structuralMatch(el) {
+    if (el.closest(PROTECTED)) return false;
+    const rawText = el.textContent || '';
+    if (rawText.length < 12 || !BRAND.test(rawText)) return false;
     if (protectedElement(el)) return false;
-    const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
-    if (text.length < 12 || text.length > 20000 || !/(?:小抄|桌游助手)/.test(text)) return false;
+    const text = rawText.replace(/\s+/g, ' ').trim();
+    if (text.length < 12 || text.length > 20000) return false;
     const buttons = [...el.querySelectorAll('button,[role="tab"]')];
     if (buttons.length < 4) return false;
     const labels = buttons.map(b => (b.textContent || '').replace(/\s+/g, ''));
@@ -170,14 +174,18 @@ export function createCompatibility({ window, document = window?.document, onSta
   }
 
   function schedule() {
-    if (queued || !running) return;
+    if (queued || !running || !enabled) return;
     queued = true;
-    window.queueMicrotask(() => { queued = false; if (running) scan(); });
+    const watching = observer;
+    window.queueMicrotask(() => {
+      if (observer !== watching) return;
+      queued = false;
+      if (running && enabled) scan();
+    });
   }
 
-  function start() {
-    if (running) return getStatus();
-    running = true;
+  function watch() {
+    if (!running || !enabled || interval !== null) return;
     if (typeof window.MutationObserver === 'function') {
       observer = new window.MutationObserver(records => {
         if (records.some(r => {
@@ -191,17 +199,26 @@ export function createCompatibility({ window, document = window?.document, onSta
     }
     // Globals may be published without a DOM mutation. This only inspects them.
     interval = window.setInterval(scan, 1000);
-    scan();
-    emit();
-    return getStatus();
+  }
+
+  function unwatch() {
+    observer?.disconnect();
+    observer = null;
+    queued = false;
+    if (interval !== null) window.clearInterval(interval);
+    interval = null;
+  }
+
+  function start() {
+    if (running) return getStatus();
+    running = true;
+    watch();
+    return scan();
   }
 
   function stop() {
     running = false;
-    observer?.disconnect();
-    observer = null;
-    if (interval !== null) window.clearInterval(interval);
-    interval = null;
+    unwatch();
     for (const el of [...hidden.keys()]) restore(el);
     emit();
     return getStatus();
@@ -209,8 +226,14 @@ export function createCompatibility({ window, document = window?.document, onSta
 
   function setEnabled(value) {
     enabled = Boolean(value);
-    if (!enabled) for (const el of [...hidden.keys()]) restore(el);
-    scan();
+    if (enabled && running) {
+      watch();
+      return scan();
+    }
+    if (!enabled) {
+      unwatch();
+      for (const el of [...hidden.keys()]) restore(el);
+    }
     emit();
     return getStatus();
   }
@@ -218,7 +241,7 @@ export function createCompatibility({ window, document = window?.document, onSta
   function setTakeoverPolicy(value) {
     if (!['hide', 'exit-known'].includes(value)) throw new TypeError('Unknown compatibility policy');
     policy = value;
-    scan();
+    if (running) return scan();
     emit();
     return getStatus();
   }

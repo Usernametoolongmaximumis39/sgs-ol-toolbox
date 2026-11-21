@@ -1,11 +1,11 @@
-import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
+import { SECKILL_ICON } from '../../ui/plugin-icons.js';
 import { createNativeAdapter } from './native.js';
 import { createController } from './controller.js';
 import { ITEMS, normalize, rowLabel } from './model.js';
 
 export default {
-  manifest: { id: 'seckill', name: '自动秒杀', version: '0.1.4', apiVersion: 1, contractVersion: 1, releaseNotes: "适配新版工具箱界面资源。自动购买默认关闭，启用会消耗对应游戏货币。", minCoreVersion: '0.6.37',
-    description: '按所选物品与关键词自动抢购秒杀商品，支持跨场次排队与购买确认', icon: PLUGIN_ICONS['seckill'], priority: 21000, categories: ['automation'] },
+  manifest: { id: 'seckill', name: '自动秒杀', version: '0.1.5', apiVersion: 1, contractVersion: 1, releaseNotes: "调整自动购买界面的标题和图标。自动购买默认关闭，启用后可能消耗游戏货币。", minCoreVersion: '0.6.37',
+    description: '按所选物品与关键词自动抢购秒杀商品，支持跨场次排队与购买确认', icon: SECKILL_ICON, priority: 21000, categories: ['automation'] },
   activate(ctx) {
     const controller = createController({ adapter: createNativeAdapter(ctx), settings: ctx.settings, scope: ctx.scope, reportError: e => ctx.reportError?.(e), notify: ctx.notify });
     ctx.ui.registerPanel({ id: 'main', category: 'automation', render(container) {
@@ -31,7 +31,7 @@ export default {
       `;
       const listen = (target, type, fn) => cleanups.push(ctx.scope.listen(target, type, fn));
       const iconButton = (icon, name, fn) => { const b = el('button', undefined, 'sk-icon'); b.type = 'button'; b.title = name; b.setAttribute('aria-label', name); b.append(ctx.ui.icon(icon)); listen(b, 'click', fn); return b; };
-      const heading = el('div', undefined, 'sk-heading'), title = el('h3', '自动购买'); title.prepend(ctx.ui.icon(PLUGIN_ICONS.seckill));
+      const heading = el('div', undefined, 'sk-heading'), title = el('h3', '自动购买'); title.prepend(ctx.ui.icon(SECKILL_ICON));
       const power = el('label', undefined, 'sk-power'), powerText = el('span'), toggle = ctx.ui.styleSwitch(el('input')); toggle.type = 'checkbox'; toggle.setAttribute('aria-label', '自动购买所选秒杀物品');
       power.append(powerText, toggle); heading.append(title, power);
       listen(toggle, 'change', () => controller.options({ enabled: toggle.checked }));

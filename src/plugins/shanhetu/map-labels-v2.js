@@ -1,4 +1,3 @@
-import { getNativeTheme } from '../../ui/native-theme.js';
 import { labelLines } from './presentation.js';
 import { createPlacementTask, findDrawerRect, validatePlacement, comparePlacementResults } from './placement.js';
 import { capturePlacementGeometry, placementRectToClient } from './placement-geometry.js';
@@ -39,7 +38,7 @@ const css = `
 `;
 
 export function createMapLabels(ctx) {
-  const theme = getNativeTheme(ctx), doc = ctx.document;
+  const theme = ctx.ui.nativeTheme, doc = ctx.document;
   const cardView = createInfoCardView(ctx, theme);
   const now = () => ctx.window.performance?.now?.() ?? Date.now();
   let work = null, workFrame = null, sourceRows = [], lastPerformance = null, cancelledJobs = 0;

@@ -1,5 +1,4 @@
 import { ResourceScope } from '../../core/resources.js';
-import { getNativeTheme } from '../../ui/native-theme.js';
 import { generalNames, read } from '../../shared/info-runtime.js';
 import { isShanhe } from './model.js';
 
@@ -23,7 +22,7 @@ export function generalChangeIds(pool) {
 export const generalChangeText = (ids, names) => '可换将为：' + ids.map(id => names[id] || `Unknown (${id})`).join(', ');
 
 export function createGeneralPreview(ctx, native) {
-  const theme = getNativeTheme(ctx);
+  const theme = ctx.ui.nativeTheme;
   const account = () => String(read(() => ctx.game.getSelf()?.ClientId) || '');
   const sceneName = () => { const s = ctx.game.getScene?.(); return s?.SceneName || s?.sceneName || s?.name || ''; };
   let dispatcher = null, binding = null, notice = null, names = {}, namesJob = null;

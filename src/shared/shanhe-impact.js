@@ -1,8 +1,7 @@
 import season5 from './shanhe-impact-season-5.json' with { type: 'json' };
+import { attributes } from './shanhe-attributes.js';
 
-export const attributes = Object.freeze({
-  rep: '声望', tro: '战功', wis: '智谋', mar: '商才', loy: '忠诚', ass: '权谋', cha: '魅力',
-});
+export { attributes };
 const impactBySeason = new Map([[season5.season, season5]]);
 
 export function hasOptionImpactData(season) {

@@ -118,9 +118,13 @@ function combinations(cards, count, cap = 512) {
 /** Only explicit observed identities or the caller's own hand may enter calculations. */
 export function skillHints(state, options = {}) {
   if (!state?.active) return [];
+  const metadata = new Map();
   const getMeta = id => {
-    const value = options.getMeta?.(id) || {};
-    return { ...value, name: String(value.name || `牌${id}`), suit: Number(value.suit) || 0, number: Number(value.number) || 0, type: Number(value.type) || 0 };
+    if (!metadata.has(id)) {
+      const value = options.getMeta?.(id) || {};
+      metadata.set(id, { ...value, name: String(value.name || `牌${id}`), suit: Number(value.suit) || 0, number: Number(value.number) || 0, type: Number(value.type) || 0 });
+    }
+    return metadata.get(id);
   };
   const skills = Array.from(options.skills || []), numeric = new Set(skills.map(value => Number(typeof value === 'object' ? value.SkillId ?? value.id : value))), names = new Set(skills.map(value => String(typeof value === 'object' ? value.name ?? value.Name ?? '' : value)));
   const has = key => Boolean(windows[key]) || GROUPS[key].ids.some(id => numeric.has(id)) || GROUPS[key].names.some(name => names.has(name));
@@ -133,7 +137,8 @@ export function skillHints(state, options = {}) {
   const format = cards => cards.map(id => `${getMeta(id).name}${getMeta(id).number || '?'}`).join('、');
   const sum = cards => cards.reduce((total, id) => total + getMeta(id).number, 0);
   const rows = [], add = (id, text, extra = {}) => rows.push({ id, title: GROUPS[id].title, text, ...extra });
-  const deck = [...new Set(state.deckIds || [])].filter(id => !state.cards?.[id]?.seen);
+  const deck = windows.jizhan || windows.hezhong || has('guhuo')
+    ? [...new Set(state.deckIds || [])].filter(id => !state.cards?.[id]?.seen) : [];
   const poolLabel = state.seenHistoryComplete ? '未见牌' : '已知开局牌表中尚未观察的牌（记录不完整）';
   if (has('xiasheng')) { const c = colour(hand); add('xiasheng', `${handLabel}：黑色 ${c.black} · 红色 ${c.red}${c.unknown ? ` · 花色未知 ${c.unknown}` : ''}`, { counts: c }); }
   if (has('quandao')) { const slash = hand.filter(id => /^(杀|火杀|火焰杀|雷杀|雷电杀|冰杀|冰霜杀)$/.test(getMeta(id).name)).length, trick = hand.filter(id => getMeta(id).type === 2 && !/乐不思蜀|兵粮寸断|闪电/.test(getMeta(id).name)).length; add('quandao', `${handLabel}：杀 ${slash} · 普通锦囊 ${trick}`, { counts: { slash, trick } }); }

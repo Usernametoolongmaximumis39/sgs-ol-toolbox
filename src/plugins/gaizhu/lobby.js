@@ -1,4 +1,4 @@
-import { account, manager, read } from '../../shared/info-runtime.js';
+import { read } from '../../shared/info-runtime.js';
 import { press, usable } from './native.js';
 import { isIdentityPractice, roomMode } from './room-settings.js';
 import { isNationRoom } from './nation.js';
@@ -55,7 +55,7 @@ function roomSeat(scene, id) {
 }
 
 export function createLobbyEntry(ctx, native, mode, isActive = () => true) {
-  const id = account(ctx).id;
+  const id = ctx.native.account().id;
   const password = mode === 'identity' ? String(1000 + Math.floor(Math.random() * 9000)) : '';
   const releases = [];
   const windowName = mode === 'nation' ? 'CreatOFRoomWindow' : 'CreateTableWindow';
@@ -63,11 +63,11 @@ export function createLobbyEntry(ctx, native, mode, isActive = () => true) {
   let cancelled = false, opened = false, submitted = false, navigated = false, origin = null;
   let nationCreateIssued = false, nativeError = null;
   const alive = () => !cancelled && isActive() && !ctx.scope.signal.aborted && Boolean(id)
-    && account(ctx).id === id && read(() => ctx.game.getServerProxy().ConnectedSucess1) !== false;
+    && ctx.native.account().id === id && read(() => ctx.game.getServerProxy().ConnectedSucess1) !== false;
   const register = release => releases.push(ctx.scope.add?.(release) || release);
 
   function guardedAction(action) {
-    const gate = manager(ctx, 'LocalMatchManager', 'ClientMyMatchIdRep', value => typeof value.CheckAddRoom === 'function');
+    const gate = ctx.native.manager('LocalMatchManager', 'ClientMyMatchIdRep', value => typeof value.CheckAddRoom === 'function');
     const previous = read(() => gate.stillAddRoomCallBack);
     if (typeof previous === 'function') throw new Error('原生赛事提示仍待处理，请先处理后再启动');
     try { return action(); }

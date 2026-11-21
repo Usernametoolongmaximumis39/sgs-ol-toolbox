@@ -26,7 +26,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1260, height: 440 } });
   page.on('pageerror', e => errors.push(e.message));
   await page.setContent('<body style="margin:0;background:#181b20">');
-  await page.addScriptTag({ path: path.join(process.env.TEMP, 'sgsres/game/laya.core.min.js') });
+  await page.addScriptTag({ path: process.env.SGS_LAYA_CORE || path.join(process.env.TEMP, 'sgsres/game/laya.core.min.js') });
   await page.addScriptTag({ content: bundle.outputFiles[0].text });
   await page.addScriptTag({ content: `window.hQi={I:()=>({CardUpTime:0})};window.YKi={handCardRight:0};window.dqt={STATE_CARD_MARK_ICON_SIZE:0};window.LKi={I:()=>({UpdateYingBianCardUseGuidePos(){},UpdateNewbieCardUseGuidePos(){}})};window.CapturedHand=class extends Laya.Sprite {${methods.join('\n')}};` });
   await page.evaluate(() => {

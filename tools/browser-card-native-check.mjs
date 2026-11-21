@@ -19,7 +19,8 @@ function nativeSlice(start, end) {
 const selectContextSource = nativeSlice('class yAt{', 'class ');
 const clickCardSource = nativeSlice('CardUI_Click(t){if(V2t.CanOperationInGame())', 'invalidateLayoutHandCardFlag=!1');
 const packet = JSON.parse(await readFile(`release/market/packages/cards/${CARDS_VERSION}.json`, 'utf8'));
-const bundle = await build({ stdin: { contents: "export { mountPluginUI } from './src/ui/plugin-ui.js'; export { ResourceScope } from './src/core/resources.js';", resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'NativeCardCheck' });
+const bundle = await build({ stdin: { contents: `export { mountPluginUI } from './src/ui/plugin-ui.js'; export { ResourceScope } from './src/core/resources.js';
+  export { createNativeTheme } from './src/ui/native-theme.js';`, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'NativeCardCheck' });
 const output = path.resolve('test-results'); await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
@@ -92,7 +93,8 @@ try {
       game: { getScene: () => scene, getSelfSeatUI: () => self, getSeatUIs: () => [self,observed], getClass: name => name === 'CheckSeatCardWindow' ? CheckSeatCardWindow : null,
         getCardMeta:id=>({name:'杀',suit:id===4?3:4,number:id===4?10:2}) },
       getState: () => state, settings: { get: (key, fallback) => settings.has(key) ? settings.get(key) : fallback, set: (key, value) => settings.set(key, value) },
-      subscribe: () => () => {}, ui: { ...NativeCardCheck.mountPluginUI({document,window,scope}, () => ({document,window,scope})), registerPanel(spec) {
+      subscribe: () => () => {}, ui: { ...NativeCardCheck.mountPluginUI({document,window,scope}, () => ({document,window,scope})),
+        nativeTheme: NativeCardCheck.createNativeTheme({document,window,scope,themes}), registerPanel(spec) {
         const main = document.querySelector('main'); main.hidden = true;
         return spec.render(main);
       } },
@@ -172,7 +174,7 @@ try {
     assert.deepEqual(await page.evaluate(() => nativeCheck.hand.cardUis.map(ui => ui.Card.CardNumber)), [3, 7, 9]);
     assert.equal(await page.evaluate(() => nativeCheck.hand.cardUis.find(ui => ui.Card.CardNumber === 3).selected), true);
   }
-  // Six revealed cards must wrap with the rendered portrait, including resize.
+  // Seven cards per row must fit the rendered portrait at every viewport scale.
   for (const [width, portraitWidth, scale] of [[640,140,.65],[900,140,1],[1280,140,1.6]]) {
     await page.setViewportSize({width,height:800});
     await page.evaluate(({portraitWidth,scale}) => {
@@ -182,16 +184,17 @@ try {
       nativeCheck.avatar.graphics.clear();
       nativeCheck.avatar.graphics.drawRect(36,0,portraitWidth,172,'#587550','#dbba70',2);
       nativeCheck.state.cards={};
-      for(let id=4;id<17;id++) nativeCheck.state.cards[id]={id,locations:['5:1'],tags:[],lastSeq:1,seen:true};
+      for(let id=4;id<27;id++) nativeCheck.state.cards[id]={id,locations:['5:1'],tags:[],lastSeq:1,seen:true};
     }, {portraitWidth,scale});
     await page.waitForTimeout(350);
     const layout=await page.locator('[data-sgs-cards-overlay]').locator('.sgs-card-seat-reveal').evaluate(box=>{
       const rect=box.getBoundingClientRect(), cards=[...box.children].map(n=>n.getBoundingClientRect());
-      return {right:rect.right,width:rect.width,height:rect.height,cardWidth:cards[0].width,cardHeight:cards[0].height,rows:new Set(cards.map(r=>r.top)).size,inside:cards.every(r=>r.left>=rect.left&&r.right<=rect.right+.1)};
+      return {right:rect.right,width:rect.width,height:rect.height,cardWidth:cards[0].width,cardHeight:cards[0].height,columns:cards.filter(r=>r.top===cards[0].top).length,rows:new Set(cards.map(r=>r.top)).size,inside:cards.every(r=>r.left>=rect.left&&r.right<=rect.right+.1)};
     });
     assert.ok(layout.rows>1); assert.ok(layout.inside); assert.ok(layout.right<=width);
     assert.ok(layout.width<=(portraitWidth+40)*scale+.1);
-    const cardScale = Math.min(1, scale);
+    assert.equal(layout.columns, 7);
+    const cardScale = layout.width / (7 * 42 - 2);
     assert.ok(Math.abs(layout.cardWidth-40*cardScale)<.1);
     assert.ok(Math.abs(layout.cardHeight-54*cardScale)<.1);
     assert.ok(Math.abs(layout.height-139*cardScale)<.1,'two and a half visible rows');
@@ -236,7 +239,33 @@ try {
     const box=document.querySelector('[data-sgs-cards-overlay]').shadowRoot.querySelector('.sgs-card-seat-reveal');
     const cards=[...box.children].map(c=>c.getBoundingClientRect());
     return {columns:cards.filter(c=>c.y===cards[0].y).length,wrapped:cards[8].y>cards[0].y,scroll:box.scrollHeight>box.clientHeight};
-  }),{columns:3,wrapped:true,scroll:true});
+  }),{columns:7,wrapped:true,scroll:true});
+  let previousCardWidth = Infinity;
+  for (const columns of [4, 5, 6, 7, 8]) {
+    await page.evaluate(columns => nativeCheck.settings.set('revealColumns', columns), columns);
+    await page.waitForFunction(columns => {
+      const box = document.querySelector('[data-sgs-cards-overlay]').shadowRoot.querySelector('.sgs-card-seat-reveal');
+      return getComputedStyle(box).gridTemplateColumns.split(' ').length === columns;
+    }, columns);
+    const layout = await reveal.evaluate(box => {
+      const cards = [...box.children].map(card => card.getBoundingClientRect()), first = cards[0];
+      const right = box.getBoundingClientRect().right;
+      return { columns: cards.filter(card => card.top === first.top).length, width: first.width,
+        inside: cards.every(card => card.right <= right + .1) };
+    });
+    assert.equal(layout.columns, columns);
+    assert.ok(layout.inside && layout.width < previousCardWidth);
+    previousCardWidth = layout.width;
+    if (columns === 4 || columns === 8) {
+      await reveal.evaluate(box => { box.scrollTop = 0; });
+      await reveal.screenshot({ path: path.join(output, `card-reveal-size-${columns}.png`) });
+    }
+  }
+  await page.evaluate(() => nativeCheck.settings.delete('revealColumns'));
+  await page.waitForFunction(() => {
+    const box = document.querySelector('[data-sgs-cards-overlay]').shadowRoot.querySelector('.sgs-card-seat-reveal');
+    return box.style.getPropertyValue('--sgs-reveal-columns') === '7';
+  });
   const bounds = await measure();
   await page.screenshot({path:path.join(output,'toolbox-spectator-reveals.png'),clip:{x:600,y:20,width:400,height:540}});
   // A native dialog must cover only the intersecting part of the HTML reveals.
@@ -485,6 +514,7 @@ try {
   assert.deepEqual(await page.evaluate(() => ({ toolbar: !!nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort'), alpha: nativeCheck.self.sortCardBtn.alpha, enabled: nativeCheck.self.sortCardBtn.mouseEnabled })), { toolbar: false, alpha: 1, enabled: true });
   assert.deepEqual(errors, []);
   const result = { scope: '官方缓存Laya引擎2.12.2 + 独立牌局节点演练，非真实账号牌局', packageVersion: CARDS_VERSION, checks: ['12原生字号，理牌栏和拖动范围上移6原生像素，随1/1.6缩放', '排序及选中状态保留', '双击锁定/解锁', '真实引擎窗口层遮挡及点击归属', '选牌弹窗原生数字读秒8→4，停止/移除后清理', '旁观未挂载及停止计时器不生成数字', '双将scrollRect.x=36，明牌在1/1.6缩放下对齐可见头像左下', '弹窗关闭后恢复', '整排长按拖动；手牌上方限位及画布/视口限制；不触发手牌手势', '山河图自动打牌图标的三档状态、单行提示、出牌顺序及右键按账号记住', '通过新客户端 getButtonBar 出南蛮入侵，兼容旧操作栏，技能询问不触发自动出牌', '卸载移除并恢复原生按钮'], pageErrors: errors };
+  result.checks.push('明牌每行 4／5／6／7／8 张，默认 7 张，卡片随档位缩放并保留滚轮和触控滚动');
   await writeFile(path.join(output, 'browser-card-native-report.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally { await browser.close(); }

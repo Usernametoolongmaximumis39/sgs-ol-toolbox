@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
 import { ResourceScope } from '../src/core/resources.js';
+import { createPluginNative } from '../src/core/plugin-native.js';
 import { createGaiZhu } from '../src/plugins/gaizhu/runtime.js';
 import { attachRoomSettings, RoomSettingsWindow } from './fixtures/gaizhu-room.js';
 
@@ -61,6 +62,7 @@ function setup(t, autoMode = 'identity') {
     window.Laya.stage._children = [next];
   }
   place(autoMode === 'training' ? game : room);
+  ctx.native = createPluginNative(ctx);
   const controller = createGaiZhu(ctx);
   function emit(type, packet = {}) {
     for (const fn of [...(handlers.get(type) ?? [])]) fn(packet);

@@ -1,4 +1,3 @@
-import { CONTROL_STYLES } from '../../ui/controls.js';
 import { STARGAZING_SITE } from '../../shared/stargazing-source.js';
 import { findEntries, normalizeReport } from './report.js';
 import { STYLES } from './styles.js';
@@ -6,12 +5,12 @@ import { STYLES } from './styles.js';
 export const manifest = {
   id: 'stargazing',
   name: '自助观星',
-  version: '0.1.0',
+  version: '0.1.1',
   apiVersion: 1,
   contractVersion: 1,
   minCoreVersion: '0.6.180',
   description: '在游戏内按栏目查看和搜索第三方观星报告。',
-  releaseNotes: '首次提供自助观星，可按栏目和关键词查看活动预测。',
+  releaseNotes: "更新观星窗口和入口样式。绑定支持接管观星的同步服务器后，核心可使用现有绑定授权通过该服务器读取报告，其他情况下直接匿名读取来源站。",
   icon: { paths: ['M12 2l2.6 6.6L22 12l-7.4 3.4L12 22l-2.6-6.6L2 12l7.4-3.4L12 2Z', 'M19 3v4m-2-2h4'] },
   priority: 32768,
   categories: ['tools'],
@@ -70,6 +69,7 @@ function openReport(ctx, overlayRoot, onClose) {
   const host = node(doc, 'div');
   host.dataset.stargazing = '';
   const shadow = host.attachShadow({ mode: 'open' });
+  const offStyles = ctx.ui.mountStyles(shadow);
   const dialog = node(doc, 'dialog');
   dialog.setAttribute('aria-label', manifest.name);
   const header = node(doc, 'header');
@@ -116,7 +116,7 @@ function openReport(ctx, overlayRoot, onClose) {
   const footer = node(doc, 'footer');
   footer.append('数据来源 ', externalLink(doc, 'gx.95chong.cn', STARGAZING_SITE), '。结果由代码自动推演，可能会被调整，仅供参考，请以官方公告为准。');
   dialog.append(header, content, footer);
-  shadow.append(node(doc, 'style', CONTROL_STYLES + STYLES), dialog);
+  shadow.append(node(doc, 'style', STYLES), dialog);
   overlayRoot.append(host);
 
   let report, pending, alive = true;
@@ -195,6 +195,7 @@ function openReport(ctx, overlayRoot, onClose) {
     pending?.abort();
     for (const off of stop) off();
     dialog.close();
+    offStyles();
     host.remove();
     onClose();
   });
@@ -213,23 +214,20 @@ export function activate(ctx) {
     id: 'main',
     category: 'tools',
     render(container) {
-      const trigger = node(ctx.document, 'button', '打开观星');
-      trigger.type = 'button';
-      trigger.setAttribute('aria-haspopup', 'dialog');
-      trigger.prepend(ctx.ui.icon(manifest.icon));
-      container.append(trigger);
-      currentTrigger = trigger;
-      const off = ctx.scope.listen(trigger, 'click', () => {
+      const { root: panel, button, dispose } = ctx.ui.panel(container);
+      const trigger = button('打开观星', manifest.icon, () => {
         const root = container.getRootNode();
         closeReport ??= openReport(ctx, root.host ? root : ctx.document.body, () => {
           closeReport = undefined;
           if (currentTrigger?.isConnected) currentTrigger.focus();
         });
       });
+      trigger.setAttribute('aria-haspopup', 'dialog');
+      panel.append(trigger);
+      currentTrigger = trigger;
       return ctx.scope.add(() => {
-        off();
         if (currentTrigger === trigger) currentTrigger = undefined;
-        trigger.remove();
+        dispose();
       });
     },
   });

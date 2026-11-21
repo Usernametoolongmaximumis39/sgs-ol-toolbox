@@ -1,4 +1,4 @@
-import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
+import { DAILY_REWARDS_ICON } from '../../ui/plugin-icons.js';
 import { createNativeAdapter } from './native.js';
 import { createRewardsController } from './controller.js';
 import { createCodeSources } from './code-sources.js';
@@ -9,8 +9,8 @@ import { createExchangeUI } from './exchange-ui.js';
 
 
 export default {
-  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.44', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "修复新一期周卡或月卡生效后，旧领取记录可能阻挡每日奖励领取的问题。自动领取沿用已有设置，兑换仍可能消耗欢乐豆。", minCoreVersion: '0.6.38', categories: ['automation'], icon: PLUGIN_ICONS['daily-rewards'], priority: 20000,
+  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.45', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "改进领取功能对新版工具箱的兼容性，保留现有自动领取设置。兑换仍可能消耗欢乐豆。", minCoreVersion: '0.6.38', categories: ['automation'], icon: DAILY_REWARDS_ICON, priority: 20000,
     description: '自动领取签到、任务、邮件与活动奖励，按账号记录' },
   activate(ctx) {
     const native = createNativeAdapter(ctx);
@@ -81,7 +81,7 @@ export default {
         return button;
       };
       const heading = el('div', undefined, 'reward-heading'); heading.append(el('h3', '自动领取'), option('automatic', '已关闭', { switchRail: true, accessibleLabel: '自动领取' }));
-      heading.querySelector('h3').prepend(ctx.ui.icon(PLUGIN_ICONS['daily-rewards']));
+      heading.querySelector('h3').prepend(ctx.ui.icon(DAILY_REWARDS_ICON));
       const excluded = el('div'); excluded.dataset.rewardExclusions = ''; excluded.setAttribute('role', 'group'); excluded.setAttribute('aria-label', '点按排除不领取的奖励');
       excluded.append(...rewardExclusions.map(([key, name]) => option(key, name, { exclusion: true, accessibleLabel: `不领取${name}` })));
       excluded.append(option('mail', '邮件', { exclusion: true, inverted: true, accessibleLabel: '不领取邮件' }), option('autoFlip', '免费翻翻', { exclusion: true, inverted: true, accessibleLabel: '不自动免费翻翻' }));

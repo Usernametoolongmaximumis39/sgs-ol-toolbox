@@ -63,7 +63,7 @@ test('tactics use distinct official art and release only their own texture',()=>
   const L={Texture2D,Texture,Loader:{textureMap:{'/rogue_event_zhanfa1.png':gold}},loader:{getRes(){return null;}}};
   const get=createRewardTextureResolver({window:{Image},scope:{add:f=>cleanups.push(f)}});
   assert.equal(get(L,'rogue_event_zhanfa1'),null); // do not reuse ambiguous gold glyph
-  assert.match(images[0].src,/^data:image\/png;base64,/);
+  assert.match(images[0].src,/^data:image\/webp;base64,/);
   images[0].onload();const texture=get(L,'rogue_event_zhanfa1');
   assert.equal(texture.bitmap,bitmaps[0]);assert.equal(get(L,'rogue_event_zhanfa2'),texture);
   cleanups[0]();assert.equal(texture.destroyed,true);assert.equal(gold.destroyed,undefined);

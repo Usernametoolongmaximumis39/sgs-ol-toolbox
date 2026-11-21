@@ -75,6 +75,7 @@ test('packaged microclient transfers official mobile skin bytes and cancels main
   const [host, preload] = await Promise.all([buildMicroclientHost(root), readFile(resolve(root, 'microclient/preload.cjs'), 'utf8')]);
   const handlers = new Map();
   const requests = [];
+  const syncRequests = [];
   let slow, nextStatus = 200, rangeHeader = 'bytes 8-10/32';
   const https = { get(url, options, callback) {
     if (typeof options === 'function') { callback = options; options = undefined; }
@@ -103,6 +104,20 @@ test('packaged microclient transfers official mobile skin bytes and cancels main
     if (id === 'path') return { join: (...parts) => parts.join('/') };
     if (id === 'crypto') return {};
     if (id === 'https') return https;
+    if (id === 'http') return { request(url, options, callback) {
+      const request = new EventEmitter();
+      request.end = body => {
+        syncRequests.push({ url, ...options, body });
+        queueMicrotask(() => {
+          const response = new EventEmitter();
+          response.statusCode = 200;
+          callback(response);
+          response.emit('data', Buffer.from('{"pin":"7319"}'));
+          response.emit('end');
+        });
+      };
+      return request;
+    } };
     throw new Error(id);
   } });
 
@@ -123,6 +138,26 @@ test('packaged microclient transfers official mobile skin bytes and cancels main
     invoke: async (name, ...args) => handlers.get(name)(active, ...args),
     send: (name, ...args) => handlers.get(name)(active, ...args),
   } }) });
+
+  const syncResult = new Promise(resolve => {
+    events.on('message', ({ data }) => {
+      if (data.type === 'sgs-toolbox-private-sync-http-result') resolve(data);
+    });
+  });
+  const syncURL = 'http://sync.example.test:17429/v1/private/request';
+  const syncBody = '{"request":"fixture"}';
+  win.postMessage({ type: 'sgs-toolbox-private-sync-http', id: 'e'.repeat(32), url: syncURL, body: syncBody }, location.origin);
+  const { reply } = await syncResult;
+  assert.equal(reply.status, 200);
+  assert.equal(reply.text, '{"pin":"7319"}');
+  assert.equal(syncRequests.length, 1);
+  assert.equal(syncRequests[0].method, 'POST');
+  assert.equal(syncRequests[0].headers['X-SGS-Toolbox-Origin'], location.origin);
+  assert.equal(syncRequests[0].body, syncBody);
+  const privatePost = handlers.get('sgs-toolbox:private-sync-http:v1');
+  await assert.rejects(privatePost(active, { id: 'e'.repeat(32), url: 'http://sync.example.test/admin/login', body: syncBody }), /私有同步地址无效/);
+  await assert.rejects(privatePost({ senderFrame: { ...active.senderFrame, parent: {} } },
+    { id: 'e'.repeat(32), url: syncURL, body: syncBody }), /无效的私有同步请求/);
 
   const invoke = (event, url) => handlers.get('sgs-toolbox:mobile-skin:v1')(event, { id: 'a'.repeat(32), url, limit: 128 });
   const url = 'https://waym.sanguosha.cn/update/cloud.php';

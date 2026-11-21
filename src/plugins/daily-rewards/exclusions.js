@@ -1,9 +1,9 @@
+import { read } from '../../shared/safe-read.js';
 // Exclusions apply to the entire claim: mixed rewards cannot be split safely.
 export const rewardExclusions = [
   ['excludeRecruit', '免费招募令'], ['excludeCoupon', '抵价券'],
   ['excludeTrial', '体验卡'], ['excludeBeans', '欢乐豆'],
 ];
-const read = fn => { try { return fn(); } catch { return undefined; } };
 // Native VJt.JunDianScoreId / NewJunDianScoreId are pass points. They
 // need not have a goods-base row; do not treat them as an unknown item bundle.
 const pointNames = new Map([[11981101, '军典积分'], [11987201, '节钺积分']]);

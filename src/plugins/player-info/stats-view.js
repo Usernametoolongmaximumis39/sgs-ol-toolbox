@@ -1,5 +1,4 @@
 import { singleRiderShopVisible } from '../../shared/native-shop.js';
-import { getNativeTheme } from '../../ui/native-theme.js';
 import { overlaps, placeStats, placeStatsMarker } from './stats-model.js';
 import { officerColor } from './officer-style.js';
 import { createLampStrip } from './lamps-view.js';
@@ -85,7 +84,7 @@ export function portraitRect(ui, L) {
   return { x: a.x, y: a.y, width: b.x - a.x, height: b.y - a.y };
 }
 export function createStatsView(ctx) {
-  const entries = new Map(), collapsed = new Set(), theme = getNativeTheme(ctx);
+  const entries = new Map(), collapsed = new Set(), theme = ctx.ui.nativeTheme;
   let palette = theme.palette, refresh = null;
   function disposeEntry(e) { e.toggle.remove(); e.lamps.remove(); e.root.destroy(true); for (const part of e.parts) part.mask.destroy(true); }
   function removeEntries() { for (const e of entries.values()) disposeEntry(e); entries.clear(); }

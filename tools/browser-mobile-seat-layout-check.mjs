@@ -125,6 +125,7 @@ await mkdir(output, { recursive: true });
 const fixtureSource = baseline ? await readFile(baseline, 'utf8') : (await build({
   stdin: { resolveDir: process.cwd(), contents: `
     export { createLocalSkins } from './src/plugins/skins/local.js';
+    export { createPluginNative } from './src/core/plugin-native.js';
     export { ResourceScope } from './src/core/resources.js';
   ` }, bundle: true, write: false, format: 'iife', globalName: 'MobileSeatCheck',
 })).outputFiles[0].text;
@@ -187,7 +188,7 @@ try {
     const context = { ShowGameSkinEffects: true };
     const scope = new MobileSeatCheck.ResourceScope();
     const values = new Map([['crossServer', true]]);
-    const local = MobileSeatCheck.createLocalSkins({ window, document, scope,
+    const ctx = { window, document, scope,
       settings: { get: (key, fallback) => values.get(key) ?? fallback, set: (key, value) => values.set(key, value) },
       game: { getScene: () => scene, isInGame: () => true, getSeatUIs: () => [ui], getSelfSeatUI: () => ui, getSelf: () => ({ ClientId: 101 }),
         getClass: name => name === 'GameContext' ? context : null, getCardMeta: () => ({ name: '杀' }),
@@ -197,7 +198,9 @@ try {
           if (!response.ok) throw new Error('Unavailable fixture resource');
           return response.arrayBuffer();
         } },
-    });
+    };
+    if (MobileSeatCheck.createPluginNative) ctx.native = MobileSeatCheck.createPluginNative(ctx);
+    const local = MobileSeatCheck.createLocalSkins(ctx);
     const catalogue = await local.mobile.load();
     function fit([width, height, showType, clip, scaleX, scaleY]) {
       avatar.showType = showType;

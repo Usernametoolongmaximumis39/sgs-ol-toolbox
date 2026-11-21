@@ -3,7 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 const out = 'test-results/player-info'; await mkdir(out, { recursive: true });
-const bundle = await build({ stdin: { contents: `export {activate} from './src/plugins/player-info/index.js';export {ResourceScope} from './src/core/resources.js';`, resolveDir: process.cwd() }, bundle: true, format: 'iife', globalName: 'Check', write: false });
+const bundle = await build({ stdin: { contents: `export {activate} from './src/plugins/player-info/index.js';export {ResourceScope} from './src/core/resources.js';
+  export {createNativeTheme} from './src/ui/native-theme.js'; export {createPluginNative} from './src/core/plugin-native.js';`, resolveDir: process.cwd() }, bundle: true, format: 'iife', globalName: 'Check', write: false });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 1000, height: 700 } }), errors = [];
@@ -16,9 +17,12 @@ try {
     window.Laya = { stage }; window.scope = new Check.ResourceScope();
     window.scene = {}; window.inGame = false; window.session = 1; window.account = 123;
     window.seats = []; window.theme = { current: { tokens: {} }, subscribe(fn) { window.paint = fn; return () => { window.paint = null; }; } };
-    Check.activate({ window, document, scope, themes: theme, getState: () => ({ sessionId: session }), game: {
+    const ctx = { window, document, scope, themes: theme, getState: () => ({ sessionId: session }), game: {
       getSelf: () => ({ ClientId: account }), getScene: () => scene, getSnapshot: () => ({ inGame }), getSeatUIs: () => seats,
-    } });
+    } };
+    ctx.ui = { nativeTheme: Check.createNativeTheme(ctx), registerPanel: () => () => {} };
+    ctx.native = Check.createPluginNative(ctx);
+    Check.activate(ctx);
   });
   const banner = page.locator('[data-sgs-player-info]');
   await page.waitForTimeout(350); assert.equal(await banner.count(), 0);

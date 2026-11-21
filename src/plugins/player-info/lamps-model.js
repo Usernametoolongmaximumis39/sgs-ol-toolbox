@@ -1,3 +1,5 @@
+import { LAMP_PACKET_LIMIT, ownedLampIds, validLampRows } from '../../shared/lamp-packet.js';
+
 export const DEFAULT_GENERALS = Object.freeze({
   landlord: ['裴秀', '谋诸葛亮', '魔孙权', '谋周瑜', '魔吕布', '张曼成', '曹婴', '吕伯奢', '南华老仙', '曹金玉'],
   farmer: ['卧龙凤雏', '魔貂蝉', '谋张让', '魔孙权', '族荀彧', '魔吕布', '裴秀', '鲍信', '戏志才', '族陈群'],
@@ -134,9 +136,9 @@ export function projectBattleLamp(packet) {
   const type = raw ? p.reptype : p?.Type, name = raw ? p.nickname : p?.Nickname;
   if (![1,'REP_TYPE_QUERY'].includes(type) || typeof name !== 'string') return null;
   const list = raw ? p.generals : p.GeneralIDList;
-  if (!Array.isArray(list) || list.length > 10000) return null;
+  if (!Array.isArray(list) || list.length > LAMP_PACKET_LIMIT) return null;
   const rows = list.map(g => raw ? { ID:g?.generalid, EndTime:g?.expirydate ?? 0, GoodsID:g?.goodsid ?? 0 } : { ID:g?.ID, EndTime:g?.EndTime, GoodsID:g?.GoodsID });
-  if (rows.some(g => !Number.isSafeInteger(g.ID) || g.ID <= 0 || !Number.isFinite(g.EndTime) || !Number.isFinite(g.GoodsID))) return null;
+  if (!validLampRows(rows)) return null;
   const end = raw ? p.is_end : p.IsEnd;
-  return { name, end: end === 1 || end === true, ids: rows.filter(g => g.EndTime <= 0 && g.GoodsID > 0).map(g => g.ID) };
+  return { name, end: end === 1 || end === true, ids: ownedLampIds(rows) };
 }

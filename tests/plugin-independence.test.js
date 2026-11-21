@@ -6,6 +6,13 @@ import { verifyPackage } from '../src/core/packages.js';
 import { PluginManager } from '../src/core/plugins.js';
 import { SessionJournal } from '../src/core/session.js';
 import { Settings } from '../src/core/storage.js';
+import { ThemeRegistry } from '../src/core/themes.js';
+
+test('Shanhe Tu Beta loads shared attribute labels without bundling the main plugin’s season data', async () => {
+  const bundle = await bundlePlugin('shanhetu-beta');
+  assert.ok(bundle.inputs.includes('src/shared/shanhe-attributes.js'));
+  assert.ok(!bundle.inputs.includes('src/shared/shanhe-impact-season-5.json'));
+});
 
 for (const id of ['play-assist', 'daily-rewards', 'effects', 'skins', 'wish-progress', 'shanhetu', 'seckill', 'recharge']) test(`${id} package installs and renders alone without cards or other plugins`, async t => {
   const bundle = await bundlePlugin(id), pkg = await makePluginPackage(bundle);
@@ -20,7 +27,7 @@ for (const id of ['play-assist', 'daily-rewards', 'effects', 'skins', 'wish-prog
     context: { window: dom.window, document: dom.window.document, game: {
       getScene: () => null, getClass: () => null, getSelf: () => null, getSeatUIs: () => [], getServerProxy: () => null,
       getConfigData: () => null, loadConfigData: () => { throw new Error('No data expected without login'); },
-    }, themes: {}, notify() {}, ui: { registerPanel(panel) {
+    }, themes: new ThemeRegistry(settings), notify() {}, ui: { registerPanel(panel) {
       panels.set(panel.id, panel); const container = dom.window.document.createElement('section'); dom.window.document.body.append(container);
       const cleanup = panel.render(container); cleanups.set(panel.id, cleanup);
       return () => { cleanup?.(); cleanups.delete(panel.id); panels.delete(panel.id); container.remove(); };

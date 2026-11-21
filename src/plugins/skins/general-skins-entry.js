@@ -1,12 +1,5 @@
 import { createNativeCatalogueButton } from './native-catalogue-button.js';
-
-function isVisible(view, stage) {
-  for (let node = view; node; node = node.parent) {
-    if (node.destroyed || node.visible === false) return false;
-    if (node === stage) return true;
-  }
-  return false;
-}
+import { isNativeNodeMounted as isVisible } from '../../shared/native-tree.js';
 
 function skinList(view) {
   const title = view?.skinTitle;

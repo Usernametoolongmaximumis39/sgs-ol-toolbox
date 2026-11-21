@@ -1,47 +1,16 @@
 import { buildYjcmData, YJCM_MOTION_SCHEMA, YJCM_VOICE_SCHEMA } from './yjcm-data.js';
 import { YJCM_EFFECT_SCHEMA } from './yjcm-effect-data.js';
 import { createYjcmIndex } from './yjcm.js';
+import { createSkinCacheStore } from './cache-store.js';
 
 const freshness = 24 * 60 * 60 * 1000;
 
 export function createYjcmCatalogue(ctx) {
   const { window: win, scope } = ctx;
-  let current, cachedIndex, cachedHasMotion, cachedIsCurrent, pending, warmed, database;
-
-  function open() {
-    database ??= new Promise((resolve, reject) => {
-      const request = win.indexedDB.open('sgs-toolbox-yjcm-index-v1', 1);
-      let blocked = false;
-      request.onupgradeneeded = () => request.result.createObjectStore('catalogue');
-      request.onsuccess = () => {
-        const db = request.result;
-        if (blocked || scope.signal.aborted) {
-          db.close();
-          reject(new Error('皮肤索引缓存读取已取消'));
-        } else {
-          db.onversionchange = () => db.close();
-          resolve(db);
-        }
-      };
-      request.onerror = () => reject(request.error);
-      request.onblocked = () => {
-        blocked = true;
-        reject(new Error('皮肤索引缓存暂不可用'));
-      };
-    });
-    return database;
-  }
-
-  async function transaction(mode, operation) {
-    const db = await open();
-    if (scope.signal.aborted) return;
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('catalogue', mode);
-      const request = operation(tx.objectStore('catalogue'));
-      tx.oncomplete = () => resolve(request.result);
-      tx.onabort = () => reject(tx.error);
-    });
-  }
+  const { transaction, close } = createSkinCacheStore(win, scope.signal, {
+    name: 'sgs-toolbox-yjcm-index-v1', store: 'catalogue', label: '皮肤索引缓存',
+  });
+  let current, cachedIndex, cachedHasMotion, cachedIsCurrent, pending, warmed;
 
   function warm() {
     return warmed ??= transaction('readonly', store => store.get('latest')).then(record => {
@@ -82,7 +51,7 @@ export function createYjcmCatalogue(ctx) {
   scope.add(() => {
     current = null;
     cachedIndex = null;
-    void database?.then(db => db.close()).catch(() => {});
+    close();
   });
   return {
     get current() { return current; },

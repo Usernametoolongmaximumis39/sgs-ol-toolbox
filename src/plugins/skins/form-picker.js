@@ -1,4 +1,3 @@
-import { CONTROL_STYLES, controlIcon, styleSwitch } from '../../ui/controls.js';
 import { CARD_SKILL_DETAILS, CUSTOM_FORM_RULE_LIMIT, FORM_CONVERSION_DIRECTIONS, FORM_CONVERSION_RULE, FORM_HP_COMPARE,
   FORM_RULE_TYPES, normalizeFormRule } from './form-rules.js';
 import { loadCardSkills } from './cross-voice.js';
@@ -6,19 +5,22 @@ import { formLabel } from './form-label.js';
 
 const styles = `
 :host{color-scheme:var(--sgs-scheme,dark);font:calc(13px + var(--sgs-font-offset,0px))/1.4 var(--sgs-font,sans-serif)}
-dialog{box-sizing:border-box;width:min(440px,calc(100vw - 20px));max-width:none;max-height:calc(100vh - 20px);max-height:calc(100dvh - 20px);scrollbar-width:thin;padding:0;border:1px solid var(--sgs-border,#665b42);border-radius:var(--sgs-radius,10px);background:var(--sgs-surface,#201e1a);color:var(--sgs-text,#eee3cc);box-shadow:0 18px 60px #0008}
+dialog{box-sizing:border-box;width:min(440px,calc(100% - 20px));max-width:none;max-height:calc(100% - 20px);margin:auto;padding:0;overflow:hidden;border:1px solid var(--sgs-border,#665b42);border-radius:var(--sgs-radius,10px);background:var(--sgs-surface,#201e1a);color:var(--sgs-text,#eee3cc);box-shadow:0 18px 60px #0008}
+/* Keep the modal centered when mode changes add content on Chromium 85. */
+dialog[open]{position:fixed;top:0;right:0;bottom:0;left:0;height:fit-content;display:flex;flex-direction:column}
 dialog::backdrop{background:#0008}
-header,footer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px}
+header,footer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;flex:none}
 header{border-bottom:1px solid var(--sgs-border,#665b42)}
-footer{position:sticky;bottom:0;border-top:1px solid var(--sgs-border,#665b42);background:var(--sgs-surface,#201e1a)}
+footer{border-top:1px solid var(--sgs-border,#665b42)}
 h2,p{margin:0;overflow-wrap:anywhere}h2{font-size:1.15em}
 button{font-family:inherit;cursor:pointer}button:disabled{opacity:.55;cursor:default}
 button:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
 .quiet,.submit{min-height:32px;padding:4px 12px;border:1px solid var(--sgs-border,#665b42);border-radius:7px;background:var(--sgs-raised,#29251f);color:inherit;white-space:nowrap}
 .submit{border-color:var(--sgs-accent,#dbba70);color:var(--sgs-accent,#dbba70)}
 .close{display:grid;place-items:center;padding:4px;width:32px;flex:0 0 auto}.close svg{width:15px;height:15px}
-form,.body,.directions,fieldset,.fields{display:grid;gap:8px;min-width:0}
-form{gap:0}.body{padding:12px 14px}
+form{display:flex;flex-direction:column;min-height:0}
+.body,.directions,fieldset,.fields{display:grid;gap:8px;min-width:0}
+.body{align-content:start;padding:12px 14px;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
 p,small{color:var(--sgs-muted,#b7aa8c)}.error{color:var(--sgs-danger,#ff9b8e)}
 fieldset{padding:0;margin:0;border:0}fieldset+fieldset{margin-top:4px;padding-top:6px;border-top:1px solid var(--sgs-border,#665b42)}
 legend{font-weight:650;padding:0 4px 0 0}
@@ -43,11 +45,13 @@ export function createFormPicker(ctx) {
     closeCurrent?.();
     const host = doc.createElement('div');
     host.dataset.sgsSkinFormRules = '';
+    host.dataset.sgsToolbox = 'skin-form-rules';
     const toolbox = doc.querySelector('[data-sgs-toolbox="core"]');
     if (toolbox) host.style.setProperty('--sgs-font-offset', win.getComputedStyle(toolbox).getPropertyValue('--sgs-font-offset'));
     const shadow = host.attachShadow({ mode: 'open' });
+    const offStyles = ctx.ui.mountStyles(shadow);
     const style = doc.createElement('style');
-    style.textContent = CONTROL_STYLES + styles;
+    style.textContent = styles;
     const dialog = doc.createElement('dialog');
     dialog.setAttribute('aria-labelledby', 'skin-form-title');
     dialog.innerHTML = `
@@ -65,7 +69,7 @@ export function createFormPicker(ctx) {
     const segment = find('.sgs-segments'), directions = find('.directions'), summary = find('.summary');
     const error = find('.error'), status = find('.skill-status'), retry = find('.retry'), submit = find('.submit');
     const close = find('.close');
-    close.append(controlIcon(doc, 'close'));
+    close.append(ctx.ui.icon('close'));
     find('.skin-name').textContent = name;
     const positions = Array.from({ length: count }, (_, i) => i + 1);
     const edges = transitions ?? positions.map(from => ({ from, to: from % count + 1 }));
@@ -127,7 +131,7 @@ export function createFormPicker(ctx) {
     function addForm({ from, to }, rule = { kind: 'none' }) {
       const section = element('fieldset');
       const direction = `${formLabel(from)} → ${formLabel(to)}`;
-      const enabled = customTransitions ? styleSwitch(doc.createElement('input')) : null;
+      const enabled = customTransitions ? ctx.ui.styleSwitch(doc.createElement('input')) : null;
       let switchText;
       section.append(element('legend', direction));
       if (enabled) {
@@ -317,8 +321,9 @@ export function createFormPicker(ctx) {
       closeCurrent = null;
       offTheme?.();
       if (dialog.open) dialog.close();
+      offStyles();
       host.remove();
-      if (trigger?.isConnected) trigger.focus();
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
     });
     closeCurrent = release;
     retry.addEventListener('click', requestSkills);

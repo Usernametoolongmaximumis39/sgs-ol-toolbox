@@ -57,6 +57,8 @@ const bundle = await build({ stdin: { contents: `
   export { ResourceScope } from './src/core/resources.js';
   export { createMobileSkinDownload } from './src/core/mobile-skin-download.js';
   export { createNativeTheme } from './src/ui/native-theme.js';
+  export { mountPluginUI } from './src/ui/plugin-ui.js';
+  export { createPluginNative } from './src/core/plugin-native.js';
   export { enhanceSkinWindow, createNativeSkins } from './src/plugins/skins/native.js';
   export { createLocalSkins } from './src/plugins/skins/local.js';
   export { createYjcmCatalogue } from './src/plugins/skins/yjcm-catalogue.js';
@@ -67,6 +69,14 @@ const bundle = await build({ stdin: { contents: `
   export { createGeneralSkinsEntry } from './src/plugins/skins/general-skins-entry.js';
   export { renderSkinPanel } from './src/plugins/skins/panel.js';
   export { setupSkinFixture, createSkinFixtureOwner, provideSkinChromeTextures, measureSkinButtons } from './tests/fixtures/skins-native-browser.js';
+  import { createNativeTheme } from './src/ui/native-theme.js';
+  import { mountPluginUI } from './src/ui/plugin-ui.js';
+  import { createPluginNative } from './src/core/plugin-native.js';
+  export function prepareSkinContext(ctx) {
+    ctx.ui = { ...mountPluginUI(ctx, () => ctx), nativeTheme: createNativeTheme(ctx) };
+    ctx.native = createPluginNative(ctx);
+    return ctx;
+  }
 `, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'NativeSkinCheck' });
 const output = path.resolve(process.env.SGS_SKINS_BROWSER_OUTPUT || 'test-results/skins');
 await mkdir(output, { recursive: true });
@@ -250,7 +260,10 @@ try {
   assert.equal(await page.evaluate(() => skinFixture.owner.searchView.searchInput.maxChars === skinFixture.originalMaxChars), true);
   assert.deepEqual(errors, []);
   // Attach through stage discovery, close/reopen, then replace a cached window.
-  await page.evaluate(() => { skinFixture.controllerContext = skinFixture.ctx; skinFixture.controller = NativeSkinCheck.createNativeSkins(skinFixture.ctx); });
+  await page.evaluate(() => {
+    skinFixture.controllerContext = NativeSkinCheck.prepareSkinContext(skinFixture.ctx);
+    skinFixture.controller = NativeSkinCheck.createNativeSkins(skinFixture.controllerContext);
+  });
   assert.match(await page.evaluate(() => skinFixture.controller.getStatus()), /已接入/);
   await page.evaluate(() => { skinFixture.ctx.settings.set('advanced', false); skinFixture.controller.check(); });
   assert.equal(await page.evaluate(() => skinFixture.owner.formData === skinFixture.originalForm && skinFixture.owner.tabGroup.visible), true);
@@ -445,7 +458,7 @@ try {
     ] } };
     const game = { getScene: () => scene, getSeatUIs: () => [ui], isInGame: () => true, getClass: () => manager,
       getConfigData: key => key === 'cha_spell' ? spells : null };
-    const local = NativeSkinCheck.createLocalSkins({ window, scope, game, settings });
+    const local = NativeSkinCheck.createLocalSkins(NativeSkinCheck.prepareSkinContext({ window, document, scope, game, settings }));
     const canvas = document.createElement('canvas'); canvas.width = 130; canvas.height = 180;
     const art = canvas.getContext('2d'); art.fillStyle = '#31675c'; art.fillRect(0, 0, 130, 180);
     art.fillStyle = '#b9d2ad'; art.fillRect(25, 55, 80, 70);
@@ -740,8 +753,7 @@ try {
     seat.GetSkillFromWhichGeneral = skillId => skillId === 8 ? null : ownerOfSkill.call(seat, skillId);
     scope.add(() => { seat.GetSkillFromWhichGeneral = ownerOfSkill; });
     seat.OnChangeOriSkinBySkill ??= () => {};
-    const nativeTheme = NativeSkinCheck.createNativeTheme({ scope, window });
-    const ctx = { window, document, scope, settings, game, ui: { nativeTheme }, notify: message => notices.push(message) };
+    const ctx = NativeSkinCheck.prepareSkinContext({ window, document, scope, settings, game, notify: message => notices.push(message) });
     const local = NativeSkinCheck.createLocalSkins(ctx);
     window.yjcmRuntimeIndexFixture = runtimeIndex;
     settings.set('unlockSkin', false);
@@ -2920,7 +2932,7 @@ try {
       loadConfigData: () => Promise.reject(new Error('大厅演练必须沿用本机索引缓存')),
       getConfigData: name => name === 'character' ? { GameCharacters: { character: [{ a: 302, j: 940, k: 703 }] } } :
         { GameSpells: { spell: [{ a: 940, c: '龙胆' }, { a: 703, c: '涯角' }] } } };
-    const ctx = { window, document, scope, settings, game, ui: { nativeTheme: NativeSkinCheck.createNativeTheme({ scope, window }) } };
+    const ctx = NativeSkinCheck.prepareSkinContext({ window, document, scope, settings, game });
     const local = NativeSkinCheck.createLocalSkins(ctx);
     const view = Object.assign(new laya.Sprite(), { generalId: 302, generalInfo: { ItemNameSimpleNoColor: '界赵云', showName: '赵云' },
       panel: new laya.Sprite(), showSkins: capturedGeneralSkin.showSkins,
@@ -3184,8 +3196,7 @@ try {
     const scope = new NativeSkinCheck.ResourceScope();
     const game = { isInGame: () => true, getScene: () => scene, getSelfSeatUI: () => ui, getSeatUIs: () => [] };
     const settings = { get(_key, fallback) { return fallback; } };
-    NativeSkinCheck.createLocalSkins({ window, document, scope, game, settings,
-      ui: { nativeTheme: NativeSkinCheck.createNativeTheme({ scope, window }) } });
+    NativeSkinCheck.createLocalSkins(NativeSkinCheck.prepareSkinContext({ window, document, scope, game, settings }));
     window.battleCollapseFixture = { scope, scene, bar, name, glyph, frame, plate, chat, row, nativeEmojiX,
       get emojiClicks() { return emojiClicks; } };
   }, officialMotionDir ? 'data:image/png;base64,' + officialArt.get('seat/static/6123201.png').toString('base64') : null);

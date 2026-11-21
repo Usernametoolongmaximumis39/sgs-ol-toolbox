@@ -1,4 +1,4 @@
-import { attributes } from '../../shared/shanhe-impact.js';
+import { attributes } from '../../shared/shanhe-attributes.js';
 
 const numeric = value => (typeof value === 'number' || (typeof value === 'string' && value.trim()))
   && Number.isFinite(Number(value)) ? Number(value) : null;

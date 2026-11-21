@@ -1,4 +1,3 @@
-import { getNativeTheme } from '../../ui/native-theme.js';
 
 const SORT_WIDTH = 136, AUTO_WIDTH = 34, HEIGHT = 24, LIFT = HEIGHT / 4;
 
@@ -32,7 +31,7 @@ function dragBounds(window, container, width, height) {
 }
 
 export function createSortControls(ctx, { sort, lock, toggleAutoPlay }) {
-  const { window, scope, settings } = ctx, theme = getNativeTheme(ctx);
+  const { window, scope, settings } = ctx, theme = ctx.ui.nativeTheme;
   let root = null, container = null, buttons = [], dragging = null, timer = null;
   let locked = null, autoMode = null, suppressUntil = 0, hint = null;
   let releaseStageEvents = null, releaseTheme = null;

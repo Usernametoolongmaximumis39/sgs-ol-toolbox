@@ -1,4 +1,5 @@
 import { mobileSkinPartialLength, mobileSkinResponseBytes, toolboxDownloadRequest } from './mobile-skin-download.js';
+import { PRIVATE_HTTP_LIMIT, PRIVATE_HTTP_TIMEOUT, privateHttpRequest } from '../shared/private-sync-http.js';
 
 function responseHeader(raw, name) {
   if (typeof raw !== 'string') return null;
@@ -7,7 +8,7 @@ function responseHeader(raw, name) {
   return lines.length ? lines.map(line => line.slice(prefix.length).trim()).join(', ') : null;
 }
 
-function serveDownloads(port, transport, ready) {
+function serveDownloads(port, transport, origin, ready) {
   const requests = new Map();
   port.onmessage = ({ data }) => {
     if (data?.ready === true) { ready(); return; }
@@ -17,9 +18,38 @@ function serveDownloads(port, transport, ready) {
       return;
     }
     const { id } = data ?? {};
-    if (!Number.isSafeInteger(id) || id < 1) return;
+    const sync = typeof id === 'string' && /^sync:[1-9]\d{0,15}$/.test(id);
+    if (!sync && (!Number.isSafeInteger(id) || id < 1)) return;
     if (data.cancel === true) { requests.get(id)?.(); return; }
     if (requests.has(id)) return;
+    if (sync) {
+      if (requests.size >= 24) { port.postMessage({ id, error: '同步请求过多' }); return; }
+      let request;
+      try { request = privateHttpRequest(data, origin); }
+      catch (error) { port.postMessage({ id, error: error.message }); return; }
+      let handle;
+      const finish = result => {
+        if (requests.delete(id)) port.postMessage({ id, ...result });
+      };
+      const cancel = () => { requests.delete(id); handle?.abort?.(); };
+      requests.set(id, cancel);
+      const onerror = () => finish({ error: '私有 HTTP 同步请求失败' });
+      const onload = response => {
+        const text = response.responseText;
+        if ((response.finalUrl || response.responseURL) !== request.url ||
+            typeof text !== 'string' || text.length > PRIVATE_HTTP_LIMIT) return onerror();
+        finish({ reply: { status: response.status, text } });
+      };
+      try {
+        handle = transport({ method: 'POST', url: request.url, data: request.body, headers: request.headers,
+          anonymous: true, redirect: 'error', timeout: PRIVATE_HTTP_TIMEOUT, onload, onerror, ontimeout: onerror, onabort: onerror,
+          onprogress({ loaded, total }) {
+            if (loaded > PRIVATE_HTTP_LIMIT || total > PRIVATE_HTTP_LIMIT) { onerror(); cancel(); }
+          } });
+        if (typeof handle?.then === 'function') void handle.then(onload, onerror);
+      } catch { onerror(); }
+      return;
+    }
 
     let request;
     try { request = toolboxDownloadRequest(data.url, data.limit, data.range); }
@@ -114,7 +144,7 @@ export function runUserscript(startPage) {
     const { port1, port2 } = new MessageChannel();
     const close = () => { port1.close(); port2.close(); };
     const timeout = page.setTimeout(close, 5500);
-    serveDownloads(port1, gm, () => page.clearTimeout(timeout));
+    serveDownloads(port1, gm, origin, () => page.clearTimeout(timeout));
     const script = document.createElement('script');
     const nonce = document.querySelector('script[nonce]')?.nonce;
     if (nonce) script.nonce = nonce;

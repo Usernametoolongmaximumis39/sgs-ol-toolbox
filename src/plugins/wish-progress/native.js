@@ -1,7 +1,6 @@
-import { getNativeTheme } from '../../ui/native-theme.js';
 // Ported from the local 2.6.8 implementation; never sends draw requests.
 export function createWishProgress(ctx) {
-const labels = new Map(), theme = getNativeTheme(ctx); let lastAccount = null;
+const labels = new Map(), theme = ctx.ui.nativeTheme; let lastAccount = null;
 var views = new Map();
 var wrappers = new WeakMap();
 var managers = {};

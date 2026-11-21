@@ -1,12 +1,11 @@
 import { ResourceScope } from '../../core/resources.js';
-import { getNativeTheme } from '../../ui/native-theme.js';
 import { groupedHandLayout, HAND_GROUP_NAMES } from './hand-order.js';
 
 const owners = new WeakMap();
 export function setHandGroupingMode(container, mode) { owners.get(container)?.setMode(mode); }
 
 export function createHandGrouping(ctx) {
-  const theme = getNativeTheme(ctx);
+  const theme = ctx.ui.nativeTheme;
   let container = null, resources = null, root = null, mode = null, labels = [], lastLayout = null;
   function hide() { if (root) root.visible = false; lastLayout = null; }
   function draw() {

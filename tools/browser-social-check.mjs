@@ -1,12 +1,21 @@
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import {homedir} from 'node:os';
 import {resolve} from 'node:path';
 import {build} from 'esbuild';
 import {createHash} from 'node:crypto';
 import {chromium} from 'playwright';
 const out=resolve('test-results/social');await mkdir(out,{recursive:true});
-const source=await readFile('test-results/reference/client-static/sgsGame_a.js','utf8');
-function method(start,end,from=0){const a=source.indexOf(start,from),b=source.indexOf(end,a+start.length);assert.ok(a>=0&&b>a,start);return source.slice(a,b);}
+const sourcePath=resolve(process.env.SGS_SOCIAL_CLIENT_SOURCE||resolve(homedir(),'AppData/Local/Temp/sgs-client/game/sgsGame_a.sgs'));
+const source=await readFile(sourcePath,'utf8');
+function method(start,end,from){
+ assert.ok(from>=0,`${sourcePath}: 找不到 ${start} 所在的原生类`);
+ const a=source.indexOf(start,from), b=source.indexOf(end,a+start.length);
+ assert.ok(a>=0&&b>a,`${sourcePath}: 找不到完整的原生方法 ${start}`);
+ const code=source.slice(a,b);
+ assert.doesNotThrow(()=>new Function(`return class {${code}}`),`${sourcePath}: 无法解析原生方法 ${start}`);
+ return code;
+}
 const vip=method('updateVipCrown(){','updateLevelTxt(){',source.indexOf('class kqi'));
 const resize=method('itemResizeHandler(){','Clear(){',source.indexOf('findFriendItem(this.goodFriendsList'));
 const office=method('getOfficeImg(t){','getGuildImg(){',source.indexOf('class aJi'));
@@ -15,8 +24,8 @@ const nativeOfficerIcon=method('GetOfficerChatIcon(t){','set CurOfficerLv(t)',so
 const nativeDetailRequest=method('static SendUserDetailReq(t,i=!1){','static SendUserTTDateReq(t)',source.indexOf('class NNt'));
 const nativeChatSize=method('Size(t,i){','get Drawed(){',source.indexOf('class aJi'));
  await writeFile(resolve(out,'native-source.js'),['export const nativeVip={'+vip+'};','export const nativeResize={'+resize+'};','export const nativeOffice={'+office+'};','export const nativeOfficerService={'+nativeOfficerIcon+'};','export const nativeDetailRequest={'+nativeDetailRequest.replace('static ','')+'};','export const nativeChatSize={'+nativeChatSize+'};'].join('\n'));
- await writeFile(resolve(out,'source-report.json'),JSON.stringify({source:'test-results/reference/client-static/sgsGame_a.js',sha256:createHash('sha256').update(source).digest('hex'),methods:[vip,resize,office,nativeOfficerIcon,nativeDetailRequest,nativeChatSize].map(code=>({name:code.slice(0,code.indexOf('{')),offset:source.indexOf(code),end:source.indexOf(code)+code.length,sha256:createHash('sha256').update(code).digest('hex')}))},null,2));
-const bundle=await build({stdin:{contents:"export {mountPluginUI} from './src/ui/plugin-ui.js';export {createFriendManagement} from './src/plugins/social/friends.js';export {createChatEnhancements} from './src/plugins/social/chat.js';export {createLampTracking} from './src/plugins/social/lamps.js';export {activate,renderHistory} from './src/plugins/social/index.js';export {ResourceScope} from './src/core/resources.js';",resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'SocialCheck'});
+ await writeFile(resolve(out,'source-report.json'),JSON.stringify({source:sourcePath,sha256:createHash('sha256').update(source).digest('hex'),methods:[vip,resize,office,passwordConfirm,nativeOfficerIcon,nativeDetailRequest,nativeChatSize].map(code=>({name:code.slice(0,code.indexOf('{')),offset:source.indexOf(code),end:source.indexOf(code)+code.length,sha256:createHash('sha256').update(code).digest('hex')}))},null,2));
+const bundle=await build({stdin:{contents:"export {mountPluginUI} from './src/ui/plugin-ui.js';export {createFriendManagement} from './src/plugins/social/friends.js';export {createChatEnhancements} from './src/plugins/social/chat.js';export {createLampTracking} from './src/plugins/social/lamps.js';export {activate,renderHistory} from './src/plugins/social/index.js';export {ResourceScope} from './src/core/resources.js';export {createPluginNative} from './src/core/plugin-native.js';",resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'SocialCheck'});
 const browser=await chromium.launch({channel:'chrome',headless:true});const errors=[],checks=[];
 const roomFilterBundle=await build({entryPoints:['src/plugins/social/room-filter.js'],bundle:true,write:false,format:'iife',globalName:'RoomFilterCheck'});
 try{
@@ -73,6 +82,7 @@ try{
   window.config={root:{officer:[{ID:1,Officerid:1,bigName:'士兵'},{ID:2,Officerid:2,bigName:'伍长'},{ID:3,Officerid:3,bigName:'偏将军'}]}};
   const nativeOfficer={GetOfficerChatIcon:new Function('IF','return ({'+nativeOfficerIcon+'}).GetOfficerChatIcon')({I:()=>({GetlittleOfficerById:id=>config.root.officer.find(v=>v.ID===id)})})};proxy.on('ClientOfficerInfoRep',nativeOfficer,function(){});
   window.ctx={window,document,scope,storage:{get:(k,d)=>values.has(k)?values.get(k):d,set:(k,v)=>{values.set(k,structuredClone(v));return v}},settings:{get:(k,d)=>d,set(){}},game:{getSelf:()=>({...self,ClientId:account}),getScene:()=>scene,getClass:()=>null,getServerProxy:()=>proxy,getConfigData:()=>config,loadConfigData:async()=>config},ui:{toast:message=>notices.push(message)},notify:message=>notices.push(message)};
+  ctx.native=SocialCheck.createPluginNative(ctx);
   window.friendRuntime=SocialCheck.createFriendManagement(ctx);window.chatRuntime=SocialCheck.createChatEnhancements(ctx);friendRuntime.tick();chatRuntime.tick();
   // Native SM.htmlStyleLink uses font[href], not an HTML anchor.
   const user=name=>'<font style="font:12px SimSun cursor:hand" color="#ddcb76" underline="1" href="ATtextNickname*&amp;.!**.%#'+encodeURIComponent(encodeURIComponent(name))+'">'+name+'</font>';
@@ -101,7 +111,8 @@ try{
   const requests=[];
   class LoadingUser{static SendUserBaseInfo(name){requests.push(name)}}
   const game={...ctx.game,getSelf:()=>({...ctx.game.getSelf(),constructor:LoadingUser})};
-  window.friendRuntime=SocialCheck.createFriendManagement({...ctx,game});
+  const loadingContext={...ctx,game};loadingContext.native=SocialCheck.createPluginNative(loadingContext);
+  window.friendRuntime=SocialCheck.createFriendManagement(loadingContext);
   return requests;
  });
  assert.deepEqual(startupRequests,['青山旧友']);
@@ -156,6 +167,18 @@ try{
  const downloadPromise=page.waitForEvent('download');await page.locator('[data-social-export]').focus();await page.keyboard.press('Enter');const download=await downloadPromise;
  assert.equal(download.suggestedFilename(),'好友-1234567890.json');const exported=JSON.parse(await readFile(await download.path(),'utf8'));assert.equal(exported.friends['1234567891'].name,'青山新名');assert.deepEqual(exported.pins,['1234567891']);
  assert.deepEqual(exported.ownedGenerals['1234567891'].generals,[{id:1,name:'谋周瑜'},{id:2,name:'界曹操'}]);assert.equal(exported.ownedGenerals['1234567899'].pinned,false);assert.deepEqual(exported.ownedGenerals['1234567899'].generals,[{id:3,name:'神郭嘉'}]);
+ const restored=await page.evaluate(()=>{
+  const originalFriends=ctx.storage.get('friends:1234567890'),originalLamps=ctx.storage.get('lamps:1234567890');
+  ctx.storage.set('friends:1234567890',{...originalFriends,pins:['1234567892']});
+  ctx.storage.set('lamps:1234567890',{version:1,friends:{'1234567892':{name:'长江东逝水',ids:[3],names:{3:'神郭嘉'},at:125}}});
+  friendRuntime.reload(); lampRuntime.reload();
+  const result={pins:friendRuntime.getRecord().pins,lamps:lampRuntime.getRecords()};
+  ctx.storage.set('friends:1234567890',originalFriends);ctx.storage.set('lamps:1234567890',originalLamps);
+  friendRuntime.reload();lampRuntime.reload();friendRuntime.tick();
+  return result;
+ });
+ assert.deepEqual(restored,{pins:['1234567892'],lamps:{'1234567892':{name:'长江东逝水',pinned:true,queriedAt:125,generals:[{id:3,name:'神郭嘉'}]}}});
+ checks.push('restored pins and lamp snapshots replace live account records');
  checks.push('248/280/420px dark/light panel renders without horizontal overflow','keyboard export contains stable IDs and rename history');
  assert.equal(await page.locator('[data-social-chat-export], [data-social-chat-status]').count(),0);
  assert.doesNotMatch(await page.locator('#social-panel').textContent(),/导出聊天诊断|原生官阶服务|图片加载中|已记录/);

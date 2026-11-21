@@ -1,10 +1,14 @@
 import { readYjcmImage, seatPortraitPanel } from './yjcm.js';
 import { yjcmClipFile } from './yjcm-effect-data.js';
+import { attachmentFrame } from './spine-layout.js';
 
 const runtime = 'https://web.sanguosha.com/x/pc/res/assets/runtime/';
 const motionRoot = runtime + 'general/big/dynamic/';
 const formRoot = runtime + 'game/changeSkinEffect/';
 const idleNames = ['play', 'daiji', 'idle', 'standby'];
+const backgroundIdleNames = ['daiji', 'idle', 'standby', 'beijing', 'play'];
+// 春宵彩翼. Align the two authored idle layers to the 1600 × 900 original.
+const backgroundFrames = new Map([['8123801', { x: -547, y: -318, width: 1126, height: 633.375 }]]);
 // Framed seat assets draw around the center of the 229 × 270 native avatar.
 const seatFrame = { x: -95, y: -115, width: 190, height: 249, overhang: 20 };
 
@@ -140,7 +144,7 @@ function measureSeatPanel(laya, actor, bounds) {
   }
 }
 
-export async function loadYjcmMotion(win, motion, signal, forSeat = false) {
+export async function loadYjcmMotion(win, motion, signal, forSeat = false, forBackground = false) {
   const laya = win.Laya ?? win.laya;
   if (!laya || !motion || !/^[A-Za-z0-9_-]+$/.test(motion.resource)) return;
   for (const file of motion.files ?? []) {
@@ -157,13 +161,15 @@ export async function loadYjcmMotion(win, motion, signal, forSeat = false) {
       // Old catalogue entries still point to the standard framed idle by file name.
       const framed = forSeat && (motion.seat?.some(clip => clip.file === file) ?? (file === 'daiji2.sk'));
       const index = framed && names.length ? 0
-        : idleNames.map(name => names.findIndex(actual => actual?.toLowerCase() === name)).find(i => i >= 0);
-      if (index === undefined && names.length !== 1) throw new Error('未找到待机片段');
+        : (forBackground ? backgroundIdleNames : idleNames).map(name => names.findIndex(actual => actual?.toLowerCase() === name)).find(i => i >= 0);
+      if (index === undefined && (names.length !== 1 || (forBackground && /^(chuchang|gongji|hudong|jineng|attack|enter)/i.test(names[0])))) {
+        throw new Error('未找到待机片段');
+      }
       if (spine) actor.forceUpdate = true;
       const play = () => actor.play(index ?? 0, true, true, 0, 0, true, false);
       play();
       const bounds = animationBounds(actor, spine ? win.spine : null);
-      if (!bounds) throw new Error('待机动画尺寸不可用');
+      if (!bounds || (forBackground && bounds.width <= bounds.height)) throw new Error('没有可用的横版待机动画');
       const seatPanel = forSeat && !framed ? measureSeatPanel(laya, actor, bounds) : undefined;
       return { actor, bounds, seatPanel, framed, file, play, dispose() { actor.destroy(true); loaded.dispose(); } };
     } catch {
@@ -171,6 +177,48 @@ export async function loadYjcmMotion(win, motion, signal, forSeat = false) {
       loaded?.dispose();
     }
   }
+}
+
+function backdropFrame(spine, backdrop) {
+  const { actor, bounds } = backdrop;
+  // Wings and particles can extend well beyond the primary background plate.
+  for (const slot of (spine && actor.skeleton?.drawOrder) || []) {
+    if (!/^(?:bj|bg|beijing)$/i.test(slot.getAttachment()?.name ?? '')) continue;
+    const frame = attachmentFrame(spine, slot);
+    if (frame && frame.width > frame.height && frame.width >= bounds.width / 2 && frame.height >= bounds.height / 2) return frame;
+  }
+  return bounds;
+}
+
+export async function loadYjcmBackgroundMotion(win, motion, signal) {
+  const framed = new Set(motion.seat?.map(clip => clip.file) ?? ['daiji2.sk']);
+  const files = [...motion.files].sort((a, b) => Number(framed.has(a)) - Number(framed.has(b)));
+  const backdropFiles = files.some(file => file.endsWith('.skel')) ? ['beijing.skel'] : ['beijing.sk'];
+  const [foreground, backdrop] = await Promise.all([
+    loadYjcmMotion(win, { ...motion, files }, signal, false, true),
+    loadYjcmMotion(win, { ...motion, files: backdropFiles }, signal, false, true),
+  ]);
+  if (!foreground || signal.aborted) { foreground?.dispose(); backdrop?.dispose(); return; }
+  const layers = backdrop ? [backdrop, foreground] : [foreground];
+  const bounds = backdrop ? backgroundFrames.get(motion.resource) ?? backdropFrame(win.spine, backdrop) : foreground.bounds;
+  const actor = new (win.Laya ?? win.laya).Sprite();
+  for (const layer of layers) actor.addChild(layer.actor);
+  return { actor, bounds,
+    fit(x, y, width, height) {
+      const scale = Math.max(width / bounds.width, height / bounds.height);
+      actor.scale(scale, scale);
+      actor.pos(x + (width - bounds.width * scale) / 2 - bounds.x * scale,
+        y + (height - bounds.height * scale) / 2 - bounds.y * scale);
+    },
+    setPlaying(value) {
+      for (const layer of layers) {
+        if (!value) layer.actor.paused();
+        else if (typeof layer.actor.resume === 'function') layer.actor.resume();
+        else layer.play();
+      }
+    },
+    dispose() { for (const layer of layers) layer.dispose(); actor.destroy(true); },
+  };
 }
 
 export async function playYjcmSeatMotion(win, spec, signal, show) {

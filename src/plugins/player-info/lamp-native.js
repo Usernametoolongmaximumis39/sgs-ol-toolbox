@@ -1,10 +1,10 @@
 import { nativeSeat } from '../../core/seat.js';
-import { manager, read } from '../../shared/info-runtime.js';
+import { read } from '../../shared/info-runtime.js';
 
 export const LAMP_EVENTS = ['ClientSelfbuygeneralRep','decodeClientSelfBuyGeneralRep','21421','180057'];
 export function lampManager(ctx) {
   for (const name of ['GeneralManager','GameGeneralManager']) for (const event of [...LAMP_EVENTS,'ClientGeneralFromRep','ClientUserDataCounterNtf']) {
-    const found = manager(ctx,name,event,m => typeof m.ReqOtherbuygeneral === 'function');
+    const found = ctx.native.manager(name,event,m => typeof m.ReqOtherbuygeneral === 'function');
     if (found) return found;
   }
   return null;

@@ -1,5 +1,5 @@
+import { read } from '../../shared/safe-read.js';
 import { mailRewardItems } from './mail-rewards.js';
-const read = fn => { try { return fn(); } catch { return undefined; } };
 const sameId = (a, b) => a !== undefined && b !== undefined && String(a) !== '' && String(a) === String(b);
 const proxyFor = (adapter, manager) => {
   const own = read(() => manager.proxy);

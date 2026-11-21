@@ -1,6 +1,7 @@
 import { legacyReveal } from './legacy-reveals.js';
 import { legacyEvent, legacyBeforeMove, legacyAfterMove } from './legacy-moves.js';
 import { reduceSkillHints } from './skill-hints.js';
+import { cardFieldNames, cardPacketWrappers } from '../../shared/card-packet-fields.js';
 /** Card observations are public client facts. Unknown transfers retain possibilities. */
 export const REFERENCE = Object.freeze({
   version: '1.6.76',
@@ -448,13 +449,14 @@ function revealSkillPile(state, data, seq) {
 // The native protocol classes use getters over Protocol/ProtoObj while forks
 // may pass their body directly. Normalize only fields used by this reducer.
 // An empty wrapper array must not mask a populated body array.
+const cardFields = Object.entries(cardFieldNames);
 export function normalizeCardPayload(payload = {}) {
   const queue = [payload], sources = [], seen = new Set();
   for (let index = 0; index < queue.length && index < 32; index++) {
     const value = queue[index];
     if (!value || typeof value !== 'object' || seen.has(value)) continue;
     seen.add(value); sources.push(value);
-    for (const key of ['Protocol', 'protocol', 'ProtoObj', 'protoObj', 'Data', 'data', 'msg', 'Msg']) {
+    for (const key of cardPacketWrappers) {
       if (value[key] && typeof value[key] === 'object') queue.push(value[key]);
     }
   }
@@ -469,26 +471,8 @@ export function normalizeCardPayload(payload = {}) {
     }
     return empty;
   };
-  const aliases = {
-    CardList: ['cardList', 'card_list'], CardIDs: ['CardIds', 'cardIDs', 'cardIds', 'card_ids', 'Cards', 'cards', 'hand_cards', 'card_list', 'cardList'],
-    CardID: ['CardId', 'cardID', 'cardId'], CardCount: ['cardCount', 'card_count'],
-    SeatID: ['SeatId', 'seatID', 'seatId', 'seat_id'], SeatIndex: ['seatIndex', 'seat_id', 'seatId', 'SeatID'],
-    FromID: ['FromId', 'fromID', 'fromId', 'from_id'], ToID: ['ToId', 'toID', 'toId', 'to_id'],
-    SpellID: ['SpellId', 'spellID', 'spellId', 'spell_id'], SrcSeatID: ['SrcSeatId', 'srcSeatId', 'srcSeatID'],
-    TargetSeatID: ['TargetSeatId', 'targetSeatID', 'targetSeatId'],
-    Type: ['type', 'opt_type'], Param: ['param'], Params: ['params'], Datas: ['datas'],
-    useType: ['UseType'], TurnCnt: ['turnCnt', 'TurnCount', 'turnCount'], Round: ['round'],
-    isSend: ['IsSend'], IsResume: ['isResume'], Count: ['count', 'hand_count'],
-    DestSeatIDs: ['DestSeatIds', 'destSeatIds', 'Targets'], EffectIndex: ['effectIndex'],
-    IsSpell: ['isSpell', 'is_spell'], DataID: ['DataId', 'dataId', 'data_id'],
-    MurSeatID: ['MurSeatId', 'murSeatId', 'MurderSeatID'], MData: ['mData'], MsgID: ['MsgId', 'msgId', 'msg_id'],
-    list_card_id: ['listCardId'], error_id: ['ErrorID', 'errorId'],
-  };
-  for (const key of ['FromZone', 'ToZone', 'FromPosition', 'ToPosition', 'FromZoneParam', 'ToZoneParam', 'MoveType']) {
-    aliases[key] = [key[0].toLowerCase() + key.slice(1), key.replace(/[A-Z]/g, (char, index) => (index ? '_' : '') + char.toLowerCase())];
-  }
-  for (const [key, names] of Object.entries(aliases)) {
-    const value = pick([key, ...names]);
+  for (const [key, names] of cardFields) {
+    const value = pick(names);
     if (value !== undefined) result[key] = value;
   }
   return result;
@@ -649,6 +633,21 @@ function slashKind(info) {
   return info.name === '杀' || type === 'ShaNCard' ? '普通杀' : null;
 }
 
+function addCardNames(info, id, add) {
+  const kind = slashKind(info);
+  if (!kind) { add(info.name, id); return; }
+  add('杀', id); add(kind, id, true);
+  if (info.suit === 1 || info.suit === 2) add('红杀', id, true);
+  if (info.suit === 3 || info.suit === 4) add('黑杀', id, true);
+}
+
+export function queryCardNames(cards, getMeta) {
+  const names = new Set();
+  const addName = name => names.add(name);
+  for (const { id } of cards) addCardNames(getMeta(id), id, addName);
+  return [...names];
+}
+
 export function deckComposition(state, groupBy = 'name', getMeta = id => ({ name: '卡牌 ' + id })) {
   const initial = [...new Set(state.deckIds)], groups = new Map();
   const add = (key, id, subgroup = false) => {
@@ -659,14 +658,7 @@ export function deckComposition(state, groupBy = 'name', getMeta = id => ({ name
     const info = getMeta(id);
     if (groupBy === 'suit') add(String(info.suit || 0), id);
     else if (groupBy === 'number') add(String(info.number || 0), id);
-    else {
-      const kind = slashKind(info);
-      if (kind) {
-        add('杀', id); add(kind, id, true);
-        if ([1, 2].includes(info.suit)) add('红杀', id, true);
-        if ([3, 4].includes(info.suit)) add('黑杀', id, true);
-      } else add(info.name, id);
-    }
+    else addCardNames(info, id, add);
   }
   const rows = [...groups.values()].map(row => {
     const seenIds = row.ids.filter(id => wasSeen(state, id));
@@ -712,16 +704,33 @@ export function sortCards(ids, mode, getMeta) {
   }).map(item => item.id);
 }
 
+function matchesQueryName(info, name, exactName) {
+  if (!exactName) return info.name.includes(name);
+  const kind = slashKind(info);
+  if (name === '杀') return Boolean(kind);
+  if (name === '红杀') return Boolean(kind) && (info.suit === 1 || info.suit === 2);
+  if (name === '黑杀') return Boolean(kind) && (info.suit === 3 || info.suit === 4);
+  return (kind || info.name) === name;
+}
+
+export function queryCardPreview(cards, criteria, getMeta, limit) {
+  const { name, exactName, suit, number, zone } = criteria;
+  const selectedSuit = Number(suit), selectedNumber = Number(number);
+  const ids = [];
+  let total = 0;
+  for (const { id, locations } of cards) {
+    if (zone && !locations.some(key => key.split(':', 1)[0] === zone)) continue;
+    if (name || suit || number) {
+      const info = getMeta(id);
+      if ((suit && info.suit !== selectedSuit) || (number && info.number !== selectedNumber)) continue;
+      if (name && !matchesQueryName(info, name, exactName)) continue;
+    }
+    total++;
+    if (ids.length < limit) ids.push(id);
+  }
+  return { ids, total };
+}
+
 export function queryCards(state, criteria, getMeta) {
-  return Object.values(state.cards).filter(item => {
-    const info = getMeta(item.id);
-    const kind = slashKind(info);
-    const nameMatches = !criteria.name || (criteria.exactName ?
-      (criteria.name === '杀' ? !!kind : criteria.name === '红杀' ? !!kind && [1, 2].includes(info.suit) :
-        criteria.name === '黑杀' ? !!kind && [3, 4].includes(info.suit) : (kind || info.name) === criteria.name) : info.name.includes(criteria.name));
-    return nameMatches &&
-      (!criteria.suit || info.suit === Number(criteria.suit)) &&
-      (!criteria.number || info.number === Number(criteria.number)) &&
-      (!criteria.zone || item.locations.some(key => key.split(':')[0] === criteria.zone));
-  }).map(item => item.id);
+  return queryCardPreview(Object.values(state.cards), criteria, getMeta, Infinity).ids;
 }

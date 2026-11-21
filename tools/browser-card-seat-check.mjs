@@ -51,6 +51,41 @@ try {
   await host.screenshot({path:`test-results/card-seat-${width}-${light?'light':'dark'}.png`});
   for(const row of await host.locator('.sgs-card-seat-heading').evaluateAll(nodes=>nodes.map(n=>({w:n.clientWidth,scroll:n.scrollWidth})))) assert.ok(row.scroll<=row.w+1);
  }
+ await page.setViewportSize({width:760,height:460});
+ await host.locator('.sgs-card-settings summary').click();
+ const size = host.getByRole('group',{name:'明牌大小'});
+ const seven = size.getByRole('button',{name:'每行 7 张'});
+ const eight = size.getByRole('button',{name:'每行 8 张'});
+ assert.equal(await seven.getAttribute('aria-pressed'),'true');
+ await eight.focus();
+ await page.keyboard.press('Space');
+ assert.equal(await eight.getAttribute('aria-pressed'),'true');
+ await seven.click();
+ for(const width of [248,280,420]) for(const light of [false,true]) for(const font of [-2,-1,0,2]){
+  await host.evaluate((h,{width,light,font})=>{
+   window[Symbol.for('sgs.ol.toolbox.core')].themes.select(light?'fixture.paper':'core.black-gold');
+   h.style.setProperty('--sgs-font-offset',font+'px');
+   h.style.width=width+'px';h.shadowRoot.querySelector('.shell').style.width=width+'px';
+  },{width,light,font});
+  const layout=await host.evaluate(host=>{
+   const root=host.shadowRoot, disclosure=root.querySelector('.sgs-card-settings');
+   disclosure.open=true;
+   const group=disclosure.querySelector('[aria-label="明牌大小"]'), row=group.parentElement;
+   row.scrollIntoView({block:'center'});
+   const panel=root.querySelector('.shell').getBoundingClientRect(), hostBounds=host.getBoundingClientRect();
+   const bounds=row.getBoundingClientRect(), label=row.firstElementChild;
+   const choices=[...group.children].map(button=>button.getBoundingClientRect());
+   const labelBounds=label.getBoundingClientRect();
+   return {width:panel.width, fits:panel.left>=hostBounds.left-.5&&panel.right<=hostBounds.right+.5,
+    font:parseFloat(getComputedStyle(label).fontSize), scroll:row.scrollWidth<=row.clientWidth+1,
+    singleRow:choices[0].top<labelBounds.bottom&&labelBounds.top<choices[0].bottom,
+    buttons:choices.every(r=>r.width>=24&&r.height>=24&&r.top===choices[0].top&&r.right<=bounds.right+.5)};
+  });
+  assert.equal(layout.width,width);
+  assert.equal(layout.font,12+font);
+  assert.ok(layout.fits&&layout.scroll&&layout.buttons&&layout.singleRow,JSON.stringify({width,light,font,layout}));
+  if(font===2) await host.screenshot({path:`test-results/card-reveal-settings-${width}-${light?'light':'dark'}.png`});
+ }
  assert.deepEqual(errors,[]);
- console.log('Three-player browser fixture: native positions 2/3; empty ID 6 excluded; 248/280/420px dark/light screenshots passed.');
+ console.log('Three-player browser fixture: native positions 2/3; empty ID 6 excluded. Reveal size keyboard and layout passed at 248/280/420px in both themes and all four font sizes.');
 } finally {await browser.close();await market.close();}

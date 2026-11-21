@@ -1,12 +1,12 @@
-import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
+import { GAIZHU_ICON } from '../../ui/plugin-icons.js';
 import { durationOf } from './model.js';
 import { createGaiZhu } from './runtime.js';
 
 export const manifest = {
-  id: 'gaizhu', name: '盖主速刷', version: '0.2.7', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "新增大厅建房和身份、国战、单骑自动挂机，可定时或在酒馆三项奖励领齐后停机。首次盖主开局需确认同伴，单人补小杀失败会尝试重补。点将和部分商店操作可能消耗道具或局内货币。",
-  minCoreVersion: '0.6.37', dependencies: ['baisheng'], description: '双人盖主速刷，以及身份、国战、单骑自动挂机。',
-  icon: PLUGIN_ICONS['gaizhu'], priority: 21000, categories: ['automation'],
+  id: 'gaizhu', name: '盖主速刷', version: '0.2.10', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "改善单骑续局、挂机中断和大厅状态识别。点将和部分商店操作可能消耗道具或局内货币。",
+  minCoreVersion: '0.6.185', dependencies: ['baisheng'], description: '双人盖主速刷，以及身份、国战、单骑自动挂机。',
+  icon: GAIZHU_ICON, priority: 21000, categories: ['automation'],
 };
 
 const MODULES = [['host', '盖主小号'], ['rebel', '反贼大号'], ['auto', '自动挂机']];

@@ -162,3 +162,56 @@ test('passive detection never hides or exits with saved exit policy', t => {
  controller.setEnabled(false); window.SGSMODULE = [() => assert.fail('must not exit')]; controller.start(); controller.scan();
  assert.equal(document.querySelector('#xiaochao-app').style.display, 'grid'); assert.ok(controller.getStatus().sources.length); assert.equal(controller.getStatus().exitCalled, false);
 });
+
+test('disabling takeover stops background detection and retains startup, manual and policy scans', async t => {
+  const { controller, window, document } = fixture(t, '<div id="xiaochao-app" style="display:grid"></div>');
+  let scans = 0;
+  const query = document.querySelectorAll.bind(document);
+  document.querySelectorAll = selector => {
+    if (selector === 'div,aside,section') scans++;
+    return query(selector);
+  };
+  const intervals = new Set();
+  window.setInterval = callback => { intervals.add(callback); return callback; };
+  window.clearInterval = callback => { intervals.delete(callback); };
+  const Observer = window.MutationObserver;
+  const observers = new Set();
+  window.MutationObserver = class extends Observer {
+    observe(...args) { observers.add(this); return super.observe(...args); }
+    disconnect() { observers.delete(this); return super.disconnect(); }
+  };
+
+  controller.setEnabled(false);
+  assert.deepEqual(controller.start().sources.map(source => source.id), ['fork95']);
+  assert.equal(scans, 1);
+  assert.equal(intervals.size, 0);
+  assert.equal(observers.size, 0);
+  const latePanel = document.createElement('div');
+  latePanel.id = 'xc95Panel';
+  document.body.append(latePanel);
+  await flushed(window);
+  assert.equal(scans, 1);
+  assert.deepEqual(controller.getStatus().sources.map(source => source.id), ['fork95']);
+  assert.deepEqual(controller.scan().sources.map(source => source.id), ['fork95', 'extension']);
+  assert.equal(scans, 2);
+  assert.equal(latePanel.style.display, '');
+
+  let exits = 0;
+  window.SGSMODULE = [() => exits++];
+  controller.setTakeoverPolicy('exit-known');
+  assert.equal(scans, 3);
+  assert.equal(exits, 0);
+  controller.setEnabled(true);
+  assert.equal(scans, 4);
+  assert.equal(exits, 1);
+  assert.equal(intervals.size, 1);
+  assert.equal(observers.size, 1);
+  assert.equal(latePanel.style.display, 'none');
+
+  controller.setEnabled(false);
+  assert.equal(latePanel.style.display, '');
+  await flushed(window);
+  assert.equal(scans, 4);
+  assert.equal(intervals.size, 0);
+  assert.equal(observers.size, 0);
+});

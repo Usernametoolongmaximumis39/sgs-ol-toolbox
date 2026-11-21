@@ -1,8 +1,8 @@
+import { read } from '../../shared/safe-read.js';
 import { isReturnTask } from './return-tasks.js';
 // Reconstructed from static client evidence; only already-owned reward rights.
 // This module does not import another plugin or execute the old userscript.
 import { planMilitaryRewards } from './military-rewards.js';
-const read = fn => { try { return fn(); } catch { return undefined; } };
 const positive = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
 const has = (list, id) => Array.isArray(list) && list.some(value => Number(value) === Number(id));
 const method = (object, name) => typeof read(() => object[name]) === 'function';

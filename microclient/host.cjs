@@ -173,6 +173,39 @@ ipcMain.handle('sgs-toolbox:mobile-skin:v1', async (event, message) => {
 ipcMain.on('sgs-toolbox:mobile-skin-cancel:v1', (event, id) => {
   if (allowed(event)) mobileSkinJobs.get(event.sender)?.get(id)?.cancel();
 });
+const privateSyncJobs = new WeakMap();
+ipcMain.handle('sgs-toolbox:private-sync-http:v1', async (event, message) => {
+  if (!allowed(event) || !/^[a-f0-9]{32}$/.test(message?.id ?? '')) throw new Error('无效的私有同步请求');
+  const origin = new URL(event.senderFrame?.url || navigations.get(event.sender.id) || event.sender.getURL()).origin;
+  const { url, headers, body } = MobileSkinSecurity.privateHttpRequest(message, origin);
+  const { PRIVATE_HTTP_LIMIT: limit, PRIVATE_HTTP_TIMEOUT: timeout } = MobileSkinSecurity;
+  let jobs = privateSyncJobs.get(event.sender);
+  if (!jobs) privateSyncJobs.set(event.sender, jobs = new Map());
+  if (jobs.has(message.id) || jobs.size >= 12 || Buffer.byteLength(body) > limit) throw new Error('私有同步请求超限');
+  let request, timer;
+  try {
+    return await new Promise((resolve, reject) => {
+      request = require('http').request(url, { method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) } }, response => {
+        const chunks = [];
+        let bytes = 0;
+        response.on('data', chunk => {
+          bytes += chunk.length;
+          if (bytes > limit) request.destroy(new Error('私有同步响应超限'));
+          else chunks.push(chunk);
+        });
+        response.once('error', reject);
+        response.once('end', () => resolve({ status: response.statusCode, text: Buffer.concat(chunks).toString('utf8') }));
+      });
+      request.once('error', reject);
+      jobs.set(message.id, request);
+      timer = setTimeout(() => request.destroy(new Error('私有同步请求超时')), timeout);
+      request.end(body);
+    });
+  } finally { clearTimeout(timer); jobs.delete(message.id); }
+});
+ipcMain.on('sgs-toolbox:private-sync-http-cancel:v1', (event, id) => {
+  if (allowed(event)) privateSyncJobs.get(event.sender)?.get(id)?.destroy(new Error('私有同步请求已取消'));
+});
 ipcMain.handle('sgs-toolbox:channel-shell:v1', (event, request) => {
   const url = event.senderFrame ? event.senderFrame.url : event.sender.getURL();
   if (!/^file:/i.test(url) || !/index_wd\.html(?:[?#]|$)/i.test(url)) throw new Error('仅允许微端外壳切换游戏渠道');

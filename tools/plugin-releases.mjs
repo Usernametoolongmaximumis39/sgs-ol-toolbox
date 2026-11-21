@@ -1,72 +1,93 @@
 export const pluginReleases = [
   {
-    "id": "social"
+    "id": "social",
+    "compact": true
   },
   {
-    "id": "player-info"
+    "id": "player-info",
+    "compact": true
   },
   {
     "id": "native-cards"
   },
   {
-    "id": "yjcm-cards"
+    "id": "yjcm-cards",
+    "compact": true
   },
   {
-    "id": "dafeiyu-cards"
+    "id": "dafeiyu-cards",
+    "compact": true
   },
   {
-    "id": "backgrounds"
+    "id": "backgrounds",
+    "compact": true
   },
   {
     "id": "gold-cards"
   },
   {
-    "id": "shanhetu"
+    "id": "shanhetu",
+    "compact": true
   },
   {
     "id": "shanhetu-beta",
+    "compact": true,
     "excludeFromFull": true
   },
   {
-    "id": "cards"
+    "id": "cards",
+    "compact": true
   },
   {
-    "id": "play-assist"
+    "id": "play-assist",
+    "compact": true
   },
   {
-    "id": "daily-rewards"
+    "id": "daily-rewards",
+    "compact": true
   },
   {
-    "id": "seckill"
+    "id": "seckill",
+    "compact": true
   },
   {
-    "id": "gaizhu"
+    "id": "gaizhu",
+    "compact": true
   },
   {
-    "id": "effects"
+    "id": "effects",
+    "compact": true
   },
   {
-    "id": "skins"
+    "id": "skins",
+    "compact": true
   },
   {
-    "id": "stargazing"
+    "id": "stargazing",
+    "compact": true
   },
   {
-    "id": "wish-progress"
+    "id": "wish-progress",
+    "compact": true
   },
   {
-    "id": "themes"
+    "id": "themes",
+    "compact": true
   },
   {
-    "id": "baisheng"
+    "id": "baisheng",
+    "compact": true
   },
   {
-    "id": "appearances"
+    "id": "appearances",
+    "compact": true
   },
   {
-    "id": "ledger"
+    "id": "ledger",
+    "compact": true
   },
   {
-    "id": "recharge"
+    "id": "recharge",
+    "compact": true
   }
 ];

@@ -1,4 +1,4 @@
-import { account, manager, read } from '../../shared/info-runtime.js';
+import { read } from '../../shared/info-runtime.js';
 
 const USER_LINK = 'ATtextNickname*&.!**.%#';
 export const ROOM_LINK = 'sgs-social-room:';
@@ -91,7 +91,7 @@ export function decorateChatHTML(html, data, { lookup, config, robotIcon = '', g
 
 function roomController(ctx) {
   for (const event of ['ClientTableinfoRep', 'GsCModifyUserseatNtf', 'ClientSitdownRep']) {
-    const value = manager(ctx, 'RoomControler', event, value => typeof value.SendJoinTable === 'function');
+    const value = ctx.native.manager('RoomControler', event, value => typeof value.SendJoinTable === 'function');
     if (value) return value;
   }
   return null;
@@ -169,7 +169,7 @@ export function createChatEnhancements(ctx) {
   }
   let joinAttempt=null,passwordJob=null;
   function clearAttempt(){const attempt=joinAttempt;joinAttempt=null;attempt?.release?.();}
-  function validJob(job){const c=context();return active()&&account(ctx).id===job.account&&c.rc===job.rc&&c.mode===job.mode&&c.group===job.group&&!Number(c.rc?.TableId)&&read(()=>ctx.game.getSnapshot().inGame)!==true;}
+  function validJob(job){const c=context();return active()&&ctx.native.account().id===job.account&&c.rc===job.rc&&c.mode===job.mode&&c.group===job.group&&!Number(c.rc?.TableId)&&read(()=>ctx.game.getSnapshot().inGame)!==true;}
   function showPassword(job){
     const gateway=job.rc?.Ged;
     if(typeof gateway?._!=='function')return false;
@@ -232,7 +232,7 @@ export function createChatEnhancements(ctx) {
     return { scene, rc, mode, group, gc };
   }
   function submit(job, current) {
-    if (!active() || account(ctx).id !== job.account || !current.rc) return false;
+    if (!active() || ctx.native.account().id !== job.account || !current.rc) return false;
     const table = roomTableId(job.room, job.mode, job.group); if (table === null) return false;
     if (current.gc) {
       // Same values used by the old extension and native hall navigation.
@@ -242,7 +242,7 @@ export function createChatEnhancements(ctx) {
     }
     pending = null; submitUntil = now() + 2000;clearAttempt();passwordJob=null;
     job={...job,table,rc:current.rc};
-    const hall=read(()=>current.scene.roomListView.hallManager)||manager(ctx,'HallManager','ClientSearchTableRep',v=>typeof v.getTableInfoByID==='function');
+    const hall=read(()=>current.scene.roomListView.hallManager)||ctx.native.manager('HallManager','ClientSearchTableRep',v=>typeof v.getTableInfoByID==='function');
     if(read(()=>hall.getTableInfoByID(table).HasPass)===true && showPassword(job))return true;
     // Unknown rooms are checked by the server. Only the password event for our
     // own empty-password attempt opens the input instead of the failure dialog.
@@ -262,7 +262,7 @@ export function createChatEnhancements(ctx) {
   }
   function requestEnterRoom(room) {
     if (!active() || pending || now() < submitUntil) return false;
-    const c = context(), accountId = account(ctx).id;
+    const c = context(), accountId = ctx.native.account().id;
     // SendLeaveTable sends a protocol directly. A live game must keep the
     // native surrender/leave confirmation and its mode-specific restrictions.
     const inGame = read(() => ctx.game.getSnapshot().inGame);
@@ -332,11 +332,11 @@ export function createChatEnhancements(ctx) {
   }
   function tick() {
     if (!active()) return;
-    const accountId = account(ctx).id; if (accountId !== who) { clear(); who = accountId; }
+    const accountId = ctx.native.account().id; if (accountId !== who) { clear(); who = accountId; }
     if (!who) return;
     nativeOfficer=null;
     for(const event of ['ClientOfficerInfoRep','ClientOfficerUpgradeRep','ClientOfficerSimpleInfoRep']){
-      nativeOfficer=manager(ctx,'OfficerManager',event,v=>typeof v.GetOfficerChatIcon==='function');if(nativeOfficer)break;
+      nativeOfficer=ctx.native.manager('OfficerManager',event,v=>typeof v.GetOfficerChatIcon==='function');if(nativeOfficer)break;
     }
     if(joinAttempt&&(!validJob(joinAttempt.job)||now()>joinAttempt.until))clearAttempt();
     if(passwordJob&&!validJob(passwordJob))passwordJob=null;
@@ -397,7 +397,7 @@ export function createChatEnhancements(ctx) {
         // Bound memory without letting old/offscreen history exhaust a lifetime quota.
         if(requested.size>512)for(const name of requested)if(!visibleNames.has(name))requested.delete(name);
         for (const name of visibleNames) {
-          if (!active() || account(ctx).id!==who) break;
+          if (!active() || ctx.native.account().id!==who) break;
           if(requested.has(name)||name===self()?.Nickname||name===self()?.NickNameForLocal)continue;
           requested.add(name);
           try {

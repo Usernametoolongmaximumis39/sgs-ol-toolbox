@@ -1,15 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createNative, clickSkill, press, usable } from '../src/plugins/gaizhu/native.js';
+import { createPluginNative } from '../src/core/plugin-native.js';
 
 function fixture(children = [], cached = {}) {
   const stage = { _children: children };
   const scene = { name: 'GameScene', SelfSeatUi: {}, _children: [] };
   const wm = { WindowInstanceDict: { _maps: cached } };
-  const native = createNative({ window: { Laya: { stage } }, game: {
+  const ctx = { window: { Laya: { stage } }, game: {
     getScene: () => scene, getClass: name => name === 'WindowManager' ? wm : null,
     getServerProxy: () => null,
-  } });
+  } };
+  ctx.native = createPluginNative(ctx);
+  const native = createNative(ctx);
   native.frame();
   return { native, scene, stage, refresh: () => native.frame() };
 }

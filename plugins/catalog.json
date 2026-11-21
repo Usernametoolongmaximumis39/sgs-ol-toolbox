@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.182"
+    "version": "0.6.213"
   },
   "plugins": [
     {
       "id": "social",
       "name": "好友与聊天",
-      "version": "0.1.17",
+      "version": "0.1.19",
       "icon": {
         "paths": [
           "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
@@ -20,17 +20,17 @@
         "tools"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.37",
+      "minCoreVersion": "0.6.185",
       "apiVersion": 1,
       "description": "好友置顶、改名与将灯提醒、公屏一键进房、官阶补全与无密码房筛选",
-      "releaseNotes": "大厅房间列表新增「只显示无密码房」，并调整公屏房号识别与进房入口。",
-      "packageUrl": "packages/social/0.1.17.json",
-      "sha256": "4ef7feb0bb58def3626497607110f00056dc84899ad2257f8f81aa1ca2225702"
+      "releaseNotes": "好友、置顶和将灯记录可随当前账号的云端备份恢复。绑定云同步后，这些记录会发送到所绑定的服务器。",
+      "packageUrl": "packages/social/0.1.19.json",
+      "sha256": "b617248c6e2067ebad6070a3e1c9b967d3706559a3091aa118e064e035ce56ee"
     },
     {
       "id": "player-info",
       "name": "玩家信息",
-      "version": "0.4.22",
+      "version": "0.4.25",
       "icon": {
         "paths": [
           "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
@@ -42,12 +42,12 @@
         "game"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.70",
+      "minCoreVersion": "0.6.185",
       "apiVersion": 1,
       "description": "可选玩家资料卡与斗地主将灯检查，支持自定义关注武将、人机提示与自选身份补全",
-      "releaseNotes": "牌局中的玩家统计卡片可收起为头像旁的小圆点，点击小圆点恢复，收起时会避让附近控件。",
-      "packageUrl": "packages/player-info/0.4.22.json",
-      "sha256": "fb45a55aacc3c8c924bafb7e33ca84286b7eaf8fec07c868fa89d0c5db4f31ca"
+      "releaseNotes": "修复自选身份局中等待座位与牌局座位顺序不一致时的身份提示错位，改善玩家信息设置页的搜索和长名称显示。",
+      "packageUrl": "packages/player-info/0.4.25.json",
+      "sha256": "780cd1f804a0f9df57e02cbfad8f1f453d34349b29b79136e8ece6430f06e9e5"
     },
     {
       "id": "native-cards",
@@ -66,7 +66,7 @@
     {
       "id": "yjcm-cards",
       "name": "一将成名卡面包",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "icon": {
         "paths": [
           "M8 3h12v17H8ZM4 5H2v17h13v-2",
@@ -76,16 +76,17 @@
       "priority": 50095,
       "categories": [],
       "contractVersion": 1,
-      "minCoreVersion": "0.5.125",
+      "minCoreVersion": "0.6.185",
       "apiVersion": 1,
       "description": "喵喵杯、猪猪侠逐牌卡面；来源为一将成名官方资源，缺失特殊卡图时保留游戏原生显示",
-      "packageUrl": "packages/yjcm-cards/0.1.2.json",
-      "sha256": "63ec4317e93a6b215790b9865bd8d8b887676a5c00d118eff2ff7d4f79765ac4"
+      "releaseNotes": "更新部分一将成名「杀」的离线预览裁图。",
+      "packageUrl": "packages/yjcm-cards/0.1.3.json",
+      "sha256": "91fc886373bd9991a8582ac805dc20548b1c2d549f4e969016d551469cd63382"
     },
     {
       "id": "dafeiyu-cards",
       "name": "大肥鱼卡面",
-      "version": "0.4.4",
+      "version": "0.4.5",
       "icon": {
         "paths": [
           "M3 5h13v16H3Z",
@@ -98,17 +99,17 @@
       "priority": 50096,
       "categories": [],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.9",
+      "minCoreVersion": "0.6.185",
       "apiVersion": 1,
       "description": "三倍高清大肥鱼卡面与鲸浪藏锋卡背，含军争卡组、衍生装备和山河图装备，图片按需加载",
-      "releaseNotes": "新增 42 张山河图装备卡面，可在工具箱外观页和游戏内卡牌图鉴预览。新版卡面按需从 GitHub 加载。",
-      "packageUrl": "packages/dafeiyu-cards/0.4.4.json",
-      "sha256": "00cef6e26828ae31ffdf5f12d3bc3843d1a55441cb692486363f8c28c44fab0b"
+      "releaseNotes": "适配新版工具箱的外观界面，保留已有卡面与卡背选择。卡面素材按需联网加载。",
+      "packageUrl": "packages/dafeiyu-cards/0.4.5.json",
+      "sha256": "93745de01d1020b1cb7f6e412dab86c6b0d05129d70f36ceb0b2091445ddcae2"
     },
     {
       "id": "backgrounds",
       "name": "自定义背景",
-      "version": "0.2.8",
+      "version": "0.2.11",
       "icon": {
         "paths": [
           "M3 4h18v16H3Z",
@@ -121,15 +122,15 @@
         "appearance"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.105",
+      "minCoreVersion": "0.6.206",
       "apiVersion": 1,
       "dependencies": [
         "skins"
       ],
       "description": "将本地图片或游戏皮肤用作牌局背景，保留天气与武将技能背景",
-      "releaseNotes": "适配皮肤管理中的背景快捷设置。背景图片和动态资源按需联网加载。",
-      "packageUrl": "packages/backgrounds/0.2.8.json",
-      "sha256": "e1993ff33fa2ed5079f8ef212bd8d0986e57fd6053ca7ed3c804e74bf501fab8"
+      "releaseNotes": "可从皮肤详情直接把支持的横版皮肤设为牌局背景。支持的动态背景循环播放待机动画，原画和动态资源按需联网加载。",
+      "packageUrl": "packages/backgrounds/0.2.11.json",
+      "sha256": "7bfcb116aac51e6975bc2eb5abaf601eb573391ef84b8dd59040c6f7ea7d57ff"
     },
     {
       "id": "gold-cards",
@@ -148,7 +149,7 @@
     {
       "id": "shanhetu",
       "name": "山河图",
-      "version": "0.2.42",
+      "version": "0.2.43",
       "icon": {
         "paths": [
           "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
@@ -164,14 +165,14 @@
       "minCoreVersion": "0.6.121",
       "apiVersion": 1,
       "description": "敌军、奇遇与商店预览，换将卡预判、战法计数与流派进度",
-      "releaseNotes": "概况新增流派进度与套装关注，支持在集市和选战法时提示关注的战法。可开启奇遇数值标注。换将预览在微端按游戏区域居中，避开工具箱侧栏。",
-      "packageUrl": "packages/shanhetu/0.2.42.json",
-      "sha256": "d21d5f6ba506a50f0d9e466e49e5b8cc2f21f0821d2ba65898b6bfba1dadf58e"
+      "releaseNotes": "调整换将预览、学堂提醒和战法计数与原生窗口的配合。",
+      "packageUrl": "packages/shanhetu/0.2.43.json",
+      "sha256": "fbad88e6ad917a085d2833231db6f7fed8467b0d71d32e9bb330fcf56bc70069"
     },
     {
       "id": "shanhetu-beta",
       "name": "山河图拓展（Beta）",
-      "version": "0.1.13",
+      "version": "0.1.16",
       "icon": {
         "paths": [
           "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
@@ -189,14 +190,14 @@
         "shanhetu"
       ],
       "description": "在山河图面板查看战绩分预估与结局条件",
-      "releaseNotes": "首次公开测试。安装山河图后可在「拓展」查看结局倾向、战绩分和战败结算预估。第 5 赛季有历史记录的奇遇可显示数值变化，分数以游戏实际结算为准。",
-      "packageUrl": "packages/shanhetu-beta/0.1.13.json",
-      "sha256": "8f2665cb90c7bf757617dfa605bafa463275bca7f7d074d1ccee0a9becd64b5b"
+      "releaseNotes": "拓展页分别显示已确认的战绩分和战败结算预估，未取得确认的分数会标明状态，实际得分以游戏结算为准。",
+      "packageUrl": "packages/shanhetu-beta/0.1.16.json",
+      "sha256": "d9aa77f6bb90d372a29fe1d98c20ceda3c46de311bbce805ead175f10c239715"
     },
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.84",
+      "version": "0.1.88",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -211,14 +212,14 @@
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
-      "releaseNotes": "补充界姜维「挑衅」在出牌阶段的剩余技能次数提示。",
-      "packageUrl": "packages/cards/0.1.84.json",
-      "sha256": "a9bc6daef42a99fa2447f7a09688fb8c7e90fc192db749905c609c757b5537d7"
+      "releaseNotes": "改进亮牌与观战界面的显示，调整座位牌区布局和手牌排序入口。",
+      "packageUrl": "packages/cards/0.1.88.json",
+      "sha256": "ff0e8c8e311f53e6000056e55f4f37b4663525b3c5903f6b2028627e606cc05b"
     },
     {
       "id": "play-assist",
       "name": "出牌辅助",
-      "version": "0.2.19",
+      "version": "0.2.21",
       "icon": {
         "paths": [
           "M4 5h10v14H4zM7 8h4M7 11h3",
@@ -233,14 +234,14 @@
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "长按技能辅助、自动确定与询问跳过。",
-      "releaseNotes": "修复单骑场景误触发自动跳过无懈的问题。已开启该选项时，仅在山河图战斗中自动跳过相应询问。",
-      "packageUrl": "packages/play-assist/0.2.19.json",
-      "sha256": "e6744d57750dbb713d031fa3fa91f2e8263b0ba9bd24e95644b1ff4652b573ec"
+      "releaseNotes": "修复部分正式牌局中长按技能辅助未生效的问题，观战、回放、阵亡及托管时停用辅助。",
+      "packageUrl": "packages/play-assist/0.2.21.json",
+      "sha256": "c32e9bc3c6c567150fd733c9752856cb56ea60e31a32d8a433db6cc8bf86d0c0"
     },
     {
       "id": "daily-rewards",
       "name": "日常领奖",
-      "version": "0.7.44",
+      "version": "0.7.45",
       "icon": {
         "paths": [
           "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -255,14 +256,14 @@
       "minCoreVersion": "0.6.38",
       "apiVersion": 1,
       "description": "自动领取签到、任务、邮件与活动奖励，按账号记录",
-      "releaseNotes": "修复新一期周卡或月卡生效后，旧领取记录可能阻挡每日奖励领取的问题。自动领取沿用已有设置，兑换仍可能消耗欢乐豆。",
-      "packageUrl": "packages/daily-rewards/0.7.44.json",
-      "sha256": "7b80441564daca21e7a1a5e70d423fbe2f1b3169f07d90152c22e365133fa29d"
+      "releaseNotes": "改进领取功能对新版工具箱的兼容性，保留现有自动领取设置。兑换仍可能消耗欢乐豆。",
+      "packageUrl": "packages/daily-rewards/0.7.45.json",
+      "sha256": "71abf999969dadf7c6d51bfb1eb994fdd09e6a361eca33ef2f6ff0176b44ae2e"
     },
     {
       "id": "seckill",
       "name": "自动秒杀",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "icon": {
         "paths": [
           "M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2",
@@ -277,14 +278,14 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "按所选物品与关键词自动抢购秒杀商品，支持跨场次排队与购买确认",
-      "releaseNotes": "适配新版工具箱界面资源。自动购买默认关闭，启用会消耗对应游戏货币。",
-      "packageUrl": "packages/seckill/0.1.4.json",
-      "sha256": "0ee4c13b451765bf5900bb57df7dd89dd3a4fd67da585d8753bb463e852c12bf"
+      "releaseNotes": "调整自动购买界面的标题和图标。自动购买默认关闭，启用后可能消耗游戏货币。",
+      "packageUrl": "packages/seckill/0.1.5.json",
+      "sha256": "5d107bf7e907b350d1283ba902bc6bd1c7b2aa6d4b0f3b0b87cd40f653cd8f00"
     },
     {
       "id": "gaizhu",
       "name": "盖主速刷",
-      "version": "0.2.7",
+      "version": "0.2.10",
       "icon": {
         "paths": [
           "M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0",
@@ -297,20 +298,20 @@
         "automation"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.37",
+      "minCoreVersion": "0.6.185",
       "apiVersion": 1,
       "dependencies": [
         "baisheng"
       ],
       "description": "双人盖主速刷，以及身份、国战、单骑自动挂机。",
-      "releaseNotes": "新增大厅建房和身份、国战、单骑自动挂机，可定时或在酒馆三项奖励领齐后停机。首次盖主开局需确认同伴，单人补小杀失败会尝试重补。点将和部分商店操作可能消耗道具或局内货币。",
-      "packageUrl": "packages/gaizhu/0.2.7.json",
-      "sha256": "efd53ca97796beb6295527ffb638ce33d19a422933f5d7573d1137c5c344163e"
+      "releaseNotes": "改善单骑续局、挂机中断和大厅状态识别。点将和部分商店操作可能消耗道具或局内货币。",
+      "packageUrl": "packages/gaizhu/0.2.10.json",
+      "sha256": "1b85937833cb47873fc1e97668cbe70c5fd26a77cd4e3c636f5f72f4a1037740"
     },
     {
       "id": "effects",
       "name": "特效屏蔽",
-      "version": "0.5.14",
+      "version": "0.5.15",
       "icon": {
         "paths": [
           "M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2",
@@ -325,14 +326,14 @@
       "minCoreVersion": "0.6.37",
       "apiVersion": 1,
       "description": "按需屏蔽对局特效与界面提醒，让画面更清爽",
-      "releaseNotes": "在开启相应屏蔽项时，可隐藏「业火淬魂」的出框演出，以及魔张飞「瞋视」等技能动画。",
-      "packageUrl": "packages/effects/0.5.14.json",
-      "sha256": "831f6e81e19fa9eb918ecda2387908fa5363dcdff7a0cff9a8a4134bfdc356da"
+      "releaseNotes": "适配新版工具箱界面，沿用现有演出屏蔽设置。",
+      "packageUrl": "packages/effects/0.5.15.json",
+      "sha256": "e6973492910d63622b55286a770e1993caa68b349f24ac3ddb494d930e42dc77"
     },
     {
       "id": "skins",
       "name": "皮肤管理",
-      "version": "0.4.87",
+      "version": "0.4.99",
       "icon": {
         "paths": [
           "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
@@ -344,17 +345,17 @@
         "tools"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.159",
+      "minCoreVersion": "0.6.206",
       "apiVersion": 1,
       "description": "整理皮肤收藏、下载原图和在本地切换牌局皮肤",
-      "releaseNotes": "新增移动版皮肤入口，可按需联网加载静态原画、动皮、语音和部分特效。支持手动切换可用的多形态皮肤，以及选择支持的登场、技能特效和胜利配音。调整局内动皮和头像布局，修复势周瑜水火形态共用原画的显示问题。外服及导入皮肤只在自己这边显示或播放。资源加载和演出受来源及设备支持限制。",
-      "packageUrl": "packages/skins/0.4.87.json",
-      "sha256": "9b9309b3b999a17be6d5d2413622db189bdcfae51e76ec3b3325a23683457a28"
+      "releaseNotes": "改进一将成名和移动版皮肤的搜索、缓存与动皮布局。支持从皮肤详情将可用横版皮肤设为牌局背景，素材按需联网加载。外服及导入皮肤仅自己可见或可听。",
+      "packageUrl": "packages/skins/0.4.99.json",
+      "sha256": "9177c44c290dbf95cf02ef21dcccd5b2e1f19c0c7350be8bdecf3f45d4a60f5a"
     },
     {
       "id": "stargazing",
       "name": "自助观星",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "icon": {
         "paths": [
           "M12 2l2.6 6.6L22 12l-7.4 3.4L12 22l-2.6-6.6L2 12l7.4-3.4L12 2Z",
@@ -369,14 +370,14 @@
       "minCoreVersion": "0.6.180",
       "apiVersion": 1,
       "description": "在游戏内按栏目查看和搜索第三方观星报告。",
-      "releaseNotes": "首次提供自助观星，可按栏目和关键词查看活动预测。",
-      "packageUrl": "packages/stargazing/0.1.0.json",
-      "sha256": "18594da083adb645d3df3ed34449dce77dc9c14375c059dd659271063ca1d8d1"
+      "releaseNotes": "更新观星窗口和入口样式。绑定支持接管观星的同步服务器后，核心可使用现有绑定授权通过该服务器读取报告，其他情况下直接匿名读取来源站。",
+      "packageUrl": "packages/stargazing/0.1.1.json",
+      "sha256": "4687a61380e734ce5b06384ecfc757984cf960e0ccc4e0fa10eacfa04adc5502"
     },
     {
       "id": "wish-progress",
       "name": "心愿进度",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "icon": {
         "paths": [
           "M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z",
@@ -389,14 +390,14 @@
       "minCoreVersion": "0.5.0",
       "apiVersion": 1,
       "description": "游戏心愿窗口显示武将格数、皮肤百分比与最近一次抽取净变化",
-      "releaseNotes": "加粗心愿进度文字，改善浅色主题下在深色游戏背景上的可读性。",
-      "packageUrl": "packages/wish-progress/0.1.2.json",
-      "sha256": "9f74c88707a3887f9ec62bc4ff7bfc808bd7fb69a8f6005323cc8ad114ca2fe4"
+      "releaseNotes": "调整心愿进度显示对账号切换的处理。",
+      "packageUrl": "packages/wish-progress/0.1.3.json",
+      "sha256": "704171a5ca3c1c2d3f51373af8efdb56af17586619978e030a1010870cc9b0b3"
     },
     {
       "id": "themes",
       "name": "雅色主题包",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "icon": {
         "paths": [
           "M12 21 2 8a16 16 0 0 1 20 0Z",
@@ -410,14 +411,14 @@
       "minCoreVersion": "0.5.15",
       "apiVersion": 1,
       "description": "提供五套深色与宣纸、晴岚、桃夭三套浅色配色，在设置的主题工坊中选用",
-      "releaseNotes": "适配新版工具箱界面资源，沿用现有主题配色。",
-      "packageUrl": "packages/themes/0.1.5.json",
-      "sha256": "ed1049987473a1ba477470f143d9bada0b2223cfa78227d29a6e67e0d53f0615"
+      "releaseNotes": "适配新版工具箱界面，沿用现有主题配色。",
+      "packageUrl": "packages/themes/0.1.6.json",
+      "sha256": "554a80c4d9b62ed718941613867d51da524dcb191b823a7a79ea2ec72b39e666"
     },
     {
       "id": "baisheng",
       "name": "百胜战功",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "icon": {
         "paths": [
           "M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4",
@@ -429,17 +430,17 @@
         "info"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.37",
+      "minCoreVersion": "0.6.185",
       "apiVersion": 1,
       "description": "查看当前账号百胜进度、完成日期与技能战功，仅保存在本机",
-      "releaseNotes": "适配新版工具箱界面资源，沿用已有的百胜进度和筛选设置。",
-      "packageUrl": "packages/baisheng/0.1.9.json",
-      "sha256": "87bb8c49ad27b07e653c8891e43c1b91394586dcc305e9aa8409a9072dcc71b8"
+      "releaseNotes": "改善百胜进度查询和账号切换时的刷新，保留已有筛选设置。",
+      "packageUrl": "packages/baisheng/0.1.10.json",
+      "sha256": "32fc91037f870fecbeda70df5142640a629ce69beab8d250e43a89a4dca6d26f"
     },
     {
       "id": "appearances",
       "name": "出框与胜率统计",
-      "version": "0.4.25",
+      "version": "0.4.39",
       "icon": {
         "paths": [
           "M9 21H3V3h18v9",
@@ -452,17 +453,17 @@
         "info"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.37",
+      "minCoreVersion": "0.6.185",
       "apiVersion": 1,
       "description": "本机统计正式排位、斗地主与单骑无双的出框、选取、胜率及对局历史",
-      "releaseNotes": "适配新版工具箱界面资源，沿用已有的出框与胜率记录。",
-      "packageUrl": "packages/appearances/0.4.25.json",
-      "sha256": "4e4a256dbc533a554ec3ab2e2f03b733e2e01bcfc831ee67bbd1d16529f25509"
+      "releaseNotes": "改进官方历史战绩补收。绑定云同步后，可向所绑定的服务器同步已核实的战绩和关联出框记录。",
+      "packageUrl": "packages/appearances/0.4.39.json",
+      "sha256": "567d0a1b8e0e8b769f1b6b4a833195b8b400dd0d330b6932ae32e635b93d2359"
     },
     {
       "id": "ledger",
       "name": "账本",
-      "version": "0.3.13",
+      "version": "0.3.23",
       "icon": {
         "paths": [
           "M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18",
@@ -474,17 +475,17 @@
         "info"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.37",
+      "minCoreVersion": "0.6.185",
       "apiVersion": 1,
       "description": "重要物品余额、登录收支与祈愿记录，背包道具搜索和抵价券满减角标",
-      "releaseNotes": "优化背包搜索。支持 Esc 清空，显示匹配数量和空结果提示，背包物品变化后会更新搜索结果。",
-      "packageUrl": "packages/ledger/0.3.13.json",
-      "sha256": "07f3f27091cf54c8c7227faf56bb8604c9ab72d3e543c00fdf00aefd4e89abb6"
+      "releaseNotes": "优化背包搜索和实时刷新。绑定云同步后，可向所绑定的服务器同步账号资料、余额与流水；未绑定时继续保存在本机。",
+      "packageUrl": "packages/ledger/0.3.23.json",
+      "sha256": "2fec527eb8eb0662749aa1610371715c7b24d5e4c21f7be968b885dbd9b61312"
     },
     {
       "id": "recharge",
       "name": "旧周月卡",
-      "version": "0.1.16",
+      "version": "0.1.17",
       "icon": {
         "paths": [
           "M3 6h18v14H3Z",
@@ -501,9 +502,9 @@
       "minCoreVersion": "0.6.72",
       "apiVersion": 1,
       "description": "查询旧周卡与旧月卡状态、设置到期提醒并打开游戏直购",
-      "releaseNotes": "精简旧周卡和旧月卡的查询、到期提醒与直购入口。打开游戏直购前仍需核对商品，付款由用户手动确认。",
-      "packageUrl": "packages/recharge/0.1.16.json",
-      "sha256": "e2dadb28beef5332005074b038a5f0fe4b87aeb4375a77e04379c9a937d48b34"
+      "releaseNotes": "统一直购页面的提醒开关和状态显示。实际购买仍由用户在游戏中确认。",
+      "packageUrl": "packages/recharge/0.1.17.json",
+      "sha256": "6a322edce67764d21183ce2586d674744ef32ce8f8dfee738ce1a3b51ea56efc"
     }
   ]
 }

@@ -1,5 +1,5 @@
+import { read } from '../../shared/safe-read.js';
 // Continue only an already-started native round. No reset, paid card or all-open.
-const read = fn => { try { return fn(); } catch { return undefined; } };
 const cardsValid = cards => Array.isArray(cards) && cards.length === 5 && cards.every(card => Number.isInteger(card?.Card) && card.Card >= 0 && card.Card <= 3);
 export const managerSpecs = {
   ActivityManager: { events: ['ClientTreasureNTF', 26405], guard: value => typeof value?.SendOpenTreasureCard === 'function' },

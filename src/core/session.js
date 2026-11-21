@@ -1,5 +1,6 @@
 import { isObservedMessage, projectMessage } from './protocol.js';
-const WRAPPERS = new Set(['Protocol', 'protocol', 'ProtoObj', 'protoObj', 'Data', 'data', 'msg', 'Msg']);
+import { cardPacketWrappers } from '../shared/card-packet-fields.js';
+const WRAPPERS = new Set(cardPacketWrappers);
 function packetBody(payload) {
   const queue = [payload], seen = new Set(), body = {};
   for (let i = 0; i < queue.length && i < 32; i++) {
@@ -53,7 +54,7 @@ export class SessionJournal {
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   snapshot() { return { sessionId: this.sessionId, seq: this.seq, incomplete: this.incomplete, events: this.events.slice() }; }
 }
-export function installMessageBridge(win, journal, scope, onStatus = () => {}, { getTargets = () => [], observeType = () => {} } = {}) {
+export function installMessageBridge(win, journal, scope, onStatus = () => {}, { getTargets = () => [], observeType = () => {}, sceneWatch } = {}) {
   let activeWrapper, restoreCurrent, depth = 0, consoleError = '', nativeErrors = [];
   const native = new Map(), restores = [], stats = { received: 0, console: 0, native: 0, lastType: '', lastAt: null };
   const duplicates = new Map(); let expiryTimer;
@@ -166,7 +167,10 @@ export function installMessageBridge(win, journal, scope, onStatus = () => {}, {
     for (const [target, entry] of native) if (!live.has(target)) { entry.release(); native.delete(target); }
   }
   const check = () => { installConsole(); installNative(); };
-  check(); scope.interval(check, 500); scope.add(() => { clearTimeout(expiryTimer); clearTimeout(drainTimer); pending.length = 0; for (const resolve of waiters.splice(0)) resolve(); duplicates.clear(); for (const release of restores.reverse()) release(); restoreCurrent?.(); native.clear(); });
+  check();
+  if (sceneWatch) scope.add(sceneWatch.watch(check, 500, true));
+  else scope.interval(check, 500);
+  scope.add(() => { clearTimeout(expiryTimer); clearTimeout(drainTimer); pending.length = 0; for (const resolve of waiters.splice(0)) resolve(); duplicates.clear(); for (const release of restores.reverse()) release(); restoreCurrent?.(); native.clear(); });
   return { check, get error() { return native.size ? '' : [consoleError, ...nativeErrors].filter(Boolean).join('；'); },
     flush: () => scope.closed || (!pending.length && !draining) ? Promise.resolve() : new Promise(resolve => { waiters.push(resolve); schedule(); }),
     getStatus: () => ({ ...stats, pending: pending.length, targets: [...native.values()].map(entry => entry.name), errors: [consoleError, ...nativeErrors].filter(Boolean) }) };

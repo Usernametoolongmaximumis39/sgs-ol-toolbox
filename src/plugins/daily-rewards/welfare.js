@@ -1,7 +1,7 @@
+import { read } from '../../shared/safe-read.js';
 import { purchaseSender } from './native-method.js';
 
 // Native welfare APIs, audited against the shipped client. No Xiaochao runtime.
-const read = fn => { try { return fn(); } catch { return undefined; } };
 const list = value => Array.isArray(value) ? value.slice(0, 4096) : [];
 const positive = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
 const valid = adapter => !adapter.signal?.aborted && (!adapter.valid || adapter.valid());

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { ResourceScope } from '../src/core/resources.js';
+import { createPluginNative } from '../src/core/plugin-native.js';
 import { createManualLampQuery, projectLampProfile, renderManualLampQuery } from '../src/plugins/player-info/manual-lamps.js';
 import { createBattleLamps } from '../src/plugins/player-info/lamps.js';
 import { lampSettings } from '../src/plugins/player-info/lamps-model.js';
@@ -17,6 +18,7 @@ function fixture(t){
   const m={ReqOtherbuygeneral(name){requests.push({native:'ReqOtherbuygeneral',name,targetId:User.TryGetUserDataUid(name)});},ReqSelfbuygeneral(){requests.push({native:'ReqSelfbuygeneral'});},on:connection.on.bind(connection),off:connection.off.bind(connection),emit:connection.emit.bind(connection)};
   const ctx={scope,document:dom.window.document,window:dom.window,game:{getSelf:()=>account?new User(account,'自己'):null,getClass:()=>m,getServerProxy:()=>proxy,getConfigData:()=>({GameCharacters:{character:[{id:1,name:'诸葛亮',SpecifyName:'谋'},{id:2,name:'裴秀'}]}})}};
   t.after(()=>{scope.dispose();dom.window.close();});
+  ctx.native=createPluginNative(ctx);
   return {ctx,scope,requests,connection,handlers,m,users,User,account(value){account=value;},proxy(value){proxy=value;},profile(id=1000000002,name='测试玩家'){users.set(id,new User(id,name));connection.emit('decodeClientUserBaseInfoRep',{Protocol:{Data:{ProtoObj:{nickname_usertempid:id,nickname:name}}}});},
     lamps(ids,end=true,name='测试玩家'){connection.emit('decodeClientSelfBuyGeneralRep',{Protocol:{Data:{ProtoObj:{reptype:'REP_TYPE_QUERY',nickname:name,is_end:end,generals:ids.map(id=>({generalid:id,goodsid:1}))}}}});}};
 }

@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGameAdapter } from '../src/core/game.js';
+import { createSceneWatch } from '../src/core/scene-watch.js';
+import { ResourceScope } from '../src/core/resources.js';
 import { readFileSync } from 'node:fs';
 import { initialState, reduce, metadata, deckComposition, queryCards } from '../src/plugins/cards/model.js';
 
@@ -151,11 +153,15 @@ test('snapshot reads actual card paths, separates seat from layout and excludes 
   assert.equal(snapshot.seats[1].seatId, 2);
   assert.equal(snapshot.seats[1].viewId, 5);
   assert.equal(snapshot.isReplay, false);
+  assert.equal(game.isReplay(), false);
   assert.equal(snapshot.modeId, 44);
   assert.equal(snapshot.countdownRemaining, 8.25);
   assert.equal(game.getCountdown(), 8.25);
   scene.replayBar = {};
   assert.equal(game.getSnapshot().isReplay, true);
+  assert.equal(game.isReplay(scene), true);
+  scene.replayBar.destroyed = true;
+  assert.equal(game.isReplay(scene), false);
 });
 
 test('uppercase Card seeds definition provider with correct receiver and scene-scoped cache', () => {
@@ -199,6 +205,55 @@ test('native card properties retain precedence over public configuration definit
   assert.deepEqual(game.getCardMeta(101), { id: 101, name: '杀', suit: 4, number: 9, type: 1, unknown: false });
 });
 
+test('deck snapshots reuse public metadata until the opening deck, scene or definition table changes', () => {
+  const { game, win, layer } = setup({ SceneName: 'GameScene' });
+  const deck = Object.freeze([101, 102]);
+  const beforeConfig = game.getSnapshot(deck).cardMeta;
+  assert.deepEqual(beforeConfig, {});
+  assert.equal(game.getSnapshot(deck).cardMeta, beforeConfig);
+  const table = { card: [{ id: 101, name: '杀', color: 1, number: 7, type: 1 }] };
+  win.CtrUtil = { AllDatas: { 'sys_playcard.sgs': { GamePlayCards: table } } };
+  const initial = game.getSnapshot(deck).cardMeta;
+  assert.deepEqual(initial, { 101: { suit: 1, number: 7, type: 1 } });
+  assert.equal(game.getSnapshot(deck).cardMeta, initial);
+  assert.equal(game.getSnapshot().cardMeta, undefined);
+  table.card.push({ id: 102, name: '闪', color: 3, number: 2, type: 1 });
+  const appended = game.getSnapshot(deck).cardMeta;
+  assert.deepEqual(appended[102], { suit: 3, number: 2, type: 1 });
+  assert.equal(game.getSnapshot(deck).cardMeta, appended);
+  assert.notEqual(game.getSnapshot(Object.freeze([101, 102])).cardMeta, appended);
+  const next = game.getSnapshot(deck).cardMeta;
+  layer._children = [{ SceneName: 'GameScene' }];
+  assert.notEqual(game.getSnapshot(deck).cardMeta, next);
+});
+
+test('deck snapshots scan the live own hand once and re-read mutable native overrides', () => {
+  const providerCard = { CardId: 102, CardName: '闪', Flower: 4, CardNumber: 4, CardType: 1 };
+  class Card { static GetInstance(id) { return id === 102 ? providerCard : null; } }
+  const card = Object.assign(new Card(), { CardId: 101, CardName: '杀', FlowerOnSeat: 3, CardNumber: 7, CardType: 1 });
+  let handReads = 0;
+  const scene = { SceneName: 'GameScene', SelfSeatUi: { cardContainer: {
+    seat: { HandCards: [101] }, get cardUis() { handReads++; return [{ Card: card }]; },
+  } } };
+  const { game, win } = setup(scene);
+  win.CtrUtil = { AllDatas: { 'sys_playcard.sgs': { GamePlayCards: { card: [
+    { id: 101, name: '杀', color: 1, number: 6, type: 1 },
+    { id: 102, name: '闪', color: 2, number: 4, type: 1 },
+    { id: 103, name: '桃', color: 2, number: 5, type: 1 },
+  ] } } } };
+  const deck = Object.freeze([101, 102, 103, 104]);
+  assert.deepEqual(game.getSnapshot(deck).cardMeta, {
+    101: { suit: 3, number: 7, type: 1 }, 102: { suit: 4, number: 4, type: 1 }, 103: { suit: 2, number: 5, type: 1 },
+  });
+  assert.equal(handReads, 1);
+  card.FlowerOnSeat = 1;
+  providerCard.CardNumber = 11;
+  assert.deepEqual(game.getSnapshot(deck).cardMeta, {
+    101: { suit: 1, number: 7, type: 1 }, 102: { suit: 4, number: 11, type: 1 }, 103: { suit: 2, number: 5, type: 1 },
+  });
+  assert.equal(handReads, 2);
+});
+
 test('public metadata carries the physical slash class even when its display name is generic', () => {
   const { game, win } = setup(null);
   win.CtrUtil = { AllDatas: { 'sys_playcard.sgs': { GamePlayCards: { card: [{ id: 101, name: '杀', class: 'BingShaNCard', color: 3, number: 7, type: 1 }] } } } };
@@ -228,6 +283,57 @@ test('getClass never creates an instance; inactive/destroyed children and remove
   assert.equal(count, 1);
   assert.equal(constructed(), 0);
   dispose();
+});
+
+test('scene reads are shared in one synchronous poll and fresh immediately afterward', () => {
+  const first = { SceneName: 'GameScene', SelfSeatUi: {} }, next = { SceneName: 'HallScene' };
+  const { game, win, layer } = setup(first);
+  const stage = win.Laya.stage;
+  let stageReads = 0;
+  Object.defineProperty(win.Laya, 'stage', { get() { stageReads++; return stage; } });
+  game.withSceneCycle(() => {
+    assert.equal(game.getScene(), first);
+    const reads = stageReads;
+    assert.equal(game.isInGame(), true);
+    assert.equal(game.getSelfSeatUI(), first.SelfSeatUi);
+    assert.equal(game.canReserveViewport(), true);
+    assert.equal(stageReads, reads);
+    layer._children = [next];
+    assert.equal(game.getScene(), first);
+  });
+  assert.equal(game.getScene(), next);
+  assert.equal(game.isInGame(), false);
+});
+
+test('scene polling coalesces native events, looks up replacement dispatchers and releases their listeners', { timeout: 2500 }, async t => {
+  const { game, win, layer } = setup({ SceneName: 'GameScene' });
+  const scope = new ResourceScope();
+  t.after(() => scope.dispose());
+  const sceneWatch = createSceneWatch({ game, scope });
+  function dispatcher() {
+    const handlers = new Map();
+    return { handlers, _events: {}, on(type, _, fn) { handlers.set(type, fn); }, off(type, _, fn) { if (handlers.get(type) === fn) handlers.delete(type); } };
+  }
+  const first = dispatcher(), next = dispatcher();
+  const stage = win.Laya.stage;
+  stage._children.unshift({ ged: first });
+  const seen = [];
+  sceneWatch.watch(() => { seen.push(game.getScene()?.SceneName); }, 500, true);
+  await new Promise(resolve => sceneWatch.watch(resolve, 500));
+  assert.deepEqual(seen, ['GameScene']);
+  layer._children = [{ SceneName: 'HallScene' }];
+  stage._children[0].ged = next;
+  first.handlers.get('SWITCH_SCENE')();
+  first.handlers.get('HIDE_WINDOW')();
+  await Promise.resolve();
+  assert.deepEqual(seen, ['GameScene', 'HallScene']);
+  assert.equal(first.handlers.size, 0);
+  assert.equal(next.handlers.size, 2);
+  next.handlers.get('HIDE_WINDOW')();
+  scope.dispose();
+  await Promise.resolve();
+  assert.equal(next.handlers.size, 0);
+  assert.equal(seen.length, 2);
 });
 
 test('missing runtime, cyclic trees and throwing optional getters stay bounded', () => {

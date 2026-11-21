@@ -1,18 +1,19 @@
-import { PLUGIN_ICONS, TOOLBOX_ICON } from './plugin-icons.js';
+import { CARDS_ICON, DAILY_REWARDS_ICON, EFFECTS_ICON, SHANHETU_ICON, SKINS_ICON, THEMES_ICON, TOOLBOX_ICON } from './plugin-icons.js';
 
 // Shared monochrome 24x24 icons. Package metadata never supplies raw markup.
 const markup = Object.freeze({
-  cards: PLUGIN_ICONS.cards,
-  gift: PLUGIN_ICONS['daily-rewards'],
-  effects: PLUGIN_ICONS.effects,
-  skins: PLUGIN_ICONS.skins,
-  palette: PLUGIN_ICONS.themes,
+  cards: CARDS_ICON,
+  gift: DAILY_REWARDS_ICON,
+  effects: EFFECTS_ICON,
+  skins: SKINS_ICON,
+  palette: THEMES_ICON,
   typography: '<path d="M3 19 9 5l6 14M5 14h8M16 9h6M19 9v10M16 19h6"/>',
   toolbox: TOOLBOX_ICON,
-  map: PLUGIN_ICONS.shanhetu,
+  map: SHANHETU_ICON,
   tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
   settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
+  search: '<circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4.5 4.5"/>',
   package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
   automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
   refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
@@ -24,6 +25,8 @@ const markup = Object.freeze({
   chevron: '<path d="m6 9 6 6 6-6"/>',
   save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
   download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
+  arrowUp: '<path d="M12 20V4m-6 6 6-6 6 6"/>',
+  arrowDown: '<path d="M12 4v16m-6-6 6 6 6-6"/>',
   pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
   clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
   share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',

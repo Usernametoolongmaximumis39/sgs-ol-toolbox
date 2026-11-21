@@ -76,37 +76,97 @@ export function installMicroCompatibility(win, scope) {
   if (win.CSS?.supports('color', 'color-mix(in srgb,black,white)')) return;
   const doc = win.document, watched = new Map(), canvas = doc.createElement('canvas'); canvas.width = canvas.height = 1;
   const context = canvas.getContext('2d');
-  const pixel = value => { context.clearRect(0, 0, 1, 1); context.fillStyle = 'transparent'; context.fillStyle = value; context.fillRect(0, 0, 1, 1); return context.getImageData(0, 0, 1, 1).data; };
-  const update = host => {
-    const root = host.shadowRoot, record = watched.get(host);
-    if (!root || !record || !host.isConnected) return;
-    const computed = win.getComputedStyle(host);
-    const css = [...root.querySelectorAll('style')].filter(el => el !== record.style).map(el => el.textContent).join('\n');
-    const output = legacyMicroCSS(css, name => computed.getPropertyValue(name).trim(), pixel)
-      + '\n[popover]:not([data-micro-popover-open]){display:none!important}[popover][data-micro-popover-open]{display:block;z-index:2147483647}'
-      // Chromium 85 ignores scrollbar-width and does not theme native scrollbars.
-      + '\n*::-webkit-scrollbar{width:7px;height:7px}*::-webkit-scrollbar-track{background:var(--sgs-bg)}*::-webkit-scrollbar-thumb{background:var(--sgs-border);border:2px solid var(--sgs-bg);border-radius:6px}*::-webkit-scrollbar-thumb:hover{background:var(--sgs-muted)}*::-webkit-scrollbar-corner{background:var(--sgs-bg)}';
-    if (record.style.textContent !== output) record.style.textContent = output;
-    // Plugins mount styles after startup and on every panel rebuild. Keep the
-    // translated declarations after them: var() lets unsupported color-mix()
-    // survive parsing, then reset the property at computed-value time.
-    if (root.lastChild !== record.style) root.append(record.style);
+  const colors = new Map();
+  const pixel = value => {
+    if (colors.has(value)) return colors.get(value);
+    context.clearRect(0, 0, 1, 1);
+    context.fillStyle = 'transparent';
+    context.fillStyle = value;
+    context.fillRect(0, 0, 1, 1);
+    const rgba = context.getImageData(0, 0, 1, 1).data;
+    if (colors.size >= 256) colors.clear();
+    colors.set(value, rgba);
+    return rgba;
+  };
+  const update = (host, record, sourcesChanged) => {
+    const { root, style } = record;
+    if (scope.closed || !host.isConnected) return;
+    const css = sourcesChanged
+      ? [...root.querySelectorAll('style')].filter(el => el !== style).map(el => el.textContent).join('\n')
+      : record.css;
+    let computed, previousSheet;
+    const variables = new Map();
+    const variable = name => {
+      if (!variables.has(name)) {
+        if (!computed) {
+          // A replaced source may have defined a :host variable in the old fallback.
+          const sheet = css !== record.css ? style.sheet : null;
+          if (sheet && !sheet.disabled) {
+            previousSheet = sheet;
+            sheet.disabled = true;
+          }
+          computed = win.getComputedStyle(host);
+        }
+        variables.set(name, computed.getPropertyValue(name).trim());
+      }
+      return variables.get(name);
+    };
+    if (css !== record.css || [...record.variables].some(([name, value]) => variable(name) !== value)) {
+      let translated;
+      try {
+        translated = legacyMicroCSS(css, variable, pixel);
+      } finally {
+        if (previousSheet) previousSheet.disabled = false;
+      }
+      const output = translated + '\n[popover]:not([data-micro-popover-open]){display:none!important}[popover][data-micro-popover-open]{display:block;z-index:2147483647}'
+        // Chromium 85 ignores scrollbar-width and does not theme native scrollbars.
+        + '\n*::-webkit-scrollbar{width:7px;height:7px}*::-webkit-scrollbar-track{background:var(--sgs-bg)}*::-webkit-scrollbar-thumb{background:var(--sgs-border);border:2px solid var(--sgs-bg);border-radius:6px}*::-webkit-scrollbar-thumb:hover{background:var(--sgs-muted)}*::-webkit-scrollbar-corner{background:var(--sgs-bg)}';
+      if (style.textContent !== output) style.textContent = output;
+      record.css = css;
+      record.variables = variables;
+    }
+    // A late stylesheet can reset a property through an unsupported color-mix()
+    // inside var(). Keep the translated declaration after the source.
+    if (sourcesChanged && root.lastChild !== style) root.append(style);
+  };
+  const stylesheet = 'style,link[rel~="stylesheet" i]';
+  const changesSources = ({ type, target, addedNodes, removedNodes }, style) => {
+    if (target === style || target.parentNode === style) return false;
+    // Also match links whose rel just changed away from "stylesheet".
+    if (type === 'attributes') return target.matches('style,link');
+    if (type === 'characterData') return target.parentNode?.localName === 'style';
+    if (target.localName === 'style') return true;
+    const includesSource = nodes => [...nodes].some(node => node !== style && node.nodeType === 1
+      && (node.matches(stylesheet) || (node.firstElementChild && node.querySelector(stylesheet))));
+    return includesSource(addedNodes) || includesSource(removedNodes);
+  };
+  const unwatch = (host, { root, style, observer, linkLoaded }) => {
+    observer.disconnect();
+    root.removeEventListener('load', linkLoaded, true);
+    style.remove();
+    watched.delete(host);
   };
   const discover = () => {
-    for (const [host, record] of watched) if (!host.isConnected) { record.observer.disconnect(); record.style.remove(); watched.delete(host); }
+    for (const [host, record] of watched) if (!host.isConnected) unwatch(host, record);
     for (const host of doc.querySelectorAll('[data-sgs-toolbox]')) {
-      if (!host.shadowRoot || watched.has(host)) continue;
-      const style = doc.createElement('style'); style.dataset.microFallback = ''; host.shadowRoot.append(style);
-      let queued = false;
-      const observer = new win.MutationObserver(records => {
-        if (records.every(r => r.target === style || r.target.parentNode === style)) return;
-        if (!queued) { queued = true; Promise.resolve().then(() => { queued = false; if (!scope.closed) update(host); }); }
+      const root = host.shadowRoot;
+      if (!root || watched.has(host)) continue;
+      const style = doc.createElement('style');
+      style.dataset.microFallback = '';
+      root.append(style);
+      const observer = new win.MutationObserver(mutations => {
+        const sourcesChanged = style.parentNode !== root || mutations.some(mutation => changesSources(mutation, style));
+        if (sourcesChanged || mutations.some(mutation => mutation.target === host)) update(host, record, sourcesChanged);
       });
+      const linkLoaded = event => { if (event.target.matches?.(stylesheet)) update(host, record, false); };
+      const record = { root, style, observer, linkLoaded, css: null, variables: new Map() };
       observer.observe(host, { attributes: true, attributeFilter: ['style', 'data-theme-scheme'] });
-      observer.observe(host.shadowRoot, { childList: true, characterData: true, subtree: true });
-      watched.set(host, { style, observer }); update(host);
+      observer.observe(root, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['rel', 'href', 'media', 'disabled'] });
+      root.addEventListener('load', linkLoaded, true);
+      watched.set(host, record);
+      update(host, record, true);
     }
   };
   discover(); scope.interval(discover, 250);
-  scope.add(() => { for (const { style, observer } of watched.values()) { observer.disconnect(); style.remove(); } watched.clear(); });
+  scope.add(() => { for (const [host, record] of watched) unwatch(host, record); });
 }

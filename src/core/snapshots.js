@@ -1,3 +1,5 @@
+import { projectDeckCardMeta } from './game.js';
+
 const RESYNC = new Set(['MsgGamePlayCardNtf', 'MsgReconnectGame', 'MsgReconnectGameHand', 'SmsgGameSetCharacter', 'GsCGuoZhanSetCharacter']);
 
 // A scene often exists before its first game packet and before seat UI creation.
@@ -21,16 +23,16 @@ export function attachSessionSnapshots({ journal, game, scope, settled = () => P
       const collect = async attempt => {
         if (attempt) { try { await settled(); } catch { return; } }
         if (scope.closed || current !== generation) return;
-        let data; try { data = game.getSnapshot(); } catch { data = {}; }
+        let data;
+        try { data = deckIds.length ? game.getSnapshot(deckIds) : game.getSnapshot(); } catch {
+          try { data = deckIds.length ? game.getSnapshot() : {}; } catch { data = {}; }
+        }
         // Definitions describe card IDs, never opponents' hidden hand models.
-        if (game.getCardMeta && deckIds.length) {
+        if (!data.cardMeta && game.getCardMeta && deckIds.length) {
           data.cardMeta = {};
           for (const id of deckIds) {
-            let value; try { value = game.getCardMeta(id); } catch { continue; }
-            if (!value || value.unknown) continue;
-            const suit = Number(value.suit), number = Number(value.number), type = Number(value.type);
-            if (suit >= 1 && suit <= 4 && number >= 1 && number <= 13)
-              data.cardMeta[id] = { suit, number, type: Number.isInteger(type) ? type : 0 };
+            let value; try { value = projectDeckCardMeta(game.getCardMeta(id)); } catch { continue; }
+            if (value) data.cardMeta[id] = value;
           }
         }
         const signature = JSON.stringify([journal.sessionId, data]);
@@ -45,7 +47,7 @@ export function attachSessionSnapshots({ journal, game, scope, settled = () => P
     });
   }
   scope.add(journal.subscribe(event => {
-    if (event.type === 'MsgGamePlayCardNtf') deckIds = (event.payload?.CardList || []).map(Number).filter(id => Number.isInteger(id) && id > 0).slice(0, 2048);
+    if (event.type === 'MsgGamePlayCardNtf') deckIds = Object.freeze((event.payload?.CardList || []).map(Number).filter(id => Number.isInteger(id) && id > 0).slice(0, 2048));
     if (event.type === 'ClientLeavetableRep' || event.type === 'ClientLoginRep') deckIds = [];
     if (RESYNC.has(event.type)) request();
   }));

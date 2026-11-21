@@ -21,6 +21,7 @@ assert.match(metadata, /^\/\/ @connect\s+gx\.95chong\.cn$/m);
 
 const origin = 'https://web.sanguosha.com';
 const gamePage = origin + '/220/h5_2/index.php';
+const syncHttp = 'http://sync.example.test:17429';
 const versionUrl = 'https://waym.sanguosha.cn/update/cloud.php';
 const cloudZip = 'https://mres.sanguosha.cn/update_cloud/public/cloud_461009.zip';
 const media = 'https://mres.sanguosha.cn/update_cloud/public/';
@@ -42,7 +43,10 @@ try {
   });
   await page.route(url => url.origin !== origin && url.origin !== 'https://waym.sanguosha.cn', route => route.abort());
   await page.goto(gamePage);
-  await page.evaluate(() => { window.Laya = { stage: { fixtureMarker: 73 } }; });
+  await page.evaluate(() => {
+    window.Laya = { stage: { fixtureMarker: 73 } };
+    window.__SGS_TOOLBOX_DEMO__ = { managedSync: true, self: { ClientId: 41 } };
+  });
   const cdp = await page.context().newCDPSession(page);
   const { frameTree } = await cdp.send('Page.getFrameTree');
   const { executionContextId } = await cdp.send('Page.createIsolatedWorld', { frameId: frameTree.frame.id, worldName: 'userscript-extension' });
@@ -57,6 +61,11 @@ try {
       const isDynamic = options.url.includes('dynamicSkin');
       const isImage = options.url.endsWith('.png');
       const timer = setTimeout(() => {
+        if (options.url === '${syncHttp}/v1/private/request') {
+          call.source = options.headers['X-SGS-Toolbox-Origin'];
+          call.hasRequest = typeof JSON.parse(options.data).request === 'string';
+          return options.onload({status: 200, finalUrl: options.url, responseText: '{"pin":"7319"}'});
+        }
         if (isAudio) return options.onload({status: 200, responseURL: 'https://unrelated.invalid/redirect', response: new ArrayBuffer(3)});
         if (isDynamic) return options.onprogress({ loaded: 200, total: 200 });
         const bytes = new Uint8Array(isImage ? [2,4,6] : [0,127,255]);
@@ -122,6 +131,18 @@ try {
   assert.deepEqual(calls.filter(call => call.range).map(call => call.range), ['bytes=-3', 'bytes=0-2', 'bytes=7-9']);
   assert.deepEqual(calls.map(call => call.aborts), [0, 0, 0, 0, 1, 0, 0, 1, 1]);
 
+  const hud = page.locator('[data-sgs-toolbox=core]');
+  await hud.getByRole('button', { name: '云同步未启用，打开同步设置' }).click();
+  await hud.getByText('更改私有服务器地址').click();
+  await hud.getByLabel('私有服务器地址').fill(syncHttp);
+  await hud.getByRole('button', { name: '生成四位配对码' }).click();
+  const pin = hud.getByLabel('提交给管理员的四位码');
+  await pin.waitFor();
+  assert.equal(await pin.inputValue(), '7319');
+  const syncCall = (await readCalls()).at(-1);
+  assert.deepEqual([syncCall.url, syncCall.method, syncCall.source, syncCall.hasRequest, syncCall.anonymous, syncCall.redirect],
+    [syncHttp + '/v1/private/request', 'POST', origin, true, true, 'error']);
+
   // With no privileged API (normal page boot), the same script and API still work via CORS.
   await page.goto(gamePage + '?fixture=native');
   await page.evaluate(() => { window.Laya = { stage: { fixtureMarker: 73 } }; });
@@ -136,7 +157,7 @@ try {
   await writeFile(resolve(output, 'result.json'), JSON.stringify({ passed: true, browser: 'Chromium',
     checks: ['one script with isolated privileged download, a wrapped window, and page-realm boot', 'transfer exact binary without page fetch',
       'fixed routes, redirect rejection, bounded response and cancellation', 'official configuration and installer range validation',
-      'page fetch fallback and missing-bridge error'],
+      'page fetch fallback and missing-bridge error', 'non-loopback private HTTP pairing from HTTPS via the userscript bridge'],
     manual: ['iPad Safari Userscripts document-start and large binary download'], calls }, null, 2));
   console.log('Mobile skin download bridge passed: ' + output);
 } finally { await browser.close(); }

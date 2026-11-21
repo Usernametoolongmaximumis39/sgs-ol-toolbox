@@ -39,6 +39,21 @@ test('atlas contract: source, integrity, exact names and untrimmed card frames o
   assert.throws(() => parseCardFrames({...index,meta:{image:'else.png'}},[],descriptor), /清单/);
 });
 
+test('inline PNG and WebP retain the same MIME and size restrictions', () => {
+  const base = resources.miao;
+  for (const image of ['data:image/png;base64,YWJj', 'data:image/webp;base64,YWJj']) {
+    const descriptor = validateCardAtlas({ ...base, backImage: image, previewImage: image });
+    assert.equal(descriptor.backImage, image);
+    assert.equal(descriptor.previewImage, image);
+  }
+  for (const [field, limit] of [['backImage', 1024 * 1024], ['previewImage', 160 * 1024]]) {
+    for (const image of ['data:image/svg+xml;base64,YWJj', 'data:image/webp;base64,YW Jj',
+      'data:image/webp;base64,' + 'A'.repeat(limit)]) {
+      assert.throws(() => validateCardAtlas({ ...base, [field]: image }), /内嵌 PNG 或 WebP/);
+    }
+  }
+});
+
 test('download hash mismatch and cancellation never decode or publish card art', async () => {
   const win={fetch:async()=>new Response('incorrect content'),crypto:globalThis.crypto,createImageBitmap(){assert.fail('must verify first');}};
   await assert.rejects(loadCardAtlas(win,resources.miao,new AbortController().signal), /SHA-256/);
@@ -161,7 +176,8 @@ test('full art: exact special cards, missing/virtual/native overrides, pooled re
 test('yjcm package is standalone and declares two sourced, pinned face-only styles', async () => {
   const styles=[];plugin.activate({cardStyles:{register:s=>styles.push(s)}});
   assert.equal(styles.length,2);assert(styles.every(s=>s.atlas.source.includes('官方资源')&&!s.back));
-  assert(styles.every(s=>s.atlas.previewImage.startsWith('data:image/png;base64,')&&!s.atlas.source.includes('小抄')));
+  assert.equal(plugin.manifest.minCoreVersion, '0.6.185');
+  assert(styles.every(s=>s.atlas.previewImage.startsWith('data:image/webp;base64,')&&!s.atlas.source.includes('小抄')));
   const bundle=await bundlePlugin('yjcm-cards');assert(bundle.inputs.every(p=>p.startsWith('src/plugins/yjcm-cards/')));
   const packet=await makePluginPackage(bundle);await verifyPackage(packet);assert(packet.code.length<200000,'only two small previews are embedded, not full sheets');
 });

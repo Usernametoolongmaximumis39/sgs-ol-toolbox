@@ -1,4 +1,3 @@
-import { controlIcon } from '../../ui/controls.js';
 import { automaticCardEffects, isYjcmSkillEffect, isYjcmSkillTrigger, listYjcmEffects, resolveYjcmEffect } from './yjcm-effects.js';
 import { previewYjcmEffect } from './yjcm-effect-preview.js';
 import { loadMobileEffectSpec, previewMobileEffect } from './mobile-effects.js';
@@ -33,7 +32,7 @@ export const EFFECT_PICKER_STYLES = `
 .effect-field[data-bound]>select{border-color:var(--sgs-accent,#dbba70)}
 `;
 
-export function createYjcmEffectPicker({ document: doc, window: win, listen, canBind, onChange, beforePreview }) {
+export function createYjcmEffectPicker({ document: doc, window: win, icon, listen, canBind, onChange, beforePreview }) {
   const root = doc.createElement('details');
   root.className = 'skin-effects';
   root.hidden = true;
@@ -85,7 +84,7 @@ export function createYjcmEffectPicker({ document: doc, window: win, listen, can
 
   function updateControls() {
     const title = pending ? '停止预览' : '播放动效';
-    play.replaceChildren(controlIcon(doc, pending ? 'pause' : 'play'));
+    play.replaceChildren(icon(pending ? 'pause' : 'play'));
     play.setAttribute('aria-label', title);
     play.title = title;
     play.disabled = busy || !previewChoice.value;

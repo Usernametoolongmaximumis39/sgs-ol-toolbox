@@ -25,9 +25,10 @@ test('dafeiyu package contains only its pinned external references and exact Lit
   const atlas = validateCardAtlas(styles[0].atlas);
   assert.equal(atlas.pixelRatio, 3);
   assert.equal(atlas.pages.length, 4);
-  assert.equal(plugin.manifest.minCoreVersion, '0.6.9');
+  assert.equal(plugin.manifest.minCoreVersion, '0.6.185');
   assert.equal(atlas.preview, 'Sha');
-  assert.match(atlas.previewImage, /^data:image\/png;base64,/);
+  assert.match(atlas.previewImage, /^data:image\/webp;base64,/);
+  assert.match(atlas.backImage, /^data:image\/webp;base64,/);
   assert(atlas.previewImage.length <= 160 * 1024);
   assert.equal(new Set(atlas.replaceCards).size, 94);
   assert.deepEqual(atlas.replaceCards, expectedCards);
@@ -51,7 +52,7 @@ test('dafeiyu package contains only its pinned external references and exact Lit
   const packet = await makePluginPackage(bundle);
   await verifyPackage(packet);
   assert(packet.code.length < 1100000, 'only the small preview may be embedded');
-  assert(packet.code.includes('data:image/png;base64,'));
+  assert(packet.code.includes('data:image/webp;base64,'));
 });
 
 test('dafeiyu installs offline and preserves independent selections across the complete plugin lifecycle', async t => {

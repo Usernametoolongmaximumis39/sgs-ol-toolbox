@@ -1,5 +1,9 @@
-import { findSkinDetail, watchSkinDetail } from '../../shared/skin-detail.js';
+import { findSkinDetail, isSkinDetail, watchSkinDetail } from '../../shared/skin-detail.js';
 import { advancedSkinOption } from '../../shared/skin-options.js';
+import { read } from '../../shared/info-runtime.js';
+import { cachedNativeWindow, isMountedWindowNode } from '../../shared/window-cache.js';
+
+const SKIN_INFO = 'SkinInfoWindow';
 
 export function createSkinDownload(ctx) {
   const doc = ctx.document, win = ctx.window;
@@ -10,23 +14,51 @@ export function createSkinDownload(ctx) {
   root.append(button); (doc.head || doc.documentElement).append(style); (doc.body || doc.documentElement).append(root);
   ctx.scope.add(() => { root.remove(); style.remove(); });
   ctx.ui.nativeTheme.watch(p => { for (const key of ['text','surface','border','accent']) root.style.setProperty('--sgs-' + key, p[key]); });
-  let owner = null, observed = null, busy = false;
-  ctx.scope.add(() => observed?.dispose());
+  let owner = null, observed = null, busy = false, dispatcher = null, unwatch = null, queued = false;
+  const caller = {};
+  function queueRefresh(name) {
+    if (name !== SKIN_INFO || queued) return;
+    queued = true;
+    Promise.resolve().then(() => { queued = false; refresh(); });
+  }
+  const onOpen = packet => queueRefresh(packet?.WindowName);
+  function watchDispatcher(next) {
+    if (next === dispatcher) return;
+    unwatch?.(); unwatch = null; dispatcher = next;
+    if (typeof next?.on !== 'function' || typeof next.off !== 'function') return;
+    next.on('OPEN_WINDOW', caller, onOpen);
+    next.on('OPENED_WINDOW', caller, queueRefresh);
+    unwatch = () => {
+      next.off('OPEN_WINDOW', caller, onOpen);
+      next.off('OPENED_WINDOW', caller, queueRefresh);
+    };
+  }
+  const hide = () => { if (!root.hidden) root.hidden = true; };
+  ctx.scope.add(() => { observed?.dispose(); unwatch?.(); });
   function refresh() {
+    if (ctx.scope.signal.aborted) return;
     try {
-      if (!advancedSkinOption(ctx.settings, 'quickDownload')) { root.hidden = true; return; }
-      const laya = win.Laya ?? win.laya, next = findSkinDetail(laya?.stage);
-      if (next !== owner) { observed?.dispose(); owner = next; observed = owner ? watchSkinDetail(ctx.scope, owner, () => { root.hidden = true; }) : null; }
+      if (!advancedSkinOption(ctx.settings, 'quickDownload')) { watchDispatcher(null); hide(); return; }
+      const laya = win.Laya ?? win.laya, stage = laya?.stage;
+      watchDispatcher(stage ? read(() => ctx.game.getDispatcher()) ?? null : null);
+      const cached = cachedNativeWindow(dispatcher, SKIN_INFO);
+      const next = cached === undefined ? findSkinDetail(stage)
+        : isMountedWindowNode(stage, cached) && isSkinDetail(cached) ? cached : null;
+      if (next !== owner) { observed?.dispose(); owner = next; observed = owner ? watchSkinDetail(ctx.scope, owner, hide) : null; }
+      if (!owner || observed?.closing || !owner.skinData?.skinBaseVo?.SkinBigUrl) { hide(); return; }
       const img = owner?.skinImg, canvas = laya?.Render?.canvas || doc.querySelector('#layaCanvas') || doc.querySelector('canvas');
-      if (!owner || observed?.closing || !owner.skinData?.skinBaseVo?.SkinBigUrl || !img?.localToGlobal || !canvas || !laya.Point) { root.hidden = true; return; }
+      if (!img?.localToGlobal || !canvas || !laya.Point) { hide(); return; }
       const rect = canvas.getBoundingClientRect(), point = img.localToGlobal(new laya.Point(12,12), true);
-      if (!rect.width || !laya.stage.width) { root.hidden = true; return; }
+      if (!rect.width || !stage.width) { hide(); return; }
       // Shared visual anchor only; download never reads another plugin's settings.
       const background = doc.querySelector('[data-sgs-backgrounds].bg-skin-action:not([hidden])');
       const offset = background ? background.getBoundingClientRect().width + 10 : 0;
-      root.style.left = rect.left + point.x * rect.width / laya.stage.width + offset + 'px';
-      root.style.top = rect.top + point.y * rect.height / laya.stage.height + 'px'; root.hidden = false;
-    } catch { root.hidden = true; }
+      const left = rect.left + point.x * rect.width / stage.width + offset + 'px';
+      const top = rect.top + point.y * rect.height / stage.height + 'px';
+      if (root.style.left !== left) root.style.left = left;
+      if (root.style.top !== top) root.style.top = top;
+      if (root.hidden) root.hidden = false;
+    } catch { hide(); }
   }
   ctx.scope.listen(button, 'click', async () => {
     refresh(); if (root.hidden || busy) return;
@@ -51,6 +83,6 @@ export function createSkinDownload(ctx) {
     } catch (error) { if (!ctx.scope.signal.aborted) { button.title = String(error?.stack || error); ctx.notify('皮肤原图下载失败：' + error.message); } }
     finally { busy = false; button.disabled = false; }
   });
-  ctx.scope.interval(refresh, 100); refresh();
+  ctx.scope.interval(refresh, 180); refresh();
   return refresh;
 }

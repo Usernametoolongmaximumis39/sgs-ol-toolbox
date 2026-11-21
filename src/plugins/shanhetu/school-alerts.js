@@ -1,4 +1,3 @@
-import { getNativeTheme } from '../../ui/native-theme.js';
 import { CHOICE_WINDOWS, mounted, nativeWindow } from './native-windows.js';
 
 const cards = list => Array.isArray(list) && list.length <= 128 ? list : [];
@@ -29,7 +28,7 @@ export function createSchoolAlerts(ctx) {
   let paintedShop = null, dismissNotice = null, shopNotice = false;
   const dots = new Map();
   const badges = new Map();
-  const theme = getNativeTheme(ctx);
+  const theme = ctx.ui.nativeTheme;
 
   function paintChoice(targets) {
     const { Sprite, Text } = ctx.window?.Laya || {};

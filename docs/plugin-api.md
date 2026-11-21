@@ -139,6 +139,8 @@ export default {
 
 核心 0.6.8：完整卡图 atlas 可选 backImage，为不超过 1 MiB 的内嵌 PNG data URL；原生上传要求解码尺寸为 405×570。提供后可独立选择卡背，不触发卡面图集下载；仅选用时解码，切换或释放时撤销自有纹理与回调。省略仍为仅卡面套装。
 
+核心 0.6.185 起，`atlas.backImage` 与 `atlas.previewImage` 同时接受 `data:image/webp;base64,...`。使用 WebP 的插件需声明最低核心 0.6.185。两字段沿用各自的大小限制，图集的远程图片页继续使用 PNG。
+
 核心 0.6.9：cardStyles.register 可选 backName，指定卡背显示名称（非空单行、最多48字符），卡面仍使用 name；省略保留原套装名称。使用此字段的插件须提高最低核心版本。
 
 ## 核心 0.6.37：共享插件 UI
@@ -151,3 +153,11 @@ export default {
 - `ctx.ui.mountStyles(shadowRoot)`：为插件自己的 Shadow DOM 挂载共享控件样式，返回可重复调用的释放函数；插件停用时自动释放。普通注册面板由核心自动处理。
 
 公共控件和信息面板样式按 Document／ShadowRoot 共享并计数释放；插件只保留业务专属样式。图标继续调用 `ctx.ui.icon(spec)`。无需把 `controls.js`、`info-ui.js` 导入独立包；旧发布包仍可保留原有自包含实现。
+
+### 原生对象与消息（核心 0.6.185）
+
+- `ctx.native.account()` 返回当前账号的 `{ id, nickname }`。正在登出或原生登录状态明确为离线时，两个字段都为空字符串。无法取得账号 ID 时，`id` 为空字符串。
+- `ctx.native.manager(className, event, guard)` 依次检查已注册类、已有单例和指定事件的监听者。事件可为名称或数值 ID。提供判断实例是否适用的 `guard(manager)`，查不到时返回 `null`。查找过程不会创建单例或发送请求。
+- `ctx.native.observe(project, consume, gap?, { scope }?)` 观察原生消息。用事件名或 ID 作为 `project` 的键，投影函数同步复制所需字段并可返回 `null` 跳过。核心异步调用 `consume(type, data, account)`，其中 `type` 为字符串。账号不匹配的数据会丢弃。消息缺口通过 `gap(detail)` 报告。返回函数可提前停止观察，插件停用时自动清除，也可提供更短的子作用域。
+
+依赖本节接口的插件须声明最低核心 0.6.185。投影函数只复制业务所需字段。

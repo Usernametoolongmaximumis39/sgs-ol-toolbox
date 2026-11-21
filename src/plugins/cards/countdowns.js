@@ -1,4 +1,3 @@
-import { getNativeTheme } from '../../ui/native-theme.js';
 
 function visible(node, stage) {
   const seen = new Set();
@@ -11,7 +10,7 @@ function visible(node, stage) {
 }
 
 export function createCountdowns(ctx) {
-  const labels = new Map(), { window } = ctx, theme = getNativeTheme(ctx);
+  const labels = new Map(), { window } = ctx, theme = ctx.ui.nativeTheme;
   let releaseTheme = null;
   function paint(palette = theme.palette) {
     for (const [timer, label] of labels) if (!label.destroyed) {

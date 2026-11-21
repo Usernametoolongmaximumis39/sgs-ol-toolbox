@@ -3,7 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { build } from 'esbuild';
 const out='test-results/recharge';await mkdir(out,{recursive:true});
-const bundle=await build({stdin:{contents:`export {activate} from './src/plugins/recharge/index.js'; export {ResourceScope} from './src/core/resources.js';`,resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'Check',write:false});
+const bundle=await build({stdin:{contents:`export {activate} from './src/plugins/recharge/index.js'; export {ResourceScope} from './src/core/resources.js';
+  export {mountPluginUI} from './src/ui/plugin-ui.js';`,resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'Check',write:false});
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try {
  const page=await browser.newPage({viewport:{width:900,height:1200}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -16,7 +17,8 @@ try {
   const welfare={SendClientPrivilegeInfoReq(){queueMicrotask(()=>listeners.get('ClientPrivilegeInfoRep')?.({Protocol:{cards:[{cardType:2,cardId:12981201,payType:1,priceNum:1200},{cardType:3,cardId:12981501,payType:1,priceNum:2800}]}}));},SendClientPrivilegeDataReq(){queueMicrotask(()=>listeners.get('ClientPrivilegeDataRep')?.({Protocol:{code:0,datas:[{type:2,bActive:false},{type:3,bActive:false}]}}));}};
   const proxy={_events:{ClientPrivilegeInfoRep:{caller:welfare},ClientDirectPurchaseRep:{caller:buyer}},on(e,c,f){listeners.set(e,f);},off(e){listeners.delete(e)}};
   window.fetch=async (...args)=>{calls.push(args);throw Error('Unexpected payment request');};
-  window.scope=new Check.ResourceScope();window.mount=()=>Check.activate({window,document,scope,game:{getSelf:()=>fixtureAccount,getClass:()=>null,getServerProxy:()=>proxy},ui:{registerPanel(spec){window.cleanup=spec.render(panel);}}});mount();
+  window.scope=new Check.ResourceScope();window.mount=()=>{ const ctx={window,document,scope,game:{getSelf:()=>fixtureAccount,getClass:()=>null,getServerProxy:()=>proxy}};
+    ctx.ui={...Check.mountPluginUI(ctx,()=>ctx),registerPanel(spec){window.cleanup=spec.render(panel);}};Check.activate(ctx); };mount();
  }; await page.evaluate(setup);
  for (const name of ['微信出码', '支付宝出码']) assert.equal(await page.getByRole('button',{name,exact:true,includeHidden:true}).count(),0);
  await page.getByRole('button',{name:'我已了解，本次登录不再提醒',exact:true}).click();

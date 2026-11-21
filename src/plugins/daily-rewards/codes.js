@@ -1,3 +1,4 @@
+import { read } from '../../shared/safe-read.js';
 // Native GiftManager.SendGetGift is the ordinary GiftExchangeWindow request.
 // No remote code lists, window creation or inter-plugin dependencies.
 const MAX_TEXT = 16000;
@@ -5,7 +6,6 @@ const MAX_CODES = 100;
 const SUCCESS = new Set([1, 2, 16]);
 const FAILURE = new Set([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18]);
 const EVENT = 'ClientPickupgiftbagRep';
-const read = fn => { try { return fn(); } catch { return undefined; } };
 
 export const managerSpecs = {
   GiftManager: {

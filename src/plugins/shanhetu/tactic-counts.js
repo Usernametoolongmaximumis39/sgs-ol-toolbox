@@ -1,4 +1,3 @@
-import { getNativeTheme } from '../../ui/native-theme.js';
 
 // Plot IDs and trigger/reset groups verified against Xiaochao 1.6.75.
 export const ROUND_TACTICS = [2033, 2034, 2035, 2036, 2037, 2038, 2048, 2049, 2050, 2196, 2197, 2300, 2301];
@@ -120,7 +119,7 @@ export function tacticCount(state, seatId, plotId, requireOwnership = false) {
 }
 
 export function createTacticCounts(ctx) {
-  const labels = new Map(), theme = getNativeTheme(ctx);
+  const labels = new Map(), theme = ctx.ui.nativeTheme;
   let owner = null, releaseTheme = null;
   const paint = (palette = theme.palette) => {
     for (const label of labels.values()) if (!label.destroyed) { label.color = palette.accent; label.strokeColor = palette.bg; }

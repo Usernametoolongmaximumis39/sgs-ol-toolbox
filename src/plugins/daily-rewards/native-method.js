@@ -1,4 +1,4 @@
-const read = fn => { try { return fn(); } catch { return undefined; } };
+import { read } from '../../shared/safe-read.js';
 
 export function nativeMethod(object, name, signatures = []) {
   if (name && typeof read(() => object[name]) === 'function') return (...args) => object[name](...args);

@@ -1,4 +1,4 @@
-import { account as loginAccount, field, observeNative } from '../../shared/info-runtime.js';
+import { field } from '../../shared/info-runtime.js';
 import { DEFAULT_NATIVE_PALETTE } from '../../ui/native-theme.js';
 import { ResourceScope } from '../../core/resources.js';
 import { userId, normalizeRecord, captureFriends, pinnedFirst } from './model.js';
@@ -34,7 +34,7 @@ export function createFriendManagement(ctx, banner = null) {
   let deleted = new Set(), listStamp = '', listSince = 0;
   let rows = new Map(), menus = new Map(), menuHosts=new Map(), requested = new Set(), lastSave = 0, refresh = false;
   let nextPriorityRequest = 0;
-  const currentId = () => userId(loginAccount(ctx).id);
+  const currentId = () => userId(ctx.native.account().id);
   const ctor = () => read(() => ctx.game.getSelf().constructor);
   function dataFor(f) { const u=read(() => f.userData); return userId(read(()=>u.ClientId)) ? u : read(() => ctor().GetNameInstance(f.FriendNickname)); }
   function idFor(f) { return userId(read(() => dataFor(f).ClientId)); }
@@ -250,15 +250,16 @@ export function createFriendManagement(ctx, banner = null) {
       ?? read(() => packet.Protocol.Data.ProtoObj.nickname_usertempid));
     return record.pins.includes(id) ? true : null;
   };
-  observeNative({ ...ctx, scope: root }, {
+  ctx.native.observe({
     [FRIEND_LIST]: () => true,
     ...Object.fromEntries(USER_BASE_INFO.map(type => [type, projectPinnedProfile])),
   }, type => {
     if (type === FRIEND_LIST) listSince = Date.now();
     syncFriends(false);
-  });
+  }, undefined, { scope: root });
   root.interval(tick,500); tick();
   root.add(() => deletionListeners.clear());
   return {tick,dispose:()=>root.dispose(),getRecord:()=>structuredClone({...record,accountId:account,savedAt:lastSave,error:storageError}),togglePin,
+    reload: () => reset(currentId()),
     onDeleted(listener) { deletionListeners.add(listener); return () => deletionListeners.delete(listener); }};
 }

@@ -52,8 +52,8 @@ export function readScoreRun(data) {
   const log = uint(seasonData.uniqueLogId) || String(seasonData.lastEnterTime ?? '');
   const clearedChapters = Array.isArray(game.passChapter) ? game.passChapter.length : 0;
   const skillUses = game.myGeneral.spellUseInfo;
-  const rebirthUses = Array.isArray(skillUses)
-    ? uint(skillUses.find(row => uint(row?.uSpellId) === ROGUE_REBIRTH_SKILL)?.uTimes) : null;
+  const rebirthUsed = Array.isArray(skillUses)
+    && skillUses.some(row => uint(row?.uSpellId) === ROGUE_REBIRTH_SKILL && uint(row?.uTimes) > 0);
   return {
     season, difficulty, battle: uint(record?.fightScore),
     key: JSON.stringify([season, difficulty, uint(seasonData.roundId), log]),
@@ -61,11 +61,15 @@ export function readScoreRun(data) {
     clearedChapters,
     months: chapter && !clearedChapters ? uint(chapter.accday ?? 0) : uint(chapter?.accday),
     chapterMonth: uint(chapter?.day),
-    rebirthUsed: rebirthUses === null && uint(game.dyingCnt) > 0 ? null : rebirthUses > 0,
+    rebirthUsed,
     remakes: uint(game.remakeCnt) ?? 0,
     recordedItems: itemIds(record?.items), heldItems: itemIds(game.itemId === undefined ? [] : game.itemId),
     mutation: game.seedData ? uint(game.seedData.seedId ?? 0) : null,
   };
+}
+
+export function readSettlementScore(result, run) {
+  return run && uint(result?.seasonId) === run.season ? uint(result.score) : null;
 }
 
 export function readScoreBattle(data, nativeFightId) {
@@ -169,7 +173,7 @@ export function estimateScore(config, run, projectedBattle = null) {
   const normal = config.normal.find(row => Number(row.difID) === run.difficulty && forSeason(row, run.season));
   const desperate = config.desperate.find(row => Number(row.difID) === run.difficulty && forSeason(row, run.season));
   const tier = uint(normal?.bdif), step = uint(normal?.sdif) ?? (run.difficulty - 1) % 5 + 1;
-  const rebirthPenalty = run.rebirthUsed === null ? null : run.rebirthUsed ? 500 : 0;
+  const rebirthPenalty = run.rebirthUsed === true ? 500 : 0;
   const rate = desperate ? 10 : tier >= 1 && tier <= 5 && step >= 1 && step <= 5
     ? difficultyBase[tier - 1] + difficultyStep[tier - 1] * (step - 1) : null;
   const mutation = run.mutation === 0 || (run.mutation === null && normal && tier < 4)
@@ -186,7 +190,7 @@ export function estimateScore(config, run, projectedBattle = null) {
   }
   const items = hasItems ? Object.values(parts).reduce((sum, part) => sum + part.points, 0) : null;
   const battle = run.battle === null ? null : run.battle + (projectedBattle ?? 0);
-  const scaled = battle !== null && items !== null && rate !== null && rebirthPenalty !== null
+  const scaled = battle !== null && items !== null && rate !== null
     ? Math.floor((battle + items - rebirthPenalty) * rate / 10) : null;
   const withMutation = scaled !== null && mutation !== null ? Math.floor(scaled * (100 + mutation) / 100) : null;
   const total = withMutation === null ? null : Math.max(0, withMutation);

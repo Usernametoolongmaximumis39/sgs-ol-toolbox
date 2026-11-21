@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ResourceScope } from '../src/core/resources.js';
+import { createPluginNative } from '../src/core/plugin-native.js';
 import { createStopPolicy } from '../src/plugins/gaizhu/stop-policy.js';
 
 const TASK_IDS = [171114, 171115, 171116];
@@ -34,6 +35,7 @@ function fixture(t) {
     now: () => now, scope,
     game: { getSelf: () => ({ ClientId: account }), getClass: name => classes.get(name), getServerProxy: () => proxy },
   };
+  ctx.native = createPluginNative(ctx);
   function emit(event, packet) {
     for (const fn of events.get(event) ?? []) fn(packet);
   }

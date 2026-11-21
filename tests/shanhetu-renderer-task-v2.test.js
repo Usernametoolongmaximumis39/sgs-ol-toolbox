@@ -8,7 +8,6 @@ import { createInfoCardView } from '../src/plugins/shanhetu/card-view-v2.js';
 // Native geometry/rendering are separately covered by the actual Laya browser
 // suite; these boundary doubles let cancellation happen at exact yield points.
 const mocks = new Map([
-  ['native-theme.js', 'export const getNativeTheme = ctx => ctx.ui.nativeTheme;'],
   ['presentation.js', 'export const labelLines = node => node.lines || [];'],
   ['placement-geometry.js', 'export const capturePlacementGeometry = ({window}) => window.testGeometry; export const placementRectToClient = rect => rect;'],
   ['overlay-host.js', `export const placementOverlaySignature = ({viewport}) => JSON.stringify(viewport);

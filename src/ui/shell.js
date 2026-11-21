@@ -15,7 +15,9 @@ import { selectGamePanels } from '../core/game-view.js';
 import { comparePanelOrder, comparePluginOrder } from '../core/plugin-contract.js';
 import { createIcon } from './icons.js';
 import { createFeedbackForm, FEEDBACK_STYLES } from './feedback.js';
+import { downloadSyncBackup, mountSyncSettings } from './sync-settings.js';
 const feedbackIcon = { paths: ['M20 16h-8l-5 4v-4H4V4h16z', 'M8 8h8M8 12h6'] };
+const cloudOffIcon = { paths: ['M8.5 6.5A5.5 5.5 0 0 1 18 10a4 4 0 0 1 2.6 6.9M16 18H6a4 4 0 0 1-1.2-7.8', 'M3 3l18 18'] };
 const categories = [['game', '牌局'], ['automation', '自动'], ['tools', '工具'], ['manage', '管理'], ['info', '信息']];
 const FONT_SIZES = [['tiny', '特小', -2], ['small', '小', -1], ['standard', '标准', 0], ['large', '大', 2]];
 const COMPACT_OPACITIES = [60, 80, 100];
@@ -35,6 +37,7 @@ const style = `
 .plugin-release-notes{margin:8px 0 0;min-width:0;color:var(--sgs-muted);font-size:11px}.plugin-release-notes summary{cursor:pointer;min-height:30px;padding:6px 2px;color:var(--sgs-text);overflow-wrap:anywhere}.plugin-release-notes summary:focus-visible,.plugin-release-notes-text:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px;border-radius:4px}.plugin-release-notes-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;padding:2px 6px 4px 8px;border-left:2px solid var(--sgs-border);max-height:160px;overflow:auto;scrollbar-width:thin}.plugin-update .plugin-release-notes summary{color:var(--sgs-accent)}
 .appearance-page .plugin-heading{margin:0}
 .management-tabs{position:sticky;top:-12px;z-index:8;background:var(--sgs-bg)!important;box-shadow:0 5px 8px var(--sgs-bg)!important}
+.management-tabs button{min-width:0;white-space:nowrap}
 .custom-card-backs{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--sgs-border)}
 .custom-card-backs-heading{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 10px}
 .custom-card-backs-heading h4{margin:0;font-size:13px}
@@ -77,7 +80,7 @@ const style = `
 :host([data-mobile][data-edge-docked]) .shell,:host([data-mobile][data-edge-docked]) .content{touch-action:pan-y}:host([data-mobile][data-edge-hidden]) .shell{visibility:hidden}.edge-tab{display:none}:host([data-mobile][data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 48px))}:host([data-mobile][data-edge-hidden]) .edge-tab{display:block;position:absolute;left:0;top:0;z-index:20;width:48px;height:100%;min-height:160px;padding:0;border-radius:7px 0 0 7px;background:var(--sgs-bg);color:var(--sgs-accent);font-size:26px;touch-action:pan-y}.shell{background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:var(--sgs-radius);box-shadow:0 16px 48px #0006;overflow:hidden;resize:horizontal;min-width:248px;max-width:420px;width:100%}
 .content.has-plugin-panels{min-height:0}.plugin-group{min-width:0}.plugin-group+.plugin-group{border-top:1px solid var(--sgs-border);margin-top:10px;padding-top:10px}.plugin-heading{margin:0;font-size:13px}.plugin-heading .plugin-toggle{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;padding:6px 3px;border:0;border-radius:6px;background:transparent;box-shadow:none;text-align:left;color:var(--sgs-accent)}.plugin-heading .plugin-toggle:hover{background:color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.plugin-toggle svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.plugin-toggle .plugin-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;letter-spacing:.5px}.plugin-toggle .plugin-chevron{width:15px;height:15px;color:var(--sgs-muted);transition:transform .16s}.plugin-toggle[aria-expanded=false] .plugin-chevron{transform:rotate(-90deg)}.plugin-body{padding:9px 2px 2px}.plugin-body[hidden]{display:none!important}:host([data-edge-docked]){left:auto!important;right:0!important;transition:transform 180ms ease;transform:translateX(0)}:host([data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 5px));background:var(--sgs-bg);border-left:1px solid var(--sgs-accent);border-radius:5px 0 0 5px}:host([data-edge-hidden]) .shell{visibility:hidden}:host([data-edge-fixed]){transition:none;top:0!important;bottom:0!important;height:100vh;height:100dvh}:host([data-edge-fixed]) .shell{display:flex;flex-direction:column;height:100%;border-radius:0}:host([data-edge-fixed]) .shell>.brand,:host([data-edge-fixed]) .shell>.status,:host([data-edge-fixed]) .shell>.nav,:host([data-edge-fixed]) .shell>.footer,:host([data-edge-fixed]) .shell>.compact{flex-shrink:0}:host([data-edge-fixed]) .content{flex:1;min-height:0;max-height:none}.edge-resizer{display:none;position:absolute;left:0;bottom:0;width:22px;height:22px;z-index:12;color:var(--sgs-muted);cursor:ew-resize;touch-action:none;user-select:none;align-items:center;justify-content:center}.edge-resizer svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round}.edge-resizer:hover{color:var(--sgs-accent)}.edge-resizer:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:-3px}:host([data-edge-docked]) .shell{resize:none}:host([data-edge-docked]:not([data-collapsed]):not([data-edge-hidden])) .edge-resizer{display:flex}:host([data-edge-docked]) .footer{padding-left:25px}:host([data-edge-docked]:focus-visible){outline:2px solid var(--sgs-accent);outline-offset:-2px}
 @media(prefers-reduced-motion:reduce){.plugin-toggle .plugin-chevron{transition:none}}
-.brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand strong{letter-spacing:1px;font-size:13px}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
+.brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
 .nav{display:flex;gap:4px;padding:7px 9px;border-block:1px solid var(--sgs-border);background:var(--sgs-surface)}.nav button{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:0;height:42px;padding:0;border-color:transparent;background:transparent;overflow:hidden;transition:flex-grow var(--sgs-motion) cubic-bezier(.2,.8,.2,1),background var(--sgs-motion),gap var(--sgs-motion)}.nav button svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform var(--sgs-motion)}.nav button span{max-width:0;opacity:0;white-space:nowrap;overflow:hidden;transition:max-width var(--sgs-motion),opacity var(--sgs-motion)}.nav button[aria-selected=true]{color:var(--sgs-accent);background:var(--sgs-raised)}.nav:has(button:hover) button:not(:hover):not(:focus-visible) svg,.nav:has(button:focus-visible) button:not(:hover):not(:focus-visible) svg{transform:scale(.92)}.nav button:hover,.nav button:focus-visible{flex-grow:2.2;gap:5px;color:var(--sgs-accent);background:var(--sgs-raised)}.nav button:hover svg,.nav button:focus-visible svg{transform:scale(1.15)}.nav button:hover span,.nav button:focus-visible span{max-width:32px;opacity:1}
 .content{padding:12px;max-height:65vh;min-height:200px;overflow:auto;scrollbar-width:thin}.footer{display:flex;justify-content:space-between;border-top:1px solid var(--sgs-border);padding:7px 12px;color:var(--sgs-muted);font-size:10px}.footer button{padding:0;border:0;background:none;font-size:10px;color:var(--sgs-muted)}.empty{text-align:center;padding:35px 12px;color:var(--sgs-muted)}.empty svg{width:32px;height:32px;fill:none;stroke:var(--sgs-accent);stroke-width:1.2;margin-bottom:12px}.empty strong{display:block;color:var(--sgs-text);font-size:14px;margin-bottom:7px}.tabs{display:flex;gap:4px;margin-bottom:13px}.tabs button{flex:1;padding:5px 2px;font-size:12px}.tabs button.active{border-color:var(--sgs-accent);color:var(--sgs-accent)}h3{font-size:13px;margin:15px 0 7px}h3:first-child{margin-top:0}.card{padding:10px;border:1px solid var(--sgs-border);border-radius:8px;margin-bottom:8px;background:var(--sgs-surface)}.card .title{display:flex;justify-content:space-between;gap:5px}.muted{color:var(--sgs-muted);font-size:11px}.actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.actions button{font-size:11px;padding:4px 7px}.notice{color:var(--sgs-muted);font-size:11px;overflow-wrap:anywhere;padding:7px 0}.error{color:var(--sgs-danger)}label.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0}input[type=checkbox]{accent-color:var(--sgs-accent)}input.address{width:100%;font-size:11px}select{max-width:145px}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);max-width:80vw;background:var(--sgs-raised);color:var(--sgs-text);padding:10px 16px;border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 4px 20px #0008;z-index:2147483647}
 .toast[data-position=top]{top:22px;top:calc(22px + env(safe-area-inset-top, 0px));bottom:auto;box-sizing:border-box;max-width:min(36em,calc(100vw - 32px));text-align:center;overflow-wrap:anywhere;pointer-events:none}
@@ -100,17 +103,25 @@ const style = `
 ${CONTROL_STYLES}
 button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%,var(--sgs-surface)),var(--sgs-surface));border-color:color-mix(in srgb,var(--sgs-border) 60%,transparent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 4%,transparent);transition:background 140ms,border-color 140ms,color 140ms}button:active:not(:disabled){background:var(--sgs-bg)}button:disabled{cursor:not-allowed}.nav button,.footer button{box-shadow:none}.tabs{gap:2px;padding:3px;border-radius:8px;background:var(--sgs-surface);box-shadow:inset 0 1px 3px #0004}.tabs button{border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);padding:6px 2px}.tabs button.active{background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 17%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent);color:var(--sgs-accent)}
 .settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 1 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
-.font-preview{margin-top:12px;padding:12px 0 12px 10px;border-left:2px solid var(--sgs-accent);line-height:1.6}.font-preview strong{font-size:13px}.font-preview p{font-size:12px;margin:5px 0}.font-settings .sgs-segments button{min-width:0;flex:1;padding:6px 2px}.brand{gap:6px}.brand-name{min-width:0;flex:1}.brand strong{white-space:nowrap;letter-spacing:0;font-size:13px}.brand small{font-size:9px}.brand .mark{flex:none}.brand [data-collapse]{flex:none;margin-left:0}.brand-name strong{display:block;overflow:hidden;text-overflow:ellipsis}.brand [data-update-hint]{display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 7px;border:1px solid color-mix(in srgb,var(--sgs-accent) 48%,var(--sgs-border));border-radius:7px;background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 20%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 10%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 20%,transparent),0 2px 4px #0002;color:var(--sgs-accent);font-size:11px;font-weight:600;line-height:18px;cursor:pointer;white-space:nowrap;transition:background 140ms,border-color 140ms,box-shadow 140ms,transform 140ms}.brand [data-update-hint] svg{width:13px;height:13px;flex:none;stroke-width:1.8}.brand [data-update-hint][hidden]{display:none}.brand [data-update-hint]:hover{border-color:var(--sgs-accent);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 30%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 17%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 28%,transparent),0 3px 7px #0003;transform:translateY(-1px)}.brand [data-update-hint]:active{transform:translateY(0);box-shadow:inset 0 1px 3px #0003}.brand [data-update-hint]:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}
+.font-preview{margin-top:12px;padding:12px 0 12px 10px;border-left:2px solid var(--sgs-accent);line-height:1.6}.font-preview strong{font-size:13px}.font-preview p{font-size:12px;margin:5px 0}.font-settings .sgs-segments button{min-width:0;flex:1;padding:6px 2px}.brand-name{min-width:0;flex:1}.brand small{font-size:9px}.brand .mark{flex:none}.brand [data-collapse]{flex:none;margin-left:0}.brand [data-update-hint]{display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 7px;border:1px solid color-mix(in srgb,var(--sgs-accent) 48%,var(--sgs-border));border-radius:7px;background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 20%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 10%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 20%,transparent),0 2px 4px #0002;color:var(--sgs-accent);font-size:11px;font-weight:600;line-height:18px;cursor:pointer;white-space:nowrap;transition:background 140ms,border-color 140ms,box-shadow 140ms,transform 140ms}.brand [data-update-hint] svg{width:13px;height:13px;flex:none;stroke-width:1.8}.brand [data-update-hint][hidden]{display:none}.brand [data-update-hint]:hover{border-color:var(--sgs-accent);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 30%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 17%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 28%,transparent),0 3px 7px #0003;transform:translateY(-1px)}.brand [data-update-hint]:active{transform:translateY(0);box-shadow:inset 0 1px 3px #0003}.brand [data-update-hint]:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}
 
 .brand [data-feedback]{display:flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 6px;background:transparent;box-shadow:none;color:var(--sgs-muted);font-size:11px;line-height:18px;white-space:nowrap}
 .brand [data-feedback] svg{width:14px;height:14px}
 .brand [data-feedback]:hover,.brand [data-feedback]:focus-visible{color:var(--sgs-accent);border-color:var(--sgs-accent);background:var(--sgs-surface)}
 .brand small{white-space:nowrap;letter-spacing:.6px}
-:host([data-tight-brand]) .brand.has-update .mark{display:none}
+.brand{gap:5px;padding-inline:10px}.brand-name small{overflow:hidden;text-overflow:ellipsis}
+.brand [data-sync-action]{flex:none;min-width:28px;height:28px;margin:0;padding:0 5px;color:var(--sgs-muted);box-shadow:none}
+.brand [data-sync-action][hidden]{display:none}.brand [data-sync-action] svg{width:16px;height:16px}
+.brand [data-sync-action]:hover:not(:disabled){color:var(--sgs-accent);border-color:var(--sgs-accent)}
+.brand [data-sync-action]:disabled{opacity:.5}
+:host([data-tight-brand]) .brand{gap:4px}
+:host([data-tight-brand]) .brand [data-update-hint] span,:host([data-tight-brand]) .brand[data-sync-controls] [data-feedback] span{display:none}
+:host([data-tight-brand]) .brand :is([data-update-hint],[data-collapse]),:host([data-tight-brand]) .brand[data-sync-controls] [data-feedback]{width:28px;padding-inline:0}
+:host([data-tight-brand][data-sync-bound]) .brand.has-update .brand-name small{display:none}
 ${FEEDBACK_STYLES}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
-export function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount, canReserveGameViewport }) {
+export function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount, canReserveGameViewport, sceneWatch, managedSync, preferenceSync }) {
   let microUpdate = null, microUpdateBusy = false, microUpdateError = '';
   async function runMicroUpdate(action) {
     microUpdateBusy = true; microUpdateError = ''; render();
@@ -127,7 +138,7 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
   let gameView = 'battle', renderedKey = '', viewScroll = new Map();
   const host = doc.createElement('div'); host.dataset.sgsToolbox = 'core';
   const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = `<style>${scaleFonts(style)} .brand,.compact{--sgs-font-offset:0px}</style><section class="shell"><svg class="hud-locator" aria-hidden="true" focusable="false"><rect pathLength="100"/></svg><div class="compact" data-count-state="unknown"><span class="slash" title="剩余出杀次数暂不可用；双击展开，按住拖动"><span class="slash-seal" aria-hidden="true">杀</span><span class="slash-reading"><span class="slash-label">剩余</span><b data-slash aria-label="剩余出杀次数暂不可用">—</b></span></span><div class="compact-actions"><button data-screenshot title="截图并复制" aria-label="截图并复制"></button><button data-expand title="放大面板" aria-label="放大面板"></button></div></div><div class="compact-summary" aria-label="关注卡牌未见张数"></div><header class="brand"><div class="mark" aria-hidden="true"></div><div class="brand-name"><strong title="三国杀 OL 工具箱">三国杀 OL 工具箱</strong><small>${EDITION.toUpperCase()} · ${CORE_VERSION}</small></div><button data-update-hint hidden title="有更新可用，点击前往更新" aria-label="有更新可用，点击前往更新"><span>更新</span></button><button data-collapse title="折叠面板" aria-label="折叠面板"></button></header><div class="status"><i class="dot"></i><span>等待游戏运行时</span></div><nav class="nav" role="tablist">${categories.map(([id, title]) => `<button data-category="${id}" role="tab" aria-label="${title}" aria-selected="false"><span>${title}</span></button>`).join('')}</nav><main class="content" role="tabpanel"></main><footer class="footer"><span>${EDITION === 'dev' ? '开发版' : EDITION === 'lite' ? '轻量版' : '完整版'} ${CORE_VERSION}</span><button data-open-market title="打开插件市场" aria-label="打开插件市场">插件市场</button></footer></section>`;
+  shadow.innerHTML = `<style>${scaleFonts(style)} .brand,.compact{--sgs-font-offset:0px}</style><section class="shell"><svg class="hud-locator" aria-hidden="true" focusable="false"><rect pathLength="100"/></svg><div class="compact" data-count-state="unknown"><span class="slash" title="剩余出杀次数暂不可用；双击展开，按住拖动"><span class="slash-seal" aria-hidden="true">杀</span><span class="slash-reading"><span class="slash-label">剩余</span><b data-slash aria-label="剩余出杀次数暂不可用">—</b></span></span><div class="compact-actions"><button data-screenshot title="截图并复制" aria-label="截图并复制"></button><button data-expand title="放大面板" aria-label="放大面板"></button></div></div><div class="compact-summary" aria-label="关注卡牌未见张数"></div><header class="brand"><div class="mark" aria-hidden="true"></div><div class="brand-name"><small>${EDITION.toUpperCase()} · ${CORE_VERSION}</small></div><button data-update-hint hidden title="有更新可用，点击前往更新" aria-label="有更新可用，点击前往更新"><span>更新</span></button><button data-collapse title="折叠面板" aria-label="折叠面板"></button></header><div class="status"><i class="dot"></i><span>等待游戏运行时</span></div><nav class="nav" role="tablist">${categories.map(([id, title]) => `<button data-category="${id}" role="tab" aria-label="${title}" aria-selected="false"><span>${title}</span></button>`).join('')}</nav><main class="content" role="tabpanel"></main><footer class="footer"><span>${EDITION === 'dev' ? '开发版' : EDITION === 'lite' ? '轻量版' : '完整版'} ${CORE_VERSION}</span><button data-open-market title="打开插件市场" aria-label="打开插件市场">插件市场</button></footer></section>`;
   for (const [selector, name] of [['.mark', 'toolbox'], ['[data-screenshot]', 'camera'], ['[data-expand]', 'expand'], ['[data-collapse]', 'collapse'], ['[data-update-hint]', 'refresh'], ['[data-open-market]', 'package']]) {
     shadow.querySelector(selector).prepend(createIcon(doc, name));
   }
@@ -136,7 +147,9 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
   const feedbackForm = createFeedbackForm(win, doc, scope, getFeedbackAccount);
   const feedbackButton = doc.createElement('button');
   feedbackButton.type = 'button'; feedbackButton.dataset.feedback = ''; feedbackButton.title = '前往反馈';
-  feedbackButton.append(createIcon(doc, feedbackIcon), doc.createTextNode('反馈'));
+  feedbackButton.setAttribute('aria-label', '反馈');
+  const feedbackLabel = doc.createElement('span'); feedbackLabel.textContent = '反馈';
+  feedbackButton.append(createIcon(doc, feedbackIcon), feedbackLabel);
   shadow.querySelector('[data-update-hint]').before(feedbackButton);
   scope.listen(feedbackButton, 'click', () => {
     if (active !== 'manage' || management !== 'settings') {
@@ -145,6 +158,50 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     content.scrollTop = 0;
     feedbackForm.elements.message.focus({ preventScroll: true });
   });
+  function openSyncSettings() {
+    active = 'manage'; management = 'sync'; settings.set('category', active); render();
+    content.scrollTop = 0;
+  }
+  if (managedSync && preferenceSync) {
+    feedbackButton.parentElement.dataset.syncControls = '';
+    const upload = doc.createElement('button'), download = doc.createElement('button');
+    upload.type = download.type = 'button';
+    upload.dataset.syncAction = download.dataset.syncAction = '';
+    upload.dataset.syncUpload = '';
+    upload.title = '上传到云端';
+    upload.setAttribute('aria-label', upload.title);
+    upload.append(createIcon(doc, 'arrowUp'));
+    feedbackButton.before(upload, download);
+    function refreshSyncButtons() {
+      const { connected } = managedSync.status();
+      upload.hidden = !connected;
+      host.toggleAttribute('data-sync-bound', connected);
+      upload.disabled = download.disabled = preferenceSync.busy;
+      const label = connected ? '下载全部备份' : '云同步未启用，打开同步设置';
+      if (download.title === label) return;
+      download.toggleAttribute('data-sync-download', connected);
+      download.toggleAttribute('data-sync-settings', !connected);
+      download.title = label;
+      download.setAttribute('aria-label', label);
+      download.replaceChildren(createIcon(doc, connected ? 'arrowDown' : cloudOffIcon));
+    }
+    async function transferFromHeader(transfer) {
+      try {
+        const pending = transfer();
+        refreshSyncButtons();
+        const message = await pending;
+        if (message) notify(message);
+      } catch (error) { notify(error.message); }
+      finally { refreshSyncButtons(); }
+    }
+    scope.listen(upload, 'click', () => transferFromHeader(preferenceSync.upload));
+    scope.listen(download, 'click', () => managedSync.status().connected
+      ? transferFromHeader(() => downloadSyncBackup(win, preferenceSync))
+      : openSyncSettings());
+    refreshSyncButtons();
+    void managedSync.ready.then(refreshSyncButtons, () => {});
+    scope.interval(refreshSyncButtons, 500);
+  }
   const applyFontSize = () => {
     const choice = FONT_SIZES.find(([id]) => id === settings.get('fontSize', 'standard')) || FONT_SIZES[2];
     host.style.setProperty('--sgs-font-offset', `${choice[2]}px`);
@@ -361,10 +418,10 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     content.append(el('h3', '旧脚本兼容'));
     content.append(button('前往篡改猴管理', showLegacyWarning));
     const enabled = el('label', undefined, 'row'); enabled.append(el('span', '接管旧小抄界面')); const check = doc.createElement('input'); check.type = 'checkbox'; styleSwitch(check); check.checked = settings.get('compatEnabled', false); check.onchange = () => { settings.set('compatEnabled', check.checked); handlers.compat?.setEnabled(check.checked); }; enabled.append(check); content.append(enabled);
-    const policy = el('select', undefined, 'sgs-select'); policy.setAttribute('aria-label', '旧脚本接管方式'); for (const [value, label] of [['exit-known', '退出已知版本并隐藏'], ['hide', '仅隐藏界面']]) { const option = el('option', label); option.value = value; policy.append(option); } policy.value = settings.get('compatPolicy', 'hide'); policy.onchange = () => { settings.set('compatPolicy', policy.value); handlers.compat?.setTakeoverPolicy?.(policy.value); handlers.compat?.scan(); render(); }; content.append(policy);
+    const policy = el('select', undefined, 'sgs-select'); policy.setAttribute('aria-label', '旧脚本接管方式'); for (const [value, label] of [['exit-known', '退出已知版本并隐藏'], ['hide', '仅隐藏界面']]) { const option = el('option', label); option.value = value; policy.append(option); } policy.value = settings.get('compatPolicy', 'hide'); policy.onchange = () => { settings.set('compatPolicy', policy.value); handlers.compat?.setTakeoverPolicy?.(policy.value); render(); }; content.append(policy);
     const compatStatus = handlers.compat?.getStatus(); content.append(el('div', formatCompat(compatStatus), 'notice'));
     const actions = el('div', undefined, 'actions'); actions.append(iconButton('重新检测', 'reload', () => { handlers.compat?.scan(); render(); }, 'icon-action'), button('点选隐藏旧面板', () => startPicker())); content.append(actions);
-    actions.append(helpTip(doc, '隐藏 UI 不代表后台逻辑已停止。无法退出的脚本仍需在 Tampermonkey 中停用；已退出脚本需刷新页面才能恢复。'));
+    actions.append(helpTip(doc, '关闭接管时自动检测只在启动时运行，也可点击「重新检测」。隐藏旧界面后，其后台逻辑可能仍在运行。无法退出的脚本需在 Tampermonkey 中停用；已退出的脚本需刷新页面才能恢复。'));
     }
     if (DEVELOPMENT) {
     content.append(el('h3', '插件市场目录地址'));
@@ -709,10 +766,24 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     catalogCards(catalog);
   }
   function renderManagement(cleanups) {
-    const tabs = el('div', undefined, 'tabs management-tabs'); for (const [id, title] of [['settings', '设置'], ['market', '插件市场'], ['appearance', '外观']]) { const b = button(title, () => { management = id; render(); }); if (management === id) b.className = 'active'; tabs.append(b); } content.append(tabs);
+    const tabs = el('div', undefined, 'tabs management-tabs');
+    const sections = [['settings', '设置'], ['market', '插件市场'], ['appearance', '外观']];
+    if (managedSync) sections.push(['sync', '云同步']);
+    for (const [id, title] of sections) {
+      const b = button(title, () => { management = id; render(); });
+      if (management === id) b.className = 'active';
+      b.setAttribute('aria-pressed', String(management === id));
+      tabs.append(b);
+    }
+    content.append(tabs);
     if (management === 'settings') renderSettings(cleanups);
     else if (management === 'market') renderMarket();
     else if (management === 'appearance') renderAppearance(cleanups);
+    else if (management === 'sync') {
+      const syncSettings = mountSyncSettings(doc, win, managedSync, preferenceSync);
+      content.append(syncSettings.root);
+      cleanups.push(syncSettings.dispose);
+    }
   }
   function render() {
     const previousKey = renderedKey;
@@ -857,7 +928,7 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
   });
   scope.listen(doc, 'pointerdown', closeTouchTip); scope.listen(content, 'scroll', closeTouchTip); scope.add(closeTouchTip);
   const edgeBehavior = () => { const value = settings.get('hudEdgeBehavior', 'fixed'); return mobileDevice() ? (value === 'none' ? 'none' : 'hide') : MICROCLIENT && value === 'hide' ? 'fixed' : ['none', 'hide', 'fixed'].includes(value) ? value : 'fixed'; };
-  const gameViewport = createGameViewport({ window: win, document: doc, scope, canReserve: canReserveGameViewport });
+  const gameViewport = createGameViewport({ window: win, document: doc, scope, canReserve: canReserveGameViewport, sceneWatch });
   const syncGameViewport = () => gameViewport.reserve(host.hasAttribute('data-edge-fixed') ? (host.hasAttribute('data-collapsed') ? 156 : parseFloat(host.style.width) || 280) : 0);
   let edgeHideTimer, draggingHUD = false;
   const revealEdge = () => { clearTimeout(edgeHideTimer); host.removeAttribute('data-edge-hidden'); };
@@ -963,6 +1034,11 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     finally { renderedCleanup = null; clearTimeout(toastTimer); host.remove(); }
   });
   const compactSummaries = new Map();
+  const statusLine = shadow.querySelector('.status');
+  const statusText = statusLine.querySelector('span');
+  const compact = shadow.querySelector('.compact');
+  const slashCount = compact.querySelector('[data-slash]');
+  const slash = compact.querySelector('.slash');
   function setCompactSummary(id, items) {
     if (items.length) compactSummaries.set(id, items); else compactSummaries.delete(id);
     const summary = shadow.querySelector('.compact-summary'); summary.replaceChildren();
@@ -978,10 +1054,17 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     gameView = next; if (active === 'game') render();
   }, setRemainingSlash(value) {
     const known = Number.isFinite(value), text = value === Infinity ? '∞' : known ? String(value) : '—';
-    const compact = shadow.querySelector('.compact'), count = shadow.querySelector('[data-slash]');
-    count.textContent = text; compact.dataset.countState = value === Infinity ? 'unlimited' : !known ? 'unknown' : value === 0 ? 'empty' : 'ready';
-    compact.dataset.countSize = text.length > 2 ? 'long' : 'normal';
+    if (slashCount.textContent !== text) slashCount.textContent = text;
+    const state = value === Infinity ? 'unlimited' : !known ? 'unknown' : value === 0 ? 'empty' : 'ready';
+    const size = text.length > 2 ? 'long' : 'normal';
+    if (compact.dataset.countState !== state) compact.dataset.countState = state;
+    if (compact.dataset.countSize !== size) compact.dataset.countSize = size;
     const label = value === Infinity ? '出杀次数不限' : known ? `剩余出杀次数：${text}` : '剩余出杀次数暂不可用';
-    count.setAttribute('aria-label', label); shadow.querySelector('.slash').title = label + '；双击展开，按住拖动';
-  }, setHandlers(value) { const first = !handlers.manager; handlers = value; render(); if (first && handlers.market?.()) scope.timeout(() => { if (!scope.closed) fetchCatalog(); }, 1500); if (first && MICROCLIENT && typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ === 'function') scope.timeout(() => { if (!scope.closed) runMicroUpdate('check'); }, 1500); }, setStatusVisible(visible) { shadow.querySelector('.status').hidden = !visible; }, setStatus(text) { shadow.querySelector('.status span').textContent = text; }, applyTheme(tokens) { host.dataset.themeScheme = tokens.scheme === 'light' ? 'light' : 'dark'; for (const [key, value] of Object.entries(tokens)) host.style.setProperty('--sgs-' + key, value); }, registerPanel(spec) { if (panels.has(spec.id)) throw new Error('面板重复注册：' + spec.id); panels.set(spec.id, spec); render(); return () => { panels.delete(spec.id); render(); }; } };
+    if (slashCount.getAttribute('aria-label') !== label) slashCount.setAttribute('aria-label', label);
+    const title = label + '；双击展开，按住拖动';
+    if (slash.title !== title) slash.title = title;
+  }, setHandlers(value) { const first = !handlers.manager; handlers = value; render(); if (first && handlers.market?.()) scope.timeout(() => { if (!scope.closed) fetchCatalog(); }, 1500); if (first && MICROCLIENT && typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ === 'function') scope.timeout(() => { if (!scope.closed) runMicroUpdate('check'); }, 1500); },
+  setStatusVisible(visible) { if (statusLine.hidden !== !visible) statusLine.hidden = !visible; },
+  setStatus(text) { if (statusText.textContent !== text) statusText.textContent = text; },
+  applyTheme(tokens) { host.dataset.themeScheme = tokens.scheme === 'light' ? 'light' : 'dark'; for (const [key, value] of Object.entries(tokens)) host.style.setProperty('--sgs-' + key, value); }, registerPanel(spec) { if (panels.has(spec.id)) throw new Error('面板重复注册：' + spec.id); panels.set(spec.id, spec); render(); return () => { panels.delete(spec.id); render(); }; } };
 }

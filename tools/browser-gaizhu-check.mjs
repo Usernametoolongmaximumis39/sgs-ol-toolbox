@@ -266,6 +266,44 @@ try {
   await hasRequest('solo-attack');
   assert.deepEqual(await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.requests.filter(r => r[0] === 'solo-attack-target')),
     [['solo-attack-target', 1]]);
+  await page.evaluate(() => {
+    const d = window.__SGS_TOOLBOX_DEMO__, self = d.scene.SelfSeatUi;
+    const [ally, lord] = d.scene.seatContainer.seatUIs.map(ui => ui.seat);
+    Object.assign(self.seat, { Index: 0, InOwnRound: false });
+    Object.assign(ally, { Index: 1 });
+    Object.assign(lord, { Index: 2 });
+    d.soloRescuePrompt = (target, hinted) => {
+      const dying = target === 'lord' ? lord : ally;
+      dying.IsAskingTao = true;
+      const finish = result => {
+        d.requests.push([result, target]);
+        dying.IsAskingTao = false; self.buttonBar.visible = false;
+        self.CurStepHelpData = null; self.cardContainer = null;
+      };
+      const ok = { name: 'btnOK', enabled: false, onClick: () => finish('solo-rescue-play') };
+      const cancel = { name: 'btnCancel', enabled: true, onClick: () => finish('solo-rescue-cancel') };
+      const card = { activated: true, Card: { CardId: 42, FirstSkillId: 3 },
+        CardUI_Click() { this.setSelected(true); },
+        setSelected(value) { this.selected = value; ok.enabled = value; d.requests.push(['solo-rescue-card', target]); },
+      };
+      self.cardContainer = { selectCardContext: { SpecifySkillId: 3 }, cardUis: [card] };
+      Object.assign(self.buttonBar, { visible: true, btns: [ok, cancel] });
+      self.CurStepHelpData = hinted ? { cardIds: [42] } : null;
+    };
+    d.soloRescuePrompt('lord', true);
+  });
+  await page.clock.runFor(1250);
+  await hasRequest('solo-rescue-cancel', 'lord');
+  assert.equal(await requestCount('solo-rescue-card'), 0);
+  await page.evaluate(() => {
+    const d = window.__SGS_TOOLBOX_DEMO__;
+    d.soloRescuePrompt('ally', false);
+    delete d.soloRescuePrompt;
+  });
+  await page.clock.runFor(1500);
+  await hasRequest('solo-rescue-play', 'ally');
+  assert.equal(await requestCount('solo-rescue-cancel'), 1);
+  checks.push('identity skips the dying enemy before its Peach hint and uses the local fallback to rescue a confirmed ally');
   await panelButton('停止挂机').click();
   await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.finishSoloFixture());
   await root.getByRole('button', { name: '按序点将', exact: true }).click();

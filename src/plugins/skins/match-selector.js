@@ -1,16 +1,9 @@
 import { textNode } from './controls.js';
 import { read } from './native-model.js';
 import { createNativeCatalogueButton } from './native-catalogue-button.js';
+import { isNativeNodeMounted as isVisible } from '../../shared/native-tree.js';
 
 const windows = new Set(['SelectSkinWindow', 'ChangeSkinWindow']);
-
-function isVisible(node, stage) {
-  for (let parent = node; parent; parent = parent.parent) {
-    if (parent.destroyed || parent.visible === false) return false;
-    if (parent === stage) return true;
-  }
-  return false;
-}
 
 function findSelector(stage) {
   const queue = [stage];

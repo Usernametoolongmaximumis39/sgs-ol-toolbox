@@ -1,8 +1,8 @@
+import { read } from '../../shared/safe-read.js';
 import { configuredDailyFreeGift } from './daily-free-gift.js';
 import { purchaseSender } from './native-method.js';
 // Free native welfare rights only. Static evidence: docs/rewards-welfare-evidence.md.
 // No windows/managers are constructed and no paid draw count is used.
-const read = fn => { try { return fn(); } catch { return undefined; } };
 const positive = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
 const valid = adapter => !adapter.signal?.aborted && adapter.valid?.() !== false;
 const flag = (owner, name) => read(() => typeof owner?.[name] === 'function' ? owner[name]() : owner?.[name]) === true;

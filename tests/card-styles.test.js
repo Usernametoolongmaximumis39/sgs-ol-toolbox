@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { CardStyleRegistry, LOCAL_FACE_STYLE } from '../src/core/card-styles.js';
+import { CardStyleRegistry, findNativeCardTexture, LOCAL_FACE_STYLE } from '../src/core/card-styles.js';
 import { ResourceScope } from '../src/core/resources.js';
 import { Settings } from '../src/core/storage.js';
 import { PluginManager } from '../src/core/plugins.js';
@@ -10,6 +10,30 @@ import gold from '../src/plugins/gold-cards/index.js';
 import nativeCards from '../src/plugins/native-cards/index.js';
 import { bundlePlugin, makePluginPackage } from '../tools/plugin-packages.mjs';
 import { verifyPackage } from '../src/core/packages.js';
+
+test('native texture discovery preserves exact versioned aliases and can see a late-loaded map entry', () => {
+  const texture = { bitmap: {}, width: 93, height: 130 };
+  const alias = 'res/cards/cardFace_10.png?v=2';
+  const laya = { Loader: { textureMap: { 'wrong/cardFace_100.png': texture, 'wrong/cardFace_10.png?v=3#hash': texture }, _loadedMap: {} },
+    loader: { getRes: key => key === alias ? texture : null } };
+  assert.equal(findNativeCardTexture(laya, 'cardFace_10'), null);
+  laya.Loader._loadedMap[alias] = { backingResource: true };
+  assert.equal(findNativeCardTexture(laya, 'cardFace_10'), texture);
+});
+
+test('card discovery visits known own display fields without invoking getters or inherited containers', t => {
+  const scope = new ResourceScope();
+  t.after(() => scope.dispose());
+  const registry = new CardStyleRegistry({ window: {}, document: {}, game: {}, settings: {}, scope });
+  const card = id => ({ id, bmpFace: {}, SetCardFace() {}, getCardFaceBaseTexture() {}, updateNewCardFace() {} });
+  const root = Object.create({ cardUIs: [card('inherited')] });
+  Object.defineProperty(root, 'cardUis', { get() { assert.fail('discovery must not invoke a container getter'); } });
+  root._children = [card('child')];
+  root.cardUi = card('flat');
+  const scanned = [];
+  registry.scanCards([root], ui => scanned.push(ui.id));
+  assert.deepEqual(scanned, ['child', 'flat']);
+});
 
 test('new native cards are styled synchronously at creation and pool checkout, without polling', t => {
   const scope = new ResourceScope(), data = new Map();

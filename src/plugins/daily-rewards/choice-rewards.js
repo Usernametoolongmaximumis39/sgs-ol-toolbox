@@ -1,5 +1,5 @@
+import { read } from '../../shared/safe-read.js';
 // TaskRewardSelectWindow uses TaskSelectReward[].Id, not item ID or index.
-const read = fn => { try { return fn(); } catch { return undefined; } };
 const positive = n => Number.isSafeInteger(n) && n > 0;
 const ownershipTypes = new Set([25, 36, 11, 12, 13, 14, 124, 172]);
 

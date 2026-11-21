@@ -11,6 +11,24 @@ const entry = { ...manifest, description: '示例', packageUrl: 'packages/exampl
 const catalog = { schemaVersion: 1, core: { version: '0.6.0' }, plugins: [entry] };
 const json = value => new Response(JSON.stringify(value));
 
+test('the configured update mirror supplies the catalog and packages before any public fallback', async () => {
+  const mirror = 'https://sync.example.test/updates/plugins', calls = [];
+  let reachable = true;
+  const client = new PublicMarketClient(url => {
+    calls.push(url);
+    if (!reachable && url.startsWith(mirror)) throw new Error('mirror offline');
+    return json(url.endsWith('/catalog.json') ? catalog : pkg);
+  }, { mirror });
+  await client.start();
+  await client.getCatalog();
+  const advertised = { ...entry, packageUrl: mirror + '/' + entry.packageUrl };
+  assert.deepEqual(await client.getPackage(advertised), pkg);
+  assert.ok(calls.every(url => url.startsWith(mirror)));
+  reachable = false;
+  assert.deepEqual(await client.getPackage(advertised), pkg);
+  assert.equal(calls.at(-1), GITHUB_MARKET_URL + '/' + entry.packageUrl);
+});
+
 test('dev only requests local even when it is unavailable, with no startup probe or remote fallback', async () => {
   const calls = []; let localUp = false;
   const connection = createMarketConnection({ get: (_, fallback) => fallback }, async url => {

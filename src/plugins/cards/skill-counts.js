@@ -1,4 +1,3 @@
-import { getNativeTheme } from '../../ui/native-theme.js';
 
 const count = value => Number.isSafeInteger(value) && value >= 0 && value < Number.MAX_SAFE_INTEGER;
 const prefix = /^(?:(?:锁定技|转换技|[魏蜀吴群晋]势力技)[，,])?(?:出牌阶段|每回合|每轮|每阶段|每局|整局)(?:内)?限([一二两三四五六七八九十百\d]+|[Xx])次/;
@@ -56,7 +55,7 @@ export function skillCount(skill, seen = new Set(), state = {}, scene = {}) {
 }
 
 export function createSkillCounts(ctx) {
-  const labels = new Map(), seen = new Map(), theme = getNativeTheme(ctx);
+  const labels = new Map(), seen = new Map(), theme = ctx.ui.nativeTheme;
   let owner = null, seat = null, session = null, releaseTheme = null;
   const paint = (palette = theme.palette) => {
     for (const label of labels.values()) if (!label.destroyed) {

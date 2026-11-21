@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createPluginNative } from '../src/core/plugin-native.js';
 import {ResourceScope} from '../src/core/resources.js';
 import {userId,captureFriends,normalizeRecord,pinnedFirst} from '../src/plugins/social/model.js';
 import {createFriendManagement} from '../src/plugins/social/friends.js';
@@ -25,6 +26,7 @@ function fixture(){
  const manager={GetGoodFriendsList(){return [a,b].sort(this.sortFriend)},GetFriendArrBygroupID(){return this.GetGoodFriendsList()},sortFriend:(a,b)=>a.FriendNickname.localeCompare(b.FriendNickname),GetFriendByNickName(n){return [a,b].find(f=>f.FriendNickname===n)}};
  class Sprite {constructor(){this.graphics={drawLines(){},drawLine(){}}}size(){}destroy(){this.destroyed=true}}
  const stage={_children:[]};const ctx={scope,window:{Laya:{stage,Sprite}},game:{getSelf:()=>self,getServerProxy:()=>({_events:{FsCAddFriendsNtf:{caller:manager}}})},storage:{get:k=>storage.get(k),set:(k,v)=>storage.set(k,structuredClone(v))},notify:m=>messages.push(m),reportError:e=>errors.push(e)};
+ ctx.native=createPluginNative(ctx);
  function row(data){const r={data,vipIcon:{x:168,y:2,visible:false},vipSprite:{visible:false},addChild(p){this.pin=p},updateVipCrown(){this.vipIcon.visible=this.vipSprite.visible=false},updateGameStatus(){},initData(d){this.data=d}};rows.push(r);return r}
  return {scope,storage,messages,errors,requests,self,manager,a,b,stage,ctx,row};
 }

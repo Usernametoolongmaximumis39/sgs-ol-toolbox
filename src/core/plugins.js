@@ -4,6 +4,7 @@ import { advancedSkinOption } from '../shared/skin-options.js';
 import { compilePackage, verifyPackage, validateManifest } from './packages.js';
 import { createNativeTheme } from '../ui/native-theme.js';
 import { normalizePanel, comparePluginOrder } from './plugin-contract.js';
+import { createPluginNative } from './plugin-native.js';
 
 export class PluginManager {
   constructor({ journal, store, settings, context, onChange = () => {} }) {
@@ -96,7 +97,12 @@ export class PluginManager {
     if (this.closed) throw new Error('插件管理器已停止');
     const scope = new ResourceScope(); slot.scope = scope; slot.reportedError = '';
     const id = slot.module.manifest.id;
-    const ctx = { ...this.context, scope, settings: this.settings.namespace(id), storage: this.settings.namespace(id), getState: () => slot.state,
+    const { devAppearanceSync, devLedgerSync, ...context } = this.context;
+    const skinShortcutEnabled = () => !scope.closed && advancedSkinOption(this.settings.namespace('skins'), 'backgroundShortcut');
+    const canSelectSkinImage = () => id === 'skins' && skinShortcutEnabled() && context.backgrounds?.isActive?.('backgrounds') === true;
+    const ctx = { ...context, ...(id === 'appearances' && devAppearanceSync ? { devAppearanceSync } : {}),
+      ...(id === 'ledger' && devLedgerSync ? { devLedgerSync } : {}),
+      scope, settings: this.settings.namespace(id), storage: this.settings.namespace(id), getState: () => slot.state,
       subscribe: fn => { slot.listeners.add(fn); const off = () => slot.listeners.delete(fn); scope.add(off); return off; },
       playActions: {
         registerPriority: fn => {
@@ -130,12 +136,35 @@ export class PluginManager {
             catch (error) { release(); throw error; }
           };
           return scope.add(this.context.ui.registerPanel(panel)); } },
+      skinWindows: {
+        register: open => {
+          if (id !== 'skins' || scope.closed) return;
+          this.openSkinWindow = open;
+          return scope.add(() => { if (this.openSkinWindow === open) this.openSkinWindow = null; });
+        },
+        open: (source, trigger) => {
+          if (id !== 'backgrounds' || scope.closed) return;
+          if (!this.openSkinWindow) throw new Error('请先更新并启用皮肤管理插件。');
+          return this.openSkinWindow(source, trigger);
+        },
+      },
       backgrounds: {
         isInstalled: () => !scope.closed && this.slots.has('backgrounds'),
-        skinShortcutEnabled: () => !scope.closed && advancedSkinOption(this.settings.namespace('skins'), 'backgroundShortcut'),
+        skinShortcutEnabled,
+        canSelectSkinImage,
+        selectSkinImage: (file, skinKey, skinMotion, signal) => {
+          const isCurrent = () => !signal.aborted && canSelectSkinImage();
+          if (!isCurrent()) return false;
+          const animated = this.settings.namespace('backgrounds').get('animated', true) !== false;
+          return context.backgrounds.selectLocal('backgrounds', file, { skinKey, skinMotion, animated, isCurrent });
+        },
+        registerSkinMotion: load => {
+          if (id === 'skins' && !scope.closed) return scope.add(context.backgrounds?.registerSkinMotion?.(load));
+        },
         register: () => scope.closed ? () => {} : scope.add(this.context.backgrounds.register(id)),
         select: spec => { if (!scope.closed) this.context.backgrounds.select(id, spec); },
         setAttackEffects: enabled => { if (!scope.closed) this.context.backgrounds.setAttackEffects(id, enabled); },
+        setAnimated: enabled => { if (!scope.closed) this.context.backgrounds.setAnimated(id, enabled); },
         selectLocal: file => { if (!scope.closed) return this.context.backgrounds.selectLocal(id, file); },
         subscribe: fn => scope.closed ? () => {} : scope.add(this.context.backgrounds.subscribe(fn)),
         get current() { return thisContext.backgrounds.current; },
@@ -160,6 +189,7 @@ export class PluginManager {
         get current() { return thisContext.themes.current; }
       }
     };
+    ctx.native = createPluginNative(ctx);
     const thisContext = this.context;
     try { const result = await slot.module.activate(ctx); if (typeof result === 'function') scope.add(result); else if (result?.dispose) scope.add(() => result.dispose()); if (this.closed || scope.closed) throw new Error('插件激活已取消'); slot.active = true; slot.error = ''; if (slot.reportedError) this.runtimeError(slot, slot.reportedError); }
     catch (e) { scope.dispose(); slot.scope = null; throw e; }

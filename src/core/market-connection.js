@@ -1,37 +1,48 @@
 import { marketServerLabel, userErrorMessage } from './market-display.js';
 import { MarketClient } from '../market/client.js';
 import { verifyPackage } from './packages.js';
-import { DEVELOPMENT, GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL } from './distribution.js';
+import { DEVELOPMENT, GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL, UPDATE_MIRROR } from './distribution.js';
 export { GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL } from './distribution.js';
 export const LOCAL_MARKET_URL = 'http://127.0.0.1:17321';
 
 // Keep one client identity while falling back so in-flight UI operations stay valid.
 export class PublicMarketClient {
-  constructor(fetchImpl, { sources = [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL], session = {}, probeTimeoutMs = 2500, ...options } = {}) {
+  constructor(fetchImpl, { sources = [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL], mirror = '', session = {}, probeTimeoutMs = 2500, ...options } = {}) {
+    if (mirror) sources = [mirror, ...sources];
     this.clients = sources.map(baseUrl => new MarketClient({ ...options, baseUrl, fetchImpl }));
     this.active = this.clients[0];
     this.session = session;
+    this.mirror = mirror;
     this.probeTimeoutMs = probeTimeoutMs;
     this.fetchImpl = fetchImpl;
     this.options = options;
   }
   get baseUrl() { return this.active.baseUrl; }
   start() {
-    if (!this.clients.some(client => client.baseUrl === GITHUB_MARKET_URL)) return Promise.resolve();
     return this.session.probe ||= (async () => {
-      try {
-        await new MarketClient({ ...this.options, baseUrl: GITHUB_MARKET_URL, fetchImpl: this.fetchImpl,
-          timeoutMs: Math.min(this.probeTimeoutMs, this.options.timeoutMs || this.probeTimeoutMs) }).getCatalog();
-      } catch { this.session.githubPoor = true; }
+      for (const client of this.clients.filter(client => [this.mirror, GITHUB_MARKET_URL].includes(client.baseUrl))) {
+        try {
+          await new MarketClient({ ...this.options, baseUrl: client.baseUrl, fetchImpl: this.fetchImpl,
+            timeoutMs: Math.min(this.probeTimeoutMs, this.options.timeoutMs || this.probeTimeoutMs) }).getCatalog();
+          return;
+        } catch { this.markUnavailable(client); }
+      }
     })();
   }
-  eligible() { return this.clients.filter(client => !(this.session.githubPoor && client.baseUrl === GITHUB_MARKET_URL)); }
+  markUnavailable(client) {
+    if (client.baseUrl === GITHUB_MARKET_URL) this.session.githubPoor = true;
+    if (client.baseUrl === this.mirror) this.session.mirrorPoor = true;
+  }
+  eligible() {
+    return this.clients.filter(client => !(this.session.githubPoor && client.baseUrl === GITHUB_MARKET_URL)
+      && !(this.session.mirrorPoor && client.baseUrl === this.mirror));
+  }
   async attempt(clients, action) {
     const failures = [];
     for (const client of clients) {
       try { const result = await action(client); this.active = client; return result; }
       catch (error) {
-        if (client.baseUrl === GITHUB_MARKET_URL) this.session.githubPoor = true;
+        this.markUnavailable(client);
         failures.push(`${marketServerLabel(client.baseUrl)}：${userErrorMessage(error)}`);
       }
     }
@@ -55,7 +66,7 @@ export class PublicMarketClient {
 export function createMarketConnection(settings, fetchImpl, onError = () => {}, { development = DEVELOPMENT } = {}) {
   const session = {};
   if (!development) {
-    const client = new PublicMarketClient(fetchImpl, { session });
+    const client = new PublicMarketClient(fetchImpl, { session, mirror: UPDATE_MIRROR && UPDATE_MIRROR + '/plugins' });
     return { get: () => client, start: () => client.start(), set() { throw new Error('公开版自动连接插件市场。'); } };
   }
   const create = baseUrl => baseUrl === '' ? null : new MarketClient({ baseUrl, fetchImpl });

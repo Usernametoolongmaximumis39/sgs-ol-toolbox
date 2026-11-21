@@ -1,12 +1,10 @@
-import { CONTROL_STYLES, controlIcon, styleSwitch } from '../../ui/controls.js';
-import { account } from '../../shared/info-runtime.js';
 import { bindVoicesInOrder, DEATH_VOICE, isAutomaticSkillVoice, isBindableVoice, loadCardSkills, NATIVE_VOICE,
   normalizeVoiceOptions, remapVoiceBindings, resolveVoiceBindings, skinVoiceFormKey, updateVoiceBindingsForForms,
   unmatchedSkillClips, voiceBindingsForForm, voiceClipKey } from './cross-voice.js';
-import { loadYjcmHead, loadYjcmPreview, loadYjcmWindow, yjcmVoiceReference } from './yjcm.js';
+import { loadYjcmArtwork, loadYjcmHead, loadYjcmPreview, loadYjcmWindow, yjcmVoiceReference } from './yjcm.js';
 import { previewSeatMotion, previewYjcmMotion } from './yjcm-motion.js';
 import { createYjcmEffectPicker, EFFECT_PICKER_STYLES } from './yjcm-effect-picker.js';
-import { loadMobileAudio, loadMobileHead, loadMobileMotion, loadMobilePreview } from './mobile-skins.js';
+import { loadMobileArtwork, loadMobileAudio, loadMobileHead, loadMobileMotion, loadMobilePreview } from './mobile-skins.js';
 import { formLabel } from './form-label.js';
 
 const pageSize = 36;
@@ -17,7 +15,8 @@ const skinKeyForDraft = entry => JSON.stringify(skinReference(entry));
 const styles = `
 :host{color-scheme:var(--sgs-scheme,dark)}
 dialog{box-sizing:border-box;width:min(486px,calc(100% - 24px));max-width:none;max-height:calc(100% - 24px);margin:auto;padding:0;overflow:hidden;border:1px solid var(--sgs-border,#665b42);border-radius:14px;background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc);box-shadow:0 18px 54px #0008;font:calc(14px + var(--sgs-font-offset,0px))/1.45 var(--sgs-font,"Microsoft YaHei",sans-serif)}
-dialog[open]{display:flex;flex-direction:column}
+/* Chromium 85 leaves the automatic modal position at its initial value when content grows. */
+dialog[open]{position:fixed;top:0;right:0;bottom:0;left:0;height:fit-content;display:flex;flex-direction:column}
 dialog::backdrop{background:#0a0806a8}
 dialog[data-seat-preview]::backdrop{background:#0a080630}
 .head,.footer{display:flex;align-items:center;justify-content:space-between;gap:.65em;padding:.65em 1em;flex:none}
@@ -51,6 +50,10 @@ input::-webkit-search-cancel-button{filter:grayscale(1);cursor:pointer}
 .skin-forms{grid-column:1/-1;min-width:0;overflow-x:auto;overscroll-behavior-x:contain}
 .skin-forms>button{flex:1 0 auto;min-height:33px;font-size:.88em;white-space:nowrap}
 .rules{grid-column:1/-1;justify-self:start;min-height:32px;white-space:nowrap}
+.skin-background{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:.35em .65em;min-width:0}
+.skin-background button{flex:none;white-space:nowrap}
+.skin-background button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);border-color:var(--sgs-accent,#dbba70);background:var(--sgs-raised,#332d23)}
+.skin-background p{flex:1 1 12em;min-width:0;color:var(--sgs-danger,#e68780);font-size:.88em}
 .art{position:relative;display:grid;place-items:center;aspect-ratio:3/4;overflow:hidden;border-radius:7px;background:var(--sgs-surface,#2c2922)}
 .art img{width:100%;height:100%;object-fit:contain;min-height:0}
 .art canvas{position:absolute;inset:0;width:100%;height:100%;background:var(--sgs-surface,#2c2922)}
@@ -99,11 +102,11 @@ export function createYjcmPicker(ctx, local, openForms) {
     if (ctx.scope.signal.aborted) return;
     closeCurrent?.();
     const { document: doc, window: win, scope } = ctx;
-    const accountId = account(ctx).id;
+    const accountId = ctx.native.account().id;
     const matchScene = target && ctx.game.getScene?.();
     const recipient = target ?? general;
     const canApply = Boolean(target || (general && accountId));
-    const sameContext = () => account(ctx).id === accountId && (!target || matchScene === ctx.game.getScene?.());
+    const sameContext = () => ctx.native.account().id === accountId && (!target || matchScene === ctx.game.getScene?.());
     const binding = local.portraitBinding(recipient, kind);
     const draftPrefix = accountId && Number.isSafeInteger(recipient?.id) && recipient.id > 0
       ? `skinPickerDraft.${accountId}.${recipient.isSelf === false ? 'other' : 'self'}.${recipient.id}.${kind}` : null;
@@ -120,8 +123,9 @@ export function createYjcmPicker(ctx, local, openForms) {
     const toolbox = doc.querySelector('[data-sgs-toolbox="core"]');
     if (toolbox) host.style.setProperty('--sgs-font-offset', win.getComputedStyle(toolbox).getPropertyValue('--sgs-font-offset'));
     const shadow = host.attachShadow({ mode: 'open' });
+    const offStyles = ctx.ui.mountStyles(shadow);
     const style = doc.createElement('style');
-    style.textContent = CONTROL_STYLES + styles + EFFECT_PICKER_STYLES;
+    style.textContent = styles + EFFECT_PICKER_STYLES;
     const dialog = doc.createElement('dialog');
     dialog.setAttribute('aria-labelledby', 'yjcm-title');
     dialog.toggleAttribute('data-seat-preview', Boolean(target));
@@ -142,6 +146,10 @@ export function createYjcmPicker(ctx, local, openForms) {
           </div>
           <div class="skin-forms sgs-segments" role="group" aria-label="皮肤形态" hidden></div>
           <button type="button" class="rules" hidden>形态规则</button>
+          <div class="skin-background" hidden>
+            <button type="button" title="使用当前形态的横版皮肤，仅自己可见">设为牌局背景</button>
+            <p role="status" hidden></p>
+          </div>
           <div class="voice">
             <div class="voice-head"><strong>配音</strong><button class="bind-all" type="button" hidden>一键绑定</button></div>
             <p class="voice-hint" role="status"></p>
@@ -170,6 +178,7 @@ export function createYjcmPicker(ctx, local, openForms) {
       </div>
       <footer class="footer"><p role="status"></p><button type="button" disabled>使用皮肤</button></footer>`;
     shadow.append(style, dialog);
+    const body = dialog.querySelector('.body');
     const input = dialog.querySelector('input'), results = dialog.querySelector('.results'), count = dialog.querySelector('.count');
     const retryIndex = dialog.querySelector('.index-retry');
     const categories = dialog.querySelector('.categories');
@@ -179,6 +188,8 @@ export function createYjcmPicker(ctx, local, openForms) {
     const details = dialog.querySelector('.load-error'), error = details.querySelector('p'), errorTitle = details.querySelector('summary');
     const note = dialog.querySelector('.footer p'), apply = dialog.querySelector('.footer button'), close = dialog.querySelector('.close');
     const selection = dialog.querySelector('.selection'), art = dialog.querySelector('.art'), artStatus = dialog.querySelector('.art-status');
+    const background = selection.querySelector('.skin-background'), backgroundButton = background.querySelector('button');
+    const backgroundStatus = background.querySelector('p');
     const selectionTitle = selection.querySelector('h3'), resumeDraft = selection.querySelector('.resume-draft');
     const bindAll = dialog.querySelector('.bind-all'), hint = dialog.querySelector('.voice-hint');
     const sourceSkills = dialog.querySelector('.voice-source'), ownSkills = dialog.querySelector('.voice-own');
@@ -188,15 +199,16 @@ export function createYjcmPicker(ctx, local, openForms) {
     const audio = dialog.querySelector('audio'), playbackStatus = dialog.querySelector('.voice-playback');
     const formButton = dialog.querySelector('.rules'), formList = dialog.querySelector('.skin-forms');
     const audioOptions = dialog.querySelector('.voice-extras'), victoryHint = audioOptions.querySelector('small');
-    const [cardVoice, victoryVoice] = [...audioOptions.querySelectorAll('input')].map(styleSwitch);
+    const [cardVoice, victoryVoice] = [...audioOptions.querySelectorAll('input')].map(ctx.ui.styleSwitch);
     const [cardOption, victoryOption] = audioOptions.querySelectorAll('.voice-option');
-    close.append(controlIcon(doc, 'close'));
+    close.append(ctx.ui.icon('close'));
     const idleNote = target ? target.label + ' · 仅自己可见' :
       general ? (accountId ? general.name + ' · 局内仅自己可见' : '登录后可保存到下次对局。') : '';
     note.textContent = idleNote;
     apply.hidden = !recipient;
     if (general) apply.textContent = '下次使用';
     let request, previewRequest, seatPreviewError, matches = [], selected, searchResult, chosenCategory;
+    let backgroundRequest, backgroundProbe, backgroundBlob, backgroundKey;
     let remainingDraft, autoLocate = true;
     let catalogue = mobile ? undefined : sourceCatalogue.current;
     let voices = [], artVoices = [], skills, source, voiceConfig = {}, bindings = {};
@@ -224,7 +236,7 @@ export function createYjcmPicker(ctx, local, openForms) {
       return drafts.get(key);
     }
     function rememberView() {
-      if (!resumeKey || !artwork || account(ctx).id !== accountId || !Object.keys(skinDraft(artwork)).length) return;
+      if (!resumeKey || !artwork || ctx.native.account().id !== accountId || !Object.keys(skinDraft(artwork)).length) return;
       setDraftSetting(resumeKey, {
         skin: skinReference(artwork), query: input.value, category: chosenCategory,
         voice: voiceOnly && shownGroup && { ...skinReference(shownGroup), form: skinVoiceFormKey(shownEntry, shownForm + 1) },
@@ -235,7 +247,7 @@ export function createYjcmPicker(ctx, local, openForms) {
       if (!artwork) return;
       const draft = { ...skinDraft(artwork), ...changes };
       drafts.set(skinKeyForDraft(artwork), draft);
-      if (draftPrefix && account(ctx).id === accountId) {
+      if (draftPrefix && ctx.native.account().id === accountId) {
         setDraftSetting(draftStorageKey(artwork), draft);
         rememberView();
       }
@@ -245,16 +257,16 @@ export function createYjcmPicker(ctx, local, openForms) {
       if (ruleEdit) {
         const draft = { ruleEdit, form };
         drafts.set(skinKeyForDraft(entry), draft);
-        if (draftPrefix && account(ctx).id === accountId) setDraftSetting(draftStorageKey(entry), draft);
+        if (draftPrefix && ctx.native.account().id === accountId) setDraftSetting(draftStorageKey(entry), draft);
         return;
       }
       drafts.set(skinKeyForDraft(entry), {});
-      if (!resumeKey || account(ctx).id !== accountId) return;
+      if (!resumeKey || ctx.native.account().id !== accountId) return;
       setDraftSetting(draftStorageKey(entry), null);
       const last = ctx.settings.get(resumeKey, null)?.skin;
       if (last && skinKeyForDraft(last) === skinKeyForDraft(entry)) setDraftSetting(resumeKey, null);
     }
-    let picked, demo, demoToggle;
+    let picked, demo, demoToggle, inheritedEffects;
     let skinKey, playback, lastAudition;
     const skillRequest = recipient ? loadCardSkills(ctx, recipient.id, { includeDerived: true }).catch(() => null) : Promise.resolve([]);
     let headRequests = new win.AbortController();
@@ -279,7 +291,7 @@ export function createYjcmPicker(ctx, local, openForms) {
     }, { root: results, rootMargin: '36px 0px' });
     const listeners = [];
     const listen = (...args) => listeners.push(scope.listen(...args));
-    const effectPicker = createYjcmEffectPicker({ document: doc, window: win, listen, canBind: canApply,
+    const effectPicker = createYjcmEffectPicker({ document: doc, window: win, icon: ctx.ui.icon, listen, canBind: canApply,
       onChange(config) { editDraft({ effects: config }); },
       beforePreview() { stopVoice(); clearDemo(); },
     });
@@ -306,7 +318,37 @@ export function createYjcmPicker(ctx, local, openForms) {
       formButton.hidden = !openForms || !canApply || !hasForms;
       updateAudioOptions();
       effectPicker?.setVisible(!voiceOnly);
+      updateBackground();
       clearStatus();
+    }
+    function updateBackground() {
+      const entry = !voiceOnly && !picked?.loading && activeArtwork;
+      const hasArt = mobile ? entry?.art : entry?.assets?.length;
+      const key = hasArt && ctx.backgrounds?.canSelectSkinImage?.()
+        ? JSON.stringify([kind, artwork.general, artwork.id, skinVoiceFormKey(entry, artForm + 1)]) : null;
+      if (key !== backgroundKey) {
+        backgroundRequest?.abort();
+        backgroundProbe?.abort();
+        backgroundRequest = null;
+        backgroundBlob = null;
+        backgroundStatus.hidden = true;
+        backgroundStatus.textContent = '';
+        backgroundKey = key;
+        if (key) {
+          const { signal } = backgroundProbe = new win.AbortController();
+          const loadArtwork = mobile ? loadMobileArtwork : loadYjcmArtwork;
+          void loadArtwork(win, entry, signal).then(blob => {
+            if (signal.aborted) return;
+            backgroundBlob = blob;
+            updateBackground();
+          }).catch(() => {});
+        }
+      }
+      background.hidden = !backgroundBlob;
+      const saved = Boolean(key && ctx.backgrounds.current?.skinKey === key);
+      backgroundButton.disabled = Boolean(backgroundRequest);
+      backgroundButton.setAttribute('aria-pressed', String(saved));
+      backgroundButton.textContent = backgroundRequest ? '正在保存背景…' : saved ? '已设为牌局背景' : '设为牌局背景';
     }
     function stopVoice() {
       playback?.controller?.abort();
@@ -390,10 +432,13 @@ export function createYjcmPicker(ctx, local, openForms) {
     };
     syncTheme(ctx.themes?.current);
     const offTheme = ctx.themes?.subscribe(syncTheme);
+    const offBackground = ctx.backgrounds?.subscribe?.(updateBackground);
     const release = scope.add(() => {
       rememberView();
       closeCurrent = null;
       request?.abort();
+      backgroundRequest?.abort();
+      backgroundProbe?.abort();
       closeRules?.();
       previewRequest?.abort();
       effectPicker?.stop();
@@ -401,12 +446,39 @@ export function createYjcmPicker(ctx, local, openForms) {
       request = null;
       clearHeads();
       offTheme?.();
+      offBackground?.();
       for (const off of listeners) off();
       if (dialog.open) dialog.close();
+      offStyles();
       host.remove();
-      if (trigger?.isConnected) trigger.focus();
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
     });
     closeCurrent = release;
+    listen(backgroundButton, 'click', async () => {
+      updateBackground();
+      if (!backgroundBlob || backgroundRequest) return;
+      const key = backgroundKey, entry = activeArtwork;
+      const name = !mobile && catalogue.skinForms(artwork).length > 1
+        ? `${skinLabel(entry)} · ${formLabel(artForm + 1)}` : skinLabel(entry);
+      const pending = backgroundRequest = new win.AbortController();
+      const { signal } = pending;
+      backgroundStatus.hidden = true;
+      updateBackground();
+      try {
+        const blob = backgroundBlob;
+        const file = new win.File([blob], name, { type: blob.type });
+        await ctx.backgrounds.selectSkinImage(file, key, Boolean(entry.mobileMotion || entry.motion), signal);
+      } catch (failure) {
+        if (signal.aborted) return;
+        backgroundStatus.textContent = failure.message;
+        backgroundStatus.hidden = false;
+      } finally {
+        if (backgroundRequest === pending && !signal.aborted) {
+          backgroundRequest = null;
+          updateBackground();
+        }
+      }
+    });
     listen(formButton, 'click', () => {
       const entry = artwork;
       if (formButton.hidden || request) return;
@@ -625,7 +697,7 @@ export function createYjcmPicker(ctx, local, openForms) {
           const label = doc.createElement('span');
           label.textContent = victories.length === 1 ? '胜利配音' : voice.name;
           button.setAttribute('aria-label', '试听' + label.textContent);
-          button.replaceChildren(controlIcon(doc, 'play'), label);
+          button.replaceChildren(ctx.ui.icon('play'), label);
         }
         const group = voice.kind === 'card' ? sourceCards : voice.kind === 'victory' ? sourceVictory :
           voice.kind === 'unidentified' ? sourceUnidentified : sourceSkills;
@@ -655,10 +727,15 @@ export function createYjcmPicker(ctx, local, openForms) {
       const saved = bindingFor(entry);
       artwork = entry;
       if (changing) {
-        const savedForm = mobile && saved ? String(saved.form ?? resolveReference(saved)?.number ?? saved.id) : undefined;
+        const savedEntry = mobile && saved ? resolveReference(saved) : undefined;
+        const savedForm = mobile && saved ? String(saved.form ?? savedEntry?.number ?? saved.id) : undefined;
         artForm = formIndex(entry, draft.form ?? savedForm);
         voiceConfig = draft.bindings ?? saved?.bindings ?? {};
-        effectPicker.show(variants, draft.effects ?? local.effectBindings?.(recipient, entry));
+        const savedEffects = entry.mobileFamily && savedEntry && savedEntry !== entry
+          ? local.effectBindings?.(recipient, savedEntry) : undefined;
+        const currentEffects = local.effectBindings?.(recipient, entry);
+        inheritedEffects = savedEffects && Object.keys(savedEffects).length ? { ...savedEffects, ...currentEffects } : undefined;
+        effectPicker.show(variants, draft.effects ?? inheritedEffects ?? currentEffects);
       }
       selectionTitle.textContent = entry.name;
       effectPicker.setForm(artForm + 1);
@@ -690,7 +767,7 @@ export function createYjcmPicker(ctx, local, openForms) {
         const button = doc.createElement('button');
         button.type = 'button';
         button.dataset.form = i;
-        button.textContent = formLabel(i + 1);
+        button.textContent = form.formButtonLabel ?? formLabel(i + 1);
         if (form.formName && form.formName !== button.textContent) button.title = form.formName;
         return button;
       })));
@@ -709,6 +786,11 @@ export function createYjcmPicker(ctx, local, openForms) {
       unidentifiedVoices.open = false;
       selection.hidden = !artwork;
       if (!artwork) return;
+      const button = formList.children[index];
+      if (button && shownEntry?.mobileFamily) {
+        const list = formList.getBoundingClientRect(), item = button.getBoundingClientRect();
+        formList.scrollLeft += Math.min(0, item.left - list.left) + Math.max(0, item.right - list.right);
+      }
       showSkills();
     }
     listen(formList, 'click', event => {
@@ -772,7 +854,7 @@ export function createYjcmPicker(ctx, local, openForms) {
         selection.append(demoToggle);
       }
       async function loadMatchPreview() {
-        if (matchScene !== ctx.game.getScene?.() || account(ctx).id !== accountId) return;
+        if (matchScene !== ctx.game.getScene?.() || ctx.native.account().id !== accountId) return;
         const seatImage = local.previewYjcm(target, entry, pending.signal).catch(failure => {
           if (pending.signal.aborted) return;
           seatPreviewError = failure.message;
@@ -872,7 +954,8 @@ export function createYjcmPicker(ctx, local, openForms) {
       effectPicker.root.open = view ? view.effectOpen === true : !effectPicker.root.hidden;
       updateApply();
       selection.focus({ preventScroll: true });
-      selection.scrollIntoView({ block: 'start' });
+      // Scroll only the picker when restoring a saved skin or draft.
+      body.scrollTop += selection.getBoundingClientRect().top - body.getBoundingClientRect().top;
     }
     function showCatalogue() {
       if (!sameContext() || !autoLocate) { search(); return; }
@@ -975,7 +1058,7 @@ export function createYjcmPicker(ctx, local, openForms) {
     listen(apply, 'click', async () => {
       if (!canApply || !artwork || request || picked?.loading) return;
       const entry = artwork;
-      const effects = skinDraft(entry).effects;
+      const effects = skinDraft(entry).effects ?? inheritedEffects;
       const startingForm = mobile && artForm > 0 ? activeArtwork.number ?? activeArtwork.id : undefined;
       const audio = mobile ? { card: cardVoice.checked, victory: victoryVoice.checked } : undefined;
       const pending = request = new win.AbortController();
@@ -984,7 +1067,7 @@ export function createYjcmPicker(ctx, local, openForms) {
       effectPicker?.setBusy(true);
       input.disabled = apply.disabled = true;
       try {
-        if (account(ctx).id !== accountId) throw new Error('游戏账号已切换，请重新打开皮肤选择。');
+        if (ctx.native.account().id !== accountId) throw new Error('游戏账号已切换，请重新打开皮肤选择。');
         if (general) {
           local.rememberYjcm(general.id, entry, voiceConfig, formConfig(entry), effects, startingForm, audio);
           discardDraft(entry);

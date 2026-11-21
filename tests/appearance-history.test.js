@@ -36,6 +36,37 @@ test('history: does not import historical games without a locally observed openi
  assert.equal(mergeHistory([],[],data([row]),now).matches.length,0);
 });
 
+test('history: repairs the ranked teammate selection and missing result only on unique official roster evidence', () => {
+  const official = { game_id: '123', label_mode: 13203, game_time: 141, game_result: 0,
+    game_over_time: row.ended, used_general: [101], real_seat_id: 3, all_used_general: [
+      { real_seatid: 2, general_id: [4] }, { real_seatid: 0, general_id: [102] },
+      { real_seatid: 3, general_id: [101] }, { real_seatid: 1, general_id: [3] },
+    ] };
+  const reply = (...rows) => projectHistory({ Protocol: { query_uid: 41, id: 26, all_record: rows } });
+  const frame = { id: 'ranked-misattributed', mode: 26, source: 'toolbox', rawMode: 132, rawGroup: 3,
+    time: endedAt - 155000, seat: 0, position: 1, selected: [102], general: [101, 102, 103] };
+  const corrected = mergeHistory([frame], [], reply(official), now);
+  assert.equal(corrected.added, 1);
+  assert.deepEqual(corrected.records, [{ ...frame, seat: 3, position: 4, selected: [101] }]);
+  assert.equal(corrected.matches[0].id, frame.id);
+  assert.deepEqual(corrected.matches[0].general, [101]);
+  assert.equal(corrected.matches[0].result, 0);
+  assert.equal(corrected.matches[0].duration, 141);
+  assert.equal(mergeHistory(corrected.records, corrected.matches, reply(official), now).added, 0);
+  assert.equal(mergeHistory(corrected.records, corrected.matches, reply({ ...official, game_id: '124' }), now).matches.length, 1);
+
+  for (const [records, matches, response] of [
+    [[frame, { ...frame, id: 'second-local-frame' }], [], reply(official)],
+    [[frame], [], reply(official, { ...official, game_id: '124' })],
+    [[frame], [], reply({ ...official, all_used_general: [] })],
+    [[frame], [], reply({ ...official, real_seat_id: 0 })],
+    [[{ ...frame, general: [102, 103] }], [], reply(official)],
+    [[frame], [{ ...frame, general: [102], result: 0 }], reply(official)],
+  ]) {
+    assert.deepEqual(mergeHistory(records, matches, response, now).records, records);
+  }
+});
+
 test('history: a null or missing-general official entry cannot discard valid rows in the same response', () => {
  const projected=projectHistory({Protocol:{query_uid:41,id:35,all_record:[null,
   {game_id:'1',label_mode:14803},

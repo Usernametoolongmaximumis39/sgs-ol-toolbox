@@ -1,6 +1,6 @@
+import { read } from '../../shared/safe-read.js';
 // Official ff_task_daily schema and the native per-tier claim methods.
 // Read current server time/points/owned rights; never activate or buy a pass.
-const read = fn => { try { return fn(); } catch { return undefined; } };
 const positive = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
 const list = value => Array.isArray(value) ? value.slice(0, 4096) : [];
 const has = (value, id) => Array.isArray(value) && value.some(item => Number(item) === id);

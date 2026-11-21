@@ -1,8 +1,12 @@
 import { findSkinDetail, supportsSkinBackgroundAttack, watchSkinDetail } from '../../shared/skin-detail.js';
+import { scopedStyles } from '../../shared/scoped-styles.js';
+import { isTyping, matchesShortcut, shortcutLabel } from '../../shared/keyboard-shortcut.js';
+
+const nativeSkinShortcut = { code: 'KeyK', ctrl: true, alt: true };
 
 export const manifest = {
-  id: 'backgrounds', name: '自定义背景', version: '0.2.8', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "适配皮肤管理中的背景快捷设置。背景图片和动态资源按需联网加载。", minCoreVersion: '0.6.105', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
+  id: 'backgrounds', name: '自定义背景', version: '0.2.11', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "可从皮肤详情直接把支持的横版皮肤设为牌局背景。支持的动态背景循环播放待机动画，原画和动态资源按需联网加载。", minCoreVersion: '0.6.206', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
   icon: { paths: ['M3 4h18v16H3Z', 'M3 16 9 10l4 4 3-3 5 5', 'M16 7h1'] },
   description: '将本地图片或游戏皮肤用作牌局背景，保留天气与武将技能背景',
 };
@@ -23,6 +27,12 @@ const STYLES = `
 [data-sgs-backgrounds] .bg-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 [data-sgs-backgrounds] .bg-actions button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;padding:5px 8px;white-space:nowrap}
 [data-sgs-backgrounds] .bg-actions .bg-picker{color:var(--sgs-accent);border-color:var(--sgs-accent)}
+[data-sgs-backgrounds] .bg-skin-links{display:grid;gap:6px;margin-bottom:10px;min-width:0}
+[data-sgs-backgrounds] .bg-skin-sources{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+[data-sgs-backgrounds] .bg-skin-links button{display:flex;align-items:center;justify-content:center;gap:5px;min-height:32px;padding:5px 7px;white-space:nowrap;font-size:calc(12px + var(--sgs-font-offset,0px))}
+[data-sgs-backgrounds] .bg-skin-links svg{flex:0 0 13px;width:13px;height:13px}
+[data-sgs-backgrounds] button[data-skin-source=native]{justify-content:space-between}
+[data-sgs-backgrounds] .bg-skin-links kbd{flex:none;padding:1px 5px;border:1px solid var(--sgs-border);border-radius:4px;color:var(--sgs-muted);font:inherit;font-size:.88em;line-height:1.35}
 [data-sgs-backgrounds] .bg-local-note{margin:6px 0 0}
 [data-sgs-backgrounds] .sgs-segments{flex:1;min-width:0}
 [data-sgs-backgrounds] .sgs-segments>button{border:0;border-radius:5px;background:transparent;padding:6px;color:var(--sgs-muted)}
@@ -73,13 +83,23 @@ export function skinBackgroundSpec(owner, animated = true, attackEffects = true)
 export function activate(ctx) {
   ctx.backgrounds.register();
   const doc = ctx.document;
+  function openSkin(source, trigger) {
+    try { return ctx.skinWindows.open(source, trigger); }
+    catch (error) { ctx.notify(error.message); }
+  }
+  ctx.scope.listen(doc, 'keydown', event => {
+    if (event.defaultPrevented || event.repeat || event.isComposing || !matchesShortcut(event, nativeSkinShortcut) || isTyping(event)) return;
+    event.preventDefault();
+    openSkin('native');
+  });
   const animated = () => {
     const current = ctx.backgrounds.current;
     return ctx.settings.get('animated', current?.localImageId ? true : current?.animated !== false) !== false;
   };
   const attackEffects = () => ctx.settings.get('attackEffects', ctx.backgrounds.current?.attackEffects !== false) !== false;
   const element = (tag, text, cls) => { const node = doc.createElement(tag); if (text) node.textContent = text; if (cls) node.className = cls; return node; };
-  const style = element('style'); style.textContent = STYLES; (doc.head || doc.documentElement).append(style); ctx.scope.add(() => style.remove());
+  const mountStyle = scopedStyles(doc, ctx.scope, STYLES);
+  mountStyle(doc);
   const floating = element('div', '', 'bg-skin-action'); floating.dataset.sgsBackgrounds = '';
   const use = element('button', '作为牌局背景'); use.type = 'button'; floating.append(use); floating.hidden = true;
   (doc.body || doc.documentElement).append(floating); ctx.scope.add(() => floating.remove());
@@ -135,7 +155,7 @@ export function activate(ctx) {
   ctx.scope.interval(refreshButton, 200); refreshButton();
   ctx.ui.registerPanel({ id: 'main', category: 'appearance', render(container) {
     const root = element('div'); root.dataset.sgsBackgrounds = '';
-    const panelStyle = element('style'); panelStyle.textContent = STYLES; root.append(panelStyle);
+    mountStyle(container);
     const name = element('div', '', 'bg-name'), status = element('p', '', 'bg-note'); status.setAttribute('role', 'status');
     const mode = element('div', '', 'bg-mode');
     const segments = element('div', '', 'sgs-segments'); segments.setAttribute('role', 'group'); segments.setAttribute('aria-label', '背景播放');
@@ -148,6 +168,32 @@ export function activate(ctx) {
     const attackRow = element('label', '', 'bg-attack');
     attackRow.append(element('span', '攻击特效'), attack);
     const capability = element('p', '', 'bg-note');
+    const skinLinks = element('div', '', 'bg-skin-links');
+    skinLinks.setAttribute('role', 'group'); skinLinks.setAttribute('aria-label', '皮肤入口');
+    const sources = element('div', '', 'bg-skin-sources');
+    function skinButton(source, label) {
+      const button = element('button', label);
+      button.type = 'button'; button.dataset.skinSource = source;
+      return button;
+    }
+    for (const [source, label] of [['cross', '一将皮肤'], ['mobile', '手杀皮肤']]) {
+      const button = skinButton(source, label);
+      button.prepend(ctx.ui.icon('search'));
+      button.title = '搜索' + label;
+      sources.append(button);
+    }
+    const native = skinButton('native', '本服皮肤管理');
+    native.setAttribute('aria-keyshortcuts', 'Control+Alt+K');
+    native.append(element('kbd', shortcutLabel(nativeSkinShortcut).replaceAll(' ', '')));
+    skinLinks.append(sources, native);
+    let closeCatalogue;
+    const openFromPanel = event => {
+      const button = event.target.closest('button[data-skin-source]');
+      if (!button) return;
+      closeCatalogue?.();
+      closeCatalogue = openSkin(button.dataset.skinSource, button);
+    };
+    skinLinks.addEventListener('click', openFromPanel);
     const reset = element('button', '恢复游戏背景'); reset.type = 'button';
     const picker = element('button', '', 'bg-picker'); picker.type = 'button';
     picker.title = '支持 PNG、JPG、WebP 和 BMP 静态图片，最大 20 MB';
@@ -161,19 +207,20 @@ export function activate(ctx) {
     const update = () => {
       const current = ctx.backgrounds.current;
       const local = Boolean(current?.localImageId);
+      const skinMotion = current?.skinMotion === true;
       name.textContent = current?.name || '尚未选择背景'; name.title = name.textContent;
       status.textContent = ctx.backgrounds.status; reset.disabled = !current || importing;
       picker.disabled = importing; pickerLabel.textContent = importing ? '正在读取图片…' : '选择本地图片';
       error.textContent = importError; error.hidden = !importError;
-      mode.hidden = capability.hidden = local;
+      mode.hidden = capability.hidden = local && !skinMotion;
       dynamic.setAttribute('aria-pressed', String(animated())); still.setAttribute('aria-pressed', String(!animated()));
       attackRow.hidden = local || !supportsSkinBackgroundAttack(current?.dynamic);
       attack.disabled = !animated(); attack.checked = attackEffects();
-      capability.textContent = !current ? '也可在皮肤详情中选择「作为牌局背景」。' : current.dynamic ? '此皮肤支持动态背景。' : current.dynamic === null ? '此皮肤没有动态，使用静态原画。' : '尚未识别此背景的动态；请在皮肤详情重新选择。';
+      capability.textContent = !current ? '也可在皮肤详情中选择「作为牌局背景」。' : skinMotion ? '动态背景循环播放待机动画。' : current.dynamic ? '此皮肤支持动态背景。' : current.dynamic === null ? '此皮肤没有动态，使用静态原画。' : '尚未识别此背景的动态；请在皮肤详情重新选择。';
     };
     const change = value => {
       ctx.settings.set('animated', value);
-      if (ctx.backgrounds.current) ctx.backgrounds.select({ ...ctx.backgrounds.current, animated: value });
+      ctx.backgrounds.setAnimated(value);
       update(); refreshButton();
     };
     const chooseDynamic = () => change(true), chooseStill = () => change(false);
@@ -203,9 +250,10 @@ export function activate(ctx) {
     attack.addEventListener('change', changeAttack);
     updatePanel = update;
     const release = ctx.backgrounds.subscribe(update); update();
-    root.append(name, status, mode, attackRow, capability, actions, localNote, error); container.append(root);
+    root.append(name, status, mode, attackRow, capability, skinLinks, actions, localNote, error); container.append(root);
     return () => {
       if (updatePanel === update) updatePanel = null;
+      closeCatalogue?.(); skinLinks.removeEventListener('click', openFromPanel);
       release(); reset.removeEventListener('click', click);
       picker.removeEventListener('click', openFile); input.removeEventListener('change', importFile);
       dynamic.removeEventListener('click', chooseDynamic); still.removeEventListener('click', chooseStill);

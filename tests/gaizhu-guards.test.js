@@ -1,4 +1,5 @@
 import { createNative } from '../src/plugins/gaizhu/native.js';
+import { createPluginNative } from '../src/core/plugin-native.js';
 import { createSpecialWindows } from '../src/plugins/gaizhu/special-windows.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -172,7 +173,9 @@ test('guards: Fire Attack handles only native fire-attack response and never inv
 test('guards: detached cached special windows are excluded by native frame display membership', () => {
   const cached={name:'JinLan2025Window',visible:true,contentSprite:{_children:[]}},scene={name:'GameScene',SelfSeatUi:{},_children:[]};
   const wm={WindowInstanceDict:new Map([['JinLan2025Window',cached]])};
-  const native=createNative({game:{getScene:()=>scene,getClass:name=>name==='WindowManager'?wm:null},window:{Laya:{stage:{_children:[scene]}}}});
+  const ctx={game:{getScene:()=>scene,getClass:name=>name==='WindowManager'?wm:null},window:{Laya:{stage:{_children:[scene]}}}};
+  ctx.native=createPluginNative(ctx);
+  const native=createNative(ctx);
   assert.ok(!native.frame().nodes.includes(cached));
 });
 

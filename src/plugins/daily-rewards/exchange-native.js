@@ -1,5 +1,5 @@
+import { read } from '../../shared/safe-read.js';
 import { LANDLORD_BEAN, exchangeEligible } from './exchange.js';
-const read = fn => { try { return fn(); } catch { return undefined; } };
 export const managerSpecs = {
   ActivityGameDataManager: { events: ['ClientFightLordGoodsLimitInfoRep', 'ClientExchangeFightLordGoodsRep'],
     guard: value => typeof value.ReqDdzShopListGeneralPoolList === 'function' && typeof value.GetDdzHasBuyCountByItemID === 'function' },

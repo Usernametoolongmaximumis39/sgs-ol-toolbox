@@ -1,5 +1,3 @@
-import { CONTROL_STYLES, styleSwitch } from '../../ui/controls.js';
-
 const options = [
   ['advanced', '高级皮肤整理', true],
   ['quickDownload', '快速下载原图', true, 'advanced'],
@@ -12,8 +10,7 @@ const options = [
 ];
 
 const styles = `
-[data-sgs-skin-settings]{display:grid;gap:.42em;min-width:0;line-height:1.4}
-[data-sgs-skin-settings] [hidden]{display:none!important}
+[data-sgs-skin-settings]{display:grid;gap:.42em;min-width:0;font:inherit;line-height:1.4}
 [data-sgs-skin-settings] .skin-option{display:flex;align-items:center;justify-content:space-between;gap:.6em;min-height:27px;cursor:pointer}
 [data-sgs-skin-settings] .skin-option.is-disabled{color:var(--sgs-muted);cursor:default}
 [data-sgs-skin-settings] .skin-children{display:grid;border-inline-start:1px solid var(--sgs-border);padding-inline-start:.7em;margin-inline-start:.15em}
@@ -31,28 +28,21 @@ const styles = `
 `;
 
 export function renderSkinPanel(ctx, local, reconfigure, container, openYjcm, openForms, openMobile) {
-  const doc = ctx.document, releases = [];
-  const element = (tag, text, cls) => {
-    const node = doc.createElement(tag);
-    if (text) node.textContent = text;
-    if (cls) node.className = cls;
-    return node;
-  };
-  const listen = (...args) => releases.push(ctx.scope.listen(...args));
-  const root = element('div'); root.dataset.sgsSkinSettings = '';
-  const style = element('style', CONTROL_STYLES + styles);
-  const children = element('div', '', 'skin-children');
-  const localOptions = element('div', '', 'skin-local-options');
+  const { root, el, listen, button: panelButton, dispose } = ctx.ui.panel(container);
+  root.dataset.sgsSkinSettings = '';
+  const style = el('style', '', styles);
+  const children = el('div', 'skin-children');
+  const localOptions = el('div', 'skin-local-options');
   const toggles = new Map();
   for (const [key, title, fallback, prerequisite] of options) {
-    const label = element('label', '', 'skin-option');
-    const input = styleSwitch(element('input')); input.type = 'checkbox';
+    const label = el('label', 'skin-option');
+    const input = ctx.ui.styleSwitch(el('input')); input.type = 'checkbox';
     input.checked = ctx.settings.get(key, fallback) === true;
     if (key === 'yjcmDynamicOptimization') {
       label.title = '为本方出框立绘自动收起武将名条和聊天输入行。';
       input.setAttribute('aria-description', label.title);
     }
-    label.append(element('span', title), input);
+    label.append(el('span', '', title), input);
     const group = key === 'advanced' ? root : prerequisite === 'advanced' ? children : localOptions;
     group.append(label);
     toggles.set(key, input);
@@ -64,42 +54,41 @@ export function renderSkinPanel(ctx, local, reconfigure, container, openYjcm, op
       update(true);
     });
   }
-  const missingBackground = element('p', '需要启用「自定义背景」。');
+  const missingBackground = el('p', '', '需要启用「自定义背景」。');
   children.append(missingBackground);
-  const localHint = element('p');
+  const localHint = el('p');
   localOptions.prepend(localHint);
-  const unlockHint = element('p', '在游戏的「选择皮肤」窗口试用未开通皮肤。');
-  const catalogues = element('div', '', 'skin-catalogues');
+  const unlockHint = el('p', '', '在游戏的「选择皮肤」窗口试用未开通皮肤。');
+  const catalogues = el('div', 'skin-catalogues');
   for (const [open, title, cls] of [
     [openYjcm, '一将成名皮肤', 'skin-yjcm'],
     [openMobile, '移动版皮肤', 'skin-mobile'],
   ]) {
     if (!open) continue;
-    const button = element('button', title, cls);
-    button.type = 'button';
-    catalogues.append(button);
-    listen(button, 'click', () => {
+    const button = panelButton(title, null, () => {
       update();
       closeCatalogue?.();
       closeCatalogue = open({ target: selected && cross(selected) ? selected : undefined, trigger: button, onApply: update });
     });
+    button.className = cls;
+    catalogues.append(button);
   }
   localOptions.append(unlockHint, catalogues);
-  const picker = element('div', '', 'skin-local-picker');
-  const waiting = element('p'), seat = element('select', '', 'sgs-select'), skin = element('select', '', 'sgs-select');
+  const picker = el('div', 'skin-local-picker');
+  const waiting = el('p'), seat = el('select', 'sgs-select'), skin = el('select', 'sgs-select');
   function field(label, input) {
-    const node = element('label', '', 'skin-field'); node.append(element('span', label), input); return node;
+    const node = el('label', 'skin-field'); node.append(el('span', '', label), input); return node;
   }
   const seatField = field('选择武将', seat), skinField = field('选择皮肤', skin);
-  const actions = element('div', '', 'skin-actions');
-  const use = element('button', '本地使用', 'skin-use'), reset = element('button', '恢复原皮肤');
-  const importButton = element('button', '导入外服图片');
-  const file = element('input'); file.type = 'file'; file.accept = 'image/png,image/jpeg,image/webp'; file.hidden = true;
-  const message = element('p'); message.setAttribute('role', 'status');
+  const actions = el('div', 'skin-actions');
+  const use = el('button', 'skin-use', '本地使用'), reset = el('button', '', '恢复原皮肤');
+  const importButton = el('button', '', '导入外服图片');
+  const file = el('input'); file.type = 'file'; file.accept = 'image/png,image/jpeg,image/webp'; file.hidden = true;
+  const message = el('p'); message.setAttribute('role', 'status');
   for (const button of [use, importButton, reset]) button.type = 'button';
   actions.append(use, importButton, reset);
   picker.append(waiting, seatField, skinField, actions, message, file);
-  root.append(children, localOptions, picker, style); container.append(root);
+  root.append(children, localOptions, picker, style);
   let selected, entries = [], seatSignature, skinSignature, importing = false, disposed = false, closeCatalogue, closeRules;
   const cross = target => toggles.get('crossServer').checked && (target.isSelf || toggles.get('otherPlayers').checked);
   const chooseOther = target => !target.isSelf && local.allows(target);
@@ -108,7 +97,7 @@ export function renderSkinPanel(ctx, local, reconfigure, container, openYjcm, op
   }
   function setSelect(select, items) {
     const last = select.value;
-    const nodes = items.map(([value, label]) => { const item = element('option', label); item.value = value; return item; });
+    const nodes = items.map(([value, label]) => { const item = el('option', '', label); item.value = value; return item; });
     select.replaceChildren(...nodes);
     if (items.some(([value]) => value === last)) select.value = last;
   }
@@ -181,7 +170,7 @@ export function renderSkinPanel(ctx, local, reconfigure, container, openYjcm, op
     finally { importing = false; if (!disposed) update(); }
   });
   const timer = ctx.window.setInterval(update, 750);
-  releases.push(ctx.scope.add(() => ctx.window.clearInterval(timer)));
+  const stop = ctx.scope.add(() => ctx.window.clearInterval(timer));
   setMessage(''); update(true);
-  return () => { disposed = true; closeRules?.(); closeCatalogue?.(); for (const release of releases.splice(0)) release(); root.remove(); };
+  return () => { disposed = true; closeRules?.(); closeCatalogue?.(); stop(); dispose(); };
 }

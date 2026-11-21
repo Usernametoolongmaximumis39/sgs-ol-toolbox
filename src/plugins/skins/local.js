@@ -5,7 +5,6 @@ import { bindPortraitAvatar, bindAvatarSkinTransition, bindSkinPresentation, bin
   bindSkinDebut, clearOriginalRoundEntrance, clearSkinEffects, clearLegacyKillEffects } from './local-presentation.js';
 import { indexFormSkills, indexOfficialFormRules, isRepeatingSkinRule, localSkinForm, skinFormInfo } from './local-forms.js';
 import { createSkinPreviews } from './local-preview.js';
-import { account } from '../../shared/info-runtime.js';
 import { configuredCardSkills, createCrossVoice, isBindableVoice, loadCardSkills, normalizeVoiceOptions,
   playCrossCard, playCrossDeath, playCrossVoice, voiceBindingsForForm, voiceClipKey } from './cross-voice.js';
 import { createMobileMvpVoice } from './mobile-mvp-voice.js';
@@ -139,7 +138,7 @@ export function createLocalSkins(ctx) {
   }
   const memoryKey = (id, accountId = owner) => 'localSkin.' + accountId + '.' + id;
   const remembered = id => owner && ctx.settings.get(memoryKey(id), null);
-  function ruleKey(general, kind, skin, accountId = account(ctx).id) {
+  function ruleKey(general, kind, skin, accountId = ctx.native.account().id) {
     return accountId && `formRule.${accountId}.${general}.${kind}.${skin}`;
   }
   function formRule(general, kind, skin, count = 2, transitions) {
@@ -150,7 +149,7 @@ export function createLocalSkins(ctx) {
     const key = ruleKey(general, kind, skin);
     if (key && (config || ctx.settings.get(key, null))) ctx.settings.set(key, config);
   }
-  function effectBindingKey(general, entry, accountId = account(ctx).id) {
+  function effectBindingKey(general, entry, accountId = ctx.native.account().id) {
     if (!accountId || !Number.isSafeInteger(general) || general < 1 || !entry) return;
     const id = entry.id;
     const suffix = crossSkinKind(entry) === 'mobile' ?
@@ -160,8 +159,15 @@ export function createLocalSkins(ctx) {
   }
   function effectBindings(recipient, entry) {
     const key = effectBindingKey(recipient?.id, entry);
-    const maxForm = entry?.source === 'mobile' ? mobile.current?.skinForms(entry).length : undefined;
-    return key ? normalizeYjcmEffectBindings(ctx.settings.get(key, null), maxForm) : {};
+    if (!key) return {};
+    const forms = entry.source === 'mobile' ? mobile.current?.skinForms(entry) : undefined;
+    const config = normalizeYjcmEffectBindings(ctx.settings.get(key, null), forms?.length);
+    // These variants had separate settings when they each occupied slot 1.
+    if (entry.mobileFamily && entry.number !== entry.mobileFamily && config[1]) {
+      const index = forms?.indexOf(entry) ?? -1;
+      if (index >= 0) return { [index + 1]: config[1] };
+    }
+    return config;
   }
   function saveEffectBindings(general, entry, config, accountId) {
     const key = effectBindingKey(general, entry, accountId);
@@ -181,7 +187,7 @@ export function createLocalSkins(ctx) {
       ...(kind === 'mobile' && (audio.card || audio.victory) && { voiceOptions: audio }) };
   }
   function rememberYjcm(id, entry, bindings, config, effectConfig, startingForm, voiceOptions) {
-    const accountId = account(ctx).id;
+    const accountId = ctx.native.account().id;
     if (!accountId) throw new Error('登录后可保存到下次对局。');
     const kind = crossSkinKind(entry);
     save(id, portraitSelection(kind, entry, bindings, startingForm, voiceOptions), accountId);
@@ -357,7 +363,7 @@ export function createLocalSkins(ctx) {
     return record?.id === target.id && record.seat === target.seat ? record.uses : undefined;
   }
   const refreshMvpVoice = createMobileMvpVoice(ctx, (seat, general) => {
-    if (scene !== ctx.game.getScene?.() || owner !== account(ctx).id) return;
+    if (scene !== ctx.game.getScene?.() || owner !== ctx.native.account().id) return;
     return [...choices.values()].find(choice => {
       const { target, voice } = choice;
       return voice?.victory && Number(target.seat.Index) === seat && target.id === general && currentPortrait(choice);
@@ -605,7 +611,7 @@ export function createLocalSkins(ctx) {
     const current = targets();
     const byKey = new Map(current.map(target => [target.key, target]));
     const sameScene = scene === nextScene && playing === inGame;
-    const nextOwner = account(ctx).id;
+    const nextOwner = ctx.native.account().id;
     const sameOwner = owner === nextOwner;
     if (!sameOwner) {
       selfVoiceHistory.clear();
@@ -747,7 +753,7 @@ export function createLocalSkins(ctx) {
     function beforePaint(active = ctx.game.getScene?.()) {
       const ui = active?.SelfSeatUi ?? active?.selfSeatUI;
       const seat = ui?.Seat ?? ui?.seat;
-      const state = [active, seat, owner || account(ctx).id, seat?.General, seat?.General2, ui?.effectSprite,
+      const state = [active, seat, owner || ctx.native.account().id, seat?.General, seat?.General2, ui?.effectSprite,
         seat?.IsFaceUp?.(0), seat?.IsFaceUp?.(1), seat?.SkinID, seat?.Skin2ID];
       for (const deputy of [false, true]) {
         const avatar = ui && seatAvatar(ui, deputy);
@@ -897,7 +903,7 @@ export function createLocalSkins(ctx) {
     chooseNative(target, option, config);
   }
   function clearNative(generalId) {
-    save(generalId, null, account(ctx).id);
+    save(generalId, null, ctx.native.account().id);
     pending.delete(generalId);
     for (const target of refresh()) {
       const choice = choices.get(target.key);
@@ -930,7 +936,7 @@ export function createLocalSkins(ctx) {
     signal.addEventListener('abort', preview.release, { once: true });
     try {
       const artwork = artworkCache.get(entry) ?? await artworkCache.load(entry, controller.signal);
-      if (!artwork || controller.signal.aborted || account(ctx).id !== accountId || !isCurrent(target, allowsPortrait(target))) return;
+      if (!artwork || controller.signal.aborted || ctx.native.account().id !== accountId || !isCurrent(target, allowsPortrait(target))) return;
       const { image, ...framing } = seatArtwork(ctx.window, entry, artwork.image);
       preview.portrait = preparePortrait(target, image, {
         trimPadding: !entry.nativePortrait, seatBounds: artwork.seatBounds, preview: true, alignTop: entry.nativePortrait, ...framing,
@@ -973,7 +979,7 @@ export function createLocalSkins(ctx) {
       artwork = artworkCache.get(initialForm) ?? await artworkCache.load(initialForm, signal);
       if ((attempt ? rememberedAttempts.get(target.key) !== attempt : imports.get(target.key) !== request) ||
           !artwork || signal.aborted || startScene !== ctx.game.getScene?.() ||
-          !isCurrent(target, allowsPortrait(target)) || account(ctx).id !== accountId) return;
+          !isCurrent(target, allowsPortrait(target)) || ctx.native.account().id !== accountId) return;
     } finally { if (imports.get(target.key) === request) imports.delete(target.key); }
     let updatedForms;
     function latestForm(index) {
@@ -1023,7 +1029,7 @@ export function createLocalSkins(ctx) {
     choice.selection = portraitSelection(kind, entry, bindings, startingForm, audio);
     if (attempt) choice.selection.id = attempt.selectedId;
     if (audio.victory) refreshMvpVoice();
-    const active = () => choices.get(target.key) === choice && account(ctx).id === accountId &&
+    const active = () => choices.get(target.key) === choice && ctx.native.account().id === accountId &&
       isCurrent(target, allowsPortrait(target));
     if (entry.download && needsVoiceSkills) {
       const win = ctx.window;
@@ -1260,7 +1266,7 @@ export function createLocalSkins(ctx) {
   }
   function portraitBinding(recipient, kind, entry) {
     if (!recipient) return;
-    const accountId = account(ctx).id;
+    const accountId = ctx.native.account().id;
     const choice = choices.get(recipient.key);
     const active = owner === accountId && choice?.selection && matchesTarget(choice.target, recipient) && currentPortrait(choice);
     const selection = active ? choice.selection :

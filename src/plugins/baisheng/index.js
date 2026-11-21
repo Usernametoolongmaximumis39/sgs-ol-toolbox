@@ -1,9 +1,9 @@
-import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
-import { account, read, manager, observeNative, field, generalNames, downloadJSON } from '../../shared/info-runtime.js';
+import { BAISHENG_ICON } from '../../ui/plugin-icons.js';
+import { read, field, generalNames, downloadJSON } from '../../shared/info-runtime.js';
 import { definitions, projectAchievements, evaluate, validSnapshot } from './model.js';
 import { achievementExport } from './export.js';
-export const manifest = { id: 'baisheng', name: '百胜战功', version: '0.1.9', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "适配新版工具箱界面资源，沿用已有的百胜进度和筛选设置。", minCoreVersion: '0.6.37', categories: ['info'], icon: PLUGIN_ICONS['baisheng'], priority: 31000,
+export const manifest = { id: 'baisheng', name: '百胜战功', version: '0.1.10', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "改善百胜进度查询和账号切换时的刷新，保留已有筛选设置。", minCoreVersion: '0.6.185', categories: ['info'], icon: BAISHENG_ICON, priority: 31000,
   description: '查看当前账号百胜进度、完成日期与技能战功，仅保存在本机' };
 
 export function createController(ctx) {
@@ -14,7 +14,7 @@ export function createController(ctx) {
   const cancel = () => { request?.cancel(); request = null; loading = false; };
   const fail = e => { error = String(e?.stack || e); notify(); };
   function sync() {
-    const next = account(ctx);
+    const next = ctx.native.account();
     if (next.id === who.id && next.nickname === who.nickname) return;
     cancel(); who = next; error = ''; snapshot = null;
     generation++; initialized = false; autoAttempts = 0; nextAutoAt = 0;
@@ -53,10 +53,10 @@ export function createController(ctx) {
     loading = true; error = ''; notify();
     try {
       const [ach, chars] = await Promise.all([ctx.game.loadConfigData('gn_gs_ahievement'), ctx.game.loadConfigData('character')]);
-      if (ctx.scope.signal.aborted || generation !== currentGeneration || account(ctx).id !== expected.id || account(ctx).nickname !== expected.nickname) return;
+      if (ctx.scope.signal.aborted || generation !== currentGeneration || ctx.native.account().id !== expected.id || ctx.native.account().nickname !== expected.nickname) return;
       defs = definitions(ach, chars); names = generalNames(chars); configError = '';
       if (!defs.some(d => d.flags === 2048)) throw new Error('官方配置未找到百胜战功定义');
-      const mgr = manager(ctx, 'AchievementManager', 'ClientDbsGetuserachinfoRep', m => typeof m.sendGetAchInfo === 'function');
+      const mgr = ctx.native.manager('AchievementManager', 'ClientDbsGetuserachinfoRep', m => typeof m.sendGetAchInfo === 'function');
       if (!mgr || !who.nickname) throw new Error('战功查询接口或当前昵称尚未就绪，请进入大厅后重试');
       let timer;
       const cancelTimer = ctx.scope.add(() => ctx.window.clearTimeout(timer));
@@ -64,23 +64,23 @@ export function createController(ctx) {
       timer = ctx.window.setTimeout(() => { cancel(); error = '战功查询超时。保留上次本机快照，请稍后重试。'; notify(); }, 12000);
       mgr.sendGetAchInfo(who.nickname, 0);
     } catch (e) {
-      if (!ctx.scope.signal.aborted && generation === currentGeneration && account(ctx).id === expected.id) { cancel(); fail(e); }
+      if (!ctx.scope.signal.aborted && generation === currentGeneration && ctx.native.account().id === expected.id) { cancel(); fail(e); }
     } finally {
-      if (!ctx.scope.signal.aborted && generation === currentGeneration) { if (!request && account(ctx).id === expected.id) loading = false; notify(); }
+      if (!ctx.scope.signal.aborted && generation === currentGeneration) { if (!request && ctx.native.account().id === expected.id) loading = false; notify(); }
     }
   }
   configs(); sync();
-  observeNative(ctx, { ClientDbsGetuserachinfoRep: projectAchievements,
+  ctx.native.observe({ ClientDbsGetuserachinfoRep: projectAchievements,
     GsClientAchievementProgressUpdate: packet => ({ id: Number(field(packet, 'CriteriaID')), value: Number(field(packet, 'Conut')) }) }, accept,
   () => { cancel(); error = '战功消息有缺口，请刷新官方进度；当前显示为上次快照。'; notify(); });
   const initialize = () => {
     sync();
     if (!who.id || !who.nickname || initialized || loading || autoAttempts >= 3 || Date.now() < nextAutoAt) return;
-    if (manager(ctx, 'AchievementManager', 'ClientDbsGetuserachinfoRep', m => typeof m.sendGetAchInfo === 'function')) void refresh();
+    if (ctx.native.manager('AchievementManager', 'ClientDbsGetuserachinfoRep', m => typeof m.sendGetAchInfo === 'function')) void refresh();
   };
   ctx.scope.timeout(initialize, 0); ctx.scope.interval(initialize, 500);
   ctx.scope.add(() => { generation++; cancel(); listeners.clear(); });
-  return { refresh, view() { sync(); configs(); const gm = manager(ctx, 'GameGeneralManager', 'ClientGeneralFromRep', m => typeof m.HasGeneral === 'function');
+  return { refresh, view() { sync(); configs(); const gm = ctx.native.manager('GameGeneralManager', 'ClientGeneralFromRep', m => typeof m.HasGeneral === 'function');
     return { who, snapshot, error: error || configError, loading,
       rows: evaluate(defs, snapshot, names, id => gm ? read(() => gm.HasGeneral(id)) ?? null : null) }; },
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },

@@ -1,6 +1,6 @@
 // Let Laya resize its own canvas and input transform together. A CSS-only
 // canvas scale would leave native pointer coordinates out of sync.
-export function createGameViewport({ window: win, document: doc, scope, canReserve = () => true }) {
+export function createGameViewport({ window: win, document: doc, scope, canReserve = () => true, sceneWatch }) {
   let requested = 0, reserved = 0, stage, original, wrapper, descriptor, appliedWidth = 0, appliedHeight = 0;
   let browser, widthDescriptor, widthGetter;
   const styles = new Map();
@@ -73,8 +73,11 @@ export function createGameViewport({ window: win, document: doc, scope, canReser
     if (!reserved) { restoreStyles(); appliedWidth = 0; return; }
     for (const node of doc.querySelectorAll('#bgDiv,#layaContainer,#laya_container,#GameDiv')) {
       if (!styles.has(node)) styles.set(node, { value: node.style.getPropertyValue('width'), priority: node.style.getPropertyPriority('width') });
-      node.style.setProperty('width', width + 'px', 'important');
-      styles.get(node).applied = width + 'px';
+      const value = width + 'px';
+      if (node.style.getPropertyValue('width') !== value || node.style.getPropertyPriority('width') !== 'important') {
+        node.style.setProperty('width', value, 'important');
+      }
+      styles.get(node).applied = value;
     }
     if (width !== appliedWidth || win.innerHeight !== appliedHeight) {
       resize(stage);
@@ -85,7 +88,8 @@ export function createGameViewport({ window: win, document: doc, scope, canReser
     }
   }
   scope.listen(win, 'resize', sync);
-  scope.interval(sync, 500); // The game runtime may arrive after the HUD.
+  if (sceneWatch) scope.add(sceneWatch.watch(sync, 500, true));
+  else scope.interval(sync, 500); // The game runtime may arrive after the HUD.
   scope.add(() => { reserved = 0; restoreStyles(); releaseBrowser(); releaseStage(); });
   return { reserve(width) { requested = Math.max(0, Number(width) || 0); sync(); } };
 }

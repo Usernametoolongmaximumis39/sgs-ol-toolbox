@@ -1,12 +1,13 @@
-import { account, read, manager, observeNative, generalNames } from '../../shared/info-runtime.js';
+import { read, generalNames } from '../../shared/info-runtime.js';
+import { LAMP_PACKET_LIMIT, ownedLampIds, validLampRows } from '../../shared/lamp-packet.js';
 import { userId } from './model.js';
 
 export function projectLamp(packet) {
   const p = packet?.Protocol ?? packet;
-  if (p?.Type !== 1 || typeof p.Nickname !== 'string' || !Array.isArray(p.GeneralIDList) || p.GeneralIDList.length > 10000) return null;
-  if (p.GeneralIDList.some(g => !Number.isSafeInteger(g?.ID) || g.ID <= 0 || !Number.isFinite(g.EndTime) || !Number.isFinite(g.GoodsID))) return null;
+  if (p?.Type !== 1 || typeof p.Nickname !== 'string' || !Array.isArray(p.GeneralIDList) || p.GeneralIDList.length > LAMP_PACKET_LIMIT) return null;
+  if (!validLampRows(p.GeneralIDList)) return null;
   return { name: p.Nickname, end: p.IsEnd === true || p.IsEnd === 1,
-    ids: p.GeneralIDList.filter(g => g.EndTime <= 0 && g.GoodsID > 0).map(g => g.ID) };
+    ids: ownedLampIds(p.GeneralIDList) };
 }
 
 export function createLampBanner(ctx) {
@@ -48,7 +49,7 @@ export function createLampBanner(ctx) {
 
 export function createLampTracking(ctx, friends, banner = createLampBanner(ctx)) {
   let owner = '', snapshots = {}, pending = null, due = new Map(), names = {}, loading = false, retryNames = 0, readable = true;
-  const current = () => userId(account(ctx).id);
+  const current = () => userId(ctx.native.account().id);
   const deleted = new Set();
   function flushDeleted() {
     if (!deleted.size || !owner || !readable) return;
@@ -58,9 +59,9 @@ export function createLampTracking(ctx, friends, banner = createLampBanner(ctx))
     catch (e) { ctx.reportError?.(e); }
   }
   if (friends.onDeleted) ctx.scope.add(friends.onDeleted(id => { sync(); deleted.add(id); flushDeleted(); }));
-  function sync() {
+  function sync(force = false) {
     const next = current();
-    if (next !== owner) { owner = next; snapshots = {}; pending = null; due.clear(); deleted.clear(); banner.clear(); readable = true;
+    if (force || next !== owner) { owner = next; snapshots = {}; pending = null; due.clear(); deleted.clear(); banner.clear(); readable = true;
       if (owner) { try { const saved = ctx.storage.get('lamps:' + owner); if (saved?.version === 1 && saved.friends && typeof saved.friends === 'object' && !Array.isArray(saved.friends)) {
         for (const [id, entry] of Object.entries(saved.friends)) if (userId(id) === id && Array.isArray(entry?.ids) && entry.ids.length <= 10000 && entry.ids.every(n => Number.isSafeInteger(n) && n > 0)) snapshots[id] = entry;
       } } catch (e) { readable = false; ctx.reportError?.(e); } }
@@ -83,7 +84,7 @@ export function createLampTracking(ctx, friends, banner = createLampBanner(ctx))
     catch (e) { ctx.reportError?.(e); return; }
     if (added.length) banner.show(task.name, added.map(id => names[id]));
   }
-  observeNative(ctx, { ClientSelfbuygeneralRep: projectLamp }, consume, () => { pending = null; });
+  ctx.native.observe({ ClientSelfbuygeneralRep: projectLamp }, consume, () => { pending = null; });
   function tick() {
     sync(); if (!owner || !readable) return;
     flushDeleted();
@@ -100,7 +101,7 @@ export function createLampTracking(ctx, friends, banner = createLampBanner(ctx))
     pending = null;
     const id = data.pins.find(id => data.friends[id]?.name && !data.friends[id].missingAt && !deleted.has(id) && Date.now() >= (due.get(id) || 0));
     if (!id) return;
-    const m = manager(ctx, 'GeneralManager', 'ClientSelfbuygeneralRep', m => typeof m.ReqOtherbuygeneral === 'function');
+    const m = ctx.native.manager('GeneralManager', 'ClientSelfbuygeneralRep', m => typeof m.ReqOtherbuygeneral === 'function');
     if (!m) return;
     pending = { owner, id, name: data.friends[id].name, ids: new Set(), at: Date.now() };
     due.set(id, Date.now() + 660000);
@@ -108,7 +109,7 @@ export function createLampTracking(ctx, friends, banner = createLampBanner(ctx))
   }
   ctx.scope.add(() => { pending = null; snapshots = {}; due.clear(); });
   ctx.scope.interval(tick, 1000); tick();
-  return { tick, getRecords() {
+  return { tick, reload: () => sync(true), getRecords() {
     sync();
     const data = friends.getRecord();
     return structuredClone(Object.fromEntries(Object.entries(snapshots).map(([id, entry]) => [id, {

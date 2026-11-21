@@ -1,5 +1,5 @@
 import { nativeSeat, nativeSeatId } from '../../core/seat.js';
-import { read, observeNative } from '../../shared/info-runtime.js';
+import { read } from '../../shared/info-runtime.js';
 import { ResourceScope } from '../../core/resources.js';
 import { createManualLampQuery } from './manual-lamps.js';
 import { lampManager, lampNickname, nativeDdzPool } from './lamp-native.js';
@@ -65,7 +65,7 @@ export function createBattleLamps(ctx, settings, refresh = () => {}) {
     load(); return true;
   }
   const active = () => sync(read(() => ctx.game.getSnapshot()) || {}, ctx.getState?.()?.sessionId);
-  observeNative(ctx, {
+  ctx.native.observe({
     SmsgGameSelectCharacterResult(packet){
       const p=packet?.Protocol??packet;
       return p?.Result===0&&Number.isInteger(p.SeatID)?{seatId:p.SeatID}:null;

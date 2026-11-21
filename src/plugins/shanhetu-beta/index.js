@@ -1,9 +1,9 @@
-import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
+import { SHANHETU_BETA_ICON } from '../../ui/plugin-icons.js';
 import { nativeSeat } from '../../core/seat.js';
 import { SHANHE_MAP_SCENES, SHANHE_BATTLE_SCENE } from '../../shared/shanhe-scenes.js';
 import { shanheManager } from '../../shared/shanhe-manager.js';
 import { endingConfig, endingTendency, readEndingRun } from './model.js';
-import { createBossMonthTracker, estimateBattlePoints, estimateScore, readScoreBattle, readScoreRun, ROGUE_REBIRTH_SKILL, scoreConfig } from './score.js';
+import { createBossMonthTracker, estimateBattlePoints, estimateScore, readScoreBattle, readScoreRun, readSettlementScore, ROGUE_REBIRTH_SKILL, scoreConfig } from './score.js';
 import { createScorePanel, scoreCss } from './score-panel.js';
 
 const CSS = `
@@ -32,7 +32,7 @@ export function activate(ctx) {
   const openEndings = new Set();
   const bossMonth = createBossMonthTracker();
   let config, loading = false, configError = '', active = false, manager, account, waiting = false;
-  let run = null, scoringRun = null, attempt = null;
+  let run = null, scoringRun = null, attempt = null, settlement = null;
   let settledRebirthKey = null;
   let releaseManager, releaseProxy, proxy;
   let previous = '', view = null, score = null, expanded = false, scoreExpanded = false;
@@ -89,12 +89,12 @@ export function activate(ctx) {
     if (account !== nextAccount) {
       run = scoringRun = null;
       attempt = null;
-      settledRebirthKey = null;
+      settledRebirthKey = settlement = null;
       waiting = Boolean(manager && manager === nextManager);
     }
     account = nextAccount;
     if (manager !== nextManager) {
-      if (manager && nextManager) { run = scoringRun = attempt = settledRebirthKey = null; }
+      if (manager && nextManager) { run = scoringRun = attempt = settledRebirthKey = settlement = null; }
       releaseManager?.(); releaseManager = null; manager = nextManager; waiting = false;
       if (typeof manager?.on === 'function' && typeof manager?.off === 'function') {
         const source = manager;
@@ -108,9 +108,12 @@ export function activate(ctx) {
           tick();
         };
         const onRunEnd = () => {
-          if (manager !== source || !hasCurrentAttempt() || attempt.status !== 'playing'
-            || read(() => source.GameOverData?.bWin) === true) return;
-          attempt.status = 'settled';
+          if (!isCurrent() || ctx.scope.signal.aborted) return;
+          const result = read(() => source.GameOverData);
+          const endingRun = read(() => readScoreRun(source.AllDatas ?? source.allDatas)) ?? scoringRun;
+          const total = readSettlementScore(result, endingRun);
+          if (total !== null) settlement = { key: endingRun.key, total };
+          if (hasCurrentAttempt() && attempt.status === 'playing' && result?.bWin !== true) attempt.status = 'settled';
           tick();
         };
         const handlers = [
@@ -128,6 +131,7 @@ export function activate(ctx) {
     const synced = read(() => readScoreRun(data));
     bossMonth.observe(config?.score, synced, data?.chapterData, onMap);
     if (synced && settledRebirthKey !== synced.key) settledRebirthKey = null;
+    if (settlement && synced && settlement.key !== synced.key) settlement = null;
     if (attempt && synced && attempt.baseline.key !== synced.key) attempt = null;
     if (onMap) {
       run = readEndingRun(data);
@@ -137,7 +141,7 @@ export function activate(ctx) {
       const baseline = !attempt && scoringRun?.key === synced.key && scoringRun.battle !== null ? scoringRun : synced;
       attempt = { scene, baseline, status: 'playing', fight: null, round: 1, waitingForRestart: false };
     } else if (name && !active) {
-      run = scoringRun = attempt = settledRebirthKey = null;
+      run = scoringRun = attempt = settledRebirthKey = settlement = null;
     }
     if (attempt && synced) {
       const { baseline } = attempt;
@@ -172,7 +176,7 @@ export function activate(ctx) {
     const projecting = config && scoringRun?.battle != null && attempt?.status === 'playing' && attempt.fight;
     const bossMonthStatus = projecting ? bossMonth.statusFor(scoringRun, attempt.fight) : null;
     const projected = projecting ? estimateBattlePoints(config.score, scoringRun, attempt.fight, attempt.round, bossMonthStatus) : null;
-    const signature = JSON.stringify([active, waiting, run, scoringRun, rebirthUsed, projected, bossMonthStatus, !!config, configError]);
+    const signature = JSON.stringify([active, waiting, run, scoringRun, settlement, rebirthUsed, projected, bossMonthStatus, !!config, configError]);
     if (signature === previous) return;
     previous = signature;
     view = run && config ? endingTendency(config.endings, run) : null;
@@ -205,7 +209,7 @@ export function activate(ctx) {
         }
       }
       function update() {
-        scoring.update(score, active, configError);
+        scoring.update(score, active, configError, settlement?.total ?? null);
         rememberOpenEndings();
         const focused = root.getRootNode()?.activeElement?.closest?.('details')?.dataset.ending;
         root.replaceChildren();
@@ -264,9 +268,9 @@ export function activate(ctx) {
 }
 
 export default { manifest: {
-  id: 'shanhetu-beta', name: '山河图拓展（Beta）', version: '0.1.13',
-  releaseNotes: "首次公开测试。安装山河图后可在「拓展」查看结局倾向、战绩分和战败结算预估。第 5 赛季有历史记录的奇遇可显示数值变化，分数以游戏实际结算为准。",
+  id: 'shanhetu-beta', name: '山河图拓展（Beta）', version: '0.1.16',
+  releaseNotes: "拓展页分别显示已确认的战绩分和战败结算预估，未取得确认的分数会标明状态，实际得分以游戏结算为准。",
   apiVersion: 1, contractVersion: 1, minCoreVersion: '0.6.121', categories: ['game'], dependencies: ['shanhetu'],
-  icon: PLUGIN_ICONS['shanhetu-beta'], priority: 11001,
+  icon: SHANHETU_BETA_ICON, priority: 11001,
   description: '在山河图面板查看战绩分预估与结局条件',
 }, activate };

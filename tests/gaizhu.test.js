@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createGaiZhu } from '../src/plugins/gaizhu/runtime.js';
 import { createNative, usable, walkNative } from '../src/plugins/gaizhu/native.js';
 import { ResourceScope } from '../src/core/resources.js';
+import { createPluginNative } from '../src/core/plugin-native.js';
 
 const flush = async () => { await new Promise(resolve => setTimeout(resolve, 5)); };
 function fixture(t, stored = new Map()) {
@@ -52,6 +53,7 @@ function fixture(t, stored = new Map()) {
       getConfigData: key => key === 'character' ? chars : ach, loadConfigData: async key => key === 'character' ? chars : ach } };
   function mount() { window.Laya.stage._children = [scene, pointWindow]; }
   attachRoomSettings(room);
+  ctx.native = createPluginNative(ctx);
   mount(); const controller = createGaiZhu(ctx);
   return { controller, ctx, scope, room, game, skill, calls, errors, mgr, pointWindow, slots, stored, handlers, djHandlers,
     get scans() { return scans; }, setCountdown(value) { countdown = value; },
@@ -359,6 +361,33 @@ test('gaizhu: native hidden ancestors and disabled controls cannot be selected; 
   const root = { _children: [] }; Object.defineProperty(root, 'trap', { get() { throw new Error('no generic getter reads'); } });
   for (let i = 0; i < 3000; i++) root._children.push({}); assert.ok(walkNative([root]).length <= 512);
 });
+
+test('gaizhu: a full native walk queue keeps child priority without expanding unreachable collections', () => {
+  const visible = {}, destroyed = { destroyed: true }, next = {};
+  let unusedReads = 0;
+  const root = {
+    _children: [visible, visible, destroyed],
+    btns: [next],
+    get buttonArr() { unusedReads++; return [{}]; },
+  };
+  assert.deepEqual(walkNative([root], 5), [root, visible, next]);
+  assert.equal(unusedReads, 0);
+});
+
+test('gaizhu: the replay guard stops before native actions on current and older cores', t => {
+  for (const currentCore of [true, false]) {
+    const f = fixture(t);
+    let snapshotReads = 0;
+    f.ctx.game.getSnapshot = () => { snapshotReads++; return { isReplay: true }; };
+    if (currentCore) f.ctx.game.isReplay = scene => { assert.equal(scene, f.room); return true; };
+    f.controller.setOptions({ role: 'host' });
+    assert.equal(f.controller.snapshot().role, 'off');
+    assert.match(f.controller.snapshot().error, /回放场景/);
+    assert.deepEqual(f.calls, []);
+    assert.equal(snapshotReads, currentCore ? 0 : 1);
+  }
+});
+
 test('gaizhu: errors retain complete stack and no further actions occur', t => {
   const f = fixture(t); f.mgr.clearFigureState = () => { throw new Error('fixture complete diagnostic ' + 'detail '.repeat(100)); };
   f.controller.setOptions({ role: 'host' }); assert.equal(f.controller.snapshot().role, 'off');
@@ -399,10 +428,12 @@ test('gaizhu: point submission leaves an existing user window alone', t => {
 test('gaizhu: detached cached windows cannot send; hidden mounted windows can', () => {
   const stale = { sendDianJiang() {} }, live = { visible: false, sendDianJiang() {} };
   const wm = { WindowInstanceDict: { stale } }, stage = { _children: [live] };
-  const native = createNative({ window: { Laya: { stage } }, game: {
+  const ctx = { window: { Laya: { stage } }, game: {
     getScene: () => ({}), getClass: () => null,
     getServerProxy: () => ({ _events: { HIDE_WINDOW: { caller: wm } } }),
-  } });
+  } };
+  ctx.native = createPluginNative(ctx);
+  const native = createNative(ctx);
   native.frame(); assert.equal(native.djWindow(), live);
   stage._children = []; native.frame(); assert.equal(native.djWindow(), undefined);
 });

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.182
+// @version      0.6.213
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  轻量版：独立核心，按需安装插件并沿用已保存的插件
@@ -46,7 +46,7 @@ var Userscript = (() => {
   });
 
   // src/shared/stargazing-source.js
-  var STARGAZING_SITE = "https://gx.95chong.cn/", STARGAZING_REPORT = STARGAZING_SITE + "api/report";
+  var STARGAZING_SITE = "https://gx.95chong.cn/", STARGAZING_REPORT = STARGAZING_SITE + "api/report", STARGAZING_SYNC_PATH = "/v1/stargazing/report", STARGAZING_REPORT_LIMIT = 1024 * 1024;
 
   // src/core/mobile-skin-download.js
   var MiB = 1024 * 1024, cloudRoot = "https://mres.sanguosha.cn", cloudPrefix = "/update_cloud/public/", pictures = /^ui\/(?:face|sface|bface|icon)\/(?:skin|char)(?:\/(?:horSkin|horChar))?\/[a-f0-9]{32}\.(?:png|jpe?g)$/i, sounds = /^audio\/(?:skill|dead|effect|victory)\/[a-f0-9]{32}\.mp3$/i, motion = /^ui\/face\/skin\/dynamicSkin\/[a-f0-9]{32}\.zip$/i, configZips = /^\/\/config\/clients_[1-9]\d?\.\d{1,2}\.\d{1,2}_formal_\d{12}_[a-z0-9]{4,16}\/config(_list|[1-9]\d{0,2})\.zip$/, pcDownload = /^\/pcgame\/81002\/[1-9]\d?\.\d{1,2}\.\d{1,2}\/(gameInfo\.json|game_\d{8,16}_\d{6,12}\.zip)$/, configParams = {
@@ -134,13 +134,47 @@ var Userscript = (() => {
     return length;
   }
 
+  // src/shared/sync-paths.js
+  var MATCH_SYNC_PATH = "/appearances/sync", LEDGER_SYNC_PATH = "/ledger/sync", PREFERENCES_SYNC_PATH = "/v1/preferences/sync";
+  var BACKUP_READ_PATH = "/v1/backup/read";
+
+  // src/shared/private-sync-http.js
+  var SYNC_SOURCE_HEADER = "X-SGS-Toolbox-Origin", PRIVATE_HTTP_TIMEOUT = 3e4, PRIVATE_HTTP_LIMIT = 24 * 1024 * 1024, privatePaths = /* @__PURE__ */ new Set([
+    "/v1/proof",
+    "/v1/confirm",
+    "/v1/bind",
+    "/v1/recover",
+    "/v1/unbind",
+    "/v1/private/request",
+    "/v1/private/join",
+    "/v1/private/release",
+    "/v1/private/view",
+    "/v1/private/bind-credential",
+    PREFERENCES_SYNC_PATH,
+    LEDGER_SYNC_PATH,
+    MATCH_SYNC_PATH,
+    BACKUP_READ_PATH,
+    STARGAZING_SYNC_PATH
+  ]);
+  function privateHttpRequest({ url, body, device }, source) {
+    if (typeof url != "string" || url.length > 512 || typeof body != "string" || body.length > PRIVATE_HTTP_LIMIT || !/^https?:\/\/(?:web\.sanguosha\.com|127\.0\.0\.1:17321)$/.test(source) || device !== void 0 && (typeof device != "string" || !/^[a-zA-Z0-9_-]{43}$/.test(device))) throw new Error("\u79C1\u6709\u540C\u6B65\u8BF7\u6C42\u683C\u5F0F\u65E0\u6548");
+    let address = new URL(url);
+    if (address.protocol !== "http:" || !privatePaths.has(address.pathname) || url !== address.origin + address.pathname)
+      throw new Error("\u79C1\u6709\u540C\u6B65\u5730\u5740\u65E0\u6548");
+    return { url, body, headers: {
+      "Content-Type": "application/json",
+      [SYNC_SOURCE_HEADER]: source,
+      ...device && { Authorization: "Bearer " + device }
+    } };
+  }
+
   // src/core/userscript.js
   function responseHeader(raw, name) {
     if (typeof raw != "string") return null;
     let prefix = name + ":", lines = raw.split(/\r?\n/).filter((line) => line.toLowerCase().startsWith(prefix));
     return lines.length ? lines.map((line) => line.slice(prefix.length).trim()).join(", ") : null;
   }
-  function serveDownloads(port, transport, ready) {
+  function serveDownloads(port, transport, origin, ready) {
     let requests = /* @__PURE__ */ new Map();
     port.onmessage = ({ data }) => {
       if (data?.ready === !0) {
@@ -152,13 +186,58 @@ var Userscript = (() => {
         port.close();
         return;
       }
-      let { id } = data ?? {};
-      if (!Number.isSafeInteger(id) || id < 1) return;
+      let { id } = data ?? {}, sync = typeof id == "string" && /^sync:[1-9]\d{0,15}$/.test(id);
+      if (!sync && (!Number.isSafeInteger(id) || id < 1)) return;
       if (data.cancel === !0) {
         requests.get(id)?.();
         return;
       }
       if (requests.has(id)) return;
+      if (sync) {
+        if (requests.size >= 24) {
+          port.postMessage({ id, error: "\u540C\u6B65\u8BF7\u6C42\u8FC7\u591A" });
+          return;
+        }
+        let request2;
+        try {
+          request2 = privateHttpRequest(data, origin);
+        } catch (error) {
+          port.postMessage({ id, error: error.message });
+          return;
+        }
+        let handle, finish2 = (result) => {
+          requests.delete(id) && port.postMessage({ id, ...result });
+        }, cancel2 = () => {
+          requests.delete(id), handle?.abort?.();
+        };
+        requests.set(id, cancel2);
+        let onerror2 = () => finish2({ error: "\u79C1\u6709 HTTP \u540C\u6B65\u8BF7\u6C42\u5931\u8D25" }), onload2 = (response) => {
+          let text = response.responseText;
+          if ((response.finalUrl || response.responseURL) !== request2.url || typeof text != "string" || text.length > PRIVATE_HTTP_LIMIT) return onerror2();
+          finish2({ reply: { status: response.status, text } });
+        };
+        try {
+          handle = transport({
+            method: "POST",
+            url: request2.url,
+            data: request2.body,
+            headers: request2.headers,
+            anonymous: !0,
+            redirect: "error",
+            timeout: PRIVATE_HTTP_TIMEOUT,
+            onload: onload2,
+            onerror: onerror2,
+            ontimeout: onerror2,
+            onabort: onerror2,
+            onprogress({ loaded, total }) {
+              (loaded > PRIVATE_HTTP_LIMIT || total > PRIVATE_HTTP_LIMIT) && (onerror2(), cancel2());
+            }
+          }), typeof handle?.then == "function" && handle.then(onload2, onerror2);
+        } catch {
+          onerror2();
+        }
+        return;
+      }
       let request;
       try {
         request = toolboxDownloadRequest(data.url, data.limit, data.range);
@@ -256,7 +335,7 @@ var Userscript = (() => {
       let { port1, port2 } = new MessageChannel(), close = () => {
         port1.close(), port2.close();
       }, timeout = page.setTimeout(close, 5500);
-      serveDownloads(port1, gm, () => page.clearTimeout(timeout));
+      serveDownloads(port1, gm, origin, () => page.clearTimeout(timeout));
       let script = document.createElement("script"), nonce = document.querySelector("script[nonce]")?.nonce;
       nonce && (script.nonce = nonce), script.textContent = `(${enterPage})(${JSON.stringify(token)}, ${startPage});`, document.documentElement.append(script), script.remove();
       try {
@@ -272,6 +351,35 @@ var Userscript = (() => {
 
 Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
 (() => {
+  var __create = Object.create;
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getProtoOf = Object.getPrototypeOf, __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __commonJS = (cb, mod) => function() {
+    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from == "object" || typeof from == "function")
+      for (let key of __getOwnPropNames(from))
+        !__hasOwnProp.call(to, key) && key !== except && __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    return to;
+  };
+  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: !0 }) : target,
+    mod
+  ));
+
+  // (disabled):crypto
+  var require_crypto = __commonJS({
+    "(disabled):crypto"() {
+    }
+  });
+
   // src/core/refresh-reentry.js
   var KEY = "sgstoolbox:refresh-reentry:v1";
   var GAME_PATH = /^\/220\/h5_2\/index(?:_\d+)?\.php$/, INSTALLED = Symbol.for("sgs.ol.toolbox.refresh-reentry");
@@ -459,35 +567,35 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
       };
     }
   }
-  function splitArguments(text2) {
+  function splitArguments(text3) {
     let parts = [], depth = 0, start = 0;
-    for (let i = 0; i < text2.length; i++)
-      text2[i] === "(" ? depth++ : text2[i] === ")" ? depth-- : text2[i] === "," && !depth && (parts.push(text2.slice(start, i).trim()), start = i + 1);
-    return parts.push(text2.slice(start).trim()), parts;
+    for (let i = 0; i < text3.length; i++)
+      text3[i] === "(" ? depth++ : text3[i] === ")" ? depth-- : text3[i] === "," && !depth && (parts.push(text3.slice(start, i).trim()), start = i + 1);
+    return parts.push(text3.slice(start).trim()), parts;
   }
-  function replaceFunction(text2, name, replace) {
-    let start = text2.indexOf(name + "(");
+  function replaceFunction(text3, name, replace) {
+    let start = text3.indexOf(name + "(");
     for (; start >= 0; ) {
       let end = start + name.length + 1, depth = 1;
-      for (; end < text2.length && depth; end++)
-        text2[end] === "(" ? depth++ : text2[end] === ")" && depth--;
+      for (; end < text3.length && depth; end++)
+        text3[end] === "(" ? depth++ : text3[end] === ")" && depth--;
       if (depth) break;
-      let result = replace(text2.slice(start + name.length + 1, end - 1));
-      text2 = text2.slice(0, start) + result + text2.slice(end), start = text2.indexOf(name + "(", start + result.length);
+      let result = replace(text3.slice(start + name.length + 1, end - 1));
+      text3 = text3.slice(0, start) + result + text3.slice(end), start = text3.indexOf(name + "(", start + result.length);
     }
-    return text2;
+    return text3;
   }
   function legacyMicroCSS(css, variable, pixel) {
-    let color2 = (text2) => pixel(replaceFunction(text2, "var", (body) => {
+    let color2 = (text3) => pixel(replaceFunction(text3, "var", (body) => {
       let [name, fallback] = splitArguments(body);
       return variable(name) || fallback || "#000";
     }));
     return css = replaceFunction(css, "color-mix", (body) => {
       let [space, a, b] = splitArguments(body);
       if (space !== "in srgb" || !a || !b) return "transparent";
-      let parse2 = (text2) => {
-        let match = text2.match(/\s+([\d.]+)%$/);
-        return { rgba: color2(match ? text2.slice(0, match.index) : text2), weight: match ? Number(match[1]) / 100 : null };
+      let parse2 = (text3) => {
+        let match = text3.match(/\s+([\d.]+)%$/);
+        return { rgba: color2(match ? text3.slice(0, match.index) : text3), weight: match ? Number(match[1]) / 100 : null };
       }, x = parse2(a), y = parse2(b), p = x.weight ?? (y.weight === null ? 0.5 : 1 - y.weight), q = y.weight ?? 1 - p, alpha = x.rgba[3] / 255 * p + y.rgba[3] / 255 * q;
       return `rgba(${[0, 1, 2].map((i) => alpha ? Math.round((x.rgba[i] * x.rgba[3] / 255 * p + y.rgba[i] * y.rgba[3] / 255 * q) / alpha) : 0).join(",")},${alpha})`;
     }), css.replace(/:focus-visible/g, ":focus").replace(/overflow:\s*clip/g, "overflow:hidden").replace(/\binset:\s*([^;}]+)/g, (_, value) => {
@@ -499,32 +607,65 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     if (installMicroAPIs(win), win.CSS?.supports("color", "color-mix(in srgb,black,white)")) return;
     let doc = win.document, watched = /* @__PURE__ */ new Map(), canvas = doc.createElement("canvas");
     canvas.width = canvas.height = 1;
-    let context = canvas.getContext("2d"), pixel = (value) => (context.clearRect(0, 0, 1, 1), context.fillStyle = "transparent", context.fillStyle = value, context.fillRect(0, 0, 1, 1), context.getImageData(0, 0, 1, 1).data), update = (host) => {
-      let root = host.shadowRoot, record = watched.get(host);
-      if (!root || !record || !host.isConnected) return;
-      let computed = win.getComputedStyle(host), css = [...root.querySelectorAll("style")].filter((el) => el !== record.style).map((el) => el.textContent).join(`
-`), output = legacyMicroCSS(css, (name) => computed.getPropertyValue(name).trim(), pixel) + `
+    let context2 = canvas.getContext("2d"), colors = /* @__PURE__ */ new Map(), pixel = (value) => {
+      if (colors.has(value)) return colors.get(value);
+      context2.clearRect(0, 0, 1, 1), context2.fillStyle = "transparent", context2.fillStyle = value, context2.fillRect(0, 0, 1, 1);
+      let rgba = context2.getImageData(0, 0, 1, 1).data;
+      return colors.size >= 256 && colors.clear(), colors.set(value, rgba), rgba;
+    }, update = (host, record, sourcesChanged) => {
+      let { root, style: style2 } = record;
+      if (scope.closed || !host.isConnected) return;
+      let css = sourcesChanged ? [...root.querySelectorAll("style")].filter((el) => el !== style2).map((el) => el.textContent).join(`
+`) : record.css, computed, previousSheet, variables = /* @__PURE__ */ new Map(), variable = (name) => {
+        if (!variables.has(name)) {
+          if (!computed) {
+            let sheet = css !== record.css ? style2.sheet : null;
+            sheet && !sheet.disabled && (previousSheet = sheet, sheet.disabled = !0), computed = win.getComputedStyle(host);
+          }
+          variables.set(name, computed.getPropertyValue(name).trim());
+        }
+        return variables.get(name);
+      };
+      if (css !== record.css || [...record.variables].some(([name, value]) => variable(name) !== value)) {
+        let translated;
+        try {
+          translated = legacyMicroCSS(css, variable, pixel);
+        } finally {
+          previousSheet && (previousSheet.disabled = !1);
+        }
+        let output = translated + `
 [popover]:not([data-micro-popover-open]){display:none!important}[popover][data-micro-popover-open]{display:block;z-index:2147483647}
 *::-webkit-scrollbar{width:7px;height:7px}*::-webkit-scrollbar-track{background:var(--sgs-bg)}*::-webkit-scrollbar-thumb{background:var(--sgs-border);border:2px solid var(--sgs-bg);border-radius:6px}*::-webkit-scrollbar-thumb:hover{background:var(--sgs-muted)}*::-webkit-scrollbar-corner{background:var(--sgs-bg)}`;
-      record.style.textContent !== output && (record.style.textContent = output), root.lastChild !== record.style && root.append(record.style);
+        style2.textContent !== output && (style2.textContent = output), record.css = css, record.variables = variables;
+      }
+      sourcesChanged && root.lastChild !== style2 && root.append(style2);
+    }, stylesheet = 'style,link[rel~="stylesheet" i]', changesSources = ({ type, target, addedNodes, removedNodes }, style2) => {
+      if (target === style2 || target.parentNode === style2) return !1;
+      if (type === "attributes") return target.matches("style,link");
+      if (type === "characterData") return target.parentNode?.localName === "style";
+      if (target.localName === "style") return !0;
+      let includesSource = (nodes) => [...nodes].some((node) => node !== style2 && node.nodeType === 1 && (node.matches(stylesheet) || node.firstElementChild && node.querySelector(stylesheet)));
+      return includesSource(addedNodes) || includesSource(removedNodes);
+    }, unwatch = (host, { root, style: style2, observer, linkLoaded }) => {
+      observer.disconnect(), root.removeEventListener("load", linkLoaded, !0), style2.remove(), watched.delete(host);
     }, discover = () => {
-      for (let [host, record] of watched) host.isConnected || (record.observer.disconnect(), record.style.remove(), watched.delete(host));
+      for (let [host, record] of watched) host.isConnected || unwatch(host, record);
       for (let host of doc.querySelectorAll("[data-sgs-toolbox]")) {
-        if (!host.shadowRoot || watched.has(host)) continue;
+        let root = host.shadowRoot;
+        if (!root || watched.has(host)) continue;
         let style2 = doc.createElement("style");
-        style2.dataset.microFallback = "", host.shadowRoot.append(style2);
-        let queued = !1, observer = new win.MutationObserver((records) => {
-          records.every((r) => r.target === style2 || r.target.parentNode === style2) || queued || (queued = !0, Promise.resolve().then(() => {
-            queued = !1, scope.closed || update(host);
-          }));
-        });
-        observer.observe(host, { attributes: !0, attributeFilter: ["style", "data-theme-scheme"] }), observer.observe(host.shadowRoot, { childList: !0, characterData: !0, subtree: !0 }), watched.set(host, { style: style2, observer }), update(host);
+        style2.dataset.microFallback = "", root.append(style2);
+        let observer = new win.MutationObserver((mutations) => {
+          let sourcesChanged = style2.parentNode !== root || mutations.some((mutation) => changesSources(mutation, style2));
+          (sourcesChanged || mutations.some((mutation) => mutation.target === host)) && update(host, record, sourcesChanged);
+        }), linkLoaded = (event) => {
+          event.target.matches?.(stylesheet) && update(host, record, !1);
+        }, record = { root, style: style2, observer, linkLoaded, css: null, variables: /* @__PURE__ */ new Map() };
+        observer.observe(host, { attributes: !0, attributeFilter: ["style", "data-theme-scheme"] }), observer.observe(root, { childList: !0, characterData: !0, subtree: !0, attributes: !0, attributeFilter: ["rel", "href", "media", "disabled"] }), root.addEventListener("load", linkLoaded, !0), watched.set(host, record), update(host, record, !0);
       }
     };
     discover(), scope.interval(discover, 250), scope.add(() => {
-      for (let { style: style2, observer } of watched.values())
-        observer.disconnect(), style2.remove();
-      watched.clear();
+      for (let [host, record] of watched) unwatch(host, record);
     });
   }
 
@@ -611,8 +752,8 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
 
   // src/core/storage.js
   var Settings = class _Settings {
-    constructor(storage, prefix = "sgstoolbox:") {
-      this.storage = storage, this.prefix = prefix;
+    constructor(storage, prefix2 = "sgstoolbox:", listeners = /* @__PURE__ */ new Set()) {
+      this.storage = storage, this.prefix = prefix2, this.listeners = listeners;
     }
     get(key, fallback) {
       try {
@@ -623,14 +764,24 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
       }
     }
     set(key, value) {
-      return this.storage?.setItem(this.prefix + key, JSON.stringify(value)), value;
+      let fullKey = this.prefix + key;
+      this.storage?.setItem(fullKey, JSON.stringify(value));
+      for (let listener of this.listeners)
+        try {
+          listener(fullKey);
+        } catch {
+        }
+      return value;
+    }
+    subscribe(listener) {
+      return this.listeners.add(listener), () => this.listeners.delete(listener);
     }
     namespace(id) {
-      return new _Settings(this.storage, this.prefix + id + ":");
+      return new _Settings(this.storage, this.prefix + id + ":", this.listeners);
     }
   }, PackageStore = class {
-    constructor(indexedDB, databaseName = "sgs-ol-toolbox") {
-      this.indexedDB = indexedDB, this.databaseName = databaseName, this.dbPromise = null;
+    constructor(indexedDB, databaseName2 = "sgs-ol-toolbox") {
+      this.indexedDB = indexedDB, this.databaseName = databaseName2, this.dbPromise = null;
     }
     open() {
       return this.indexedDB ? (this.dbPromise || (this.dbPromise = new Promise((resolve, reject) => {
@@ -661,8 +812,8 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     }
   };
 
-  // src/core/protocol.js
-  var aliases = {
+  // src/shared/card-packet-fields.js
+  var cardPacketWrappers = ["Protocol", "protocol", "ProtoObj", "protoObj", "Data", "data", "msg", "Msg"], aliases = {
     CardList: ["cardList", "card_list"],
     CardIDs: ["CardIds", "cardIDs", "cardIds", "card_ids", "Cards", "cards", "hand_cards", "card_list", "cardList"],
     CardID: ["CardId", "cardID", "cardId"],
@@ -677,7 +828,7 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     Type: ["type", "opt_type"],
     Param: ["param"],
     Params: ["params"],
-    Datas: ["datas", "data"],
+    Datas: ["datas"],
     useType: ["UseType"],
     TurnCnt: ["turnCnt", "TurnCount", "turnCount"],
     Round: ["round"],
@@ -686,21 +837,26 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     Count: ["count", "hand_count"],
     DestSeatIDs: ["DestSeatIds", "destSeatIds", "Targets"],
     EffectIndex: ["effectIndex"],
-    list_card_id: ["listCardId"],
-    error_id: ["ErrorID", "errorId", "errCode"],
-    userID: ["UserID", "userId"],
-    CastSeatID: ["castSeatId"],
-    ItemID: ["itemId"],
-    ItemParams: ["param"],
     IsSpell: ["isSpell", "is_spell"],
     DataID: ["DataId", "dataId", "data_id"],
     MurSeatID: ["MurSeatId", "murSeatId", "MurderSeatID"],
     MData: ["mData"],
-    MsgID: ["MsgId", "msgId", "msg_id"]
+    MsgID: ["MsgId", "msgId", "msg_id"],
+    list_card_id: ["listCardId"],
+    error_id: ["ErrorID", "errorId"]
   };
   for (let key of ["FromZone", "ToZone", "FromPosition", "ToPosition", "FromZoneParam", "ToZoneParam", "MoveType"])
     aliases[key] = [key[0].toLowerCase() + key.slice(1), key.replace(/[A-Z]/g, (char, index) => (index ? "_" : "") + char.toLowerCase())];
-  var schemas = {
+  var cardFieldNames = Object.fromEntries(Object.entries(aliases).map(([key, names]) => [key, [key, ...names]]));
+
+  // src/core/protocol.js
+  var observationFieldNames = {
+    Datas: [...cardFieldNames.Datas, "data"],
+    error_id: [...cardFieldNames.error_id, "errCode"],
+    CastSeatID: ["CastSeatID", "castSeatId"],
+    ItemID: ["ItemID", "itemId"],
+    ItemParams: ["ItemParams", "param"]
+  }, schemas = {
     MsgGamePlayCardNtf: ["CardList", "IsResume", "SeatID"],
     PubGsCMoveCard: ["FromID", "FromZone", "FromPosition", "FromZoneParam", "ToID", "ToZone", "ToPosition", "ToZoneParam", "MoveType", "CardIDs", "CardCount", "SpellID", "SrcSeatID"],
     PubGsCUseCard: ["SeatID", "CardID", "CardIDs", "SpellID", "useType"],
@@ -725,7 +881,7 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     MsgGameOver: [],
     ClientLeavetableRep: [],
     ClientLoginRep: ["userID"]
-  }, lists = /* @__PURE__ */ new Set(["CardList", "CardIDs", "DestSeatIDs", "list_card_id", "Infos", "GeneralData", "Params", "Datas", "ItemParams", "MData"]), wrappers = ["Protocol", "protocol", "ProtoObj", "protoObj", "Data", "data", "msg", "Msg"], isObservedMessage = (type) => typeof type == "string" && Object.hasOwn(schemas, type), get = (object2, key) => {
+  }, lists = /* @__PURE__ */ new Set(["CardList", "CardIDs", "DestSeatIDs", "list_card_id", "Infos", "GeneralData", "Params", "Datas", "ItemParams", "MData"]), isObservedMessage = (type) => typeof type == "string" && Object.hasOwn(schemas, type), get = (object2, key) => {
     try {
       return object2?.[key];
     } catch {
@@ -739,10 +895,10 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     for (let i = 0; i < length; i++) {
       let item = get(value, i);
       if (item && typeof item == "object") {
-        let fields = key === "Infos" ? ["SeatID", "CharacterID"] : key === "GeneralData" ? ["index", "cardID"] : ["CardId", "CardID", "cardId", "cardID", "id"], record = {};
-        for (let field of fields) {
-          let val = scalar(get(item, field));
-          val !== void 0 && (record[field] = val);
+        let fields2 = key === "Infos" ? ["SeatID", "CharacterID"] : key === "GeneralData" ? ["index", "cardID"] : ["CardId", "CardID", "cardId", "cardID", "id"], record = {};
+        for (let field2 of fields2) {
+          let val = scalar(get(item, field2));
+          val !== void 0 && (record[field2] = val);
         }
         result.push(record);
       } else result.push(scalar(item));
@@ -755,22 +911,22 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
       let userID = scalar(get(payload, "userID") ?? get(payload, "UserID") ?? get(payload, "userId"));
       return userID === void 0 ? {} : { userID };
     }
-    let fields = schemas[type];
-    if (!fields.length) return {};
+    let fields2 = schemas[type];
+    if (!fields2.length) return {};
     let result = {}, sources = [], queue = [payload], seen = /* @__PURE__ */ new Set();
     for (let i = 0; i < queue.length && i < 12; i++) {
       let source = queue[i];
       if (!(!source || typeof source != "object" || seen.has(source))) {
         seen.add(source), sources.push(source);
-        for (let key of wrappers) {
+        for (let key of cardPacketWrappers) {
           let value = get(source, key);
           value && typeof value == "object" && queue.length < 12 && queue.push(value);
         }
       }
     }
-    for (let key of [...fields, "isSend"]) {
-      let empty;
-      outer: for (let source of sources) for (let name of [key, ...aliases[key] || []]) {
+    for (let key of [...fields2, "isSend"]) {
+      let names = observationFieldNames[key] || cardFieldNames[key] || [key], empty;
+      outer: for (let source of sources) for (let name of names) {
         let value = get(source, name);
         if (value == null || key === "Datas" && name === "data" && !Array.isArray(value) && !ArrayBuffer.isView(value)) continue;
         let projected = lists.has(key) ? smallList(value, key) : scalar(value);
@@ -789,7 +945,7 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
   }
 
   // src/core/session.js
-  var WRAPPERS = /* @__PURE__ */ new Set(["Protocol", "protocol", "ProtoObj", "protoObj", "Data", "data", "msg", "Msg"]);
+  var WRAPPERS = new Set(cardPacketWrappers);
   function packetBody(payload) {
     let queue = [payload], seen = /* @__PURE__ */ new Set(), body = {};
     for (let i = 0; i < queue.length && i < 32; i++) {
@@ -847,7 +1003,7 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
   };
   function installMessageBridge(win, journal, scope, onStatus = () => {
   }, { getTargets = () => [], observeType = () => {
-  } } = {}) {
+  }, sceneWatch } = {}) {
     let activeWrapper, restoreCurrent, depth = 0, consoleError = "", nativeErrors = [], native = /* @__PURE__ */ new Map(), restores = [], stats = { received: 0, console: 0, native: 0, lastType: "", lastAt: null }, duplicates = /* @__PURE__ */ new Map(), expiryTimer, pending = [], waiters = [], drainTimer, draining = !1;
     stats.dropped = 0, stats.rejected = 0;
     function schedule() {
@@ -901,8 +1057,8 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
         try {
           if (outer)
             try {
-              let prefix = args.filter((x) => typeof x == "string").join(" ");
-              if (!/\bsend\b|发送/i.test(prefix)) for (let i = args.length - 1; i >= 0; i--) {
+              let prefix2 = args.filter((x) => typeof x == "string").join(" ");
+              if (!/\bsend\b|发送/i.test(prefix2)) for (let i = args.length - 1; i >= 0; i--) {
                 let data = args[i], type = data?.ClassName || data?.className;
                 if (typeof type == "string" && (receive(type, data, "console"), isObservedMessage(type)))
                   break;
@@ -966,7 +1122,7 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     let check = () => {
       installConsole(), installNative();
     };
-    return check(), scope.interval(check, 500), scope.add(() => {
+    return check(), sceneWatch ? scope.add(sceneWatch.watch(check, 500, !0)) : scope.interval(check, 500), scope.add(() => {
       clearTimeout(expiryTimer), clearTimeout(drainTimer), pending.length = 0;
       for (let resolve of waiters.splice(0)) resolve();
       duplicates.clear();
@@ -985,7 +1141,10 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
   }
 
   // src/core/card-atlas.js
-  var HASH = /^[a-f0-9]{64}$/;
+  var HASH = /^[a-f0-9]{64}$/, INLINE_IMAGE = /^data:image\/(?:png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+  function validInlineImage(value, limit2) {
+    return typeof value == "string" && value.length <= limit2 && INLINE_IMAGE.test(value);
+  }
   function resource(value) {
     if (value?.fallbackUrls !== void 0 && (!Array.isArray(value.fallbackUrls) || value.fallbackUrls.length > 3)) throw new Error("\u5361\u56FE\u5907\u7528\u5730\u5740\u6700\u591A 3 \u4E2A");
     let urls = [value?.url, ...value?.fallbackUrls || []].map((address) => {
@@ -998,10 +1157,10 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
   }
   function validateCardAtlas(value) {
     if (!value || !Array.isArray(value.pages) || !value.pages.length || value.pages.length > 4 || typeof value.source != "string" || !value.source.trim() || value.source.length > 500) throw new Error("\u5361\u56FE\u6765\u6E90\u6216\u56FE\u7247\u6E05\u5355\u65E0\u6548");
-    if (value.backImage !== void 0 && (typeof value.backImage != "string" || value.backImage.length > 1024 * 1024 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value.backImage))) throw new Error("\u5361\u80CC\u987B\u4E3A\u4E0D\u8D85\u8FC7 1 MiB \u7684\u5185\u5D4C PNG");
+    if (value.backImage !== void 0 && !validInlineImage(value.backImage, 1024 * 1024)) throw new Error("\u5361\u80CC\u987B\u4E3A\u4E0D\u8D85\u8FC7 1 MiB \u7684\u5185\u5D4C PNG \u6216 WebP");
     let pixelRatio = value.pixelRatio ?? 1;
     if (!Number.isInteger(pixelRatio) || pixelRatio < 1 || pixelRatio > 3) throw new Error("\u5361\u56FE\u50CF\u7D20\u500D\u7387\u987B\u4E3A 1\u30012 \u6216 3");
-    if (value.previewImage !== void 0 && (typeof value.previewImage != "string" || value.previewImage.length > 160 * 1024 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value.previewImage))) throw new Error("\u5361\u9762\u9884\u89C8\u987B\u4E3A\u5185\u5D4C PNG\uFF0C\u4E14\u4E0D\u8D85\u8FC7 160 KiB");
+    if (value.previewImage !== void 0 && !validInlineImage(value.previewImage, 160 * 1024)) throw new Error("\u5361\u9762\u9884\u89C8\u987B\u4E3A\u5185\u5D4C PNG \u6216 WebP\uFF0C\u4E14\u4E0D\u8D85\u8FC7 160 KiB");
     if (value.replaceCards !== void 0 && (!Array.isArray(value.replaceCards) || value.replaceCards.length > 2048 || value.replaceCards.some((name) => typeof name != "string" || !/^[A-Za-z][A-Za-z0-9_]{0,95}$/.test(name)) || new Set(value.replaceCards).size !== value.replaceCards.length)) throw new Error("\u5DEE\u5F02\u5361\u9762\u6E05\u5355\u65E0\u6548");
     return Object.freeze({
       index: resource(value.index),
@@ -1047,11 +1206,11 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     } finally {
       await reader.cancel();
     }
-    let bytes = new Uint8Array(length), at = 0;
+    let bytes2 = new Uint8Array(length), at = 0;
     for (let chunk of chunks)
-      bytes.set(chunk, at), at += chunk.length;
-    if ([...new Uint8Array(await win.crypto.subtle.digest("SHA-256", bytes))].map((n) => n.toString(16).padStart(2, "0")).join("") !== spec.sha256) throw new Error("\u5361\u56FE\u8D44\u6E90 SHA-256 \u4E0D\u5339\u914D\uFF1A" + spec.url);
-    return bytes;
+      bytes2.set(chunk, at), at += chunk.length;
+    if ([...new Uint8Array(await win.crypto.subtle.digest("SHA-256", bytes2))].map((n) => n.toString(16).padStart(2, "0")).join("") !== spec.sha256) throw new Error("\u5361\u56FE\u8D44\u6E90 SHA-256 \u4E0D\u5339\u914D\uFF1A" + spec.url);
+    return bytes2;
   }
   async function verifiedBytes(win, spec, signal, limit2, timeoutMs) {
     let failures = [];
@@ -1078,11 +1237,11 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     let index = JSON.parse(new TextDecoder().decode(await verifiedBytes(win, descriptor.index, signal, 524288, timeoutMs))), pages = [];
     try {
       for (let spec of descriptor.pages) {
-        let bytes = await verifiedBytes(win, spec, signal, 8388608, timeoutMs);
-        if (bytes[0] !== 137 || String.fromCharCode(...bytes.slice(1, 4)) !== "PNG") throw new Error("\u5361\u56FE\u4E0D\u662F PNG \u56FE\u7247");
-        let dimensions = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-        if (bytes.length < 24 || dimensions.getUint32(16) > 4096 || dimensions.getUint32(20) > 4096) throw new Error("\u5361\u56FE\u5C3A\u5BF8\u8D85\u9650");
-        let bitmap = await win.createImageBitmap(new win.Blob([bytes], { type: "image/png" }));
+        let bytes2 = await verifiedBytes(win, spec, signal, 8388608, timeoutMs);
+        if (bytes2[0] !== 137 || String.fromCharCode(...bytes2.slice(1, 4)) !== "PNG") throw new Error("\u5361\u56FE\u4E0D\u662F PNG \u56FE\u7247");
+        let dimensions = new DataView(bytes2.buffer, bytes2.byteOffset, bytes2.byteLength);
+        if (bytes2.length < 24 || dimensions.getUint32(16) > 4096 || dimensions.getUint32(20) > 4096) throw new Error("\u5361\u56FE\u5C3A\u5BF8\u8D85\u9650");
+        let bitmap = await win.createImageBitmap(new win.Blob([bytes2], { type: "image/png" }));
         if (pages.push(bitmap), signal.aborted) throw new Error("\u5361\u56FE\u52A0\u8F7D\u5DF2\u53D6\u6D88");
       }
       return { pages, frames: parseCardFrames(index, pages, descriptor), dispose() {
@@ -1096,10 +1255,10 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
 
   // src/core/local-images.js
   var LOCAL_IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/bmp,.png,.jpg,.jpeg,.webp,.bmp";
-  function imageType(bytes) {
-    let data = new DataView(bytes), tag = (offset) => data.getUint32(offset);
-    if (bytes.byteLength >= 8 && tag(0) === 2303741511 && tag(4) === 218765834) {
-      for (let offset = 8; offset + 12 <= bytes.byteLength; ) {
+  function imageType(bytes2) {
+    let data = new DataView(bytes2), tag = (offset) => data.getUint32(offset);
+    if (bytes2.byteLength >= 8 && tag(0) === 2303741511 && tag(4) === 218765834) {
+      for (let offset = 8; offset + 12 <= bytes2.byteLength; ) {
         let chunk = tag(offset + 4);
         if (chunk === 1633899596) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301 APNG");
         if (chunk === 1229209940) return "image/png";
@@ -1107,24 +1266,24 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
       }
       throw new Error("PNG \u56FE\u7247\u5185\u5BB9\u4E0D\u5B8C\u6574");
     }
-    if (bytes.byteLength >= 21 && tag(0) === 1380533830 && tag(8) === 1464156752) {
+    if (bytes2.byteLength >= 21 && tag(0) === 1380533830 && tag(8) === 1464156752) {
       if (tag(12) === 1448097880 && data.getUint8(20) & 2) throw new Error("\u8BF7\u9009\u62E9\u9759\u6001\u56FE\u7247\uFF0C\u6682\u4E0D\u652F\u6301\u52A8\u6001 WebP");
       return "image/webp";
     }
-    if (bytes.byteLength >= 3 && data.getUint16(0) === 65496 && data.getUint8(2) === 255) return "image/jpeg";
-    if (bytes.byteLength >= 14 && data.getUint16(0) === 16973) return "image/bmp";
+    if (bytes2.byteLength >= 3 && data.getUint16(0) === 65496 && data.getUint8(2) === 255) return "image/jpeg";
+    if (bytes2.byteLength >= 14 && data.getUint16(0) === 16973) return "image/bmp";
     throw new Error("\u8BF7\u9009\u62E9 PNG\u3001JPG\u3001WebP \u6216 BMP \u9759\u6001\u56FE\u7247");
   }
   async function withLocalImage(win, file, process2) {
     if (!file?.size || file.size > 20971520) throw new Error("\u8BF7\u9009\u62E9\u4E0D\u8D85\u8FC7 20 MB \u7684\u56FE\u7247\u6587\u4EF6");
     if (typeof file.arrayBuffer != "function" || !win.URL?.createObjectURL || !win.Image) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u8BFB\u53D6\u672C\u5730\u56FE\u7247");
-    let bytes = await file.arrayBuffer(), type = imageType(bytes), url = win.URL.createObjectURL(new win.Blob([bytes], { type }));
+    let bytes2 = await file.arrayBuffer(), type = imageType(bytes2), url = win.URL.createObjectURL(new win.Blob([bytes2], { type }));
     try {
       let image = new win.Image();
       if (await new Promise((resolve, reject) => {
         image.onload = resolve, image.onerror = () => reject(new Error("\u65E0\u6CD5\u6253\u5F00\u56FE\u7247\uFF0C\u6587\u4EF6\u53EF\u80FD\u5DF2\u635F\u574F")), image.src = url;
       }), !(image.naturalWidth > 0 && image.naturalHeight > 0)) throw new Error("\u56FE\u7247\u5C3A\u5BF8\u65E0\u6548");
-      return await process2(image, { bytes, type });
+      return await process2(image, { bytes: bytes2, type });
     } finally {
       win.URL.revokeObjectURL(url);
     }
@@ -1148,8 +1307,8 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     return withLocalImage(win, file, (image) => {
       let ratio = width / height, cropWidth = Math.min(image.naturalWidth, image.naturalHeight * ratio), cropHeight = Math.min(image.naturalHeight, image.naturalWidth / ratio), canvas = win.document.createElement("canvas");
       canvas.width = width, canvas.height = height;
-      let context = canvas.getContext("2d");
-      context.imageSmoothingQuality = "high", context.drawImage(
+      let context2 = canvas.getContext("2d");
+      context2.imageSmoothingQuality = "high", context2.drawImage(
         image,
         (image.naturalWidth - cropWidth) / 2,
         (image.naturalHeight - cropHeight) / 2,
@@ -1182,7 +1341,7 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
   }
 
   // src/core/card-styles.js
-  var LOCAL_FACE_STYLE = Object.freeze({ id: "local-card-face", name: "\u81EA\u5B9A\u4E49\u5361\u9762", localFace: !0 }), LOCAL_FACE_BACKGROUND_STYLE = Object.freeze({ id: "local-card-face-background", localFaceBackground: !0 }), LOCAL_FACE_WIDTH = 405, LOCAL_FACE_HEIGHT = 570, FACE_BACKGROUND_RECORD = "$background", localFaceKey = (card) => `${LOCAL_FACE_STYLE.id}.${card}`, COLOR = /^#[0-9a-f]{6}$/i, own = (node, key) => node && Object.getOwnPropertyDescriptor(node, key)?.value, CARD_LISTS = ["_children", "cardUis", "cardUIs", "cardUiList", "cardUIList", "virtualCardUis", "tempHandCardUis", "additionalCardUis", "muniuCardUis", "stateCardUis", "pileCardUis", "regionCardUIs", "seatUIs"], CARD_NODES = ["cardContainer", "seatContainer", "SelfSeatUi", "selfSeatUI", "desktopCardContainer", "discardCardContainer", "cardUi", "cardUI"], isCardUI = (node) => node && !node.destroyed && node.bmpFace && typeof node.SetCardFace == "function" && typeof node.getCardFaceBaseTexture == "function" && typeof node.updateNewCardFace == "function", NO_BOOK_FACES = Object.freeze([]);
+  var LOCAL_FACE_STYLE = Object.freeze({ id: "local-card-face", name: "\u81EA\u5B9A\u4E49\u5361\u9762", localFace: !0 }), LOCAL_FACE_BACKGROUND_STYLE = Object.freeze({ id: "local-card-face-background", localFaceBackground: !0 }), LOCAL_FACE_WIDTH = 405, LOCAL_FACE_HEIGHT = 570, FACE_BACKGROUND_RECORD = "$background", localFaceKey = (card) => `${LOCAL_FACE_STYLE.id}.${card}`, COLOR = /^#[0-9a-f]{6}$/i, hasOwn = Object.prototype.hasOwnProperty, own = (node, key) => node && (hasOwn.call(node, key) ? Object.getOwnPropertyDescriptor(node, key)?.value : void 0), CARD_LISTS = ["_children", "cardUis", "cardUIs", "cardUiList", "cardUIList", "virtualCardUis", "tempHandCardUis", "additionalCardUis", "muniuCardUis", "stateCardUis", "pileCardUis", "regionCardUIs", "seatUIs"], CARD_NODES = ["cardContainer", "seatContainer", "SelfSeatUi", "selfSeatUI", "desktopCardContainer", "discardCardContainer", "cardUi", "cardUI"], isCardUI = (node) => node && !node.destroyed && node.bmpFace && typeof node.SetCardFace == "function" && typeof node.getCardFaceBaseTexture == "function" && typeof node.updateNewCardFace == "function", NO_BOOK_FACES = Object.freeze([]);
   function flatCardForBitmap(bitmap, event) {
     let handlers = own(bitmap, "_events")?.[event];
     for (let handler of Array.isArray(handlers) ? handlers : [handlers]) {
@@ -1213,12 +1372,16 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     if (!/^card(?:Face|Back)_\d{1,5}$/.test(name)) return null;
     let valid = (t) => t?.bitmap && !t.destroyed && !t.bitmap.destroyed && t.width > 0 && t.height > 0, direct = L?.loader?.getRes?.(name);
     if (valid(direct)) return direct;
-    for (let cache2 of [L?.Loader?.textureMap, L?.Loader?.loadedMap, L?.Loader?._loadedMap])
-      for (let key of Object.keys(cache2 || {}).slice(0, 6e4)) {
-        if (nativeCardResourceName(key) !== name) continue;
-        let texture = cache2[key]?.bitmap ? cache2[key] : L?.loader?.getRes?.(key);
+    for (let cache2 of [L?.Loader?.textureMap, L?.Loader?.loadedMap, L?.Loader?._loadedMap]) {
+      if (!cache2) continue;
+      let keys = Object.keys(cache2), count = Math.min(keys.length, 6e4);
+      for (let i = 0; i < count; i++) {
+        let key = keys[i];
+        if (!key.includes(name) || nativeCardResourceName(key) !== name) continue;
+        let entry = cache2[key], texture = entry?.bitmap ? entry : L?.loader?.getRes?.(key);
         if (valid(texture)) return texture;
       }
+    }
     return null;
   }
   function drawCardStyle(doc, palette, back = !1) {
@@ -1238,8 +1401,10 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     return canvas;
   }
   var CardStyleRegistry = class {
-    constructor({ window: win, document: doc, game, settings, scope }) {
-      Object.assign(this, { win, doc, game, settings, scope }), this.styles = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set(), this.textures = /* @__PURE__ */ new Map(), this.bindings = /* @__PURE__ */ new Map(), this.nativeResources = /* @__PURE__ */ new Map(), this.nativeAttempts = /* @__PURE__ */ new Map(), this.previews = /* @__PURE__ */ new WeakMap(), this.factories = /* @__PURE__ */ new Map(), this.pools = /* @__PURE__ */ new Map(), this.insertions = /* @__PURE__ */ new Map(), this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds = /* @__PURE__ */ new Set(), this.selfHand = null, this.bookFaces = /* @__PURE__ */ new WeakSet(), this.scene = null, this.atlases = /* @__PURE__ */ new Map(), this.images = /* @__PURE__ */ new Map(), this.previewAtlasId = "", this.localBacks = /* @__PURE__ */ new Map(), this.localFaces = /* @__PURE__ */ new Map(), this.localFaceCatalog = null, this.localFaceCatalogPending = null, this.localFaceCatalogError = "", this.localFaceBackground = null, this.status = "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2", this.closed = !1, scope.interval(() => this.refreshNative(), 400), game.onSceneChange && scope.add(game.onSceneChange(() => this.queueRefresh())), scope.add(() => {
+    constructor({ window: win, document: doc, game, settings, scope, sceneWatch }) {
+      Object.assign(this, { win, doc, game, settings, scope }), this.styles = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set(), this.textures = /* @__PURE__ */ new Map(), this.bindings = /* @__PURE__ */ new Map(), this.nativeResources = /* @__PURE__ */ new Map(), this.nativeAttempts = /* @__PURE__ */ new Map(), this.previews = /* @__PURE__ */ new WeakMap(), this.factories = /* @__PURE__ */ new Map(), this.pools = /* @__PURE__ */ new Map(), this.insertions = /* @__PURE__ */ new Map(), this.selfModels = /* @__PURE__ */ new WeakSet(), this.selfIds = /* @__PURE__ */ new Set(), this.selfHand = null, this.bookFaces = /* @__PURE__ */ new WeakSet(), this.scene = null, this.atlases = /* @__PURE__ */ new Map(), this.images = /* @__PURE__ */ new Map(), this.previewAtlasId = "", this.localBacks = /* @__PURE__ */ new Map(), this.localFaces = /* @__PURE__ */ new Map(), this.localFaceCatalog = null, this.localFaceCatalogPending = null, this.localFaceCatalogError = "", this.localFaceBackground = null, this.status = "\u8DDF\u968F\u6E38\u620F\u539F\u59CB\u5916\u89C2", this.closed = !1;
+      let refreshNative = () => this.refreshNative();
+      sceneWatch ? scope.add(sceneWatch.watch(refreshNative, 400)) : scope.interval(refreshNative, 400), game.onSceneChange && scope.add(game.onSceneChange(() => this.queueRefresh())), scope.add(() => {
         this.closed = !0, this.restore(), this.clearTextures(), this.nativeResources.clear(), this.nativeAttempts.clear(), this.localBacks.clear(), this.localFaces.clear(), this.localFaceBackground = null, this.listeners.clear();
       }), this.localBacksReady = win.indexedDB ? this.loadLocalBacks() : Promise.resolve(), this.localFacesReady = win.indexedDB ? this.loadLocalFaces() : Promise.resolve();
     }
@@ -1767,8 +1932,9 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
           for (let ui of cardBookFaces(node, listType, detailType))
             this.bookFaces.add(ui), queue.push(ui);
           for (let key of CARD_LISTS) {
-            let a = own(node, key);
-            Array.isArray(a) && queue.push(...a.slice(0, 2048));
+            let cards = own(node, key);
+            if (Array.isArray(cards))
+              for (let j = 0, count = Math.min(cards.length, 2048); j < count; j++) queue.push(cards[j]);
           }
           for (let key of CARD_NODES) {
             let value = own(node, key);
@@ -1842,8 +2008,8 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
         for (let [ui, binding] of this.bindings) found.has(ui) || (binding.release(), this.bindings.delete(ui));
         for (let ui of found)
           this.bindCard(ui);
-        let waiting = [selectedAtlas?.native?.face, back?.native?.back].some((name) => name && !this.nativeTexture(name)), localStatus = backImage && (backImage.complete ? backImage.naturalWidth !== (back.localBackImage ? LOCAL_BACK_WIDTH : LOCAL_FACE_WIDTH) || backImage.naturalHeight !== (back.localBackImage ? LOCAL_BACK_HEIGHT : LOCAL_FACE_HEIGHT) ? "\u81EA\u5B9A\u4E49\u5361\u80CC\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u80CC" : "" : "\u6B63\u5728\u52A0\u8F7D\u81EA\u5B9A\u4E49\u5361\u80CC"), backgroundStatus = faceImage && (faceImage.complete ? faceImage.naturalWidth !== LOCAL_FACE_WIDTH || faceImage.naturalHeight !== LOCAL_FACE_HEIGHT ? "\u5361\u9762\u5E95\u56FE\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u9762" : "" : "\u6B63\u5728\u52A0\u8F7D\u5361\u9762\u5E95\u56FE"), atlas = this.atlases.get(selectedAtlas?.id), prefix = atlas?.error ? "\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25\uFF0C\u5DF2\u4FDD\u7559\u6E38\u620F\u5916\u89C2\uFF1A" + atlas.error : atlas?.loading ? "\u6B63\u5728\u52A0\u8F7D\u5B8C\u6574\u5361\u9762\uFF0C\u5F53\u524D\u4FDD\u7559\u6E38\u620F\u5916\u89C2" : null, faces = atlas?.data ? [...this.bindings].filter(([ui]) => !ui.theCard?.IsEmpty) : [], applied = faces.filter(([ui, b]) => b.applied && !b.reason && !b.error && ui.bmpFace.texture === b.applied).length, fallback = [...new Set(faces.filter(([, b]) => b.reason).map(([, b]) => b.reason))], detail = atlas?.data ? ` \xB7 \u5B8C\u6574\u5361\u9762 R3 \u5DF2\u66FF\u6362 ${applied}/${faces.length}${fallback.length ? " \xB7 \u56DE\u9000\uFF1A" + fallback.join("\uFF1B") : ""}` : "";
-        this.setStatus(prefix || backgroundStatus || localStatus || (waiting ? "\u7B49\u5F85\u5B98\u65B9\u5361\u9762\uFF0F\u5361\u80CC\u8D44\u6E90\u52A0\u8F7D\uFF0C\u5DF2\u5C31\u7EEA\u7684\u9762\u72EC\u7ACB\u5E94\u7528" : found.size ? `\u5DF2\u63A5\u5165 ${found.size} \u5F20\u539F\u751F\u5361\u724C \xB7 \u4EC5\u672C\u673A\u663E\u793A${detail}` : "\u5957\u88C5\u5DF2\u5C31\u7EEA\uFF0C\u7B49\u5F85\u539F\u751F\u5361\u724C\u51FA\u73B0"));
+        let waiting = [selectedAtlas?.native?.face, back?.native?.back].some((name) => name && !this.nativeTexture(name)), localStatus = backImage && (backImage.complete ? backImage.naturalWidth !== (back.localBackImage ? LOCAL_BACK_WIDTH : LOCAL_FACE_WIDTH) || backImage.naturalHeight !== (back.localBackImage ? LOCAL_BACK_HEIGHT : LOCAL_FACE_HEIGHT) ? "\u81EA\u5B9A\u4E49\u5361\u80CC\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u80CC" : "" : "\u6B63\u5728\u52A0\u8F7D\u81EA\u5B9A\u4E49\u5361\u80CC"), backgroundStatus = faceImage && (faceImage.complete ? faceImage.naturalWidth !== LOCAL_FACE_WIDTH || faceImage.naturalHeight !== LOCAL_FACE_HEIGHT ? "\u5361\u9762\u5E95\u56FE\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u9762" : "" : "\u6B63\u5728\u52A0\u8F7D\u5361\u9762\u5E95\u56FE"), atlas = this.atlases.get(selectedAtlas?.id), prefix2 = atlas?.error ? "\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25\uFF0C\u5DF2\u4FDD\u7559\u6E38\u620F\u5916\u89C2\uFF1A" + atlas.error : atlas?.loading ? "\u6B63\u5728\u52A0\u8F7D\u5B8C\u6574\u5361\u9762\uFF0C\u5F53\u524D\u4FDD\u7559\u6E38\u620F\u5916\u89C2" : null, faces = atlas?.data ? [...this.bindings].filter(([ui]) => !ui.theCard?.IsEmpty) : [], applied = faces.filter(([ui, b]) => b.applied && !b.reason && !b.error && ui.bmpFace.texture === b.applied).length, fallback = [...new Set(faces.filter(([, b]) => b.reason).map(([, b]) => b.reason))], detail = atlas?.data ? ` \xB7 \u5B8C\u6574\u5361\u9762 R3 \u5DF2\u66FF\u6362 ${applied}/${faces.length}${fallback.length ? " \xB7 \u56DE\u9000\uFF1A" + fallback.join("\uFF1B") : ""}` : "";
+        this.setStatus(prefix2 || backgroundStatus || localStatus || (waiting ? "\u7B49\u5F85\u5B98\u65B9\u5361\u9762\uFF0F\u5361\u80CC\u8D44\u6E90\u52A0\u8F7D\uFF0C\u5DF2\u5C31\u7EEA\u7684\u9762\u72EC\u7ACB\u5E94\u7528" : found.size ? `\u5DF2\u63A5\u5165 ${found.size} \u5F20\u539F\u751F\u5361\u724C \xB7 \u4EC5\u672C\u673A\u663E\u793A${detail}` : "\u5957\u88C5\u5DF2\u5C31\u7EEA\uFF0C\u7B49\u5F85\u539F\u751F\u5361\u724C\u51FA\u73B0"));
       } catch (error) {
         this.restore(), this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
       }
@@ -1851,7 +2017,7 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.182", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.213", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
@@ -1933,6 +2099,65 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
   ]);
 
   // src/core/background-motion.js
+  var matteColor = "#242635";
+  async function skinMatte(window2, url, scope) {
+    let { document: document2, Image: Image2, Laya: { Texture, Texture2D, TextureFormat } } = window2;
+    if (!url || !document2 || !Image2 || !Texture2D || !Texture) return;
+    let image = new Image2();
+    if (image.src = url, await image.decode(), scope.closed) return;
+    let colors = document2.createElement("canvas");
+    colors.width = 6, colors.height = 4;
+    let source = colors.getContext("2d");
+    source.fillStyle = matteColor, source.fillRect(0, 0, colors.width, colors.height), source.drawImage(image, 0, 0, colors.width, colors.height);
+    let canvas = document2.createElement("canvas");
+    canvas.width = canvas.height = 64;
+    let context2 = canvas.getContext("2d");
+    context2.imageSmoothingQuality = "high", context2.drawImage(colors, 0, 0, canvas.width, canvas.height);
+    let bitmap = new Texture2D(canvas.width, canvas.height, TextureFormat?.R8G8B8A8 ?? 1, !1), texture;
+    return scope.add(() => {
+      texture?.destroy(), bitmap.destroyed || bitmap.destroy();
+    }), bitmap.loadImageSource(canvas, !0), texture = new Texture(bitmap), texture;
+  }
+  function createSkinBackgroundMotion({ window: window2, layer, scope, load, ready, fail: fail2, imageUrl }) {
+    let { Sprite, Rectangle } = window2.Laya, root = new Sprite();
+    root.name = "sgs-background-motion", root.mouseEnabled = root.mouseChildren = root.visible = !1, root.zOrder = layer.bgSprite.zOrder || 0;
+    let motion2, matte, visible = !1, width, height;
+    scope.add(() => {
+      try {
+        motion2?.dispose();
+      } finally {
+        root.destroy(!0);
+      }
+    }), layer.addChildAt(root, Math.max(0, layer.getChildIndex(layer.bgSprite)) + 1);
+    function positionMotion() {
+      width > 0 && height > 0 && (root.graphics.clear(), root.graphics.drawRect(0, 0, width, height, matteColor), matte && root.graphics.drawTexture(matte, 0, 0, width, height), motion2?.fit(0, 0, width, height));
+    }
+    skinMatte(window2, imageUrl, scope).then((texture) => {
+      !texture || scope.closed || (matte = texture, positionMotion());
+    }).catch(() => {
+    });
+    let timer = setTimeout(() => fail2("\u5F85\u673A\u52A8\u753B\u52A0\u8F7D\u8D85\u65F6"), 2e4), cancelTimeout = scope.add(() => clearTimeout(timer));
+    return Promise.resolve().then(() => load(scope.signal)).then((loaded) => {
+      if (cancelTimeout(), scope.closed) {
+        loaded?.dispose();
+        return;
+      }
+      if (!loaded) throw new Error("\u8FD9\u6B3E\u76AE\u80A4\u7684\u5F85\u673A\u52A8\u753B\u6682\u4E0D\u53EF\u7528");
+      motion2 = loaded, root.addChild(motion2.actor), positionMotion(), root.visible = visible, motion2.setPlaying(visible), ready();
+    }).catch((error) => {
+      scope.closed || fail2(error?.message || String(error));
+    }), {
+      get loaded() {
+        return !!motion2;
+      },
+      layout(w, h) {
+        scope.closed || !(w > 0 && h > 0) || width === w && height === h || (width = w, height = h, root.size(w, h), root.scrollRect = new Rectangle(0, 0, w, h), positionMotion());
+      },
+      show(value) {
+        scope.closed || visible === value || (visible = value, root.visible = visible && !!motion2, motion2?.setPlaying(visible));
+      }
+    };
+  }
   function nativeEffect(layer, spine) {
     let method = spine ? layer.SetBgLiveEffect : layer.Ci ?? layer.wt;
     if (typeof method != "function") throw new Error("\u6E38\u620F\u52A8\u753B\u52A0\u8F7D\u5668\u5C1A\u672A\u5C31\u7EEA");
@@ -1965,14 +2190,14 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     let remaining = names.filter((name) => !/^(ChuChang|GongJi|HuDong|JiNeng)$/i.test(name));
     return remaining.length === 1 ? remaining[0] : void 0;
   }
-  function createBackgroundMotion({ window: window2, layer, spec, size, scope, ready, fail }) {
+  function createBackgroundMotion({ window: window2, layer, spec, size, scope, ready, fail: fail2 }) {
     let laya = window2.Laya, root = new laya.Sprite(), players = [], loaded = !1, failed = !1, visible = !1, playing = null, stopAttack;
     root.name = "sgs-background-motion", root.mouseEnabled = root.mouseChildren = !1, root.zOrder = layer.bgSprite.zOrder || 0, root.size(size.width, size.height), root.scrollRect = new laya.Rectangle(0, 0, size.width, size.height), root.visible = !1, scope.add(() => root.destroy(!0)), layer.addChildAt(root, Math.max(0, layer.getChildIndex(layer.bgSprite)) + 1);
     let error = (value) => {
       if (!(scope.closed || failed)) {
         failed = !0, root.visible = !1;
         for (let player of players) player.pause();
-        fail(value?.message || String(value || "\u52A8\u6001\u8D44\u6E90\u52A0\u8F7D\u5931\u8D25"));
+        fail2(value?.message || String(value || "\u52A8\u6001\u8D44\u6E90\u52A0\u8F7D\u5931\u8D25"));
       }
     }, complete = () => {
       !scope.closed && !failed && (loaded = !0, ready());
@@ -2083,9 +2308,11 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
 
   // src/core/background-local.js
   var MAX_TEXTURE_EDGE = 4096;
-  function readLocalBackground(win, file) {
+  function readLocalBackground(win, file, landscape = !1) {
     return withLocalImage(win, file, async (image, original) => {
-      let { naturalWidth: width, naturalHeight: height } = image, scale = MAX_TEXTURE_EDGE / Math.max(width, height);
+      let { naturalWidth: width, naturalHeight: height } = image;
+      if (landscape && width <= height) throw new Error("\u53EA\u6709\u6A2A\u7248\u76AE\u80A4\u53EF\u4EE5\u8BBE\u4E3A\u724C\u5C40\u80CC\u666F");
+      let scale = MAX_TEXTURE_EDGE / Math.max(width, height);
       if (scale >= 1) return original;
       let canvas = win.document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(width * scale)), canvas.height = Math.max(1, Math.round(height * scale)), canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -2141,10 +2368,13 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
   }
 
   // src/core/backgrounds.js
-  function containBackground(width, height, viewportWidth, viewportHeight) {
+  function fitBackground(width, height, viewportWidth, viewportHeight, scaleFor) {
     if (![width, height, viewportWidth, viewportHeight].every((n) => Number.isFinite(n) && n > 0)) return null;
-    let scale = Math.min(viewportWidth / width, viewportHeight / height);
+    let scale = scaleFor(viewportWidth / width, viewportHeight / height);
     return { width, height, scale, x: (viewportWidth - width * scale) / 2, y: (viewportHeight - height * scale) / 2 };
+  }
+  function containBackground(width, height, viewportWidth, viewportHeight) {
+    return fitBackground(width, height, viewportWidth, viewportHeight, Math.min);
   }
   function findBackgroundLayer(stage) {
     let queue = stage ? [stage] : [];
@@ -2225,8 +2455,10 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     };
   }
   var BackgroundRegistry = class {
-    constructor({ window: window2, game, settings, scope }) {
-      Object.assign(this, { window: window2, game, settings, scope }), this.providers = /* @__PURE__ */ new Set(), this.listeners = /* @__PURE__ */ new Set(), this.binding = null, this.ready = null, this.loading = null, this.failed = null, this.ticket = 0, this.status = "\u8DDF\u968F\u6E38\u620F\u80CC\u666F", scope.interval(() => this.refresh(), 500), scope.add(() => {
+    constructor({ window: window2, game, settings, scope, sceneWatch }) {
+      Object.assign(this, { window: window2, game, settings, scope }), this.providers = /* @__PURE__ */ new Set(), this.listeners = /* @__PURE__ */ new Set(), this.binding = null, this.ready = null, this.loading = null, this.failed = null, this.ticket = 0, this.status = "\u8DDF\u968F\u6E38\u620F\u80CC\u666F";
+      let refresh = () => this.refresh();
+      sceneWatch ? scope.add(sceneWatch.watch(refresh, 500, !0)) : scope.interval(refresh, 500), scope.add(() => {
         this.importing = null, this.ticket++, this.listeners.clear();
         try {
           this.detach(!0);
@@ -2240,6 +2472,9 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     get current() {
       return this.settings.get("battleBackground", null);
     }
+    isActive(owner) {
+      return this.providers.has(owner);
+    }
     subscribe(fn) {
       return this.listeners.add(fn), () => this.listeners.delete(fn);
     }
@@ -2250,35 +2485,58 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
         } catch {
         }
     }
-    state(text2) {
-      this.status !== text2 && (this.status = text2, this.emit());
+    state(text3) {
+      this.status !== text3 && (this.status = text3, this.emit());
     }
     register(owner) {
       if (this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u5DF2\u6CE8\u518C");
-      this.providers.add(owner), this.refresh();
+      this.providers.add(owner), this.refresh(), this.emit();
       let active = !0;
       return () => {
-        active && (active = !1, this.providers.delete(owner), this.importing?.owner === owner && (this.importing = null), this.retryAt = 0, this.loadAttempts = 0, this.refresh());
+        active && (active = !1, this.providers.delete(owner), this.importing?.owner === owner && (this.importing = null), this.retryAt = 0, this.loadAttempts = 0, this.refresh(), this.emit());
       };
     }
     select(owner, spec) {
       if (!this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
       this.saveSelection(spec ? { ...backgroundSpec(spec), owner } : null);
     }
+    registerSkinMotion(load) {
+      return this.skinMotion = load, () => {
+        this.skinMotion === load && (this.skinMotion = null);
+      };
+    }
+    setAnimated(owner, enabled) {
+      let choice = this.current;
+      if (!(choice?.owner !== owner || !this.providers.has(owner))) {
+        if (choice.skinMotion !== !0) {
+          choice.localImageId || this.select(owner, { ...choice, animated: enabled });
+          return;
+        }
+        this.settings.set("battleBackground", { ...choice, animated: enabled }), this.selectionChanged();
+      }
+    }
     setAttackEffects(owner, enabled) {
       let choice = this.current;
       choice?.owner !== owner || !this.providers.has(owner) || !supportsSkinBackgroundAttack(choice.dynamic) || (this.settings.set("battleBackground", { ...choice, attackEffects: enabled === !0 }), enabled || this.binding?.motion?.stopAttack(), this.refresh(), this.emit());
     }
-    async selectLocal(owner, file) {
+    async selectLocal(owner, file, { skinKey, skinMotion, animated, isCurrent = () => !0 } = {}) {
       if (this.scope.closed || !this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
-      let pending = this.importing = { owner }, id;
+      let pending = this.importing = { owner }, canSave = () => this.importing === pending && isCurrent(), id;
       try {
-        let image = await readLocalBackground(this.window, file);
-        if (this.importing !== pending || (id = await localBackgroundImage(this.window, "readwrite", (store) => store.add(image)), this.importing !== pending)) return;
+        let image = await readLocalBackground(this.window, file, !!skinKey);
+        if (!canSave() || (id = await localBackgroundImage(this.window, "readwrite", (store) => store.add(image)), !canSave())) return !1;
         let name = file.name?.trim().slice(0, 160) || "\u672C\u5730\u56FE\u7247";
-        this.saveSelection({ name, localImageId: id, owner, animated: !1, dynamic: null }), id = void 0;
+        return this.saveSelection({
+          name,
+          localImageId: id,
+          owner,
+          animated: !!(skinMotion && animated),
+          dynamic: null,
+          ...skinKey && { skinKey, skinMotion: !!skinMotion }
+        }), id = void 0, !0;
       } catch (error) {
-        if (this.importing === pending) throw error;
+        if (canSave()) throw error;
+        return !1;
       } finally {
         this.importing === pending && (this.importing = null), this.removeLocalImage(id);
       }
@@ -2375,7 +2633,7 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
       if (localId2 !== void 0) {
         let url = this.localUrl(localId2);
         if (!url) return;
-        choice = { name: choice.name, url };
+        choice = { ...choice, url };
       }
       if (this.failed === choice.url && (this.failed = null), this.ready !== choice.url) {
         if (this.loading === choice.url) return;
@@ -2405,39 +2663,46 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
         }
         return;
       }
+      if (choice.skinKey && !(this.imageSize?.width > this.imageSize?.height)) {
+        this.detach(!0), this.state("\u6B64\u76AE\u80A4\u6CA1\u6709\u53EF\u7528\u7684\u6A2A\u7248\u539F\u753B");
+        return;
+      }
       if (!this.binding) {
-        let layer = findBackgroundLayer(laya?.stage), viewport = layer && backgroundViewport(layer, this.window);
+        let coverStill = function(next) {
+          covered?.node !== next && (covered && !covered.node.destroyed && (covered.node.visible = covered.visible), covered = next && { node: next, visible: next.visible }), next && (next.visible = !1);
+        }, layer = findBackgroundLayer(laya?.stage), viewport = layer && backgroundViewport(layer, this.window);
         if (!laya?.Sprite || !laya.Rectangle || !(viewport?.width > 0 && viewport.height > 0)) {
           this.state("\u7B49\u5F85\u6E38\u620F\u80CC\u666F\u5C42\u4E0E\u5E03\u5C40\u5C31\u7EEA");
           return;
         }
         let local = new ResourceScope(), b2 = { scene, layer, stage: laya.stage, scope: local, applied: !1, yielded: this.yieldedScene === scene, writing: !1 };
         this.binding = b2;
-        let registry = this, originalById = scene.SetWallPaperById, eligible = () => !scene.currentWeatherWallPaper && !b2.yielded;
-        if (b2.syncMotion = () => {
-          let visible = eligible() && layer.bg?.skin === choice.url;
-          b2.motion?.show(visible);
-        }, layer) {
+        let registry = this, originalById = scene.SetWallPaperById, eligible = () => !scene.currentWeatherWallPaper && !b2.yielded, covered;
+        local.add(() => coverStill());
+        let showMotion = (visible) => {
+          b2.motion?.show(visible), coverStill(visible && choice.skinMotion && b2.motion?.loaded ? layer.bg : void 0);
+        };
+        if (b2.syncMotion = () => showMotion(eligible() && layer.bg?.skin === choice.url), layer) {
           let fill = new laya.Sprite();
           local.add(() => fill.destroy(!0)), fill.name = "sgs-background-edge-fill", fill.mouseEnabled = !1, fill.mouseChildren = !1, fill.zOrder = (layer.bgSprite.zOrder || 0) - 1, layer.addChildAt(fill, Math.max(0, layer.getChildIndex(layer.bgSprite)));
           let soften = new laya.Sprite();
-          soften.mouseEnabled = !1, fill.addChild(soften), laya.BlurFilter && (soften.filters = [new laya.BlurFilter(18)]), b2.hideFill = () => {
-            fill.visible = !1, b2.motion?.show(!1);
+          soften.mouseEnabled = !1, fill.addChild(soften), laya.BlurFilter && !choice.skinKey && (soften.filters = [new laya.BlurFilter(18)]), b2.hideFill = () => {
+            fill.visible = !1, showMotion(!1);
           };
           let fillKey = "";
           local.patch(layer, "updateBgSize", (original) => function(...args) {
-            let result = Reflect.apply(original, this, args);
-            if (fill.visible = eligible() && this.bg?.skin === choice.url, b2.syncMotion(), !fill.visible) return result;
-            let size = registry.imageSize, { width: w, height: h } = backgroundViewport(this, registry.window), fit = containBackground(size?.width, size?.height, w, h);
+            let result = Reflect.apply(original, this, args), customBackground = eligible() && this.bg?.skin === choice.url;
+            if (fill.visible = customBackground && !choice.skinKey, b2.syncMotion(), !customBackground) return result;
+            let size = registry.imageSize, { width: w, height: h } = backgroundViewport(this, registry.window), fit = fitBackground(size?.width, size?.height, w, h, choice.skinKey ? Math.max : Math.min);
             if (!fit)
               return fill.visible = !1, result;
             let key = `${w}:${h}`;
-            if (key !== fillKey) {
+            if (fill.visible && key !== fillKey) {
               fillKey = key;
               let scale = Math.max(w / fit.width, h / fit.height), dw = fit.width * scale, dh = fit.height * scale;
               fill.size(w, h), fill.scrollRect = new laya.Rectangle(0, 0, w, h), soften.graphics.clear(), soften.graphics.drawTexture(registry.imageTexture, (w - dw) / 2, (h - dh) / 2, dw, dh), soften.graphics.drawRect(0, 0, w, h, "rgba(0,0,0,0.28)");
             }
-            return this.bg.size(fit.width, fit.height), typeof this.bg.scale == "function" ? this.bg.scale(fit.scale, fit.scale) : this.bg.scale = fit.scale, this.bg.posInteger(fit.x, fit.y), b2.motion && b2.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h)), result;
+            return this.bg.size(fit.width, fit.height), typeof this.bg.scale == "function" ? this.bg.scale(fit.scale, fit.scale) : this.bg.scale = fit.scale, this.bg.posInteger(fit.x, fit.y), choice.skinMotion ? b2.motion?.layout(w, h) : b2.motion && b2.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h)), result;
           });
         }
         typeof scene.OnWeatherWallPaperChange == "function" && local.patch(scene, "OnWeatherWallPaperChange", (original) => function(...args) {
@@ -2480,28 +2745,33 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
               handler.caller === scene && handler.method === redirected && (handler.method = originalById);
             });
           }
-        if (b2.yielded || scene.onWallPaperChange(), choice.dynamic && choice.animated !== !1) {
+        b2.yielded || scene.onWallPaperChange();
+        let playSkinMotion = choice.skinMotion && !this.window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        if ((choice.dynamic || playSkinMotion) && choice.animated !== !1) {
           let motionScope = new ResourceScope();
           local.add(() => motionScope.dispose());
-          let fail = (message) => {
+          let fail2 = (message) => {
             local.closed || (b2.motionError = message, motionScope.dispose(), b2.motion = null, this.refresh());
           };
           try {
-            b2.motion = createBackgroundMotion({
+            let options = {
               window: this.window,
               layer,
-              spec: choice.dynamic,
-              size: choice.dynamic,
               scope: motionScope,
               ready: () => {
                 local.closed || this.refresh();
               },
-              fail
-            }), motionScope.closed && (b2.motion = null), b2.motion && supportsSkinBackgroundAttack(choice.dynamic) && (b2.syncAttackSeat = watchBackgroundAttack(this.game, scene, motionScope, () => {
+              fail: fail2
+            };
+            b2.motion = choice.skinMotion ? createSkinBackgroundMotion({
+              ...options,
+              load: (signal) => this.skinMotion?.(choice.skinKey, signal),
+              imageUrl: this.localImage?.objectUrl
+            }) : createBackgroundMotion({ ...options, spec: choice.dynamic, size: choice.dynamic }), motionScope.closed && (b2.motion = null), b2.motion && supportsSkinBackgroundAttack(choice.dynamic) && (b2.syncAttackSeat = watchBackgroundAttack(this.game, scene, motionScope, () => {
               eligible() && layer.bg?.skin === choice.url && b2.motion?.playAttack?.();
             })), layer.updateBgSize();
           } catch (error) {
-            fail(error?.stack || String(error));
+            fail2(error?.stack || String(error));
           }
         }
       }
@@ -2560,81 +2830,49 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
   };
 
   // src/ui/plugin-icons.js
-  var icon = (...paths) => Object.freeze({ paths: Object.freeze(paths) }), PLUGIN_ICONS = Object.freeze({
-    cards: icon(
-      "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
-      "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"
-    ),
-    shanhetu: icon(
-      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
-      "M6 12 10 7l4 5 3-3 2 3",
-      "M6 16c3-3 7 3 12-1"
-    ),
-    "shanhetu-beta": icon(
-      "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
-      "M12 7v8m-4-4h8"
-    ),
-    "daily-rewards": icon(
-      "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
-      "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"
-    ),
-    seckill: icon(
-      "M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2",
-      "M13 10 9 15h3l-1 4 5-6h-4Z"
-    ),
-    gaizhu: icon(
-      "M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0",
-      "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3",
-      "M2 21h6"
-    ),
-    effects: icon(
-      "M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2",
-      "M3 3 21 21M19 3v4M17 5h4"
-    ),
-    skins: icon(
-      "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
-      "M8 3l8 9M16 3l-6 7M8 16h8"
-    ),
-    "wish-progress": icon(
-      "M12 17 4.5 10a4.3 4.3 0 0 1 6-6L12 5.5 13.5 4a4.3 4.3 0 0 1 6 6Z",
-      "M4 21h9M16 21h4"
-    ),
-    themes: icon(
-      "M12 21 2 8a16 16 0 0 1 20 0Z",
-      "M12 21 7 5.3M12 21V4.5M12 21 17 5.3",
-      "M10 19a3 3 0 0 1 4 0"
-    ),
-    baisheng: icon(
-      "M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4",
-      "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"
-    ),
-    appearances: icon(
-      "M9 21H3V3h18v9",
-      "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1",
-      "M12 21 16 17l3 2 3-5M19 14h3v3"
-    ),
-    ledger: icon(
-      "M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18",
-      "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"
-    )
-  }), TOOLBOX_ICON = icon(
+  var icon = (...paths) => Object.freeze({ paths: Object.freeze(paths) }), CARDS_ICON = /* @__PURE__ */ icon(
+    "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
+    "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"
+  ), SHANHETU_ICON = /* @__PURE__ */ icon(
+    "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
+    "M6 12 10 7l4 5 3-3 2 3",
+    "M6 16c3-3 7 3 12-1"
+  );
+  var DAILY_REWARDS_ICON = /* @__PURE__ */ icon(
+    "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
+    "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"
+  );
+  var EFFECTS_ICON = /* @__PURE__ */ icon(
+    "M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2",
+    "M3 3 21 21M19 3v4M17 5h4"
+  ), SKINS_ICON = /* @__PURE__ */ icon(
+    "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
+    "M8 3l8 9M16 3l-6 7M8 16h8"
+  );
+  var THEMES_ICON = /* @__PURE__ */ icon(
+    "M12 21 2 8a16 16 0 0 1 20 0Z",
+    "M12 21 7 5.3M12 21V4.5M12 21 17 5.3",
+    "M10 19a3 3 0 0 1 4 0"
+  );
+  var TOOLBOX_ICON = /* @__PURE__ */ icon(
     "M3 7h18v13H3ZM8 7V4h8v3M3 12h6M15 12h6",
     "M12 9l3 3-3 3-3-3Z"
   );
 
   // src/ui/icons.js
   var markup = Object.freeze({
-    cards: PLUGIN_ICONS.cards,
-    gift: PLUGIN_ICONS["daily-rewards"],
-    effects: PLUGIN_ICONS.effects,
-    skins: PLUGIN_ICONS.skins,
-    palette: PLUGIN_ICONS.themes,
+    cards: CARDS_ICON,
+    gift: DAILY_REWARDS_ICON,
+    effects: EFFECTS_ICON,
+    skins: SKINS_ICON,
+    palette: THEMES_ICON,
     typography: '<path d="M3 19 9 5l6 14M5 14h8M16 9h6M19 9v10M16 19h6"/>',
     toolbox: TOOLBOX_ICON,
-    map: PLUGIN_ICONS.shanhetu,
+    map: SHANHETU_ICON,
     tools: '<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 11v3h4v-3"/>',
     settings: '<path d="M12 3l2 3 4-1 1 4 3 3-3 3-1 4-4-1-2 3-2-3-4 1-1-4-3-3 3-3 1-4 4 1z"/><circle cx="12" cy="12" r="3"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 6v1"/>',
+    search: '<circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4.5 4.5"/>',
     package: '<path d="m12 3 9 5v9l-9 5-9-5V8zM3 8l9 5 9-5M12 13v9M7 5l10 5v4"/>',
     automation: '<path d="M13 2L4 14h7l-1 8 10-13h-7z"/>',
     refresh: '<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',
@@ -2646,6 +2884,8 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
     chevron: '<path d="m6 9 6 6 6-6"/>',
     save: '<path d="M5 3h12l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8"/>',
     download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
+    arrowUp: '<path d="M12 20V4m-6 6 6-6 6 6"/>',
+    arrowDown: '<path d="M12 4v16m-6-6 6 6 6-6"/>',
     pointer: '<path d="m5 3 14 9-7 1-3 7z"/>',
     clipboard: '<path d="M9 5H5v16h14V5h-4M9 3h6v4H9zM8 12h8M8 16h6"/>',
     share: '<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
@@ -2673,10 +2913,11 @@ Userscript.runUserscript(function (sgsToolboxMobileSkinPort) {
 
   // src/ui/controls.js
   var CONTROL_STYLES = `
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:12px;background:linear-gradient(color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,#000),var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0006;vertical-align:middle;cursor:pointer;transition:background .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:linear-gradient(color-mix(in srgb,var(--sgs-muted,#b7aa8c) 85%,var(--sgs-text,#eee3cc)),color-mix(in srgb,var(--sgs-muted,#b7aa8c) 65%,var(--sgs-bg,#201e1a)));box-shadow:0 1px 2px #0008;transition:transform .16s,background .16s}
-input.sgs-switch[type=checkbox]:checked{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 35%,var(--sgs-surface,#2c2922)),color-mix(in srgb,var(--sgs-accent,#dbba70) 17%,var(--sgs-surface,#2c2922)));border-color:color-mix(in srgb,var(--sgs-accent,#dbba70) 65%,transparent)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 45%,var(--sgs-text,#eee3cc)),var(--sgs-accent,#dbba70))}
+/* Keep both states visible before the microclient's theme compatibility pass. */
+input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid var(--sgs-border,#665b42);border-radius:12px;background-color:var(--sgs-bg,#201e1a);background-image:linear-gradient(transparent,var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0004;vertical-align:middle;cursor:pointer;transition:background-color .16s,border-color .16s}
+input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background-color:var(--sgs-muted,#b7aa8c);background-image:linear-gradient(#fff2,transparent);box-shadow:0 1px 2px #0005;transition:transform .16s,background-color .16s}
+input.sgs-switch[type=checkbox]:checked{background-color:var(--sgs-accent,#dbba70);background-image:linear-gradient(#fff1,var(--sgs-accent,#dbba70));border-color:var(--sgs-accent,#dbba70)}
+input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background-color:var(--sgs-bg,#201e1a)}
 input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
 select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
 select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
@@ -2693,11 +2934,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function styleSwitch(input) {
     return input.classList.add("sgs-switch"), input.setAttribute("role", "switch"), input;
   }
-  function helpTip(doc, text2, label = "\u8BF4\u660E") {
+  function helpTip(doc, text3, label = "\u8BF4\u660E") {
     let wrap = doc.createElement("span"), button = doc.createElement("button"), tip = doc.createElement("span");
-    wrap.className = "sgs-help-tip", wrap.style.cssText = "display:inline-flex;align-items:center;flex:0 0 auto;vertical-align:middle;margin:0;line-height:1", button.dataset.helpTip = "", button.type = "button", button.setAttribute("aria-label", label), button.title = text2, button.style.cssText = "box-sizing:border-box;display:inline-grid;place-items:center;flex:none;width:24px;height:24px;min-width:24px;min-height:24px;margin:0;padding:3px;border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);cursor:help;border-radius:50%";
+    wrap.className = "sgs-help-tip", wrap.style.cssText = "display:inline-flex;align-items:center;flex:0 0 auto;vertical-align:middle;margin:0;line-height:1", button.dataset.helpTip = "", button.type = "button", button.setAttribute("aria-label", label), button.title = text3, button.style.cssText = "box-sizing:border-box;display:inline-grid;place-items:center;flex:none;width:24px;height:24px;min-width:24px;min-height:24px;margin:0;padding:3px;border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);cursor:help;border-radius:50%";
     let icon2 = controlIcon(doc, "info");
-    icon2.style.margin = "0", button.append(icon2), tip.textContent = text2, tip.setAttribute("popover", "manual"), tip.setAttribute("role", "tooltip"), tip.style.cssText = "position:fixed;inset:auto;margin:0;padding:10px 12px;max-width:min(300px,calc(100vw - 24px));width:max-content;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--sgs-font,sans-serif);color:var(--sgs-text);background:var(--sgs-raised);border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 6px 24px #0004";
+    icon2.style.margin = "0", button.append(icon2), tip.textContent = text3, tip.setAttribute("popover", "manual"), tip.setAttribute("role", "tooltip"), tip.style.cssText = "position:fixed;inset:auto;margin:0;padding:10px 12px;max-width:min(300px,calc(100vw - 24px));width:max-content;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--sgs-font,sans-serif);color:var(--sgs-text);background:var(--sgs-raised);border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 6px 24px #0004";
     let hide = () => {
       tip.matches(":popover-open") && tip.hidePopover();
     }, show = () => {
@@ -2734,9 +2975,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function panelUI(ctx, container) {
     let doc = ctx.document, cleanups = [], root = doc.createElement("section");
     root.className = "sgs-info";
-    let el = (tag, cls, text2) => {
+    let el = (tag, cls, text3) => {
       let n = doc.createElement(tag);
-      return cls && (n.className = cls), text2 !== void 0 && (n.textContent = text2), n;
+      return cls && (n.className = cls), text3 !== void 0 && (n.textContent = text3), n;
     };
     container.append(root);
     let scheme = (current) => {
@@ -2749,8 +2990,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     scheme(ctx.themes?.current), ctx.themes?.subscribe && cleanups.push(ctx.themes.subscribe(scheme));
     let listen = (node, type, fn) => {
       cleanups.push(ctx.scope.listen(node, type, fn));
-    }, button = (text2, icon2, fn) => {
-      let n = el("button", "", text2);
+    }, button = (text3, icon2, fn) => {
+      let n = el("button", "", text3);
       return n.type = "button", icon2 && n.prepend(controlIcon(doc, icon2)), listen(n, "click", fn), n;
     };
     return { root, el, listen, button, segments: (items, selected, change) => {
@@ -2786,12 +3027,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       released || (released = !0, --entry.users === 0 && (entry.style.remove(), sheets.delete(root)));
     };
   }
-  function mountPluginUI(context, getContext) {
-    let { document: doc, scope } = context;
+  function mountPluginUI(context2, getContext) {
+    let { document: doc, scope } = context2;
     return doc?.createElement && scope.add(acquirePluginStyles(doc.head || doc.documentElement, doc)), {
       icon: (spec) => createIcon(doc, spec),
       styleSwitch,
-      helpTip: (text2, label) => helpTip(doc, text2, label),
+      helpTip: (text3, label) => helpTip(doc, text3, label),
       panel: (container) => panelUI(getContext(), container),
       mountStyles: (root) => scope.add(acquirePluginStyles(root, doc))
     };
@@ -2873,9 +3114,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return Array.isArray(value) ? "[" + value.map(canonical).join(",") + "]" : value && typeof value == "object" ? "{" + Object.keys(value).sort().map((k) => JSON.stringify(k) + ":" + canonical(value[k])).join(",") + "}" : JSON.stringify(value);
   }
   async function packageDigest(manifest, code, cryptoImpl = globalThis.crypto) {
-    let bytes = new TextEncoder().encode(canonical(manifest) + `
+    let bytes2 = new TextEncoder().encode(canonical(manifest) + `
 ` + code);
-    return Array.from(new Uint8Array(await cryptoImpl.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
+    return Array.from(new Uint8Array(await cryptoImpl.subtle.digest("SHA-256", bytes2)), (b) => b.toString(16).padStart(2, "0")).join("");
   }
   function validateManifest(m, options) {
     if (!m || !/^[a-z][a-z0-9.-]{0,63}$/.test(m.id) || typeof m.name != "string" || !m.name.trim() || !/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(m.version)) throw new Error("\u63D2\u4EF6\u540D\u79F0\u3001ID \u6216\u7248\u672C\u65E0\u6548\u3002");
@@ -2921,8 +3162,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       if (ctx) try {
         ctx.clearRect(0, 0, 1, 1), ctx.fillStyle = fallback, ctx.fillStyle = value, ctx.fillRect(0, 0, 1, 1);
-        let bytes = ctx.getImageData(0, 0, 1, 1).data;
-        rgba = [bytes[0], bytes[1], bytes[2], bytes[3] / 255];
+        let bytes2 = ctx.getImageData(0, 0, 1, 1).data;
+        rgba = [bytes2[0], bytes2[1], bytes2[2], bytes2[3] / 255];
       } catch {
       }
     }
@@ -3115,11 +3356,115 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     });
   }
 
+  // src/shared/safe-read.js
+  var read3 = (fn) => {
+    try {
+      return fn();
+    } catch {
+      return;
+    }
+  };
+
+  // src/shared/native-manager.js
+  function findNativeListenerOwner(proxy, events, accepts) {
+    for (let event of events) {
+      let handlers = read3(() => proxy._events[event]);
+      for (let handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) {
+        let caller = read3(() => handler.caller);
+        if (accepts(caller)) return caller;
+      }
+    }
+    return null;
+  }
+
+  // src/core/plugin-native.js
+  function readNativeAccount(ctx) {
+    let login = manager(ctx, "LoginManager", "error", (m) => "IsOnLine" in m || "IsAccountLoggingOut" in m);
+    if (read3(() => login.IsAccountLoggingOut) === !0 || read3(() => login.IsOnLine) === !1) return { id: "", nickname: "" };
+    let self = read3(() => ctx.game.getSelf()), id = read3(() => self.ClientId) ?? read3(() => self.clientId);
+    return { id: /^(?:[1-9]\d*)$/.test(String(id)) ? String(id) : "", nickname: String(read3(() => self.NickName) ?? read3(() => self.nickname) ?? "") };
+  }
+  function manager(ctx, name, event, guard) {
+    let type = read3(() => ctx.game.getClass(name)), valid = (value) => value && read3(() => value.destroyed) !== !0 && read3(() => guard(value));
+    if (valid(type)) return type;
+    for (let key of ["instance", "_instance", "Instance", "s_instance"]) {
+      let descriptor = read3(() => Object.getOwnPropertyDescriptor(type, key));
+      if (descriptor && "value" in descriptor && valid(descriptor.value)) return descriptor.value;
+    }
+    return findNativeListenerOwner(read3(() => ctx.game.getServerProxy()), [event], valid);
+  }
+  function observeNative(ctx, project, consume, gap = () => {
+  }, { scope = ctx.scope } = {}) {
+    if (ctx.scope.signal.aborted || scope.signal.aborted) return () => {
+    };
+    let observation = new ResourceScope(), stop = ctx.scope.add(() => observation.dispose());
+    scope !== ctx.scope && observation.add(scope.add(stop));
+    let bound = null, releases = [], queue = [], scheduled = !1, overflow = !1, gapDetail = null, caller = {}, flush = () => {
+      if (scheduled = !1, observation.signal.aborted) return;
+      let batch = queue;
+      if (queue = [], overflow) {
+        overflow = !1;
+        let detail = gapDetail;
+        gapDetail = null, gap(detail);
+        return;
+      }
+      for (let item of batch) {
+        if (observation.closed) break;
+        if (item.account.id && item.account.id === readNativeAccount(ctx).id)
+          try {
+            consume(item.type, item.data, item.account);
+          } catch (e) {
+            gap({ reason: "consume", type: item.type, message: String(e?.message || e) });
+          }
+      }
+    }, enqueue = (type, packet2) => {
+      if (!observation.closed) {
+        try {
+          let data = project[type](packet2);
+          if (data == null) return;
+          queue.length >= 256 && (overflow = !0, gapDetail = { reason: "overflow", type }, queue = []), overflow || queue.push({ type, data, account: readNativeAccount(ctx) });
+        } catch (e) {
+          overflow = !0, gapDetail = { reason: "projection", type, message: String(e?.message || e) }, queue = [];
+        }
+        scheduled || (scheduled = !0, observation.timeout(flush, 0));
+      }
+    };
+    function bind() {
+      let proxy = read3(() => ctx.game.getServerProxy());
+      if (proxy !== bound) {
+        for (let release of releases) release();
+        if (releases = [], bound && (queue = [], gap({ reason: "rebind" })), !observation.closed && (bound = proxy, !(typeof read3(() => proxy.on) != "function" || typeof read3(() => proxy.off) != "function")))
+          for (let type of Object.keys(project)) {
+            let handler = (packet2) => enqueue(type, packet2);
+            proxy.on(type, caller, handler), releases.push(observation.add(() => proxy.off(type, caller, handler)));
+          }
+      }
+    }
+    observation.add(() => {
+      queue = [];
+      for (let release of releases) release();
+      releases = [], bound = null;
+    });
+    try {
+      bind(), observation.interval(bind, 500);
+    } catch (error) {
+      throw stop(), error;
+    }
+    return stop;
+  }
+  function createPluginNative(ctx) {
+    return {
+      account: () => readNativeAccount(ctx),
+      manager: (name, event, guard) => manager(ctx, name, event, guard),
+      observe: (project, consume, gap, options) => observeNative(ctx, project, consume, gap, options)
+    };
+  }
+
   // src/core/plugins.js
   var PluginManager = class {
-    constructor({ journal, store, settings, context, onChange = () => {
+    constructor({ journal, store, settings, context: context2, onChange = () => {
     } }) {
-      Object.assign(this, { journal, store, settings, context, onChange }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.initializing = !0, this.storageError = "", this.loadIssues = /* @__PURE__ */ new Map(), this.priorityPlayActions = /* @__PURE__ */ new Set(), this.unsubscribe = journal.subscribe((event) => {
+      Object.assign(this, { journal, store, settings, context: context2, onChange }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.initializing = !0, this.storageError = "", this.loadIssues = /* @__PURE__ */ new Map(), this.priorityPlayActions = /* @__PURE__ */ new Set(), this.unsubscribe = journal.subscribe((event) => {
         let changed = !1;
         for (let slot of this.slots.values())
           try {
@@ -3232,8 +3577,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       if (this.closed) throw new Error("\u63D2\u4EF6\u7BA1\u7406\u5668\u5DF2\u505C\u6B62");
       let scope = new ResourceScope();
       slot.scope = scope, slot.reportedError = "";
-      let id = slot.module.manifest.id, ctx = {
-        ...this.context,
+      let id = slot.module.manifest.id, { devAppearanceSync, devLedgerSync, ...context2 } = this.context, skinShortcutEnabled = () => !scope.closed && advancedSkinOption(this.settings.namespace("skins"), "backgroundShortcut"), canSelectSkinImage = () => id === "skins" && skinShortcutEnabled() && context2.backgrounds?.isActive?.("backgrounds") === !0, ctx = {
+        ...context2,
+        ...id === "appearances" && devAppearanceSync ? { devAppearanceSync } : {},
+        ...id === "ledger" && devLedgerSync ? { devLedgerSync } : {},
         scope,
         settings: this.settings.namespace(id),
         storage: this.settings.namespace(id),
@@ -3301,9 +3648,33 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             }, scope.add(this.context.ui.registerPanel(panel));
           }
         },
+        skinWindows: {
+          register: (open) => {
+            if (!(id !== "skins" || scope.closed))
+              return this.openSkinWindow = open, scope.add(() => {
+                this.openSkinWindow === open && (this.openSkinWindow = null);
+              });
+          },
+          open: (source, trigger) => {
+            if (!(id !== "backgrounds" || scope.closed)) {
+              if (!this.openSkinWindow) throw new Error("\u8BF7\u5148\u66F4\u65B0\u5E76\u542F\u7528\u76AE\u80A4\u7BA1\u7406\u63D2\u4EF6\u3002");
+              return this.openSkinWindow(source, trigger);
+            }
+          }
+        },
         backgrounds: {
           isInstalled: () => !scope.closed && this.slots.has("backgrounds"),
-          skinShortcutEnabled: () => !scope.closed && advancedSkinOption(this.settings.namespace("skins"), "backgroundShortcut"),
+          skinShortcutEnabled,
+          canSelectSkinImage,
+          selectSkinImage: (file, skinKey, skinMotion, signal) => {
+            let isCurrent = () => !signal.aborted && canSelectSkinImage();
+            if (!isCurrent()) return !1;
+            let animated = this.settings.namespace("backgrounds").get("animated", !0) !== !1;
+            return context2.backgrounds.selectLocal("backgrounds", file, { skinKey, skinMotion, animated, isCurrent });
+          },
+          registerSkinMotion: (load) => {
+            if (id === "skins" && !scope.closed) return scope.add(context2.backgrounds?.registerSkinMotion?.(load));
+          },
           register: () => scope.closed ? () => {
           } : scope.add(this.context.backgrounds.register(id)),
           select: (spec) => {
@@ -3311,6 +3682,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           },
           setAttackEffects: (enabled) => {
             scope.closed || this.context.backgrounds.setAttackEffects(id, enabled);
+          },
+          setAnimated: (enabled) => {
+            scope.closed || this.context.backgrounds.setAnimated(id, enabled);
           },
           selectLocal: (file) => {
             if (!scope.closed) return this.context.backgrounds.selectLocal(id, file);
@@ -3360,7 +3734,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             return thisContext.themes.current;
           }
         }
-      }, thisContext = this.context;
+      };
+      ctx.native = createPluginNative(ctx);
+      let thisContext = this.context;
       try {
         let result = await slot.module.activate(ctx);
         if (typeof result == "function" ? scope.add(result) : result?.dispose && scope.add(() => result.dispose()), this.closed || scope.closed) throw new Error("\u63D2\u4EF6\u6FC0\u6D3B\u5DF2\u53D6\u6D88");
@@ -3927,7 +4303,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   ALLOWED.add("sys_ss_gamelabel_config");
   var YJCM_SKINS = "yjcm-skins";
   ALLOWED.add(YJCM_SKINS);
-  var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read3 = (fn) => {
+  var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read4 = (fn) => {
     try {
       return fn();
     } catch {
@@ -3949,12 +4325,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     } finally {
       reader.releaseLock();
     }
-    let bytes = new Uint8Array(length), offset = 0;
+    let bytes2 = new Uint8Array(length), offset = 0;
     for (let chunk of chunks)
-      bytes.set(chunk, offset), offset += chunk.length;
-    return bytes;
+      bytes2.set(chunk, offset), offset += chunk.length;
+    return bytes2;
   }
-  async function inflate(bytes, format, win) {
+  async function inflate(bytes2, format, win) {
     let Decompressor = "DecompressionStream" in win ? win.DecompressionStream : globalThis.DecompressionStream, stream;
     try {
       Decompressor && (stream = new Decompressor(format));
@@ -3965,20 +4341,20 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         if (length += chunk.length, length > ENTRY_LIMIT) throw new Error("\u914D\u7F6E\u6587\u4EF6\u8D85\u8FC7\u8BFB\u53D6\u4E0A\u9650");
         chunks.push(chunk.slice());
       });
-      for (let offset2 = 0; offset2 < bytes.length; offset2 += 1024) decoder.push(bytes.subarray(offset2, offset2 + 1024), offset2 + 1024 >= bytes.length);
-      bytes.length || decoder.push(bytes, !0);
+      for (let offset2 = 0; offset2 < bytes2.length; offset2 += 1024) decoder.push(bytes2.subarray(offset2, offset2 + 1024), offset2 + 1024 >= bytes2.length);
+      bytes2.length || decoder.push(bytes2, !0);
       let output = new Uint8Array(length), offset = 0;
       for (let chunk of chunks)
         output.set(chunk, offset), offset += chunk.length;
       return output;
     }
     let BlobType = win.Blob || globalThis.Blob;
-    return boundedStream(new BlobType([bytes]).stream().pipeThrough(stream), ENTRY_LIMIT);
+    return boundedStream(new BlobType([bytes2]).stream().pipeThrough(stream), ENTRY_LIMIT);
   }
-  async function readZipEntry(bytes, filename, win = globalThis) {
-    let view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), end = -1;
-    for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--)
-      if (view.getUint32(i, !0) === 101010256 && i + 22 + view.getUint16(i + 20, !0) === bytes.length) {
+  async function readZipEntry(bytes2, filename, win = globalThis) {
+    let view = new DataView(bytes2.buffer, bytes2.byteOffset, bytes2.byteLength), end = -1;
+    for (let i = bytes2.length - 22; i >= Math.max(0, bytes2.length - 65557); i--)
+      if (view.getUint32(i, !0) === 101010256 && i + 22 + view.getUint16(i + 20, !0) === bytes2.length) {
         end = i;
         break;
       }
@@ -3989,12 +4365,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       if (cursor + 46 > directoryEnd || view.getUint32(cursor, !0) !== 33639248) throw new Error("\u5B98\u65B9\u914D\u7F6E\u5305\u76EE\u5F55\u635F\u574F");
       let flags = view.getUint16(cursor + 8, !0), method = view.getUint16(cursor + 10, !0), packed = view.getUint32(cursor + 20, !0), unpacked = view.getUint32(cursor + 24, !0), nameSize = view.getUint16(cursor + 28, !0), extraSize = view.getUint16(cursor + 30, !0), commentSize = view.getUint16(cursor + 32, !0), next = cursor + 46 + nameSize + extraSize + commentSize;
       if (next > directoryEnd) throw new Error("\u5B98\u65B9\u914D\u7F6E\u5305\u76EE\u5F55\u8D8A\u754C");
-      if (new TextDecoder().decode(bytes.subarray(cursor + 46, cursor + 46 + nameSize)) === filename) {
+      if (new TextDecoder().decode(bytes2.subarray(cursor + 46, cursor + 46 + nameSize)) === filename) {
         let offset = view.getUint32(cursor + 42, !0);
-        if (flags & 1 || packed > ENTRY_LIMIT || unpacked > ENTRY_LIMIT || offset + 30 > bytes.length || view.getUint32(offset, !0) !== 67324752) throw new Error("\u914D\u7F6E\u6761\u76EE\u683C\u5F0F\u6216\u5927\u5C0F\u4E0D\u652F\u6301");
+        if (flags & 1 || packed > ENTRY_LIMIT || unpacked > ENTRY_LIMIT || offset + 30 > bytes2.length || view.getUint32(offset, !0) !== 67324752) throw new Error("\u914D\u7F6E\u6761\u76EE\u683C\u5F0F\u6216\u5927\u5C0F\u4E0D\u652F\u6301");
         let start = offset + 30 + view.getUint16(offset + 26, !0) + view.getUint16(offset + 28, !0);
-        if (start + packed > bytes.length) throw new Error("\u914D\u7F6E\u6761\u76EE\u8D8A\u754C");
-        let compressed = bytes.subarray(start, start + packed), output = method === 0 ? compressed.slice() : method === 8 ? await inflate(compressed, "deflate-raw", win) : null;
+        if (start + packed > bytes2.length) throw new Error("\u914D\u7F6E\u6761\u76EE\u8D8A\u754C");
+        let compressed = bytes2.subarray(start, start + packed), output = method === 0 ? compressed.slice() : method === 8 ? await inflate(compressed, "deflate-raw", win) : null;
         if (!output || output.length !== unpacked) throw new Error("\u914D\u7F6E\u6761\u76EE\u89E3\u538B\u5931\u8D25");
         return output;
       }
@@ -4006,7 +4382,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let root = "https://web.sanguosha.com/x/pc/", controller = new AbortController(), abort = () => controller.abort();
     if (signal.aborted) throw cancelled();
     signal.addEventListener("abort", abort, { once: !0 });
-    let timer = setTimeout(abort, 3e4), text2 = (bytes) => new TextDecoder("utf-8", { fatal: !0 }).decode(bytes), json = (bytes) => JSON.parse(text2(bytes));
+    let timer = setTimeout(abort, 3e4), text3 = (bytes2) => new TextDecoder("utf-8", { fatal: !0 }).decode(bytes2), json = (bytes2) => JSON.parse(text3(bytes2));
     async function fetchData(path, limit2, cache2 = "default") {
       let response = await win.fetch(root + path, { signal: controller.signal, credentials: "omit", redirect: "error", cache: cache2 });
       if (!response.ok) throw new Error(`\u4E00\u5C06\u6210\u540D\u914D\u7F6E\u8BFB\u53D6\u5931\u8D25\uFF08HTTP ${response.status}\uFF0C${path.split("?")[0]}\uFF09`);
@@ -4014,7 +4390,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return boundedStream(response.body, limit2);
     }
     try {
-      let versionsText = text2(await fetchData("versionConf.js", 16384, "no-cache")), configVersion = versionsText.match(/"res\/config\/Config\.sgs"\s*:\s*"([\da-f]{1,32})"/i)?.[1], resourceVersion = versionsText.match(/\bresourceVersion\s*=\s*"([\da-f]{1,32})"/i)?.[1];
+      let versionsText = text3(await fetchData("versionConf.js", 16384, "no-cache")), configVersion = versionsText.match(/"res\/config\/Config\.sgs"\s*:\s*"([\da-f]{1,32})"/i)?.[1], resourceVersion = versionsText.match(/\bresourceVersion\s*=\s*"([\da-f]{1,32})"/i)?.[1];
       if (!configVersion || !resourceVersion) throw new Error("\u4E00\u5C06\u6210\u540D\u7248\u672C\u6E05\u5355\u683C\u5F0F\u5DF2\u53D8\u5316");
       let version = configVersion + ":" + resourceVersion;
       if (version === knownVersion) return { version, unchanged: !0 };
@@ -4051,26 +4427,26 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function getConfigData(name) {
       name = validate(name);
       for (let container of [
-        read3(() => win.CtrUtil.AllDatas),
-        read3(() => win.SystemContext.AllDatas),
-        read3(() => win.__SGS_TOOLBOX_DEMO__.configs)
+        read4(() => win.CtrUtil.AllDatas),
+        read4(() => win.SystemContext.AllDatas),
+        read4(() => win.__SGS_TOOLBOX_DEMO__.configs)
       ]) {
-        let data = read3(() => container[`${name}.sgs`]) || read3(() => container[name]);
+        let data = read4(() => container[`${name}.sgs`]) || read4(() => container[name]);
         if (data && typeof data == "object") return data;
       }
       return cache2.get(name) || null;
     }
     function archiveUrl() {
-      let origin = read3(() => win.location.origin);
+      let origin = read4(() => win.location.origin);
       if (origin !== "https://web.sanguosha.com" && origin !== "http://web.sanguosha.com") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u6570\u636E\u5C31\u7EEA");
-      let entries = read3(() => win.performance.getEntriesByType("resource")) || [];
+      let entries = read4(() => win.performance.getEntriesByType("resource")) || [];
       for (let entry of entries.slice(-2048).reverse())
         try {
           let url = new URL(entry.name);
           if (url.protocol === "https:" && url.hostname === "web.sanguosha.com" && /\/Config_w\.sgs$/.test(url.pathname) && !url.username && !url.password) return url.href;
         } catch {
         }
-      let version = read3(() => win.resourceVersion);
+      let version = read4(() => win.resourceVersion);
       if (!["string", "number"].includes(typeof version) || !String(version).trim()) throw new Error("\u7B49\u5F85\u5BA2\u6237\u7AEF\u8D44\u6E90\u7248\u672C\u5C31\u7EEA\uFF0C\u8BF7\u7A0D\u540E\u5237\u65B0");
       return `https://web.sanguosha.com/220/h5_2/res/config/Config_w.sgs?v=${encodeURIComponent(String(version))}`;
     }
@@ -4094,15 +4470,15 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       if (name = validate(name), scope.closed || signal.aborted) throw cancelled();
       let existing = getConfigData(name);
       return existing || (name === YJCM_SKINS ? loadYjcmSkinData(win, signal, knownVersion) : (pending.has(name) || pending.set(name, (async () => {
-        let ctrClass = read3(() => win.CtrUtil) || read3(() => typeof CtrUtil < "u" ? CtrUtil : null), decryptor = read3(() => ctrClass.Ctr);
-        if (typeof read3(() => decryptor.Ofb_Dec) != "function") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u89E3\u7801\u5668\u5C31\u7EEA");
+        let ctrClass = read4(() => win.CtrUtil) || read4(() => typeof CtrUtil < "u" ? CtrUtil : null), decryptor = read4(() => ctrClass.Ctr);
+        if (typeof read4(() => decryptor.Ofb_Dec) != "function") throw new Error("\u7B49\u5F85\u6E38\u620F\u914D\u7F6E\u89E3\u7801\u5668\u5C31\u7EEA");
         let packed = await archive();
         if (scope.closed) throw cancelled();
         let encrypted = await readZipEntry(packed, `${name}.sgs`, win);
         if (scope.closed) throw cancelled();
-        let decrypted = decryptor.Ofb_Dec(encrypted.buffer.slice(encrypted.byteOffset, encrypted.byteOffset + encrypted.byteLength)), bytes = decrypted instanceof ArrayBuffer ? new Uint8Array(decrypted) : ArrayBuffer.isView(decrypted) ? new Uint8Array(decrypted.buffer, decrypted.byteOffset, decrypted.byteLength) : Array.isArray(decrypted) && decrypted.length <= ENTRY_LIMIT && decrypted.every((value) => Number.isInteger(value) && value >= 0 && value <= 255) ? Uint8Array.from(decrypted) : null;
-        if (!bytes || bytes.byteLength > ENTRY_LIMIT) throw new Error("\u6E38\u620F\u914D\u7F6E\u89E3\u7801\u7ED3\u679C\u65E0\u6548");
-        let plain = await inflate(bytes, "gzip", win);
+        let decrypted = decryptor.Ofb_Dec(encrypted.buffer.slice(encrypted.byteOffset, encrypted.byteOffset + encrypted.byteLength)), bytes2 = decrypted instanceof ArrayBuffer ? new Uint8Array(decrypted) : ArrayBuffer.isView(decrypted) ? new Uint8Array(decrypted.buffer, decrypted.byteOffset, decrypted.byteLength) : Array.isArray(decrypted) && decrypted.length <= ENTRY_LIMIT && decrypted.every((value) => Number.isInteger(value) && value >= 0 && value <= 255) ? Uint8Array.from(decrypted) : null;
+        if (!bytes2 || bytes2.byteLength > ENTRY_LIMIT) throw new Error("\u6E38\u620F\u914D\u7F6E\u89E3\u7801\u7ED3\u679C\u65E0\u6548");
+        let plain = await inflate(bytes2, "gzip", win);
         if (scope.closed) throw cancelled();
         let data = JSON.parse(new TextDecoder("utf-8", { fatal: !0 }).decode(plain));
         if (!data || typeof data != "object" || Array.isArray(data)) throw new Error("\u6E38\u620F\u914D\u7F6E\u5185\u5BB9\u65E0\u6548");
@@ -4115,7 +4491,24 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
 
   // src/shared/stargazing-source.js
-  var STARGAZING_SITE = "https://gx.95chong.cn/", STARGAZING_REPORT = STARGAZING_SITE + "api/report";
+  var STARGAZING_SITE = "https://gx.95chong.cn/", STARGAZING_REPORT = STARGAZING_SITE + "api/report", STARGAZING_SYNC_PATH = "/v1/stargazing/report", STARGAZING_REPORT_LIMIT = 1024 * 1024;
+  async function readStargazingJson(response) {
+    let reader = response.body?.getReader();
+    if (!reader) throw new Error("\u89C2\u661F\u62A5\u8868\u4E3A\u7A7A");
+    let decoder = new TextDecoder("utf-8", { fatal: !0 }), chunks = [], bytes2 = 0;
+    try {
+      if (Number(response.headers.get("content-length")) > STARGAZING_REPORT_LIMIT) throw new Error("\u89C2\u661F\u62A5\u8868\u8FC7\u5927");
+      for (; ; ) {
+        let { value, done } = await reader.read();
+        if (done) return JSON.parse(chunks.join("") + decoder.decode());
+        if (bytes2 += value.byteLength, bytes2 > STARGAZING_REPORT_LIMIT) throw new Error("\u89C2\u661F\u62A5\u8868\u8FC7\u5927");
+        chunks.push(decoder.decode(value, { stream: !0 }));
+      }
+    } finally {
+      reader.cancel().catch(() => {
+      }), reader.releaseLock();
+    }
+  }
 
   // src/core/mobile-skin-download.js
   var MiB = 1024 * 1024, cloudRoot = "https://mres.sanguosha.cn", cloudPrefix = "/update_cloud/public/", pictures = /^ui\/(?:face|sface|bface|icon)\/(?:skin|char)(?:\/(?:horSkin|horChar))?\/[a-f0-9]{32}\.(?:png|jpe?g)$/i, sounds = /^audio\/(?:skill|dead|effect|victory)\/[a-f0-9]{32}\.mp3$/i, motion = /^ui\/face\/skin\/dynamicSkin\/[a-f0-9]{32}\.zip$/i, configZips = /^\/\/config\/clients_[1-9]\d?\.\d{1,2}\.\d{1,2}_formal_\d{12}_[a-z0-9]{4,16}\/config(_list|[1-9]\d{0,2})\.zip$/, pcDownload = /^\/pcgame\/81002\/[1-9]\d?\.\d{1,2}\.\d{1,2}\/(gameInfo\.json|game_\d{8,16}_\d{6,12}\.zip)$/, configParams = {
@@ -4139,10 +4532,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
   function installerRange(range, limit2) {
     if (range && typeof range == "object") {
-      let { suffix, start, end } = range, fields = Object.keys(range);
-      if (fields.length === 1 && fields[0] === "suffix" && Number.isSafeInteger(suffix) && suffix >= 1 && suffix <= Math.min(limit2, installerSuffixLimit))
+      let { suffix, start, end } = range, fields2 = Object.keys(range);
+      if (fields2.length === 1 && fields2[0] === "suffix" && Number.isSafeInteger(suffix) && suffix >= 1 && suffix <= Math.min(limit2, installerSuffixLimit))
         return { range: { suffix }, headers: { Range: `bytes=-${suffix}` }, limit: suffix };
-      if (fields.length === 2 && fields.includes("start") && fields.includes("end") && Number.isSafeInteger(start) && Number.isSafeInteger(end) && start >= 0 && end >= start && end < installerArchiveLimit && end - start + 1 <= limit2)
+      if (fields2.length === 2 && fields2.includes("start") && fields2.includes("end") && Number.isSafeInteger(start) && Number.isSafeInteger(end) && start >= 0 && end >= start && end < installerArchiveLimit && end - start + 1 <= limit2)
         return { range: { start, end }, headers: { Range: `bytes=${start}-${end}` }, limit: end - start + 1 };
     }
     throw new Error("\u79FB\u52A8\u7248\u5B89\u88C5\u5305\u4EC5\u5141\u8BB8\u8BFB\u53D6\u6307\u5B9A\u7684\u6709\u9650\u533A\u95F4");
@@ -4180,17 +4573,17 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     };
   }
   var stargazingRequest = Object.freeze({ url: STARGAZING_REPORT, limit: MiB, timeout: 25e3, label: "\u89C2\u661F\u6570\u636E" });
-  function mobileSkinResponseBytes(bytes, limit2, expectedLength, label = "\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90") {
-    if (Object.prototype.toString.call(bytes) !== "[object ArrayBuffer]" || !bytes.byteLength)
+  function mobileSkinResponseBytes(bytes2, limit2, expectedLength, label = "\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90") {
+    if (Object.prototype.toString.call(bytes2) !== "[object ArrayBuffer]" || !bytes2.byteLength)
       throw new Error(`${label}\u54CD\u5E94\u65E0\u6548`);
-    if (bytes.byteLength > limit2) throw new Error(`${label}\u8D85\u8FC7\u4E0B\u8F7D\u4E0A\u9650`);
-    if (expectedLength !== void 0 && bytes.byteLength !== expectedLength) throw new Error("\u79FB\u52A8\u7248\u5B89\u88C5\u5305\u5206\u6BB5\u54CD\u5E94\u957F\u5EA6\u4E0D\u7B26");
-    return bytes;
+    if (bytes2.byteLength > limit2) throw new Error(`${label}\u8D85\u8FC7\u4E0B\u8F7D\u4E0A\u9650`);
+    if (expectedLength !== void 0 && bytes2.byteLength !== expectedLength) throw new Error("\u79FB\u52A8\u7248\u5B89\u88C5\u5305\u5206\u6BB5\u54CD\u5E94\u957F\u5EA6\u4E0D\u7B26");
+    return bytes2;
   }
   function mobileSkinPartialLength(request, status, contentRange, contentLength, contentEncoding) {
     if (status !== 206) throw new Error(`\u79FB\u52A8\u7248\u5B89\u88C5\u5305\u672A\u8FD4\u56DE\u6307\u5B9A\u5206\u6BB5\uFF08HTTP ${status}\uFF09`);
-    let fields = /^bytes (0|[1-9]\d{0,9})-(0|[1-9]\d{0,9})\/([1-9]\d{0,9})$/i.exec(contentRange ?? ""), [start, end, total] = (fields?.slice(1) ?? []).map(Number), { range, limit: limit2 } = request, length = end - start + 1;
-    if (!fields || end >= total || total > installerArchiveLimit || length < 1 || length > limit2 || (range.suffix === void 0 ? start !== range.start || end !== range.end : end !== total - 1 || length !== Math.min(total, range.suffix)) || contentLength != null && (!/^\d+$/.test(contentLength) || Number(contentLength) !== length) || contentEncoding != null && !/^identity$/i.test(contentEncoding))
+    let fields2 = /^bytes (0|[1-9]\d{0,9})-(0|[1-9]\d{0,9})\/([1-9]\d{0,9})$/i.exec(contentRange ?? ""), [start, end, total] = (fields2?.slice(1) ?? []).map(Number), { range, limit: limit2 } = request, length = end - start + 1;
+    if (!fields2 || end >= total || total > installerArchiveLimit || length < 1 || length > limit2 || (range.suffix === void 0 ? start !== range.start || end !== range.end : end !== total - 1 || length !== Math.min(total, range.suffix)) || contentLength != null && (!/^\d+$/.test(contentLength) || Number(contentLength) !== length) || contentEncoding != null && !/^identity$/i.test(contentEncoding))
       throw new Error("\u79FB\u52A8\u7248\u5B89\u88C5\u5305\u5206\u6BB5\u54CD\u5E94\u8303\u56F4\u6216\u957F\u5EA6\u65E0\u6548");
     return length;
   }
@@ -4235,10 +4628,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     } finally {
       reader.releaseLock();
     }
-    let bytes = new Uint8Array(size), offset = 0;
+    let bytes2 = new Uint8Array(size), offset = 0;
     for (let chunk of chunks)
-      bytes.set(chunk, offset), offset += chunk.byteLength;
-    return mobileSkinResponseBytes(bytes.buffer, limit2, expectedLength, label);
+      bytes2.set(chunk, offset), offset += chunk.byteLength;
+    return mobileSkinResponseBytes(bytes2.buffer, limit2, expectedLength, label);
   }
   function createGameAssetDownloads(win, scope, port) {
     let pending = /* @__PURE__ */ new Map(), nextId = 0;
@@ -4247,7 +4640,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       accept && accept(data);
     });
     async function download(request, signal) {
-      let label = request.label || "\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90", cancelError = () => new Error(`${label}\u4E0B\u8F7D\u5DF2\u53D6\u6D88`), timeoutError = () => new Error(`${label}\u4E0B\u8F7D\u8D85\u65F6`), validate = (bytes) => mobileSkinResponseBytes(bytes, request.limit, void 0, label), owner = scope?.signal;
+      let label = request.label || "\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90", cancelError = () => new Error(`${label}\u4E0B\u8F7D\u5DF2\u53D6\u6D88`), timeoutError = () => new Error(`${label}\u4E0B\u8F7D\u8D85\u65F6`), validate = (bytes2) => mobileSkinResponseBytes(bytes2, request.limit, void 0, label), owner = scope?.signal;
       if (signal?.aborted || owner?.aborted) throw cancelError();
       if (port) return new Promise((resolve, reject) => {
         let id = ++nextId, finish = (done, value) => {
@@ -4300,9 +4693,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         return download(mobileSkinRequest(value, limit2, range), signal);
       },
       async readStargazingReport({ signal } = {}) {
-        let bytes = await download(stargazingRequest, signal);
+        let bytes2 = await download(stargazingRequest, signal);
         try {
-          return JSON.parse(new TextDecoder("utf-8", { fatal: !0 }).decode(bytes));
+          return JSON.parse(new TextDecoder("utf-8", { fatal: !0 }).decode(bytes2));
         } catch {
           throw new Error("\u89C2\u661F\u7AD9\u8FD4\u56DE\u4E86\u65E0\u6CD5\u8BFB\u53D6\u7684\u62A5\u8868");
         }
@@ -4311,15 +4704,15 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
 
   // src/core/game.js
-  var GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/, STARTUP_SCENE = /(?:^|\.)(?:LoginScene|CreateUserScene|CreateRoleScene|MainNullScene|LoadingScene)$/, read4 = (fn) => {
+  var GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/, STARTUP_SCENE = /(?:^|\.)(?:LoginScene|CreateUserScene|CreateRoleScene|MainNullScene|LoadingScene)$/, read5 = (fn) => {
     try {
       return fn();
     } catch {
       return;
     }
-  }, object = (value) => value && (typeof value == "object" || typeof value == "function") ? value : null, alive = (value) => !!(object(value) && read4(() => value.destroyed) !== !0), children = (node) => Array.isArray(read4(() => node._children)) ? node._children : [];
+  }, object = (value) => value && (typeof value == "object" || typeof value == "function") ? value : null, alive = (value) => !!(object(value) && read5(() => value.destroyed) !== !0), children = (node) => Array.isArray(read5(() => node._children)) ? node._children : [];
   function list(value) {
-    return Array.isArray(value) ? value : object(value) ? typeof value.values == "function" ? read4(() => [...value.values()]) || [] : read4(() => Object.values(value)) || [] : [];
+    return Array.isArray(value) ? value : object(value) ? typeof value.values == "function" ? read5(() => [...value.values()]) || [] : read5(() => Object.values(value)) || [] : [];
   }
   function number(...values) {
     for (let value of values) {
@@ -4329,56 +4722,64 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
   }
   function cardId(card) {
-    return typeof card == "number" || typeof card == "string" ? number(card) : number(read4(() => card.CardId), read4(() => card.CardID), read4(() => card.ID), read4(() => card.Id), read4(() => card.id), read4(() => card.cardId), read4(() => card.cardID));
+    return typeof card == "number" || typeof card == "string" ? number(card) : number(read5(() => card.CardId), read5(() => card.CardID), read5(() => card.ID), read5(() => card.Id), read5(() => card.id), read5(() => card.cardId), read5(() => card.cardID));
   }
   function cardIds(cards) {
     return [...new Set(list(cards).map(cardId).filter((id) => Number.isInteger(id) && id > 0))];
   }
+  function projectDeckCardMeta(value) {
+    if (!value || value.unknown) return null;
+    let suit = Number(value.suit), number3 = Number(value.number), type = Number(value.type);
+    return suit >= 1 && suit <= 4 && number3 >= 1 && number3 <= 13 ? { suit, number: number3, type: Number.isInteger(type) ? type : 0 } : null;
+  }
   function publicHandIds(seat, ui) {
     let shown = [], cached = [], hidden = /* @__PURE__ */ new Set();
     for (let owner of [seat, ui]) for (let key of ["HandShowCards", "handShowCards", "HandShowCardIDs", "handShowCardIDs"]) {
-      let values = read4(() => owner[key]);
+      let values = read5(() => owner[key]);
       if (!Array.isArray(values)) continue;
-      let length = read4(() => values.length);
+      let length = read5(() => values.length);
       if (!Number.isInteger(length) || length < 0) continue;
       let target = key.endsWith("IDs") ? cached : shown;
       for (let i = 0; i < length && i < 2048; i++) {
-        let value = read4(() => values[i]), card = object(read4(() => value.Card)) || object(read4(() => value.card)) || object(read4(() => value.cardInfo)) || value, id = cardId(card);
-        !Number.isInteger(id) || id <= 0 || (read4(() => value.IsHide) === !0 || read4(() => value.isHide) === !0 || read4(() => card.IsHide) === !0 || read4(() => card.isHide) === !0 ? hidden.add(id) : target.push(id));
+        let value = read5(() => values[i]), card = object(read5(() => value.Card)) || object(read5(() => value.card)) || object(read5(() => value.cardInfo)) || value, id = cardId(card);
+        !Number.isInteger(id) || id <= 0 || (read5(() => value.IsHide) === !0 || read5(() => value.isHide) === !0 || read5(() => card.IsHide) === !0 || read5(() => card.isHide) === !0 ? hidden.add(id) : target.push(id));
       }
     }
     return [...new Set((shown.length ? shown : cached).filter((id) => !hidden.has(id)))];
   }
   function sceneName(scene) {
-    return String(read4(() => scene.SceneName) || read4(() => scene.sceneName) || read4(() => scene.name) || (read4(() => scene.constructor.name) !== "Object" ? read4(() => scene.constructor.name) : "") || "");
+    return String(read5(() => scene.SceneName) || read5(() => scene.sceneName) || read5(() => scene.name) || (read5(() => scene.constructor.name) !== "Object" ? read5(() => scene.constructor.name) : "") || "");
   }
   function isGameScene(scene) {
-    return alive(scene) && !!(read4(() => scene.SelfSeatUi) || read4(() => scene.selfSeatUI) || read4(() => scene.seatContainer.seatUIs) || sceneName(scene) === "GameScene");
+    return alive(scene) && !!(read5(() => scene.SelfSeatUi) || read5(() => scene.selfSeatUI) || read5(() => scene.seatContainer.seatUIs) || sceneName(scene) === "GameScene");
   }
-  function createGameAdapter(win, scope, mobileSkinPort) {
-    let configs = scope ? createConfigData(win, scope) : null, selfClass = null, selfSearchAt = -1 / 0, current = null, stage = null, dispatcher = null, dispatcherOwner = null, providers = /* @__PURE__ */ new Set(), definitionTables = /* @__PURE__ */ new WeakMap(), listeners = /* @__PURE__ */ new Set();
-    function walk(predicate, root = read4(() => win.Laya.stage)) {
+  function isReplayScene(scene) {
+    return !!(read5(() => scene?.IsReplay) || read5(() => scene?.isReplay) || alive(read5(() => scene?.replayBar)));
+  }
+  function createGameAdapter(win, scope, mobileSkinPort, { watchScene = !0 } = {}) {
+    let configs = scope ? createConfigData(win, scope) : null, selfClass = null, selfSearchAt = -1 / 0, current = null, stage = null, dispatcher = null, dispatcherOwner = null, providers = /* @__PURE__ */ new Set(), definitionTables = /* @__PURE__ */ new WeakMap(), deckDefinitions = null, sceneCycle = null, listeners = /* @__PURE__ */ new Set();
+    function walk(predicate, root = read5(() => win.Laya.stage)) {
       let queue = root ? [root] : [], seen = /* @__PURE__ */ new Set();
       for (let i = 0; i < queue.length && i < 4e3; i++) {
         let item = queue[i];
         if (!(!alive(item) || seen.has(item))) {
-          if (seen.add(item), read4(() => predicate(item))) return item;
+          if (seen.add(item), read5(() => predicate(item))) return item;
           queue.push(...children(item));
         }
       }
       return null;
     }
     function getDispatcher() {
-      return alive(dispatcher) && alive(dispatcherOwner) || (dispatcher = dispatcherOwner = null, walk((node) => {
-        let candidate = read4(() => node.ged);
-        return alive(candidate) && object(read4(() => candidate._events)) ? (dispatcher = candidate, dispatcherOwner = node, !0) : read4(() => node._events.SWITCH_SCENE) || read4(() => node._events.HIDE_WINDOW) ? (dispatcher = dispatcherOwner = node, !0) : !1;
-      })), dispatcher;
+      return sceneCycle && "dispatcher" in sceneCycle ? sceneCycle.dispatcher : ((!alive(dispatcher) || !alive(dispatcherOwner)) && (dispatcher = dispatcherOwner = null, walk((node) => {
+        let candidate = read5(() => node.ged);
+        return alive(candidate) && object(read5(() => candidate._events)) ? (dispatcher = candidate, dispatcherOwner = node, !0) : read5(() => node._events.SWITCH_SCENE) || read5(() => node._events.HIDE_WINDOW) ? (dispatcher = dispatcherOwner = node, !0) : !1;
+      })), sceneCycle && (sceneCycle.dispatcher = dispatcher), dispatcher);
     }
     function eventCallerFrom(target, event, predicate) {
-      let handlers = read4(() => target._events[event]);
+      let handlers = read5(() => target._events[event]);
       for (let entry of Array.isArray(handlers) ? handlers : [handlers]) {
-        let candidate = read4(() => entry.caller);
-        if (alive(candidate) && read4(() => predicate(candidate))) return candidate;
+        let candidate = read5(() => entry.caller);
+        if (alive(candidate) && read5(() => predicate(candidate))) return candidate;
       }
       return null;
     }
@@ -4386,19 +4787,21 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return eventCallerFrom(getDispatcher(), event, predicate);
     }
     function stageScene() {
-      let layer = walk((node) => node.name === "SceneLayer" || node.layerOrder === 2);
-      return layer && children(layer).filter((node) => node !== layer && alive(node) && read4(() => node.visible) !== !1).at(-1) || null;
+      if (sceneCycle && "rendered" in sceneCycle) return sceneCycle.rendered;
+      let layer = walk((node) => node.name === "SceneLayer" || node.layerOrder === 2), scene = layer && (children(layer).filter((node) => node !== layer && alive(node) && read5(() => node.visible) !== !1).at(-1) || null);
+      return sceneCycle && (sceneCycle.rendered = scene), scene;
     }
     function canReserveViewport() {
-      let scene = stageScene(), name = read4(() => scene.SceneName) || read4(() => scene.sceneName);
-      return typeof name == "string" && name.length > 0 && !STARTUP_SCENE.test(name) && read4(() => scene.initialized) !== !1;
+      let scene = stageScene(), name = read5(() => scene.SceneName) || read5(() => scene.sceneName);
+      return typeof name == "string" && name.length > 0 && !STARTUP_SCENE.test(name) && read5(() => scene.initialized) !== !1;
     }
     function getScene() {
-      let nextStage = read4(() => win.Laya.stage) || null;
-      stage !== nextStage && (stage = nextStage, dispatcher = dispatcherOwner = null, providers = /* @__PURE__ */ new Set());
-      let demo = read4(() => win.__SGS_TOOLBOX_DEMO__.scene), manager2 = demo ? null : eventCaller("SWITCH_SCENE", (value) => "CurrentScene" in value), managerScene = read4(() => manager2.CurrentScene), rendered = demo ? null : stageScene(), next = alive(demo) ? demo : rendered || (alive(managerScene) && read4(() => managerScene.visible) !== !1 ? managerScene : null) || walk((node) => read4(() => node.visible) !== !1 && (GAME_SCENE.test(sceneName(node)) || isGameScene(node)));
-      if (next !== current) {
-        current = next || null, providers = /* @__PURE__ */ new Set(), dispatcher = dispatcherOwner = null;
+      if (sceneCycle && "scene" in sceneCycle) return sceneCycle.scene;
+      let nextStage = read5(() => win.Laya.stage) || null;
+      stage !== nextStage && (stage = nextStage, dispatcher = dispatcherOwner = null, providers = /* @__PURE__ */ new Set(), deckDefinitions = null);
+      let demo = read5(() => win.__SGS_TOOLBOX_DEMO__.scene), manager2 = demo ? null : eventCaller("SWITCH_SCENE", (value) => "CurrentScene" in value), managerScene = read5(() => manager2.CurrentScene), rendered = demo ? null : stageScene(), next = alive(demo) ? demo : rendered || (alive(managerScene) && read5(() => managerScene.visible) !== !1 ? managerScene : null) || walk((node) => read5(() => node.visible) !== !1 && (GAME_SCENE.test(sceneName(node)) || isGameScene(node)));
+      if (sceneCycle && (sceneCycle.scene = next || null), next !== current) {
+        current = next || null, providers = /* @__PURE__ */ new Set(), dispatcher = dispatcherOwner = null, deckDefinitions = null, sceneCycle && delete sceneCycle.dispatcher;
         for (let fn of [...listeners])
           try {
             fn(current);
@@ -4407,42 +4810,51 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       return current;
     }
-    let selfUI = (scene) => read4(() => scene.SelfSeatUi) || read4(() => scene.selfSeatUI) || null, seats = (scene) => list(read4(() => scene.seatContainer.seatUIs) || read4(() => scene.seatUIs)).filter((ui) => alive(ui) && nativeSeatOccupied(ui)), handUIs = (ui) => list(read4(() => ui.cardContainer.cardUis) || read4(() => ui.cardUis) || children(read4(() => ui.cardContainer))).filter(alive), model = (ui) => read4(() => ui.Card) || read4(() => ui.card) || read4(() => ui.cardInfo) || read4(() => ui.dataSource), seatData = nativeSeat, seatId = nativeSeatId;
+    function withSceneCycle(run) {
+      if (sceneCycle) return run();
+      sceneCycle = {};
+      try {
+        return run();
+      } finally {
+        sceneCycle = null;
+      }
+    }
+    let selfUI = (scene) => read5(() => scene.SelfSeatUi) || read5(() => scene.selfSeatUI) || null, seats = (scene) => list(read5(() => scene.seatContainer.seatUIs) || read5(() => scene.seatUIs)).filter((ui) => alive(ui) && nativeSeatOccupied(ui)), handUIs = (ui) => list(read5(() => ui.cardContainer.cardUis) || read5(() => ui.cardUis) || children(read5(() => ui.cardContainer))).filter(alive), model = (ui) => read5(() => ui.Card) || read5(() => ui.card) || read5(() => ui.cardInfo) || read5(() => ui.dataSource), seatData = nativeSeat, seatId = nativeSeatId;
     function getClass(name) {
-      return typeof name != "string" || !name ? null : object(read4(() => win.Laya.ClassUtils.getClass(name))) || object(read4(() => win[name]));
+      return typeof name != "string" || !name ? null : object(read5(() => win.Laya.ClassUtils.getClass(name))) || object(read5(() => win[name]));
     }
     function getSelf() {
-      let demo = read4(() => win.__SGS_TOOLBOX_DEMO__.self);
+      let demo = read5(() => win.__SGS_TOOLBOX_DEMO__.self);
       if (demo) return demo;
-      let nativeClass = selfClass || getClass("UserData"), stored = nativeClass && read4(() => Object.getOwnPropertyDescriptor(nativeClass, "self"));
+      let nativeClass = selfClass || getClass("UserData"), stored = nativeClass && read5(() => Object.getOwnPropertyDescriptor(nativeClass, "self"));
       if (stored && "value" in stored) return object(stored.value);
       if (Date.now() - selfSearchAt < 1e3) return null;
       selfSearchAt = Date.now();
       let inspectUserNode = (node) => {
         for (let key of ["userData", "data"]) {
-          let descriptor = read4(() => Object.getOwnPropertyDescriptor(node, key)), value = descriptor && "value" in descriptor ? descriptor.value : null;
-          if (!object(value) || !number(read4(() => value.ClientId))) continue;
-          let ctor = read4(() => value.constructor), own3 = read4(() => Object.getOwnPropertyDescriptor(ctor, "self"));
-          if (own3 && "value" in own3 && object(own3.value) && number(read4(() => own3.value.ClientId)))
+          let descriptor = read5(() => Object.getOwnPropertyDescriptor(node, key)), value = descriptor && "value" in descriptor ? descriptor.value : null;
+          if (!object(value) || !number(read5(() => value.ClientId))) continue;
+          let ctor = read5(() => value.constructor), own3 = read5(() => Object.getOwnPropertyDescriptor(ctor, "self"));
+          if (own3 && "value" in own3 && object(own3.value) && number(read5(() => own3.value.ClientId)))
             return selfClass = ctor, !0;
         }
         return !1;
       };
-      return inspectUserNode(read4(() => getScene().topMenu.moneyMenuUI)) || walk(inspectUserNode), selfClass ? object(read4(() => Object.getOwnPropertyDescriptor(selfClass, "self").value)) : null;
+      return inspectUserNode(read5(() => getScene().topMenu.moneyMenuUI)) || walk(inspectUserNode), selfClass ? object(read5(() => Object.getOwnPropertyDescriptor(selfClass, "self").value)) : null;
     }
     function getServerProxy() {
-      let scene = getScene(), direct = read4(() => scene.proxy) || read4(() => scene.serverProxy);
+      let scene = getScene(), direct = read5(() => scene.proxy) || read5(() => scene.serverProxy);
       if (alive(direct)) return direct;
       let manager2 = eventCaller("HIDE_WINDOW", (value) => object(value.proxy));
-      return object(read4(() => manager2.proxy)) || existingSingleton("ServerProxy");
+      return object(read5(() => manager2.proxy)) || existingSingleton("ServerProxy");
     }
     function existingSingleton(name) {
       let registered = getClass(name);
       if (!alive(registered)) return null;
-      if (typeof registered != "function" && typeof read4(() => registered.event) == "function") return registered;
+      if (typeof registered != "function" && typeof read5(() => registered.event) == "function") return registered;
       for (let key of ["instance", "Instance", "I", "_instance", "s_instance"]) {
-        let descriptor = read4(() => Object.getOwnPropertyDescriptor(registered, key)), candidate = descriptor && "value" in descriptor ? descriptor.value : null;
-        if (alive(candidate) && typeof read4(() => candidate.event) == "function") return candidate;
+        let descriptor = read5(() => Object.getOwnPropertyDescriptor(registered, key)), candidate = descriptor && "value" in descriptor ? descriptor.value : null;
+        if (alive(candidate) && typeof read5(() => candidate.event) == "function") return candidate;
       }
       return null;
     }
@@ -4452,32 +4864,32 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function getMessageTargets() {
       let targets = [], seen = /* @__PURE__ */ new Set(), proxy = getServerProxy();
       for (let [name, target] of [["ServerProxy", proxy], ["ActivityManager", getActivityManager(proxy)]])
-        !alive(target) || typeof read4(() => target.event) != "function" || seen.has(target) || (seen.add(target), targets.push({ name, target }));
+        !alive(target) || typeof read5(() => target.event) != "function" || seen.has(target) || (seen.add(target), targets.push({ name, target }));
       return targets;
     }
     function registerProviders(card) {
       let proto = object(card), seen = /* @__PURE__ */ new Set();
       for (let i = 0; proto && i < 8 && !seen.has(proto); i++) {
         seen.add(proto);
-        let ctor = read4(() => proto.constructor);
-        typeof ctor == "function" && typeof read4(() => ctor.GetInstance) == "function" && providers.add(ctor), proto = read4(() => Object.getPrototypeOf(proto));
+        let ctor = read5(() => proto.constructor);
+        typeof ctor == "function" && typeof read5(() => ctor.GetInstance) == "function" && providers.add(ctor), proto = read5(() => Object.getPrototypeOf(proto));
       }
     }
     function* cardDefinitions() {
       let tables = [
-        read4(() => win.CtrUtil.AllDatas),
-        read4(() => win.CtrUtil.allDatas),
-        read4(() => win.SystemContext.AllDatas),
-        read4(() => win.SystemContext.allDatas),
-        read4(() => win.__SGS_TOOLBOX_DEMO__.configs)
-      ].map((data) => read4(() => data["sys_playcard.sgs"]) || read4(() => data.sys_playcard));
+        read5(() => win.CtrUtil.AllDatas),
+        read5(() => win.CtrUtil.allDatas),
+        read5(() => win.SystemContext.AllDatas),
+        read5(() => win.SystemContext.allDatas),
+        read5(() => win.__SGS_TOOLBOX_DEMO__.configs)
+      ].map((data) => read5(() => data["sys_playcard.sgs"]) || read5(() => data.sys_playcard));
       tables.push(configs?.getConfigData("sys_playcard"));
       for (let config of tables) {
-        let rows = read4(() => config.GamePlayCards.card);
+        let rows = read5(() => config.GamePlayCards.card);
         if (!Array.isArray(rows)) continue;
         let index = definitionTables.get(rows);
         if (!index || index.length !== rows.length) {
-          let abbreviations = new Map(list(read4(() => config.abbreviation)).map((item) => [read4(() => item.Short), read4(() => item.Long)])), records = /* @__PURE__ */ new Map();
+          let abbreviations = new Map(list(read5(() => config.abbreviation)).map((item) => [read5(() => item.Short), read5(() => item.Long)])), records = /* @__PURE__ */ new Map();
           for (let row of rows) {
             if (!object(row)) continue;
             let record = {};
@@ -4490,8 +4902,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         yield index;
       }
     }
-    function getCardDefinition(id) {
-      for (let { records } of cardDefinitions()) {
+    function getCardDefinition(id, definitions = cardDefinitions()) {
+      for (let { records } of definitions) {
         let card = records.get(id);
         if (card) return card;
       }
@@ -4521,109 +4933,140 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       if (!catalog) throw new Error("\u6E38\u620F\u724C\u8868\u4E2D\u6CA1\u6709\u53EF\u6362\u56FE\u7684\u724C");
       return catalog;
     }
-    function getCardMeta(id) {
-      if (id = number(id), !Number.isInteger(id) || id <= 0) return { id, name: "\u672A\u77E5\u724C", unknown: !0 };
-      let scene = getScene(), demo = read4(() => win.__SGS_TOOLBOX_DEMO__.cards[id]);
-      if (demo) return { ...demo, id };
-      let card;
+    function* ownCardModels(scene) {
       for (let item of handUIs(selfUI(scene))) {
         let observed = model(item);
-        observed && (registerProviders(observed), cardId(observed) === id && (card = observed));
+        observed && (registerProviders(observed), yield observed);
       }
-      if (!card) for (let provider of providers) {
-        let candidate = read4(() => provider.GetInstance(id));
-        if (object(candidate) && (cardId(candidate) === void 0 || cardId(candidate) === id)) {
-          card = candidate;
-          break;
-        }
+    }
+    function getProviderCard(id) {
+      for (let provider of providers) {
+        let candidate = read5(() => provider.GetInstance(id));
+        if (!object(candidate)) continue;
+        let candidateId = cardId(candidate);
+        if (candidateId === void 0 || candidateId === id) return candidate;
       }
+      return null;
+    }
+    function getCardName(card, definition) {
+      return read5(() => card?.CardName) || read5(() => card?.cardName) || read5(() => card?.Name) || read5(() => card?.name) || read5(() => definition?.CardName) || read5(() => definition?.Name) || read5(() => definition?.name);
+    }
+    function getCardProperties(card, definition) {
+      return {
+        suit: number(
+          read5(() => card?.FlowerOnSeat),
+          read5(() => card?.CardFlower),
+          read5(() => card?.Flower),
+          read5(() => card?.suit),
+          read5(() => definition?.color),
+          read5(() => definition?.CardSuit),
+          read5(() => definition?.suit)
+        ),
+        number: number(
+          read5(() => card?.CardNumber),
+          read5(() => card?.Number),
+          read5(() => card?.number),
+          read5(() => definition?.number),
+          read5(() => definition?.CardNumber),
+          read5(() => definition?.Number)
+        ),
+        type: number(
+          read5(() => card?.CardType),
+          read5(() => card?.Type),
+          read5(() => card?.type),
+          read5(() => definition?.type),
+          read5(() => definition?.CardType),
+          read5(() => definition?.Type)
+        )
+      };
+    }
+    function getCardMeta(id) {
+      if (id = number(id), !Number.isInteger(id) || id <= 0) return { id, name: "\u672A\u77E5\u724C", unknown: !0 };
+      let scene = getScene(), demo = read5(() => win.__SGS_TOOLBOX_DEMO__?.cards?.[id]);
+      if (demo) return { ...demo, id };
+      let card;
+      for (let observed of ownCardModels(scene)) cardId(observed) === id && (card = observed);
+      card ||= getProviderCard(id);
       let definition = getCardDefinition(id);
       if (!card && !definition) return { id, name: `\u724C #${id}`, unknown: !0 };
-      let name = read4(() => card.CardName) || read4(() => card.cardName) || read4(() => card.Name) || read4(() => card.name) || read4(() => definition.CardName) || read4(() => definition.Name) || read4(() => definition.name), cardClass = read4(() => definition.cardClass) || read4(() => card.cardInfo.cardClass) || read4(() => card.cardClass) || read4(() => card.cardInfo.Class) || read4(() => card.className) || read4(() => card.ClassName) || read4(() => definition.Class) || read4(() => definition.class) || read4(() => definition.className), firstSkillId = number(read4(() => card.FirstSkillId));
+      let name = getCardName(card, definition), cardClass = read5(() => definition?.cardClass) || read5(() => card?.cardInfo?.cardClass) || read5(() => card?.cardClass) || read5(() => card?.cardInfo?.Class) || read5(() => card?.className) || read5(() => card?.ClassName) || read5(() => definition?.Class) || read5(() => definition?.class) || read5(() => definition?.className), firstSkillId = number(read5(() => card?.FirstSkillId));
       return {
         id,
         name: typeof name == "string" && name ? name : `\u724C #${id}`,
-        suit: number(
-          read4(() => card.FlowerOnSeat),
-          read4(() => card.CardFlower),
-          read4(() => card.Flower),
-          read4(() => card.suit),
-          read4(() => definition.color),
-          read4(() => definition.CardSuit),
-          read4(() => definition.suit)
-        ),
-        number: number(
-          read4(() => card.CardNumber),
-          read4(() => card.Number),
-          read4(() => card.number),
-          read4(() => definition.number),
-          read4(() => definition.CardNumber),
-          read4(() => definition.Number)
-        ),
-        type: number(
-          read4(() => card.CardType),
-          read4(() => card.Type),
-          read4(() => card.type),
-          read4(() => definition.type),
-          read4(() => definition.CardType),
-          read4(() => definition.Type)
-        ),
+        ...getCardProperties(card, definition),
         unknown: !(typeof name == "string" && name),
         ...typeof cardClass == "string" && cardClass ? { cardClass } : {},
         ...firstSkillId > 0 ? { firstSkillId } : {}
       };
     }
+    function getDeckCardMeta(ids, scene) {
+      let demo = read5(() => win.__SGS_TOOLBOX_DEMO__?.cards), ownCards = /* @__PURE__ */ new Map();
+      for (let card of ownCardModels(scene)) ownCards.set(cardId(card), card);
+      let definitions = [...new Set(cardDefinitions())], stable = !demo && !providers.size && !ownCards.size && Object.isFrozen(ids);
+      if (stable && deckDefinitions?.ids === ids && deckDefinitions.definitions.length === definitions.length && definitions.every((index, i) => index === deckDefinitions.definitions[i])) return deckDefinitions.metadata;
+      let metadata = {};
+      for (let id of ids) {
+        let value = read5(() => {
+          let fixture = read5(() => demo?.[id]);
+          if (fixture) return projectDeckCardMeta(fixture);
+          let card = ownCards.get(id) || getProviderCard(id), definition = getCardDefinition(id, definitions), name = getCardName(card, definition);
+          return typeof name == "string" && name ? projectDeckCardMeta(getCardProperties(card, definition)) : null;
+        });
+        value && (metadata[id] = stable ? Object.freeze(value) : value);
+      }
+      return deckDefinitions = stable ? { ids, definitions, metadata: Object.freeze(metadata) } : null, metadata;
+    }
     function getCountdown() {
-      let scene = getScene(), ui = selfUI(scene), timer = read4(() => ui.countdownTimer) || read4(() => scene.countdownTimer), value = alive(timer) ? number(read4(() => timer.RemainValue)) : void 0;
+      let scene = getScene(), ui = selfUI(scene), timer = read5(() => ui.countdownTimer) || read5(() => scene.countdownTimer), value = alive(timer) ? number(read5(() => timer.RemainValue)) : void 0;
       return value === void 0 ? null : Math.max(0, value);
     }
     function getRemainingSlash() {
       let scene = getScene();
       if (!isGameScene(scene)) return null;
       let seat = seatData(selfUI(scene));
-      if (!seat || read4(() => seat.IsDead) === !0) return null;
-      let targets = read4(() => seat.GetSeatState(1).Targets), info = read4(() => seat.shaInfo);
-      if (read4(() => info.Disabled) === !0) return 0;
-      if (read4(() => info.NoLimit) === !0 || read4(() => targets[4]) === 9999) return 1 / 0;
+      if (!seat || read5(() => seat.IsDead) === !0) return null;
+      let targets = read5(() => seat.GetSeatState(1).Targets), info = read5(() => seat.shaInfo);
+      if (read5(() => info.Disabled) === !0) return 0;
+      if (read5(() => info.NoLimit) === !0 || read5(() => targets[4]) === 9999) return 1 / 0;
       if (targets && typeof targets.length == "number") {
         let used = Number(targets[0] || 0), limit2 = Number(targets[1] || 1);
         return Number.isFinite(used) && Number.isFinite(limit2) ? Math.max(0, limit2 - used) : null;
       }
-      if (read4(() => seat.ShaNoLimit) === !0) return 1 / 0;
-      let count = number(read4(() => info.Count), read4(() => seat.ShaCount));
+      if (read5(() => seat.ShaNoLimit) === !0) return 1 / 0;
+      let count = number(read5(() => info.Count), read5(() => seat.ShaCount));
       return count === void 0 ? null : Math.max(0, count);
     }
-    function getSnapshot() {
-      let scene = getScene(), self = selfUI(scene), selfSeatId = seatId(self), selfSeat = read4(() => self.cardContainer.seat) || seatData(self), ownModels = read4(() => selfSeat.HandCards) ?? read4(() => selfSeat.handCards), handCardIds = Array.isArray(ownModels) ? cardIds(ownModels) : cardIds(handUIs(self).map(model)), mode = read4(() => getClass("GameContext").GetModeVO()), countdown = read4(() => self.countdownTimer) || read4(() => scene.countdownTimer), remaining = alive(countdown) ? number(read4(() => countdown.RemainValue)) : void 0;
-      return {
+    function getSnapshot(deckIds) {
+      let scene = getScene(), self = selfUI(scene), selfSeatId = seatId(self), selfSeat = read5(() => self.cardContainer.seat) || seatData(self), ownModels = read5(() => selfSeat.HandCards) ?? read5(() => selfSeat.handCards), handCardIds = Array.isArray(ownModels) ? cardIds(ownModels) : cardIds(handUIs(self).map(model)), mode = read5(() => getClass("GameContext").GetModeVO()), countdown = read5(() => self.countdownTimer) || read5(() => scene.countdownTimer), remaining = alive(countdown) ? number(read5(() => countdown.RemainValue)) : void 0, snapshot = {
         sceneName: sceneName(scene),
         inGame: isGameScene(scene),
-        modeId: number(read4(() => scene.ModeID), read4(() => scene.modeId), read4(() => mode.ModeID), read4(() => mode.Id), read4(() => mode.id)),
+        modeId: number(read5(() => scene.ModeID), read5(() => scene.modeId), read5(() => mode.ModeID), read5(() => mode.Id), read5(() => mode.id)),
         selfSeatId,
         handCardIds,
-        emptySeatIds: list(read4(() => scene.seatContainer.seatUIs) || read4(() => scene.seatUIs)).filter((ui) => alive(ui) && !nativeSeatOccupied(ui)).map(seatId).filter((id) => id !== void 0),
-        // Resume means reconnect, not replay. Require explicit replay evidence.
-        isReplay: !!(read4(() => scene.IsReplay) || read4(() => scene.isReplay) || alive(read4(() => scene.replayBar))),
+        emptySeatIds: list(read5(() => scene.seatContainer.seatUIs) || read5(() => scene.seatUIs)).filter((ui) => alive(ui) && !nativeSeatOccupied(ui)).map(seatId).filter((id) => id !== void 0),
+        isReplay: isReplayScene(scene),
         countdownRemaining: remaining === void 0 ? null : Math.max(0, remaining),
         seats: seats(scene).map((ui) => {
           let seat = seatData(ui), id = seatId(ui), result = {
             seatId: id,
             position: nativeSeatPosition(ui) ?? null,
-            viewId: number(read4(() => seat.fixedViewId), read4(() => seat.FixedViewId), read4(() => ui.fixedViewId), read4(() => ui.viewId), read4(() => ui.actualSeatID)),
-            handCount: number(read4(() => seat.HandCardCount), read4(() => seat.HandCount), id === selfSeatId ? read4(() => ownModels.length) : void 0),
-            dead: read4(() => seat.IsDead) ?? read4(() => seat.isDead),
+            viewId: number(read5(() => seat.fixedViewId), read5(() => seat.FixedViewId), read5(() => ui.fixedViewId), read5(() => ui.viewId), read5(() => ui.actualSeatID)),
+            handCount: number(read5(() => seat.HandCardCount), read5(() => seat.HandCount), id === selfSeatId ? read5(() => ownModels.length) : void 0),
+            dead: read5(() => seat.IsDead) ?? read5(() => seat.isDead),
             knownHandCardIds: publicHandIds(seat, ui)
           };
           return id !== void 0 && id === selfSeatId && (result.handCardIds = handCardIds.slice()), result;
         }).filter((item) => item.seatId !== void 0)
       };
+      return Array.isArray(deckIds) && deckIds.length && (snapshot.cardMeta = getDeckCardMeta(deckIds, scene)), snapshot;
     }
-    return scope?.interval(() => {
+    return watchScene && scope?.interval(() => {
       getScene();
     }, 500), scope?.add(() => {
-      listeners.clear(), providers.clear(), definitionTables = /* @__PURE__ */ new WeakMap(), dispatcher = dispatcherOwner = current = stage = null;
+      listeners.clear(), providers.clear(), definitionTables = /* @__PURE__ */ new WeakMap(), deckDefinitions = null, dispatcher = dispatcherOwner = current = stage = null;
     }), {
       getScene,
+      withSceneCycle,
       getDispatcher,
       getSelfSeatUI: () => selfUI(getScene()),
       getSeatUIs: () => seats(getScene()),
@@ -4639,6 +5082,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       getSelf,
       getRemainingSlash,
       isInGame: () => isGameScene(getScene()),
+      isReplay: (scene = getScene()) => isReplayScene(scene),
       canReserveViewport,
       getConfigData: (name) => configs?.getConfigData(name) || null,
       loadConfigData: (name, options) => configs ? configs.loadConfigData(name, options) : Promise.reject(new Error("\u914D\u7F6E\u8BFB\u53D6\u4E0D\u53EF\u7528")),
@@ -4649,6 +5093,65 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         return listeners.add(fn), () => listeners.delete(fn);
       }
     };
+  }
+
+  // src/core/scene-watch.js
+  var SCENE_EVENTS = ["SWITCH_SCENE", "HIDE_WINDOW"];
+  function createSceneWatch({ game, scope }) {
+    let started = performance.now(), watchers = /* @__PURE__ */ new Set(), dispatcher = null, releaseDispatcher, signalPending = !1, timer, scheduledAt;
+    function schedule() {
+      if (scope.closed) return;
+      let next = 1 / 0;
+      for (let watcher of watchers) next = Math.min(next, watcher.due);
+      next !== scheduledAt && (clearTimeout(timer), scheduledAt = next, Number.isFinite(next) && (timer = setTimeout(() => {
+        scheduledAt = void 0, run(), schedule();
+      }, Math.max(1, Math.ceil(started + next - performance.now())))));
+    }
+    function watch(callback, interval, onSignal = !1) {
+      let elapsed = performance.now() - started, watcher = { callback, interval, onSignal, due: (Math.floor(elapsed / interval) + 1) * interval };
+      return watchers.add(watcher), schedule(), () => {
+        watchers.delete(watcher), schedule();
+      };
+    }
+    function run(signaled = !1) {
+      if (scope.closed) return;
+      let elapsed = performance.now() - started, due = [...watchers].filter((watcher) => elapsed >= watcher.due || signaled && watcher.onSignal);
+      due.length && game.withSceneCycle(() => {
+        for (let watcher of due)
+          if (!(scope.closed || !watchers.has(watcher))) {
+            elapsed >= watcher.due && (watcher.due = (Math.floor(elapsed / watcher.interval) + 1) * watcher.interval);
+            try {
+              watcher.callback();
+            } catch {
+            }
+          }
+      });
+    }
+    function syncDispatcher() {
+      game.getScene();
+      let next = game.getDispatcher();
+      if (dispatcher === next || (releaseDispatcher?.(), dispatcher = next, releaseDispatcher = null, typeof next?.on != "function" || typeof next.off != "function")) return;
+      let caller = {}, signal = () => {
+        scope.closed || next !== dispatcher || signalPending || (signalPending = !0, queueMicrotask(() => {
+          signalPending = !1, run(!0), schedule();
+        }));
+      }, subscribed = [];
+      for (let event of SCENE_EVENTS)
+        try {
+          next.on(event, caller, signal), subscribed.push(event);
+        } catch {
+        }
+      releaseDispatcher = () => {
+        for (let event of subscribed)
+          try {
+            next.off(event, caller, signal);
+          } catch {
+          }
+      };
+    }
+    return watch(syncDispatcher, 500, !0), scope.add(() => {
+      clearTimeout(timer), watchers.clear(), dispatcher = null, releaseDispatcher?.();
+    }), { watch };
   }
 
   // src/compat/profiles.js
@@ -4691,13 +5194,13 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   });
 
   // src/compat/index.js
-  var TOOLBOX = "[data-sgs-toolbox]", GAME = "#bgDiv,#layaContainer,#laya_container,#GameDiv,canvas,iframe", FORBIDDEN_TAGS = /* @__PURE__ */ new Set(["HTML", "BODY", "HEAD", "SCRIPT", "STYLE", "LINK", "META"]), FEATURE_LABELS = ["\u5361\u724C", "\u8BB0\u724C", "\u660E\u724C", "\u5C71\u6CB3\u56FE", "\u914D\u7F6E", "\u5DE5\u5177", "\u767E\u80DC\u6218\u529F", "\u76AE\u80A4\u6536\u96C6", "\u6218\u7EE9\u51FA\u6846", "\u804A\u5929\u8868\u60C5", "\u81EA\u52A9\u89C2\u661F", "\u6740\u6279\u8D26\u672C"];
+  var TOOLBOX = "[data-sgs-toolbox]", GAME = "#bgDiv,#layaContainer,#laya_container,#GameDiv,canvas,iframe", PROTECTED = `${TOOLBOX},${GAME}`, FORBIDDEN_TAGS = /* @__PURE__ */ new Set(["HTML", "BODY", "HEAD", "SCRIPT", "STYLE", "LINK", "META"]), BRAND = /(?:小抄|桌游助手)/, FEATURE_LABELS = ["\u5361\u724C", "\u8BB0\u724C", "\u660E\u724C", "\u5C71\u6CB3\u56FE", "\u914D\u7F6E", "\u5DE5\u5177", "\u767E\u80DC\u6218\u529F", "\u76AE\u80A4\u6536\u96C6", "\u6218\u7EE9\u51FA\u6846", "\u804A\u5929\u8868\u60C5", "\u81EA\u52A9\u89C2\u661F", "\u6740\u6279\u8D26\u672C"];
   function createCompatibility({ window: window2, document: document2 = window2?.document, onStatus = () => {
   }, takeover = "hide" } = {}) {
     if (!window2 || !document2) throw new TypeError("Compatibility requires window and document");
     let running = !1, enabled = !1, policy = takeover === "exit-known" ? "exit-known" : "hide", observer = null, interval = null, queued = !1, scanning = !1, lastStatus = "", hidden = /* @__PURE__ */ new Map(), ignored = /* @__PURE__ */ new WeakSet(), called = /* @__PURE__ */ new WeakSet(), sources = /* @__PURE__ */ new Set(), exitCalls = [];
     function protectedElement(el) {
-      return !el || el.nodeType !== 1 || el.ownerDocument !== document2 || !el.style || FORBIDDEN_TAGS.has(el.tagName) ? !0 : !!(el.matches(TOOLBOX) || el.closest(TOOLBOX) || el.querySelector(TOOLBOX) || el.matches(GAME) || el.closest(GAME) || el.querySelector(GAME));
+      return !el || el.nodeType !== 1 || el.ownerDocument !== document2 || !el.style || FORBIDDEN_TAGS.has(el.tagName) ? !0 : !!(el.closest(PROTECTED) || el.querySelector(PROTECTED));
     }
     function ownHidden(el) {
       return el.style.getPropertyValue("display") === "none" && el.style.getPropertyPriority("display") === "important";
@@ -4712,9 +5215,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return record ? (ownHidden(el) && (record.value ? el.style.setProperty("display", record.value, record.priority) : el.style.removeProperty("display")), hidden.delete(el), ignore && ignored.add(el), !0) : !1;
     }
     function structuralMatch(el) {
-      if (protectedElement(el)) return !1;
-      let text2 = (el.textContent || "").replace(/\s+/g, " ").trim();
-      if (text2.length < 12 || text2.length > 2e4 || !/(?:小抄|桌游助手)/.test(text2)) return !1;
+      if (el.closest(PROTECTED)) return !1;
+      let rawText = el.textContent || "";
+      if (rawText.length < 12 || !BRAND.test(rawText) || protectedElement(el)) return !1;
+      let text3 = rawText.replace(/\s+/g, " ").trim();
+      if (text3.length < 12 || text3.length > 2e4) return !1;
       let buttons = [...el.querySelectorAll('button,[role="tab"]')];
       if (buttons.length < 4) return !1;
       let labels = buttons.map((b) => (b.textContent || "").replace(/\s+/g, ""));
@@ -4725,7 +5230,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         } catch {
           return !1;
         }
-      }) && !el.querySelector("input#seatUISwitch") && !/(?:小抄|桌游助手)\s*v?\d+\.\d+(?:\.\d+)?/i.test(text2)) return !1;
+      }) && !el.querySelector("input#seatUISwitch") && !/(?:小抄|桌游助手)\s*v?\d+\.\d+(?:\.\d+)?/i.test(text3)) return !1;
       let style2 = window2.getComputedStyle(el);
       return style2.position === "fixed" && Number(style2.zIndex) >= 1e3;
     }
@@ -4807,30 +5312,44 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return emit(), getStatus();
     }
     function schedule() {
-      queued || !running || (queued = !0, window2.queueMicrotask(() => {
-        queued = !1, running && scan();
-      }));
+      if (queued || !running || !enabled) return;
+      queued = !0;
+      let watching = observer;
+      window2.queueMicrotask(() => {
+        observer === watching && (queued = !1, running && enabled && scan());
+      });
     }
-    function start() {
-      return running || (running = !0, typeof window2.MutationObserver == "function" && (observer = new window2.MutationObserver((records) => {
+    function watch() {
+      !running || !enabled || interval !== null || (typeof window2.MutationObserver == "function" && (observer = new window2.MutationObserver((records) => {
         records.some((r) => {
           let target = r.target.nodeType === 1 ? r.target : r.target.parentElement;
           return !(target?.closest(TOOLBOX) || r.type === "attributes" && r.attributeName === "style" && hidden.has(target) && ownHidden(target));
         }) && schedule();
-      }), observer.observe(document2, { childList: !0, subtree: !0, attributes: !0, attributeFilter: ["id", "class", "style"] })), interval = window2.setInterval(scan, 1e3), scan(), emit()), getStatus();
+      }), observer.observe(document2, { childList: !0, subtree: !0, attributes: !0, attributeFilter: ["id", "class", "style"] })), interval = window2.setInterval(scan, 1e3));
+    }
+    function unwatch() {
+      observer?.disconnect(), observer = null, queued = !1, interval !== null && window2.clearInterval(interval), interval = null;
+    }
+    function start() {
+      return running ? getStatus() : (running = !0, watch(), scan());
     }
     function stop() {
-      running = !1, observer?.disconnect(), observer = null, interval !== null && window2.clearInterval(interval), interval = null;
+      running = !1, unwatch();
       for (let el of [...hidden.keys()]) restore(el);
       return emit(), getStatus();
     }
     function setEnabled(value) {
-      if (enabled = !!value, !enabled) for (let el of [...hidden.keys()]) restore(el);
-      return scan(), emit(), getStatus();
+      if (enabled = !!value, enabled && running)
+        return watch(), scan();
+      if (!enabled) {
+        unwatch();
+        for (let el of [...hidden.keys()]) restore(el);
+      }
+      return emit(), getStatus();
     }
     function setTakeoverPolicy(value) {
       if (!["hide", "exit-known"].includes(value)) throw new TypeError("Unknown compatibility policy");
-      return policy = value, scan(), emit(), getStatus();
+      return policy = value, running ? scan() : (emit(), getStatus());
     }
     return {
       start,
@@ -4854,6 +5373,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   // src/core/market-display.js
   var servers = [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL];
   function marketServerLabel(baseUrl) {
+    if ("") return "\u66F4\u65B0\u955C\u50CF";
     let index = servers.indexOf(String(baseUrl).replace(/\/+$/, ""));
     return index < 0 ? "\u81EA\u5B9A\u4E49\u670D\u52A1\u5668" : `\u670D\u52A1\u5668 ${index + 1}`;
   }
@@ -5000,28 +5520,33 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 
   // src/core/market-connection.js
   var LOCAL_MARKET_URL = "http://127.0.0.1:17321", PublicMarketClient = class {
-    constructor(fetchImpl, { sources = [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL], session = {}, probeTimeoutMs = 2500, ...options } = {}) {
-      this.clients = sources.map((baseUrl) => new MarketClient({ ...options, baseUrl, fetchImpl })), this.active = this.clients[0], this.session = session, this.probeTimeoutMs = probeTimeoutMs, this.fetchImpl = fetchImpl, this.options = options;
+    constructor(fetchImpl, { sources = [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL], mirror = "", session = {}, probeTimeoutMs = 2500, ...options } = {}) {
+      mirror && (sources = [mirror, ...sources]), this.clients = sources.map((baseUrl) => new MarketClient({ ...options, baseUrl, fetchImpl })), this.active = this.clients[0], this.session = session, this.mirror = mirror, this.probeTimeoutMs = probeTimeoutMs, this.fetchImpl = fetchImpl, this.options = options;
     }
     get baseUrl() {
       return this.active.baseUrl;
     }
     start() {
-      return this.clients.some((client) => client.baseUrl === GITHUB_MARKET_URL) ? this.session.probe ||= (async () => {
-        try {
-          await new MarketClient({
-            ...this.options,
-            baseUrl: GITHUB_MARKET_URL,
-            fetchImpl: this.fetchImpl,
-            timeoutMs: Math.min(this.probeTimeoutMs, this.options.timeoutMs || this.probeTimeoutMs)
-          }).getCatalog();
-        } catch {
-          this.session.githubPoor = !0;
-        }
-      })() : Promise.resolve();
+      return this.session.probe ||= (async () => {
+        for (let client of this.clients.filter((client2) => [this.mirror, GITHUB_MARKET_URL].includes(client2.baseUrl)))
+          try {
+            await new MarketClient({
+              ...this.options,
+              baseUrl: client.baseUrl,
+              fetchImpl: this.fetchImpl,
+              timeoutMs: Math.min(this.probeTimeoutMs, this.options.timeoutMs || this.probeTimeoutMs)
+            }).getCatalog();
+            return;
+          } catch {
+            this.markUnavailable(client);
+          }
+      })();
+    }
+    markUnavailable(client) {
+      client.baseUrl === GITHUB_MARKET_URL && (this.session.githubPoor = !0), client.baseUrl === this.mirror && (this.session.mirrorPoor = !0);
     }
     eligible() {
-      return this.clients.filter((client) => !(this.session.githubPoor && client.baseUrl === GITHUB_MARKET_URL));
+      return this.clients.filter((client) => !(this.session.githubPoor && client.baseUrl === GITHUB_MARKET_URL) && !(this.session.mirrorPoor && client.baseUrl === this.mirror));
     }
     async attempt(clients, action) {
       let failures = [];
@@ -5030,7 +5555,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           let result = await action(client);
           return this.active = client, result;
         } catch (error) {
-          client.baseUrl === GITHUB_MARKET_URL && (this.session.githubPoor = !0), failures.push(`${marketServerLabel(client.baseUrl)}\uFF1A${userErrorMessage(error)}`);
+          this.markUnavailable(client), failures.push(`${marketServerLabel(client.baseUrl)}\uFF1A${userErrorMessage(error)}`);
         }
       throw new Error(`\u63D2\u4EF6\u5E02\u573A\u6682\u65F6\u65E0\u6CD5\u8FDE\u63A5\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002
 ` + failures.join(`
@@ -5060,7 +5585,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }, { development = !1 } = {}) {
     let session = {};
     if (!development) {
-      let client2 = new PublicMarketClient(fetchImpl, { session });
+      let client2 = new PublicMarketClient(fetchImpl, { session, mirror: "" });
       return { get: () => client2, start: () => client2.start(), set() {
         throw new Error("\u516C\u5F00\u7248\u81EA\u52A8\u8FDE\u63A5\u63D2\u4EF6\u5E02\u573A\u3002");
       } };
@@ -5104,22 +5629,24 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           if (scope.closed || current !== generation) return;
           let data;
           try {
-            data = game.getSnapshot();
+            data = deckIds.length ? game.getSnapshot(deckIds) : game.getSnapshot();
           } catch {
-            data = {};
+            try {
+              data = deckIds.length ? game.getSnapshot() : {};
+            } catch {
+              data = {};
+            }
           }
-          if (game.getCardMeta && deckIds.length) {
+          if (!data.cardMeta && game.getCardMeta && deckIds.length) {
             data.cardMeta = {};
             for (let id of deckIds) {
               let value;
               try {
-                value = game.getCardMeta(id);
+                value = projectDeckCardMeta(game.getCardMeta(id));
               } catch {
                 continue;
               }
-              if (!value || value.unknown) continue;
-              let suit = Number(value.suit), number3 = Number(value.number), type = Number(value.type);
-              suit >= 1 && suit <= 4 && number3 >= 1 && number3 <= 13 && (data.cardMeta[id] = { suit, number: number3, type: Number.isInteger(type) ? type : 0 });
+              value && (data.cardMeta[id] = value);
             }
           }
           let signature = JSON.stringify([journal.sessionId, data]);
@@ -5136,7 +5663,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       })));
     }
     return scope.add(journal.subscribe((event) => {
-      event.type === "MsgGamePlayCardNtf" && (deckIds = (event.payload?.CardList || []).map(Number).filter((id) => Number.isInteger(id) && id > 0).slice(0, 2048)), (event.type === "ClientLeavetableRep" || event.type === "ClientLoginRep") && (deckIds = []), RESYNC.has(event.type) && request();
+      event.type === "MsgGamePlayCardNtf" && (deckIds = Object.freeze((event.payload?.CardList || []).map(Number).filter((id) => Number.isInteger(id) && id > 0).slice(0, 2048))), (event.type === "ClientLeavetableRep" || event.type === "ClientLoginRep") && (deckIds = []), RESYNC.has(event.type) && request();
     })), scope.add(game.onSceneChange(request)), scope.add(() => {
       generation++, cancel();
     }), request(), { request };
@@ -5225,8 +5752,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       let names = key === "Infos" ? ["SeatID", "CharacterID"] : key === "GeneralData" ? ["index", "cardID"] : ["CardId", "CardID", "cardId", "cardID", "id"], record = {};
       for (let name of names) {
-        let field = atom(own2(item, name));
-        field !== void 0 && (record[name] = field);
+        let field2 = atom(own2(item, name));
+        field2 !== void 0 && (record[name] = field2);
       }
       result.push(record);
     }
@@ -5235,8 +5762,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function packet(payload) {
     let result = {}, truncated = {};
     for (let key of FIELDS) {
-      let value = own2(payload, key), field = ARRAYS.has(key) ? array(value, key, truncated) : atom(value);
-      field !== void 0 && (result[key] = field);
+      let value = own2(payload, key), field2 = ARRAYS.has(key) ? array(value, key, truncated) : atom(value);
+      field2 !== void 0 && (result[key] = field2);
     }
     return { payload: result, truncated };
   }
@@ -5413,7 +5940,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
 
   // src/ui/game-viewport.js
-  function createGameViewport({ window: win, document: doc, scope, canReserve = () => !0 }) {
+  function createGameViewport({ window: win, document: doc, scope, canReserve = () => !0, sceneWatch }) {
     let requested = 0, reserved = 0, stage, original, wrapper, descriptor, appliedWidth = 0, appliedHeight = 0, browser, widthDescriptor, widthGetter, styles = /* @__PURE__ */ new Map();
     function releaseBrowser() {
       browser && Object.getOwnPropertyDescriptor(browser, "clientWidth")?.get === widthGetter && (widthDescriptor ? Object.defineProperty(browser, "clientWidth", widthDescriptor) : delete browser.clientWidth), browser = widthDescriptor = widthGetter = void 0;
@@ -5455,11 +5982,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         restoreStyles(), appliedWidth = 0;
         return;
       }
-      for (let node of doc.querySelectorAll("#bgDiv,#layaContainer,#laya_container,#GameDiv"))
-        styles.has(node) || styles.set(node, { value: node.style.getPropertyValue("width"), priority: node.style.getPropertyPriority("width") }), node.style.setProperty("width", width + "px", "important"), styles.get(node).applied = width + "px";
+      for (let node of doc.querySelectorAll("#bgDiv,#layaContainer,#laya_container,#GameDiv")) {
+        styles.has(node) || styles.set(node, { value: node.style.getPropertyValue("width"), priority: node.style.getPropertyPriority("width") });
+        let value = width + "px";
+        (node.style.getPropertyValue("width") !== value || node.style.getPropertyPriority("width") !== "important") && node.style.setProperty("width", value, "important"), styles.get(node).applied = value;
+      }
       (width !== appliedWidth || win.innerHeight !== appliedHeight) && (resize(stage), typeof win.SystemContext?.UpdateGameSize == "function" && win.SystemContext.UpdateGameSize(width, win.Laya?.Browser?.clientHeight || win.innerHeight), appliedWidth = width, appliedHeight = win.innerHeight);
     }
-    return scope.listen(win, "resize", sync), scope.interval(sync, 500), scope.add(() => {
+    return scope.listen(win, "resize", sync), sceneWatch ? scope.add(sceneWatch.watch(sync, 500, !0)) : scope.interval(sync, 500), scope.add(() => {
       reserved = 0, restoreStyles(), releaseBrowser(), releaseStage();
     }), { reserve(width) {
       requested = Math.max(0, Number(width) || 0), sync();
@@ -5492,9 +6022,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 
   // src/ui/card-face-catalog.js
   function mountCardFaceCatalog(container, doc, cardStyles) {
-    let option = (text2, value) => {
+    let option = (text3, value) => {
       let node = doc.createElement("option");
-      return node.textContent = text2, node.value = value, node;
+      return node.textContent = text3, node.value = value, node;
     }, details = doc.createElement("details");
     details.className = "card-face-catalog";
     let title = doc.createElement("summary");
@@ -5594,8 +6124,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     retry.type = "button", retry.textContent = "\u91CD\u8BD5\u8BFB\u53D6\u724C\u8868", retry.hidden = !0, retry.onclick = () => {
       message = "", failed = !1, loadCatalog();
     };
-    let fields = doc.createElement("div");
-    fields.className = "custom-card-face-fields", fields.append(search, choices, upload), section.append(modes, guidance, fields, picker, preview, feedback, retry);
+    let fields2 = doc.createElement("div");
+    fields2.className = "custom-card-face-fields", fields2.append(search, choices, upload), section.append(modes, guidance, fields2, picker, preview, feedback, retry);
     let active = !0, busy = !1, message = "", failed = !1, saved = [], catalog, card = "", background = !1;
     function updateChoices() {
       let records = new Map((catalog || []).map((option) => [option.res, option.label]));
@@ -5627,7 +6157,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         let rows = cardStyles.listLocalFaces();
         (catalog !== cardStyles.localFaceCatalog || saved.length !== rows.length || rows.some((row2, i) => row2 !== saved[i])) && (saved = rows, catalog = cardStyles.localFaceCatalog, updateChoices());
       }
-      search.hidden = choices.hidden = background, fields.classList.toggle("is-background", background), guidance.textContent = background ? "\u4E00\u5F20\u56FE\u6362\u6240\u6709\u9002\u7528\u5361\u9762\u7684\u5E95\u7EB9\u3002\u724C\u56FE\u3001\u724C\u540D\u3001\u82B1\u8272\u548C\u70B9\u6570\u7167\u5E38\u663E\u793A\u3002" : "\u9009\u5E26\u724C\u540D\u7684\u5B8C\u6574\u5361\u56FE\u3002\u56FE\u7247\u4F1A\u5C45\u4E2D\u88C1\u526A\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A\u3002";
+      search.hidden = choices.hidden = background, fields2.classList.toggle("is-background", background), guidance.textContent = background ? "\u4E00\u5F20\u56FE\u6362\u6240\u6709\u9002\u7528\u5361\u9762\u7684\u5E95\u7EB9\u3002\u724C\u56FE\u3001\u724C\u540D\u3001\u82B1\u8272\u548C\u70B9\u6570\u7167\u5E38\u663E\u793A\u3002" : "\u9009\u5E26\u724C\u540D\u7684\u5B8C\u6574\u5361\u56FE\u3002\u56FE\u7247\u4F1A\u5C45\u4E2D\u88C1\u526A\uFF0C\u4EC5\u4FDD\u5B58\u5728\u672C\u673A\u3002";
       let row = background ? cardStyles.localFaceBackground : saved.find((item) => item.card === card), noCards = !background && !catalog?.length && !saved.length;
       noCards && (choices.options[0].textContent = cardStyles.localFaceCatalogPending ? "\u6B63\u5728\u8BFB\u53D6\u724C\u8868\u2026" : "\u672A\u8BFB\u53D6\u5230\u724C\u8868"), search.disabled = choices.disabled = busy || noCards, upload.disabled = busy || !background && !card, upload.textContent = row ? "\u66F4\u6362\u56FE\u7247" : "\u9009\u62E9\u56FE\u7247", remove.disabled = busy, remove.title = background ? "\u5220\u9664\u5E95\u56FE" : "\u5220\u9664\u8FD9\u5F20\u5361\u56FE", remove.setAttribute("aria-label", remove.title), preview.hidden = !row, row ? (image.getAttribute("src") !== row.url && (image.src = row.url), filename.textContent = filename.title = row.name) : image.removeAttribute("src");
       let catalogError = !background && cardStyles.localFaceCatalogError;
@@ -5803,8 +6333,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             }
             b.append(previews);
           }
-          let text2 = doc.createElement("span");
-          text2.textContent = side === "back" && style2?.backName || name, b.append(text2), b.onclick = () => cardStyles?.selectSide(side, target), choices.append(b), focused === id && b.focus({ preventScroll: !0 });
+          let text3 = doc.createElement("span");
+          text3.textContent = side === "back" && style2?.backName || name, b.append(text3), b.onclick = () => cardStyles?.selectSide(side, target), choices.append(b), focused === id && b.focus({ preventScroll: !0 });
         };
         option("", "\u8DDF\u968F\u6E38\u620F"), side === "face" && localFaces && option(LOCAL_FACE_STYLE.id, LOCAL_FACE_STYLE.name, LOCAL_FACE_STYLE);
         for (let style2 of cardStyles?.list() || []) (side !== "back" || !style2.atlas || style2.atlas.backImage) && option(style2.id, style2.name, style2);
@@ -5865,9 +6395,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function mountThemeWorkshop(container, { document: doc, themes, notify }) {
     let scope = new ResourceScope(), root = doc.createElement("section");
     root.className = "sgs-themes", root.dataset.themeWorkshop = "";
-    let el = (tag, cls, text2) => {
+    let el = (tag, cls, text3) => {
       let node = doc.createElement(tag);
-      return cls && (node.className = cls), text2 !== void 0 && (node.textContent = text2), node;
+      return cls && (node.className = cls), text3 !== void 0 && (node.textContent = text3), node;
     }, style2 = el("style");
     style2.textContent = STYLES;
     let heading = el("div", "theme-heading"), count = el("span", "theme-count"), title = el("div", "theme-heading");
@@ -6404,12 +6934,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return await embedWebFonts(clonedNode, options), await embedImages(clonedNode, options), applyStyle(clonedNode, options), await nodeToDataURL(clonedNode, width, height);
   }
   async function toCanvas(node, options = {}) {
-    let { width, height } = getImageSize(node, options), svg = await toSvg(node, options), img = await createImage(svg), canvas = document.createElement("canvas"), context = canvas.getContext("2d"), ratio = options.pixelRatio || getPixelRatio(), canvasWidth = options.canvasWidth || width, canvasHeight = options.canvasHeight || height;
-    return canvas.width = canvasWidth * ratio, canvas.height = canvasHeight * ratio, options.skipAutoScale || checkCanvasDimensions(canvas), canvas.style.width = `${canvasWidth}`, canvas.style.height = `${canvasHeight}`, options.backgroundColor && (context.fillStyle = options.backgroundColor, context.fillRect(0, 0, canvas.width, canvas.height)), context.drawImage(img, 0, 0, canvas.width, canvas.height), canvas;
+    let { width, height } = getImageSize(node, options), svg = await toSvg(node, options), img = await createImage(svg), canvas = document.createElement("canvas"), context2 = canvas.getContext("2d"), ratio = options.pixelRatio || getPixelRatio(), canvasWidth = options.canvasWidth || width, canvasHeight = options.canvasHeight || height;
+    return canvas.width = canvasWidth * ratio, canvas.height = canvasHeight * ratio, options.skipAutoScale || checkCanvasDimensions(canvas), canvas.style.width = `${canvasWidth}`, canvas.style.height = `${canvasHeight}`, options.backgroundColor && (context2.fillStyle = options.backgroundColor, context2.fillRect(0, 0, canvas.width, canvas.height)), context2.drawImage(img, 0, 0, canvas.width, canvas.height), canvas;
   }
 
-  // src/core/screenshot.js
-  var DEFAULT_SCREENSHOT_SHORTCUT = { code: "KeyS", ctrl: !0, shift: !0, alt: !1, meta: !1 };
+  // src/shared/keyboard-shortcut.js
   function shortcutFromEvent(event) {
     return !event.code || ["Control", "Shift", "Alt", "Meta"].some((key) => event.code.startsWith(key)) ? null : { code: event.code, ctrl: event.ctrlKey, shift: event.shiftKey, alt: event.altKey, meta: event.metaKey };
   }
@@ -6422,6 +6951,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function isTyping(event) {
     return event.composedPath().some((node) => node?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(node?.tagName));
   }
+
+  // src/core/screenshot.js
+  var DEFAULT_SCREENSHOT_SHORTCUT = { code: "KeyS", ctrl: !0, shift: !0, alt: !1, meta: !1 };
   function gameCanvas(win) {
     let rendered = win.Laya?.Render?.canvas, source = rendered?.source ?? rendered, canvas = source?.getBoundingClientRect ? source : win.document.getElementById("layaCanvas");
     if (!canvas || !canvas.width || !canvas.height) throw new Error("\u5C1A\u672A\u627E\u5230\u6E38\u620F\u6709\u6548\u753B\u9762");
@@ -6446,25 +6978,25 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       let output = doc.createElement("canvas"), width = Math.round(stage?.width || canvas.width), height = Math.round(stage?.height || canvas.height);
       if (!(width > 0 && height > 0 && width * height <= 33554432)) throw new Error("\u6E38\u620F\u753B\u9762\u5C3A\u5BF8\u65E0\u6548\u6216\u8FC7\u5927");
       output.width = width, output.height = height;
-      let context = output.getContext("2d");
+      let context2 = output.getContext("2d");
       if (typeof stage?.drawToCanvas != "function") {
         if (!canvas.getContext("2d")) throw new Error("\u5F53\u524D\u6E38\u620F\u5F15\u64CE\u4E0D\u652F\u6301\u622A\u56FE\uFF0C\u8BF7\u5237\u65B0\u6E38\u620F\u540E\u91CD\u8BD5");
-        return context.drawImage(canvas, 0, 0, width, height), output;
+        return context2.drawImage(canvas, 0, 0, width, height), output;
       }
       rendered = stage.drawToCanvas(width, height, 0, 0);
       let target = rendered?._ctx?._targets;
       if (target?.getData) {
         let pixels = target.getData(0, 0, width, height);
         if (!pixels || pixels.length < width * height * 4) throw new Error("\u6E38\u620F\u753B\u9762\u8BFB\u53D6\u5931\u8D25");
-        let data = context.createImageData(width, height), stride = width * 4;
+        let data = context2.createImageData(width, height), stride = width * 4;
         for (let y = 0; y < height; y++) data.data.set(pixels.subarray((height - 1 - y) * stride, (height - y) * stride), y * stride);
-        context.putImageData(data, 0, 0);
+        context2.putImageData(data, 0, 0);
       } else {
         let source = rendered?.source ?? rendered?._source;
         if (!source) throw new Error("\u6E38\u620F\u753B\u9762\u8BFB\u53D6\u5931\u8D25");
-        context.drawImage(source, 0, 0, width, height);
+        context2.drawImage(source, 0, 0, width, height);
       }
-      return stage.bgColor && (context.globalCompositeOperation = "destination-over", context.fillStyle = stage.bgColor, context.fillRect(0, 0, width, height), context.globalCompositeOperation = "source-over"), output;
+      return stage.bgColor && (context2.globalCompositeOperation = "destination-over", context2.fillStyle = stage.bgColor, context2.fillRect(0, 0, width, height), context2.globalCompositeOperation = "source-over"), output;
     } finally {
       try {
         rendered?.destroy?.();
@@ -6568,8 +7100,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       event.preventDefault();
       let message = input.value.trim();
       if (!message || input.readOnly || scope.closed) return;
-      let account2 = getAccount(), userId = /^[1-9][0-9]{0,31}$/.test(account2.id) ? account2.id : null, nickname = userId && Array.from(account2.nickname?.trim() || "").slice(0, 128).join("") || null;
-      (attempt?.message !== message || attempt.userId !== userId || attempt.nickname !== nickname) && (attempt = { id: Array.from(win.crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join(""), message, version: `${CORE_VERSION}-${EDITION}`, userId, nickname });
+      let account = getAccount(), userId2 = /^[1-9][0-9]{0,31}$/.test(account.id) ? account.id : null, nickname = userId2 && Array.from(account.nickname?.trim() || "").slice(0, 128).join("") || null;
+      (attempt?.message !== message || attempt.userId !== userId2 || attempt.nickname !== nickname) && (attempt = { id: Array.from(win.crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join(""), message, version: `${CORE_VERSION}-${EDITION}`, userId: userId2, nickname });
       let controller = new win.AbortController(), timeout = win.setTimeout(() => controller.abort(), 1e4), release = scope.add(() => {
         win.clearTimeout(timeout), controller.abort();
       });
@@ -6593,8 +7125,302 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), form;
   }
 
+  // src/shared/match-sync-records.js
+  var MODES = { 26: "\u6392\u4F4D\u8D5B", 35: "\u6597\u5730\u4E3B", 44: "\u5355\u9A91\u65E0\u53CC" }, MATCH_SYNC_LIMIT = 1e4, sameGenerals = (left, right) => left.length === right.length && right.every((id) => left.includes(id));
+  function sameSyncMatch(left, right) {
+    return left.mode === right.mode && left.endedAt === right.endedAt && left.result === right.result && left.duration === right.duration && sameGenerals(left.general, right.general);
+  }
+
+  // src/ui/sync-service-icons.js
+  var DEEPSEEK_HARNESS_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAVCAMAAABi3H5uAAAAbFBMVEVNa/0AAABRcf9Ma/1Mav1Maf5Mav1Mav4AAP9Mav1Mav1TVf1/f/9Ldv00Zv8/f/8Af/9paf8A//88Wv8/P/9Ibdp/AP9Scf////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5PzKcAAAAJHRSTlP6AP6uTxLMLwFskgQCDQUFAgYBEQQHAn4BAAAAAAAAAAAAAAAPe0/TAAABIElEQVR42lWSi5LDIAhFuQKiRpO2+/z/L11Q29kyk4xy9PKSAJQDy1TV/0POo6D0AgJu7jUTs8rE5YKQoVwP9xI6voQppUSJSHFHpSwhUCv1Mlq4l7XxXapva2WmRv1qL+TGCpsLdxpB/jNKTttefdLBbzDo0baG3yXObzibeHDznEioAmfkuzKKg/4JvHiqqR6jAJLXLVsyNqEkxr30AeVNI3DW/jth1tJdedOKKI1971BDP1YXxlKOn8R50GBPvnh/PYjs6ikfwTCbUHEWxEDarsY7v6Dm5MLlrD+KM6cVdzJQ914GdQU2WNA89nzJxylOm8xh6Ed0k2vf0N+B5LQbnJmjmXx7LAgftz4zSVl0mOlTdhZRVJpfavZ8TtP+AAg4CCzveQRoAAAAAElFTkSuQmCC", ALIYUN_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAASCAMAAAB/2U7WAAAAbFBMVEX/agAAAAD/fgD/cgD/VwD/aAD/aQD/AAD/awD/aQD/aAD//wD/agD/qgD/aQD/PwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADDHyQ6AAAAJHRSTlP7AAX/BIsTAS+qawHRA1AEAAAAAAAAAAAAAAAAAAAAAAAAAAB5qJ0tAAAAmUlEQVR42n2RSRbEIAhEKVRwTO5/26YN2p2NfyNSj5kgiSahDDVGCc8/CUi6az1rBKLm7moXmnGBeskYMAZy6TR1T5kuARom9sjl/i/VfMxwplVpdSIxMjg60xTvK1TsqB2N6mJSVqtTHatvjrREcIOU1UERNMZL5J/IL1Gt5p03t9XcaY8NPaNoc/R/lOMSDus7Lv54stOxP6ViBpkjWWghAAAAAElFTkSuQmCC", DOUBAO_WORK_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABoAAAAcCAMAAABIzV/hAAABamlDQ1BJQ0MgUHJvZmlsZQAAeJx1kL1Lw1AUxU+rUtA6iA4dHDKJQ9TSCnZxaCsURTBUBatTmn4JbXwkKVJxE1cp+B9YwVlwsIhUcHFwEEQHEd2cOim4aHjel1TaIt7H5f04nHO5XMAbUBkr9gIo6ZaRTMSktdS65HuDh55TqmayqKIsCv79u+vz0fXeT4hZTbt2ENlPXJfOLpd2ngJTf/1d1Z/Jmhr939RBjRkW4JGJlW2LCd4lHjFoKeKq4LzLx4LTLp87npVknPiWWNIKaoa4SSynO/R8B5eKZa21g9jen9VXl8Uc6lHMYRMmGIpQUYEEBeF//NOOP44tcldgUC6PAizKREkRE7LE89ChYRIycQhB6pC4c+t+D637yW1t7xWYbXDOL9raQgM4naGT1dvaeAQYGgBu6kw1VEfqofbmcsD7CTCYAobvKLNh5sIhd3t/DOh74fxjDPAdAnaV868jzu0ahZ+BK/0HFylqvLiAv9gAAADAUExUReHh6S8fG5FpXWVYWdTm+6Sdo0srIdqomcqPeNPm/dXj9ltWXaKy1xsUFbjD4AAA/7CEdaSkpLDg/6S03TYeFptuXikdH3d4h7jF6eKtn2pqAKO03Y1RPFo3NfvRv8Grtr/g/6qqVYdYRZFISP//f3///36BjX+/v2dUT1JAPHhKOFEyLEElHAAAACwXENfo+xcVGOn2/gwICa674vrIt25FN1U3Lv7XyrjG6O+6qql4Zv///6q22MLN78+bh6qq/3J83NsAAABAdFJOU/vy/v6g/vz+/mYYDShY5gH/AxVpqq4w/XI2AtT/LMl0mANxBwIC/wRn/0iEWQD+/P7+/v7+/f7+/v7+Av3+/wMGEVRiAAABv0lEQVR42k3SiXKkIBAG4AYEde7MzuTOXtl7F1AGULzm/d8qDWY2+a3S0s9uURvknHv5/O9ADn+f5P/AfPgin4hSyjuxXsrle7qSf4SK5JUi168WaftN3rkoxPm4X8r77Uz9d1nax1Ql0h2slH0fadvLz5B3KpFXhhC1yeR5i3SWGfCC+WRuN3XK3NRoEs6yhJY6GhuKzgLAzjCtS7mHfqGBC58e0kETI5D0ogdsp6lIK+uKbmpskbsfWJtJWOAdTKX33XVTsKGYaKtjGZSJYgquvLU7T0MUXUJWz2ScDZQ3DSW5jVJnkWqG/Qi1tgHcgoVXAiROYlWwmNAkuFRp/dtUylC0PIS8fiMsBGYU64rcQi54DXVMBmWkugaq2FR0HLjW4zi2LdzCAq9r2HAuDGGK4Vl7Op2GYVjBAnAVpDLqsaqM8YxDG+30sAdZDqaKoQ6PvjJ8jFXtB/wpPUlSEYo7V5EBi4bTwwo/r7yeyVBviDNsTP1W8gw4I+vZBDXCmRtAwHZX80StjcElVJR2Lj6qRfl5GbY1IZ7mDX4nOozjBru9jejy18cmTFORh3ZzO8uFMHdfD8fj8dM+TWzMC3SQaG1K8VniAAAAAElFTkSuQmCC", WORKBUDDY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAAwFBMVEUAAAAAAADm5ub6+vra2tqYmJgWFhYAAAAAAABKSkq4uLipqaloaGiCgoIAAAA7OztUVFQnJyd/f38AAAD////JyckAAAB5eXkAAAAcHBw5OTlVVVVjY2MXFxevr6+srKyqqqqLi4uDg4Nzc3N9fX2srKxoaGhhYWFra2ujo6NmZmZSUlJVVVWzs7NCQkLCwsIVFRXDw8PR0dEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC2Gk4uAAAAQHRSTlP9Av7+/vv9NVP/+f/+/sj//v8CswH+kP9rKwwDLxR6IgPLrY1oiN+DYbAFjiSKF61gyroAAAAAAAAAAAAAAAAANphvowAAAUZJREFUeNpdk9eSgzAMRWXJxoBpoYQkm2y29/7/H7fCBXDuCzM6oytZEiCC9LYCVrfTByFaGwKPUkuctkcfdFB3sFJtHg/iKsB0jSDJUb7OmTGDQkqJd6K3UMcsMchweGfKsIthMyVKUj+ihUtTUCiRRU+TbRWbNhYxlPdvEFXcFAaDCM+wXWWNA7m40zUsrk2OthzJsmkKQ5QveaV0CMeNm5NEKJRRZZHVyhcym7kBCYN0cmjI1i+GPJCp2Hjx5lv0jFAFx7q2nwpeQpqZHWukxu4VTr6TlWNGJBP+ahDPlql1qZyoZFee7V4R10uiUyAaEkgF9OIBwzBGLPxAUEHHW2n707d1YUki3zAb6WllN/3x10O1mmfqbqgVH38ulnDxbGH2wFrx9ekaKogsrPRyt3yje7fXzLJddNTT9eudu7Qunf+Qf4IsDZSJTVD2AAAAAElFTkSuQmCC", CODEX_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAAwFBMVEWWrPHU7e1tm/VvjvhidPqrzuKKnva8xPnU3/Vyi/NyjPzP1faCfv/R2v7//7RrfPj//wCjt/2VsPk/P/9IkW1QY/1mZv9mf5l/f38A//8A/wCq1KoAAAB0lv6Slf5tiP6upP40Of87RP/9//1IV/5bdf5sef5SZ/6Kif/r9P6lm/5CTP4AAP+ut/1/f/+LqPzJ1f2cuP3IyvhVVf9obP1PWfzHxvu4yPxodvjb5v5pePt0k/tWZfdSXfTBvP1gbPqNRrZsAAAAQHRSTlMWHh2YlhlmnV1h6IX9/wNQAcCPBAfVBQoCAQEGAP7+/f79/gL+/v3+/v/+/QH/Av///60D8tPP/3H/w6+spPCiNF86AgAAAY9JREFUeNpdktlimzAQRQcMju1sXZO2GYlFSCCxuTjeYif5/7/KSGBKel4QOlcz8zCADoHoLbruevHHHgUIdwuDu7t+i42J6503pgcphNfV3Fjit2636xahE056eBXzeIItIJwUgPDZGc7jkCy4Wa4MN1NpioKHws4lqCZhRmMML4pijg0I7ytXBf9MUdyoF5L4jUfR/4rc8/MPBGBRxBi/3Y+CUIrkI8KSkWOt1i1zMrJYacvOmGOv1/3hInM1Rzj1d+2trtk/rZTMV3B5SU+PKzbVUi3Bj+xAjNX62DI20UoG8OXkurCjriPGplq9QAUrKZWs9dpWaP9a2t7OYIPnPM+V1lxSAd3TDhLFz4yo41wS9dqy77v6UOG2LLMszbLcYSPSTTFD+I6vKVHaxBDo/enJp573ZZKkaZ/IhoSM5nd2Cxo8J45pIAgRK9qEpoJtMtInMh/9fsFoV97LdOKTMqB6w/b9os/h/BpcCpTvYlONe/vbHTEMStt0e8Cqmmw8Ns1m80B/94fDUlwcfgABqGMlGtELwgAAAABJRU5ErkJggg==", TENCENT_CLOUD_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAUCAMAAACpgK3LAAAAwFBMVEUAAAAAp/4Aff8Acv8A//8Aov8ApPsAbf8AyNsAzeEAmP8Aov8A1eoAqf8Abf8Aav8AAP8Ax9sAxtwAVv8ApP8AxdoA1dUAx9wAof8Ax9sAo/8Abf8Abf8AyNsAbP8AydoAv78AcP8At9YAnf8AiPUAa/8AcP8Av/8AnNUAqtQAseMAsv8Af38AzeEAzeEAqqoAmZkAb/8Ay+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAtI5oBAAAAQHRSTlMA+wT+Aa3L8PL8C5P+B60LAa2NBTAyB8tNTXKUz3AvEwVDCCkPTTYEBgbG/wJOmQMFe8oAAAAAAAAAAAAAAAAAyV+ZsAAAATpJREFUeNplj4d2wyAMRWXMtgHjPbNX9/j/j6uwmyY9ecdgSRd4EsAiAsXWjkKM9ugw+acCVjb+lT1heqcMtiKOhR0GG/5bLNxEnUC0CuEJsVjdQQI2FoODwrkC3CBie7P9gBXmhDg8nzlCRjFem6K4vmJxBEJne+ybHMgC8KumZ87zao6xuu8ZZ30Z2nytJ5kGyakGSojpoyh6wdUbAjRPlWx8I5XMazA6wTpnHPeEQiVV061hPUml/C5j8x0wLeISvJLd4vyd5hdkHN0MQBtFDGTq6ROldAPV2yGwPWiSGUMwRpjDLsxwAbcwEzINyQw93eCrZ9CB6WV6quebXqkK6noHmge/MzEaZaAMnp3CbvFsyUP2p9BtCxuPc/o8D5Ox5KowEUOD9btSqYwelOjwwmfnmwfEWg3ZDzwKEsFIDr3QAAAAAElFTkSuQmCC";
+
+  // src/ui/sync-settings.js
+  var PRIVATE_SERVER_REPOSITORY = "https://github.com/Usernametoolongmaximumis39/sgs-ol-toolbox-sync-server";
+  function downloadSyncBackup(window2, preferences) {
+    return preferences.restore(() => window2.confirm("\u5C06\u6062\u590D\u5F53\u524D\u8D26\u53F7\u7684\u4E91\u7AEF\u8BBE\u7F6E\u548C\u6C34\u8868\uFF0C\u5E76\u5408\u5E76\u8D26\u672C\u53CA\u6218\u7EE9\u3002\u7EE7\u7EED\u4E0B\u8F7D\uFF1F"));
+  }
+  function mountSyncSettings(document2, window2, sync, preferences) {
+    let node = (tag, label, className) => {
+      let element = document2.createElement(tag);
+      return label && (element.textContent = label), className && (element.className = className), element;
+    }, root = node("div", "", "sync-settings"), style2 = node("style", `
+    .sync-settings,.sync-stack{display:grid;gap:9px;min-width:0}
+    .sync-settings [hidden]{display:none!important}
+    .sync-settings label{display:grid;min-width:0;gap:4px}
+    .sync-settings input:not(.sgs-switch),.sync-settings textarea{width:100%;min-width:0;box-sizing:border-box;color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 8px;font:inherit}
+    .sync-settings textarea{resize:vertical;line-height:1.45;overflow-wrap:anywhere}
+    .sync-settings :is(input,textarea,summary):focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
+    .sync-settings summary{cursor:pointer;color:var(--sgs-text)}
+    .sync-settings details[open]>summary{margin-bottom:8px}
+    .sync-settings p{margin:0;overflow-wrap:anywhere}
+    .sync-settings button{min-height:29px;justify-self:start;max-width:100%;white-space:normal}
+    .sync-settings .sync-primary{color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 42%,var(--sgs-border))}
+    .sync-settings .sync-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .sync-settings h3{margin:0}
+    .sync-chooser{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;background:var(--sgs-surface);border-radius:8px}
+    .sync-chooser button{width:100%;padding-inline:3px;white-space:nowrap}
+    .sync-chooser [aria-pressed=true]{color:var(--sgs-accent);background:var(--sgs-raised);border-color:var(--sgs-border)}
+    .sync-settings .sync-short{max-width:12ch;letter-spacing:.15em;font-variant-numeric:tabular-nums}
+    .sync-preview-rows{list-style:none;padding:0;margin:0;min-width:0}
+    .sync-preview-rows li{padding:6px 0;border-bottom:1px solid var(--sgs-border);overflow-wrap:anywhere}
+    .sync-preferences{padding:9px 0;border-block:1px solid var(--sgs-border)}
+    .sync-settings .sync-download{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+    .sync-download svg{width:16px;height:16px;flex:none;margin:0}
+    .sync-private-setup{gap:7px;padding:9px 10px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-surface)}
+    .sync-private-setup .sync-actions{min-width:0}
+    .sync-settings .sync-copy-link{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;white-space:nowrap}
+    .sync-copy-link svg{width:14px;height:14px;flex:none}
+    .sync-setup-resources{display:grid;gap:4px}
+    .sync-setup-resources h4{margin:0;color:var(--sgs-muted);font:inherit;font-size:.9em;font-weight:600}
+    .sync-setup-links{display:flex;flex-wrap:wrap;align-items:center;gap:0 7px;font-size:.94em}
+    .sync-setup-links a{display:inline-flex;align-items:center;gap:5px;min-height:28px;white-space:nowrap;text-decoration:none;border-radius:3px}
+    .sync-setup-links a:hover,.sync-setup-links a:focus{text-decoration:underline;text-underline-offset:3px}
+    .sync-setup-links a:focus,.sync-settings .sync-copy-link:focus{outline:2px solid var(--sgs-accent);outline-offset:2px}
+    .sync-setup-links img{width:16px;height:16px;flex:none;object-fit:contain}
+  `), state = node("p", "", "notice"), notice = node("p", "", "notice");
+    notice.setAttribute("role", "status");
+    let pairing = node("div", "", "sync-stack"), connected = node("div", "", "sync-stack"), preferencePanel = node("section", "", "sync-stack sync-preferences");
+    function input(label, tag = "input") {
+      let wrapper = node("label", label), control = node(tag);
+      return control.autocomplete = "off", control.spellcheck = !1, tag === "textarea" && (control.rows = 2), wrapper.append(control), { wrapper, control };
+    }
+    function short(control, size) {
+      control.maxLength = size, control.className = "sync-short";
+    }
+    function details(title, ...children2) {
+      let block = node("details"), body = node("div", "", "sync-stack");
+      return body.append(...children2), block.append(node("summary", title), body), block;
+    }
+    function say(text3, error = !1) {
+      notice.textContent = text3, notice.classList.toggle("error", error), notice.hidden = !text3;
+    }
+    function act(title, work, primary = !1) {
+      let button = node("button", title, primary ? "sync-primary" : "");
+      return button.type = "button", button.addEventListener("click", async () => {
+        button.disabled = !0;
+        try {
+          await work();
+        } catch (error) {
+          say(error.message, !0);
+        } finally {
+          button.disabled = !1, refresh();
+        }
+      }), button;
+    }
+    preferencePanel.append(
+      node("h3", "\u4E91\u7AEF\u5907\u4EFD"),
+      node("p", "\u9996\u6B21\u7ED1\u5B9A\u4E0B\u8F7D\u5907\u4EFD\uFF0C\u65E5\u5E38\u53EA\u62C9\u53D6\u53D8\u66F4\u3002\u5168\u91CF\u5907\u4EFD\u9650\u6BCF\u8BBE\u5907\u6BCF\u8D26\u53F7\u6BCF\u5C0F\u65F6\u4E00\u6B21\u3002", "muted"),
+      node("p", "\u76F8\u5173\u64CD\u4F5C\u5B8C\u6210\u540E\u81EA\u52A8\u4E0A\u4F20\uFF0C\u6BCF\u5206\u949F\u68C0\u67E5\u5F85\u4E0A\u4F20\u5185\u5BB9\u3002", "muted")
+    );
+    let restorePreferences = act("\u4E0B\u8F7D\u5168\u90E8\u5907\u4EFD", async () => {
+      say(await downloadSyncBackup(window2, preferences));
+    }, !0);
+    restorePreferences.classList.add("sync-download"), restorePreferences.prepend(createIcon(document2, "arrowDown"));
+    let preferenceNotice = node("p", "", "muted"), backupError = node("p", "", "notice error");
+    backupError.setAttribute("role", "status"), preferencePanel.append(preferenceNotice, restorePreferences, backupError);
+    async function copy2(value, output, report = say) {
+      try {
+        await window2.navigator.clipboard.writeText(value), report("\u5DF2\u590D\u5236");
+      } catch {
+        output.control.value = value, output.wrapper.hidden = !1, output.control.focus(), output.control.select(), report("\u5DF2\u9009\u4E2D\u6587\u672C\uFF0C\u8BF7\u624B\u52A8\u590D\u5236");
+      }
+    }
+    function readout(name, tag) {
+      let result2 = input(name, tag);
+      return result2.wrapper.hidden = !0, result2.control.readOnly = !0, result2;
+    }
+    let privatePanel = node("div", "", "sync-stack"), publicPanel = node("div", "", "sync-stack"), chooser = node("div", "", "sync-chooser"), privateButton = act("\u79C1\u6709\u670D\u52A1\u5668", () => select("private")), publicButton = act("\u516C\u5171\u670D\u52A1\u5668", () => select("public")), selectedMode = "private";
+    function select(mode) {
+      selectedMode = mode, privateButton.setAttribute("aria-pressed", String(mode === "private")), publicButton.setAttribute("aria-pressed", String(mode === "public")), say("");
+    }
+    chooser.append(privateButton, publicButton);
+    function resourceLinks(title, entries) {
+      let group = node("div", "", "sync-setup-resources"), links = node("div", "", "sync-setup-links");
+      for (let [label, href, icon2] of entries) {
+        let link = node("a", label);
+        link.href = href, link.target = "_blank", link.rel = "noopener noreferrer";
+        let image = node("img");
+        image.alt = "", image.src = icon2, link.prepend(image), links.append(link);
+      }
+      return group.append(node("h4", title), links), group;
+    }
+    let privateSetup = node("section", "", "sync-stack sync-private-setup"), repository = readout("\u79C1\u6709\u540C\u6B65\u670D\u52A1\u7AEF\u94FE\u63A5"), copyStatus = node("span", "", "muted");
+    copyStatus.setAttribute("role", "status");
+    let copyRepository = act("\u590D\u5236\u670D\u52A1\u7AEF\u94FE\u63A5", () => copy2(PRIVATE_SERVER_REPOSITORY, repository, (message) => {
+      copyStatus.textContent = message;
+    }), !0);
+    copyRepository.classList.add("sync-copy-link"), copyRepository.prepend(createIcon(document2, "clipboard"));
+    let copyRow = node("div", "", "sync-actions");
+    copyRow.append(copyRepository, copyStatus), privateSetup.append(
+      node("h3", "\u81EA\u5EFA\u79C1\u6709\u540C\u6B65"),
+      node("p", "\u628A\u670D\u52A1\u7AEF\u94FE\u63A5\u53D1\u7ED9 AI Agent\uFF0C\u8BF7\u5B83\u534F\u52A9\u90E8\u7F72\u3002", "muted"),
+      copyRow,
+      repository.wrapper,
+      resourceLinks("AI Agent \u4E0B\u8F7D", [
+        ["DeepSeek Harness", "https://www.deepseek.com/download/", DEEPSEEK_HARNESS_ICON],
+        ["\u8C46\u5305\u5DE5\u4F5C", "https://www.doubao.com/download/desktop", DOUBAO_WORK_ICON],
+        ["WorkBuddy", "https://www.workbuddy.cn/#download-section", WORKBUDDY_ICON],
+        ["Codex", "https://chatgpt.com/zh-Hans-CN/features/codex-get-started/", CODEX_ICON]
+      ]),
+      resourceLinks("\u4E91\u670D\u52A1\u5668", [
+        ["\u963F\u91CC\u4E91\u514D\u8D39\u8BD5\u7528", "https://www.aliyun.com/activity/ecs/ecs/freetrial", ALIYUN_ICON],
+        ["\u817E\u8BAF\u4E91", "https://cloud.tencent.com/product/lighthouse", TENCENT_CLOUD_ICON]
+      ])
+    );
+    let request = readout("\u63D0\u4EA4\u7ED9\u7BA1\u7406\u5458\u7684\u56DB\u4F4D\u7801"), credential = input("\u540E\u53F0\u751F\u6210\u7684\u52A0\u5BC6\u51ED\u636E", "textarea");
+    short(request.control, 4), credential.control.maxLength = 660;
+    let address = input("\u79C1\u6709\u670D\u52A1\u5668\u5730\u5740");
+    address.control.placeholder = "http://127.0.0.1:17429";
+    let privateConsent = "\u79C1\u6709\u670D\u52A1\u5668\u652F\u6301 HTTP \u548C HTTPS\uFF0C\u53EF\u8BFB\u53D6\u4E0A\u4F20\u7684\u6570\u636E\u3002HTTP \u4F20\u8F93\u672A\u7ECF\u52A0\u5BC6\u3002\u7ED1\u5B9A\u540E\u5207\u53F7\u53EF\u81EA\u52A8\u63A5\u5165\u540C\u4E00\u670D\u52A1\u5668\uFF0C\u5171 1 \u4E2A\u4E3B\u8D26\u53F7\u548C 4 \u4E2A\u9644\u5C5E\u8D26\u53F7\u3002", privateFields = node("div", "", "sync-stack"), joining = node("p", "", "muted"), ways = node("div", "", "sync-chooser"), fourDigit = node("div", "", "sync-stack");
+    function credentialForm(action) {
+      let secret = input("\u4E3B\u8D26\u53F7\u7ED1\u5B9A\u51ED\u636E", "textarea"), form = node("div", "", "sync-stack"), inputAccount;
+      return secret.control.maxLength = 700, secret.control.addEventListener("input", () => {
+        inputAccount = sync.status().accountId;
+      }), form.append(
+        node("p", "\u8BF7\u5148\u767B\u5F55\u4E3B\u8D26\u53F7\uFF0C\u518D\u7C98\u8D34\u670D\u52A1\u5668\u7BA1\u7406\u9875\u751F\u6210\u7684\u51ED\u636E\u3002\u66F4\u6362\u670D\u52A1\u5668\u540E\u53EF\u7528\u5B83\u63A5\u7EED\u5DF2\u8FC1\u79FB\u7684\u5386\u53F2\u3002", "muted"),
+        secret.wrapper,
+        act(action, async () => {
+          await sync.bindPrivateCredential(secret.control.value), secret.control.value = "", say("\u79C1\u6709\u670D\u52A1\u5668\u7ED1\u5B9A\u6210\u529F");
+        }, !0)
+      ), { form, clearFor(account) {
+        inputAccount !== account && (secret.control.value = "");
+      } };
+    }
+    let credentialBinding = credentialForm("\u540C\u610F\u5E76\u4F7F\u7528\u51ED\u636E\u7ED1\u5B9A"), fourDigitButton = act("\u56DB\u4F4D\u7801", () => selectPrivate("pin")), credentialButton = act("\u4E3B\u8D26\u53F7\u51ED\u636E", () => selectPrivate("credential"));
+    function selectPrivate(mode) {
+      fourDigit.hidden = mode !== "pin", credentialBinding.form.hidden = mode !== "credential", fourDigitButton.setAttribute("aria-pressed", String(mode === "pin")), credentialButton.setAttribute("aria-pressed", String(mode === "credential")), say("");
+    }
+    ways.append(fourDigitButton, credentialButton), fourDigit.append(act("\u751F\u6210\u56DB\u4F4D\u914D\u5BF9\u7801", async () => {
+      request.control.value = await sync.generate(address.control.value.trim() || address.control.placeholder), request.wrapper.hidden = !1, say("\u5728\u7BA1\u7406\u9875\u8F93\u5165\u6B64\u7801\uFF0C5 \u5206\u949F\u5185\u6709\u6548");
+    }), request.wrapper, credential.wrapper, act("\u540C\u610F\u5E76\u7ED1\u5B9A\u79C1\u6709\u670D\u52A1\u5668", async () => {
+      await sync.bind(credential.control.value.trim()), credential.control.value = request.control.value = "", request.wrapper.hidden = !0, say("\u79C1\u6709\u670D\u52A1\u5668\u7ED1\u5B9A\u6210\u529F");
+    }, !0), details("\u66F4\u6539\u79C1\u6709\u670D\u52A1\u5668\u5730\u5740", address.wrapper)), privateFields.append(node("p", privateConsent, "muted"), ways, fourDigit, credentialBinding.form), privatePanel.append(privateSetup, privateFields, joining);
+    let server = input("\u516C\u5171\u670D\u52A1\u5668 HTTPS \u5730\u5740"), restore = input("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea");
+    server.control.placeholder = "https://sync.example.com";
+    let publicBinding = node("div", "", "sync-stack");
+    publicBinding.append(
+      node("p", "\u8D26\u672C\u4E0E\u6218\u7EE9\u5728\u5DE5\u5177\u7BB1\u52A0\u5BC6\uFF0C\u670D\u52A1\u5668\u53EF\u89C1\u8BB0\u5F55\u7F16\u53F7\u3002\u5207\u6362\u6E38\u620F\u8D26\u53F7\u540E\u9700\u8981\u624B\u52A8\u7ED1\u5B9A\u3002", "muted"),
+      server.wrapper,
+      act("\u540C\u610F\u5E76\u7ED1\u5B9A\u516C\u5171\u670D\u52A1\u5668", async () => {
+        await sync.bindPublic(server.control.value.trim()), say("\u516C\u5171\u670D\u52A1\u5668\u7ED1\u5B9A\u6210\u529F");
+      }, !0),
+      details(
+        "\u5728\u65B0\u8BBE\u5907\u6062\u590D\u516C\u5171\u8D26\u53F7",
+        restore.wrapper,
+        act("\u6062\u590D\u516C\u5171\u7ED1\u5B9A", async () => {
+          await sync.bindPublic(server.control.value.trim(), restore.control.value), restore.control.value = "", say("\u516C\u5171\u7ED1\u5B9A\u5DF2\u6062\u590D");
+        })
+      )
+    ), publicPanel.append(publicBinding), pairing.append(chooser, privatePanel, publicPanel);
+    let privateActions = node("div", "", "sync-stack"), publicActions = node("div", "", "sync-stack"), share = readout("\u8D26\u672C\u4E0E\u6218\u7EE9\u67E5\u770B\u94FE\u63A5"), prepared = readout("\u8F6C\u6362\u7528\u7684\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), addressUpdate = input("\u5730\u5740\u66F4\u65B0\u7801", "textarea"), recovery = readout("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), publicShare = readout("\u516C\u5171\u5206\u4EAB\u51ED\u636E", "textarea"), password = readout("\u6211\u7684\u516D\u4F4D\u67E5\u770B\u7801");
+    short(password.control, 6);
+    let publicMigration = details(
+      "\u51C6\u5907\u8F6C\u4E3A\u516C\u5171\u6A21\u5F0F",
+      node("p", "\u7BA1\u7406\u5458\u914D\u7F6E HTTPS \u540E\uFF0C\u5728\u8FD9\u91CC\u751F\u6210\u5386\u53F2\u7684\u52A0\u5BC6\u526F\u672C\u3002\u7BA1\u7406\u9875\u786E\u8BA4\u8F6C\u6362\u540E\uFF0C\u518D\u542F\u7528\u516C\u5171\u8FDE\u63A5\u3002\u8BF7\u5907\u4EFD\u751F\u6210\u7684\u6062\u590D\u51ED\u636E\u3002", "muted"),
+      act("\u51C6\u5907\u5F53\u524D\u8D26\u53F7\u7684\u52A0\u5BC6\u5386\u53F2", async () => {
+        prepared.control.value = await sync.preparePublic(), prepared.wrapper.hidden = !1, say("\u52A0\u5BC6\u526F\u672C\u5DF2\u4E0A\u4F20\uFF0C\u8BF7\u5907\u4EFD\u6062\u590D\u51ED\u636E");
+      }),
+      prepared.wrapper,
+      act("\u542F\u7528\u5DF2\u51C6\u5907\u7684\u516C\u5171\u8FDE\u63A5", async () => {
+        await sync.usePrepared(), say("\u5DF2\u542F\u7528\u516C\u5171\u52A0\u5BC6\u540C\u6B65");
+      })
+    );
+    async function removeInstallation() {
+      window2.confirm("\u89E3\u9664\u540E\uFF0C\u6B64\u8BBE\u5907\u5C06\u505C\u6B62\u540C\u6B65\uFF0C\u670D\u52A1\u5668\u4E0A\u7684\u5386\u53F2\u548C\u5176\u4ED6\u8BBE\u5907\u7EE7\u7EED\u53EF\u7528\u3002\u7EE7\u7EED\uFF1F") && (await sync.detachPrivate(), say("\u5DF2\u89E3\u9664\u5B89\u88C5\u7ED1\u5B9A"));
+    }
+    let detach = act("\u89E3\u9664\u6B64\u6D4F\u89C8\u5668\u6216\u5FAE\u7AEF", removeInstallation), detachInactive = act("\u89E3\u9664\u6B64\u6D4F\u89C8\u5668\u6216\u5FAE\u7AEF", removeInstallation);
+    privatePanel.append(detachInactive);
+    let rebind = credentialForm("\u540C\u610F\u5E76\u91CD\u65B0\u7ED1\u5B9A");
+    privateActions.append(
+      node("p", "\u62FF\u5230\u79C1\u6709\u67E5\u770B\u94FE\u63A5\u7684\u4EBA\u53EF\u4EE5\u76F4\u63A5\u67E5\u770B\u8BE5\u8D26\u53F7\u7684\u8BB0\u5F55\u3002", "muted"),
+      act("\u590D\u5236\u5F53\u524D\u8D26\u53F7\u67E5\u770B\u94FE\u63A5", async () => copy2(await sync.previewLink(), share)),
+      share.wrapper,
+      details("\u670D\u52A1\u5668\u5730\u5740\u53D8\u66F4", addressUpdate.wrapper, act("\u9A8C\u8BC1\u5E76\u66F4\u65B0\u5730\u5740", async () => {
+        await sync.update(addressUpdate.control.value), addressUpdate.control.value = "", say("\u540C\u6B65\u5730\u5740\u5DF2\u66F4\u65B0");
+      })),
+      details("\u4F7F\u7528\u4E3B\u8D26\u53F7\u51ED\u636E\u91CD\u65B0\u7ED1\u5B9A", rebind.form),
+      publicMigration,
+      detach
+    ), publicActions.append(
+      node("p", "\u5206\u4EAB\u65F6\u5C06\u5206\u4EAB\u51ED\u636E\u548C\u516D\u4F4D\u7801\u5206\u5F00\u3002\u6062\u590D\u51ED\u636E\u53EF\u5728\u65B0\u8BBE\u5907\u540C\u6B65\uFF0C\u9002\u5408\u5355\u72EC\u5907\u4EFD\u3002", "muted"),
+      act("\u663E\u793A\u516D\u4F4D\u67E5\u770B\u7801", () => {
+        password.wrapper.hidden = !password.wrapper.hidden;
+      }),
+      password.wrapper,
+      act("\u590D\u5236\u516C\u5171\u5206\u4EAB\u51ED\u636E", () => copy2(sync.viewCode(), publicShare)),
+      publicShare.wrapper,
+      act("\u590D\u5236\u516C\u5171\u6062\u590D\u51ED\u636E", () => copy2(sync.recoveryCode(), recovery)),
+      recovery.wrapper,
+      act("\u65AD\u5F00\u5F53\u524D\u8D26\u53F7", async () => {
+        window2.confirm("\u8BF7\u5148\u4FDD\u5B58\u516C\u5171\u6062\u590D\u51ED\u636E\u3002\u65AD\u5F00\u5F53\u524D\u8D26\u53F7\uFF1F") && (await sync.disconnect(), say("\u5F53\u524D\u8D26\u53F7\u5DF2\u65AD\u5F00"));
+      })
+    ), connected.append(privateActions, publicActions);
+    let readCode = input("\u63A5\u6536\u7684\u516C\u5171\u5206\u4EAB\u51ED\u636E", "textarea"), readPass = input("\u516D\u4F4D\u67E5\u770B\u7801");
+    short(readPass.control, 6), readPass.control.type = "password";
+    let rows = node("ul", "", "sync-preview-rows"), result = node("div", "", "sync-stack"), count = node("p", "", "muted"), filters = node("div", "", "sync-actions"), pager = node("div", "", "sync-actions"), snapshot, page = 0, stream = "events", streamButton = (kind) => act(kind === "events" ? "\u8D26\u672C\u6D41\u6C34" : "\u5BF9\u5C40\u6218\u7EE9", () => {
+      stream = kind, page = 0, draw();
+    }), events = streamButton("events"), matches = streamButton("matches"), prev = act("\u4E0A\u4E00\u9875", () => {
+      page--, draw();
+    }), next = act("\u4E0B\u4E00\u9875", () => {
+      page++, draw();
+    });
+    filters.append(events, matches), pager.append(prev, next), result.append(filters, count, rows, pager), result.hidden = !0;
+    function draw() {
+      if (!snapshot) return;
+      let records = (stream === "events" ? [...snapshot.ledger.events] : [...snapshot.matches]).sort((a, b) => (b.at ?? b.endedAt) - (a.at ?? a.endedAt));
+      events.setAttribute("aria-pressed", String(stream === "events")), matches.setAttribute("aria-pressed", String(stream === "matches"));
+      let perPage = 20, pages = Math.max(1, Math.ceil(records.length / perPage));
+      page = Math.max(0, Math.min(page, pages - 1)), prev.hidden = !page, next.hidden = page + 1 >= pages, count.textContent = records.length ? `${records.length} \u6761 \xB7 \u7B2C ${page + 1} / ${pages} \u9875` : "\u6682\u65E0\u8BB0\u5F55", rows.replaceChildren(...records.slice(page * perPage, (page + 1) * perPage).map((row) => {
+        let text3 = stream === "events" ? row.prayer ? `${row.prayer.name} \xD7 ${row.prayer.times}` : row.items.map((item) => `${item.name} ${item.delta > 0 ? "+" : ""}${item.delta}`).join("\u3001") : [MODES[row.mode] || "\u5BF9\u5C40", { 0: "\u80DC", 1: "\u8D1F", 255: "\u5E73" }[row.result], row.general.join(" / ")].filter(Boolean).join(" \xB7 "), element = node("li");
+        return element.append(node("p", text3), node("p", new Date(row.at ?? row.endedAt).toLocaleString() + " \xB7 " + (row.id ?? row.gameId), "muted")), element;
+      }));
+    }
+    let readNotice = node("p", "", "notice error");
+    readNotice.setAttribute("role", "status"), readNotice.hidden = !0;
+    let viewer = details(
+      "\u67E5\u770B\u4ED6\u4EBA\u5206\u4EAB\u7684\u8BB0\u5F55",
+      readCode.wrapper,
+      readPass.wrapper,
+      act("\u89E3\u5BC6\u5E76\u67E5\u770B", async () => {
+        result.hidden = !0, readNotice.hidden = !0;
+        try {
+          snapshot = await sync.previewPublic(readCode.control.value, readPass.control.value);
+        } catch (error) {
+          readNotice.textContent = error.message, readNotice.hidden = !1;
+          return;
+        }
+        readPass.control.value = "", page = 0, draw(), result.hidden = !1;
+      }, !0),
+      readNotice,
+      result
+    ), bindingIdentity;
+    function refresh() {
+      let status = sync.status(), text3 = status.connected ? status.public ? "\u5F53\u524D\u8D26\u53F7\u5DF2\u7ED1\u5B9A\u516C\u5171\u670D\u52A1\u5668" : "\u5F53\u524D\u8D26\u53F7\u5DF2\u7ED1\u5B9A\u79C1\u6709\u670D\u52A1\u5668" : status.signedIn ? "\u5F53\u524D\u8D26\u53F7\u5C1A\u672A\u7ED1\u5B9A" : "\u767B\u5F55\u6E38\u620F\u540E\u53EF\u7ED1\u5B9A\u540C\u6B65\u670D\u52A1";
+      state.textContent !== text3 && (state.textContent = text3), pairing.hidden = status.connected, privatePanel.hidden = selectedMode !== "private", privateFields.hidden = !status.signedIn, publicPanel.hidden = selectedMode !== "public", publicBinding.hidden = !status.signedIn;
+      let publicSection = status.connected ? publicActions : publicPanel;
+      if (viewer.parentElement !== publicSection && publicSection.append(viewer), preferencePanel.hidden = !preferences || !status.connected, preferences) {
+        restorePreferences.disabled = preferences.busy, backupError.hidden = !preferences.error, backupError.textContent !== preferences.error && (backupError.textContent = preferences.error);
+        let hint = status.public ? "\u5907\u4EFD\u5728\u5DE5\u5177\u7BB1\u52A0\u5BC6\u540E\u4E0A\u4F20\u3002" : "\u79C1\u6709\u670D\u52A1\u5668\u53EF\u8BFB\u53D6\u5907\u4EFD\u3002HTTP \u4F20\u8F93\u672A\u7ECF\u52A0\u5BC6\u3002";
+        preferenceNotice.textContent !== hint && (preferenceNotice.textContent = hint);
+      }
+      connected.hidden = !status.connected, joining.hidden = !status.signedIn || !status.privatePair;
+      let info = status.joinError || "\u6B64\u8BBE\u5907\u4F1A\u81EA\u52A8\u68C0\u67E5\u5F53\u524D\u8D26\u53F7\u7684\u79C1\u6709\u7ED1\u5B9A\u3002";
+      if (joining.textContent !== info && (joining.textContent = info), privateActions.hidden = status.public, publicActions.hidden = !status.public, detach.hidden = !status.privatePair, detachInactive.hidden = !status.signedIn || !status.privatePair || !status.joinError, credentialBinding.clearFor(status.accountId), rebind.clearFor(status.accountId), bindingIdentity !== status.bindingIdentity) {
+        bindingIdentity = status.bindingIdentity;
+        for (let output of [share, prepared, recovery, publicShare, password])
+          output.wrapper.hidden = !0, output.control.value = "";
+      }
+      password.control.value !== status.password && (password.control.value = status.password);
+    }
+    root.append(style2, state, pairing, preferencePanel, notice, connected), select("private"), selectPrivate("pin"), refresh(), sync.ready.then(refresh, (error) => say(error.message, !0));
+    let timer = window2.setInterval(refresh, 1e3);
+    return { root, dispose() {
+      window2.clearInterval(timer);
+    } };
+  }
+
   // src/ui/shell.js
-  var feedbackIcon = { paths: ["M20 16h-8l-5 4v-4H4V4h16z", "M8 8h8M8 12h6"] }, categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], COMPACT_OPACITIES = [60, 80, 100], DEFAULT_COMPACT_OPACITY = 80, scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix, size) => `${prefix}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
+  var feedbackIcon = { paths: ["M20 16h-8l-5 4v-4H4V4h16z", "M8 8h8M8 12h6"] }, cloudOffIcon = { paths: ["M8.5 6.5A5.5 5.5 0 0 1 18 10a4 4 0 0 1 2.6 6.9M16 18H6a4 4 0 0 1-1.2-7.8", "M3 3l18 18"] }, categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], COMPACT_OPACITIES = [60, 80, 100], DEFAULT_COMPACT_OPACITY = 80, scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix2, size) => `${prefix2}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
 /* A moving perimeter marker keeps the folded HUD easy to locate without covering controls. */
 .hud-locator{display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible;color:var(--sgs-accent)}
 .hud-locator rect{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;x:1px;y:1px;width:calc(100% - 2px);height:calc(100% - 2px);rx:10px;stroke-dasharray:18 8 3 71;animation:hud-locator-flow 3.6s linear infinite,hud-locator-breathe 2.4s ease-in-out infinite}
@@ -6608,6 +7434,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .plugin-release-notes{margin:8px 0 0;min-width:0;color:var(--sgs-muted);font-size:11px}.plugin-release-notes summary{cursor:pointer;min-height:30px;padding:6px 2px;color:var(--sgs-text);overflow-wrap:anywhere}.plugin-release-notes summary:focus-visible,.plugin-release-notes-text:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px;border-radius:4px}.plugin-release-notes-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;padding:2px 6px 4px 8px;border-left:2px solid var(--sgs-border);max-height:160px;overflow:auto;scrollbar-width:thin}.plugin-update .plugin-release-notes summary{color:var(--sgs-accent)}
 .appearance-page .plugin-heading{margin:0}
 .management-tabs{position:sticky;top:-12px;z-index:8;background:var(--sgs-bg)!important;box-shadow:0 5px 8px var(--sgs-bg)!important}
+.management-tabs button{min-width:0;white-space:nowrap}
 .custom-card-backs{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--sgs-border)}
 .custom-card-backs-heading{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 10px}
 .custom-card-backs-heading h4{margin:0;font-size:13px}
@@ -6650,7 +7477,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 :host([data-mobile][data-edge-docked]) .shell,:host([data-mobile][data-edge-docked]) .content{touch-action:pan-y}:host([data-mobile][data-edge-hidden]) .shell{visibility:hidden}.edge-tab{display:none}:host([data-mobile][data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 48px))}:host([data-mobile][data-edge-hidden]) .edge-tab{display:block;position:absolute;left:0;top:0;z-index:20;width:48px;height:100%;min-height:160px;padding:0;border-radius:7px 0 0 7px;background:var(--sgs-bg);color:var(--sgs-accent);font-size:26px;touch-action:pan-y}.shell{background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:var(--sgs-radius);box-shadow:0 16px 48px #0006;overflow:hidden;resize:horizontal;min-width:248px;max-width:420px;width:100%}
 .content.has-plugin-panels{min-height:0}.plugin-group{min-width:0}.plugin-group+.plugin-group{border-top:1px solid var(--sgs-border);margin-top:10px;padding-top:10px}.plugin-heading{margin:0;font-size:13px}.plugin-heading .plugin-toggle{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;padding:6px 3px;border:0;border-radius:6px;background:transparent;box-shadow:none;text-align:left;color:var(--sgs-accent)}.plugin-heading .plugin-toggle:hover{background:color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.plugin-toggle svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.plugin-toggle .plugin-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;letter-spacing:.5px}.plugin-toggle .plugin-chevron{width:15px;height:15px;color:var(--sgs-muted);transition:transform .16s}.plugin-toggle[aria-expanded=false] .plugin-chevron{transform:rotate(-90deg)}.plugin-body{padding:9px 2px 2px}.plugin-body[hidden]{display:none!important}:host([data-edge-docked]){left:auto!important;right:0!important;transition:transform 180ms ease;transform:translateX(0)}:host([data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 5px));background:var(--sgs-bg);border-left:1px solid var(--sgs-accent);border-radius:5px 0 0 5px}:host([data-edge-hidden]) .shell{visibility:hidden}:host([data-edge-fixed]){transition:none;top:0!important;bottom:0!important;height:100vh;height:100dvh}:host([data-edge-fixed]) .shell{display:flex;flex-direction:column;height:100%;border-radius:0}:host([data-edge-fixed]) .shell>.brand,:host([data-edge-fixed]) .shell>.status,:host([data-edge-fixed]) .shell>.nav,:host([data-edge-fixed]) .shell>.footer,:host([data-edge-fixed]) .shell>.compact{flex-shrink:0}:host([data-edge-fixed]) .content{flex:1;min-height:0;max-height:none}.edge-resizer{display:none;position:absolute;left:0;bottom:0;width:22px;height:22px;z-index:12;color:var(--sgs-muted);cursor:ew-resize;touch-action:none;user-select:none;align-items:center;justify-content:center}.edge-resizer svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round}.edge-resizer:hover{color:var(--sgs-accent)}.edge-resizer:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:-3px}:host([data-edge-docked]) .shell{resize:none}:host([data-edge-docked]:not([data-collapsed]):not([data-edge-hidden])) .edge-resizer{display:flex}:host([data-edge-docked]) .footer{padding-left:25px}:host([data-edge-docked]:focus-visible){outline:2px solid var(--sgs-accent);outline-offset:-2px}
 @media(prefers-reduced-motion:reduce){.plugin-toggle .plugin-chevron{transition:none}}
-.brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand strong{letter-spacing:1px;font-size:13px}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
+.brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
 .nav{display:flex;gap:4px;padding:7px 9px;border-block:1px solid var(--sgs-border);background:var(--sgs-surface)}.nav button{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:0;height:42px;padding:0;border-color:transparent;background:transparent;overflow:hidden;transition:flex-grow var(--sgs-motion) cubic-bezier(.2,.8,.2,1),background var(--sgs-motion),gap var(--sgs-motion)}.nav button svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform var(--sgs-motion)}.nav button span{max-width:0;opacity:0;white-space:nowrap;overflow:hidden;transition:max-width var(--sgs-motion),opacity var(--sgs-motion)}.nav button[aria-selected=true]{color:var(--sgs-accent);background:var(--sgs-raised)}.nav:has(button:hover) button:not(:hover):not(:focus-visible) svg,.nav:has(button:focus-visible) button:not(:hover):not(:focus-visible) svg{transform:scale(.92)}.nav button:hover,.nav button:focus-visible{flex-grow:2.2;gap:5px;color:var(--sgs-accent);background:var(--sgs-raised)}.nav button:hover svg,.nav button:focus-visible svg{transform:scale(1.15)}.nav button:hover span,.nav button:focus-visible span{max-width:32px;opacity:1}
 .content{padding:12px;max-height:65vh;min-height:200px;overflow:auto;scrollbar-width:thin}.footer{display:flex;justify-content:space-between;border-top:1px solid var(--sgs-border);padding:7px 12px;color:var(--sgs-muted);font-size:10px}.footer button{padding:0;border:0;background:none;font-size:10px;color:var(--sgs-muted)}.empty{text-align:center;padding:35px 12px;color:var(--sgs-muted)}.empty svg{width:32px;height:32px;fill:none;stroke:var(--sgs-accent);stroke-width:1.2;margin-bottom:12px}.empty strong{display:block;color:var(--sgs-text);font-size:14px;margin-bottom:7px}.tabs{display:flex;gap:4px;margin-bottom:13px}.tabs button{flex:1;padding:5px 2px;font-size:12px}.tabs button.active{border-color:var(--sgs-accent);color:var(--sgs-accent)}h3{font-size:13px;margin:15px 0 7px}h3:first-child{margin-top:0}.card{padding:10px;border:1px solid var(--sgs-border);border-radius:8px;margin-bottom:8px;background:var(--sgs-surface)}.card .title{display:flex;justify-content:space-between;gap:5px}.muted{color:var(--sgs-muted);font-size:11px}.actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.actions button{font-size:11px;padding:4px 7px}.notice{color:var(--sgs-muted);font-size:11px;overflow-wrap:anywhere;padding:7px 0}.error{color:var(--sgs-danger)}label.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0}input[type=checkbox]{accent-color:var(--sgs-accent)}input.address{width:100%;font-size:11px}select{max-width:145px}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);max-width:80vw;background:var(--sgs-raised);color:var(--sgs-text);padding:10px 16px;border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 4px 20px #0008;z-index:2147483647}
 .toast[data-position=top]{top:22px;top:calc(22px + env(safe-area-inset-top, 0px));bottom:auto;box-sizing:border-box;max-width:min(36em,calc(100vw - 32px));text-align:center;overflow-wrap:anywhere;pointer-events:none}
@@ -6673,17 +7500,25 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 ${CONTROL_STYLES}
 button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%,var(--sgs-surface)),var(--sgs-surface));border-color:color-mix(in srgb,var(--sgs-border) 60%,transparent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 4%,transparent);transition:background 140ms,border-color 140ms,color 140ms}button:active:not(:disabled){background:var(--sgs-bg)}button:disabled{cursor:not-allowed}.nav button,.footer button{box-shadow:none}.tabs{gap:2px;padding:3px;border-radius:8px;background:var(--sgs-surface);box-shadow:inset 0 1px 3px #0004}.tabs button{border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);padding:6px 2px}.tabs button.active{background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 17%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent);color:var(--sgs-accent)}
 .settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 1 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
-.font-preview{margin-top:12px;padding:12px 0 12px 10px;border-left:2px solid var(--sgs-accent);line-height:1.6}.font-preview strong{font-size:13px}.font-preview p{font-size:12px;margin:5px 0}.font-settings .sgs-segments button{min-width:0;flex:1;padding:6px 2px}.brand{gap:6px}.brand-name{min-width:0;flex:1}.brand strong{white-space:nowrap;letter-spacing:0;font-size:13px}.brand small{font-size:9px}.brand .mark{flex:none}.brand [data-collapse]{flex:none;margin-left:0}.brand-name strong{display:block;overflow:hidden;text-overflow:ellipsis}.brand [data-update-hint]{display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 7px;border:1px solid color-mix(in srgb,var(--sgs-accent) 48%,var(--sgs-border));border-radius:7px;background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 20%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 10%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 20%,transparent),0 2px 4px #0002;color:var(--sgs-accent);font-size:11px;font-weight:600;line-height:18px;cursor:pointer;white-space:nowrap;transition:background 140ms,border-color 140ms,box-shadow 140ms,transform 140ms}.brand [data-update-hint] svg{width:13px;height:13px;flex:none;stroke-width:1.8}.brand [data-update-hint][hidden]{display:none}.brand [data-update-hint]:hover{border-color:var(--sgs-accent);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 30%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 17%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 28%,transparent),0 3px 7px #0003;transform:translateY(-1px)}.brand [data-update-hint]:active{transform:translateY(0);box-shadow:inset 0 1px 3px #0003}.brand [data-update-hint]:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}
+.font-preview{margin-top:12px;padding:12px 0 12px 10px;border-left:2px solid var(--sgs-accent);line-height:1.6}.font-preview strong{font-size:13px}.font-preview p{font-size:12px;margin:5px 0}.font-settings .sgs-segments button{min-width:0;flex:1;padding:6px 2px}.brand-name{min-width:0;flex:1}.brand small{font-size:9px}.brand .mark{flex:none}.brand [data-collapse]{flex:none;margin-left:0}.brand [data-update-hint]{display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 7px;border:1px solid color-mix(in srgb,var(--sgs-accent) 48%,var(--sgs-border));border-radius:7px;background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 20%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 10%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 20%,transparent),0 2px 4px #0002;color:var(--sgs-accent);font-size:11px;font-weight:600;line-height:18px;cursor:pointer;white-space:nowrap;transition:background 140ms,border-color 140ms,box-shadow 140ms,transform 140ms}.brand [data-update-hint] svg{width:13px;height:13px;flex:none;stroke-width:1.8}.brand [data-update-hint][hidden]{display:none}.brand [data-update-hint]:hover{border-color:var(--sgs-accent);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 30%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 17%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 28%,transparent),0 3px 7px #0003;transform:translateY(-1px)}.brand [data-update-hint]:active{transform:translateY(0);box-shadow:inset 0 1px 3px #0003}.brand [data-update-hint]:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}
 
 .brand [data-feedback]{display:flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 6px;background:transparent;box-shadow:none;color:var(--sgs-muted);font-size:11px;line-height:18px;white-space:nowrap}
 .brand [data-feedback] svg{width:14px;height:14px}
 .brand [data-feedback]:hover,.brand [data-feedback]:focus-visible{color:var(--sgs-accent);border-color:var(--sgs-accent);background:var(--sgs-surface)}
 .brand small{white-space:nowrap;letter-spacing:.6px}
-:host([data-tight-brand]) .brand.has-update .mark{display:none}
+.brand{gap:5px;padding-inline:10px}.brand-name small{overflow:hidden;text-overflow:ellipsis}
+.brand [data-sync-action]{flex:none;min-width:28px;height:28px;margin:0;padding:0 5px;color:var(--sgs-muted);box-shadow:none}
+.brand [data-sync-action][hidden]{display:none}.brand [data-sync-action] svg{width:16px;height:16px}
+.brand [data-sync-action]:hover:not(:disabled){color:var(--sgs-accent);border-color:var(--sgs-accent)}
+.brand [data-sync-action]:disabled{opacity:.5}
+:host([data-tight-brand]) .brand{gap:4px}
+:host([data-tight-brand]) .brand [data-update-hint] span,:host([data-tight-brand]) .brand[data-sync-controls] [data-feedback] span{display:none}
+:host([data-tight-brand]) .brand :is([data-update-hint],[data-collapse]),:host([data-tight-brand]) .brand[data-sync-controls] [data-feedback]{width:28px;padding-inline:0}
+:host([data-tight-brand][data-sync-bound]) .brand.has-update .brand-name small{display:none}
 ${FEEDBACK_STYLES}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
-  function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount, canReserveGameViewport }) {
+  function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount, canReserveGameViewport, sceneWatch, managedSync, preferenceSync }) {
     let microUpdate = null, microUpdateBusy = !1, microUpdateError = "";
     async function runMicroUpdate(action) {
       microUpdateBusy = !0, microUpdateError = "", render();
@@ -6701,14 +7536,44 @@ ${FEEDBACK_STYLES}
     let gameView = "battle", renderedKey = "", viewScroll = /* @__PURE__ */ new Map(), host = doc.createElement("div");
     host.dataset.sgsToolbox = "core";
     let shadow = host.attachShadow({ mode: "open" });
-    shadow.innerHTML = `<style>${scaleFonts(style)} .brand,.compact{--sgs-font-offset:0px}</style><section class="shell"><svg class="hud-locator" aria-hidden="true" focusable="false"><rect pathLength="100"/></svg><div class="compact" data-count-state="unknown"><span class="slash" title="\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528\uFF1B\u53CC\u51FB\u5C55\u5F00\uFF0C\u6309\u4F4F\u62D6\u52A8"><span class="slash-seal" aria-hidden="true">\u6740</span><span class="slash-reading"><span class="slash-label">\u5269\u4F59</span><b data-slash aria-label="\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528">\u2014</b></span></span><div class="compact-actions"><button data-screenshot title="\u622A\u56FE\u5E76\u590D\u5236" aria-label="\u622A\u56FE\u5E76\u590D\u5236"></button><button data-expand title="\u653E\u5927\u9762\u677F" aria-label="\u653E\u5927\u9762\u677F"></button></div></div><div class="compact-summary" aria-label="\u5173\u6CE8\u5361\u724C\u672A\u89C1\u5F20\u6570"></div><header class="brand"><div class="mark" aria-hidden="true"></div><div class="brand-name"><strong title="\u4E09\u56FD\u6740 OL \u5DE5\u5177\u7BB1">\u4E09\u56FD\u6740 OL \u5DE5\u5177\u7BB1</strong><small>${EDITION.toUpperCase()} \xB7 ${CORE_VERSION}</small></div><button data-update-hint hidden title="\u6709\u66F4\u65B0\u53EF\u7528\uFF0C\u70B9\u51FB\u524D\u5F80\u66F4\u65B0" aria-label="\u6709\u66F4\u65B0\u53EF\u7528\uFF0C\u70B9\u51FB\u524D\u5F80\u66F4\u65B0"><span>\u66F4\u65B0</span></button><button data-collapse title="\u6298\u53E0\u9762\u677F" aria-label="\u6298\u53E0\u9762\u677F"></button></header><div class="status"><i class="dot"></i><span>\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6</span></div><nav class="nav" role="tablist">${categories.map(([id, title]) => `<button data-category="${id}" role="tab" aria-label="${title}" aria-selected="false"><span>${title}</span></button>`).join("")}</nav><main class="content" role="tabpanel"></main><footer class="footer"><span>${EDITION === "dev" ? "\u5F00\u53D1\u7248" : EDITION === "lite" ? "\u8F7B\u91CF\u7248" : "\u5B8C\u6574\u7248"} ${CORE_VERSION}</span><button data-open-market title="\u6253\u5F00\u63D2\u4EF6\u5E02\u573A" aria-label="\u6253\u5F00\u63D2\u4EF6\u5E02\u573A">\u63D2\u4EF6\u5E02\u573A</button></footer></section>`;
+    shadow.innerHTML = `<style>${scaleFonts(style)} .brand,.compact{--sgs-font-offset:0px}</style><section class="shell"><svg class="hud-locator" aria-hidden="true" focusable="false"><rect pathLength="100"/></svg><div class="compact" data-count-state="unknown"><span class="slash" title="\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528\uFF1B\u53CC\u51FB\u5C55\u5F00\uFF0C\u6309\u4F4F\u62D6\u52A8"><span class="slash-seal" aria-hidden="true">\u6740</span><span class="slash-reading"><span class="slash-label">\u5269\u4F59</span><b data-slash aria-label="\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528">\u2014</b></span></span><div class="compact-actions"><button data-screenshot title="\u622A\u56FE\u5E76\u590D\u5236" aria-label="\u622A\u56FE\u5E76\u590D\u5236"></button><button data-expand title="\u653E\u5927\u9762\u677F" aria-label="\u653E\u5927\u9762\u677F"></button></div></div><div class="compact-summary" aria-label="\u5173\u6CE8\u5361\u724C\u672A\u89C1\u5F20\u6570"></div><header class="brand"><div class="mark" aria-hidden="true"></div><div class="brand-name"><small>${EDITION.toUpperCase()} \xB7 ${CORE_VERSION}</small></div><button data-update-hint hidden title="\u6709\u66F4\u65B0\u53EF\u7528\uFF0C\u70B9\u51FB\u524D\u5F80\u66F4\u65B0" aria-label="\u6709\u66F4\u65B0\u53EF\u7528\uFF0C\u70B9\u51FB\u524D\u5F80\u66F4\u65B0"><span>\u66F4\u65B0</span></button><button data-collapse title="\u6298\u53E0\u9762\u677F" aria-label="\u6298\u53E0\u9762\u677F"></button></header><div class="status"><i class="dot"></i><span>\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6</span></div><nav class="nav" role="tablist">${categories.map(([id, title]) => `<button data-category="${id}" role="tab" aria-label="${title}" aria-selected="false"><span>${title}</span></button>`).join("")}</nav><main class="content" role="tabpanel"></main><footer class="footer"><span>${EDITION === "dev" ? "\u5F00\u53D1\u7248" : EDITION === "lite" ? "\u8F7B\u91CF\u7248" : "\u5B8C\u6574\u7248"} ${CORE_VERSION}</span><button data-open-market title="\u6253\u5F00\u63D2\u4EF6\u5E02\u573A" aria-label="\u6253\u5F00\u63D2\u4EF6\u5E02\u573A">\u63D2\u4EF6\u5E02\u573A</button></footer></section>`;
     for (let [selector, name] of [[".mark", "toolbox"], ["[data-screenshot]", "camera"], ["[data-expand]", "expand"], ["[data-collapse]", "collapse"], ["[data-update-hint]", "refresh"], ["[data-open-market]", "package"]])
       shadow.querySelector(selector).prepend(createIcon(doc, name));
     for (let [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
     let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, feedbackForm = createFeedbackForm(win, doc, scope, getFeedbackAccount), feedbackButton = doc.createElement("button");
-    feedbackButton.type = "button", feedbackButton.dataset.feedback = "", feedbackButton.title = "\u524D\u5F80\u53CD\u9988", feedbackButton.append(createIcon(doc, feedbackIcon), doc.createTextNode("\u53CD\u9988")), shadow.querySelector("[data-update-hint]").before(feedbackButton), scope.listen(feedbackButton, "click", () => {
+    feedbackButton.type = "button", feedbackButton.dataset.feedback = "", feedbackButton.title = "\u524D\u5F80\u53CD\u9988", feedbackButton.setAttribute("aria-label", "\u53CD\u9988");
+    let feedbackLabel = doc.createElement("span");
+    feedbackLabel.textContent = "\u53CD\u9988", feedbackButton.append(createIcon(doc, feedbackIcon), feedbackLabel), shadow.querySelector("[data-update-hint]").before(feedbackButton), scope.listen(feedbackButton, "click", () => {
       (active !== "manage" || management !== "settings") && (active = "manage", management = "settings", settings.set("category", active), render()), content.scrollTop = 0, feedbackForm.elements.message.focus({ preventScroll: !0 });
     });
+    function openSyncSettings() {
+      active = "manage", management = "sync", settings.set("category", active), render(), content.scrollTop = 0;
+    }
+    if (managedSync && preferenceSync) {
+      let refreshSyncButtons = function() {
+        let { connected } = managedSync.status();
+        upload.hidden = !connected, host.toggleAttribute("data-sync-bound", connected), upload.disabled = download.disabled = preferenceSync.busy;
+        let label = connected ? "\u4E0B\u8F7D\u5168\u90E8\u5907\u4EFD" : "\u4E91\u540C\u6B65\u672A\u542F\u7528\uFF0C\u6253\u5F00\u540C\u6B65\u8BBE\u7F6E";
+        download.title !== label && (download.toggleAttribute("data-sync-download", connected), download.toggleAttribute("data-sync-settings", !connected), download.title = label, download.setAttribute("aria-label", label), download.replaceChildren(createIcon(doc, connected ? "arrowDown" : cloudOffIcon)));
+      };
+      feedbackButton.parentElement.dataset.syncControls = "";
+      let upload = doc.createElement("button"), download = doc.createElement("button");
+      upload.type = download.type = "button", upload.dataset.syncAction = download.dataset.syncAction = "", upload.dataset.syncUpload = "", upload.title = "\u4E0A\u4F20\u5230\u4E91\u7AEF", upload.setAttribute("aria-label", upload.title), upload.append(createIcon(doc, "arrowUp")), feedbackButton.before(upload, download);
+      async function transferFromHeader(transfer) {
+        try {
+          let pending = transfer();
+          refreshSyncButtons();
+          let message = await pending;
+          message && notify(message);
+        } catch (error) {
+          notify(error.message);
+        } finally {
+          refreshSyncButtons();
+        }
+      }
+      scope.listen(upload, "click", () => transferFromHeader(preferenceSync.upload)), scope.listen(download, "click", () => managedSync.status().connected ? transferFromHeader(() => downloadSyncBackup(win, preferenceSync)) : openSyncSettings()), refreshSyncButtons(), managedSync.ready.then(refreshSyncButtons, () => {
+      }), scope.interval(refreshSyncButtons, 500);
+    }
     let applyFontSize = () => {
       let choice = FONT_SIZES.find(([id]) => id === settings.get("fontSize", "standard")) || FONT_SIZES[2];
       host.style.setProperty("--sgs-font-offset", `${choice[2]}px`);
@@ -6745,11 +7610,11 @@ ${FEEDBACK_STYLES}
       let client = handlers.market?.();
       return marketState.client !== client && (marketRequest++, marketState = { client }), marketState;
     }
-    let el = (tag, text2, cls) => {
+    let el = (tag, text3, cls) => {
       let n = doc.createElement(tag);
-      return text2 !== void 0 && (n.textContent = text2), cls && (n.className = cls), n;
-    }, button = (text2, fn) => {
-      let n = el("button", text2);
+      return text3 !== void 0 && (n.textContent = text3), cls && (n.className = cls), n;
+    }, button = (text3, fn) => {
+      let n = el("button", text3);
       return n.addEventListener("click", async () => {
         n.disabled = !0;
         try {
@@ -6768,9 +7633,9 @@ ${FEEDBACK_STYLES}
         n.parentNode && (clearTimeout(toastTimer), n.remove());
       };
     }
-    function empty(title, text2, icon2 = active) {
+    function empty(title, text3, icon2 = active) {
       let n = el("div", void 0, "empty");
-      n.append(createIcon(doc, icon2)), n.append(el("strong", title), el("div", text2)), content.append(n);
+      n.append(createIcon(doc, icon2)), n.append(el("strong", title), el("div", text3)), content.append(n);
     }
     async function exportDiagnostics() {
       if (typeof handlers.exportDiagnostics != "function") throw new Error("\u8BB0\u724C\u8BCA\u65AD\u5C1A\u672A\u51C6\u5907\u597D");
@@ -6792,7 +7657,7 @@ ${FEEDBACK_STYLES}
       let panel = el("section", void 0, "card");
       panel.dataset.legacyWarning = "", panel.setAttribute("role", "status"), panel.style.cssText = "position:fixed;top:16px;right:0;width:min(320px,90vw);max-height:80vh;overflow:auto;z-index:10;box-shadow:0 8px 28px #0005", panel.append(el("strong", "\u65E7\u5C0F\u6284\u505C\u7528\u63D0\u9192"), el("p", "\u5EFA\u8BAE\u5728\u7BE1\u6539\u7334\u7BA1\u7406\u9762\u677F\u4E2D\u5173\u95ED\u65E7\u5C0F\u6284\uFF0C\u518D\u5237\u65B0\u6E38\u620F\u3002\u5DE5\u5177\u7BB1\u9ED8\u8BA4\u4E0D\u9000\u51FA\u6216\u9690\u85CF\u65E7\u811A\u672C\uFF0C\u53EF\u5173\u95ED\u63D0\u9192\u7EE7\u7EED\u4F7F\u7528\u3002"));
       let steps = el("ol");
-      for (let text2 of ["\u70B9\u51FB\u6D4F\u89C8\u5668\u53F3\u4E0A\u89D2\u7684\u6269\u5C55\u56FE\u6807\uFF0C\u627E\u5230\u7BE1\u6539\u7334\uFF08Tampermonkey\uFF09\u3002", "\u70B9\u51FB\u7BE1\u6539\u7334\u56FE\u6807\uFF0C\u9009\u62E9\u201C\u7BA1\u7406\u9762\u677F / Dashboard\u201D\u3002", "\u5173\u95ED\u65E7\u5C0F\u6284\u811A\u672C\u7684\u5F00\u5173\uFF0C\u518D\u8FD4\u56DE\u6E38\u620F\u5237\u65B0\u9875\u9762\u3002"]) steps.append(el("li", text2));
+      for (let text3 of ["\u70B9\u51FB\u6D4F\u89C8\u5668\u53F3\u4E0A\u89D2\u7684\u6269\u5C55\u56FE\u6807\uFF0C\u627E\u5230\u7BE1\u6539\u7334\uFF08Tampermonkey\uFF09\u3002", "\u70B9\u51FB\u7BE1\u6539\u7334\u56FE\u6807\uFF0C\u9009\u62E9\u201C\u7BA1\u7406\u9762\u677F / Dashboard\u201D\u3002", "\u5173\u95ED\u65E7\u5C0F\u6284\u811A\u672C\u7684\u5F00\u5173\uFF0C\u518D\u8FD4\u56DE\u6E38\u620F\u5237\u65B0\u9875\u9762\u3002"]) steps.append(el("li", text3));
       steps.style.paddingLeft = "20px", panel.append(steps), panel.append(helpTip(doc, "\u65E0\u9700\u67E5\u627E\u6269\u5C55 ID\u3002\u82E5\u5DE5\u5177\u680F\u672A\u663E\u793A\u7BE1\u6539\u7334\uFF0C\u53EF\u5148\u5728\u6269\u5C55\u83DC\u5355\u4E2D\u5C06\u5176\u56FA\u5B9A\u3002"));
       let details = el("details");
       details.append(el("summary", "\u4FDD\u5B58\u672C\u673A\u7BA1\u7406\u5730\u5740\uFF08\u53EF\u9009\uFF09")), details.append(helpTip(doc, "\u6253\u5F00\u7BA1\u7406\u9762\u677F\u540E\uFF0C\u590D\u5236\u5176\u5730\u5740\u7C98\u8D34\u5230\u8FD9\u91CC\u3002\u4EE5\u540E\u53EF\u4E00\u952E\u590D\u5236\uFF0C\u5728\u5730\u5740\u680F\u6253\u5F00\uFF1B\u7F51\u9875\u4E0D\u80FD\u76F4\u63A5\u8DF3\u8F6C\u5230\u6269\u5C55\u5185\u90E8\u9875\u9762\u3002"));
@@ -6946,14 +7811,14 @@ ${FEEDBACK_STYLES}
           option.value = value, policy.append(option);
         }
         policy.value = settings.get("compatPolicy", "hide"), policy.onchange = () => {
-          settings.set("compatPolicy", policy.value), handlers.compat?.setTakeoverPolicy?.(policy.value), handlers.compat?.scan(), render();
+          settings.set("compatPolicy", policy.value), handlers.compat?.setTakeoverPolicy?.(policy.value), render();
         }, content.append(policy);
         let compatStatus = handlers.compat?.getStatus();
         content.append(el("div", formatCompat(compatStatus), "notice"));
         let actions = el("div", void 0, "actions");
         actions.append(iconButton("\u91CD\u65B0\u68C0\u6D4B", "reload", () => {
           handlers.compat?.scan(), render();
-        }, "icon-action"), button("\u70B9\u9009\u9690\u85CF\u65E7\u9762\u677F", () => startPicker())), content.append(actions), actions.append(helpTip(doc, "\u9690\u85CF UI \u4E0D\u4EE3\u8868\u540E\u53F0\u903B\u8F91\u5DF2\u505C\u6B62\u3002\u65E0\u6CD5\u9000\u51FA\u7684\u811A\u672C\u4ECD\u9700\u5728 Tampermonkey \u4E2D\u505C\u7528\uFF1B\u5DF2\u9000\u51FA\u811A\u672C\u9700\u5237\u65B0\u9875\u9762\u624D\u80FD\u6062\u590D\u3002"));
+        }, "icon-action"), button("\u70B9\u9009\u9690\u85CF\u65E7\u9762\u677F", () => startPicker())), content.append(actions), actions.append(helpTip(doc, "\u5173\u95ED\u63A5\u7BA1\u65F6\u81EA\u52A8\u68C0\u6D4B\u53EA\u5728\u542F\u52A8\u65F6\u8FD0\u884C\uFF0C\u4E5F\u53EF\u70B9\u51FB\u300C\u91CD\u65B0\u68C0\u6D4B\u300D\u3002\u9690\u85CF\u65E7\u754C\u9762\u540E\uFF0C\u5176\u540E\u53F0\u903B\u8F91\u53EF\u80FD\u4ECD\u5728\u8FD0\u884C\u3002\u65E0\u6CD5\u9000\u51FA\u7684\u811A\u672C\u9700\u5728 Tampermonkey \u4E2D\u505C\u7528\uFF1B\u5DF2\u9000\u51FA\u7684\u811A\u672C\u9700\u5237\u65B0\u9875\u9762\u624D\u80FD\u6062\u590D\u3002"));
       }
       if (!1) {
         content.append(el("h3", "\u63D2\u4EF6\u5E02\u573A\u76EE\u5F55\u5730\u5740"));
@@ -7021,8 +7886,8 @@ ${FEEDBACK_STYLES}
       if (!1) return [];
       let details = el("details", void 0, "plugin-release-notes");
       details.open = expanded;
-      let text2 = el("div", item.releaseNotes || "\u4F5C\u8005\u672A\u63D0\u4F9B\u6B64\u7248\u672C\u7684\u66F4\u65B0\u5185\u5BB9\u3002", "plugin-release-notes-text");
-      return text2.tabIndex = 0, text2.setAttribute("role", "region"), text2.setAttribute("aria-label", `${item.version} \u66F4\u65B0\u5185\u5BB9`), details.append(el("summary", `\u6700\u8FD1\u66F4\u65B0 \xB7 ${item.version}`), text2), [details];
+      let text3 = el("div", item.releaseNotes || "\u4F5C\u8005\u672A\u63D0\u4F9B\u6B64\u7248\u672C\u7684\u66F4\u65B0\u5185\u5BB9\u3002", "plugin-release-notes-text");
+      return text3.tabIndex = 0, text3.setAttribute("role", "region"), text3.setAttribute("aria-label", `${item.version} \u66F4\u65B0\u5185\u5BB9`), details.append(el("summary", `\u6700\u8FD1\u66F4\u65B0 \xB7 ${item.version}`), text3), [details];
     }
     function pluginIdentity(card, item, fallbackDescription) {
       let heading = el("div", void 0, "plugin-heading"), symbol = el("div", void 0, "plugin-symbol");
@@ -7279,14 +8144,14 @@ ${FEEDBACK_STYLES}
         pluginCards();
         return;
       }
-      let pack = el("section", void 0, "card");
-      pack.append(el("strong", "\u5B98\u65B9\u63D2\u4EF6\u5957\u88C5"), el("div", `\u4E00\u952E\u8865\u9F50 ${officialPluginIds.length} \u4E2A\u5B98\u65B9\u63D2\u4EF6\uFF1B\u4FDD\u7559\u5DF2\u6709\u7248\u672C\u3001\u8BBE\u7F6E\u548C\u505C\u7528\u72B6\u6001\u3002`, "notice"));
+      let pack2 = el("section", void 0, "card");
+      pack2.append(el("strong", "\u5B98\u65B9\u63D2\u4EF6\u5957\u88C5"), el("div", `\u4E00\u952E\u8865\u9F50 ${officialPluginIds.length} \u4E2A\u5B98\u65B9\u63D2\u4EF6\uFF1B\u4FDD\u7559\u5DF2\u6709\u7248\u672C\u3001\u8BBE\u7F6E\u548C\u505C\u7528\u72B6\u6001\u3002`, "notice"));
       let complete = button(officialBusy ? "\u6B63\u5728\u8865\u9F50\u2026" : "\u4E00\u952E\u8865\u9F50\u5B98\u65B9\u63D2\u4EF6", completeOfficialPlugins);
-      if (complete.disabled = officialBusy || !!installing.size || !currentMarketState().client, pack.append(complete), officialStatus) {
+      if (complete.disabled = officialBusy || !!installing.size || !currentMarketState().client, pack2.append(complete), officialStatus) {
         let status = el("div", officialStatus, "notice");
-        status.setAttribute("role", "status"), pack.append(status);
+        status.setAttribute("role", "status"), pack2.append(status);
       }
-      content.append(pack), updateControls(), pluginCards(), content.append(el("h3", "\u63D2\u4EF6\u76EE\u5F55"));
+      content.append(pack2), updateControls(), pluginCards(), content.append(el("h3", "\u63D2\u4EF6\u76EE\u5F55"));
       let catalog = el("div"), actions = el("div", void 0, "actions"), refresh = button("\u8FDE\u63A5 / \u5237\u65B0\u5E02\u573A", fetchCatalog);
       refresh.disabled = !currentMarketState().client || !!currentMarketState().loading, actions.append(refresh, button("\u5BFC\u5165\u63D2\u4EF6\u5305", () => {
         let file = doc.createElement("input");
@@ -7301,14 +8166,21 @@ ${FEEDBACK_STYLES}
       })), handlers.manager?.builtins?.has("cards") && !handlers.manager.list().some((p) => p.id === "cards") && actions.append(button("\u6062\u590D\u5185\u7F6E\u5361\u724C", () => handlers.manager.restoreBuiltin("cards"))), handlers.market?.() && content.append(el("div", "\u4E0B\u8F7D\u6765\u6E90\uFF1A" + marketServerLabel(handlers.market().baseUrl), "muted")), content.append(actions, catalog), catalogCards(catalog);
     }
     function renderManagement(cleanups) {
-      let tabs = el("div", void 0, "tabs management-tabs");
-      for (let [id, title] of [["settings", "\u8BBE\u7F6E"], ["market", "\u63D2\u4EF6\u5E02\u573A"], ["appearance", "\u5916\u89C2"]]) {
+      let tabs = el("div", void 0, "tabs management-tabs"), sections = [["settings", "\u8BBE\u7F6E"], ["market", "\u63D2\u4EF6\u5E02\u573A"], ["appearance", "\u5916\u89C2"]];
+      managedSync && sections.push(["sync", "\u4E91\u540C\u6B65"]);
+      for (let [id, title] of sections) {
         let b = button(title, () => {
           management = id, render();
         });
-        management === id && (b.className = "active"), tabs.append(b);
+        management === id && (b.className = "active"), b.setAttribute("aria-pressed", String(management === id)), tabs.append(b);
       }
-      content.append(tabs), management === "settings" ? renderSettings(cleanups) : management === "market" ? renderMarket() : management === "appearance" && renderAppearance(cleanups);
+      if (content.append(tabs), management === "settings") renderSettings(cleanups);
+      else if (management === "market") renderMarket();
+      else if (management === "appearance") renderAppearance(cleanups);
+      else if (management === "sync") {
+        let syncSettings = mountSyncSettings(doc, win, managedSync, preferenceSync);
+        content.append(syncSettings.root), cleanups.push(syncSettings.dispose);
+      }
     }
     function render() {
       let previousKey = renderedKey, anchors = renderedKey === "manage:market" ? [...content.querySelectorAll("[data-catalog-key]")].filter((card) => !card.hidden && card.getBoundingClientRect().bottom > content.getBoundingClientRect().top).map((card) => ({ key: card.dataset.catalogKey, top: card.getBoundingClientRect().top })) : [], restoreScroll = () => {
@@ -7452,7 +8324,7 @@ ${FEEDBACK_STYLES}
     let edgeBehavior = () => {
       let value = settings.get("hudEdgeBehavior", "fixed");
       return mobileDevice() ? value === "none" ? "none" : "hide" : ["none", "hide", "fixed"].includes(value) ? value : "fixed";
-    }, gameViewport = createGameViewport({ window: win, document: doc, scope, canReserve: canReserveGameViewport }), syncGameViewport = () => gameViewport.reserve(host.hasAttribute("data-edge-fixed") ? host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280 : 0), edgeHideTimer, draggingHUD = !1, revealEdge = () => {
+    }, gameViewport = createGameViewport({ window: win, document: doc, scope, canReserve: canReserveGameViewport, sceneWatch }), syncGameViewport = () => gameViewport.reserve(host.hasAttribute("data-edge-fixed") ? host.hasAttribute("data-collapsed") ? 156 : parseFloat(host.style.width) || 280 : 0), edgeHideTimer, draggingHUD = !1, revealEdge = () => {
       clearTimeout(edgeHideTimer), host.removeAttribute("data-edge-hidden");
     }, hasKeyboardFocus = () => host.matches(":focus-visible") || !!shadow.activeElement?.matches(":focus-visible"), hideEdge = () => {
       clearTimeout(edgeHideTimer), !(!host.hasAttribute("data-edge-docked") || host.hasAttribute("data-edge-fixed") || draggingHUD || hasKeyboardFocus()) && (edgeHideTimer = setTimeout(() => {
@@ -7551,7 +8423,7 @@ ${FEEDBACK_STYLES}
         renderedCleanup = null, clearTimeout(toastTimer), host.remove();
       }
     });
-    let compactSummaries = /* @__PURE__ */ new Map();
+    let compactSummaries = /* @__PURE__ */ new Map(), statusLine = shadow.querySelector(".status"), statusText = statusLine.querySelector("span"), compact = shadow.querySelector(".compact"), slashCount = compact.querySelector("[data-slash]"), slash = compact.querySelector(".slash");
     function setCompactSummary(id, items) {
       items.length ? compactSummaries.set(id, items) : compactSummaries.delete(id);
       let summary = shadow.querySelector(".compact-summary");
@@ -7561,60 +8433,2629 @@ ${FEEDBACK_STYLES}
         row.title = item.detail || "", row.append(el("span", item.label), el("b", item.value)), summary.append(row);
       }
     }
-    return render(), { host, shadow, setCompactSummary, notify, showLegacyWarning, render, setGameView(value) {
-      let next = value === "shanhe" || value === "shanhe-battle" ? value : "battle";
-      next !== gameView && (gameView = next, active === "game" && render());
-    }, setRemainingSlash(value) {
-      let known = Number.isFinite(value), text2 = value === 1 / 0 ? "\u221E" : known ? String(value) : "\u2014", compact = shadow.querySelector(".compact"), count = shadow.querySelector("[data-slash]");
-      count.textContent = text2, compact.dataset.countState = value === 1 / 0 ? "unlimited" : known ? value === 0 ? "empty" : "ready" : "unknown", compact.dataset.countSize = text2.length > 2 ? "long" : "normal";
-      let label = value === 1 / 0 ? "\u51FA\u6740\u6B21\u6570\u4E0D\u9650" : known ? `\u5269\u4F59\u51FA\u6740\u6B21\u6570\uFF1A${text2}` : "\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528";
-      count.setAttribute("aria-label", label), shadow.querySelector(".slash").title = label + "\uFF1B\u53CC\u51FB\u5C55\u5F00\uFF0C\u6309\u4F4F\u62D6\u52A8";
-    }, setHandlers(value) {
-      let first = !handlers.manager;
-      handlers = value, render(), first && handlers.market?.() && scope.timeout(() => {
-        scope.closed || fetchCatalog();
-      }, 1500), first && !1 && typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ == "function" && scope.timeout(() => {
-        scope.closed || runMicroUpdate("check");
-      }, 1500);
-    }, setStatusVisible(visible) {
-      shadow.querySelector(".status").hidden = !visible;
-    }, setStatus(text2) {
-      shadow.querySelector(".status span").textContent = text2;
-    }, applyTheme(tokens) {
-      host.dataset.themeScheme = tokens.scheme === "light" ? "light" : "dark";
-      for (let [key, value] of Object.entries(tokens)) host.style.setProperty("--sgs-" + key, value);
-    }, registerPanel(spec) {
-      if (panels.has(spec.id)) throw new Error("\u9762\u677F\u91CD\u590D\u6CE8\u518C\uFF1A" + spec.id);
-      return panels.set(spec.id, spec), render(), () => {
-        panels.delete(spec.id), render();
-      };
-    } };
+    return render(), {
+      host,
+      shadow,
+      setCompactSummary,
+      notify,
+      showLegacyWarning,
+      render,
+      setGameView(value) {
+        let next = value === "shanhe" || value === "shanhe-battle" ? value : "battle";
+        next !== gameView && (gameView = next, active === "game" && render());
+      },
+      setRemainingSlash(value) {
+        let known = Number.isFinite(value), text3 = value === 1 / 0 ? "\u221E" : known ? String(value) : "\u2014";
+        slashCount.textContent !== text3 && (slashCount.textContent = text3);
+        let state = value === 1 / 0 ? "unlimited" : known ? value === 0 ? "empty" : "ready" : "unknown", size = text3.length > 2 ? "long" : "normal";
+        compact.dataset.countState !== state && (compact.dataset.countState = state), compact.dataset.countSize !== size && (compact.dataset.countSize = size);
+        let label = value === 1 / 0 ? "\u51FA\u6740\u6B21\u6570\u4E0D\u9650" : known ? `\u5269\u4F59\u51FA\u6740\u6B21\u6570\uFF1A${text3}` : "\u5269\u4F59\u51FA\u6740\u6B21\u6570\u6682\u4E0D\u53EF\u7528";
+        slashCount.getAttribute("aria-label") !== label && slashCount.setAttribute("aria-label", label);
+        let title = label + "\uFF1B\u53CC\u51FB\u5C55\u5F00\uFF0C\u6309\u4F4F\u62D6\u52A8";
+        slash.title !== title && (slash.title = title);
+      },
+      setHandlers(value) {
+        let first = !handlers.manager;
+        handlers = value, render(), first && handlers.market?.() && scope.timeout(() => {
+          scope.closed || fetchCatalog();
+        }, 1500), first && !1 && typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ == "function" && scope.timeout(() => {
+          scope.closed || runMicroUpdate("check");
+        }, 1500);
+      },
+      setStatusVisible(visible) {
+        statusLine.hidden !== !visible && (statusLine.hidden = !visible);
+      },
+      setStatus(text3) {
+        statusText.textContent !== text3 && (statusText.textContent = text3);
+      },
+      applyTheme(tokens) {
+        host.dataset.themeScheme = tokens.scheme === "light" ? "light" : "dark";
+        for (let [key, value] of Object.entries(tokens)) host.style.setProperty("--sgs-" + key, value);
+      },
+      registerPanel(spec) {
+        if (panels.has(spec.id)) throw new Error("\u9762\u677F\u91CD\u590D\u6CE8\u518C\uFF1A" + spec.id);
+        return panels.set(spec.id, spec), render(), () => {
+          panels.delete(spec.id), render();
+        };
+      }
+    };
   }
 
   // src/shared/info-runtime.js
-  var read5 = (fn) => {
+  function field(packet2, key) {
+    for (let node of [
+      packet2,
+      read3(() => packet2.Protocol),
+      read3(() => packet2.ProtoObj),
+      read3(() => packet2.protoObj),
+      read3(() => packet2.data.protoObj),
+      read3(() => packet2.data.ProtoObj)
+    ]) {
+      let value = read3(() => node[key]);
+      if (value != null) return value;
+    }
+  }
+
+  // src/shared/sync-paths.js
+  var MATCH_SYNC_PATH = "/appearances/sync", LEDGER_SYNC_PATH = "/ledger/sync", PREFERENCES_SYNC_PATH = "/v1/preferences/sync", PREFERENCES_RESTORED = "sgs-toolbox:preferences-restored", BACKUP_READ_PATH = "/v1/backup/read", BACKUP_RESTORED = "sgs-toolbox:backup-restored", SYNC_CHANGES_PATH = "/v1/sync/changes", PUBLIC_CHANGES_PATH = "/v2/vault/changes", SYNC_HISTORY_UPDATED = "sgs-toolbox:sync-history-updated";
+  function validSyncCursor(cursor) {
+    return /^[A-Za-z0-9_-]{43}$/.test(cursor?.epoch ?? "") && Number.isSafeInteger(cursor?.seq) && cursor.seq >= 0;
+  }
+
+  // src/shared/ledger-sync-records.js
+  var INSTANCE_SOURCES = /* @__PURE__ */ new Set(["DbsCcUpdategoodsAttribNtf", "DbsCcUserDelgoodsNtf"]), itemKey = (item) => `${item.id}:${Math.sign(item.delta)}`, amounts = (row) => JSON.stringify(row.items.map(({ id, delta }) => [id, delta]));
+  function mergeLedgerEvent(previous, next) {
+    if (!previous) return next;
+    if (previous.session !== next.session || previous.at !== next.at || previous.kind !== next.kind || previous.source !== next.source) return null;
+    if (next.kind === "prayer") return previous.prayer.secId === next.prayer.secId && previous.prayer.times === next.prayer.times ? previous : null;
+    if (previous.type !== next.type) return null;
+    if (amounts(previous) === amounts(next)) return next.reconciled && !previous.reconciled ? next : previous;
+    let isCorrection = (before, after) => {
+      if (!after.reconciled) return !1;
+      let prior = new Map(before.items.map((item) => [itemKey(item), Math.abs(item.delta)]));
+      return after.items.every((item) => Math.abs(item.delta) <= prior.get(itemKey(item)));
+    };
+    return isCorrection(previous, next) ? next : isCorrection(next, previous) ? previous : null;
+  }
+  function markNearby(group, range, opposite) {
+    if (!(group.length < 2)) {
+      group.sort((a, b) => a.at - b.at);
+      for (let pass = 0; pass < 2; pass++, group.reverse()) {
+        let nearestByStream = /* @__PURE__ */ new Map();
+        for (let row of group) {
+          let stream = opposite ? Number(INSTANCE_SOURCES.has(row.source)) : 0, [nearest, other] = nearestByStream.get(opposite ? 1 - stream : stream) ?? [], candidate = nearest?.session === row.session ? other : nearest;
+          candidate && Math.abs(candidate.at - row.at) <= range && (row.review = !0);
+          let [prior, second] = nearestByStream.get(stream) ?? [];
+          nearestByStream.set(stream, [row, prior?.session === row.session ? second : prior]);
+        }
+      }
+    }
+  }
+  function observedLedgerEvents(events) {
+    let groups = /* @__PURE__ */ new Map(), overlaps = /* @__PURE__ */ new Map(), rows = [];
+    for (let event of events) {
+      if (event.kind === "goods" && !event.items.length) continue;
+      let key = event.kind === "goods" ? amounts(event) : `prayer:${event.prayer.secId}:${event.prayer.times}`, row = { ...event, review: event.review === !0 };
+      if (groups.has(key) || groups.set(key, []), groups.get(key).push(row), event.source === "DbsCcUserGoodshintNtf" || INSTANCE_SOURCES.has(event.source)) for (let item of event.items) {
+        let key2 = itemKey(item);
+        overlaps.has(key2) || overlaps.set(key2, []), overlaps.get(key2).push(row);
+      }
+      rows.push(row);
+    }
+    for (let group of groups.values()) markNearby(group, 2e3, !1);
+    for (let group of overlaps.values()) markNearby(group, 8e3, !0);
+    return rows.sort((a, b) => b.at - a.at || a.id.localeCompare(b.id));
+  }
+
+  // src/core/sync-ledger-records.js
+  var FUTURE_LIMIT = 12e4, bytes = new TextEncoder(), byteLength = (value) => bytes.encode(value).length, EMPTY_LEDGER = { updatedAt: null, balances: [], events: [], names: {}, eventVersion: null }, confirmedLedgerEvents = (events) => observedLedgerEvents(events).filter((row) => !row.review), visibleBalances = (entry, now = Date.now()) => entry.balances.filter((row) => row.name !== "\u5982\u610F\u7ED3" || row.expiresAt > now && (!entry.knotWindow || row.at > entry.knotWindow.at || entry.knotWindow.active.includes(row.id)));
+  function ledgerDownload(entry, pull, confirmed = confirmedLedgerEvents(entry.events)) {
+    let version = entry.eventVersion, { offset } = pull, balances = visibleBalances(entry);
+    if (offset && pull.version !== version) return { version, offset: 0, next: null, events: null, balances };
+    if (!offset && pull.version === version) return { version, offset, next: null, events: null, balances };
+    let page = [], bytes2 = byteLength(JSON.stringify(balances)) + 512;
+    for (let i = offset; i < confirmed.length && page.length < 200; i++) {
+      let row = confirmed[i], size = byteLength(JSON.stringify(row)) + 1;
+      if (bytes2 + size > 8388608 && page.length) break;
+      page.push(row), bytes2 += size;
+    }
+    let next = offset + page.length;
+    return { version, offset, next: next < confirmed.length ? next : null, events: page, balances };
+  }
+  function mergeLedgerUpload(previous, { balances, events, profile, knotWindow }, now, version) {
+    let latest = balances.length ? new Map(previous.balances.map((row) => [row.id, row])) : null, history = events.length ? new Map(previous.events.map((row) => [row.id, row])) : null, conflicts = 0, balanceChanged = !1, eventChanged = !1;
+    for (let row of balances) {
+      if (row.name === "\u5982\u610F\u7ED3" && !row.expiresAt) continue;
+      let old = latest.get(row.id);
+      if (row.at > now + FUTURE_LIMIT) {
+        conflicts++;
+        continue;
+      }
+      old?.at === row.at && old.count !== row.count ? (conflicts++, old.review || (latest.set(row.id, { ...old, review: !0 }), balanceChanged = !0)) : (!old || row.at > old.at) && (latest.set(row.id, row), balanceChanged = !0);
+    }
+    for (let row of events) {
+      if (row.at > now + FUTURE_LIMIT) {
+        conflicts++;
+        continue;
+      }
+      let old = history.get(row.id), merged = mergeLedgerEvent(old, row);
+      merged ? merged !== old && (history.set(row.id, old?.review ? { ...merged, review: !0 } : merged), eventChanged = !0) : (conflicts++, old.review || (history.set(row.id, { ...old, review: !0 }), eventChanged = !0));
+    }
+    let entry = previous, nextProfile = profile && profile.session.at <= now + FUTURE_LIMIT && profile.session.at >= (previous.profile?.session.at || 0) ? { ...profile, name: profile.name || previous.profile?.name || "" } : previous.profile, window2 = knotWindow?.at > (previous.knotWindow?.at || 0) && knotWindow.at <= now + FUTURE_LIMIT ? knotWindow : previous.knotWindow, profileChanged = JSON.stringify(nextProfile) !== JSON.stringify(previous.profile);
+    return (balanceChanged || eventChanged || profileChanged || window2 !== previous.knotWindow) && (entry = {
+      ...previous,
+      updatedAt: now,
+      balances: balanceChanged ? [...latest.values()] : previous.balances,
+      events: eventChanged ? [...history.values()] : previous.events,
+      eventVersion: eventChanged ? version() : previous.eventVersion,
+      profile: nextProfile,
+      knotWindow: window2
+    }), { entry, conflicts };
+  }
+
+  // src/core/dev-appearance-sync.js
+  var syncAccountSeed = (account) => `sgstoolbox-appearances-test:${account}`;
+  async function installLocalAppearanceSyncPackage(manager2, settings, pkg) {
+    let key = "localAppearanceSyncPackage";
+    if (settings.get(key, "") === pkg.sha256) return;
+    let installed = manager2.list().find((plugin) => plugin.id === pkg.manifest.id);
+    (!installed || compareVersions2(installed.version, pkg.manifest.version) < 0) && await manager2.install(pkg), settings.set(key, pkg.sha256);
+  }
+  async function syncGameAccountKey(win, account) {
+    let bytes2 = new TextEncoder().encode(syncAccountSeed(account)), hash = new Uint8Array(await win.crypto.subtle.digest("SHA-256", bytes2));
+    return Array.from(hash, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+  function createExchange(win, path, managed) {
+    return async (account, data, signal) => {
+      if (!managed.available(account)) throw new Error("\u8BF7\u5148\u5728\u300C\u7BA1\u7406 \u2192 \u4E91\u540C\u6B65\u300D\u7ED1\u5B9A\u5F53\u524D\u8D26\u53F7");
+      let accountKey = await syncGameAccountKey(win, account), payload = await managed.exchange(account, path, data, accountKey, signal);
+      if (payload?.account !== accountKey) throw new Error("\u540C\u6B65\u56DE\u590D\u8D26\u53F7\u4E0D\u7B26");
+      return payload;
+    };
+  }
+  function createDevAppearanceSync(win, managed, backup) {
+    let exchange = createExchange(win, MATCH_SYNC_PATH, managed);
+    if (!backup) return Object.assign(
+      async (account, matches, signal, names) => (await exchange(account, { matches, names }, signal)).matches,
+      { available: managed.available, cacheKey: managed.cacheKey }
+    );
+    let binding, acknowledged = /* @__PURE__ */ new Map(), oldNames;
+    return Object.assign(async (account, matches, signal, names) => {
+      let key = managed.cacheKey(account);
+      key !== binding && (binding = key, acknowledged = /* @__PURE__ */ new Map(), oldNames = void 0);
+      let queued = acknowledged, current = await backup.history(account), cloud = new Map(current?.matches.map((row) => [row.gameId, JSON.stringify(row)])), changed = matches.filter((row) => {
+        let encoded = JSON.stringify(row);
+        return queued.get(row.gameId) !== encoded && cloud.get(row.gameId) !== encoded;
+      }), nextNames = names && JSON.stringify(names);
+      if (changed.length || nextNames && nextNames !== oldNames) {
+        if ((await exchange(account, { matches: changed, names: nextNames !== oldNames ? names : void 0, uploadOnly: !0 }, signal)).ok !== !0) throw new Error("\u6218\u7EE9\u4E0A\u4F20\u56DE\u6267\u65E0\u6548\uFF0C\u8BF7\u66F4\u65B0\u540C\u6B65\u670D\u52A1");
+        for (let row of changed) queued.set(row.gameId, JSON.stringify(row));
+        queued === acknowledged && nextNames && (oldNames = nextNames);
+      }
+      return (await backup.history(account))?.matches ?? [];
+    }, { localBackup: !0, available: backup.canUpload, cacheKey: managed.cacheKey });
+  }
+  function createDevLedgerSync(win, managed, backup) {
+    let exchange = createExchange(win, LEDGER_SYNC_PATH, managed), pages = /* @__PURE__ */ new WeakMap(), confirmed = (ledger) => (pages.has(ledger) || pages.set(ledger, confirmedLedgerEvents(ledger.events)), pages.get(ledger));
+    return Object.freeze({
+      available: backup?.canUpload ?? managed.available,
+      cacheKey: (id) => !backup || backup.canUpload(id) ? managed.cacheKey(id) : void 0,
+      localBackup: !!backup,
+      ...backup && { async readHistory(account) {
+        let ledger = (await backup.history(account))?.ledger ?? EMPTY_LEDGER;
+        return { version: ledger.eventVersion, events: confirmed(ledger), balances: visibleBalances(ledger) };
+      } },
+      async exchange(account, data, signal) {
+        let { pull, ...upload } = data, reply = backup && pull?.offset ? { conflicts: 0 } : await exchange(account, backup ? { ...upload, uploadOnly: !0 } : data, signal);
+        if (!Number.isSafeInteger(reply.conflicts) || reply.conflicts < 0) throw new Error("\u8D26\u672C\u540C\u6B65\u56DE\u6267\u65E0\u6548");
+        if (backup && pull) {
+          let ledger = (await backup.history(account))?.ledger ?? EMPTY_LEDGER;
+          return { ...reply, download: ledgerDownload(ledger, pull, confirmed(ledger)) };
+        }
+        return reply;
+      }
+    });
+  }
+
+  // node_modules/@hpke/common/esm/src/errors.js
+  var HpkeError = class extends Error {
+    constructor(e) {
+      let message;
+      e instanceof Error ? message = e.message : typeof e == "string" ? message = e : message = "", super(message), this.name = this.constructor.name;
+    }
+  }, InvalidParamError = class extends HpkeError {
+  };
+  var SerializeError = class extends HpkeError {
+  }, DeserializeError = class extends HpkeError {
+  }, EncapError = class extends HpkeError {
+  }, DecapError = class extends HpkeError {
+  }, ExportError = class extends HpkeError {
+  }, SealError = class extends HpkeError {
+  }, OpenError = class extends HpkeError {
+  }, MessageLimitReachedError = class extends HpkeError {
+  }, DeriveKeyPairError = class extends HpkeError {
+  }, NotSupportedError = class extends HpkeError {
+  };
+
+  // node_modules/@hpke/common/esm/_dnt.shims.js
+  var dntGlobals = {}, dntGlobalThis = createMergeProxy(globalThis, dntGlobals);
+  function createMergeProxy(baseObj, extObj) {
+    return new Proxy(baseObj, {
+      get(_target, prop, _receiver) {
+        return prop in extObj ? extObj[prop] : baseObj[prop];
+      },
+      set(_target, prop, value) {
+        return prop in extObj && delete extObj[prop], baseObj[prop] = value, !0;
+      },
+      deleteProperty(_target, prop) {
+        let success = !1;
+        return prop in extObj && (delete extObj[prop], success = !0), prop in baseObj && (delete baseObj[prop], success = !0), success;
+      },
+      ownKeys(_target) {
+        let baseKeys = Reflect.ownKeys(baseObj), extKeys = Reflect.ownKeys(extObj), extKeysSet = new Set(extKeys);
+        return [...baseKeys.filter((k) => !extKeysSet.has(k)), ...extKeys];
+      },
+      defineProperty(_target, prop, desc) {
+        return prop in extObj && delete extObj[prop], Reflect.defineProperty(baseObj, prop, desc), !0;
+      },
+      getOwnPropertyDescriptor(_target, prop) {
+        return prop in extObj ? Reflect.getOwnPropertyDescriptor(extObj, prop) : Reflect.getOwnPropertyDescriptor(baseObj, prop);
+      },
+      has(_target, prop) {
+        return prop in extObj || prop in baseObj;
+      }
+    });
+  }
+
+  // node_modules/@hpke/common/esm/src/algorithm.js
+  async function loadSubtleCrypto() {
+    if (dntGlobalThis !== void 0 && globalThis.crypto !== void 0)
+      return globalThis.crypto.subtle;
     try {
-      return fn();
-    } catch {
-      return;
+      let { webcrypto } = await Promise.resolve().then(() => __toESM(require_crypto(), 1));
+      return webcrypto.subtle;
+    } catch (e) {
+      throw new NotSupportedError(e);
+    }
+  }
+  var NativeAlgorithm = class {
+    constructor() {
+      Object.defineProperty(this, "_api", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      });
+    }
+    async _setup() {
+      this._api === void 0 && (this._api = await loadSubtleCrypto());
     }
   };
-  function account(ctx) {
-    let login = manager(ctx, "LoginManager", "error", (m) => "IsOnLine" in m || "IsAccountLoggingOut" in m);
-    if (read5(() => login.IsAccountLoggingOut) === !0 || read5(() => login.IsOnLine) === !1) return { id: "", nickname: "" };
-    let self = read5(() => ctx.game.getSelf()), id = read5(() => self.ClientId) ?? read5(() => self.clientId);
-    return { id: /^(?:[1-9]\d*)$/.test(String(id)) ? String(id) : "", nickname: String(read5(() => self.NickName) ?? read5(() => self.nickname) ?? "") };
+
+  // node_modules/@hpke/common/esm/src/consts.js
+  var EMPTY = /* @__PURE__ */ new Uint8Array(0);
+
+  // node_modules/@hpke/common/esm/src/interfaces/kemInterface.js
+  var SUITE_ID_HEADER_KEM = /* @__PURE__ */ new Uint8Array([
+    75,
+    69,
+    77,
+    0,
+    0
+  ]);
+
+  // node_modules/@hpke/common/esm/src/utils/misc.js
+  var isCryptoKeyPair = (x) => typeof x == "object" && x !== null && typeof x.privateKey == "object" && typeof x.publicKey == "object";
+  function i2Osp(n, w) {
+    if (w <= 0)
+      throw new Error("i2Osp: too small size");
+    if (n >= 256 ** w)
+      throw new Error("i2Osp: too large integer");
+    let ret = new Uint8Array(w);
+    for (let i = 0; i < w && n; i++)
+      ret[w - (i + 1)] = n % 256, n = Math.floor(n / 256);
+    return ret;
   }
-  function manager(ctx, name, event, guard) {
-    let type = read5(() => ctx.game.getClass(name)), valid = (value) => value && read5(() => value.destroyed) !== !0 && read5(() => guard(value));
-    if (valid(type)) return type;
-    for (let key of ["instance", "_instance", "Instance", "s_instance"]) {
-      let descriptor = read5(() => Object.getOwnPropertyDescriptor(type, key));
-      if (descriptor && "value" in descriptor && valid(descriptor.value)) return descriptor.value;
+  function concat(...parts) {
+    let len = 0;
+    for (let p of parts)
+      len += p.length;
+    let ret = new Uint8Array(len), offset = 0;
+    for (let p of parts)
+      ret.set(p, offset), offset += p.length;
+    return ret;
+  }
+  function base64UrlToBytes(v) {
+    let base64 = v.replace(/-/g, "+").replace(/_/g, "/"), byteString = atob(base64), ret = new Uint8Array(byteString.length);
+    for (let i = 0; i < byteString.length; i++)
+      ret[i] = byteString.charCodeAt(i);
+    return ret;
+  }
+  function xor(a, b) {
+    if (a.byteLength !== b.byteLength)
+      throw new Error("xor: different length inputs");
+    let buf = new Uint8Array(a.byteLength);
+    for (let i = 0; i < a.byteLength; i++)
+      buf[i] = a[i] ^ b[i];
+    return buf;
+  }
+
+  // node_modules/@hpke/common/esm/src/kdfs/hkdf.js
+  var HPKE_VERSION = /* @__PURE__ */ new Uint8Array([
+    72,
+    80,
+    75,
+    69,
+    45,
+    118,
+    49
+  ]);
+  function toUint8Array(input) {
+    return new Uint8Array(toArrayBuffer(input));
+  }
+  function toArrayBuffer(input) {
+    return input instanceof ArrayBuffer ? input : ArrayBuffer.isView(input) ? new Uint8Array(input.buffer, input.byteOffset, input.byteLength).slice().buffer : new Uint8Array(input).slice().buffer;
+  }
+  var HkdfNative = class extends NativeAlgorithm {
+    /**
+     * Uses WebCrypto HMAC for salts of any length when no callback is supplied.
+     * Prefer omitting the callback and its JavaScript HMAC/SHA-2 imports to reduce
+     * bundle size. Empty salts are normalized to hashSize zero bytes.
+     *
+     * @param fallbackExtract Optional legacy callback, taking precedence over
+     * WebCrypto for nonempty salts whose length differs from hashSize.
+     * Empty and hash-sized salts always use WebCrypto.
+     */
+    constructor(fallbackExtract) {
+      super(), Object.defineProperty(this, "id", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 1
+      }), Object.defineProperty(this, "hashSize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 0
+      }), Object.defineProperty(this, "_suiteId", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: EMPTY
+      }), Object.defineProperty(this, "algHash", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: {
+          name: "HMAC",
+          hash: "SHA-256",
+          length: 256
+        }
+      }), Object.defineProperty(this, "_fallbackExtract", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), this._fallbackExtract = fallbackExtract;
     }
-    let handlers = read5(() => ctx.game.getServerProxy()._events[event]);
-    for (let handler of Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]) if (valid(read5(() => handler.caller))) return handler.caller;
-    return null;
+    init(suiteId) {
+      this._suiteId = suiteId;
+    }
+    buildLabeledIkm(label, ikm) {
+      return this._checkInit(), concat(HPKE_VERSION, this._suiteId, label, ikm);
+    }
+    buildLabeledInfo(label, info, len) {
+      return this._checkInit(), concat(
+        // I2OSP(len, 2)
+        new Uint8Array([len >> 8, len]),
+        HPKE_VERSION,
+        this._suiteId,
+        label,
+        info
+      );
+    }
+    async extract(salt, ikm) {
+      await this._setup();
+      let saltBuf = salt.byteLength === 0 ? new ArrayBuffer(this.hashSize) : toArrayBuffer(salt), ikmBuf = toArrayBuffer(ikm);
+      if (saltBuf.byteLength !== this.hashSize && this._fallbackExtract !== void 0)
+        return this._fallbackExtract(new Uint8Array(saltBuf), new Uint8Array(ikmBuf)).buffer;
+      let key = await this._api.importKey("raw", saltBuf, { name: this.algHash.name, hash: this.algHash.hash }, !1, [
+        "sign"
+      ]);
+      return await this._api.sign("HMAC", key, ikmBuf);
+    }
+    async expand(prk, info, len) {
+      if (await this._setup(), len > 255 * this.hashSize)
+        throw new Error("Entropy limit reached");
+      let prkBuf = toArrayBuffer(prk), key = await this._api.importKey("raw", prkBuf, this.algHash, !1, [
+        "sign"
+      ]), okm = new Uint8Array(len), prev = EMPTY, mid = toUint8Array(info);
+      for (let counter = 1, offset = 0; offset < okm.length; counter++) {
+        let input = new Uint8Array(prev.length + mid.length + 1);
+        input.set(prev), input.set(mid, prev.length), input[input.length - 1] = counter, prev = new Uint8Array(await this._api.sign("HMAC", key, input));
+        let block = prev.subarray(0, Math.min(prev.length, okm.length - offset));
+        okm.set(block, offset), offset += block.length;
+      }
+      return okm.buffer;
+    }
+    async extractAndExpand(salt, ikm, info, len) {
+      await this._setup();
+      let ikmBuf = toArrayBuffer(ikm), baseKey = await this._api.importKey("raw", ikmBuf, "HKDF", !1, ["deriveBits"]);
+      return await this._api.deriveBits({
+        name: "HKDF",
+        hash: this.algHash.hash,
+        salt: toArrayBuffer(salt),
+        info: toArrayBuffer(info)
+      }, baseKey, len * 8);
+    }
+    async labeledExtract(salt, label, ikm) {
+      return await this.extract(salt, this.buildLabeledIkm(label, ikm));
+    }
+    async labeledExpand(prk, label, info, len) {
+      return await this.expand(prk, this.buildLabeledInfo(label, info, len), len);
+    }
+    _checkInit() {
+      if (this._suiteId === EMPTY)
+        throw new Error("Not initialized. Call init()");
+    }
+  }, HkdfSha256Native = class extends HkdfNative {
+    constructor() {
+      super(...arguments), Object.defineProperty(this, "id", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 1
+      }), Object.defineProperty(this, "hashSize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 32
+      }), Object.defineProperty(this, "algHash", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: {
+          name: "HMAC",
+          hash: "SHA-256",
+          length: 256
+        }
+      });
+    }
+  };
+
+  // node_modules/@hpke/common/esm/src/kems/dhkem.js
+  var LABEL_EAE_PRK = /* @__PURE__ */ new Uint8Array([
+    101,
+    97,
+    101,
+    95,
+    112,
+    114,
+    107
+  ]), LABEL_SHARED_SECRET = /* @__PURE__ */ new Uint8Array([
+    115,
+    104,
+    97,
+    114,
+    101,
+    100,
+    95,
+    115,
+    101,
+    99,
+    114,
+    101,
+    116
+  ]), Dhkem = class {
+    constructor(id, prim, kdf) {
+      Object.defineProperty(this, "id", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), Object.defineProperty(this, "secretSize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 0
+      }), Object.defineProperty(this, "encSize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 0
+      }), Object.defineProperty(this, "publicKeySize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 0
+      }), Object.defineProperty(this, "privateKeySize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 0
+      }), Object.defineProperty(this, "_prim", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), Object.defineProperty(this, "_kdf", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), this.id = id, this._prim = prim, this._kdf = kdf;
+      let suiteId = new Uint8Array(SUITE_ID_HEADER_KEM);
+      suiteId.set(i2Osp(this.id, 2), 3), this._kdf.init(suiteId);
+    }
+    async serializePublicKey(key) {
+      return await this._prim.serializePublicKey(key);
+    }
+    async deserializePublicKey(key) {
+      return await this._prim.deserializePublicKey(toArrayBuffer(key));
+    }
+    async serializePrivateKey(key) {
+      return await this._prim.serializePrivateKey(key);
+    }
+    async deserializePrivateKey(key) {
+      return await this._prim.deserializePrivateKey(toArrayBuffer(key));
+    }
+    async importKey(format, key, isPublic = !0) {
+      return await this._prim.importKey(format, key, isPublic);
+    }
+    async generateKeyPair() {
+      return await this._prim.generateKeyPair();
+    }
+    async deriveKeyPair(ikm) {
+      let rawIkm = toArrayBuffer(ikm);
+      if (rawIkm.byteLength > 8192)
+        throw new InvalidParamError("Too long ikm");
+      return await this._prim.deriveKeyPair(rawIkm);
+    }
+    async encap(params) {
+      let ke;
+      params.ekm === void 0 ? ke = await this.generateKeyPair() : isCryptoKeyPair(params.ekm) ? ke = params.ekm : ke = await this.deriveKeyPair(params.ekm);
+      let enc = await this._prim.serializePublicKey(ke.publicKey), pkrm = await this._prim.serializePublicKey(params.recipientPublicKey), dh = EMPTY, dh1 = EMPTY, dh2 = EMPTY;
+      try {
+        dh1 = new Uint8Array(await this._prim.dh(ke.privateKey, params.recipientPublicKey)), dh = dh1;
+        let pksm = EMPTY;
+        if (params.senderKey !== void 0) {
+          let sks = isCryptoKeyPair(params.senderKey) ? params.senderKey.privateKey : params.senderKey;
+          dh2 = new Uint8Array(await this._prim.dh(sks, params.recipientPublicKey)), dh = concat(dh1, dh2), dh1.fill(0), dh2.fill(0);
+          let pks = isCryptoKeyPair(params.senderKey) ? params.senderKey.publicKey : await this._prim.derivePublicKey(params.senderKey);
+          pksm = new Uint8Array(await this._prim.serializePublicKey(pks));
+        }
+        let kemContext = concat(new Uint8Array(enc), new Uint8Array(pkrm), pksm), sharedSecret = await this._generateSharedSecret(dh, kemContext);
+        return {
+          enc,
+          sharedSecret
+        };
+      } catch (e) {
+        throw new EncapError(e);
+      } finally {
+        dh.fill(0), dh1.fill(0), dh2.fill(0);
+      }
+    }
+    async decap(params) {
+      let enc = toArrayBuffer(params.enc), pke = await this._prim.deserializePublicKey(enc), skr = isCryptoKeyPair(params.recipientKey) ? params.recipientKey.privateKey : params.recipientKey, pkr = isCryptoKeyPair(params.recipientKey) ? params.recipientKey.publicKey : await this._prim.derivePublicKey(params.recipientKey), pkrm = await this._prim.serializePublicKey(pkr), dh = EMPTY, dh1 = EMPTY, dh2 = EMPTY;
+      try {
+        dh1 = new Uint8Array(await this._prim.dh(skr, pke)), dh = dh1;
+        let pksm = EMPTY;
+        params.senderPublicKey !== void 0 && (dh2 = new Uint8Array(await this._prim.dh(skr, params.senderPublicKey)), dh = concat(dh1, dh2), dh1.fill(0), dh2.fill(0), pksm = new Uint8Array(await this._prim.serializePublicKey(params.senderPublicKey)));
+        let kemContext = concat(new Uint8Array(enc), new Uint8Array(pkrm), pksm);
+        return await this._generateSharedSecret(dh, kemContext);
+      } catch (e) {
+        throw new DecapError(e);
+      } finally {
+        dh.fill(0), dh1.fill(0), dh2.fill(0);
+      }
+    }
+    async _generateSharedSecret(dh, kemContext) {
+      let labeledIkm = this._kdf.buildLabeledIkm(LABEL_EAE_PRK, dh);
+      try {
+        let labeledInfo = this._kdf.buildLabeledInfo(LABEL_SHARED_SECRET, kemContext, this.secretSize);
+        return await this._kdf.extractAndExpand(EMPTY, labeledIkm, labeledInfo, this.secretSize);
+      } finally {
+        labeledIkm.fill(0);
+      }
+    }
+  };
+
+  // node_modules/@hpke/common/esm/src/interfaces/dhkemPrimitives.js
+  var KEM_USAGES = ["deriveBits"], LABEL_DKP_PRK = /* @__PURE__ */ new Uint8Array([
+    100,
+    107,
+    112,
+    95,
+    112,
+    114,
+    107
+  ]);
+
+  // node_modules/@hpke/common/esm/src/kems/dhkemPrimitives/ecDhkemPrimitives.js
+  var LABEL_CANDIDATE = /* @__PURE__ */ new Uint8Array([
+    99,
+    97,
+    110,
+    100,
+    105,
+    100,
+    97,
+    116,
+    101
+  ]), EC_P_256 = {
+    namedCurve: "P-256",
+    size: 32,
+    bitmask: 255,
+    // deno-fmt-ignore
+    pkcs8AlgId: /* @__PURE__ */ new Uint8Array([
+      48,
+      65,
+      2,
+      1,
+      0,
+      48,
+      19,
+      6,
+      7,
+      42,
+      134,
+      72,
+      206,
+      61,
+      2,
+      1,
+      6,
+      8,
+      42,
+      134,
+      72,
+      206,
+      61,
+      3,
+      1,
+      7,
+      4,
+      39,
+      48,
+      37,
+      2,
+      1,
+      1,
+      4,
+      32
+    ]),
+    n: 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551n
+  };
+  function bigIntToBytes(v, len) {
+    let out = new Uint8Array(len), n = v;
+    for (let i = len - 1; i >= 0; i--)
+      out[i] = Number(n & 0xffn), n >>= 8n;
+    if (n !== 0n)
+      throw new Error("Invalid coordinate length");
+    return out;
+  }
+  function lessThan(a, b) {
+    for (let i = 0; i < a.length; i++)
+      if (a[i] !== b[i])
+        return a[i] < b[i];
+    return !1;
+  }
+  function isZero(a) {
+    let acc = 0;
+    for (let i = 0; i < a.length; i++)
+      acc |= a[i];
+    return acc === 0;
+  }
+  var EcDhkemPrimitives = class extends NativeAlgorithm {
+    /**
+     * @param curve The curve parameters ({@link EC_P_256}, {@link EC_P_384} or {@link EC_P_521}).
+     * @param hkdf The KDF used for DeriveKeyPair.
+     */
+    constructor(curve, hkdf) {
+      super(), Object.defineProperty(this, "_hkdf", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), Object.defineProperty(this, "_curve", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), Object.defineProperty(this, "_alg", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), Object.defineProperty(this, "_nPk", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), Object.defineProperty(this, "_nSk", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), this._hkdf = hkdf, this._curve = curve, this._alg = { name: "ECDH", namedCurve: curve.namedCurve }, this._nPk = 1 + curve.size * 2, this._nSk = curve.size;
+    }
+    async serializePublicKey(key) {
+      await this._setup();
+      try {
+        return await this._api.exportKey("raw", key);
+      } catch (e) {
+        throw new SerializeError(e);
+      }
+    }
+    async deserializePublicKey(key) {
+      await this._setup();
+      try {
+        return await this._importRawKey(toArrayBuffer(key), !0);
+      } catch (e) {
+        throw new DeserializeError(e);
+      }
+    }
+    async serializePrivateKey(key) {
+      await this._setup();
+      try {
+        let jwk = await this._api.exportKey("jwk", key);
+        if (!("d" in jwk))
+          throw new Error("Not private key");
+        return base64UrlToBytes(jwk.d).buffer;
+      } catch (e) {
+        throw new SerializeError(e);
+      }
+    }
+    async deserializePrivateKey(key) {
+      await this._setup();
+      try {
+        return await this._importRawKey(toArrayBuffer(key), !1);
+      } catch (e) {
+        throw new DeserializeError(e);
+      }
+    }
+    async importKey(format, key, isPublic) {
+      await this._setup();
+      try {
+        if (format === "raw")
+          return await this._importRawKey(key, isPublic);
+        if (key instanceof ArrayBuffer)
+          throw new Error("Invalid jwk key format");
+        return await this._importJWK(key, isPublic);
+      } catch (e) {
+        throw new DeserializeError(e);
+      }
+    }
+    async generateKeyPair() {
+      await this._setup();
+      try {
+        return await this._api.generateKey(this._alg, !0, KEM_USAGES);
+      } catch (e) {
+        throw new NotSupportedError(e);
+      }
+    }
+    async deriveKeyPair(ikm) {
+      await this._setup();
+      try {
+        let rawIkm = toArrayBuffer(ikm), dkpPrk = await this._hkdf.labeledExtract(EMPTY, LABEL_DKP_PRK, new Uint8Array(rawIkm)), order = bigIntToBytes(this._curve.n, this._nSk), sk;
+        for (let counter = 0; sk === void 0; counter++) {
+          if (counter > 255)
+            throw new Error("Faild to derive a key pair");
+          let bytes2 = new Uint8Array(await this._hkdf.labeledExpand(dkpPrk, LABEL_CANDIDATE, i2Osp(counter, 1), this._nSk));
+          bytes2[0] = bytes2[0] & this._curve.bitmask, !isZero(bytes2) && lessThan(bytes2, order) && (sk = await this._deserializePkcs8Key(bytes2)), bytes2.fill(0);
+        }
+        return {
+          privateKey: sk,
+          publicKey: await this.derivePublicKey(sk)
+        };
+      } catch (e) {
+        throw new DeriveKeyPairError(e);
+      }
+    }
+    async derivePublicKey(key) {
+      await this._setup();
+      let api = this._api;
+      try {
+        let jwk;
+        try {
+          jwk = await api.exportKey("jwk", key);
+        } catch {
+          jwk = await api.exportKey("jwk", await api.importKey("pkcs8", await api.exportKey("pkcs8", key), this._alg, !0, KEM_USAGES));
+        }
+        return delete jwk.d, delete jwk.key_ops, await api.importKey("jwk", jwk, this._alg, !0, []);
+      } catch (e) {
+        throw new DeserializeError(e);
+      }
+    }
+    async dh(sk, pk) {
+      try {
+        return await this._setup(), await this._api.deriveBits({
+          name: "ECDH",
+          public: pk
+        }, sk, this._nSk * 8);
+      } catch (e) {
+        throw new SerializeError(e);
+      }
+    }
+    async _importRawKey(key, isPublic) {
+      if (isPublic && key.byteLength !== this._nPk)
+        throw new Error("Invalid public key for the ciphersuite");
+      if (!isPublic && key.byteLength !== this._nSk)
+        throw new Error("Invalid private key for the ciphersuite");
+      return isPublic ? await this._api.importKey("raw", key, this._alg, !0, []) : await this._deserializePkcs8Key(new Uint8Array(key));
+    }
+    async _importJWK(key, isPublic) {
+      if (typeof key.crv > "u" || key.crv !== this._alg.namedCurve)
+        throw new Error(`Invalid crv: ${key.crv}`);
+      if (isPublic) {
+        if (typeof key.d < "u")
+          throw new Error("Invalid key: `d` should not be set");
+        return await this._api.importKey("jwk", key, this._alg, !0, []);
+      }
+      if (typeof key.d > "u")
+        throw new Error("Invalid key: `d` not found");
+      return await this._api.importKey("jwk", key, this._alg, !0, KEM_USAGES);
+    }
+    async _deserializePkcs8Key(k) {
+      let algId = this._curve.pkcs8AlgId, pkcs8Key = new Uint8Array(algId.length + k.length);
+      pkcs8Key.set(algId, 0), pkcs8Key.set(k, algId.length);
+      try {
+        return await this._api.importKey("pkcs8", pkcs8Key, this._alg, !0, KEM_USAGES);
+      } finally {
+        pkcs8Key.fill(0);
+      }
+    }
+  };
+
+  // node_modules/@hpke/common/esm/src/interfaces/aeadEncryptionContext.js
+  var AEAD_USAGES = ["encrypt", "decrypt"];
+
+  // node_modules/@hpke/core/esm/src/aeads/aesGcm.js
+  var AesGcmContext = class extends NativeAlgorithm {
+    constructor(key) {
+      super(), Object.defineProperty(this, "_rawKey", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), Object.defineProperty(this, "_key", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), this._rawKey = toArrayBuffer(key);
+    }
+    async seal(iv, data, aad) {
+      await this._setupKey();
+      let alg = {
+        name: "AES-GCM",
+        iv: toArrayBuffer(iv),
+        additionalData: toArrayBuffer(aad)
+      };
+      return await this._api.encrypt(alg, this._key, toArrayBuffer(data));
+    }
+    async open(iv, data, aad) {
+      await this._setupKey();
+      let alg = {
+        name: "AES-GCM",
+        iv: toArrayBuffer(iv),
+        additionalData: toArrayBuffer(aad)
+      };
+      return await this._api.decrypt(alg, this._key, toArrayBuffer(data));
+    }
+    async _setupKey() {
+      if (this._key !== void 0)
+        return;
+      await this._setup();
+      let key = await this._importKey(this._rawKey);
+      new Uint8Array(this._rawKey).fill(0), this._key = key;
+    }
+    async _importKey(key) {
+      return await this._api.importKey("raw", key, { name: "AES-GCM" }, !0, AEAD_USAGES);
+    }
+  }, Aes128Gcm = class {
+    constructor() {
+      Object.defineProperty(this, "id", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 1
+      }), Object.defineProperty(this, "keySize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 16
+      }), Object.defineProperty(this, "nonceSize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 12
+      }), Object.defineProperty(this, "tagSize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 16
+      });
+    }
+    createEncryptionContext(key) {
+      return new AesGcmContext(key);
+    }
+  };
+
+  // node_modules/@hpke/core/esm/src/exporterContext.js
+  var LABEL_SEC = new Uint8Array([115, 101, 99]), ExporterContextImpl = class {
+    constructor(kdf, exporterSecret) {
+      Object.defineProperty(this, "exporterSecret", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), Object.defineProperty(this, "_kdf", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), this._kdf = kdf, this.exporterSecret = exporterSecret;
+    }
+    seal(_data, _aad) {
+      return Promise.reject(new NotSupportedError("Not supported"));
+    }
+    open(_data, _aad) {
+      return Promise.reject(new NotSupportedError("Not supported"));
+    }
+    async export(exporterContext, len) {
+      let rawExporterContext = toArrayBuffer(exporterContext);
+      if (rawExporterContext.byteLength > 8192)
+        throw new InvalidParamError("Too long exporter context");
+      try {
+        return await this._kdf.labeledExpand(this.exporterSecret, LABEL_SEC, new Uint8Array(rawExporterContext), len);
+      } catch (e) {
+        throw new ExportError(e);
+      }
+    }
+  }, RecipientExporterContextImpl = class extends ExporterContextImpl {
+  }, SenderExporterContextImpl = class extends ExporterContextImpl {
+    constructor(kdf, exporterSecret, enc) {
+      super(kdf, exporterSecret), Object.defineProperty(this, "enc", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), this.enc = enc;
+    }
+  };
+
+  // node_modules/@hpke/core/esm/src/encryptionContext.js
+  var EncryptionContextImpl = class extends ExporterContextImpl {
+    constructor(kdf, params) {
+      super(kdf, params.exporterSecret), Object.defineProperty(this, "_ctx", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), this._ctx = {
+        key: params.aead.createEncryptionContext(params.key),
+        baseNonce: params.baseNonce,
+        seq: params.seq
+      };
+    }
+    computeNonce(k) {
+      let seqBytes = i2Osp(k.seq, k.baseNonce.byteLength);
+      return xor(k.baseNonce, seqBytes).buffer;
+    }
+    incrementSeq(k) {
+      if (k.seq > Number.MAX_SAFE_INTEGER)
+        throw new MessageLimitReachedError("Message limit reached");
+      k.seq += 1;
+    }
+  };
+
+  // node_modules/@hpke/core/esm/src/mutex.js
+  var __classPrivateFieldGet = function(receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state == "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
+  }, __classPrivateFieldSet = function(receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state == "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value), value;
+  }, _Mutex_locked, Mutex = class {
+    constructor() {
+      _Mutex_locked.set(this, Promise.resolve());
+    }
+    async lock() {
+      let releaseLock, nextLock = new Promise((resolve) => {
+        releaseLock = resolve;
+      }), previousLock = __classPrivateFieldGet(this, _Mutex_locked, "f");
+      return __classPrivateFieldSet(this, _Mutex_locked, nextLock, "f"), await previousLock, releaseLock;
+    }
+  };
+  _Mutex_locked = /* @__PURE__ */ new WeakMap();
+
+  // node_modules/@hpke/core/esm/src/recipientContext.js
+  var __classPrivateFieldGet2 = function(receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state == "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
+  }, __classPrivateFieldSet2 = function(receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state == "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value), value;
+  }, _RecipientContextImpl_mutex, RecipientContextImpl = class extends EncryptionContextImpl {
+    constructor() {
+      super(...arguments), _RecipientContextImpl_mutex.set(this, void 0);
+    }
+    async open(data, aad = EMPTY.buffer) {
+      __classPrivateFieldSet2(this, _RecipientContextImpl_mutex, __classPrivateFieldGet2(this, _RecipientContextImpl_mutex, "f") ?? new Mutex(), "f");
+      let release = await __classPrivateFieldGet2(this, _RecipientContextImpl_mutex, "f").lock(), pt;
+      try {
+        pt = await this._ctx.key.open(this.computeNonce(this._ctx), toArrayBuffer(data), toArrayBuffer(aad));
+      } catch (e) {
+        throw new OpenError(e);
+      } finally {
+        release();
+      }
+      return this.incrementSeq(this._ctx), pt;
+    }
+  };
+  _RecipientContextImpl_mutex = /* @__PURE__ */ new WeakMap();
+
+  // node_modules/@hpke/core/esm/src/senderContext.js
+  var __classPrivateFieldGet3 = function(receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state == "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
+  }, __classPrivateFieldSet3 = function(receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state == "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value), value;
+  }, _SenderContextImpl_mutex, SenderContextImpl = class extends EncryptionContextImpl {
+    constructor(kdf, params, enc) {
+      super(kdf, params), Object.defineProperty(this, "enc", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), _SenderContextImpl_mutex.set(this, void 0), this.enc = enc;
+    }
+    async seal(data, aad = EMPTY.buffer) {
+      __classPrivateFieldSet3(this, _SenderContextImpl_mutex, __classPrivateFieldGet3(this, _SenderContextImpl_mutex, "f") ?? new Mutex(), "f");
+      let release = await __classPrivateFieldGet3(this, _SenderContextImpl_mutex, "f").lock(), ct;
+      try {
+        ct = await this._ctx.key.seal(this.computeNonce(this._ctx), toArrayBuffer(data), toArrayBuffer(aad));
+      } catch (e) {
+        throw new SealError(e);
+      } finally {
+        release();
+      }
+      return this.incrementSeq(this._ctx), ct;
+    }
+  };
+  _SenderContextImpl_mutex = /* @__PURE__ */ new WeakMap();
+
+  // node_modules/@hpke/core/esm/src/utils.js
+  function checkAuthSupport(kem) {
+    if ("auth" in kem && kem.auth === !1)
+      throw new NotSupportedError("Auth and AuthPSK modes are not supported by this KEM");
+  }
+
+  // node_modules/@hpke/core/esm/src/cipherSuiteNative.js
+  var LABEL_BASE_NONCE = new Uint8Array([
+    98,
+    97,
+    115,
+    101,
+    95,
+    110,
+    111,
+    110,
+    99,
+    101
+  ]), LABEL_EXP = new Uint8Array([101, 120, 112]), LABEL_INFO_HASH = new Uint8Array([
+    105,
+    110,
+    102,
+    111,
+    95,
+    104,
+    97,
+    115,
+    104
+  ]), LABEL_KEY = new Uint8Array([107, 101, 121]), LABEL_PSK_ID_HASH = new Uint8Array([
+    112,
+    115,
+    107,
+    95,
+    105,
+    100,
+    95,
+    104,
+    97,
+    115,
+    104
+  ]), LABEL_SECRET = new Uint8Array([115, 101, 99, 114, 101, 116]), SUITE_ID_HEADER_HPKE = new Uint8Array([
+    72,
+    80,
+    75,
+    69,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ]), CipherSuiteNative = class extends NativeAlgorithm {
+    /**
+     * @param params A set of parameters for building a cipher suite.
+     *
+     * If the error occurred, throws {@link InvalidParamError}.
+     *
+     * @throws {@link InvalidParamError}
+     */
+    constructor(params) {
+      if (super(), Object.defineProperty(this, "_kem", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), Object.defineProperty(this, "_kdf", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), Object.defineProperty(this, "_aead", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), Object.defineProperty(this, "_suiteId", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: void 0
+      }), typeof params.kem == "number")
+        throw new InvalidParamError("KemId cannot be used");
+      if (this._kem = params.kem, typeof params.kdf == "number")
+        throw new InvalidParamError("KdfId cannot be used");
+      if (this._kdf = params.kdf, typeof params.aead == "number")
+        throw new InvalidParamError("AeadId cannot be used");
+      this._aead = params.aead, this._suiteId = new Uint8Array(SUITE_ID_HEADER_HPKE), this._suiteId.set(i2Osp(this._kem.id, 2), 4), this._suiteId.set(i2Osp(this._kdf.id, 2), 6), this._suiteId.set(i2Osp(this._aead.id, 2), 8), this._kdf.init(this._suiteId);
+    }
+    /**
+     * Gets the KEM context of the ciphersuite.
+     */
+    get kem() {
+      return this._kem;
+    }
+    /**
+     * Gets the KDF context of the ciphersuite.
+     */
+    get kdf() {
+      return this._kdf;
+    }
+    /**
+     * Gets the AEAD context of the ciphersuite.
+     */
+    get aead() {
+      return this._aead;
+    }
+    /**
+     * Creates an encryption context for a sender.
+     *
+     * If the error occurred, throws {@link DecapError} | {@link ValidationError}.
+     *
+     * @param params A set of parameters for the sender encryption context.
+     * @returns A sender encryption context.
+     * @throws {@link NotSupportedError} if the KEM does not support authentication.
+     * @throws {@link EncapError}, {@link ValidationError}
+     */
+    async createSenderContext(params) {
+      params.senderKey !== void 0 && checkAuthSupport(this._kem), this._validateInputLength(params), await this._setup();
+      let dh = await this._kem.encap(params), mode = (params.psk !== void 0 ? 1 : 0) | (params.senderKey !== void 0 ? 2 : 0);
+      return await this._keyScheduleS(mode, dh.sharedSecret, dh.enc, params);
+    }
+    /**
+     * Creates an encryption context for a recipient.
+     *
+     * If the error occurred, throws {@link DecapError}
+     * | {@link DeserializeError} | {@link ValidationError}.
+     *
+     * @param params A set of parameters for the recipient encryption context.
+     * @returns A recipient encryption context.
+     * @throws {@link NotSupportedError} if the KEM does not support authentication.
+     * @throws {@link DecapError}, {@link DeserializeError}, {@link ValidationError}
+     */
+    async createRecipientContext(params) {
+      params.senderPublicKey !== void 0 && checkAuthSupport(this._kem), this._validateInputLength(params), await this._setup();
+      let sharedSecret = await this._kem.decap(params), mode = (params.psk !== void 0 ? 1 : 0) | (params.senderPublicKey !== void 0 ? 2 : 0);
+      return await this._keyScheduleR(mode, sharedSecret, params);
+    }
+    /**
+     * Encrypts a message to a recipient.
+     *
+     * If the error occurred, throws `EncapError` | `MessageLimitReachedError` | `SealError` | `ValidationError`.
+     *
+     * @param params A set of parameters for building a sender encryption context.
+     * @param pt A plain text as bytes to be encrypted.
+     * @param aad Additional authenticated data as bytes fed by an application.
+     * @returns A cipher text and an encapsulated key as bytes.
+     * @throws {@link EncapError}, {@link MessageLimitReachedError}, {@link SealError}, {@link ValidationError}
+     */
+    async seal(params, pt, aad = EMPTY.buffer) {
+      let ctx = await this.createSenderContext(params);
+      return {
+        ct: await ctx.seal(pt, aad),
+        enc: ctx.enc
+      };
+    }
+    /**
+     * Decrypts a message from a sender.
+     *
+     * If the error occurred, throws `DecapError` | `DeserializeError` | `OpenError` | `ValidationError`.
+     *
+     * @param params A set of parameters for building a recipient encryption context.
+     * @param ct An encrypted text as bytes to be decrypted.
+     * @param aad Additional authenticated data as bytes fed by an application.
+     * @returns A decrypted plain text as bytes.
+     * @throws {@link DecapError}, {@link DeserializeError}, {@link OpenError}, {@link ValidationError}
+     */
+    async open(params, ct, aad = EMPTY.buffer) {
+      return await (await this.createRecipientContext(params)).open(ct, aad);
+    }
+    // private verifyPskInputs(mode: Mode, params: KeyScheduleParams) {
+    //   const gotPsk = (params.psk !== undefined);
+    //   const gotPskId = (params.psk !== undefined && params.psk.id.byteLength > 0);
+    //   if (gotPsk !== gotPskId) {
+    //     throw new Error('Inconsistent PSK inputs');
+    //   }
+    //   if (gotPsk && (mode === Mode.Base || mode === Mode.Auth)) {
+    //     throw new Error('PSK input provided when not needed');
+    //   }
+    //   if (!gotPsk && (mode === Mode.Psk || mode === Mode.AuthPsk)) {
+    //     throw new Error('Missing required PSK input');
+    //   }
+    //   return;
+    // }
+    async _keySchedule(mode, sharedSecret, params) {
+      let pskId = params.psk === void 0 ? EMPTY : toUint8Array(params.psk.id), pskIdHash = await this._kdf.labeledExtract(EMPTY, LABEL_PSK_ID_HASH, pskId), info = params.info === void 0 ? EMPTY : toUint8Array(params.info), infoHash = await this._kdf.labeledExtract(EMPTY, LABEL_INFO_HASH, info), keyScheduleContext = concat(new Uint8Array([mode]), new Uint8Array(pskIdHash), new Uint8Array(infoHash)), psk = params.psk === void 0 ? EMPTY : toUint8Array(params.psk.key), ikm = this._kdf.buildLabeledIkm(LABEL_SECRET, psk), exporterSecretInfo = this._kdf.buildLabeledInfo(LABEL_EXP, keyScheduleContext, this._kdf.hashSize), exporterSecret = await this._kdf.extractAndExpand(sharedSecret, ikm, exporterSecretInfo, this._kdf.hashSize);
+      if (this._aead.id === 65535)
+        return { aead: this._aead, exporterSecret };
+      let keyInfo = this._kdf.buildLabeledInfo(LABEL_KEY, keyScheduleContext, this._aead.keySize), key = await this._kdf.extractAndExpand(sharedSecret, ikm, keyInfo, this._aead.keySize), baseNonceInfo = this._kdf.buildLabeledInfo(LABEL_BASE_NONCE, keyScheduleContext, this._aead.nonceSize), baseNonce = await this._kdf.extractAndExpand(sharedSecret, ikm, baseNonceInfo, this._aead.nonceSize);
+      return {
+        aead: this._aead,
+        exporterSecret,
+        key,
+        baseNonce: new Uint8Array(baseNonce),
+        seq: 0
+      };
+    }
+    async _keyScheduleS(mode, sharedSecret, enc, params) {
+      let res = await this._keySchedule(mode, sharedSecret, params);
+      return res.key === void 0 ? new SenderExporterContextImpl(this._kdf, res.exporterSecret, enc) : new SenderContextImpl(this._kdf, res, enc);
+    }
+    async _keyScheduleR(mode, sharedSecret, params) {
+      let res = await this._keySchedule(mode, sharedSecret, params);
+      return res.key === void 0 ? new RecipientExporterContextImpl(this._kdf, res.exporterSecret) : new RecipientContextImpl(this._kdf, res);
+    }
+    _validateInputLength(params) {
+      if (params.info !== void 0 && params.info.byteLength > 268435456)
+        throw new InvalidParamError("Too long info");
+      if (params.psk !== void 0) {
+        if (params.psk.key.byteLength < 32)
+          throw new InvalidParamError(`PSK must have at least ${32} bytes`);
+        if (params.psk.key.byteLength > 8192)
+          throw new InvalidParamError("Too long psk.key");
+        if (params.psk.id.byteLength > 8192)
+          throw new InvalidParamError("Too long psk.id");
+      }
+    }
+  };
+
+  // node_modules/@hpke/core/esm/src/kems/dhkemNative.js
+  var DhkemP256HkdfSha256Native = class extends Dhkem {
+    constructor() {
+      let kdf = new HkdfSha256Native(), prim = new EcDhkemPrimitives(EC_P_256, kdf);
+      super(16, prim, kdf), Object.defineProperty(this, "id", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 16
+      }), Object.defineProperty(this, "secretSize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 32
+      }), Object.defineProperty(this, "encSize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 65
+      }), Object.defineProperty(this, "publicKeySize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 65
+      }), Object.defineProperty(this, "privateKeySize", {
+        enumerable: !0,
+        configurable: !0,
+        writable: !0,
+        value: 32
+      });
+    }
+  };
+
+  // node_modules/@hpke/core/esm/src/native.js
+  var CipherSuite = class extends CipherSuiteNative {
+  }, DhkemP256HkdfSha256 = class extends DhkemP256HkdfSha256Native {
+  };
+  var HkdfSha256 = class extends HkdfSha256Native {
+  };
+
+  // src/core/sync-pairing-code.js
+  var suite = new CipherSuite({ kem: new DhkemP256HkdfSha256(), kdf: new HkdfSha256(), aead: new Aes128Gcm() }), utf8 = new TextEncoder(), decodeAscii = new TextDecoder("utf-8", { fatal: !0 }), PAIR_REQUEST = "SGSP1", PAIR_INVITE = "SGSI2", PAIR_UPDATE = "SGSU2", PIN_FORMAT = /^[0-9]{4}$/, domainFormat = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/;
+  function base64url(bytes2) {
+    let binary = "";
+    for (let byte of bytes2) binary += String.fromCharCode(byte);
+    return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  }
+  function fromBase64url(value, length) {
+    if (typeof value != "string" || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error("invalid_code");
+    let bytes2 = Uint8Array.from(atob(value.replaceAll("-", "+").replaceAll("_", "/")), (char) => char.charCodeAt(0));
+    if (base64url(bytes2) !== value || length !== void 0 && bytes2.length !== length) throw new Error("invalid_code");
+    return bytes2;
+  }
+  function joinBytes(...parts) {
+    let bytes2 = new Uint8Array(parts.reduce((size, part) => size + part.length, 0)), offset = 0;
+    for (let part of parts)
+      bytes2.set(part, offset), offset += part.length;
+    return bytes2;
+  }
+  function unpack(code, prefix2, limit2) {
+    let value = typeof code == "string" ? code.trim() : "";
+    if (value.length > limit2 || !value.startsWith(prefix2 + ".")) throw new Error("invalid_code");
+    return fromBase64url(value.slice(prefix2.length + 1));
+  }
+  async function createPairingRequest(crypto) {
+    let id = crypto.getRandomValues(new Uint8Array(16)), keys = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, !1, ["deriveBits"]), publicKey = new Uint8Array(await crypto.subtle.exportKey("raw", keys.publicKey));
+    return { id: base64url(id), code: PAIR_REQUEST + "." + base64url(joinBytes(id, publicKey)), keys };
+  }
+  function parseEndpoint(bytes2, invite) {
+    let flags = bytes2[0], hasIpv4 = flags & 4, hasIpv6 = flags & 8, hasDomain = flags & 16, min = 72 + (invite ? 32 : 0) + (hasIpv4 ? 4 : 0) + (hasIpv6 ? 16 : 0);
+    if (flags & 224 || !hasIpv4 && !hasIpv6 || bytes2.length < min) throw new Error("invalid_endpoint");
+    let view = new DataView(bytes2.buffer, bytes2.byteOffset, bytes2.byteLength), port = view.getUint16(1), expiry = view.getUint32(3);
+    if (!port || !expiry) throw new Error("invalid_endpoint");
+    let offset = 7, take = (length) => {
+      let value = bytes2.slice(offset, offset + length);
+      return offset += length, value;
+    }, token = invite ? base64url(take(32)) : "", signer = base64url(take(65)), ipv4 = hasIpv4 ? [...take(4)].join(".") : "", ipv6 = hasIpv6 ? take(16).reduce((groups, byte, index, ip) => index % 2 ? [...groups, (ip[index - 1] << 8 | byte).toString(16)] : groups, []).join(":") : "", domain = hasDomain ? decodeAscii.decode(take(take(1)[0])) : "";
+    if (offset !== bytes2.length || hasDomain && !domainFormat.test(domain)) throw new Error("invalid_endpoint");
+    return { tls: !!(flags & 1), local: !!(flags & 2), port, expiry, token, signer, ipv4, ipv6, domain };
+  }
+  async function openPairing(code, prefix2, findRecipientKeys) {
+    let bytes2 = unpack(code, prefix2, 640);
+    if (bytes2.length < 173) throw new Error("invalid_code");
+    let id = bytes2.slice(0, 16), requestId = base64url(id), recipientKey = await findRecipientKeys(requestId);
+    if (!recipientKey) throw new Error("pairing_device_mismatch");
+    let plaintext = await (await suite.createRecipientContext({ recipientKey, enc: bytes2.slice(16, 81), info: utf8.encode(prefix2) })).open(bytes2.slice(81), id);
+    return { ...parseEndpoint(new Uint8Array(plaintext), prefix2 === PAIR_INVITE), requestId };
+  }
+  function syncProofBytes({ nonce, origin, next, revision, challenge, stargazing }) {
+    let fields2 = [nonce, origin, next, revision, challenge];
+    return typeof stargazing == "boolean" && fields2.push(stargazing), utf8.encode(JSON.stringify(fields2));
+  }
+
+  // src/shared/general-pool-storage.js
+  var generalPoolKey = (account) => "schemes:" + account;
+
+  // src/shared/sync-preferences.js
+  var PREFERENCES_LIMIT = 4 * 1024 * 1024, PREFERENCE_GROUPS = Object.freeze(["toolbox", "generalPools", "friends", "friendLamps", "pluginSettings"]), isObject2 = (value) => value !== null && typeof value == "object" && !Array.isArray(value), has = (object2, key) => Object.prototype.hasOwnProperty.call(object2, key), oneOf = (...values) => (value) => values.includes(value), boolean = (value) => typeof value == "boolean", text2 = (limit2) => (value) => typeof value == "string" && value.length <= limit2, positiveId = (value) => Number.isSafeInteger(value) && value > 0, userId = (value) => typeof value == "string" && /^\d{10}$/.test(value) && Number(value) > 0 && Number(value) <= 4294967295, timestamp = (value) => Number.isSafeInteger(value) && value >= 0 && value <= 864e13, listOf = (test, max2) => (value) => Array.isArray(value) && value.length <= max2 && value.every(test), boolFields = (keys) => Object.fromEntries(keys.split(" ").map((key) => [key, boolean])), fields = Object.freeze({
+    fontSize: oneOf("tiny", "small", "standard", "large"),
+    fontSettingsCollapsed: boolean,
+    theme: (value) => typeof value == "string" && /^[a-z0-9][a-z0-9._-]{0,95}$/i.test(value),
+    themeWorkshopCollapsed: boolean,
+    hudEdgeBehavior: oneOf("none", "hide", "fixed"),
+    compactOpacity: oneOf(60, 80, 100),
+    screenshotHideUI: boolean,
+    screenshotShortcut: (value) => value === null || isObject2(value) && typeof value.code == "string" && /^[A-Za-z][A-Za-z0-9]{0,39}$/.test(value.code) && ["ctrl", "shift", "alt", "meta"].every((key) => boolean(value[key])),
+    compatEnabled: boolean,
+    compatPolicy: oneOf("hide", "exit-known"),
+    marketOnlyUninstalled: boolean,
+    refreshReentryEnabled: boolean,
+    cardStyle: text2(96),
+    cardFaceStyle: text2(96),
+    cardBackStyle: text2(96),
+    cardStyleScope: oneOf("self", "all"),
+    cardStyleExpanded: boolean
+  }), TOOLBOX_SYNC_KEYS = Object.freeze(Object.keys(fields)), watchFields = {
+    watchVersion: oneOf(2),
+    cards: boolean,
+    lamps: boolean,
+    scheme: oneOf("default", "custom"),
+    landlord: listOf(text2(48), 10),
+    farmer: listOf(text2(48), 10),
+    ...Object.fromEntries(["landlordIds", "farmerIds", "defaultLandlordIds", "defaultFarmerIds"].map((key) => [key, listOf((value) => value === null || positiveId(value), 10)]))
+  }, pluginFields = {
+    backgrounds: boolFields("animated attackEffects"),
+    cards: {
+      ...boolFields("recent deck discard reveals labels fourColors handSort countdown skillCounts skillHints handGroupSpacing queryExpanded"),
+      revealOpacity: oneOf(60, 80, 100),
+      revealColumns: oneOf(4, 5, 6, 7, 8),
+      discardMode: oneOf("time", "suit", "type", "number"),
+      recentMode: oneOf("player", "current"),
+      deckGroup: oneOf("name", "suit", "number"),
+      lockedSort: (value) => value === null || Number.isSafeInteger(value)
+    },
+    effects: boolFields("selection sha shan trick equip shake heal kill skill selfSkin otherSkin tianshu ad version banner notice redDot slogan emotion rogue entrance result package prob download"),
+    "play-assist": {
+      ...boolFields("skillLock autoConfirm fireAttack skipWuxie skipTao skipAssist quandaoCount rapid"),
+      rememberedSkillIds: listOf(positiveId, 1e4)
+    },
+    "player-info": { settings: isObject2 },
+    shanhetu: boolFields("labels enemies events optionImpact keepBattleBackground"),
+    skins: {
+      ...boolFields("advanced quickDownload backgroundShortcut unlockSkin unlockDynamic otherPlayers crossServer yjcmDynamicOptimization"),
+      nativeGroup: oneOf("country", "quality")
+    },
+    social: boolFields("onlyPasswordFreeRooms")
+  }, pluginSettingFields = Object.fromEntries(Object.entries(pluginFields).flatMap(([id, config]) => Object.entries(config).map(([key, test]) => [id + ":" + key, test]))), PLUGIN_SYNC_KEYS = Object.freeze(Object.keys(pluginSettingFields)), accountFields = {
+    "gaizhu:account:@:options-v1": {
+      pick: oneOf("off", "random", "order"),
+      wait: boolean,
+      autoMode: oneOf("identity", "nation", "training"),
+      stopMode: oneOf("manual", "tavern", "timed"),
+      stopHours: (value) => Number.isFinite(value) && value > 0 && Number.isSafeInteger(Math.ceil(value * 36e5))
+    },
+    "daily-rewards:account:@:options": {
+      schemaVersion: oneOf(2),
+      ...boolFields("sign mail tasks welfare activities autoFlip codes serverCodes clipboardCodes shareCodes excludeRecruit excludeCoupon excludeTrial excludeBeans")
+    }
+  }, accountListFields = { "shanhetu:followedSchools:@": listOf(positiveId, 512) }, ACCOUNT_SYNC_KEYS = Object.freeze([...Object.keys(accountFields), ...Object.keys(accountListFields)]), syncPluginStorageKey = (key, account) => key.replace(":@", ":" + account), LEDGER_THRESHOLD_PREFIX = "ledger:threshold:", ledgerThresholdKey = /^ledger:threshold:@:[1-9]\d{0,15}$/, cleanFields = (value, validators) => Object.fromEntries(Object.entries(validators).filter(([key, test]) => has(value, key) && test(value[key])).map(([key]) => [key, value[key]]));
+  function cleanPluginSettings(value) {
+    if (!isObject2(value)) throw new Error("\u63D2\u4EF6\u8BBE\u7F6E\u683C\u5F0F\u65E0\u6548");
+    let result = cleanFields(value, { ...pluginSettingFields, ...accountListFields });
+    for (let [key, validators] of Object.entries({ "player-info:settings": watchFields, ...accountFields }))
+      has(value, key) && isObject2(value[key]) && (result[key] = cleanFields(value[key], validators));
+    for (let [key, threshold] of Object.entries(value))
+      ledgerThresholdKey.test(key) && Number.isFinite(threshold) && threshold >= 0 && (result[key] = threshold);
+    return result;
+  }
+  function cleanToolbox(value) {
+    if (!isObject2(value)) throw new Error("\u5DE5\u5177\u7BB1\u8BBE\u7F6E\u683C\u5F0F\u65E0\u6548");
+    return Object.fromEntries(TOOLBOX_SYNC_KEYS.filter((key) => has(value, key) && fields[key](value[key])).map((key) => {
+      let setting = value[key];
+      if (key !== "screenshotShortcut" || setting === null) return [key, setting];
+      let { code, ctrl, shift, alt, meta } = setting;
+      return [key, { code, ctrl, shift, alt, meta }];
+    }));
+  }
+  function cleanGeneralPools(value) {
+    if (!Array.isArray(value) || value.length > 20) throw new Error("\u62D3\u5C55\u5C06\u6C60\u65B9\u6848\u683C\u5F0F\u65E0\u6548");
+    let seen = /* @__PURE__ */ new Set();
+    return value.map((row) => {
+      if (!isObject2(row) || typeof row.id != "string" || !/^[a-z0-9-]{1,80}$/i.test(row.id) || seen.has(row.id) || typeof row.name != "string" || !row.name.trim() || row.name.length > 32 || !Array.isArray(row.ids) || row.ids.some((id) => !Number.isSafeInteger(id) || id < 1)) throw new Error("\u62D3\u5C55\u5C06\u6C60\u65B9\u6848\u683C\u5F0F\u65E0\u6548");
+      return seen.add(row.id), { id: row.id, name: row.name, ids: [...new Set(row.ids)].sort((a, b) => a - b) };
+    });
+  }
+  function cleanFriends(value) {
+    if (value?.version !== 1 || !isObject2(value.friends) || !listOf(userId, 2e3)(value.pins) || !Array.isArray(value.changes) || value.changes.length > 200) throw new Error("\u597D\u53CB\u8BB0\u5F55\u683C\u5F0F\u65E0\u6548");
+    let entries = Object.entries(value.friends);
+    if (entries.length > 2e3 || !entries.every(([id, row]) => userId(id) && text2(128)(row?.name) && timestamp(row.seenAt) && (row.missingAt === void 0 || timestamp(row.missingAt)))) throw new Error("\u597D\u53CB\u5217\u8868\u683C\u5F0F\u65E0\u6548");
+    let changes = value.changes.map((row) => {
+      if (!userId(row?.id) || !text2(128)(row.from) || !text2(128)(row.to) || !timestamp(row.at)) throw new Error("\u597D\u53CB\u6539\u540D\u8BB0\u5F55\u683C\u5F0F\u65E0\u6548");
+      return { id: row.id, from: row.from, to: row.to, at: row.at };
+    });
+    return { version: 1, pins: [...new Set(value.pins)], friends: Object.fromEntries(entries.map(([id, row]) => [id, { name: row.name, seenAt: row.seenAt, ...row.missingAt && { missingAt: row.missingAt } }])), changes };
+  }
+  function cleanFriendLamps(value) {
+    if (value?.version !== 1 || !isObject2(value.friends)) throw new Error("\u597D\u53CB\u6C34\u8868\u683C\u5F0F\u65E0\u6548");
+    let entries = Object.entries(value.friends);
+    if (entries.length > 2e3) throw new Error("\u597D\u53CB\u6C34\u8868\u6570\u91CF\u8D85\u51FA\u4E0A\u9650");
+    return { version: 1, friends: Object.fromEntries(entries.map(([id, row]) => {
+      if (!userId(id) || !text2(128)(row?.name) || !timestamp(row.at) || !listOf(positiveId, 1e4)(row.ids) || row.names !== void 0 && !isObject2(row.names)) throw new Error("\u597D\u53CB\u6C34\u8868\u683C\u5F0F\u65E0\u6548");
+      let ids = [...new Set(row.ids)].sort((a, b) => a - b), names = Object.fromEntries(ids.filter((key) => row.names && has(row.names, key) && text2(128)(row.names[key])).map((key) => [key, row.names[key]]));
+      return [id, { name: row.name, ids, names, at: row.at }];
+    })) };
+  }
+  function cleanPreferences(value) {
+    if (!isObject2(value)) throw new Error("\u540C\u6B65\u8BBE\u7F6E\u683C\u5F0F\u65E0\u6548");
+    let result = {};
+    if (has(value, "toolbox") && (result.toolbox = cleanToolbox(value.toolbox)), has(value, "generalPools") && (result.generalPools = cleanGeneralPools(value.generalPools)), has(value, "friends") && (result.friends = cleanFriends(value.friends)), has(value, "friendLamps") && (result.friendLamps = cleanFriendLamps(value.friendLamps)), has(value, "pluginSettings") && (result.pluginSettings = cleanPluginSettings(value.pluginSettings)), new TextEncoder().encode(JSON.stringify(result)).length > PREFERENCES_LIMIT) throw new Error("\u540C\u6B65\u5907\u4EFD\u8D85\u8FC7 4 MB");
+    return result;
+  }
+  function mergePreferenceUpload(previous, values, { patch, preservePins } = {}) {
+    let next = { ...previous, ...values };
+    if (!patch) return next;
+    for (let group of ["toolbox", "pluginSettings"])
+      values[group] && (next[group] = { ...previous[group], ...values[group] });
+    return preservePins && values.friends && previous.friends && (next.friends = { ...values.friends, pins: previous.friends.pins }), cleanPreferences(next);
+  }
+
+  // src/core/sync-vault-records.js
+  function vaultRecords({ matches, ledger, preferences }) {
+    let { events, ...ledgerDetails } = ledger;
+    return [
+      ["ledger", "details", ledgerDetails],
+      ...events.map(({ id, ...details }) => ["event", id, details]),
+      ...matches.map(({ gameId, ...details }) => ["match", gameId, details]),
+      ...Object.entries(preferences ?? {}).map(([group, value]) => ["preferences", group, value])
+    ];
+  }
+  function vaultSnapshot(records) {
+    let matches = [], events = [], preferences = {}, ledger = EMPTY_LEDGER;
+    for (let [kind, id, details] of records)
+      kind === "match" ? matches.push({ gameId: id, ...details }) : kind === "event" ? events.push({ id, ...details }) : kind === "ledger" ? ledger = details : kind === "preferences" && PREFERENCE_GROUPS.includes(id) && (preferences[id] = details);
+    return { matches, ledger: { ...ledger, events }, ...Object.keys(preferences).length && { preferences } };
+  }
+
+  // src/core/public-sync.js
+  var encode = new TextEncoder(), decode = new TextDecoder("utf-8", { fatal: !0 }), alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ", passFormat = /^[2-9A-HJ-NP-Z]{6}$/, tokenFormat = /^[A-Za-z0-9_-]{43}$/, invalid = () => new Error("\u516C\u5171\u540C\u6B65\u51ED\u636E\u683C\u5F0F\u65E0\u6548");
+  function ledgerVersion(crypto) {
+    let bytes2 = crypto.getRandomValues(new Uint8Array(16));
+    bytes2[6] = bytes2[6] & 15 | 64, bytes2[8] = bytes2[8] & 63 | 128;
+    let hex2 = Array.from(bytes2, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return [hex2.slice(0, 8), hex2.slice(8, 12), hex2.slice(12, 16), hex2.slice(16, 20), hex2.slice(20)].join("-");
+  }
+  function publicOrigin(value) {
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new Error("\u8BF7\u8F93\u5165\u5B8C\u6574\u7684 HTTPS \u5730\u5740");
+    }
+    if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash)
+      throw new Error("\u8BF7\u8F93\u5165 HTTPS \u670D\u52A1\u5668\u5730\u5740\uFF0C\u5730\u5740\u4E2D\u65E0\u9700\u586B\u5199\u8DEF\u5F84");
+    return url.origin;
+  }
+  function randomPass(crypto) {
+    let value;
+    do
+      value = Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) => alphabet[byte & 31]).join("");
+    while (!/[2-9]/.test(value) || !/[A-Z]/.test(value));
+    return value;
+  }
+  var pack = (prefix2, values) => prefix2 + "." + base64url(encode.encode(JSON.stringify(values)));
+  function unpack2(prefix2, value, count) {
+    try {
+      if (!value.startsWith(prefix2 + ".") || value.length > 1600) throw invalid();
+      let data = JSON.parse(decode.decode(fromBase64url(value.slice(prefix2.length + 1))));
+      if (!Array.isArray(data) || data.length !== count || data.some((value2) => typeof value2 != "string")) throw invalid();
+      return data;
+    } catch {
+      throw invalid();
+    }
+  }
+  var publicRecovery = ({ origin, signer, vault, credential, seed, password, gameKey }) => pack("SGSC1", [origin, signer, vault, credential, seed, password, gameKey]);
+  function readPublicRecovery(value) {
+    let [origin, signer, vault, credential, seed, password, gameKey] = unpack2("SGSC1", value.trim(), 7);
+    if (![vault, credential, seed].every((item) => tokenFormat.test(item)) || !passFormat.test(password) || !/^[a-f0-9]{64}$/.test(gameKey)) throw invalid();
+    return fromBase64url(signer, 65), { origin: publicOrigin(origin), signer, vault, credential, seed, password, gameKey };
+  }
+  var publicViewCode = ({ origin, vault, seed }) => pack("SGSV1", [origin, vault, seed]);
+  async function createVaultCipher(crypto, { vault, seed, password }) {
+    let material = await crypto.subtle.importKey("raw", encode.encode(seed + ":" + password), "PBKDF2", !1, ["deriveBits"]), bits2 = new Uint8Array(await crypto.subtle.deriveBits({
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: encode.encode("sgs-public-vault-v1:" + vault),
+      iterations: 6e5
+    }, material, 512)), key = await crypto.subtle.importKey("raw", bits2.slice(0, 32), "AES-GCM", !1, ["encrypt", "decrypt"]), params = (iv, kind, id) => ({ name: "AES-GCM", iv, additionalData: encode.encode(JSON.stringify([vault, kind, id])) });
+    return {
+      verifier: base64url(bits2.slice(32)),
+      async seal([kind, id, details]) {
+        let iv = crypto.getRandomValues(new Uint8Array(12)), data = new Uint8Array(await crypto.subtle.encrypt(params(iv, kind, id), key, encode.encode(JSON.stringify(details)))), envelope = new Uint8Array(iv.length + data.length);
+        return envelope.set(iv), envelope.set(data, iv.length), [kind, id, base64url(envelope)];
+      },
+      async open([kind, id, envelope]) {
+        let bytes2 = fromBase64url(envelope), data = await crypto.subtle.decrypt(params(bytes2.subarray(0, 12), kind, id), key, bytes2.subarray(12));
+        return [kind, id, JSON.parse(decode.decode(data))];
+      }
+    };
+  }
+  function createPublicTransport(crypto, post) {
+    let states = /* @__PURE__ */ new WeakMap(), authorize = ({ vault, credential }) => ({ vault, credential });
+    async function stateFor(entry) {
+      return states.has(entry) || states.set(entry, createVaultCipher(crypto, entry).then((cipher) => ({
+        cipher,
+        revision: -1,
+        snapshot: { ledger: EMPTY_LEDGER, matches: [] },
+        pending: Promise.resolve()
+      }))), states.get(entry);
+    }
+    async function exchange(entry, origin, path, data, signal) {
+      if (path === BACKUP_READ_PATH) {
+        let { cipher } = await stateFor(entry), reply = await post(origin, "/v2/vault/backup", { ...authorize(entry), device: entry.device }, { signal });
+        return reply.retryAfter ? reply : { snapshot: vaultSnapshot(await Promise.all(reply.snapshot.map(cipher.open))), cursor: reply.cursor };
+      }
+      if (path === SYNC_CHANGES_PATH) {
+        let { cipher } = await stateFor(entry), reply = await post(origin, PUBLIC_CHANGES_PATH, { ...authorize(entry), after: data.after }, { signal });
+        if (reply.reset) return reply;
+        let records = await Promise.all(reply.records.map((row) => row[2] === null ? row : cipher.open(row)));
+        return { ...reply, records };
+      }
+      let state = await stateFor(entry), auth = authorize(entry), keys;
+      data.uploadOnly && (path === PREFERENCES_SYNC_PATH ? keys = data.groups.map((group) => ["preferences", group]) : path === LEDGER_SYNC_PATH ? keys = [["ledger", "details"], ...data.events.map((row) => ["event", row.id])] : keys = [...data.names ? [["ledger", "details"]] : [], ...data.matches.map((row) => ["match", row.gameId])]);
+      let run = state.pending.then(async () => {
+        let revision = keys ? -1 : state.revision, before = state.snapshot;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          let parameters = keys ? { ...auth, keys } : auth, reply = await post(origin, "/v2/vault/exchange", { ...parameters, revision, records: [] }, { signal });
+          reply.records !== null && (before = vaultSnapshot(await Promise.all(reply.records.map(state.cipher.open)))), revision = reply.revision, keys || (state.snapshot = before, state.revision = revision);
+          let next = before, result;
+          if (path === PREFERENCES_SYNC_PATH) {
+            let known = before.preferences ?? {};
+            data.values && (next = { ...before, preferences: mergePreferenceUpload(known, cleanPreferences(data.values), data) }), result = { values: Object.fromEntries(data.groups.filter((group) => known[group] !== void 0).map((group) => [group, known[group]])) };
+          } else if (path === LEDGER_SYNC_PATH) {
+            let { entry: ledger, conflicts } = mergeLedgerUpload(before.ledger, data, Date.now(), () => ledgerVersion(crypto));
+            ledger !== before.ledger && (next = { ...before, ledger }), result = { conflicts, ...data.pull && { download: ledgerDownload(ledger, data.pull) } };
+          } else {
+            let matches = new Map(before.matches.map((row) => [row.gameId, row]));
+            for (let row of data.matches) {
+              let old = matches.get(row.gameId);
+              (!old || !old.frame && row.frame && sameSyncMatch(old, row)) && matches.set(row.gameId, row);
+            }
+            if (matches.size > MATCH_SYNC_LIMIT) throw new Error("\u4E91\u7AEF\u6218\u7EE9\u8FBE\u5230\u5BB9\u91CF\u4E0A\u9650");
+            let names = data.names ? { ...before.ledger.names, ...data.names } : before.ledger.names;
+            next = { matches: [...matches.values()], ledger: { ...before.ledger, names } }, result = data.uploadOnly ? { ok: !0 } : { matches: next.matches };
+          }
+          if (next === before) return result;
+          let originals = new Map(vaultRecords(before).map(([kind, id, details]) => [kind + ":" + id, JSON.stringify(details)])), changed = vaultRecords(next).filter(([kind, id, details]) => originals.get(kind + ":" + id) !== JSON.stringify(details));
+          if (!changed.length) return result;
+          let records = await Promise.all(changed.map(state.cipher.seal)), commit = await post(origin, "/v2/vault/exchange", { ...parameters, revision, records }, { signal });
+          if (commit.records === null)
+            return keys || (state.revision = commit.revision, state.snapshot = next), result;
+        }
+        throw new Error("\u4E91\u7AEF\u8BB0\u5F55\u6B63\u5728\u88AB\u5176\u4ED6\u8BBE\u5907\u4FEE\u6539\uFF0C\u8BF7\u91CD\u8BD5");
+      });
+      return state.pending = run.catch(() => {
+      }), run;
+    }
+    return {
+      exchange,
+      async register(entry) {
+        let { cipher } = await stateFor(entry);
+        return post(entry.origin, "/v2/vault/register", { ...authorize(entry), verifier: cipher.verifier });
+      },
+      async stage(entry, device) {
+        let { cipher } = await stateFor(entry), { snapshot, fingerprint } = await post(entry.origin, "/v2/migrate/read", {}, { device }), records = await Promise.all(vaultRecords(snapshot).map(cipher.seal));
+        await post(entry.origin, "/v2/migrate/stage", { ...authorize(entry), verifier: cipher.verifier, fingerprint, records }, { device });
+      },
+      check: (entry) => post(entry.origin, "/v2/vault/exchange", { ...authorize(entry), revision: -1, keys: [], records: [] }),
+      async preview(code, pass) {
+        let [address, vault, seed] = unpack2("SGSV1", code.trim(), 3), password = pass.trim().toUpperCase();
+        if (!tokenFormat.test(vault) || !tokenFormat.test(seed) || !passFormat.test(password)) throw invalid();
+        let origin = publicOrigin(address), cipher = await createVaultCipher(crypto, { vault, seed, password }), { records } = await post(origin, "/v2/vault/view", { vault, verifier: cipher.verifier });
+        return vaultSnapshot(await Promise.all(records.map(cipher.open)));
+      }
+    };
+  }
+
+  // src/core/private-sync-code.js
+  var prefix = "SGSD1.", utf82 = new TextEncoder(), context = utf82.encode(prefix);
+  async function credentialKey(crypto, gameKey, salt) {
+    let material = await crypto.subtle.importKey("raw", utf82.encode(gameKey), "PBKDF2", !1, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "PBKDF2", hash: "SHA-256", iterations: 6e5, salt },
+      material,
+      { name: "AES-GCM", length: 256 },
+      !1,
+      ["encrypt", "decrypt"]
+    );
+  }
+  async function openPrivateCredential(crypto, gameKey, value) {
+    let code = value.trim();
+    if (code.length > 700 || !code.startsWith(prefix)) throw new Error("invalid_private_credential");
+    let bytes2 = fromBase64url(code.slice(prefix.length)), iv = bytes2.slice(16, 28), key = await credentialKey(crypto, gameKey, bytes2.slice(0, 16)), decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: context }, key, bytes2.slice(28)), [origin, signer, grant] = JSON.parse(new TextDecoder("utf-8", { fatal: !0 }).decode(decrypted));
+    if (fromBase64url(signer, 65), fromBase64url(grant, 32), typeof origin != "string") throw new Error("invalid_private_credential");
+    return { origin, signer, grant };
+  }
+
+  // src/shared/private-sync-http.js
+  var PRIVATE_HTTP_TIMEOUT = 3e4, PRIVATE_HTTP_LIMIT = 24 * 1024 * 1024;
+  function privateSyncOrigin(value) {
+    let url = new URL(value);
+    if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/" || url.href !== url.origin + "/") throw new Error("\u8BF7\u8F93\u5165\u5B8C\u6574\u7684 HTTP \u6216 HTTPS \u5730\u5740\uFF0C\u65E0\u9700\u586B\u5199\u8DEF\u5F84");
+    return url.origin;
+  }
+
+  // src/core/managed-sync.js
+  var databaseName = "sgs-toolbox-managed-sync", recoveryPrefix = "SGSR1.", messages = {
+    account_limit: "\u540C\u6B65\u8D26\u53F7\u540D\u989D\u5DF2\u6EE1",
+    account_mismatch: "\u7ED1\u5B9A\u8D26\u53F7\u548C\u5F53\u524D\u6E38\u620F\u8D26\u53F7\u4E0D\u4E00\u81F4",
+    account_revoked: "\u7BA1\u7406\u5458\u5DF2\u89E3\u9664\u6B64\u8D26\u53F7\u7684\u7ED1\u5B9A",
+    account_already_bound: "\u6B64\u8D26\u53F7\u5DF2\u6709\u540C\u6B65\u7ED1\u5B9A",
+    installation_already_bound: "\u670D\u52A1\u5668\u5DF2\u6709\u4E00\u4E2A\u7ED1\u5B9A\u7684\u6D4F\u89C8\u5668\u6216\u5FAE\u7AEF",
+    private_request_expired: "\u56DB\u4F4D\u914D\u5BF9\u7801\u5DF2\u5931\u6548\uFF0C\u8BF7\u91CD\u65B0\u751F\u6210",
+    binding_required: "\u7ED1\u5B9A\u5DF2\u5931\u6548\uFF0C\u8BF7\u91CD\u65B0\u8FDE\u63A5",
+    stargazing_unavailable: "\u540C\u6B65\u670D\u52A1\u5668\u6682\u65F6\u65E0\u6CD5\u63D0\u4F9B\u89C2\u661F\u62A5\u8868",
+    device_revoked: "\u7BA1\u7406\u5458\u5DF2\u64A4\u9500\u6B64\u8BBE\u5907",
+    invalid_recovery: "\u6062\u590D\u5BC6\u94A5\u6216\u5F53\u524D\u6E38\u620F\u8D26\u53F7\u4E0D\u5339\u914D",
+    invalid_private_credential: "\u4E3B\u8D26\u53F7\u51ED\u636E\u65E0\u6548\u3001\u5DF2\u8FC7\u671F\u6216\u5DF2\u4F7F\u7528\uFF0C\u8BF7\u7528\u5F53\u524D\u4E3B\u8D26\u53F7\u767B\u5F55\u5E76\u68C0\u67E5\u51ED\u636E",
+    invitation_unavailable: "\u9080\u8BF7\u5DF2\u8FC7\u671F\u3001\u7528\u5B8C\u6216\u64A4\u9500",
+    pairing_device_mismatch: "\u8BF7\u5728\u751F\u6210\u8FD9\u4EFD\u914D\u5BF9\u8BF7\u6C42\u7684\u6D4F\u89C8\u5668\u4F7F\u7528\u9080\u8BF7\u7801",
+    rate_limited: "\u8BF7\u6C42\u8FC7\u591A\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5",
+    wrong_pin: "\u786E\u8BA4\u7801\u9519\u8BEF",
+    public_mode_required: "\u6B64\u670D\u52A1\u5668\u5DF2\u8F6C\u4E3A\u516C\u5171\u6A21\u5F0F",
+    not_public: "\u8BE5\u7F51\u5740\u8FD8\u672A\u542F\u7528\u516C\u5171\u6A21\u5F0F",
+    invalid_view: "\u67E5\u770B\u7801\u9519\u8BEF\u6216\u5206\u4EAB\u51ED\u636E\u65E0\u6548",
+    view_locked: "\u6B64 IP \u8F93\u9519 50 \u6B21\uFF0C\u67E5\u770B\u5DF2\u9501\u5B9A 30 \u5206\u949F",
+    public_preview_disabled: "\u670D\u52A1\u5668\u7BA1\u7406\u5458\u5173\u95ED\u4E86\u516C\u5171\u9884\u89C8",
+    migration_records_changed: "\u5386\u53F2\u8BB0\u5F55\u6709\u66F4\u65B0\uFF0C\u8BF7\u91CD\u65B0\u51C6\u5907\u8F6C\u6362",
+    migration_already_staged: "\u6B64\u8D26\u53F7\u5DF2\u6709\u53E6\u4E00\u4EFD\u52A0\u5BC6\u5386\u53F2\uFF0C\u8BF7\u5148\u5728\u540E\u53F0\u91CD\u7F6E\u51C6\u5907\u72B6\u6001",
+    migration_staged: "\u5386\u53F2\u52A0\u5BC6\u526F\u672C\u5DF2\u5C31\u7EEA\uFF0C\u7B49\u5F85\u7BA1\u7406\u5458\u5B8C\u6210\u8F6C\u6362",
+    vault_limit: "\u516C\u5171\u540C\u6B65\u5B58\u50A8\u8D85\u51FA\u5BB9\u91CF\u4E0A\u9650",
+    invalid_preferences: "\u540C\u6B65\u8BBE\u7F6E\u683C\u5F0F\u65E0\u6548\u6216\u8D85\u51FA\u5BB9\u91CF\u4E0A\u9650",
+    backup_upgrade_required: "\u540C\u6B65\u670D\u52A1\u5668\u9700\u66F4\u65B0\u540E\u624D\u80FD\u4E0B\u8F7D\u5B8C\u6574\u5907\u4EFD",
+    backup_page_expired: "\u672C\u6B21\u4E0B\u8F7D\u7EED\u4F20\u5DF2\u5931\u6548\uFF0C\u8BF7\u5728\u4E0B\u4E00\u4E2A\u53EF\u4E0B\u8F7D\u65F6\u6BB5\u91CD\u8BD5"
+  }, fail = (code, message = messages[code]) => Object.assign(new Error(message ?? "\u540C\u6B65\u670D\u52A1\u54CD\u5E94\u5F02\u5E38"), { code });
+  function openStore(win, scope) {
+    let database, ready = new Promise((resolve, reject) => {
+      if (!win.indexedDB) return reject(fail("storage", "\u5F53\u524D\u6D4F\u89C8\u5668\u65E0\u6CD5\u4FDD\u5B58\u8BBE\u5907\u914D\u5BF9"));
+      let request = win.indexedDB.open(databaseName, 1);
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore("requests", { keyPath: "id" }), request.result.createObjectStore("bindings", { keyPath: "id" });
+      }, request.onsuccess = () => {
+        database = request.result, scope.signal.aborted && database.close(), resolve(database);
+      }, request.onerror = () => reject(fail("storage", "\u914D\u5BF9\u8BB0\u5F55\u65E0\u6CD5\u6253\u5F00"));
+    });
+    return scope.add(() => database?.close()), async (name, mode, command) => {
+      let db = await ready;
+      return new Promise((resolve, reject) => {
+        let tx = db.transaction(name, mode), request = command(Array.isArray(name) ? tx : tx.objectStore(name));
+        tx.oncomplete = () => resolve(request?.result), tx.onabort = tx.onerror = () => reject(fail("storage", "\u914D\u5BF9\u8BB0\u5F55\u65E0\u6CD5\u4FDD\u5B58"));
+      });
+    };
+  }
+  function safeOrigin(value) {
+    try {
+      return privateSyncOrigin(value);
+    } catch {
+      throw fail("invalid_endpoint", "\u8BF7\u8F93\u5165\u5B8C\u6574\u7684 HTTP \u6216 HTTPS \u5730\u5740\uFF0C\u65E0\u9700\u586B\u5199\u8DEF\u5F84");
+    }
+  }
+  function describeOrigin(data) {
+    return safeOrigin(`${data.tls ? "https" : "http"}://${data.domain || data.ipv4 || "[" + data.ipv6 + "]"}:${data.port}`);
+  }
+  function createManagedSync(win, scope, currentAccount, gameAccountKey, privateHttp) {
+    let exchangeStore = openStore(win, scope), navigator = win.navigator, clientInfo = { ipad: navigator?.platform === "MacIntel" && navigator.maxTouchPoints > 1 || void 0 }, clientHints = navigator?.userAgentData;
+    clientHints?.platform === "Windows" && typeof clientHints.getHighEntropyValues == "function" && clientHints.getHighEntropyValues(["platformVersion"]).then(({ platformVersion }) => {
+      let version = Number(platformVersion?.split(".")[0]);
+      version >= 13 ? clientInfo.windows = 11 : version > 0 && version <= 10 && (clientInfo.windows = 10);
+    }).catch(() => {
+    });
+    let get2 = (name, id) => exchangeStore(name, "readonly", (store) => store.get(id)), put = (name, value) => exchangeStore(name, "readwrite", (store) => store.put(value)), del = (name, id) => exchangeStore(name, "readwrite", (store) => store.delete(id)), bindingIndex = /* @__PURE__ */ new Map(), installation, joinError = "", checkedAccount, retryAt = 0, changingInstallation = !1, bindingsReady = Promise.all([
+      exchangeStore("bindings", "readonly", (store) => store.getAll()),
+      get2("requests", "private-installation")
+    ]).then(([entries, saved]) => {
+      installation = saved;
+      for (let entry of entries) bindingIndex.set(entry.id, entry);
+    });
+    bindingsReady.catch(() => {
+    });
+    let random = (length = 32) => base64url(win.crypto.getRandomValues(new Uint8Array(length))), active = /* @__PURE__ */ new Map(), probes = /* @__PURE__ */ new Map(), writes = /* @__PURE__ */ new Map(), enrolling = /* @__PURE__ */ new Set();
+    function obtainAccount() {
+      let id = currentAccount();
+      if (!id) throw fail("login_required", "\u5148\u767B\u5F55\u6E38\u620F\u8D26\u53F7");
+      return id;
+    }
+    let ensureAccount = (id) => {
+      if (currentAccount() !== id || scope.signal.aborted) throw fail("account_mismatch");
+    };
+    async function post(origin, path, body, { device, signal } = {}) {
+      safeOrigin(origin);
+      let insecure = new URL(origin), useBridge = privateHttp && insecure.protocol === "http:" && !/^(?:127\.0\.0\.1|\[::1\]|(?:[a-z0-9-]+\.)*localhost)$/.test(insecure.hostname), timeout = new AbortController(), timer = win.setTimeout(() => timeout.abort(), useBridge ? PRIVATE_HTTP_TIMEOUT : path === BACKUP_READ_PATH || path === "/v2/vault/backup" ? 6e4 : 9500), cancel = () => timeout.abort();
+      scope.signal.addEventListener("abort", cancel, { once: !0 }), signal?.addEventListener("abort", cancel, { once: !0 }), (signal?.aborted || scope.signal.aborted) && cancel();
+      try {
+        let url = origin + (useBridge && path === SYNC_CHANGES_PATH ? BACKUP_READ_PATH : path), data = JSON.stringify(body);
+        if (useBridge) {
+          let { status, text: text3 } = await privateHttp({ url, body: data, device }, timeout.signal);
+          if (path === STARGAZING_SYNC_PATH && new TextEncoder().encode(text3).byteLength > STARGAZING_REPORT_LIMIT)
+            throw fail("stargazing_unavailable");
+          let payload2 = JSON.parse(text3);
+          if (status < 200 || status >= 300) throw fail(payload2?.error);
+          return payload2;
+        }
+        let response = await win.fetch(url, {
+          method: "POST",
+          redirect: "error",
+          credentials: "omit",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json", ...device ? { Authorization: "Bearer " + device } : {} },
+          body: data,
+          signal: timeout.signal
+        }), payload = path === STARGAZING_SYNC_PATH ? await readStargazingJson(response) : await response.json();
+        if (response.status === 404 && (path === BACKUP_READ_PATH || path === "/v2/vault/backup")) throw fail("backup_upgrade_required");
+        if (!response.ok) throw fail(payload?.error);
+        return payload;
+      } catch (error) {
+        throw error.code ? error : fail("connection_error", insecure.protocol === "http:" ? "\u65E0\u6CD5\u8FDE\u63A5\u79C1\u6709\u540C\u6B65\u670D\u52A1\uFF0C\u8BF7\u68C0\u67E5 HTTP \u5730\u5740\u3001\u7AEF\u53E3\u548C\u5BA2\u6237\u7AEF\u8BBF\u95EE\u6743\u9650" : "\u65E0\u6CD5\u8FDE\u63A5\u540C\u6B65\u670D\u52A1\uFF0C\u8BF7\u68C0\u67E5\u5730\u5740\u3001\u7AEF\u53E3\u548C\u8BC1\u4E66");
+      } finally {
+        win.clearTimeout(timer), scope.signal.removeEventListener("abort", cancel), signal?.removeEventListener("abort", cancel);
+      }
+    }
+    let publicTransport = createPublicTransport(win.crypto, post);
+    async function readPrivateBackup(origin, body, options) {
+      let reply = await post(origin, BACKUP_READ_PATH, body, options);
+      if (reply.retryAfter || reply.snapshot) return reply;
+      let { downloadId, cursor } = reply, decoder = new TextDecoder("utf-8", { fatal: !0 }), chunks = [];
+      for (let offset = 0; ; ) {
+        let bytes2 = Uint8Array.from(win.atob(reply.chunk), (c) => c.charCodeAt(0));
+        if (chunks.push(decoder.decode(bytes2, { stream: reply.next !== null })), reply.next === null) break;
+        if (!downloadId || !bytes2.length || reply.next !== offset + bytes2.length) throw new Error("\u4E91\u7AEF\u5907\u4EFD\u5206\u9875\u65E0\u6548");
+        offset = reply.next, reply = await post(origin, BACKUP_READ_PATH, { ...body, downloadId, offset }, options);
+      }
+      return { snapshot: JSON.parse(chunks.join("")), cursor };
+    }
+    let preparedId = (id) => "public-prepared:" + id;
+    async function prove(origin, signer, signal) {
+      let nonce = random(16), proof = await post(origin, "/v1/proof", { nonce, stargazing: !0 }, { signal });
+      try {
+        if (proof.nonce !== nonce || proof.origin !== origin || !Number.isSafeInteger(proof.revision)) throw new Error();
+        let key = await win.crypto.subtle.importKey("raw", fromBase64url(signer, 65), { name: "ECDSA", namedCurve: "P-256" }, !1, ["verify"]);
+        if (!await win.crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, fromBase64url(proof.signature, 64), syncProofBytes(proof))) throw new Error();
+        if (fromBase64url(proof.challenge, 16), proof.next !== null && safeOrigin(proof.next) !== proof.next) throw new Error();
+        return proof;
+      } catch {
+        throw fail("invalid_proof", "\u670D\u52A1\u5668\u8EAB\u4EFD\u9A8C\u8BC1\u5931\u8D25");
+      }
+    }
+    let confirm = (proof, device, signal) => post(proof.origin, "/v1/confirm", { challenge: proof.challenge, clientInfo }, { device, signal });
+    function writeBinding(id, action) {
+      let result = (writes.get(id) ?? Promise.resolve()).then(action), pending = result.catch(() => {
+      });
+      return writes.set(id, pending), result.finally(() => {
+        writes.get(id) === pending && writes.delete(id);
+      });
+    }
+    let save = (entry, expected = null) => writeBinding(entry.id, async () => {
+      let before = bindingIndex.get(entry.id);
+      if ((before?.device ?? null) !== expected || before?.revision > entry.revision) throw fail("binding_required");
+      return await put("bindings", entry), bindingIndex.set(entry.id, entry), entry;
+    }), enroll = async (action) => {
+      let id = obtainAccount();
+      if (enrolling.has(id)) throw fail("enrollment_busy", "\u5DF2\u6709\u7ED1\u5B9A\u64CD\u4F5C\u6B63\u5728\u8FDB\u884C");
+      enrolling.add(id);
+      try {
+        return await action();
+      } finally {
+        enrolling.delete(id);
+      }
+    };
+    function enrollPrivate(action) {
+      return enroll(async () => {
+        if (changingInstallation) throw fail("enrollment_busy", "\u5DF2\u6709\u7ED1\u5B9A\u64CD\u4F5C\u6B63\u5728\u8FDB\u884C");
+        changingInstallation = !0;
+        try {
+          return await action();
+        } finally {
+          changingInstallation = !1;
+        }
+      });
+    }
+    function savePrivate(entry, request, expected = null, pendingId = null) {
+      return writeBinding(entry.id, async () => {
+        if (ensureAccount(entry.id), (bindingIndex.get(entry.id)?.device ?? null) !== expected) throw fail("binding_required");
+        let previous = installation, replaced = [...bindingIndex.values()].filter((item) => item.privatePair && item.id !== entry.id && previous?.requestId === item.requestId), next = { id: "private-installation", requestId: request.id, origin: entry.origin, signer: entry.signer, secret: request.installation };
+        await exchangeStore(["requests", "bindings"], "readwrite", (tx) => {
+          let requests = tx.objectStore("requests"), bindings = tx.objectStore("bindings");
+          requests.put(next), requests.put({ id: request.id, keys: request.keys, expires: Number.MAX_SAFE_INTEGER }), pendingId && requests.delete(pendingId);
+          for (let item of replaced) bindings.delete(item.id);
+          bindings.put(entry);
+        }), installation = next;
+        for (let item of replaced) bindingIndex.delete(item.id);
+        bindingIndex.set(entry.id, entry), previous?.signer === next.signer && previous.origin === next.origin && previous.secret !== next.secret && await post(next.origin, "/v1/private/release", { installation: previous.secret }).catch(() => {
+        });
+      });
+    }
+    async function generate(address) {
+      if (!win.crypto?.subtle) throw fail("crypto_unavailable", "\u8BF7\u901A\u8FC7 HTTPS \u6253\u5F00\u6E38\u620F\u540E\u518D\u751F\u6210\u914D\u5BF9\u8BF7\u6C42");
+      let request = await createPairingRequest(win.crypto);
+      if (await put("requests", { ...request, device: random(), recovery: random(), installation: random(), expires: Date.now() + 14 * 864e5 }), !address) return request.code;
+      let { pin } = await post(safeOrigin(address), "/v1/private/request", { request: request.code });
+      if (!PIN_FORMAT.test(pin)) throw fail("invalid_code", "\u670D\u52A1\u7AEF\u8FD4\u56DE\u7684\u914D\u5BF9\u7801\u65E0\u6548");
+      return pin;
+    }
+    async function readInvite(code, prefix2) {
+      let invitation;
+      try {
+        invitation = await openPairing(code, prefix2, async (id) => {
+          let request = await get2("requests", id);
+          return request && request.expires > Date.now() ? request.keys : null;
+        });
+      } catch (error) {
+        throw error.message === "pairing_device_mismatch" ? fail(error.message) : fail("invalid_code", prefix2 === PAIR_INVITE ? "\u9080\u8BF7\u7801\u683C\u5F0F\u9519\u8BEF\u6216\u5DF2\u635F\u574F" : "\u5730\u5740\u66F4\u65B0\u7801\u683C\u5F0F\u9519\u8BEF\u6216\u5DF2\u635F\u574F");
+      }
+      if (invitation.expiry <= Math.floor(Date.now() / 1e3)) throw fail("invitation_unavailable");
+      return invitation;
+    }
+    async function bind(code, pin) {
+      let id = obtainAccount();
+      if (await bindingsReady, bindingIndex.has(id)) throw fail("already_bound", "\u5F53\u524D\u8D26\u53F7\u5DF2\u6709\u7ED1\u5B9A");
+      if (pin && !PIN_FORMAT.test(pin)) throw fail("invalid_pin", "\u8BF7\u8F93\u5165 4 \u4F4D\u6570\u5B57\u786E\u8BA4\u7801");
+      let invitation = await readInvite(code, PAIR_INVITE), origin = describeOrigin(invitation), request = await get2("requests", invitation.requestId), proof = await prove(origin, invitation.signer), gameKey = await gameAccountKey(id);
+      ensureAccount(id);
+      let { account, privatePair } = await post(origin, "/v1/bind", {
+        device: request.device,
+        requestId: request.id,
+        gameKey,
+        invite: invitation.token,
+        pin,
+        recovery: request.recovery,
+        installation: request.installation,
+        userCode: id
+      });
+      ensureAccount(id);
+      let entry = {
+        id,
+        account,
+        origin,
+        signer: invitation.signer,
+        requestId: request.id,
+        device: request.device,
+        recovery: request.recovery,
+        revision: proof.revision
+      };
+      privatePair ? await savePrivate({ ...entry, privatePair: !0 }, request) : (await save(entry), await put("requests", { id: request.id, keys: request.keys, expires: Number.MAX_SAFE_INTEGER })), await confirm(proof, request.device).catch(() => {
+      });
+    }
+    async function bindPrivateCredential(code) {
+      let id = obtainAccount();
+      await bindingsReady;
+      let previous = bindingIndex.get(id);
+      if (previous?.public) throw fail("already_bound", "\u8BF7\u5148\u89E3\u9664\u5F53\u524D\u8D26\u53F7\u7684\u516C\u5171\u540C\u6B65\u7ED1\u5B9A");
+      let gameKey = await gameAccountKey(id), credential, origin;
+      try {
+        credential = await openPrivateCredential(win.crypto, gameKey, code), origin = safeOrigin(credential.origin);
+      } catch {
+        throw fail("invalid_private_credential");
+      }
+      ensureAccount(id);
+      let { signer, grant } = credential, proof = await prove(origin, signer), pendingId = "private-credential:" + grant, request = (await get2("requests", pendingId))?.request;
+      request || (request = { ...await createPairingRequest(win.crypto), device: random(), installation: random() }, await put("requests", { id: pendingId, request })), ensureAccount(id);
+      let { account } = await post(origin, "/v1/private/bind-credential", {
+        grant,
+        gameKey,
+        userCode: id,
+        device: request.device,
+        installation: request.installation,
+        requestId: request.id,
+        request: request.code
+      });
+      await confirm(proof, request.device), await savePrivate({
+        id,
+        account,
+        origin,
+        signer,
+        requestId: request.id,
+        device: request.device,
+        revision: proof.revision,
+        privatePair: !0
+      }, request, previous?.device ?? null, pendingId);
+    }
+    async function joinCurrent() {
+      await bindingsReady;
+      let id = currentAccount(), owner = installation;
+      if (!id || !owner || scope.signal.aborted || changingInstallation || enrolling.has(id)) return;
+      let bound = bindingIndex.get(id);
+      if (!(bound && !bound.privatePair) && !(id === checkedAccount && Date.now() < retryAt)) {
+        if (checkedAccount = id, joinError = "", retryAt = Date.now() + (bound ? 6e4 : 15e3), bound) {
+          await resolveOnce(bound).catch(async (error) => {
+            error.code === "binding_required" && (await forgetBinding(id, bound.device), retryAt = 0);
+          });
+          return;
+        }
+        await enroll(async () => {
+          let pendingId = "private-join:" + owner.secret + ":" + id, proposed = await get2("requests", pendingId);
+          proposed || (proposed = { id: pendingId, device: random(), recovery: random() }, await put("requests", proposed));
+          let proof = await prove(owner.origin, owner.signer), chosen = proof.next ? await prove(proof.next, owner.signer).catch(() => proof) : proof, gameKey = await gameAccountKey(id);
+          ensureAccount(id);
+          let { device, recovery } = proposed, { account } = await post(chosen.origin, "/v1/private/join", { installation: owner.secret, device, recovery, gameKey, userCode: id });
+          if (ensureAccount(id), changingInstallation || installation?.secret !== owner.secret) throw fail("binding_required");
+          await save({
+            id,
+            account,
+            origin: chosen.origin,
+            signer: owner.signer,
+            requestId: owner.requestId,
+            previous: chosen.origin === owner.origin ? void 0 : owner.origin,
+            device,
+            recovery,
+            revision: chosen.revision,
+            privatePair: !0
+          }), await del("requests", pendingId), await confirm(chosen, device).catch(() => {
+          });
+        }).catch((error) => {
+          currentAccount() === id && (joinError = error.message);
+        });
+      }
+    }
+    let joinTimer = win.setInterval(() => {
+      joinCurrent().catch(() => {
+      });
+    }, 1e3);
+    scope.add(() => win.clearInterval(joinTimer));
+    async function recover(value, address) {
+      let id = obtainAccount();
+      if (await bindingsReady, bindingIndex.has(id)) throw fail("already_bound", "\u5F53\u524D\u8D26\u53F7\u5DF2\u6709\u7ED1\u5B9A");
+      let secret = value.trim(), payload;
+      try {
+        if (!secret.startsWith(recoveryPrefix) || secret.length !== 136) throw new Error();
+        payload = fromBase64url(secret.slice(recoveryPrefix.length), 97);
+      } catch {
+        throw fail("invalid_recovery");
+      }
+      let origin = safeOrigin(address), signer = base64url(payload.slice(0, 65)), recovery = base64url(payload.slice(65)), proof = await prove(origin, signer), request = await createPairingRequest(win.crypto), device = random(), gameKey = await gameAccountKey(id);
+      ensureAccount(id);
+      let { account } = await post(origin, "/v1/recover", { device, requestId: request.id, request: request.code, recovery, gameKey });
+      ensureAccount(id), await put("requests", { id: request.id, keys: request.keys, expires: Number.MAX_SAFE_INTEGER }), await save({ id, account, origin, signer, requestId: request.id, device, recovery, revision: proof.revision }), await confirm(proof, device).catch(() => {
+      });
+    }
+    async function resolve(entry, signal) {
+      let proof;
+      try {
+        proof = await prove(entry.origin, entry.signer, signal);
+      } catch (error) {
+        if (!entry.previous || signal?.aborted) throw error;
+        proof = await prove(entry.previous, entry.signer, signal);
+      }
+      if (proof.revision < entry.revision) throw fail("invalid_proof", "\u670D\u52A1\u5668\u5730\u5740\u7248\u672C\u5DF2\u56DE\u9000");
+      if (proof.next && (!entry.public || proof.next.startsWith("https:")))
+        try {
+          proof = await prove(proof.next, entry.signer, signal);
+        } catch (error) {
+          if (signal?.aborted) throw error;
+        }
+      if (entry.public || await confirm(proof, entry.device, signal), ensureAccount(entry.id), bindingIndex.get(entry.id)?.device !== entry.device) throw fail("binding_required");
+      let stargazing = proof.stargazing === !0;
+      if (entry.privatePair && changingInstallation) return { ...entry, origin: proof.origin, stargazing };
+      if (entry.privatePair && installation?.requestId === entry.requestId && proof.origin !== installation.origin) {
+        let owner = { ...installation, origin: proof.origin };
+        await put("requests", owner), installation?.secret === owner.secret && (installation = owner);
+      }
+      return proof.origin !== entry.origin || proof.revision > entry.revision ? { ...await save({ ...entry, origin: proof.origin, previous: proof.origin === entry.origin ? entry.previous : entry.origin, revision: proof.revision }, entry.device), stargazing } : { ...entry, stargazing };
+    }
+    function resolveOnce(entry, signal) {
+      let saved = probes.get(entry.id);
+      if (saved?.device === entry.device && !saved.signal?.aborted) return saved.promise;
+      let probe = { device: entry.device, signal, promise: null };
+      return probe.promise = resolve(entry, signal).finally(() => {
+        probes.get(entry.id) === probe && probes.delete(entry.id);
+      }), probes.set(entry.id, probe), probe.promise;
+    }
+    async function exchange(account, path, data, gameKey, signal) {
+      await bindingsReady;
+      let entry = bindingIndex.get(account);
+      if (!entry) throw fail("binding_required", "\u8BF7\u5148\u5728\u300C\u7BA1\u7406 \u2192 \u4E91\u540C\u6B65\u300D\u7ED1\u5B9A\u5F53\u524D\u8D26\u53F7");
+      ensureAccount(account);
+      let controller = new AbortController(), cancel = () => controller.abort(), requests = active.get(account) ?? /* @__PURE__ */ new Set();
+      active.set(account, requests), requests.add(controller), signal?.addEventListener("abort", cancel, { once: !0 }), signal?.aborted && cancel();
+      try {
+        let resolved = await resolveOnce(entry, controller.signal);
+        if (ensureAccount(account), bindingIndex.get(account)?.device !== entry.device) throw fail("binding_required");
+        let options = { device: entry.device, signal: controller.signal };
+        if (path === STARGAZING_SYNC_PATH) {
+          if (controller.signal.throwIfAborted(), !resolved.stargazing) return null;
+          let reply2 = resolved.public ? await post(resolved.origin, path, { vault: resolved.vault, credential: resolved.credential }, { signal: controller.signal }) : await post(resolved.origin, path, {}, options);
+          if (ensureAccount(account), controller.signal.throwIfAborted(), !Array.isArray(reply2?.sections)) throw fail("stargazing_unavailable");
+          return reply2;
+        }
+        let reply = resolved.public ? { account: gameKey, ...await publicTransport.exchange(resolved, resolved.origin, path, data, controller.signal) } : path === BACKUP_READ_PATH ? await readPrivateBackup(resolved.origin, { account: gameKey }, options) : await post(resolved.origin, path, { ...data, account: gameKey }, options);
+        return ensureAccount(account), reply;
+      } catch (error) {
+        throw entry.privatePair && error.code === "binding_required" && (await forgetBinding(account, entry.device), retryAt = 0), error;
+      } finally {
+        signal?.removeEventListener("abort", cancel), requests.delete(controller), requests.size || active.delete(account);
+      }
+    }
+    function forgetBinding(id, expected) {
+      return writeBinding(id, async () => {
+        let current = bindingIndex.get(id);
+        if (!current || expected && current.device !== expected) return null;
+        for (let request of active.get(id) ?? []) request.abort();
+        return await del("bindings", id), bindingIndex.delete(id), current;
+      });
+    }
+    async function disconnect() {
+      let id = obtainAccount();
+      await bindingsReady;
+      let entry = await forgetBinding(id);
+      if (!entry || entry.public) return !0;
+      for (let origin of new Set([entry.origin, entry.previous].filter(Boolean)))
+        try {
+          return await prove(origin, entry.signer), await post(origin, "/v1/unbind", {}, { device: entry.device }), !0;
+        } catch (error) {
+          if (error.code === "binding_required") return !0;
+        }
+      return !1;
+    }
+    async function detachPrivate() {
+      await bindingsReady;
+      let owner = installation;
+      if (!owner) return;
+      let bound = bindingIndex.get(obtainAccount()), proof = await prove(owner.origin, owner.signer).catch((error) => {
+        if (!bound?.previous) throw error;
+        return prove(bound.previous, owner.signer);
+      });
+      try {
+        await post(proof.origin, "/v1/private/release", { installation: owner.secret });
+      } catch (error) {
+        if (error.code !== "binding_required") throw error;
+      }
+      let attached = [...bindingIndex.values()].filter((entry) => entry.privatePair && entry.requestId === owner.requestId);
+      await exchangeStore(["requests", "bindings"], "readwrite", (tx) => {
+        tx.objectStore("requests").delete(owner.id);
+        for (let entry of attached) tx.objectStore("bindings").delete(entry.id);
+      }), installation = null;
+      for (let entry of attached) {
+        for (let request of active.get(entry.id) ?? []) request.abort();
+        bindingIndex.delete(entry.id);
+      }
+    }
+    async function previewLink() {
+      let id = obtainAccount(), entry = bindingIndex.get(id);
+      if (!entry) throw fail("binding_required");
+      let resolved = await resolveOnce(entry), { view } = await post(resolved.origin, "/v1/private/view", {}, { device: resolved.device });
+      if (!view) throw fail("binding_required");
+      return resolved.origin + "/ledger/?view=" + encodeURIComponent(view);
+    }
+    async function uniquePassword(gameKey) {
+      for (let attempt = 0; attempt < 12; attempt++) {
+        let password = randomPass(win.crypto);
+        try {
+          return await exchangeStore("requests", "readwrite", (store) => store.add({ id: "public-password:" + password, gameKey })), password;
+        } catch {
+          if (!await get2("requests", "public-password:" + password)) throw fail("storage", "\u65E0\u6CD5\u4FDD\u5B58\u67E5\u770B\u7801");
+        }
+      }
+      throw fail("storage", "\u65E0\u6CD5\u751F\u6210\u67E5\u770B\u7801\uFF0C\u8BF7\u91CD\u8BD5");
+    }
+    async function newVault(id, origin, signer) {
+      let gameKey = await gameAccountKey(id);
+      return {
+        id,
+        origin,
+        signer,
+        public: !0,
+        device: random(),
+        vault: random(),
+        credential: random(),
+        seed: random(),
+        password: await uniquePassword(gameKey),
+        gameKey
+      };
+    }
+    async function bindPublic(origin, recovery) {
+      let id = obtainAccount();
+      if (await bindingsReady, bindingIndex.has(id)) throw fail("already_bound", "\u8BF7\u5148\u89E3\u9664\u5F53\u524D\u8D26\u53F7\u7684\u540C\u6B65\u7ED1\u5B9A");
+      let entry;
+      if (recovery) {
+        let saved = readPublicRecovery(recovery);
+        if (saved.gameKey !== await gameAccountKey(id)) throw fail("account_mismatch");
+        entry = { ...saved, id, origin: origin ? publicOrigin(origin) : saved.origin, public: !0, device: random() }, await prove(entry.origin, entry.signer), await publicTransport.check(entry);
+      } else {
+        let address = publicOrigin(origin.trim()), pendingId = "public-registration:" + id + ":" + address;
+        entry = (await get2("requests", pendingId))?.entry ?? await newVault(id, address, ""), await put("requests", { id: pendingId, entry });
+        let { signer } = await publicTransport.register(entry);
+        entry.signer = signer;
+      }
+      let proof = await prove(entry.origin, entry.signer);
+      ensureAccount(id), await save({ ...entry, account: entry.vault, revision: proof.revision }), recovery || await del("requests", "public-registration:" + id + ":" + entry.origin);
+    }
+    async function preparePublic() {
+      let id = obtainAccount();
+      await bindingsReady;
+      let current = bindingIndex.get(id);
+      if (!current || current.public) throw fail("binding_required");
+      let proof = await prove(current.origin, current.signer), target = publicOrigin(proof.next || proof.origin), verified = await prove(target, current.signer);
+      ensureAccount(id), await confirm(verified, current.device);
+      let pending = (await get2("requests", preparedId(id)))?.entry, entry = pending?.signer === current.signer ? { ...pending, origin: verified.origin } : await newVault(id, verified.origin, current.signer);
+      return await put("requests", { id: preparedId(id), entry }), await publicTransport.stage(entry, current.device), ensureAccount(id), publicRecovery(entry);
+    }
+    async function usePrepared() {
+      let id = obtainAccount();
+      await bindingsReady;
+      let current = bindingIndex.get(id), entry = (await get2("requests", preparedId(id)))?.entry;
+      if (!current || current.public || !entry) throw fail("binding_required");
+      let proof = await prove(entry.origin, entry.signer);
+      await publicTransport.check(entry), ensureAccount(id), await save({ ...entry, account: entry.vault, revision: proof.revision }, current.device), await del("requests", preparedId(id));
+    }
+    async function update(code) {
+      let id = obtainAccount();
+      await bindingsReady;
+      let entry = bindingIndex.get(id);
+      if (!entry) throw fail("binding_required");
+      let invitation = await readInvite(code, PAIR_UPDATE);
+      if (entry.signer !== invitation.signer || entry.requestId !== invitation.requestId) throw fail("invalid_proof", "\u5730\u5740\u66F4\u65B0\u7801\u7684\u670D\u52A1\u5668\u8EAB\u4EFD\u4E0D\u5339\u914D");
+      let origin = describeOrigin(invitation), proof = await prove(origin, entry.signer);
+      if (proof.revision < entry.revision) throw fail("invalid_proof", "\u5730\u5740\u66F4\u65B0\u7801\u5DF2\u5931\u6548");
+      await confirm(proof, entry.device), ensureAccount(id), await save({ ...entry, origin, previous: entry.origin, revision: proof.revision }, entry.device);
+    }
+    return {
+      ready: bindingsReady,
+      async readStargazingReport({ signal } = {}) {
+        await bindingsReady, signal?.throwIfAborted();
+        let id = currentAccount();
+        if (!bindingIndex.has(id)) return null;
+        try {
+          return await exchange(id, STARGAZING_SYNC_PATH, void 0, void 0, signal);
+        } catch (error) {
+          if (error.code === "stargazing_disabled") return null;
+          throw error;
+        }
+      },
+      status() {
+        let id = currentAccount(), entry = bindingIndex.get(id);
+        return {
+          signedIn: !!id,
+          accountId: id,
+          connected: !!entry,
+          origin: entry?.origin,
+          privatePair: !!installation,
+          public: !!entry?.public,
+          password: entry?.public ? entry.password : "",
+          bindingIdentity: entry?.device,
+          joinError: id === checkedAccount ? joinError : ""
+        };
+      },
+      available: (account) => bindingIndex.has(account),
+      cacheKey: (account) => bindingIndex.get(account)?.account,
+      generate,
+      bind: (code, pin) => enrollPrivate(() => bind(code, pin)),
+      bindPrivateCredential: (code) => enrollPrivate(() => bindPrivateCredential(code)),
+      recover: (code, address) => enroll(() => recover(code, address)),
+      disconnect,
+      detachPrivate: () => enrollPrivate(detachPrivate),
+      update,
+      exchange,
+      previewLink,
+      bindPublic: (origin, recovery) => enroll(() => bindPublic(origin, recovery)),
+      preparePublic: () => enroll(preparePublic),
+      usePrepared: () => enroll(usePrepared),
+      viewCode() {
+        let entry = bindingIndex.get(obtainAccount());
+        if (!entry?.public) throw fail("binding_required");
+        return publicViewCode(entry);
+      },
+      previewPublic: publicTransport.preview,
+      recoveryCode() {
+        let entry = bindingIndex.get(obtainAccount());
+        if (!entry) throw fail("binding_required");
+        if (entry.public) return publicRecovery(entry);
+        if (entry.privatePair) throw fail("binding_required", "\u8BF7\u5728\u670D\u52A1\u5668\u7BA1\u7406\u9875\u751F\u6210\u4E3B\u8D26\u53F7\u51ED\u636E");
+        return recoveryPrefix + base64url(Uint8Array.of(...fromBase64url(entry.signer, 65), ...fromBase64url(entry.recovery, 32)));
+      }
+    };
+  }
+
+  // src/core/sync-change-cache.js
+  function applySyncChangePage(history, after, { cursor, records, more }) {
+    if (!validSyncCursor(cursor) || cursor.epoch !== after.epoch || cursor.seq < after.seq || !Array.isArray(records) || typeof more != "boolean" || (records.length ? cursor.seq - after.seq < records.length : more || cursor.seq !== after.seq))
+      throw new Error("\u4E91\u7AEF\u589E\u91CF\u540C\u6B65\u5206\u9875\u65E0\u6548");
+    let ledger = history.ledger, events, matches, preferences = {}, seen = /* @__PURE__ */ new Set();
+    for (let row of records) {
+      if (!Array.isArray(row) || row.length !== 3 || typeof row[1] != "string" || row[2] !== null && (!row[2] || typeof row[2] != "object" || row[0] !== "preferences" && Array.isArray(row[2])))
+        throw new Error("\u4E91\u7AEF\u589E\u91CF\u8BB0\u5F55\u683C\u5F0F\u65E0\u6548");
+      let [kind, id, value] = row, key = kind + ":" + id;
+      if (seen.has(key)) throw new Error("\u4E91\u7AEF\u589E\u91CF\u8BB0\u5F55\u91CD\u590D");
+      if (seen.add(key), kind === "match")
+        matches ??= new Map(history.matches.map((match) => [match.gameId, match])), value === null ? matches.delete(id) : matches.set(id, { ...value, gameId: id });
+      else if (kind === "event")
+        events ??= new Map(history.ledger.events.map((event) => [event.id, event])), value === null ? events.delete(id) : events.set(id, { ...value, id });
+      else if (kind === "ledger" && id === "details" && (value === null || Array.isArray(value.balances)))
+        ledger = { ...value ?? EMPTY_LEDGER, events: history.ledger.events, eventVersion: history.ledger.eventVersion };
+      else if (kind === "preferences" && PREFERENCE_GROUPS.includes(id) && value !== null) preferences[id] = value;
+      else throw new Error("\u4E91\u7AEF\u589E\u91CF\u8BB0\u5F55\u7C7B\u578B\u65E0\u6548");
+    }
+    return events && (ledger = { ...ledger, events: [...events.values()], eventVersion: globalThis.crypto.randomUUID() }), {
+      history: { matches: matches ? [...matches.values()] : history.matches, ledger },
+      preferences: cleanPreferences(preferences),
+      updated: [...matches ? ["matches"] : [], ...ledger !== history.ledger ? ["ledger"] : []]
+    };
+  }
+
+  // src/core/sync-preferences.js
+  var INTERVAL = 6e4, pagesPerRun = 8, defaults = {
+    fontSize: "standard",
+    fontSettingsCollapsed: !1,
+    theme: BLACK_GOLD.id,
+    themeWorkshopCollapsed: !1,
+    hudEdgeBehavior: "fixed",
+    compactOpacity: 80,
+    screenshotHideUI: !0,
+    screenshotShortcut: DEFAULT_SCREENSHOT_SHORTCUT,
+    compatEnabled: !1,
+    compatPolicy: "hide",
+    marketOnlyUninstalled: !0,
+    refreshReentryEnabled: !0
+  };
+  function preferenceStorage(settings, account) {
+    let owner = account.padStart(10, "0"), groups = {
+      generalPools: "general-pools:" + generalPoolKey(account),
+      friends: "social:friends:" + owner,
+      friendLamps: "social:lamps:" + owner
+    }, pluginKeys = [...PLUGIN_SYNC_KEYS, ...ACCOUNT_SYNC_KEYS], localKey = (key) => syncPluginStorageKey(key, account), keys = [...TOOLBOX_SYNC_KEYS, ...Object.values(groups), ...pluginKeys.map(localKey)], watched = new Set(keys.map((key) => settings.prefix + key)), thresholdPrefix = settings.prefix + LEDGER_THRESHOLD_PREFIX + account + ":";
+    function thresholds() {
+      let all = [];
+      for (let index = 0; index < settings.storage.length; index++) {
+        let key = settings.storage.key(index);
+        key?.startsWith(thresholdPrefix) && all.push(key.slice(thresholdPrefix.length));
+      }
+      return all.sort();
+    }
+    let read6 = (key) => settings.storage.getItem(settings.prefix + key);
+    function collect(tolerant = !1) {
+      let toolbox = Object.fromEntries(TOOLBOX_SYNC_KEYS.map((key) => [key, settings.get(key, defaults[key])]));
+      for (let key of ["cardStyle", "cardFaceStyle", "cardBackStyle"])
+        toolbox[key]?.startsWith?.("local-") && delete toolbox[key];
+      let values = { toolbox };
+      for (let [group, key] of Object.entries(groups)) {
+        let value = settings.get(key);
+        value !== void 0 && (values[group] = value);
+      }
+      let selected = [...pluginKeys, ...thresholds().map((id) => LEDGER_THRESHOLD_PREFIX + "@:" + id)], plugins = Object.fromEntries(selected.map((key) => [key, settings.get(localKey(key))]).filter(([, value]) => value !== void 0));
+      Object.keys(plugins).length && (values.pluginSettings = plugins);
+      try {
+        return cleanPreferences(values);
+      } catch (error) {
+        if (!tolerant) throw error;
+        return values;
+      }
+    }
+    function restore(values, baseline) {
+      let writes = Object.entries(values.toolbox ?? {});
+      for (let [group, key] of Object.entries(groups))
+        values[group] !== void 0 && writes.push([key, values[group]]);
+      for (let [key, value] of Object.entries(values.pluginSettings ?? {})) {
+        let storedKey = localKey(key);
+        writes.push([storedKey, key === "daily-rewards:account:@:options" ? { ...settings.get(storedKey), ...value } : value]);
+      }
+      let changed = writes.filter(([key, value]) => read6(key) === (baseline.get(key) ?? null) && read6(key) !== JSON.stringify(value)), done = 0;
+      try {
+        for (let [key, value] of changed)
+          settings.set(key, value), done++;
+      } catch (error) {
+        for (let [key] of changed.slice(0, done).reverse()) {
+          let raw = baseline.get(key) ?? null, fullKey = settings.prefix + key;
+          raw === null ? settings.storage.removeItem(fullKey) : settings.storage.setItem(fullKey, raw);
+        }
+        throw error;
+      }
+      let changedKeys = new Set(changed.map(([key]) => key));
+      return [
+        ...Object.entries(groups).filter(([, key]) => changedKeys.has(key)).map(([name]) => name),
+        ...TOOLBOX_SYNC_KEYS.some((key) => changedKeys.has(key)) ? ["toolbox"] : [],
+        ...Object.keys(values.pluginSettings ?? {}).some((key) => changedKeys.has(localKey(key))) ? ["pluginSettings"] : []
+      ];
+    }
+    return {
+      watches: (key) => watched.has(key) || key.startsWith(thresholdPrefix),
+      collect,
+      restore,
+      baseline: () => new Map([...keys, ...thresholds().map((id) => LEDGER_THRESHOLD_PREFIX + account + ":" + id)].map((key) => [key, read6(key)]))
+    };
+  }
+  function preservePending(remote, local, acknowledged) {
+    let safe = {};
+    for (let [group, value] of Object.entries(remote))
+      group === "toolbox" || group === "pluginSettings" ? safe[group] = Object.fromEntries(Object.entries(value).filter(([key]) => {
+        let previous = acknowledged[group]?.[key] ?? (group === "toolbox" ? defaults[key] : void 0);
+        return JSON.stringify(local[group]?.[key]) === JSON.stringify(previous);
+      })) : JSON.stringify(local[group]) === JSON.stringify(acknowledged[group]) && (safe[group] = value);
+    return safe;
+  }
+  function createPreferenceSync({ settings, sync, gameAccountKey, scope, cache: cache2, onRestored, onDownloaded, onUpdated = () => {
+  } }) {
+    let session, applying = !1, scheduled = !1, now = Date.now;
+    function refresh() {
+      let { accountId, bindingIdentity, connected } = sync.status();
+      return connected && session?.account === accountId && session.binding === bindingIdentity || (session?.job?.abort(), session = connected ? {
+        account: accountId,
+        binding: bindingIdentity,
+        cacheKey: sync.cacheKey(accountId),
+        storage: preferenceStorage(settings, accountId),
+        nextDownload: 0,
+        nextUpload: 0,
+        acknowledged: {},
+        error: "",
+        ready: !1
+      } : null), session;
+    }
+    function ensureCurrent(state) {
+      if (scope.closed || refresh() !== state) throw new Error("\u540C\u6B65\u8D26\u53F7\u6216\u7ED1\u5B9A\u5DF2\u53D8\u66F4\uFF0C\u8BF7\u91CD\u8BD5");
+    }
+    async function run(state, work) {
+      if (!state) throw new Error("\u8BF7\u5148\u7ED1\u5B9A\u540C\u6B65\u670D\u52A1\u5668");
+      if (state.job) throw new Error("\u540C\u6B65\u6B63\u5728\u8FDB\u884C\uFF0C\u8BF7\u7A0D\u7B49");
+      let controller = state.job = new AbortController();
+      try {
+        let key = await gameAccountKey(state.account);
+        return ensureCurrent(state), await work(key, controller.signal);
+      } finally {
+        state.job === controller && (state.job = null, state.pullRequested && state.cursor && (state.nextDownload = 0), state.pullRequested = !1);
+      }
+    }
+    let validHistory = (snapshot) => Array.isArray(snapshot?.matches) && Array.isArray(snapshot.ledger?.events) && Array.isArray(snapshot.ledger?.balances);
+    async function hydrate(state) {
+      if (state.hydrated) return;
+      let saved = await cache2.get(state.cacheKey);
+      ensureCurrent(state), validHistory(saved) && (state.history = { matches: saved.matches, ledger: saved.ledger }, validSyncCursor(saved.cursor) ? (state.acknowledged = cleanPreferences(saved.acknowledged ?? {}), state.cursor = saved.cursor, state.ready = !0) : state.cursor = void 0), state.hydrated = !0;
+    }
+    function applyPreferences(state, values, baseline) {
+      applying = !0;
+      try {
+        return state.storage.restore(values, baseline);
+      } finally {
+        applying = !1;
+      }
+    }
+    async function save(state, history, cursor, acknowledged) {
+      let accepted = await cache2.put(state.cacheKey, cursor ? { ...history, cursor, acknowledged } : history, state.cursor);
+      return ensureCurrent(state), accepted === !1 ? (state.hydrated = !1, await hydrate(state), onUpdated(["matches", "ledger"]), !1) : (Object.assign(state, { history, cursor, acknowledged, ready: !0, error: "" }), !0);
+    }
+    async function fullBackup(state, key, signal, manual) {
+      let baseline = state.storage.baseline(), local = state.storage.collect(!0), reply = await sync.exchange(state.account, BACKUP_READ_PATH, {}, key, signal);
+      if (ensureCurrent(state), Number.isSafeInteger(reply.retryAfter) && reply.retryAfter > 0)
+        return state.ready || (state.acknowledged = local), state.ready = !0, state.error = "", (!manual || !state.cursor) && (state.nextDownload = now() + reply.retryAfter), manual ? "\u6BCF\u5C0F\u65F6\u6700\u591A\u4E0B\u8F7D\u4E00\u6B21\uFF0C\u7EA6 " + Math.ceil(reply.retryAfter / 6e4) + " \u5206\u949F\u540E\u53EF\u518D\u6B21\u4E0B\u8F7D" : "";
+      let { snapshot, cursor } = reply;
+      if (!validHistory(snapshot) || cursor !== void 0 && !validSyncCursor(cursor)) throw new Error("\u4E91\u7AEF\u5907\u4EFD\u683C\u5F0F\u65E0\u6548");
+      let values = cleanPreferences(snapshot.preferences ?? {}), allowed2 = !manual && state.cursor ? preservePending(values, local, state.acknowledged) : values, history = { matches: snapshot.matches, ledger: snapshot.ledger }, changed = applyPreferences(state, allowed2, baseline);
+      return onRestored(changed), await save(state, history, cursor, values), state.nextDownload = cursor ? now() + INTERVAL : null, onDownloaded(), changed.includes("toolbox") || changed.includes("pluginSettings") ? "\u5DF2\u4E0B\u8F7D\u8BBE\u7F6E\u3001\u6C34\u8868\u3001\u8D26\u672C\u548C\u6218\u7EE9\uFF0C\u5237\u65B0\u6E38\u620F\u540E\u5E94\u7528\u8BBE\u7F6E" : "\u5DF2\u4E0B\u8F7D\u8BBE\u7F6E\u3001\u6C34\u8868\u3001\u8D26\u672C\u548C\u6218\u7EE9";
+    }
+    async function pull(state, key, signal) {
+      for (let page = 0; page < pagesPerRun; page++) {
+        let baseline = state.storage.baseline(), local = state.storage.collect(!0), after = state.cursor, reply = await sync.exchange(state.account, SYNC_CHANGES_PATH, { after }, key, signal);
+        if (ensureCurrent(state), reply.reset === !0) return fullBackup(state, key, signal, !1);
+        let { history, preferences, updated } = applySyncChangePage(state.history, after, reply);
+        if (reply.records.length) {
+          let values = preservePending(preferences, local, state.acknowledged), acknowledged = { ...state.acknowledged, ...preferences }, changed = applyPreferences(state, values, baseline);
+          changed.length && onRestored(changed);
+          let accepted = await save(state, history, reply.cursor, acknowledged);
+          if (accepted && updated.length && onUpdated(updated), !accepted)
+            return state.nextDownload = now() + 1e3, "";
+        }
+        if (!reply.more)
+          return state.nextDownload = now() + INTERVAL, state.error = "", "";
+      }
+      return state.nextDownload = now() + 1e3, "";
+    }
+    async function download(state, confirm) {
+      if (!state) throw new Error("\u8BF7\u5148\u7ED1\u5B9A\u540C\u6B65\u670D\u52A1\u5668");
+      if (state.job) throw new Error("\u540C\u6B65\u6B63\u5728\u8FDB\u884C\uFF0C\u8BF7\u7A0D\u7B49");
+      return confirm && !confirm() ? "" : run(state, async (key, signal) => {
+        try {
+          return await hydrate(state), await (confirm || !state.cursor ? fullBackup(state, key, signal, !!confirm) : pull(state, key, signal));
+        } catch (error) {
+          throw refresh() === state && (state.error = error.code === "origin_not_allowed" || error.code === "not_found" ? "\u540C\u6B65\u670D\u52A1\u5668\u9700\u66F4\u65B0\u540E\u624D\u80FD\u4E0B\u8F7D\u4E91\u7AEF\u6570\u636E" : error.message, confirm || (state.nextDownload = now() + INTERVAL)), error;
+        }
+      });
+    }
+    async function upload(state, force) {
+      if (!state?.ready) throw new Error("\u8BF7\u7B49\u5F85\u9996\u6B21\u4E91\u7AEF\u4E0B\u8F7D\u5B8C\u6210");
+      return run(state, async (key, signal) => {
+        state.nextUpload = now() + INTERVAL;
+        let local = state.storage.collect(), groups = Object.keys(local).filter((group) => force || JSON.stringify(local[group]) !== JSON.stringify(state.acknowledged[group]));
+        if (!groups.length) return "";
+        let values = Object.fromEntries(groups.map((group) => [group, local[group]]));
+        for (let group of ["toolbox", "pluginSettings"]) !force && values[group] && (values[group] = Object.fromEntries(Object.entries(values[group]).filter(([key2, value]) => JSON.stringify(value) !== JSON.stringify(state.acknowledged[group]?.[key2]))));
+        let preservePins = !force && JSON.stringify(local.friends?.pins) === JSON.stringify(state.acknowledged.friends?.pins);
+        try {
+          await sync.exchange(state.account, PREFERENCES_SYNC_PATH, { groups, values, uploadOnly: !0, patch: !force, preservePins }, key, signal), ensureCurrent(state);
+          let acknowledged = { ...state.acknowledged, ...Object.fromEntries(groups.map((group) => [group, local[group]])) };
+          return state.cursor ? await save(state, state.history, state.cursor, acknowledged) : state.acknowledged = acknowledged, state.error = "", "\u5DF2\u4E0A\u4F20\u5230\u4E91\u7AEF";
+        } catch (error) {
+          throw refresh() === state && (state.error = error.message), error;
+        }
+      });
+    }
+    function tick() {
+      let state = refresh();
+      !state || state.job || (state.nextDownload !== null && state.nextDownload <= now() ? download(state).catch(() => {
+      }) : state.ready && state.nextUpload <= now() && upload(state, !1).catch(() => {
+      }));
+    }
+    scope.add(settings.subscribe((key) => {
+      let state = session;
+      applying || !state?.storage.watches(key) || (state.nextUpload = 0, !scheduled && (scheduled = !0, scope.timeout(() => {
+        scheduled = !1, tick();
+      }, 100)));
+    })), scope.add(() => session?.job?.abort()), scope.interval(tick, 500);
+    function requestPull(state) {
+      state.job ? state.pullRequested = !0 : state.nextDownload = 0;
+    }
+    return {
+      login(account) {
+        let state = refresh();
+        state && state.account === account && (state.lastLogin === void 0 || now() - state.lastLogin >= 1e3) && (state.lastLogin = now(), requestPull(state)), tick();
+      },
+      reconnect() {
+        let state = refresh();
+        state && (state.cursor || state.job || !state.hydrated) && requestPull(state), tick();
+      },
+      upload: () => upload(refresh(), !0),
+      restore: (confirm) => download(refresh(), confirm),
+      canUpload(id) {
+        let state = refresh();
+        return !!(state?.ready && state.account === id);
+      },
+      async history(id) {
+        let state = refresh();
+        if (!state || state.account !== id) return;
+        if (state.history) return state.history;
+        let saved = await cache2.get(state.cacheKey);
+        return validHistory(saved) && (state.history ??= { matches: saved.matches, ledger: saved.ledger }), state.history;
+      },
+      get busy() {
+        return !!session?.job;
+      },
+      get error() {
+        return session?.error ?? "";
+      }
+    };
+  }
+
+  // src/core/sync-backup-cache.js
+  function openSyncBackupCache(win, scope) {
+    let database, ready = new Promise((resolve, reject) => {
+      if (!win.indexedDB) return reject(new Error("\u6D4F\u89C8\u5668\u65E0\u6CD5\u4FDD\u5B58\u4E91\u7AEF\u8D26\u672C\u548C\u6218\u7EE9"));
+      let request = win.indexedDB.open("sgs-toolbox-cloud-backups", 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("backups"), request.onsuccess = () => {
+        database = request.result, scope.closed && database.close(), database.onversionchange = () => database.close(), resolve(database);
+      }, request.onerror = () => reject(request.error);
+    });
+    ready.catch(() => {
+    }), scope.add(() => database?.close());
+    async function transaction(mode, command) {
+      let db = await ready;
+      if (scope.closed) throw new Error("\u4E91\u540C\u6B65\u5DF2\u5173\u95ED");
+      return new Promise((resolve, reject) => {
+        let tx = db.transaction("backups", mode), request = command(tx.objectStore("backups"));
+        tx.oncomplete = () => resolve(request.result), tx.onabort = tx.onerror = () => reject(tx.error ?? request.error ?? new Error("\u4E91\u7AEF\u5907\u4EFD\u7F13\u5B58\u5199\u5165\u5931\u8D25"));
+      });
+    }
+    return {
+      get: (key) => transaction("readonly", (store) => store.get(key)),
+      async put(key, snapshot, expected) {
+        let accepted = !1;
+        return await transaction("readwrite", (store) => {
+          let request = store.get(key);
+          return request.onsuccess = () => {
+            let previous = request.result?.cursor;
+            previous?.epoch !== expected?.epoch || previous?.seq !== expected?.seq || (accepted = !0, store.put(snapshot, key));
+          }, request;
+        }), accepted;
+      }
+    };
+  }
+
+  // src/core/private-sync-http.js
+  function createPrivateHttpTransport(win, port) {
+    if (!port && !!1) return;
+    let source = port || win, origin = win.location.origin, send = port ? (data) => port.postMessage(data) : (data) => win.postMessage({ type: "sgs-toolbox-private-sync-http", ...data }, origin), nextId = 0;
+    return (request, signal) => new Promise((resolve, reject) => {
+      let id = port ? "sync:" + ++nextId : Array.from(win.crypto.getRandomValues(new Uint32Array(4)), (n) => n.toString(16).padStart(8, "0")).join("");
+      function finish() {
+        source.removeEventListener("message", receive), signal.removeEventListener("abort", abort);
+      }
+      function receive(event) {
+        let { data } = event;
+        data?.id === id && (!port && (event.source !== win || event.origin !== origin || data.type !== "sgs-toolbox-private-sync-http-result") || (finish(), data.error ? reject(new Error(data.error)) : resolve(data.reply)));
+      }
+      function abort() {
+        finish();
+        try {
+          send({ id, cancel: !0 });
+        } catch {
+        }
+        reject(new Error("\u79C1\u6709\u540C\u6B65\u8BF7\u6C42\u5DF2\u53D6\u6D88"));
+      }
+      if (signal.aborted) return reject(new Error("\u79C1\u6709\u540C\u6B65\u8BF7\u6C42\u5DF2\u53D6\u6D88"));
+      source.addEventListener("message", receive), signal.addEventListener("abort", abort, { once: !0 });
+      try {
+        send({ id, ...request });
+      } catch (error) {
+        finish(), reject(error);
+      }
+    });
   }
 
   // src/core/main.js
@@ -7632,18 +11073,43 @@ ${FEEDBACK_STYLES}
     installTouchPreview(win, scope), !1;
     let onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
     Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
-    let game = createGameAdapter(win, scope, mobileSkinPort), shell = createShell({
+    let game = createGameAdapter(win, scope, mobileSkinPort, { watchScene: !1 }), sceneWatch = createSceneWatch({ game, scope }), getAccount = () => readNativeAccount({ game }), syncKey = (id) => syncGameAccountKey(win, id), managedSync = !win.__SGS_TOOLBOX_DEMO__ || win.__SGS_TOOLBOX_DEMO__.managedSync === !0 ? createManagedSync(win, scope, () => getAccount().id, syncKey, createPrivateHttpTransport(win, mobileSkinPort)) : null;
+    if (managedSync) {
+      let readDirectReport = game.readStargazingReport;
+      game.readStargazingReport = async (options) => await managedSync.readStargazingReport(options) ?? readDirectReport(options);
+    }
+    let preferenceSync = managedSync && createPreferenceSync({
+      settings,
+      sync: managedSync,
+      gameAccountKey: syncKey,
+      scope,
+      cache: openSyncBackupCache(win, scope),
+      onRestored: (groups) => win.dispatchEvent(new win.CustomEvent(PREFERENCES_RESTORED, { detail: groups })),
+      onDownloaded: () => win.dispatchEvent(new win.CustomEvent(BACKUP_RESTORED)),
+      onUpdated: (kinds) => win.dispatchEvent(new win.CustomEvent(SYNC_HISTORY_UPDATED, { detail: kinds }))
+    });
+    preferenceSync && (scope.listen(win, "online", preferenceSync.reconnect), createPluginNative({ game, scope }).observe({
+      ClientLoginRep: (packet2) => {
+        let id = Number(field(packet2, "userID") ?? field(packet2, "UserID"));
+        return Number.isSafeInteger(id) && id > 0 ? String(id) : null;
+      }
+    }, (_, account) => preferenceSync.login(account)));
+    let shell = createShell({
       window: win,
       document: win.document,
       settings,
       scope,
-      getFeedbackAccount: () => account({ game }),
+      sceneWatch,
+      getFeedbackAccount: getAccount,
+      managedSync,
+      preferenceSync,
       canReserveGameViewport: () => !!!1 || game.canReserveViewport()
-    }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope });
+    }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope, sceneWatch }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope, sceneWatch });
     scope.add(game.onSceneChange((scene) => shell.setGameView(gameViewForScene(scene)))), shell.setGameView(gameViewForScene(game.getScene()));
     let screenshot = createScreenshotController({ window: win, game, settings, scope, notify: shell.notify }), bridge = installMessageBridge(win, journal, scope, (message) => shell.setStatus(message), {
       getTargets: game.getMessageTargets,
-      observeType: diagnostics.observeType
+      observeType: diagnostics.observeType,
+      sceneWatch
     }), compat, mounted = !1, legacyWarned = !1;
     compat = createCompatibility({ window: win, document: win.document, takeover: settings.get("compatPolicy", "hide"), onStatus: () => {
       bridge.check();
@@ -7663,6 +11129,10 @@ ${FEEDBACK_STYLES}
         themes,
         cardStyles,
         backgrounds,
+        ...managedSync && {
+          devAppearanceSync: createDevAppearanceSync(win, managedSync, preferenceSync),
+          devLedgerSync: createDevLedgerSync(win, managedSync, preferenceSync)
+        },
         notify: shell.notify
       },
       onChange: () => shell.render()
@@ -7678,8 +11148,10 @@ ${FEEDBACK_STYLES}
       "shanhetu-beta": REPLACED_SHANHETU_BETA_PACKAGES,
       themes: REPLACED_THEME_PACKAGES,
       baisheng: REPLACED_BAISHENG_PACKAGES,
-      appearances: REPLACED_APPEARANCE_PACKAGES
+      appearances: REPLACED_APPEARANCE_PACKAGES,
+      ...!1
     };
+    !1;
     for (let pkg of bundledPackages) if ((!onlyPlugin || pkg.manifest.id === onlyPlugin || onlyPlugin === "gaizhu" && pkg.manifest.id === "baisheng") && (await manager2.registerBundled(pkg, replacements[pkg.manifest.id] || []), scope.closed))
       return null;
     shell.setHandlers({
@@ -7692,16 +11164,25 @@ ${FEEDBACK_STYLES}
       screenshot: screenshot.capture,
       exportDiagnostics: async () => (await bridge.flush(), diagnostics.serialize({ bridge: bridge.getStatus() }))
     }), shell.setStatusVisible(!1), scope.add(journal.subscribe((event) => {
-      event.type === "toolbox:snapshot" && typeof event.payload?.inGame == "boolean" ? shell.setStatusVisible(event.payload.inGame) : event.type === "MsgGamePlayCardNtf" ? shell.setStatusVisible(!0) : ["MsgGameOver", "ClientLeavetableRep"].includes(event.type) && shell.setStatusVisible(!1);
+      event.type === "ClientLoginRep" && event.payload?.userID && preferenceSync?.login(String(Number(event.payload.userID))), event.type === "toolbox:snapshot" && typeof event.payload?.inGame == "boolean" ? shell.setStatusVisible(event.payload.inGame) : event.type === "MsgGamePlayCardNtf" ? shell.setStatusVisible(!0) : ["MsgGameOver", "ClientLeavetableRep"].includes(event.type) && shell.setStatusVisible(!1);
     }));
     let snapshots = attachSessionSnapshots({ journal, game, scope, settled: bridge.flush });
-    return scope.interval(() => {
+    if (scope.add(sceneWatch.watch(() => {
       shell.setRemainingSlash(game.getRemainingSlash());
-      let ready = !!(game.getScene() || win.Laya?.stage || win.__SGS_TOOLBOX_DEMO__);
-      shell.host.style.display = ready ? "" : "none", !!1 && ready && !legacyWarned && compat.getStatus().sources.length && (legacyWarned = !0, shell.showLegacyWarning()), ready && !mounted && (mounted = !0, snapshots.request());
+      let ready = !!(game.getScene() || win.Laya?.stage || win.__SGS_TOOLBOX_DEMO__), display = ready ? "" : "none";
+      shell.host.style.display !== display && (shell.host.style.display = display), !!1 && ready && !legacyWarned && compat.getStatus().sources.length && (legacyWarned = !0, shell.showLegacyWarning()), ready && !mounted && (mounted = !0, snapshots.request());
       let capture = bridge.getStatus();
       shell.setStatus(bridge.error || (ready ? capture.received ? `\u5DF2\u6536 ${capture.received} \u6761\u6D88\u606F \xB7 ${journal.incomplete ? "\u7F3A\u5C11\u5F00\u5C40\u8BB0\u5F55" : "\u672C\u5C40\u8BB0\u5F55\u4E2D"}` : capture.targets.length ? "\u6D88\u606F\u5165\u53E3\u5DF2\u8FDE\u63A5 \xB7 \u7B49\u5F85\u6536\u5305" : "\u672A\u63A5\u5165\u6E38\u620F\u6D88\u606F \xB7 \u4EC5\u539F\u751F\u663E\u793A\u53EF\u7528" : "\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6"));
-    }, 500), !win.__SGS_TOOLBOX_DEMO__ && !win.Laya?.stage && (shell.host.style.display = "none"), await manager2.init(), scope.closed ? null : (Object.assign(api, { manager: manager2, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager2.storageError ? shell.notify("\u65E0\u6CD5\u8BFB\u53D6\u63D2\u4EF6\u5B58\u50A8\uFF0C\u8BF7\u5237\u65B0\u6E38\u620F\u91CD\u8BD5\u3002") : manager2.loadIssues.size ? shell.notify(`${manager2.loadIssues.size} \u4E2A\u63D2\u4EF6\u52A0\u8F7D\u5F02\u5E38\uFF0C\u5DF2\u4FDD\u7559\u5B89\u88C5\u8BB0\u5F55\u3002`) : manager2.errors.length && shell.notify(manager2.errors.join("\uFF1B")), api);
+    }, 500)), !win.__SGS_TOOLBOX_DEMO__ && !win.Laya?.stage && (shell.host.style.display = "none"), await manager2.init(), scope.closed) return null;
+    if (!1) {
+      try {
+        await installLocalAppearanceSyncPackage(manager2, settings, null);
+      } catch (error) {
+        shell.notify(`\u540C\u6B65\u5185\u6D4B\u63D2\u4EF6\u5B89\u88C5\u5931\u8D25\uFF1A${error.message}`);
+      }
+      if (scope.closed) return null;
+    }
+    return Object.assign(api, { manager: manager2, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager2.storageError ? shell.notify("\u65E0\u6CD5\u8BFB\u53D6\u63D2\u4EF6\u5B58\u50A8\uFF0C\u8BF7\u5237\u65B0\u6E38\u620F\u91CD\u8BD5\u3002") : manager2.loadIssues.size ? shell.notify(`${manager2.loadIssues.size} \u4E2A\u63D2\u4EF6\u52A0\u8F7D\u5F02\u5E38\uFF0C\u5DF2\u4FDD\u7559\u5B89\u88C5\u8BB0\u5F55\u3002`) : manager2.errors.length && shell.notify(manager2.errors.join("\uFF1B")), api;
   }
   boot(window, typeof sgsToolboxMobileSkinPort > "u" ? void 0 : sgsToolboxMobileSkinPort).catch((error) => {
     console.error("[\u4E09\u56FD\u6740OL\u5DE5\u5177\u7BB1]", error);

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createPluginNative } from '../src/core/plugin-native.js';
 import { ResourceScope } from '../src/core/resources.js';
 import { createChatEnhancements, decorateChatHTML, linkedNames, officerIcon, roomNumbers, roomTableId, ROOM_LINK } from '../src/plugins/social/chat.js';
 
@@ -79,6 +80,7 @@ function fixture() {
   const ctx = { scope, window: { Laya: { Event: { LINK: 'link' }, stage: { _children: [view] } } }, document: {}, ui: { toast() {} },
     game: { getSelf: () => self, getClass: () => null, getScene: () => scene, getSnapshot: () => ({ inGame: false }), getConfigData: () => config,
       getServerProxy: () => ({ _events: { ClientTableinfoRep: { caller: rc } } }) } };
+  ctx.native = createPluginNative(ctx);
   return { ctx, scope, row, view, scene, self, rc, calls, userLinks };
 }
 

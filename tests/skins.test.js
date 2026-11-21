@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createPluginNative } from '../src/core/plugin-native.js';
 import { JSDOM } from 'jsdom';
 import skins from '../src/plugins/skins/index.js';
+import { mountPluginUI } from '../src/ui/plugin-ui.js';
 import { readCatalogue, readInventory, collectSkins, summarizeSkins, filterSkins } from '../src/plugins/skins/model.js';
 import { createSkinCollection, resolveSkinRuntime } from '../src/plugins/skins/runtime.js';
 import { ResourceScope } from '../src/core/resources.js';
+import { isNativeNodeMounted, isNativeNodeVisibleOnStage } from '../src/shared/native-tree.js';
+import { createSkinDownload } from '../src/plugins/skins/download.js';
 import { createLocalSkins } from '../src/plugins/skins/local.js';
 import { updateVoiceBindingsForForms, voiceBindingsForForm } from '../src/plugins/skins/cross-voice.js';
 import { indexFormSkills, indexOfficialFormRules, localSkinForm, skinFormInfo } from '../src/plugins/skins/local-forms.js';
@@ -22,6 +26,54 @@ const config = { root: { manu: { item: [
   { skinID: 10201, name: '勇冠三军', skinlevel: '0,1' },
   { skinID: 10301, name: '未知品质', skinlevel: 'new' },
 ] } } };
+
+test('native mount and seat visibility preserve distinct alpha and ancestor rules', () => {
+  const stage = {};
+  const parent = { parent: stage, alpha: 0 };
+  const node = { parent };
+  assert.equal(isNativeNodeMounted(node, stage), true);
+  assert.equal(isNativeNodeMounted(node, stage, 2), false);
+  assert.equal(isNativeNodeMounted(node, stage, 3), true);
+  assert.equal(isNativeNodeVisibleOnStage(node, stage), false);
+  parent.alpha = 1;
+  assert.equal(isNativeNodeVisibleOnStage(node, stage), true);
+  stage.visible = false;
+  assert.equal(isNativeNodeMounted(node, stage), false);
+  assert.equal(isNativeNodeVisibleOnStage(node, stage), false);
+});
+
+test('skin download discovers cached native detail without scanning the stage and ignores detached windows', async t => {
+  const { window } = new JSDOM('<canvas></canvas>'), { document } = window, scope = new ResourceScope();
+  t.after(() => { scope.dispose(); window.close(); });
+  const stage = { width: 100, height: 100, get _children() { assert.fail('Scanned the stage despite a recognized window cache'); } };
+  const canvas = document.querySelector('canvas');
+  canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 });
+  window.Laya = { stage, Render: { canvas }, Point: class {} };
+  const listeners = new Map(), entries = new Map();
+  const dispatcher = {
+    _events: { OPEN_WINDOW: { caller: { WindowInstanceDict: { getStringKey: name => entries.get(name) } } } },
+    on(type, caller, handler) { listeners.set(type, handler); }, off(type) { listeners.delete(type); },
+  };
+  const detail = { parent: null, showMaxSkinWindow() {}, updateSkinInfo() {}, Close() {},
+    skinData: { skinBaseVo: { SkinBigUrl: () => 'res/skin.png' } }, skinImg: { localToGlobal: () => ({ x: 12, y: 12 }) } };
+  createSkinDownload({ window, document, scope, settings: { get: (_key, fallback) => fallback },
+    game: { getDispatcher: () => dispatcher }, ui: { nativeTheme: { watch() {} } } });
+  const button = document.querySelector('[data-sgs-skin-download]');
+  assert.equal(button.hidden, true);
+  entries.set('SkinInfoWindow', detail);
+  listeners.get('OPEN_WINDOW')({ WindowName: 'SkinInfoWindow' });
+  await Promise.resolve();
+  assert.equal(button.hidden, true);
+  detail.parent = stage;
+  listeners.get('OPENED_WINDOW')('SkinInfoWindow');
+  await Promise.resolve();
+  assert.equal(button.hidden, false);
+  detail.Close();
+  assert.equal(button.hidden, true);
+  scope.dispose();
+  assert.equal(listeners.size, 0);
+  assert.equal(button.isConnected, false);
+});
 
 test('Yjcm indexes battle clips by the dynamic skin and exact active form', () => {
   const source = structuredClone(yjcmSource);
@@ -293,6 +345,8 @@ function harness() {
   const settings = { get: (key, fallback) => values.has(key) ? values.get(key) : fallback, set: (key, value) => values.set(key, value) };
   const ctx = { window: dom.window, document: dom.window.document, scope, game, settings,
     ui: { nativeTheme: { watch(fn) { fn({text:'#eee',surface:'#222',border:'#555',accent:'#ca8'}); return scope.add(() => {}); } }, registerPanel(spec) { panel = spec; const off = () => { cleanup?.(); }; scope.add(off); return off; } } };
+  Object.assign(ctx.ui, mountPluginUI(ctx, () => ctx));
+  ctx.native = createPluginNative(ctx);
   return { ctx, source, proxy, scope, game, settings, dom,
     render() { cleanup = panel.render(dom.window.document.querySelector('main')); return dom.window.document.querySelector('main'); },
     unmount() { cleanup?.(); cleanup = null; }, close() { scope.dispose(); dom.window.close(); } };

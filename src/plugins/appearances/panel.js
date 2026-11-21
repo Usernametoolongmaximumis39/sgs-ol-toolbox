@@ -1,5 +1,3 @@
-import { INFO_STYLES } from '../../shared/info-ui.js';
-import { CONTROL_STYLES } from '../../ui/controls.js';
 import { downloadJSON } from '../../shared/info-runtime.js';
 import { MODES, filterRecords } from './model.js';
 import { resultName, winSummary, retainedScope } from './battle.js';
@@ -30,6 +28,12 @@ export function activate(ctx) {
       detailButton.style.gridColumn = '1 / -1'; bar.append(detailButton);
     }
     else { root.dataset.appearanceDetails = ''; root.prepend(el('h1', '', '出框与胜率统计')); }
+    const syncButton = controller.view().canSyncMatches ? button('同步出框与战绩', 'refresh', () => controller.syncVerifiedMatches()) : null;
+    if (syncButton) {
+      syncButton.title = '与已绑定的服务器同步经官方对局编号核实的战绩与出框';
+      syncButton.style.gridColumn = '1 / -1';
+      bar.append(syncButton);
+    }
     const tabs = segments([['stats', '统计总览'], ['history', '对局历史']], tab, v => { tab = v; count = 50; draw(); });
     const modes = segments([[26, '排位'], [35, '斗地主'], [44, '单骑']], mode, v => { mode = v; role = 'all'; count = 50; draw(); });
     const find = input('搜索武将'); find.value = search; listen(find, 'input', () => { search = find.value.trim(); count = 50; draw(); });
@@ -59,12 +63,13 @@ export function activate(ctx) {
     const dismissCapture = button('知道了', 'check', () => controller.dismissCaptureNotice());
     captureState.append(captureSummary, captureText, dismissCapture);
     const historyState = el('p', 'muted'); historyState.setAttribute('role', 'status');
+    const syncState = el('p', 'muted'); syncState.setAttribute('role', 'status');
     const error = el('details', 'error'), errText = el('p'), retry = button('重试保存', 'save', () => controller.retry());
     error.append(el('summary', '', '记录异常 · 查看详情'), errText, retry);
     const list = el('div', 'list'); list.setAttribute('aria-label', '出框与战绩记录');
     const more = button('加载更多', null, () => { count += 50; draw(); });
     const help = el('details', 'sgs-fold');
-    help.append(el('summary', '', '统计口径与数据记录'), el('p', '', '仅统计正式排位、斗地主基础/高级场和单骑无双；自由欢乐22、排位演武、公会战22、赛事及扑克牌斗地主不采集。单骑正式匹配包含人机对局；训练局仍不采集。人机标记仅作记录，不影响统计。\n出框率＝出现局数/已采集候选的局数；选取率＝选中次数/选取结果已知的出框次数。胜率＝胜场/(胜场+败场)，平局及结果未知不计分母。相同武将每局只算一次。\n结算只认自己座位的结果。斗地主按地主/农民分开；排位1、4号位为先手，2、3号位为后手；单骑按先手/后手分开。座次读取客户端已确定的一基行动顺序，不把协议座位ID当成号位。缺少身份或先后手依据的数据不保存、不统计；旧数据及恢复备份中的此类记录会剔除。不限时合并同模式的先后手或地主/农民，按合计胜败场计算胜率；选择具体先后手或身份时仅统计对应记录。不同模式分别显示，出框率分母为同模式当前筛选候选局数。历史出框没有胜负信息，不补造胜率；未采到候选的已完成对局可只计战绩。平均时长来自官方结算。\n出框只在启用期间采集；断线、重连、消息缺口不补造出框，已有出框保留。登录、开始下一局及点击刷新时补收官方七日战绩（每模式最多100局）；官方尚未入库时需稍后刷新。仅补齐本机已采到开局的对局；没有对应开局记录的历史局暂不新增，缺少可靠模式或先后手依据的战绩不补记。出框和战绩各最多10000条，满后暂停对应追加。仅存本机、按账号隔离，无上传或云同步。'));
+    help.append(el('summary', '', '统计口径与数据记录'), el('p', '', '仅统计正式排位、斗地主基础/高级场和单骑无双；自由欢乐22、排位演武、公会战22、赛事及扑克牌斗地主不采集。训练局不采集。\n出框率＝出现局数/已采集候选的局数；选取率＝选中次数/选取结果已知的出框次数。胜率＝胜场/(胜场+败场)，平局及结果未知不计分母。相同武将每局只算一次。\n结算只认自己座位的结果。斗地主按地主/农民分开；排位1、4号位为先手，2、3号位为后手；单骑按先手/后手分开。座次读取客户端已确定的一基行动顺序，不把协议座位ID当成号位。缺少身份或先后手依据的数据不保存、不统计；旧数据及恢复备份中的此类记录会剔除。不限时合并同模式的先后手或地主/农民，按合计胜败场计算胜率；选择具体先后手或身份时仅统计对应记录。不同模式分别显示，出框率分母为同模式当前筛选候选局数。历史出框没有胜负信息，不补造胜率；未采到候选的已完成对局可只计战绩。平均时长来自官方结算。\n出框只在启用期间采集；断线、重连、消息缺口不补造出框，已有出框保留。登录、开始下一局及点击刷新时补收官方七日战绩（每模式最多100局）；官方尚未入库时需稍后刷新。仅补齐本机已采到开局的对局；没有对应开局记录的历史局暂不新增，缺少可靠模式或先后手依据的战绩不补记。出框和战绩各最多10000条，满后暂停对应追加。本机记录按账号保存。绑定云同步后，仅同步经官方对局编号核实的战绩及关联的出框。'));
     const restoreInput = input('恢复工具箱备份', 'file'); restoreInput.accept = '.json,application/json'; restoreInput.hidden = true;
     const restore = button('恢复工具箱备份', 'download', () => restoreInput.click());
     listen(restoreInput, 'change', () => { const file = restoreInput.files?.[0]; if (file) void controller.restore(file); restoreInput.value = ''; });
@@ -74,7 +79,7 @@ export function activate(ctx) {
     const no = button('取消', null, () => { confirmation.hidden = true; confirmAccount = null; });
     confirmation.append(el('p', 'muted', '将删除当前账号的全部本机出框和战绩，请先导出备份。'), yes, no);
     help.append(restore, restoreInput, clear, confirmation);
-    root.append(note, summary, totals, state, bar, historyState, captureState, tabs, modes, roles, find, filters, error, list, more, help);
+    root.append(note, summary, totals, state, bar, historyState, syncState, captureState, tabs, modes, roles, find, filters, error, list, more, help);
     function metrics(node, values) { const m = el('div', 'metrics'); for (const [value, label] of values) { const n = el('span', '', label); n.prepend(el('b', '', String(value))); m.append(n); } node.append(m); }
     function draw() {
       if (!alive || ctx.scope.signal.aborted) return;
@@ -83,6 +88,9 @@ export function activate(ctx) {
       note.hidden = Boolean(v.who.id);
       note.textContent = '等待登录当前账号';
       historyState.textContent = v.historyStatus; historyState.hidden = !v.historyStatus;
+      const syncText = v.canSyncMatches && v.who.id && !v.syncBound ? '在「管理 → 云同步」绑定当前账号' : v.syncStatus;
+      syncState.textContent = syncText; syncState.hidden = !syncText;
+      if (syncButton) syncButton.disabled = !v.syncBound || v.syncLoading || busy || v.storageBlocked;
       refresh.disabled = !v.who.id || v.loading || v.historyLoading; exportButton.disabled = !v.who.id || busy;
       if (detailed) clear.hidden = true;
       clear.disabled = !v.who.id || busy || (!v.records.length && !v.matches.length && !v.storageBlocked); restore.disabled = !v.who.id || busy || v.storageBlocked;
@@ -97,8 +105,7 @@ export function activate(ctx) {
         .sort((a, b) => compareStats(a, b, sort, direction));
       summary.replaceChildren(el('strong', '', busy ? '—' : percent(overall.rate)), el('span', 'muted', busy ? '核对本机数据中' : '当前筛选合计胜率'));
       totals.textContent = busy ? '正在处理本机记录…' : `${frames.length} 局出框 · ${battles.length} 局战绩 · ${overall.wins}胜 ${overall.losses}负${overall.draws ? ` ${overall.draws}平` : ''}${overall.unknown ? ` · ${overall.unknown}局结果未知` : ''}`;
-      const unknownCount = new Set([...frames, ...battles].filter(r => r.mode === 44 && r.isAiMatch == null).map(r => r.id)).size;
-      state.textContent = busy ? '正在核对并剔除已确认的百胜速刷记录…' : `${v.records.length} 条出框 · ${v.matches.length} 条战绩已保存${unknownCount ? ` · ${unknownCount}局单骑人机身份未知` : ''}`;
+      state.textContent = busy ? '正在核对并剔除已确认的百胜速刷记录…' : `${v.records.length} 条出框 · ${v.matches.length} 条战绩已保存`;
       captureState.hidden = !v.captureNotice; captureSummary.textContent = v.captureNotice; captureText.textContent = v.captureDetail;
       retry.hidden = !v.canRetrySave;
       error.hidden = !v.error; errText.textContent = v.error; retry.disabled = !v.who.id || v.reviewing;
@@ -121,7 +128,7 @@ export function activate(ctx) {
           node.append(el('div', 'row-head', `${new Date(row.time).toLocaleString()} · ${MODES[row.mode]} · ${sideName(row.mode,sideOf(row,m))}`),
             el('div', '', `出框：${row.general ? row.general.map(id => v.names[id] || `#${id}`).join('、') : '未采集候选'}`),
             el('div', '', `选中：${selected === null ? '未确认' : selected.map(id => v.names[id] || `#${id}`).join('、') || '未选取'}`),
-            el('div', 'muted', `${resultName(m?.result)}${m?.duration != null ? ` · ${Math.round(m.duration)}秒` : ''}${row.mode === 44 && row.isAiMatch == null ? ' · 人机身份未知' : ''}`));
+            el('div', 'muted', `${resultName(m?.result)}${m?.duration != null ? ` · ${Math.round(m.duration)}秒` : ''}`));
         }
         list.append(node);
       }
@@ -136,7 +143,8 @@ export function activate(ctx) {
     const doc = ctx.document, host = doc.createElement('div');
     host.dataset.sgsToolbox = 'appearance-details';
     const shadow = host.attachShadow({ mode: 'open' }), style = doc.createElement('style');
-    style.textContent = INFO_STYLES + CONTROL_STYLES + `
+    const offStyles = ctx.ui.mountStyles(shadow);
+    style.textContent = `
 :host{position:fixed;top:12px;right:12px;bottom:12px;left:12px;z-index:2147483646;display:flex;justify-content:center;pointer-events:none}
 main{box-sizing:border-box;position:relative;width:100%;max-width:1100px;min-width:0;padding:20px;overflow:auto;background:var(--sgs-bg);color:var(--sgs-text);border:1px solid var(--sgs-border);border-radius:12px;box-shadow:0 12px 40px #0006;pointer-events:auto;scrollbar-width:thin}
 .sgs-info h1{font-size:20px;margin:0 36px 16px 0}.sgs-info .list{max-height:none;overflow:visible;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.sgs-info .row{padding:12px;background:var(--sgs-surface);border-radius:8px}.sgs-info .filters,.sgs-info .sgs-segments{max-width:700px}
@@ -154,7 +162,7 @@ main{box-sizing:border-box;position:relative;width:100%;max-width:1100px;min-wid
     const previous = shadow.activeElement || doc.activeElement;
     let offClose = () => {}, offKey = () => {};
     const release = ctx.scope.add(() => {
-      offClose(); offKey(); dispose(); offTheme(); host.remove(); details = null;
+      offClose(); offKey(); dispose(); offTheme(); offStyles(); host.remove(); details = null;
       if (previous?.isConnected) previous.focus?.();
     });
     offClose = ctx.scope.listen(close, 'click', release);

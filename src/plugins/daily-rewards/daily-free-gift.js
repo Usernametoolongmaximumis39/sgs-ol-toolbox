@@ -1,7 +1,7 @@
+import { read } from '../../shared/safe-read.js';
 // Audited official daily gift: item 11578201, currently sale row 545.
 // Config fallback is deliberately limited to this unconditional, once/day gift.
 // Native price and server limit checks remain mandatory; no window is created.
-const read = fn => { try { return fn(); } catch { return undefined; } };
 export const DAILY_FREE_GIFT_ID = 11578201;
 const saleFields = new Set(['id', 'item_id', 'time1', 'time2', 'sorting']);
 function timestamp(value) {

@@ -13,7 +13,11 @@ const send = nativeMethod('SendClientGameRecordInfoReq(t,i,s=null,e=100){', 'req
 const byTab = nativeMethod('SendClientGameRecordInfoReqByTab(t,i,s=!1,e=100){', 'SendClientGetDouDiZhuUserDataReq');
 const getRate = nativeMethod('GetWinRateInfoByUuId(t,i){', 'GetWinRateInfoById');
 const getRecent = nativeMethod('GetWinRateInfoById(t,i){', 'CheckPaiweiHightlightEntry');
-const bundle = await build({ stdin: { contents: `export {createPlayerStats} from './src/plugins/player-info/stats.js';export {ResourceScope} from './src/core/resources.js';export {createNativeTheme} from './src/ui/native-theme.js';`, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'Check' });
+const packetName = send.match(/\bnew ([\w$]+)\b/)?.[1];
+const proxyName = byTab.match(/\b([\w$]+)\.I\(\)\.[GL]\(/)?.[1];
+assert.ok(packetName && proxyName, 'native record request dependencies');
+const bundle = await build({ stdin: { contents: `export {createPlayerStats} from './src/plugins/player-info/stats.js';export {ResourceScope} from './src/core/resources.js';export {createNativeTheme} from './src/ui/native-theme.js';
+  export {createPluginNative} from './src/core/plugin-native.js';`, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'Check' });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 try {
  const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, hasTouch: true }), errors = [];
@@ -21,7 +25,7 @@ try {
  await page.setContent('<body style="margin:0"></body>');
  await page.addScriptTag({ path: process.env.SGS_LAYA_CORE || resolve('../小抄屏蔽服务器/公告语料整理/临时/laya.core.min.js') });
  await page.addScriptTag({ content: bundle.outputFiles[0].text });
- await page.evaluate(({ send, byTab, getRate, getRecent }) => {
+ await page.evaluate(({ send, byTab, getRate, getRecent, packetName, proxyName }) => {
   Laya.init(1280, 800); Laya.stage.bgColor = '#182321';
   window.scope = new Check.ResourceScope(); window.modeId = 132; window.session = 1; window.account = 123456780;
   window.calls = []; window.seats = []; window.bars = []; window.scene = {}; window.self = null;
@@ -34,12 +38,16 @@ try {
       proxy.event('ClientGameRecordInfoRep', { Protocol: { Uuid: uuid, Tab: tab, RecordId: 0, RecordItems: rows } });
     }
   };
-  const sendProxy = { L(req) { calls.push({ uuid: req.uuid, tab: req.tab, record: req.recordId, count: req.record_cnt }); responses(req.uuid, req.tab, req.recordId); } };
+  const sendRecord = req => {
+    calls.push({ uuid: req.uuid, tab: req.tab, record: req.recordId, count: req.record_cnt });
+    responses(req.uuid, req.tab, req.recordId);
+  };
+  const sendProxy = { G: sendRecord, L: sendRecord };
   class Packet { tab = 0; recordId = 0; InitModeInfo() {} }
   const mgr = window.mgr = { proxy: sendProxy, reqRecordInfoTimeDic: new Dict(), reqRecordInfoTimeCD: 180,
     winRateDic: new Dict(), sevenDayWinRateDic: new Dict() };
   for (const code of [send, byTab, getRate, getRecent]) {
-    const method = new Function('mY', 've', 'return ({' + code + '})')(Packet, { I: () => sendProxy }); Object.assign(mgr, method);
+    const method = new Function(packetName, proxyName, 'return ({' + code + '})')(Packet, { I: () => sendProxy }); Object.assign(mgr, method);
   }
   proxy.on('ClientGameRecordInfoRep', mgr, function clientGameRecordInfoRep() {});
   class User { constructor(n) { this.ClientId = n; this.Uuid = n; this.Nickname = '玩家' + n; } static SendUserTTDateReq(name) {
@@ -63,6 +71,8 @@ try {
   window.changeTheme = tokens => { themes.current = { tokens }; for (const fn of listeners) fn(themes.current); };
   window.ctx = { scope, window, document, themes, game: { getSelf: () => ({ ...self, ClientId: account, constructor: User }), getClass: () => null,
     getServerProxy: () => proxy, getScene: () => scene, getSeatUIs: () => seats, getConfigData: () => config, loadConfigData: async () => config } };
+  ctx.ui = { nativeTheme: Check.createNativeTheme(ctx) };
+  ctx.native = Check.createPluginNative(ctx);
   window.runtime = Check.createPlayerStats(ctx);
   window.tick = () => runtime.update({ inGame: true, modeId }, session); tick();
   window.layout = name => {
@@ -87,7 +97,7 @@ try {
     tick();
   };
   scope.interval(tick, 250);
- }, { send, byTab, getRate, getRecent });
+ }, { send, byTab, getRate, getRecent, packetName, proxyName });
  await page.waitForFunction(() => calls.filter(c => c.rank).length === 2);
  await page.waitForTimeout(500);
  const values = () => page.evaluate(() => Laya.stage._children.filter(n => n.name === 'sgs-player-stats').map(n => ({ x: n.x, y: n.y, width: n.width, height: n.height, text: n._children[0]._children.filter(c => c instanceof Laya.Text).map(c => c.text) })));

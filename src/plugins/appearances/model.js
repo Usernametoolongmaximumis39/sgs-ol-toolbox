@@ -1,5 +1,14 @@
-export const MODES = { 26: '排位赛', 35: '斗地主', 44: '单骑无双' };
-export function modeId(value) { return new Map([[26, 26], [132, 26], [35, 35], [148, 35], [149, 35], [44, 44], [160, 44]]).get(Number(value)) || 0; }
+import { MODES } from '../../shared/match-sync-records.js';
+export { MODES };
+const normalizedModeIds = new Set(Object.keys(MODES).map(Number));
+const nativeModeIds = new Map([[132, 26], [148, 35], [149, 35], [160, 44]]);
+
+// Native model IDs are separate from the normalized labels in older imports.
+export function nativeModeId(value) { return nativeModeIds.get(Number(value)) ?? 0; }
+export function modeId(value) {
+  const id = Number(value);
+  return normalizedModeIds.has(id) ? id : nativeModeId(id);
+}
 export function ids(value) {
   if (!Array.isArray(value) || value.length > 256) throw new Error('候选武将列表长度无效');
   if (value.some(id => !Number.isSafeInteger(Number(id)) || Number(id) <= 0)) throw new Error('候选武将 ID 无效');

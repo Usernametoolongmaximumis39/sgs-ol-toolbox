@@ -1,5 +1,5 @@
 import { field, read } from '../../shared/info-runtime.js';
-import { usable, selfButtonBar, press, walkNative, clickSkill } from './native.js';
+import { usable, selfButtonBar, press, walkNative, clickSkill, label } from './native.js';
 
 const list = v => Array.isArray(v) ? v : [];
 const enabled = v => usable(v) && (v._enabled ?? v.enabled) === true;
@@ -7,6 +7,28 @@ const chosen = v => Boolean(v?.selected || v?.Selected || v?.Card?.Selected);
 const cardId = v => v?.Card?.CardId;
 const skillId = v => Number(v?.Skill?.SkillId ?? v?.Skill?.ID);
 const legal = v => usable(v) && (v.activated ?? v.Activated ?? v.Skill?.Activated) === true;
+const TAO = 3;
+const RESCUE_PROMPT = /求桃|濒死.{0,50}(?:桃|自救)|桃(?:或者|或)酒.{0,20}(?:回复|恢复).*体力/;
+const seatOf = ui => ui?.seat ?? ui?.Seat;
+const seatIndex = seat => Number(seat?.Index ?? seat?.index ?? NaN);
+const figure = seat => Number(seat?.Figure ?? seat?.figure);
+
+function canRescueInIdentity(frame, getPeachTarget) {
+  const self = seatOf(frame.self);
+  if (!self) return false;
+  const seats = [...new Set([self, ...list(frame.scene.seatContainer?.seatUIs).map(seatOf)])].filter(Boolean);
+  const asking = seats.filter(seat => seat.IsAskingTao === true);
+  const index = Number(getPeachTarget?.() ?? NaN);
+  const next = Number.isInteger(index) && index >= 0 && index < 255
+    ? seats.find(seat => seatIndex(seat) === index) : null;
+  // The seat flag also works when GameContext is private to the native client.
+  // Conflicting targets do not authorize an automatic rescue.
+  const dying = next ?? (asking.length === 1 ? asking[0] : null);
+  if (!dying || (asking.length > 0 && !asking.includes(dying))) return false;
+  if (dying === self) return true;
+  const mine = figure(self), target = figure(dying);
+  return mine === 3 ? target === 3 : [1, 2].includes(mine) && [1, 2].includes(target);
+}
 
 // Copy protocol scalars before the client reuses packet objects. No native
 // protocol, skill instance or account object is retained in the event queue.
@@ -22,7 +44,7 @@ export function projectBattleGuard(packet) {
     cards: list(field(packet, 'CardIDs')).length <= 128 ? list(field(packet, 'CardIDs')).map(Number) : [] };
 }
 
-export function createBattleGuards({ getCardMeta = () => null } = {}) {
+export function createBattleGuards({ getCardMeta = () => null, getPeachTarget } = {}) {
   let nullification = null;
   const judgments = new Map(), colorChoices = new Map(), done = new WeakSet(), tries = new WeakMap();
   function observe(type, data) {
@@ -45,7 +67,7 @@ export function createBattleGuards({ getCardMeta = () => null } = {}) {
     if (!d.single || !Number.isInteger(d.source) || d.source < 0 || d.source >= 255) return false;
     return even ? target === mine && d.source !== mine : d.source === mine;
   }
-  function run(frame, { official = false } = {}) {
+  function run(frame, { official = false, identity = false } = {}) {
     const self = frame.self, container = self?.cardContainer, context = container?.selectCardContext ?? container?.SelectContext;
     if (!self) return null;
     const bar = selfButtonBar(self), selector = usable(self.spellSelector) ? self.spellSelector : null;
@@ -57,11 +79,22 @@ export function createBattleGuards({ getCardMeta = () => null } = {}) {
     };
     const ok = () => click(buttons.find(b => b.name === 'btnOK'));
     const cancel = () => {
-      const b = list(selector?.btnList).find(b => enabled(b) && (b.name === 'btnCancel' || Number(b.data?.sendData) === 255
-        || Number(b.data?.sendData) === 0 && !b.data?.callBack));
+      const b = list(selector?.btnList).find(b => {
+        const data = b.data ?? b.Data;
+        return enabled(b) && (b.name === 'btnCancel' || Number(data?.sendData) === 255
+          || Number(data?.sendData) === 0 && !data?.callBack);
+      });
       if (b && typeof selector.btnClick === 'function') { selector.btnClick(b); return true; }
       return click(buttons.find(b => b.name === 'btnCancel'));
     };
+    if (identity) {
+      const messages = [selector?.txtOptMsg, bar?.txtOptMsg, { text: context?.message || context?.Message }];
+      if ((Number(context?.SpecifySkillId) === TAO || messages.some(node => RESCUE_PROMPT.test(label(node).replace(/[\s“”「」【】]/g, ''))))
+        && !canRescueInIdentity(frame, getPeachTarget)) {
+        const acted = cancel();
+        return { acted, reason: acted ? '已跳过非己方或身份未明的求桃' : '求桃：等待可用取消按钮' };
+      }
+    }
     const ids = [Number(context?.SpecifySkillId), skillId(context), Number(selector?.spell?.SkillId)];
     if (ids.includes(13)) {
       if (official) return { officialOnly: true, reason: '按小杀助手处理无懈询问' };

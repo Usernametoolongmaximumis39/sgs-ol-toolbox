@@ -1,5 +1,4 @@
 import { read } from '../../shared/info-runtime.js';
-import { getNativeTheme } from '../../ui/native-theme.js';
 import { mounted, nativeWindow } from './native-windows.js';
 import { placementRectToClient } from './placement-geometry.js';
 
@@ -38,7 +37,7 @@ export function createNativeSchoolFollow(ctx, toggle) {
   const actions = new Map();
   const byName = new Map(), byId = new Map();
   let followed = new Set(), host, shadow;
-  const theme = getNativeTheme(ctx);
+  const theme = ctx.ui.nativeTheme;
   let palette = theme.palette;
 
   function applyTheme() {

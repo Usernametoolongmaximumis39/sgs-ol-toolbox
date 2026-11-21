@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { legacyRobot, profileViews, reduce, initialState } from '../src/plugins/player-info/index.js';
 import { inferIdentities, createIdentityHints, roomController, roomMode } from '../src/plugins/player-info/identity.js';
 import { ResourceScope } from '../src/core/resources.js';
+import { createPluginNative } from '../src/core/plugin-native.js';
 test('legacy strict ID boundary and unknown values', () => {
   for (const id of [4000000001, '4294967295']) assert.equal(legacyRobot(id), true);
   for (const id of [1, 3999999999, 4000000000]) assert.equal(legacyRobot(id), false);
@@ -31,6 +32,14 @@ test('identity matches account to room order, independent of game seat order', (
   f.seats[0].seat.Figure = 2; f.seats[1].figureManager.Figure = 1;
   assert.equal(inferIdentities(f).length, 6);
 });
+test('identity uses native waiting-seat positions and RandMode when the rule getter is absent', () => {
+  const f = fixture();
+  f.setting = { RandMode: 5, DoubleNeiJian: true };
+  f.roster = [7, 5, 1, 0, 6, 4, 2, 3].map(SeatID => ({ SeatID, ClientId: SeatID + 100 }));
+  assert.deepEqual(inferIdentities(f).map(row => row.role), [3, 1, 4, 2, 4, 2, 3, 3]);
+  f.roster[1].SeatID = 7;
+  assert.deepEqual(inferIdentities(f), []);
+});
 test('identity refuses other modes, incomplete, duplicate, stale, reconnect and non-custom rooms', () => {
   for (const change of [f => f.modeId = 26, f => f.setting.IsChooseFigure = false, f => f.blocked = true,
     f => f.roster.pop(), f => f.seats.pop(), f => f.roster[1] = f.roster[0],
@@ -41,6 +50,7 @@ test('identity refuses other modes, incomplete, duplicate, stale, reconnect and 
 test('closed-over controller is found via existing native proxy handler and mode via table ID', () => {
   const { rc } = fixture();
   const ctx = { game: { getClass: () => null, getServerProxy: () => ({ _events: { 20508: { caller: rc } } }) } };
+  ctx.native = createPluginNative(ctx);
   assert.equal(roomController(ctx), rc); assert.equal(roomMode(307400001), 74);
 });
 test('production protocol names recover controller at opening-hand stage without ClassUtils', () => {
@@ -48,6 +58,7 @@ test('production protocol names recover controller at opening-hand stage without
     const f = fixture(), scope = new ResourceScope();
     const proxy = { _events: { [event]: { caller: f.rc } } };
     const ctx = { scope, game: { getClass: () => null, getServerProxy: () => proxy, getSeatUIs: () => f.seats } };
+    ctx.native = createPluginNative(ctx);
     assert.equal(roomController(ctx), f.rc);
     createIdentityHints(ctx).update({ inGame: true, modeId: 74 }, false);
     assert.deepEqual(f.seats.map(ui => ui.figureManager.Figure), [3, 1, 4, 2, 3, 2, 3, 3]);
@@ -57,6 +68,7 @@ test('production protocol names recover controller at opening-hand stage without
 test('native fill persists, respects confirmed updates and restores only owned changes', () => {
   const f = fixture(), scope = new ResourceScope();
   const ctx = { scope, game: { getClass: () => f.rc, getSeatUIs: () => f.seats } };
+  ctx.native = createPluginNative(ctx);
   const runtime = createIdentityHints(ctx), snapshot = { inGame: true, modeId: 73 };
   const original = f.seats[0].figureManager.SetFigure;
   runtime.update(snapshot, false); runtime.update(snapshot, false);
@@ -65,6 +77,23 @@ test('native fill persists, respects confirmed updates and restores only owned c
   scope.dispose(); assert.equal(f.seats[0].figureManager.Figure, 4);
   assert.equal(f.seats[1].figureManager.Figure, 0);
   assert.equal(f.seats[0].figureManager.SetFigure, original);
+});
+test('native opening refresh restores an unknown icon and preserves an official identity', () => {
+  const f = fixture(), scope = new ResourceScope();
+  const ctx = { scope, game: { getClass: () => f.rc, getSeatUIs: () => f.seats } };
+  ctx.native = createPluginNative(ctx);
+  const runtime = createIdentityHints(ctx), snapshot = { inGame: true, modeId: 73 };
+  const reset = f.seats[0].figureManager, revealed = f.seats[1].figureManager;
+  runtime.update(snapshot, false);
+  reset.SetFigure(0);
+  f.seats[1].seat.Figure = 2;
+  revealed.SetFigure(2);
+  runtime.update(snapshot, false);
+  assert.equal(reset.Figure, 3);
+  assert.equal(revealed.Figure, 2);
+  scope.dispose();
+  assert.equal(reset.Figure, 0);
+  assert.equal(revealed.Figure, 2);
 });
 test('reconnect and gap block identity until new journal session', () => {
   for (const event of [{ type: 'MsgReconnectGame' }, { type: 'toolbox:gap' }, { type: 'MsgGamePlayCardNtf', payload: { IsResume: true } }]) {

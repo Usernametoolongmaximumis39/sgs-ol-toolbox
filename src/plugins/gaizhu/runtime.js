@@ -1,4 +1,4 @@
-import { account, manager, observeNative, read, generalNames, field } from '../../shared/info-runtime.js';
+import { read, generalNames, field } from '../../shared/info-runtime.js';
 import { cleanOptions, definitions, projectAchievements, evaluate, chooseGeneral, bannedGeneral, durationOf } from './model.js';
 import { projectBattleGuard } from './battle-guards.js';
 import { createAssistant, TRAINING_SHOP_IDS } from './assistant.js';
@@ -44,7 +44,12 @@ export function createGaiZhu(ctx) {
   let run = null, inLobby = false;
   let defs = [], names = {}, progress = null, pendingAch = null, configLoading = false, lastQuery = -Infinity;
   let startBan = null;
-  const newAssistant = () => createAssistant({ getCardMeta: id => read(() => ctx.game.getCardMeta(id)), getSkill: id => read(() => ctx.game.getClass('Skill').GetInstance(id)), canOperate: () => read(() => ctx.game.getClass('GameContext').CanOperationInGame()) });
+  const newAssistant = () => createAssistant({
+    getCardMeta: id => read(() => ctx.game.getCardMeta(id)),
+    getSkill: id => read(() => ctx.game.getClass('Skill').GetInstance(id)),
+    canOperate: () => read(() => ctx.game.getClass('GameContext').CanOperationInGame()),
+    getPeachTarget: () => read(() => ctx.game.getClass('GameContext').NextSpellTargets[0]),
+  });
   let solo = false, training = false, assistant = newAssistant();
   let djRelease = null, stopped = false, configSeq = 0, synced = false;
   const now = () => typeof ctx.now === 'function' ? ctx.now() : Date.now();
@@ -52,7 +57,7 @@ export function createGaiZhu(ctx) {
     const proxy = read(() => ctx.game.getServerProxy());
     return proxy === run?.proxy && read(() => proxy.ConnId) === run?.connectionId && read(() => proxy.ConnectedSucess1) !== false;
   };
-  const alive = token => !stopped && !ctx.scope.signal.aborted && role !== 'off' && token === seq && connected() && account(ctx).id === who.id;
+  const alive = token => !stopped && !ctx.scope.signal.aborted && role !== 'off' && token === seq && connected() && ctx.native.account().id === who.id;
   function notify() { if (stopped || ctx.scope.signal.aborted) return; for (const fn of [...listeners]) fn(); }
   function note(text) { log = [...log.slice(-39), text]; }
   function state(text) { if (status === text) return; status = text; notify(); }
@@ -112,7 +117,7 @@ export function createGaiZhu(ctx) {
     if (seconds !== roomRetry.seconds) notify();
   }
   function sync() {
-    const next = account(ctx);
+    const next = ctx.native.account();
     if (synced && next.id === who.id && next.nickname === who.nickname) return;
     const saved = sessionState()?.gaizhuStoppedError;
     if ((synced && next.id !== who.id) || (saved && saved.accountId !== next.id)) clearStoppedError();
@@ -147,13 +152,13 @@ export function createGaiZhu(ctx) {
   }
   function queryAchievements() {
     if (pendingAch || now() - lastQuery < 1000 || !who.nickname) return;
-    const mgr = manager(ctx, 'AchievementManager', 'ClientDbsGetuserachinfoRep', m => typeof m.sendGetAchInfo === 'function');
+    const mgr = ctx.native.manager('AchievementManager', 'ClientDbsGetuserachinfoRep', m => typeof m.sendGetAchInfo === 'function');
     if (!mgr) { state('等待战功查询接口'); return; }
     lastQuery = now(); pendingAch = { seq, at: now(), nickname: who.nickname };
     mgr.sendGetAchInfo(who.nickname, 0); state('正在查询百胜战功');
   }
   function rows() {
-    const gm = manager(ctx, 'GameGeneralManager', 'ClientGeneralFromRep', m => typeof m.HasGeneral === 'function');
+    const gm = ctx.native.manager('GameGeneralManager', 'ClientGeneralFromRep', m => typeof m.HasGeneral === 'function');
     return evaluate(defs, progress, names, id => gm ? read(() => gm.HasGeneral(id)) ?? null : null);
   }
   function tryStartBan(scene) {
@@ -816,8 +821,10 @@ export function createGaiZhu(ctx) {
       }
       if (!who.id) { fail('当前账号尚未登录'); return; }
       if (!connected()) { stopClean('游戏连接已断开 · 已停止'); return; }
-      if (read(() => ctx.game.getSnapshot().isReplay) === true) { fail('回放场景不能运行盖主速刷'); return; }
-      const frame = native.frame();
+      const scene = typeof ctx.game.isReplay === 'function' ? ctx.game.getScene() : undefined;
+      const replay = read(() => ctx.game.isReplay?.(scene)) ?? read(() => ctx.game.getSnapshot().isReplay);
+      if (replay === true) { fail('回放场景不能运行盖主速刷'); return; }
+      const frame = native.frame(scene);
       updateLobby(frame.scene);
       const trainingGame = isTrainingGame(ctx, frame);
       const trainingResult = training ? native.matching(/^RogueLike1v1ZhanJiWindow$/).find(win => !win.isShare) : null;
@@ -982,7 +989,7 @@ export function createGaiZhu(ctx) {
     return data && { ...data, run: seq, requestAt: pendingAch?.at };
   };
   const projectDisconnect = () => ({ run: seq });
-  observeNative(ctx, { ClientDbsGetuserachinfoRep: projectAchievementReply,
+  ctx.native.observe({ ClientDbsGetuserachinfoRep: projectAchievementReply,
     MsgGameOver: () => ({ run: seq, phase: round.serial }), GsCTriggerSpellNew: projectGuardEvent, GsCGamephaseNtf: projectGuardEvent,
     MsgGameTurnNtf: projectGuardEvent, PubGsCMoveCard: projectGuardEvent, PubGsCUseSpell: projectGuardEvent,
     close: projectDisconnect, error: projectDisconnect }, (type, data, sender) => {

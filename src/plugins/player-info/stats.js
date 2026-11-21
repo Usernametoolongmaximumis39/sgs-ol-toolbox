@@ -1,5 +1,5 @@
 import { nativeSeat } from '../../core/seat.js';
-import { manager, read } from '../../shared/info-runtime.js';
+import { read } from '../../shared/info-runtime.js';
 import { roomController, roomMode } from './identity.js';
 import { statsMode, hundredRate, ddzRoleRates, currentStreak, rankSummary } from './stats-model.js';
 import { createStatsView } from './stats-view.js';
@@ -8,7 +8,7 @@ export function createPlayerStats(ctx, lamps = null) {
   const view = createStatsView(ctx);
   let generation = 0, identity = '', requests = new Map(), ranks = new Map(), records = new Map(), proxy = null, release = () => {}, nextSend = 0;
   let config = null, configRequested = false;
-  const getManager = () => manager(ctx, 'UserInfoManger', 'ClientGameRecordInfoRep', m => typeof m.SendClientGameRecordInfoReq === 'function');
+  const getManager = () => ctx.native.manager('UserInfoManger', 'ClientGameRecordInfoRep', m => typeof m.SendClientGameRecordInfoReq === 'function');
   function clear() { generation++; requests.clear(); ranks.clear(); records.clear(); view.clear(); identity = ''; release(); proxy = null; }
   ctx.scope.add(clear);
   function bind() {

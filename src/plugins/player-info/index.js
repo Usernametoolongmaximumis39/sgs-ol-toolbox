@@ -6,16 +6,20 @@ import { createBattleLamps } from './lamps.js';
 import { createPlayerSettings, renderPlayerSettings } from './settings.js';
 
 export const manifest = {
-  id: 'player-info', name: '玩家信息', version: '0.4.22', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "牌局中的玩家统计卡片可收起为头像旁的小圆点，点击小圆点恢复，收起时会避让附近控件。", minCoreVersion: '0.6.70', description: '可选玩家资料卡与斗地主将灯检查，支持自定义关注武将、人机提示与自选身份补全',
+  id: 'player-info', name: '玩家信息', version: '0.4.25', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "修复自选身份局中等待座位与牌局座位顺序不一致时的身份提示错位，改善玩家信息设置页的搜索和长名称显示。", minCoreVersion: '0.6.185', description: '可选玩家资料卡与斗地主将灯检查，支持自定义关注武将、人机提示与自选身份补全',
   icon: { paths: ['M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0', 'M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3'] },
   priority: 30200, categories: ['game'],
 };
 const read = fn => { try { return fn(); } catch { return undefined; } };
 export const initialState = () => ({ sessionId: null, identityBlocked: false });
-export const reduce = (state, event) => ({ sessionId: event.sessionId ?? state.sessionId,
-  identityBlocked: state.identityBlocked || /Reconnect/.test(event.type) || event.type === 'toolbox:gap'
-    || event.type === 'MsgGamePlayCardNtf' && Boolean(event.payload?.IsResume) });
+export const reduce = (state, event) => {
+  const sessionId = event.sessionId ?? state.sessionId;
+  const identityBlocked = state.identityBlocked || /Reconnect/.test(event.type) || event.type === 'toolbox:gap'
+    || event.type === 'MsgGamePlayCardNtf' && Boolean(event.payload?.IsResume);
+  if (sessionId === state.sessionId && identityBlocked === state.identityBlocked) return state;
+  return { sessionId, identityBlocked };
+};
 // UserInfoView.onWinInfo in the legacy script uses a strict comparison.
 export function legacyRobot(id) {
   if (typeof id !== 'number' && typeof id !== 'string' || String(id).trim() === '') return null;

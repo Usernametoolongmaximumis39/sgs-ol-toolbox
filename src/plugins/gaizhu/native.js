@@ -1,4 +1,4 @@
-import { read, manager } from '../../shared/info-runtime.js';
+import { read } from '../../shared/info-runtime.js';
 
 // Containers need only be visible/alive. Native button containers can have
 // mouseEnabled=false while their child receives input and onClick dispatches.
@@ -72,14 +72,26 @@ export function clickSkill(node) {
 
 // Only known UI child collections are visited; never arbitrary properties,
 // getters, window constructors or singleton factories.
+const childLists = ['_children', 'btns', 'buttonArr', 'generalUis'];
+const childFields = ['cancelBtn', 'cancleBtn', 'sureBtn', 'confirmBtn', 'closeBtn', 'confirmWin'];
 export function walkNative(roots, limit = 512) {
   const queue = roots.filter(Boolean), seen = new Set(), output = [];
+  const append = children => {
+    if (Array.isArray(children) && children.length) queue.push(...children.slice(0, Math.min(512, limit - queue.length)));
+  };
   for (let at = 0; at < queue.length && at < limit; at++) {
     const node = queue[at]; if (!node || seen.has(node) || read(() => node.destroyed) === true) continue;
     seen.add(node); output.push(node);
-    for (const key of ['_children', 'btns', 'buttonArr', 'generalUis']) queue.push(...list(read(() => node[key])).slice(0, Math.max(0, limit - queue.length)));
-    for (const key of ['cancelBtn', 'cancleBtn', 'sureBtn', 'confirmBtn', 'closeBtn', 'confirmWin']) { const child = read(() => node[key]); if (child && queue.length < limit) queue.push(child); }
-    queue.push(...list(read(() => node.confirmData.buttonArr)).slice(0, Math.max(0, limit - queue.length)));
+    for (const key of childLists) {
+      if (queue.length >= limit) break;
+      append(read(() => node[key]));
+    }
+    for (const key of childFields) {
+      if (queue.length >= limit) break;
+      const child = read(() => node[key]);
+      if (child) queue.push(child);
+    }
+    if (queue.length < limit) append(read(() => node.confirmData?.buttonArr));
   }
   return output;
 }
@@ -89,18 +101,19 @@ export function createNative(ctx) {
   let windowNames = new Map();
   let displayed = new Set();
   const processedResults = new WeakMap();
-  function frame() {
-    scene = ctx.game.getScene();
-    nodes = walkNative([scene, read(() => ctx.window.Laya.stage)]);
+  function frame(currentScene = ctx.game.getScene()) {
+    scene = currentScene;
+    nodes = walkNative([scene, read(() => ctx.window.Laya?.stage)]);
     displayed = new Set(nodes);
     // WindowManager may own a window not currently under the visible stage.
-    let wm = manager(ctx, 'WindowManager', 'HIDE_WINDOW', value => value.WindowInstanceDict);
+    let wm = ctx.native.manager('WindowManager', 'HIDE_WINDOW', value => value.WindowInstanceDict);
     if (!wm) for (const node of nodes) {
-      const handlers = read(() => node.ged._events.HIDE_WINDOW) || read(() => node._events.HIDE_WINDOW);
-      const entry = (Array.isArray(handlers) ? handlers : [handlers]).slice(0, 32).find(h => read(() => h.caller.WindowInstanceDict));
+      const handlers = read(() => node.ged?._events?.HIDE_WINDOW) || read(() => node._events?.HIDE_WINDOW);
+      if (!handlers) continue;
+      const entry = (Array.isArray(handlers) ? handlers.slice(0, 32) : [handlers]).find(h => read(() => h?.caller?.WindowInstanceDict));
       if (entry) { wm = entry.caller; break; }
     }
-    const dict = read(() => wm.WindowInstanceDict);
+    const dict = read(() => wm?.WindowInstanceDict);
     let entries = [];
     if (dict instanceof Map) entries = [...dict.entries()].slice(0, 128);
     else if (dict && typeof dict === 'object') {
@@ -112,8 +125,9 @@ export function createNative(ctx) {
     windowNames = new Map(entries.map(([name, win]) => [win, String(name)]));
     const windows = entries.map(([, win]) => win);
     nodes = walkNative([...nodes, ...windows], 768);
-    return { scene, name: nodeName(scene), self: read(() => scene.SelfSeatUi) || read(() => scene.selfSeatUI),
-      game: Boolean(read(() => scene.SelfSeatUi) || read(() => scene.selfSeatUI) || /^(GameScene|RogueLike1v1GameScene)$/.test(nodeName(scene))), nodes: nodes.filter(n => displayed.has(n) || Boolean(read(() => n.parent))) };
+    const name = nodeName(scene), self = read(() => scene?.SelfSeatUi) || read(() => scene?.selfSeatUI);
+    return { scene, name, self, game: Boolean(self || /^(GameScene|RogueLike1v1GameScene)$/.test(name)),
+      nodes: nodes.filter(n => displayed.has(n) || Boolean(read(() => n.parent))) };
   }
   // WindowManager caches are not a display list. Its native IsWindowShow
   // requires parent+visible; fixture stage membership supplies the same fact.

@@ -344,19 +344,50 @@ try {
         Verify-Tree $payload $manifest.files
     }
     } catch {
-        if ($Action -ne 'Install') { throw }
-        if (-not (Test-Path -LiteralPath (Join-Path $PackageRoot 'payload.json') -PathType Leaf) -or -not (Test-Path -LiteralPath (Join-Path $PackageRoot 'payload') -PathType Container)) { throw '安装包不完整，无法继续安装，未修改微端。' }
-        $probe = Read-Json (Join-Path $PackageRoot 'payload.json')
-        if ($probe.format -cne 'sgs-toolbox-microclient-v1' -or $probe.edition -notin @('full', 'lite')) { throw '安装包清单无效，无法继续安装，未修改微端。' }
-        if (-not (Test-Path -LiteralPath $asar -PathType Leaf) -and -not (Test-Path -LiteralPath $backup -PathType Leaf)) { throw '既没有 app.asar，也没有官方备份，无法继续安装。请先重装官方微端。' }
-        Write-Host '安装检查未通过。你可能以前使用过小抄或其他辅助脚本，安装可能会导致你丢失这些脚本，确认风险后按 y 继续。'
-        if ((Read-Host '按 y 继续（其他输入均取消）') -notmatch '^(?i)y$') { throw '未确认风险，安装已取消，未修改微端。' }
-        $force = $true
+        if ($Action -eq 'Install') {
+            if (-not (Test-Path -LiteralPath (Join-Path $PackageRoot 'payload.json') -PathType Leaf) -or -not (Test-Path -LiteralPath (Join-Path $PackageRoot 'payload') -PathType Container)) { throw '安装包不完整，无法继续安装，未修改微端。' }
+            $probe = Read-Json (Join-Path $PackageRoot 'payload.json')
+            if ($probe.format -cne 'sgs-toolbox-microclient-v1' -or $probe.edition -notin @('full', 'lite')) { throw '安装包清单无效，无法继续安装，未修改微端。' }
+            if (-not (Test-Path -LiteralPath $asar -PathType Leaf) -and -not (Test-Path -LiteralPath $backup -PathType Leaf)) { throw '既没有 app.asar，也没有官方备份，无法继续安装。请先重装官方微端。' }
+            Write-Host '安装检查未通过。你可能以前使用过小抄或其他辅助脚本，安装可能会导致你丢失这些脚本，确认风险后按 y 继续。'
+            $answer = Read-Host '按 y 继续（其他输入均取消）'
+            if ([string]::IsNullOrWhiteSpace($answer) -or $answer -notmatch '^(?i)y$') { throw '未确认风险，安装已取消，未修改微端。' }
+            $force = $true
+        } elseif ($Action -in @('Restore', 'Uninstall')) {
+            if (Test-Path -LiteralPath $stage) { throw '存在上次安装的暂存目录 .sgs-toolbox-stage，请先检查并移走后重试。' }
+            if (Test-Path -LiteralPath $rollback) { throw '存在上次安装的回退目录 .sgs-toolbox-rollback，请先检查并移走后重试。' }
+            if (-not (Test-Path -LiteralPath $asar -PathType Leaf) -and -not (Test-Path -LiteralPath $backup -PathType Leaf)) { throw '既没有 app.asar，也没有官方备份，无法恢复官方微端。请先重装官方微端。' }
+            if ((Test-Path -LiteralPath $app) -and ((Get-Item -LiteralPath $app).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw '不支持链接形式的 app 目录。' }
+            Write-Host '卸载检查未通过。强制卸载会恢复官方 app.asar，并在成功后删除被替换的 app 目录；其中被修改或未知的脚本会丢失，resources 中 app 以外的未知脚本不会被删除。确认风险后按 y 继续。'
+            $answer = Read-Host '按 y 继续（其他输入均取消）'
+            if ([string]::IsNullOrWhiteSpace($answer) -or $answer -notmatch '^(?i)y$') { throw '未确认风险，卸载已取消，未修改微端。' }
+            $force = $true
+        } else { throw }
     }
     if ($Action -eq 'Audit') { Write-Host '检查通过：官方文件和已安装工具箱完整，未发现未知脚本。'; exit 0 }
     if ($Action -in @('Restore', 'Uninstall')) {
-        if (-not $owned) { Write-Host '当前已是通过校验的官方微端，无需卸载。'; exit 0 }
+        if (-not $owned -and -not $force) { Write-Host '当前已是通过校验的官方微端，无需卸载。'; exit 0 }
         Assert-Closed
+        if ($force) {
+            $asideAsar = $null; $movedApp = $false; $restoredBackup = $false
+            try {
+                if (Test-Path -LiteralPath $app) { Move-Item -LiteralPath $app -Destination $rollback; $movedApp = $true }
+                if (Test-Path -LiteralPath $backup -PathType Leaf) {
+                    if (Test-Path -LiteralPath $asar -PathType Leaf) { $asideAsar = Move-Aside $asar 'conflicting-asar' }
+                    Move-Item -LiteralPath $backup -Destination $asar; $restoredBackup = $true
+                }
+            } catch {
+                if ($asideAsar -and -not (Test-Path -LiteralPath $asar) -and (Test-Path -LiteralPath $asideAsar)) { Move-Item -LiteralPath $asideAsar -Destination $asar }
+                if ($movedApp -and -not (Test-Path -LiteralPath $app) -and (Test-Path -LiteralPath $rollback)) { Move-Item -LiteralPath $rollback -Destination $app }
+                throw
+            }
+            if (Test-Path -LiteralPath $rollback) { Remove-Item -LiteralPath $rollback -Recurse -Force }
+            if (-not (Test-Path -LiteralPath $asar -PathType Leaf)) { throw '强制卸载后未找到官方 app.asar，请重新安装官方微端。' }
+            if ($movedApp) { Write-Host '已强制卸载工具箱并恢复官方微端；被替换的 app 目录已按确认删除。' }
+            elseif ($restoredBackup) { Write-Host '未发现工具箱 app 目录；已从官方备份恢复 app.asar。' }
+            else { Write-Host '未发现工具箱 app 目录，未修改客户端文件；resources 中的未知脚本未代为删除。' }
+            Write-Host '工具箱设置、插件和脚本更新缓存保留在用户数据中，不会被官方微端加载。'; exit 0
+        }
         Move-Item -LiteralPath $app -Destination $rollback
         try { Move-Item -LiteralPath $backup -Destination $asar } catch { Move-Item -LiteralPath $rollback -Destination $app; throw }
         Remove-Item -LiteralPath $rollback -Recurse -Force

@@ -10,7 +10,8 @@ const FACE_BACKGROUND_RECORD = '$background';
 const localFaceKey = card => `${LOCAL_FACE_STYLE.id}.${card}`;
 
 const COLOR = /^#[0-9a-f]{6}$/i;
-const own = (node, key) => node && Object.getOwnPropertyDescriptor(node, key)?.value;
+const hasOwn = Object.prototype.hasOwnProperty;
+const own = (node, key) => node && (hasOwn.call(node, key) ? Object.getOwnPropertyDescriptor(node, key)?.value : undefined);
 const CARD_LISTS = ['_children','cardUis','cardUIs','cardUiList','cardUIList','virtualCardUis','tempHandCardUis','additionalCardUis','muniuCardUis','stateCardUis','pileCardUis','regionCardUIs','seatUIs'];
 const CARD_NODES = ['cardContainer','seatContainer','SelfSeatUi','selfSeatUI','desktopCardContainer','discardCardContainer','cardUi','cardUI'];
 const isCardUI = node => node && !node.destroyed && node.bmpFace && typeof node.SetCardFace === 'function'
@@ -56,9 +57,12 @@ export function findNativeCardTexture(L, name) {
   const direct = L?.loader?.getRes?.(name);
   if (valid(direct)) return direct;
   for (const cache of [L?.Loader?.textureMap, L?.Loader?.loadedMap, L?.Loader?._loadedMap]) {
-    for (const key of Object.keys(cache || {}).slice(0, 60000)) {
-      if (nativeCardResourceName(key) !== name) continue;
-      const texture = cache[key]?.bitmap ? cache[key] : L?.loader?.getRes?.(key);
+    if (!cache) continue;
+    const keys = Object.keys(cache), count = Math.min(keys.length, 60000);
+    for (let i = 0; i < count; i++) {
+      const key = keys[i];
+      if (!key.includes(name) || nativeCardResourceName(key) !== name) continue;
+      const entry = cache[key], texture = entry?.bitmap ? entry : L?.loader?.getRes?.(key);
       if (valid(texture)) return texture;
     }
   }
@@ -93,7 +97,7 @@ export function drawCardStyle(doc, palette, back = false) {
 }
 
 export class CardStyleRegistry {
-  constructor({ window: win, document: doc, game, settings, scope }) {
+  constructor({ window: win, document: doc, game, settings, scope, sceneWatch }) {
     Object.assign(this, { win, doc, game, settings, scope });
     this.styles = new Map(); this.listeners = new Set(); this.textures = new Map(); this.bindings = new Map();
     this.nativeResources = new Map(); this.nativeAttempts = new Map(); this.previews = new WeakMap();
@@ -106,7 +110,9 @@ export class CardStyleRegistry {
     this.localFaceCatalogPending = null; this.localFaceCatalogError = '';
     this.localFaceBackground = null;
     this.status = '跟随游戏原始外观'; this.closed = false;
-    scope.interval(() => this.refreshNative(), 400);
+    const refreshNative = () => this.refreshNative();
+    if (sceneWatch) scope.add(sceneWatch.watch(refreshNative, 400));
+    else scope.interval(refreshNative, 400);
     if (game.onSceneChange) scope.add(game.onSceneChange(() => this.queueRefresh()));
     scope.add(() => { this.closed = true; this.restore(); this.clearTextures(); this.nativeResources.clear(); this.nativeAttempts.clear(); this.localBacks.clear(); this.localFaces.clear(); this.localFaceBackground = null; this.listeners.clear(); });
     this.localBacksReady = win.indexedDB ? this.loadLocalBacks() : Promise.resolve();
@@ -700,7 +706,11 @@ export class CardStyleRegistry {
         this.bookFaces.add(ui);
         queue.push(ui);
       }
-      for (const key of CARD_LISTS) { const a = own(node,key); if (Array.isArray(a)) queue.push(...a.slice(0,2048)); }
+      for (const key of CARD_LISTS) {
+        const cards = own(node, key);
+        if (!Array.isArray(cards)) continue;
+        for (let j = 0, count = Math.min(cards.length, 2048); j < count; j++) queue.push(cards[j]);
+      }
       for (const key of CARD_NODES) { const value = own(node,key); if (value) queue.push(value); }
     }
     return seen;

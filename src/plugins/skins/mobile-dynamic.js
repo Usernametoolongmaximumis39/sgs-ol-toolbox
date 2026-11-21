@@ -1,5 +1,6 @@
 import { readMobileSpine36 } from './mobile-spine36.js';
 import { seatPortraitPanel } from './yjcm.js';
+import { attachmentFrame, checkedFrame } from './spine-layout.js';
 
 const backgroundClips = ['beijing', 'background', 'play'];
 const idleClips = ['daiji', 'idle', 'standby', 'play'];
@@ -61,10 +62,6 @@ function resizeAtlasPage(doc, image, scale) {
   return canvas;
 }
 
-function checkedFrame(x, y, width, height) {
-  if ([x, y, width, height].every(Number.isFinite) && width > 1 && height > 1) return { x, y, width, height };
-}
-
 function rotatedFrame(frame, rotation) {
   if (!rotation) return frame;
   const { x, y, width, height } = frame;
@@ -74,28 +71,6 @@ function rotatedFrame(frame, rotation) {
   const ys = corners.map(([x, y]) => x * sin + y * cos);
   const left = Math.min(...xs), top = Math.min(...ys);
   return { x: left, y: top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
-}
-
-function attachmentFrame(spine, slot, rotation = 0) {
-  const attachment = slot?.getAttachment();
-  if (!slot?.color.a || !attachment?.color?.a) return;
-  let vertices;
-  if (attachment instanceof spine.RegionAttachment) {
-    vertices = new Float32Array(8);
-    attachment.computeWorldVertices(slot.bone, vertices, 0, 2);
-  } else if (attachment instanceof spine.MeshAttachment) {
-    vertices = new Float32Array(attachment.worldVerticesLength);
-    attachment.computeWorldVertices(slot, 0, vertices.length, vertices, 0, 2);
-  } else return;
-  const angle = rotation * Math.PI / 180, cos = Math.cos(angle), sin = Math.sin(angle);
-  let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
-  for (let i = 0; i < vertices.length; i += 2) {
-    const x = vertices[i] * cos + vertices[i + 1] * sin;
-    const y = vertices[i] * sin - vertices[i + 1] * cos;
-    left = Math.min(left, x); right = Math.max(right, x);
-    top = Math.min(top, y); bottom = Math.max(bottom, y);
-  }
-  return checkedFrame(left, top, right - left, bottom - top);
 }
 
 function paintedFrame(laya, actor, frame, rotation, minimumCoverage) {
@@ -474,6 +449,13 @@ export async function createMobileMotion(win, archive, signal, form = '', layout
         return false;
       }
     }
+    function positionLayers(x, y, scale) {
+      for (const { actor: child } of layers) {
+        child.rotation = rotation;
+        child.scale(scale, scale);
+        child.pos(x, y);
+      }
+    }
     function fit(x, y, width, height) {
       // Both skeletons share the same origin in the mobile client. Keep their
       // authored registration and adapt the viewport to OL's portrait clip.
@@ -501,14 +483,22 @@ export async function createMobileMotion(win, archive, signal, form = '', layout
         layout ? layout.offsetY / layout.scale : frame.y + frame.height / 2;
       const clampedX = Math.max(frame.x + halfWidth, Math.min(centerX, frame.x + frame.width - halfWidth));
       const clampedY = Math.max(frame.y + halfHeight, Math.min(centerY, frame.y + frame.height - halfHeight));
-      for (const { actor: child } of layers) {
-        child.rotation = rotation;
-        child.scale(scale, scale);
-        child.pos(x + width / 2 - clampedX * scale, y + height / 2 - clampedY * scale);
-      }
+      positionLayers(x + width / 2 - clampedX * scale, y + height / 2 - clampedY * scale, scale);
       return height * seatOverflowRatio;
     }
     return { actor, dispose, effects, playEffect, fit, stopEffect: () => effect?.finish(false),
+      fitBackground(x, y, width, height) {
+        const { frame } = layers[0];
+        const scale = Math.max(width / frame.width, height / frame.height);
+        positionLayers(x + (width - frame.width * scale) / 2 - frame.x * scale,
+          y + (height - frame.height * scale) / 2 - frame.y * scale, scale);
+      },
+      setPlaying(value) {
+        for (const layer of layers) if (layer.duration) {
+          if (value) { layer.actor.timeKeeper?.update(); layer.actor.resume(); }
+          else layer.actor.paused();
+        }
+      },
       renderOverhang(context) {
         // Keep in-seat effects out of the narrow idle overhang.
         if (effect || disposed) return;

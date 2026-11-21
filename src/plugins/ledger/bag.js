@@ -1,12 +1,17 @@
 import { read } from '../../shared/info-runtime.js';
-import { getNativeTheme } from '../../ui/native-theme.js';
+import { cachedNativeWindow, isMountedWindowNode } from '../../shared/window-cache.js';
 
 const COUPONS = 'gn_dbs_coupon_cfg';
+const BADGES_PER_FRAME = 12;
+const PROFILE_WINDOW = 'UserInfoWindow';
 const visible = node => {
   if (!node?.parent || node.destroyed) return false;
   for (let n = node; n; n = n.parent) if (n.visible === false || n.destroyed) return false;
   return true;
 };
+const isBagView = node => Array.isArray(node?.bags) && node.topSp && typeof node.showBags === 'function'
+  && typeof node.updatePageIdx === 'function' && typeof node.updateRadioBtnData === 'function';
+
 export function findBagViews(stage) {
   const queue = stage ? [stage] : [], found = [];
   for (let i = 0; i < queue.length && i < 4000; i++) {
@@ -14,12 +19,24 @@ export function findBagViews(stage) {
     if (!node || node.destroyed || node.visible === false) continue;
     // BagView is a tab of the profile window, outside the native scene layer.
     if (node.name === 'SceneLayer' || node.layerOrder === 2 || node.LayerOrder === 2) continue;
-    if (Array.isArray(node.bags) && node.topSp && typeof node.showBags === 'function'
-      && typeof node.updatePageIdx === 'function' && typeof node.updateRadioBtnData === 'function' && visible(node)) found.push(node);
+    if (isBagView(node) && visible(node)) found.push(node);
     const children = node._children;
-    if (Array.isArray(children)) queue.push(...children);
+    if (Array.isArray(children)) for (let j = 0; j < children.length && queue.length < 4000; j++) queue.push(children[j]);
   }
   return found;
+}
+
+function findCurrentBag(ctx, stage) {
+  if (!stage) return [];
+  const dispatcher = read(() => ctx.game.getDispatcher());
+  const profile = cachedNativeWindow(dispatcher, PROFILE_WINDOW);
+  if (profile === undefined) return findBagViews(stage);
+  if (!isMountedWindowNode(stage, profile)) return [];
+  // The view stack can keep a requested tab and the displayed tab separately while resources load.
+  const stack = profile.viewStack;
+  if (!stack || !('displayedChild' in stack)) return findBagViews(stage);
+  const bag = stack.displayedChild;
+  return isBagView(bag) && isMountedWindowNode(stage, bag) ? [bag] : [];
 }
 export function filterBag(rows, query) {
   const term = String(query || '').trim().toLocaleLowerCase();
@@ -38,15 +55,31 @@ export function couponAmounts(base, config) {
   return Number.isSafeInteger(threshold) && Number.isSafeInteger(discount) && threshold >= discount && discount > 0 ? `${threshold}-${discount}` : '';
 }
 
+// RemainingTime is a clock-based getter. Only compare actual inventory data.
+const inventoryFields = [
+  row => row?.ID, row => row?.BaseID, row => row?.Count, row => row?.BitMark, row => row?.Expirydate,
+  (_, base) => base?.ItemName, (_, base) => base?.name, (_, base) => base?.sortindex,
+];
+function inventoryChanged(rows, saved) {
+  let offset = 0;
+  for (const row of rows) {
+    const base = row?.baseInfo;
+    for (const readField of inventoryFields) if (!Object.is(readField(row, base), saved[offset++])) return true;
+  }
+  return false;
+}
+
 // Patch only this mounted view and its own slots. bagDatas stays complete for
 // the client's incremental inventory updates; only drawing/paging is filtered.
 export function enhanceBagView(ctx, owner, getConfig) {
-  const L = ctx.window.Laya ?? ctx.window.laya, theme = getNativeTheme(ctx);
-  const releases = [], slots = new Map();
+  const L = ctx.window.Laya ?? ctx.window.laya, theme = ctx.ui.nativeTheme;
+  const releases = [], slots = new Map(), pendingBadges = new Set();
+  const canDeferBadges = typeof ctx.window.requestAnimationFrame === 'function';
+  let releaseFrame = null;
   let disposed = false, query = '', showing = false, hover = false;
-  let palette = theme.palette, resultCount = 0, lastRows, lastLength, lastInventory = '';
+  let palette = theme.palette, resultCount = 0, lastRows, lastLength, lastInventory = [];
   const originalShow = owner.showBags, originalPage = owner.updatePageIdx;
-  const patch = (target, key, factory) => releases.push(ctx.scope.patch(target, key, old => {
+  const patch = (target, key, factory, collection = releases) => collection.push(ctx.scope.patch(target, key, old => {
     const changed = factory(old);
     return function (...args) { return (disposed ? old : changed).apply(this, args); };
   }));
@@ -108,21 +141,21 @@ export function enhanceBagView(ctx, owner, getConfig) {
   function clear() { input.text = ''; apply(); }
   patch(owner, 'showBags', () => function (rows) { return draw(Array.isArray(rows) ? rows : []); });
   patch(owner, 'updatePageIdx', () => function () { return page(); });
-  function inventoryKey() {
-    // RemainingTime is a clock-based getter. Only compare actual inventory data.
-    return JSON.stringify((owner.bagDatas || []).map(row => [row?.ID, row?.BaseID,
-      row?.Count, row?.BitMark, row?.Expirydate,
-      row?.baseInfo?.ItemName, row?.baseInfo?.name, row?.baseInfo?.sortindex]));
-  }
   function rememberInventory() {
     lastRows = owner.bagDatas;
     lastLength = lastRows?.length;
-    lastInventory = query ? inventoryKey() : '';
+    lastInventory = [];
+    if (!query || !Array.isArray(lastRows)) return;
+    for (const row of lastRows) {
+      const base = row?.baseInfo;
+      for (const readField of inventoryFields) lastInventory.push(readField(row, base));
+    }
   }
   // Native handlers already update unfiltered slots. While searching, check
   // for incremental changes that bypass showBags, such as native deletions.
   function refresh() {
-    if (owner.bagDatas !== lastRows || owner.bagDatas?.length !== lastLength || (query && inventoryKey() !== lastInventory)) draw();
+    if (owner.bagDatas !== lastRows || owner.bagDatas?.length !== lastLength
+      || (query && Array.isArray(lastRows) && inventoryChanged(lastRows, lastInventory))) draw();
     else syncSlots();
   }
   listen(input, L.Event.INPUT, apply);
@@ -149,12 +182,22 @@ export function enhanceBagView(ctx, owner, getConfig) {
   listen(button, L.Event.CLICK, () => { if (query) clear(); else apply(); input.focus = true; });
   listen(button, L.Event.MOUSE_OVER, () => { hover = true; updateStatus(); paint(); });
   listen(button, L.Event.MOUSE_OUT, () => { hover = false; updateStatus(); paint(); });
-  function updateSlot(slot, state) {
+  function updateSlot(slot, state, create = true, config = getConfig()) {
+    const text = slot.visible !== false ? couponAmounts(slot.BaseData || slot.baseData, config) : '';
+    if (!text) {
+      if (state.badge?.visible) state.badge.visible = false;
+      pendingBadges.delete(slot);
+      return false;
+    }
+    const created = !state.badge;
+    if (created && !create) { pendingBadges.add(slot); return false; }
+    if (created) {
+      const badge = new L.Text(); badge.name = 'sgs-toolbox-coupon-amount'; badge.zOrder = 110;
+      Object.assign(badge, { font: 'Arial', bold: true, align: 'center', valign: 'middle', mouseEnabled: false });
+      owner.topSp.addChild(badge); state.badge = badge; pendingBadges.delete(slot);
+    }
     const { badge } = state;
-    const text = couponAmounts(slot.BaseData || slot.baseData, getConfig());
-    const shown = Boolean(text) && slot.visible !== false;
-    if (badge.visible !== shown) badge.visible = shown;
-    if (!shown) return;
+    if (!badge.visible) badge.visible = true;
     if (badge.color !== palette.accent) badge.color = palette.accent;
     if (badge.bgColor !== palette.bg) badge.bgColor = palette.bg;
 
@@ -162,7 +205,7 @@ export function enhanceBagView(ctx, owner, getConfig) {
     const countX = count?.text ? count.x : null;
     const countY = count?.text ? count.y : null;
     const layout = [text, slot.width, slot.height, slot._x, slot._y, countX, countY];
-    if (state.layout && layout.every((value, i) => value === state.layout[i])) return;
+    if (state.layout && layout.every((value, i) => value === state.layout[i])) return false;
     state.layout = layout;
     const inset = 2;
     const height = 13;
@@ -182,33 +225,58 @@ export function enhanceBagView(ctx, owner, getConfig) {
     while (badge.textWidth + padding > frameWidth && badge.fontSize > 7) badge.fontSize--;
     badge.size(Math.min(frameWidth, Math.ceil(badge.textWidth) + padding), height);
     badge.pos(slot._x + inset, slot._y + y);
+    return created;
+  }
+  function scheduleBadges() {
+    if (!pendingBadges.size || releaseFrame) return;
+    const id = ctx.window.requestAnimationFrame(() => {
+      releaseFrame?.(); releaseFrame = null;
+      if (disposed || !visible(owner)) { pendingBadges.clear(); return; }
+      const config = getConfig();
+      let remaining = BADGES_PER_FRAME;
+      for (const slot of pendingBadges) {
+        pendingBadges.delete(slot);
+        const state = slots.get(slot);
+        if (state && owner.bags.includes(slot) && updateSlot(slot, state, true, config) && --remaining === 0) break;
+      }
+      scheduleBadges();
+    });
+    releaseFrame = ctx.scope.add(() => ctx.window.cancelAnimationFrame?.(id));
+  }
+  function clearSlot(slot, state) {
+    pendingBadges.delete(slot); slots.delete(slot);
+    for (const off of state.releases.reverse()) off();
+    state.badge?.destroy(true);
   }
   function syncSlots() {
-    for (const [slot, { badge }] of slots) if (!owner.bags.includes(slot)) { badge.destroy(true); slots.delete(slot); }
+    for (const [slot, state] of slots) if (!owner.bags.includes(slot)) clearSlot(slot, state);
+    const config = getConfig();
+    let remaining = canDeferBadges ? BADGES_PER_FRAME : Infinity;
     for (const slot of owner.bags) {
       if (!slot || typeof slot.updateItem !== 'function') continue;
       let state = slots.get(slot);
       if (!state) {
-        const badge = new L.Text(); badge.name = 'sgs-toolbox-coupon-amount'; badge.zOrder = 110;
-        Object.assign(badge, { font: 'Arial', bold: true, align: 'center', valign: 'middle', mouseEnabled: false }); owner.topSp.addChild(badge);
-        state = { badge, layout: null };
+        state = { badge: null, layout: null, releases: [] };
         slots.set(slot, state);
         for (const key of ['updateItem', 'Move', 'initData', 'Clear']) if (typeof slot[key] === 'function') patch(slot, key, old => function (...args) {
-          const result = old.apply(this, args); if (!showing && !badge.destroyed) updateSlot(slot, state); return result;
-        });
+          const result = old.apply(this, args);
+          if (!showing && slots.get(slot) === state && !state.badge?.destroyed) updateSlot(slot, state);
+          return result;
+        }, state.releases);
       }
-      updateSlot(slot, state);
+      if (updateSlot(slot, state, remaining > 0, config)) remaining--;
     }
+    scheduleBadges();
   }
   const offTheme = theme.watch(() => { palette = theme.palette; paint(); syncSlots(); }, { target: root });
   releases.push(offTheme);
   const destroy = () => release(); listen(owner, L.Event.DESTROY || 'destroy', destroy);
   let release = ctx.scope.add(() => {
     if (disposed) return; disposed = true;
+    releaseFrame?.(); releaseFrame = null;
     for (const off of releases.reverse()) off();
     input.focus = false; root.destroy(true); empty.destroy(true);
-    for (const { badge } of slots.values()) badge.destroy(true);
-    slots.clear();
+    for (const [slot, state] of slots) clearSlot(slot, state);
     if (query && !owner.destroyed && owner.parent) { originalPage.call(owner); originalShow.call(owner, owner.bagDatas); }
   });
   // The native view has already drawn its current page when we attach.
@@ -229,7 +297,7 @@ export function createBagEnhancements(ctx) {
   }
   function tick() {
     if (ctx.scope.signal.aborted) return;
-    const found = findBagViews((ctx.window.Laya ?? ctx.window.laya)?.stage);
+    const found = findCurrentBag(ctx, (ctx.window.Laya ?? ctx.window.laya)?.stage);
     for (const [view, enhancement] of views) if (!found.includes(view)) { enhancement.dispose(); views.delete(view); }
     if (found.length) void load();
     for (const view of found) {

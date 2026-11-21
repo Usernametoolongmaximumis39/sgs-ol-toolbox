@@ -1,5 +1,5 @@
+import { read } from '../../shared/safe-read.js';
 // Native gAt mail fields and Cm/Lm giftbag configuration; no window creation.
-const read = fn => { try { return fn(); } catch { return undefined; } };
 const positive = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
 const giftIndexes = new WeakMap();
 export function mailRewardItems(adapter, mail) {

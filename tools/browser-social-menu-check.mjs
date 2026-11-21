@@ -1,18 +1,28 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 const out=resolve('test-results/social/menu-ghost');await mkdir(out,{recursive:true});
-const source=await readFile('test-results/reference/client-static/sgsGame_a.js','utf8');
-function method(cls,start,end){const a=source.indexOf(start,source.indexOf('class '+cls+' ')),b=source.indexOf(end,a+start.length);assert.ok(a>=0&&b>a);return source.slice(a,b);}
+const sourcePath=resolve(process.env.SGS_SOCIAL_CLIENT_SOURCE||resolve(homedir(),'AppData/Local/Temp/sgs-client/game/sgsGame_a.sgs'));
+const source=await readFile(sourcePath,'utf8');
+function method(cls,start,end){
+ const from=source.indexOf(`class ${cls} `);
+ assert.ok(from>=0,`${sourcePath}: 找不到原生类 ${cls}`);
+ const a=source.indexOf(start,from), b=source.indexOf(end,a+start.length);
+ assert.ok(a>=0&&b>a,`${sourcePath}: 找不到完整的原生方法 ${cls}.${start}`);
+ const code=source.slice(a,b);
+ assert.doesNotThrow(()=>new Function(`return class extends Object {${code}}`),`${sourcePath}: 无法解析原生方法 ${cls}.${start}`);
+ return code;
+}
 const methods={remove:method('gO','removeDrawChild(t,i=!0){','cmdSort(t,i){'),containerClear:method('EO','clear(t=!0){','get Childs(){'),textClear:method('CO','clear(t=!0){','update(){')};
 methods.showMenu=method('LKi','ShowUserOptMenu(t,i,s,e,h,r=null,n="",a=0,l=-1,o){','ResetOptMenuPos(){');
 methods.resetMenu=method('LKi','ResetOptMenuPos(){','ShowRecordLinkTip(t){');
 methods.addToLayer=method('GD','addChild(t){','addChildAt(t,i){');
-await writeFile(resolve(out,'source.json'),JSON.stringify({sha256:createHash('sha256').update(source).digest('hex'),methods},null,2));
-const bundle=await build({stdin:{contents:"export {createFriendManagement} from './src/plugins/social/friends.js';export {ResourceScope} from './src/core/resources.js';",resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'Check'});
+await writeFile(resolve(out,'source.json'),JSON.stringify({source:sourcePath,sha256:createHash('sha256').update(source).digest('hex'),methods},null,2));
+const bundle=await build({stdin:{contents:"export {createFriendManagement} from './src/plugins/social/friends.js';export {ResourceScope} from './src/core/resources.js';export {createPluginNative} from './src/core/plugin-native.js';",resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'Check'});
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try{
  const page=await browser.newPage({viewport:{width:520,height:390}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -33,7 +43,9 @@ try{
   menu.layoutBtn=function(){};menu.updateOptMenu=function(){this.showBtnList=[];this.layoutBtn()};
   const friend={GroupID:1,FriendNickname:'好友乙',userData:{ClientId:1234567891}},manager={GetGoodFriendsList:()=>[friend],GetFriendArrBygroupID:()=>[friend],GetFriendByNickName:()=>friend};
   const proxy={_events:{FsCAddFriendsNtf:{caller:manager}}},storage=new Map();
-  window.scope=new Check.ResourceScope();window.runtime=Check.createFriendManagement({scope,window,document,game:{getSelf:()=>({ClientId:1234567890}),getServerProxy:()=>proxy},storage:{get:k=>storage.get(k),set:(k,v)=>storage.set(k,structuredClone(v))}});
+  window.scope=new Check.ResourceScope();
+  const ctx={scope,window,document,game:{getSelf:()=>({ClientId:1234567890}),getServerProxy:()=>proxy},storage:{get:k=>storage.get(k),set:(k,v)=>storage.set(k,structuredClone(v))}};
+  ctx.native=Check.createPluginNative(ctx);window.runtime=Check.createFriendManagement(ctx);
   window.commandCount=()=>menu.graphics.cmds.length;window.openCount=commandCount();
   window.cycle=()=>{menu.removeSelf();runtime.tick();if(commandCount()!==openCount-1)throw Error('old text draw command leaked');Laya.stage.addChild(menu);runtime.tick();menu.updateOptMenu();if(commandCount()!==openCount)throw Error('reopening accumulated text');if(menu.drawContaniers.length!==1)throw Error('flat container leaked')};
  },methods);
@@ -56,6 +68,7 @@ try{
   host.ShowUserOptMenu=new Function('NNt','Laya','Djt','fO','return ({'+methods.showMenu+'}).ShowUserOptMenu')({IsSelf:()=>false},Laya,{},class {});
   const friend={GroupID:1,FriendNickname:'好友乙',userData:{ClientId:1234567891}},manager={GetGoodFriendsList:()=>[friend],GetFriendArrBygroupID:()=>[friend],GetFriendByNickName:()=>friend};
   window.scope=new Check.ResourceScope();const storage=new Map();window.ctx={scope,window,document,game:{getSelf:()=>({ClientId:1234567890}),getScene:()=>({ged:{_events:{SHOW_TEXT_PROMPT:{caller:host}}}}),getServerProxy:()=>({_events:{FsCAddFriendsNtf:{caller:manager}}})},storage:{get:k=>storage.get(k),set:(k,v)=>storage.set(k,structuredClone(v))}};
+  ctx.native=Check.createPluginNative(ctx);
   window.runtime=Check.createFriendManagement(ctx);const anchor=new Laya.Sprite();anchor.pos(250,210);anchor.size(10,20);Laya.stage.addChild(anchor);
   host.ShowUserOptMenu(anchor,0,'好友乙',5);window.firstPosition={x:popup.x,y:popup.y,height:popup.height};return firstPosition;
  },methods);

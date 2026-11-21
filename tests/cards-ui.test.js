@@ -1,4 +1,5 @@
 import { mountPluginUI } from '../src/ui/plugin-ui.js';
+import { createNativeTheme } from '../src/ui/native-theme.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
@@ -66,7 +67,7 @@ function setup() {
       themes: { current: { tokens: { accent: '#d0b050', bg: '#151515' } } },
       getState: () => state, subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }, notify: text => notifications.push(text),
       ui: { registerPanel(spec) { panelCount++; const clean = spec.render(document.querySelector('main')); let done = false; return () => { if (done) return; done = true; panelCount--; clean?.(); }; } } };
-    Object.assign(ctx.ui, mountPluginUI(ctx, () => ctx));
+    Object.assign(ctx.ui, mountPluginUI(ctx, () => ctx), { nativeTheme: createNativeTheme(ctx) });
     deactivate = cards.activate(ctx);
     return ctx;
   }
@@ -103,8 +104,10 @@ test('inactive native card overlays never discover seats or classes during loadi
   const game = { onSceneChange(fn) { sceneChanged = fn; return () => {}; } };
   for (const name of ['getScene', 'getSelfSeatUI', 'getSeatUIs', 'getClass']) game[name] = () => { reads.push(name); throw new Error('not available during login'); };
   try {
-    const enhancements = createNativeEnhancements({ window, document: window.document, scope, game,
-      settings: { get: (key, fallback) => fallback }, getState: () => ({ active: false }) }, window.document.querySelector('main'), () => {});
+    const ctx = { window, document: window.document, scope, game,
+      settings: { get: (key, fallback) => fallback }, getState: () => ({ active: false }) };
+    ctx.ui = { nativeTheme: createNativeTheme(ctx) };
+    const enhancements = createNativeEnhancements(ctx, window.document.querySelector('main'), () => {});
     for (let i = 0; i < 8; i++) enhancements.update();
     sceneChanged();
     assert.deepEqual(reads, []);
@@ -157,6 +160,35 @@ test('revealed card opacity defaults to 80% and applies saved choices without re
     assert.equal(layer().style.opacity, '0.6');
     const group = env.document.querySelector('[aria-label="明牌不透明度"]');
     assert.equal(group.querySelector('[aria-pressed="true"]').textContent, '60%');
+  } finally { env.close(); }
+});
+
+test('revealed cards default to seven per row and retain the chosen size across activations', () => {
+  const env = setup();
+  try {
+    const ids = Array.from({ length: 10 }, (_, index) => index + 4);
+    env.send('toolbox:snapshot', { seats: [{ seatId: 1, knownHandCardIds: ids, handCount: ids.length }] });
+    env.settings.set('revealColumns', 9);
+    env.activate();
+    const group = () => env.document.querySelector('[aria-label="明牌大小"]');
+    const reveal = () => env.overlay.querySelector('.sgs-card-seat-reveal');
+    const columns = () => reveal().style.getPropertyValue('--sgs-reveal-columns');
+    const card = reveal().firstElementChild;
+    const buttons = [...group().querySelectorAll('button')];
+    assert.deepEqual(buttons.map(button => button.textContent), ['4', '5', '6', '7', '8']);
+    assert.equal(group().querySelector('[aria-pressed="true"]').textContent, '7');
+    assert.equal(columns(), '7');
+    for (const button of buttons) {
+      button.click();
+      assert.equal(group().querySelector('[aria-pressed="true"]'), button);
+      assert.equal(columns(), button.textContent);
+      assert.equal(reveal().firstElementChild, card);
+    }
+    env.stop();
+    env.activate();
+    assert.equal(env.settings.get('revealColumns'), 8);
+    assert.equal(group().querySelector('[aria-pressed="true"]').textContent, '8');
+    assert.equal(columns(), '8');
   } finally { env.close(); }
 });
 
@@ -262,6 +294,11 @@ test('card HUD stays fixed beside the native round area and follows right-panel 
     round.localToGlobal = point => ({ x: point.x + 800, y: point.y + 40 });
     env.send('MsgGameTurnNtf', { SeatID: 1 });
     assert.equal(hud.style.left, '734px'); assert.equal(hud.style.top, '40px');
+    round.localToGlobal = point => ({ x: point.x + 826, y: point.y + 40 });
+    env.window.dispatchEvent(new env.window.Event('resize'));
+    assert.equal(hud.style.left, '760px', 'the widened popover must not displace the native anchor near the right edge');
+    assert.equal(hud.style.getPropertyValue('--sgs-card-list-width'), '186px');
+    round.localToGlobal = point => ({ x: point.x + 800, y: point.y + 40 });
     env.document.querySelector('canvas').getBoundingClientRect = () => ({ left: 30, top: 20, width: 800, height: 560 });
     env.window.dispatchEvent(new env.window.Event('resize'));
     const scaled = roundInfoBounds(env.window, env.game.getScene());
@@ -359,7 +396,8 @@ test('spectator double-general cards align with the visible cropped portrait ins
     assert.ok(Math.abs(nativeAnchor(env.window,avatar,0,172).x-720+57.6)<.001,'reproduce the 36-native-unit crop error');
     env.activate();
     assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.left,'700px');
-    assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.getPropertyValue('--sgs-reveal-scale'),'1');
+    const scale = Number(env.overlay.querySelector('[data-seat-id="1"]').style.getPropertyValue('--sgs-reveal-scale'));
+    assert.ok(Math.abs(scale - (73 * 1.6 + 40) / (7 * 42 - 2)) < .001);
     assert.equal(env.overlay.querySelector('[data-seat-id="1"]').style.top,'368px');
     avatar.displayedInStage=false;
     assert.equal(seatRevealAnchor(env.window,env.other),null);
@@ -549,6 +587,30 @@ test('combined card filtering retains select focus/value during state refresh an
   } finally { env.close(); }
 });
 
+test('combined card query previews 30 matches and can find cards outside that preview', () => {
+  const env = setup();
+  try {
+    const ids = Array.from({ length: 41 }, (_, i) => i + 1);
+    const lastId = ids.at(-1);
+    env.cardModels.push({ CardId: lastId, CardName: '无中生有', FlowerOnSeat: 1, CardNumber: 8 });
+    env.send('MsgGamePlayCardNtf', { CardList: ids });
+    env.settings.set('queryExpanded', true);
+    env.activate();
+    const query = env.document.querySelector('.sgs-card-query-section');
+    const renderedIds = () => [...query.querySelectorAll('.sgs-card-mini')].map(card => Number(card.dataset.cardId));
+    assert.deepEqual(renderedIds(), ids.slice(0, 30));
+    assert.match(query.textContent, /符合条件 41 张/);
+    assert.match(query.textContent, /显示前 30 张/);
+
+    const name = query.querySelector('[aria-label="按牌名筛选"]');
+    name.value = '无中生有';
+    name.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    assert.deepEqual(renderedIds(), [lastId]);
+    assert.match(query.textContent, /符合条件 1 张/);
+    assert.doesNotMatch(query.textContent, /显示前 30 张/);
+  } finally { env.close(); }
+});
+
 test('query expansion persists across reloads while bottom settings always start closed', async () => {
   const env = setup();
   try {
@@ -586,6 +648,31 @@ test('discard ordering remains available in the external list after panel dedupl
     [...list.querySelectorAll('button')].find(button => button.textContent === '点数').click();
     assert.deepEqual([...list.querySelectorAll('.sgs-card-mini')].map(card => Number(card.dataset.cardId)), [2, 3, 1]);
     assert.equal(env.settings.get('discardMode'), 'number');
+  } finally { env.close(); }
+});
+
+test('long HUD lists keep their scroll container and expand in batches without dropping cards', () => {
+  const env = setup();
+  try {
+    const ids = Array.from({ length: 130 }, (_, i) => i + 1);
+    env.send('MsgGamePlayCardNtf', { CardList: ids });
+    env.activate();
+    env.send('PubGsCMoveCard', { FromID: 0, FromZone: 5, ToID: 255, ToZone: 2, CardIDs: ids, CardCount: ids.length, MoveType: 2 });
+    env.overlay.querySelectorAll('.sgs-card-hud-actions button')[2].click();
+    const list = env.overlay.querySelector('.sgs-card-hud-list');
+    const scroll = list.querySelector('.sgs-card-hud-scroll');
+    const more = list.querySelector('.sgs-card-hud-more');
+    const rendered = () => [...scroll.querySelectorAll('.sgs-card-mini')].map(card => Number(card.dataset.cardId));
+    assert.deepEqual(rendered(), ids.slice(0, 60));
+    const first = scroll.querySelector('.sgs-card-mini');
+    env.send('MsgGameRoundNtf', { isPassed: true });
+    assert.equal(scroll.querySelector('.sgs-card-mini'), first);
+    more.click();
+    assert.deepEqual(rendered(), ids.slice(0, 120));
+    more.click();
+    assert.deepEqual(rendered(), ids);
+    assert.equal(more.hidden, true);
+    assert.equal(list.querySelector('.sgs-card-hud-scroll'), scroll);
   } finally { env.close(); }
 });
 

@@ -1,7 +1,8 @@
 import { singleRiderShopVisible } from '../../shared/native-shop.js';
-import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
-import { initialState, reduce, observedHandCandidates, handCandidates, zoneKey, metadata, sortCards, queryCards, deckComposition, wasSeen, ZONE_NAMES, REFERENCE, seatLabel } from './model.js';
-import { createNativeEnhancements, REVEAL_OPACITY_LEVELS, revealOpacity, roundInfoBounds } from './native.js';
+import { scopedStyles } from '../../shared/scoped-styles.js';
+import { CARDS_ICON } from '../../ui/plugin-icons.js';
+import { initialState, reduce, observedHandCandidates, handCandidates, zoneKey, metadata, sortCards, queryCardNames, queryCardPreview, deckComposition, wasSeen, ZONE_NAMES, REFERENCE, seatLabel } from './model.js';
+import { createNativeEnhancements, REVEAL_COLUMN_LEVELS, REVEAL_OPACITY_LEVELS, revealColumns, revealOpacity, roundInfoBounds } from './native.js';
 import { skillHints, SKILL_HINT_GROUPS } from './skill-hints.js';
 
 export { initialState, reduce } from './model.js';
@@ -50,19 +51,20 @@ const STYLES = `
 .sgs-card-hud-scroll:focus-visible{outline:2px solid var(--sgs-accent,#dbba70)}
 .sgs-card-hud-list .sgs-card-grid{display:grid;grid-template-columns:repeat(var(--sgs-card-list-columns,6),minmax(0,1fr));gap:3px;align-items:start}
 .sgs-card-hud-list .sgs-card-mini{width:100%;height:var(--sgs-card-list-card-height,42px);min-width:0;border-radius:3px}
+.sgs-card-hud-more{width:100%;margin-top:4px}
 .sgs-card-hud-list .sgs-card-suit,.sgs-card-hud-list .sgs-card-name{font-size:12px}
 .sgs-card-hud-list .sgs-card-controls{margin-bottom:5px}
 .sgs-card-hud-list .sgs-segments>button{flex:1;min-width:0;padding:3px 1px;font-size:10px}
 .sgs-card-hud-caption{font-size:10px;color:var(--sgs-muted,#b7aa8c);margin:0 0 4px}
-.sgs-card-seat-layer{position:absolute;inset:0;pointer-events:none}.sgs-card-seat-reveal,.sgs-card-source-label{position:absolute}.sgs-card-seat-reveal{display:flex;gap:2px;align-items:center;width:344px;max-width:calc(100vw - 8px);max-height:166px;overflow-y:auto;overflow-x:hidden;align-content:flex-start;scrollbar-width:thin;pointer-events:auto;flex-wrap:wrap}
-.sgs-card-seat-reveal{gap:calc(2px * var(--sgs-reveal-scale,1));scrollbar-width:none;touch-action:pan-y;overscroll-behavior:contain}.sgs-card-seat-reveal::-webkit-scrollbar{display:none}
-.sgs-card-seat-reveal .sgs-card-mini{width:calc(40px * var(--sgs-reveal-scale,1));height:calc(54px * var(--sgs-reveal-scale,1));pointer-events:auto}.sgs-card-seat-reveal .sgs-card-suit,.sgs-card-seat-reveal .sgs-card-name{font-size:calc(16px * var(--sgs-reveal-scale,1))}.sgs-card-seat-reveal .sgs-card-mini:hover{z-index:1}
+.sgs-card-seat-layer{position:absolute;inset:0;pointer-events:none}.sgs-card-seat-reveal,.sgs-card-source-label{position:absolute}
+.sgs-card-seat-reveal{display:grid;grid-template-columns:repeat(var(--sgs-reveal-columns),minmax(0,1fr));gap:calc(2px * var(--sgs-reveal-scale));align-content:start;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;pointer-events:auto;touch-action:pan-y;overscroll-behavior:contain}.sgs-card-seat-reveal::-webkit-scrollbar{display:none}
+.sgs-card-seat-reveal .sgs-card-mini{width:100%;min-width:0;height:calc(54px * var(--sgs-reveal-scale));pointer-events:auto}.sgs-card-seat-reveal .sgs-card-suit,.sgs-card-seat-reveal .sgs-card-name{font-size:calc(16px * var(--sgs-reveal-scale))}.sgs-card-seat-reveal .sgs-card-certainty{font-size:calc(9px * var(--sgs-reveal-scale));line-height:calc(10px * var(--sgs-reveal-scale));text-align:center}.sgs-card-seat-reveal .sgs-card-mini:hover{z-index:1}
 .sgs-card-possible-count,.sgs-card-overflow{font-size:10px;color:var(--sgs-muted,#b7aa8c);padding:2px}
 .sgs-card-source-label{background:var(--sgs-bg,#201e1a);border:1px solid var(--sgs-border,#665b42);border-radius:3px;padding:1px 4px;font-size:10px;max-width:90px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .sgs-card-skill-hint{padding:7px 0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 30%,transparent);overflow-wrap:anywhere}.sgs-card-skill-hint:last-child{border-bottom:0}.sgs-card-skill-hint strong{display:block;color:var(--sgs-accent);font-size:12px;margin-bottom:3px}.sgs-card-skill-hint p{margin:0;color:var(--sgs-text);font-size:12px;line-height:1.65}
 
 .sgs-card-setting-grid{grid-template-columns:1fr;gap:0;margin:4px 0 0}.sgs-card-setting{justify-content:space-between;gap:12px;min-height:37px;padding:7px 2px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent);font-size:12px;cursor:pointer}.sgs-card-setting:last-child{border:0}.sgs-card-setting span{min-width:0;color:var(--sgs-text,#eee3cc)}.sgs-card-settings{padding:0 10px;margin-top:10px;border-radius:9px;background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-accent,#dbba70) 5%,transparent),#00000018);border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 40%,transparent)}.sgs-cards .sgs-fold>summary{padding:10px 0}.sgs-cards .sgs-segments{flex-wrap:nowrap;gap:2px}.sgs-cards .sgs-segments>button{border:0;background:transparent;font-size:11px;border-radius:5px;padding:4px 6px;color:var(--sgs-muted,#b7aa8c)}.sgs-cards .sgs-segments>button.is-active,.sgs-cards .sgs-segments>button[aria-pressed=true]{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent);color:var(--sgs-accent,#dbba70)}.sgs-cards select.sgs-select{padding:5px 27px 5px 9px;background-color:var(--sgs-bg,#201e1a);border-color:color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);font-size:11px}.sgs-card-section{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 45%,transparent)}.sgs-card-composition th,.sgs-card-composition td{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent)}.sgs-card-hud .sgs-card-hud-recent{background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-raised,#383327) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions{gap:3px;padding:2px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);border-radius:7px;background:linear-gradient(color-mix(in srgb,var(--sgs-surface,#2c2922) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions>button{border:0;background:transparent;padding:0 3px;font-size:14px;color:var(--sgs-muted,#b7aa8c)}.sgs-card-hud-actions>button[aria-expanded=true]{color:var(--sgs-accent,#dbba70);background:color-mix(in srgb,var(--sgs-accent,#dbba70) 10%,transparent);box-shadow:inset 0 -1px color-mix(in srgb,var(--sgs-accent,#dbba70) 50%,transparent)}.sgs-card-hud-list{border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:0 8px 24px #0004}
-.sgs-card-setting-grid{grid-template-columns:minmax(0,1fr)}.sgs-card-reveal-opacity{cursor:default;gap:4px 6px;flex-wrap:wrap;white-space:nowrap}.sgs-card-reveal-opacity .sgs-segments{flex:none;margin-left:auto}.sgs-card-reveal-opacity .sgs-segments>button{padding:4px 3px;font-variant-numeric:tabular-nums}
+.sgs-card-setting-grid{grid-template-columns:minmax(0,1fr)}.sgs-card-reveal-setting{cursor:default;gap:4px 6px;flex-wrap:wrap;white-space:nowrap}.sgs-card-reveal-setting .sgs-segments{flex:none;margin-left:auto}.sgs-card-reveal-setting .sgs-segments>button{padding:4px 3px;font-variant-numeric:tabular-nums}.sgs-card-reveal-size .sgs-segments{gap:1px;padding:2px}.sgs-card-reveal-size .sgs-segments>button{min-width:24px;min-height:24px}
 @media(prefers-reduced-motion:no-preference){.sgs-cards button{transition:background 140ms,border-color 140ms}}
 `;
 
@@ -86,6 +88,9 @@ const SETTINGS = [['recent', '最近用牌', true], ['deck', '牌堆顶底', tru
   ['reveals', '他人明牌', true], ['labels', '来源标签', true], ['fourColors', '四色花色', false],
   ['handSort', '扩展理牌', true], ['countdown', '出牌读秒', true], ['skillCounts', '显示技能次数', true], ['skillHints', '技能提示', true]];
 const DECK_REFRESH_MS = 250;
+const HUD_PAGE_SIZE = 60;
+const QUERY_PREVIEW_LIMIT = 30;
+const HINT_SKILL_IDS = [...new Set(Object.values(SKILL_HINT_GROUPS).flatMap(group => group.ids))];
 
 export function activate(ctx) {
   const { document, window, scope, settings } = ctx;
@@ -93,9 +98,10 @@ export function activate(ctx) {
   const deckPanels = new Set();
   const hintRefreshers = new Set();
   let disposed = false, native = null, activeHudList = null, hoverHudList = null, heldKey = null;
+  let lastRecentKey, lastHudList, lastHudListKey, hudLimit = HUD_PAGE_SIZE;
   let discardMode = settings.get('discardMode', 'time'), recentMode = settings.get('recentMode', 'player'), deckGroup = settings.get('deckGroup', 'name');
   const pinnedDeckRows = new Set();
-  const deckMetadata = new Map(), deckCompositions = new Map();
+  const deckMetadata = new Map(), unknownDeckMetadata = new Map(), deckCompositions = new Map();
   let expandedDeckRow = null, deckUiGame = ctx.getState()?.deckStartSeq;
   let deckTimer = null, deckStatsState = null, deckStatsKey = '';
   const element = (tag, className, text) => {
@@ -107,42 +113,62 @@ export function activate(ctx) {
   const getMeta = id => metadata(ctx.game, id);
   const setting = (key, fallback = true) => settings.get(key, fallback);
   const currentState = () => ctx.getState() || initialState();
-  function getDeckMeta(id) {
-    const cached = deckMetadata.get(id);
-    if (cached) return cached;
+  const mountStyle = scopedStyles(document, scope, STYLES);
+  function resolveDeckMeta(id) {
     const info = getMeta(id);
-    if (info.suit && info.number && !/^(?:(?:牌 #|卡牌 )\d+|未知牌)$/.test(info.name)) deckMetadata.set(id, info);
+    if (info.suit && info.number && !/^(?:(?:牌 #|卡牌 )\d+|未知牌)$/.test(info.name)) {
+      deckMetadata.set(id, info);
+      unknownDeckMetadata.delete(id);
+    } else unknownDeckMetadata.set(id, info);
     return info;
   }
+  const getDeckMeta = id => deckMetadata.get(id) ?? unknownDeckMetadata.get(id) ?? resolveDeckMeta(id);
   function getDeckComposition(state, group) {
     if (deckStatsState !== state) {
       deckStatsState = state;
       const key = JSON.stringify([state.historyComplete, state.seenHistoryComplete, state.deckIds.map(id => [id, wasSeen(state, id)])]);
-      if (key !== deckStatsKey || deckMetadata.size < state.deckIds.length) deckCompositions.clear();
+      let metaChanged = false;
+      for (const [id, previous] of unknownDeckMetadata) {
+        const next = resolveDeckMeta(id);
+        if (previous.name !== next.name || previous.suit !== next.suit || previous.number !== next.number || previous.cardClass !== next.cardClass) metaChanged = true;
+      }
+      if (key !== deckStatsKey || metaChanged) deckCompositions.clear();
       deckStatsKey = key;
     }
     if (!deckCompositions.has(group)) deckCompositions.set(group, deckComposition(state, group, getDeckMeta));
     return deckCompositions.get(group);
   }
-  function makeCard(id, possible = false, compact = false, miniature = false, getCardMeta = getMeta) {
-    if (!id) return element('span', 'sgs-card-chip is-possible', '？');
-    const meta = getCardMeta(id), state = currentState();
-    const chip = element('span', `sgs-card-chip${possible ? ' is-possible' : ''}${compact ? ' is-compact' : ''}${miniature ? ' sgs-card-mini' : ''}${meta.suit === 1 || meta.suit === 2 ? ' is-red' : ''}`);
-    chip.dataset.cardId = String(id);
-    const pip = meta.number > 10 ? ({ 11: 'J', 12: 'Q', 13: 'K' }[meta.number] || meta.number) : meta.number || '';
-    const suit = element('span', 'sgs-card-suit', `${SUITS[meta.suit] || ''}${pip}`);
-    if (!miniature && (meta.suit === 1 || meta.suit === 2)) suit.style.color = '#ef968a';
-    if (setting('fourColors', false) && meta.suit === 2) suit.style.color = '#89bdf5';
-    if (setting('fourColors', false) && meta.suit === 4) suit.style.color = '#8ac8a7';
-    const name = element('span', 'sgs-card-name', miniature ? miniatureName(meta.name) : meta.name);
-    chip.append(suit, name);
-    if (possible) chip.append(element('small', 'sgs-card-certainty', '可能'));
+  function cardDetails(id, state, possible, readMeta) {
+    if (!id) return null;
+    const { name, suit, number } = readMeta(id);
+    const pip = number > 10 ? ({ 11: 'J', 12: 'Q', 13: 'K' }[number] || number) : number || '';
+    const rank = `${SUITS[suit] || ''}${pip}`;
     const record = state.cards[id];
-    const locations = record?.locations?.map(key => key === '?' ? '未知位置' : `${ZONE_NAMES[Number(key.split(':')[0])] || '牌区'}${Number(key.split(':')[1]) < 255 ? ` · ${seatLabel(state, Number(key.split(':')[1]))}` : ''}`) || [];
-    const description = `${meta.name} ${SUITS[meta.suit] || ''}${pip} · #${id}${possible ? ' · 可能有（非确定）' : ''}${locations.length ? ' · ' + locations.join(' / ') : ''}${record?.tags?.length ? ' · ' + record.tags.join(' / ') : ''}`;
+    const locations = record?.locations?.map(key => {
+      if (key === '?') return '未知位置';
+      const [zone, owner] = key.split(':').map(Number);
+      return `${ZONE_NAMES[zone] || '牌区'}${owner < 255 ? ` · ${seatLabel(state, owner)}` : ''}`;
+    }) || [];
+    const description = `${name} ${rank} · #${id}${possible ? ' · 可能有（非确定）' : ''}${locations.length ? ' · ' + locations.join(' / ') : ''}${record?.tags?.length ? ' · ' + record.tags.join(' / ') : ''}`;
+    return { id, name, suit, rank, description, tag: record?.tags?.at(-1) };
+  }
+  function drawCard(card, possible = false, compact = false, miniature = false) {
+    if (!card) return element('span', 'sgs-card-chip is-possible', '？');
+    const { id, name, suit, rank, description, tag } = card;
+    const chip = element('span', `sgs-card-chip${possible ? ' is-possible' : ''}${compact ? ' is-compact' : ''}${miniature ? ' sgs-card-mini' : ''}${suit === 1 || suit === 2 ? ' is-red' : ''}`);
+    chip.dataset.cardId = String(id);
+    const rankLabel = element('span', 'sgs-card-suit', rank);
+    if (!miniature && (suit === 1 || suit === 2)) rankLabel.style.color = '#ef968a';
+    if (setting('fourColors', false) && suit === 2) rankLabel.style.color = '#89bdf5';
+    if (setting('fourColors', false) && suit === 4) rankLabel.style.color = '#8ac8a7';
+    chip.append(rankLabel, element('span', 'sgs-card-name', miniature ? miniatureName(name) : name));
+    if (possible) chip.append(element('small', 'sgs-card-certainty', '可能'));
     chip.title = description; chip.setAttribute('aria-label', description);
-    if (!miniature && !compact && setting('labels') && record?.tags?.length) chip.append(element('small', 'sgs-card-tag', record.tags.at(-1)));
+    if (!miniature && !compact && setting('labels') && tag !== undefined) chip.append(element('small', 'sgs-card-tag', tag));
     return chip;
+  }
+  function makeCard(id, possible = false, compact = false, miniature = false, getCardMeta = getMeta) {
+    return drawCard(cardDetails(id, currentState(), possible, getCardMeta), possible, compact, miniature);
   }
   function cardList(host, ids, { possible = false, empty = '暂无已知记录', limit = 120 } = {}) {
     host.replaceChildren();
@@ -156,7 +182,7 @@ export function activate(ctx) {
     return recentMode === 'current' ? state.recentCurrent : state.recentBySeat[state.selfSeatId];
   }
   function listIds(state, name) {
-    if (name === 'discard') return sortCards(state.discardTurn, discardMode, getMeta);
+    if (name === 'discard') return state.discardTurn;
     return state.zones[zoneKey(1)]?.[name] || [];
   }
 
@@ -165,37 +191,45 @@ export function activate(ctx) {
   overlayHost.dataset.sgsToolbox = 'cards';
   const shadow = overlayHost.attachShadow({ mode: 'open' });
   ctx.ui.mountStyles(shadow);
-  const overlayStyle = element('style'); overlayStyle.textContent = STYLES;
+  mountStyle(shadow);
   const overlay = element('div', 'sgs-cards sgs-cards-overlay');
-  shadow.append(overlayStyle, overlay);
+  shadow.append(overlay);
   (document.body || document.documentElement).append(overlayHost);
   const hud = element('div', 'sgs-card-hud');
   hud.setAttribute('aria-label', '卡牌快捷查看');
   function positionHud() {
     if (disposed) return;
-    if (singleRiderShopVisible(window, ctx.game) || !currentState().active || !['recent', 'deck', 'discard'].some(key => setting(key))) { hud.hidden = true; return; }
+    if (!currentState().active || !['recent', 'deck', 'discard'].some(key => setting(key)) || singleRiderShopVisible(window, ctx.game)) {
+      if (!hud.hidden) hud.hidden = true;
+      return;
+    }
     let scene;
     try { scene = ctx.game.getScene?.(); } catch { /* Scene may be changing. */ }
     const bounds = roundInfoBounds(window, scene);
-    hud.hidden = !bounds;
+    if (hud.hidden !== !bounds) hud.hidden = !bounds;
     if (!bounds) return;
     const recentWidth = setting('recent') ? 66 : 0;
-    hud.style.setProperty('--sgs-card-pile-width', Math.max(60, Math.min(bounds.width, window.innerWidth - recentWidth - 24)) + 'px');
+    const pileWidth = Math.max(60, Math.min(bounds.width, window.innerWidth - recentWidth - 24));
     // Enlarge only the expanded list; keep the round-aligned action bar stable.
-    const listWidth = Math.max(60, Math.min(bounds.width + 15, window.innerWidth - recentWidth - 24));
+    const listLeft = Math.max(12 + recentWidth, bounds.x);
+    const listWidth = Math.max(60, Math.min(bounds.width + 15, window.innerWidth - listLeft - 12));
     const columns = Math.max(1, Math.round((listWidth - 12 + 3) / 33));
     const cardWidth = (listWidth - 12 - (columns - 1) * 3) / columns;
-    hud.style.setProperty('--sgs-card-list-width', listWidth + 'px');
-    hud.style.setProperty('--sgs-card-list-columns', columns);
-    hud.style.setProperty('--sgs-card-list-card-height', (cardWidth * 1.4) + 'px');
-    hud.style.setProperty('--sgs-card-round-height', bounds.height + 'px');
+    for (const [key, value] of Object.entries({
+      'pile-width': pileWidth + 'px', 'list-width': listWidth + 'px', 'list-columns': String(columns),
+      'list-card-height': cardWidth * 1.4 + 'px', 'round-height': bounds.height + 'px',
+    })) {
+      const property = '--sgs-card-' + key;
+      if (hud.style.getPropertyValue(property) !== value) hud.style.setProperty(property, value);
+    }
     const rect = hud.getBoundingClientRect();
     const x = Math.max(12, Math.min(Math.max(12, window.innerWidth - Math.max(rect.width, recentWidth + listWidth) - 12), bounds.x - recentWidth));
     const y = Math.max(12, Math.min(Math.max(12, window.innerHeight - rect.height - 12), bounds.y));
-    hud.style.left = x + 'px'; hud.style.top = y + 'px';
+    if (hud.style.left !== x + 'px') hud.style.left = x + 'px';
+    if (hud.style.top !== y + 'px') hud.style.top = y + 'px';
   }
   scope.listen(window, 'resize', positionHud);
-  scope.interval(positionHud, 100);
+  scope.interval(positionHud, 180);
   const recentButton = element('button', 'sgs-card-hud-recent'); recentButton.type = 'button';
   recentButton.title = '点击切换本人／当前回合角色的最近用牌';
   const hudActions = element('div', 'sgs-card-hud-actions');
@@ -209,61 +243,105 @@ export function activate(ctx) {
   }
   scope.listen(hud, 'pointerleave', () => { if (hoverHudList) { hoverHudList = null; updateHud(); } });
   const hudList = element('div', 'sgs-card-hud-list'); hud.append(hudList); overlay.append(hud);
+  const hudCaption = element('p', 'sgs-card-hud-caption');
+  const hudSort = element('div', 'sgs-card-controls sgs-segments');
+  hudSort.setAttribute('aria-label', '弃牌排序');
+  const hudSortButtons = Object.entries({ time: '时间', suit: '花色', type: '类型', number: '点数' }).map(([mode, title]) => {
+    const button = element('button', '', title); button.type = 'button';
+    scope.listen(button, 'click', () => { discardMode = mode; settings.set('discardMode', mode); updateHud(); });
+    hudSort.append(button);
+    return [mode, button];
+  });
+  const hudScroll = element('div', 'sgs-card-hud-scroll');
+  hudScroll.tabIndex = 0; hudScroll.setAttribute('role', 'region');
+  hudScroll.setAttribute('aria-label', '卡牌列表，可上下滚动');
+  const hudCards = element('div');
+  const hudMore = element('button', 'sgs-card-hud-more');
+  hudMore.type = 'button';
+  hudScroll.append(hudCards);
+  hudList.append(hudCaption, hudSort, hudScroll, hudMore);
+  scope.listen(hudMore, 'click', () => {
+    hudLimit += HUD_PAGE_SIZE;
+    updateHud();
+    if (hudMore.hidden) hudScroll.focus({ preventScroll: true });
+  });
   scope.listen(recentButton, 'click', () => { recentMode = recentMode === 'player' ? 'current' : 'player'; settings.set('recentMode', recentMode); refresh(); });
 
   function applyTheme() {
     const tokens = ctx.themes?.current?.tokens || {};
-    for (const [key, value] of Object.entries(tokens)) overlayHost.style.setProperty(`--sgs-${key}`, value);
+    for (const [key, value] of Object.entries(tokens)) {
+      const property = `--sgs-${key}`;
+      if (overlayHost.style.getPropertyValue(property) !== value) overlayHost.style.setProperty(property, value);
+    }
   }
   function updateHud() {
     if (disposed) return;
     const state = currentState();
-    if (!state.active) { hud.hidden = true; return; }
-    let gameScene = null;
-    try { gameScene = ctx.game.getScene?.(); } catch { /* No native scene yet. */ }
-    hud.hidden = !state.active || !gameScene || !['recent', 'deck', 'discard'].some(key => setting(key));
-    hud.classList.toggle('has-recent', setting('recent'));
-    hud.classList.toggle('has-piles', setting('deck') || setting('discard'));
-    recentButton.hidden = !setting('recent');
-    recentButton.replaceChildren();
-    const recentId = selectedRecent(state);
-    if (recentId) recentButton.append(element('span', 'sgs-card-hud-recent-label', recentMode === 'player' ? '玩家用牌' : '回合用牌'), makeCard(recentId, false, true, true));
-    else recentButton.append(element('span', 'sgs-card-hud-placeholder', recentMode === 'player' ? '玩家\n用牌' : '回合\n用牌'));
-    hudActions.hidden = !setting('deck') && !setting('discard');
-    hudButtons.top.hidden = hudButtons.bottom.hidden = !setting('deck');
-    hudButtons.discard.hidden = !setting('discard');
-    for (const [key, label] of [['top', '顶'], ['bottom', '底'], ['discard', '弃']]) {
-      const count = listIds(state, key).filter(id => id > 0).length;
-      hudButtons[key].textContent = `${label} ${count}`;
-      hudButtons[key].title = `${key === 'discard' ? '本回合公开弃牌' : `已知牌堆${label}`} ${count} 张；悬停查看，点击固定查看`;
+    if (!state.active) { if (!hud.hidden) hud.hidden = true; return; }
+    const recent = setting('recent'), deck = setting('deck'), discard = setting('discard'), fourColors = setting('fourColors', false);
+    hud.classList.toggle('has-recent', recent);
+    hud.classList.toggle('has-piles', deck || discard);
+    if (recentButton.hidden !== !recent) recentButton.hidden = !recent;
+    if (recent) {
+      const card = cardDetails(selectedRecent(state), state, false, getMeta);
+      const key = JSON.stringify([recentMode, fourColors, card]);
+      if (key !== lastRecentKey) {
+        lastRecentKey = key;
+        if (card) recentButton.replaceChildren(element('span', 'sgs-card-hud-recent-label', recentMode === 'player' ? '玩家用牌' : '回合用牌'), drawCard(card, false, true, true));
+        else recentButton.replaceChildren(element('span', 'sgs-card-hud-placeholder', recentMode === 'player' ? '玩家\n用牌' : '回合\n用牌'));
+      }
     }
-    if (activeHudList === 'discard' ? !setting('discard') : activeHudList && !setting('deck')) activeHudList = null;
-    if (hoverHudList === 'discard' ? !setting('discard') : hoverHudList && !setting('deck')) hoverHudList = null;
+    if (hudActions.hidden !== (!deck && !discard)) hudActions.hidden = !deck && !discard;
+    for (const [key, label] of [['top', '顶'], ['bottom', '底'], ['discard', '弃']]) {
+      const button = hudButtons[key], hidden = key === 'discard' ? !discard : !deck;
+      if (button.hidden !== hidden) button.hidden = hidden;
+      if (hidden) continue;
+      const count = listIds(state, key).filter(id => id > 0).length;
+      const text = `${label} ${count}`;
+      if (button.textContent !== text) {
+        button.textContent = text;
+        button.title = `${key === 'discard' ? '本回合公开弃牌' : `已知牌堆${label}`} ${count} 张；悬停查看，点击固定查看`;
+      }
+    }
+    if (activeHudList === 'discard' ? !discard : activeHudList && !deck) activeHudList = null;
+    if (hoverHudList === 'discard' ? !discard : hoverHudList && !deck) hoverHudList = null;
     const shownList = activeHudList || hoverHudList;
-    for (const [key, button] of Object.entries(hudButtons)) button.setAttribute('aria-expanded', String(key === shownList));
-    hudList.hidden = !shownList;
+    for (const [key, button] of Object.entries(hudButtons)) {
+      const expanded = String(key === shownList);
+      if (button.getAttribute('aria-expanded') !== expanded) button.setAttribute('aria-expanded', expanded);
+    }
+    if (hudList.hidden !== !shownList) hudList.hidden = !shownList;
+    const listChanged = lastHudList !== shownList;
+    if (listChanged) { lastHudList = shownList; hudLimit = HUD_PAGE_SIZE; hudScroll.scrollTop = 0; }
     if (shownList) {
       const caption = { top: '牌堆顶 · 最顶在左', bottom: '牌堆底 · 最底在右', discard: `本回合弃牌 · ${discardMode === 'time' ? '新的在右' : { suit: '花色顺序', type: '类型顺序', number: '点数顺序' }[discardMode]}` }[shownList];
-      const ids = listIds(state, shownList);
-      const cards = element('div', 'sgs-card-hud-scroll');
-      cards.tabIndex = 0; cards.setAttribute('role', 'region');
-      cards.setAttribute('aria-label', '卡牌列表，可上下滚动');
-      cardList(cards, shownList === 'bottom' ? ids.slice().reverse() : ids);
-      hudList.replaceChildren(element('p', 'sgs-card-hud-caption', caption));
-      if (shownList === 'discard') {
-        const controls = element('div', 'sgs-card-controls sgs-segments');
-        controls.setAttribute('aria-label', '弃牌排序');
-        for (const [mode, title] of [['time', '时间'], ['suit', '花色'], ['type', '类型'], ['number', '点数']]) {
-          const button = element('button', discardMode === mode ? 'is-active' : '', title); button.type = 'button';
-          button.setAttribute('aria-pressed', String(discardMode === mode));
-          button.addEventListener('click', () => { discardMode = mode; settings.set('discardMode', mode); updateHud(); });
-          controls.append(button);
-        }
-        hudList.append(controls);
+      const isDiscard = shownList === 'discard';
+      if (hudSort.hidden === isDiscard) hudSort.hidden = !isDiscard;
+      if (isDiscard) for (const [mode, button] of hudSortButtons) {
+        const pressed = String(discardMode === mode);
+        if (button.getAttribute('aria-pressed') !== pressed) button.setAttribute('aria-pressed', pressed);
       }
-      hudList.append(cards);
+      if (hudCaption.textContent !== caption) hudCaption.textContent = caption;
+      let ids = listIds(state, shownList);
+      const renderMeta = new Map();
+      const readMeta = id => {
+        if (!renderMeta.has(id)) renderMeta.set(id, getMeta(id));
+        return renderMeta.get(id);
+      };
+      if (isDiscard) ids = sortCards(ids, discardMode, readMeta);
+      else if (shownList === 'bottom') ids = ids.slice().reverse();
+      const cards = ids.slice(0, hudLimit).map(id => cardDetails(id, state, false, readMeta));
+      const key = JSON.stringify([fourColors, cards]);
+      if (key !== lastHudListKey) {
+        lastHudListKey = key;
+        const content = element('div', cards.length ? 'sgs-card-grid' : 'sgs-card-empty', cards.length ? undefined : '暂无已知记录');
+        for (const card of cards) content.append(drawCard(card, false, false, true));
+        hudCards.replaceChildren(content);
+      }
+      const more = ids.length - cards.length;
+      if (hudMore.hidden !== !more) hudMore.hidden = !more;
+      if (more && hudMore.textContent !== `更多（还剩 ${more} 张）`) hudMore.textContent = `更多（还剩 ${more} 张）`;
     }
-    applyTheme();
     positionHud();
   }
   const publishCompact = ctx.ui.registerCompactSummary?.() || (() => {});
@@ -323,25 +401,34 @@ export function activate(ctx) {
 
   function renderPanel(container) {
     const root = element('section', 'sgs-cards');
-    const style = element('style'); style.textContent = STYLES; root.append(style);
+    mountStyle(container);
     const status = element('p', 'sgs-card-status'); status.setAttribute('role', 'status'); root.append(status);
     const settingsBox = element('details', 'sgs-card-settings sgs-fold'); settingsBox.append(element('summary', '', '显示与操作设置'));
     const settingsGrid = element('div', 'sgs-card-setting-grid');
-    const opacityRow = element('div', 'sgs-card-setting sgs-card-reveal-opacity');
-    const opacityOptions = element('div', 'sgs-segments');
-    opacityOptions.setAttribute('role', 'group');
-    opacityOptions.setAttribute('aria-label', '明牌不透明度');
-    const opacityButtons = REVEAL_OPACITY_LEVELS.map(value => {
-      const button = element('button', '', `${value}%`);
-      button.type = 'button';
-      button.addEventListener('click', () => {
-        settings.set('revealOpacity', value);
-        refresh();
+    function revealSetting(key, title, label, levels, text, optionLabel = text) {
+      const row = element('div', 'sgs-card-setting sgs-card-reveal-setting');
+      const options = element('div', 'sgs-segments');
+      options.setAttribute('role', 'group');
+      options.setAttribute('aria-label', label);
+      const buttons = levels.map(value => {
+        const button = element('button', '', text(value));
+        button.type = 'button';
+        button.setAttribute('aria-label', optionLabel(value));
+        button.addEventListener('click', () => {
+          settings.set(key, value);
+          refresh();
+        });
+        options.append(button);
+        return [value, button];
       });
-      opacityOptions.append(button);
-      return [value, button];
-    });
-    opacityRow.append(element('span', '', '不透明度'), opacityOptions);
+      row.append(element('span', '', title), options);
+      return { row, update(current) {
+        for (const [value, button] of buttons) button.setAttribute('aria-pressed', String(value === current));
+      } };
+    }
+    const opacity = revealSetting('revealOpacity', '不透明度', '明牌不透明度', REVEAL_OPACITY_LEVELS, value => `${value}%`);
+    const size = revealSetting('revealColumns', '明牌每行', '明牌大小', REVEAL_COLUMN_LEVELS, String, value => `每行 ${value} 张`);
+    size.row.classList.add('sgs-card-reveal-size');
     const inputs = [];
     for (const [key, title, fallback] of SETTINGS) {
       const label = element('label', 'sgs-card-setting');
@@ -351,7 +438,7 @@ export function activate(ctx) {
         if (key === 'deck' || key === 'fourColors') refreshDeck();
       });
       label.append(element('span', '', title), input); settingsGrid.append(label); inputs.push([key, fallback, input]);
-      if (key === 'reveals') settingsGrid.append(opacityRow);
+      if (key === 'reveals') settingsGrid.append(opacity.row, size.row);
     }
     settingsBox.append(settingsGrid);
     function section(title) {
@@ -373,19 +460,22 @@ export function activate(ctx) {
     const hintSection = section('技能提示');
     hintSection.wrap.dataset.cardSkillHints = 'true';
     let hintSignature = '';
-    function updateHints() {
-      if (disposed) return;
-      const state = currentState(), skills = [];
+    function updateHints(state = currentState()) {
+      if (disposed || !visible()) return;
+      const skills = [], confirmedSkills = new Set();
       const allowed = state.active && setting('skillHints') && !singleRiderShopVisible(window, ctx.game);
       if (allowed) {
         try {
-          const knownIds = [...new Set(Object.values(SKILL_HINT_GROUPS).flatMap(group => group.ids))];
           for (const ui of ctx.game.getSeatUIs?.() || []) {
             if (ui.destroyed || ui.seat?.IsDead) continue;
-            for (const id of knownIds) if (ui.seat?.HasSkill?.(id)) skills.push(id);
             for (const item of ui.skillItems || []) {
               const skill = item.Skill;
-              if (skill) skills.push({ SkillId: skill.SkillId, name: skill.SkillName ?? skill.Name ?? skill.name ?? '' });
+              if (!skill) continue;
+              confirmedSkills.add(Number(skill.SkillId));
+              skills.push({ SkillId: skill.SkillId, name: skill.SkillName ?? skill.Name ?? skill.name ?? '' });
+            }
+            for (const id of HINT_SKILL_IDS) if (!confirmedSkills.has(id) && ui.seat?.HasSkill?.(id)) {
+              confirmedSkills.add(id); skills.push(id);
             }
           }
         } catch { /* Scene transitions may remove a seat between reads. */ }
@@ -408,12 +498,24 @@ export function activate(ctx) {
     const queryForm = element('div', 'sgs-card-query');
     const nameSelect = element('select', 'sgs-select'); nameSelect.setAttribute('aria-label', '按牌名筛选');
     const criteria = { name: '', exactName: true, suit: '', number: '', zone: '' };
-    let nameOptionsKey = '';
+    let nameOptionsKey = '', queryKey = '';
     queryForm.append(nameSelect);
     const queryResults = element('div'), queryCount = element('p', 'sgs-card-muted');
     function updateQuery() {
-      if (singleRiderShopVisible(window, ctx.game) || !currentState().active || !querySection.open) { queryResults.replaceChildren(); return; }
-      const names = deckComposition({ ...currentState(), deckIds: Object.keys(currentState().cards).map(Number) }, 'name', getMeta).rows.map(row => row.key);
+      if (!visible()) return;
+      const state = currentState();
+      if (!state.active || !querySection.open || singleRiderShopVisible(window, ctx.game)) {
+        if (queryResults.hasChildNodes()) queryResults.replaceChildren();
+        queryKey = '';
+        return;
+      }
+      const queryMeta = new Map();
+      const readMeta = id => {
+        if (!queryMeta.has(id)) queryMeta.set(id, getMeta(id));
+        return queryMeta.get(id);
+      };
+      const allCards = Object.values(state.cards);
+      const names = queryCardNames(allCards, readMeta);
       const rank = name => { const index = QUERY_PRIORITY.indexOf(name); return index < 0 ? QUERY_PRIORITY.length : index; };
       names.sort((a, b) => Number(pinnedDeckRows.has('name:' + b)) - Number(pinnedDeckRows.has('name:' + a)) ||
         rank(a) - rank(b) || a.localeCompare(b, 'zh-CN'));
@@ -425,17 +527,22 @@ export function activate(ctx) {
         if (!names.includes(criteria.name)) criteria.name = '';
         nameSelect.value = criteria.name;
       }
-      const ids = queryCards(currentState(), criteria, getMeta);
-      queryCount.textContent = `符合条件 ${ids.length} 张 · 虚线表示位置不确定`;
+      const { ids, total } = queryCardPreview(allCards, criteria, readMeta, QUERY_PREVIEW_LIMIT);
+      const cards = ids.map(id => {
+        const { locations } = state.cards[id];
+        const possible = locations.length !== 1 || locations[0] === '?';
+        return { possible, card: cardDetails(id, state, possible, readMeta) };
+      });
+      const key = JSON.stringify([setting('fourColors', false), total, cards]);
+      if (key === queryKey) return;
+      queryKey = key;
+      queryCount.textContent = `符合条件 ${total} 张 · 虚线表示位置不确定`;
       queryResults.replaceChildren();
       const grid = element('div', 'sgs-card-grid');
-      for (const id of ids.slice(0, 120)) {
-        const record = currentState().cards[id];
-        grid.append(makeCard(id, record.locations.length !== 1 || record.locations[0] === '?', false, true));
-      }
+      for (const { card, possible } of cards) grid.append(drawCard(card, possible, false, true));
       queryResults.append(grid);
-      if (!ids.length) queryResults.append(element('div', 'sgs-card-empty', '暂无符合条件的卡牌；需先取得本局牌表'));
-      if (ids.length > 120) queryResults.append(element('p', 'sgs-card-muted', '显示前 120 张，请组合筛选以缩小范围'));
+      if (!total) queryResults.append(element('div', 'sgs-card-empty', '暂无符合条件的卡牌；需先取得本局牌表'));
+      if (total > QUERY_PREVIEW_LIMIT) queryResults.append(element('p', 'sgs-card-muted', `显示前 ${QUERY_PREVIEW_LIMIT} 张，请组合筛选以缩小范围`));
     }
     nameSelect.addEventListener('change', () => { criteria.name = nameSelect.value; updateQuery(); });
     querySection.addEventListener('toggle', () => {
@@ -520,19 +627,21 @@ export function activate(ctx) {
     function update() {
       if (disposed) return;
       const state = currentState();
-      updateHints();
+      const statusText = state.active ? `记录中 · ${state.historyComplete ? '已取得开局牌表' : '记录不完整，仅展示已确认信息'}${state.turn ? ` · 第 ${state.turn} 回合` : ''}` : '';
+      if (status.hidden !== !state.active) status.hidden = !state.active;
+      if (status.textContent !== statusText) status.textContent = statusText;
+      if (!visible()) return;
+      updateHints(state);
       inputs.forEach(([key, fallback, input]) => { input.checked = setting(key, fallback); });
-      const opacity = revealOpacity(settings);
-      for (const [value, button] of opacityButtons) button.setAttribute('aria-pressed', String(value === opacity));
-      for (const node of [status, inferenceSection.wrap, querySection, diagnostics]) node.hidden = !state.active;
+      opacity.update(revealOpacity(settings));
+      size.update(revealColumns(settings));
+      for (const node of [inferenceSection.wrap, querySection, diagnostics]) node.hidden = !state.active;
       compositionSection.wrap.hidden = !state.active || !setting('deck');
       if (!state.active) {
-        status.textContent = '';
-        queryResults.replaceChildren();
+        updateQuery();
         return;
       }
       status.classList.toggle('is-partial', !state.historyComplete);
-      status.textContent = `${state.active ? '记录中' : state.lastSeq ? '当前不在牌局' : '等待游戏消息'} · ${state.historyComplete ? '已取得开局牌表' : '记录不完整，仅展示已确认信息'}${state.turn ? ` · 第 ${state.turn} 回合` : ''}`;
       inferenceSection.body.replaceChildren();
       const seatIds = [...new Set([...Object.keys(state.seats).map(Number), ...Object.values(state.zones).filter(value => value.kind === 5).map(value => value.seatId)])].filter(value => value !== state.selfSeatId && value < 255).sort((a, b) => a - b);
       for (const seatId of seatIds) {
@@ -554,7 +663,7 @@ export function activate(ctx) {
       updateQuery();
     }
     const deckPanel = { visible, update: updateDeck };
-    const visibilityObserver = new window.MutationObserver(() => updateDeck(currentState()));
+    const visibilityObserver = new window.MutationObserver(() => { if (visible()) { update(); updateDeck(currentState()); } });
     if (panelBody) visibilityObserver.observe(panelBody, { attributes: true, attributeFilter: ['hidden'] });
     if (host) visibilityObserver.observe(host, { attributes: true, attributeFilter: ['data-collapsed', 'data-edge-hidden'] });
     deckPanels.add(deckPanel); panelRefreshers.add(update);
@@ -573,10 +682,10 @@ export function activate(ctx) {
     const activityChanged = lastRenderedState?.active !== state.active;
     lastRenderedState = state;
     if (gameChanged) {
-      deckUiGame = state.deckStartSeq; pinnedDeckRows.clear(); expandedDeckRow = null;
+      deckUiGame = state.deckStartSeq; pinnedDeckRows.clear(); expandedDeckRow = null; hudLimit = HUD_PAGE_SIZE;
     }
     if (gameChanged || activityChanged || state.lastEvent === 'toolbox:snapshot') {
-      deckMetadata.clear(); deckCompositions.clear();
+      deckMetadata.clear(); unknownDeckMetadata.clear(); deckCompositions.clear();
     }
     refresh();
     if (gameChanged || activityChanged) refreshDeck();
@@ -597,8 +706,8 @@ export function activate(ctx) {
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.84', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "补充界姜维「挑衅」在出牌阶段的剩余技能次数提示。", minCoreVersion: '0.6.87', categories: ['game'], icon: PLUGIN_ICONS['cards'], priority: 10000,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.88', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "改进亮牌与观战界面的显示，调整座位牌区布局和手牌排序入口。", minCoreVersion: '0.6.87', categories: ['game'], icon: CARDS_ICON, priority: 10000,
     description: '记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数' },
   initialState, reduce, activate,
 };

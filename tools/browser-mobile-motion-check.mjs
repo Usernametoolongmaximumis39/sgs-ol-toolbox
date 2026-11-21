@@ -34,6 +34,7 @@ const bundle = await build({
     export { createYjcmEffectPicker, EFFECT_PICKER_STYLES } from './src/plugins/skins/yjcm-effect-picker.js';
     export { normalizeYjcmEffectBindings, resolveYjcmEffect } from './src/plugins/skins/yjcm-effects.js';
     export { CONTROL_STYLES } from './src/ui/controls.js';
+    export { createIcon } from './src/ui/icons.js';
   ` }, bundle: true, write: false, format: 'iife', globalName: 'MobileMotionCheck',
 });
 
@@ -384,7 +385,7 @@ try {
       source: 'mobile', mobileMotion: 'official-83502_2.zip', mobileForm, mobileMotionLayout: layout, download,
     }));
     let config;
-    const picker = createYjcmEffectPicker({ document, window, canBind: true,
+    const picker = createYjcmEffectPicker({ document, window, icon: spec => MobileMotionCheck.createIcon(document, spec), canBind: true,
       listen: (node, event, fn) => node.addEventListener(event, fn), onChange(value) { config = value; },
     });
     const shell = document.body.appendChild(document.createElement('section'));

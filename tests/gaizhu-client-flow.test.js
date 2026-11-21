@@ -2,6 +2,7 @@ import { RoomSettingsWindow, attachRoomSettings } from './fixtures/gaizhu-room.j
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGameAdapter } from '../src/core/game.js';
+import { createPluginNative } from '../src/core/plugin-native.js';
 import { ResourceScope } from '../src/core/resources.js';
 import { createGaiZhu } from '../src/plugins/gaizhu/runtime.js';
 
@@ -167,8 +168,10 @@ test('gaizhu: core adapter drives native room, AI confirmation, selection, mulli
     } },
   };
   const game = createGameAdapter(win, scope);
-  const controller = createGaiZhu({ scope, window: win, document: { querySelector: () => null }, game,
-    now: () => now, settings: { get: (key, fallback) => fallback, set() {} }, reportError: error => { if (error) errors.push(error); } });
+  const ctx = { scope, window: win, document: { querySelector: () => null }, game,
+    now: () => now, settings: { get: (key, fallback) => fallback, set() {} }, reportError: error => { if (error) errors.push(error); } };
+  ctx.native = createPluginNative(ctx);
+  const controller = createGaiZhu(ctx);
   assert.equal(game.getScene(), room);
   assert.equal(Object.hasOwn(room, 'SceneName'), false);
   assert.equal(Object.hasOwn(battle, 'SelfSeatUi'), false);

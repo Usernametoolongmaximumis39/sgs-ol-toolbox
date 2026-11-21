@@ -1,9 +1,9 @@
-import { manager, read } from '../../shared/info-runtime.js';
+import { read } from '../../shared/info-runtime.js';
 
 export function disableCompletedGenerals(ctx, mode, rows) {
   const completed = new Set(rows.filter(row => row.completed === true && row.owned === true).map(row => row.id));
   if (!completed.size) return 0;
-  const shield = manager(ctx, 'GameShieldGeneralManager', 'decodeUserFreeGeneralInfoRep', mgr =>
+  const shield = ctx.native.manager('GameShieldGeneralManager', 'decodeUserFreeGeneralInfoRep', mgr =>
     ['GetNewGeneralPoolComplianceByModeIdAndSection', 'GetShieldGeneralGameModelNodeByIndex', 'GetShieldGeneralState',
       'InShieldCloseGeneral', 'SendClientShieldGeneralBatchReq'].every(method => typeof mgr[method] === 'function'));
   if (!shield) return 0;
@@ -23,7 +23,7 @@ export function disableCompletedGenerals(ctx, mode, rows) {
   if (!Number.isSafeInteger(schemeId) || schemeId <= 0 || !Number.isInteger(minOpen) || minOpen < 0
     || !Number.isInteger(maxLimitedClosed) || maxLimitedClosed < 0) return 0;
 
-  const generals = manager(ctx, 'GameGeneralManager', 'ClientGeneralFromRep', mgr => typeof mgr.HasGeneral === 'function');
+  const generals = ctx.native.manager('GameGeneralManager', 'ClientGeneralFromRep', mgr => typeof mgr.HasGeneral === 'function');
   if (!generals) return 0;
   const protectedIds = new Set((pool.CantCloseGeneralList || []).map(Number));
   const limited = new Set((pool.BfGListInShowPool || []).map(Number));

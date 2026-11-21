@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createPluginNative } from '../src/core/plugin-native.js';
 import { JSDOM } from 'jsdom';
 import { ResourceScope } from '../src/core/resources.js';
 import { createNative } from '../src/plugins/ledger/native.js';
@@ -22,6 +23,7 @@ function fixture(t, savedSettings = new Map()) {
   const ctx = { settings: { get: (k, fallback) => structuredClone(savedSettings.has(k) ? savedSettings.get(k) : fallback), set: (k, v) => savedSettings.set(k, structuredClone(v)) }, window: dom.window, scope, reportError() {}, game: { getSelf: () => self, getClass: name => ({ GameGoodsManager: gm,
     NewBlessManager: { IsInDrawTime: () => true, GetInfoById() {} } })[name], getServerProxy: () => proxy,
     getConfigData: n => config[n], loadConfigData: async n => config[n] } };
+  ctx.native = createPluginNative(ctx);
   const store = { async list(id) { await flush(); return [...db.values()].filter(r=>r.account===id).map(r=>structuredClone(r)); }, async put(row) { db.set(row.id, structuredClone(row)); } };
   const controller = createController(ctx, { store });
   t.after(()=>{scope.dispose();dom.window.close();});
@@ -130,12 +132,17 @@ test('account isolation, queued old-account messages, persistence load race and 
   f.scope.dispose();assert.ok([...f.events.values()].every(a=>a.length===0));
 });
 
-test('consecutive blessing weeks retain a held prior knot only while a drawing week exists', t => {
+test('only active blessing activities with unexpired knots enter the balance list', t => {
   const f=fixture(t);let drawing=true;const knots=[{ID:31,BaseID:13411801,Count:2,Expirydate:Math.floor(Date.now()/1000)+86400},{ID:32,BaseID:13411901,Count:3}];
   const gm={selfBagFinished:true,goodsList:knots,GetGoodsNumByBaseID:id=>knots.find(r=>r.BaseID===id)?.Count||0,GetGoodsByBaseID:id=>knots.find(r=>r.BaseID===id)};
-  const original=f.ctx.game.getClass;f.ctx.game.getClass=name=>name==='GameGoodsManager'?gm:name==='NewBlessManager'?{IsInDrawTime:id=>drawing&&id===2,GetInfoById(){}}:original(name);
+  const fmt=at=>new Date(at+8*3600000).toISOString().slice(0,19).replace(/[-:]/g,'').replace('T',' ');
+  const end=Math.floor(Date.now()/1000)*1000+3600000, duration3=fmt(end-7200000)+','+fmt(end);
+  let first=false;
+  const original=f.ctx.game.getClass;f.ctx.game.getClass=name=>name==='GameGoodsManager'?gm:name==='NewBlessManager'?{IsInDrawTime:id=>drawing&&(first||id===2),GetInfoById:()=>({duration3})}:original(name);
   const n=createNative(f.ctx,()=>{},()=>{}),config=f.ctx.game.getConfigData('ff_qifu_new'),defs=goodsDefinitions(goods);
-  assert.deepEqual([...n.knots(config,defs).active].sort(),[13411801,13411901]);
+  assert.deepEqual([...n.knots(config).active],[13411901]);
+  assert.equal(n.knots(config).expires.get(13411901),end+1000);
+  first=true;assert.deepEqual([...n.knots(config).active].sort(),[13411801,13411901]);
   drawing=false;assert.equal(n.knots(config,defs).active.size,0);
   drawing=true;knots[0].Expirydate=1;assert.deepEqual([...n.knots(config,defs).active],[13411901]);
 });

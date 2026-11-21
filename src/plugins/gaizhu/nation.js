@@ -1,4 +1,4 @@
-import { account, read } from '../../shared/info-runtime.js';
+import { read } from '../../shared/info-runtime.js';
 import { createAssistant } from './assistant.js';
 import { closeGameResult, press, usable } from './native.js';
 import { roomMode } from './room-settings.js';
@@ -30,7 +30,7 @@ export function createNationRun(ctx, native) {
     const scene = frame.scene;
     const start = scene?.startUI;
     const seats = list(scene?.seatListView?.seatList).filter(Boolean);
-    const id = account(ctx).id;
+    const id = ctx.native.account().id;
     const mine = id && seats.map(waitInfo).find(info => String(info?.ClientId ?? info?.clientId ?? '') === id);
     if (!mine || !start?.rc || !isNationRoom(ctx) || frame.game) return '等待确认国战房间与座位';
     const master = read(() => start.rc.MasterIsSelf);

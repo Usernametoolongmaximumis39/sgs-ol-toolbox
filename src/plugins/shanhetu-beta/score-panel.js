@@ -28,14 +28,22 @@ export function createScorePanel(doc) {
     return node;
   }
   const section = el('details', '', 'sgs-fold shb-section shb-score');
-  const summary = el('summary'), total = el('span', '', 'shb-score-total'), body = el('div');
-  summary.append(el('span', '分数预估', 'shb-score-title'), total);
+  const summary = el('summary'), title = el('span', '', 'shb-score-title');
+  const total = el('span', '', 'shb-score-total'), body = el('div');
+  summary.append(title, total);
   section.append(summary, body);
 
-  function update(score, active, configError) {
-    const known = score?.total != null;
-    total.textContent = known ? `${score.partial ? '已知 ' : '约 '}${fmt(score.total)}` : '';
+  function update(score, active, configError, settledTotal) {
     body.replaceChildren();
+    if (settledTotal !== null) {
+      title.textContent = '战绩分';
+      total.textContent = fmt(settledTotal);
+      body.append(el('p', '游戏已结算'));
+      return;
+    }
+    const known = score?.total != null;
+    title.textContent = '分数预估';
+    total.textContent = known ? `${score.partial ? '已知 ' : '约 '}${fmt(score.total)}` : '';
     if (!score) {
       body.append(el('p', configError || (active ? '等待官方配置和征程数据' : '开始征程后显示预估')));
       return;
@@ -56,9 +64,8 @@ export function createScorePanel(doc) {
       row(`${label}分`, fmt(score.items === null ? null : points), equation);
     }
     row('道具小计', fmt(score.items), '按基础售价，同一道具只计一次');
-    const showPenalty = score.rebirthPenalty === null || score.rebirthPenalty > 0;
-    if (showPenalty) row('重生扣分', score.rebirthPenalty === null ? '待确认' : `−${fmt(score.rebirthPenalty)}`,
-      score.rebirthPenalty === null ? '重生状态待同步' : '在乘难度系数前扣除');
+    const hasPenalty = score.rebirthPenalty > 0;
+    row('重生扣分', hasPenalty ? `−${fmt(score.rebirthPenalty)}` : '0', '在乘难度系数前扣除');
     row('难度系数', score.rate === null ? '待确认' : `×${score.rate / 10}`, score.difficulty);
     const mutationPoints = score.mutationPoints;
     row('突变加成', percent(score.mutation), mutationPoints === null ? ''
@@ -66,14 +73,14 @@ export function createScorePanel(doc) {
     body.append(breakdown);
     const formula = el('p', '', 'shb-score-formula');
     if (known) {
-      const minus = showPenalty ? ` − ${fmt(score.rebirthPenalty)}` : '';
+      const minus = hasPenalty ? ` − ${fmt(score.rebirthPenalty)}` : '';
       if (score.clamped) formula.append('max(0, ');
       formula.append(`⌊⌊(${fmt(score.battle)} + ${fmt(score.items)}${minus}) × ${score.rate / 10}⌋ `,
         el('span', `× (1 + ${score.mutation}%)⌋`));
       if (score.clamped) formula.append(')');
       formula.append(' ', el('span', `= ${fmt(score.total)}`));
     } else {
-      formula.textContent = `⌊⌊(战斗分 + 道具小计${showPenalty ? ' − 重生扣分' : ''}) × 难度系数⌋ × (1 + 突变加成)⌋`;
+      formula.textContent = `⌊⌊(战斗分 + 道具小计${hasPenalty ? ' − 重生扣分' : ''}) × 难度系数⌋ × (1 + 突变加成)⌋`;
     }
     body.append(formula);
     if (score.loss) {

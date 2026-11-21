@@ -1,5 +1,88 @@
 import { ResourceScope } from './resources.js';
 
+const matteColor = '#242635';
+
+async function skinMatte(window, url, scope) {
+  const { document, Image, Laya: { Texture, Texture2D, TextureFormat } } = window;
+  if (!url || !document || !Image || !Texture2D || !Texture) return;
+  const image = new Image();
+  image.src = url;
+  await image.decode();
+  if (scope.closed) return;
+  // Retain only the palette. The original's face and edges must not show
+  // through gaps in a moving or transparent rig.
+  const colors = document.createElement('canvas');
+  colors.width = 6;
+  colors.height = 4;
+  const source = colors.getContext('2d');
+  source.fillStyle = matteColor;
+  source.fillRect(0, 0, colors.width, colors.height);
+  source.drawImage(image, 0, 0, colors.width, colors.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 64;
+  const context = canvas.getContext('2d');
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(colors, 0, 0, canvas.width, canvas.height);
+  const bitmap = new Texture2D(canvas.width, canvas.height, TextureFormat?.R8G8B8A8 ?? 1, false);
+  let texture;
+  scope.add(() => { texture?.destroy(); if (!bitmap.destroyed) bitmap.destroy(); });
+  bitmap.loadImageSource(canvas, true);
+  texture = new Texture(bitmap);
+  return texture;
+}
+
+export function createSkinBackgroundMotion({ window, layer, scope, load, ready, fail, imageUrl }) {
+  const { Sprite, Rectangle } = window.Laya;
+  const root = new Sprite();
+  root.name = 'sgs-background-motion';
+  root.mouseEnabled = root.mouseChildren = root.visible = false;
+  root.zOrder = layer.bgSprite.zOrder || 0;
+  let motion, matte, visible = false, width, height;
+  scope.add(() => { try { motion?.dispose(); } finally { root.destroy(true); } });
+  layer.addChildAt(root, Math.max(0, layer.getChildIndex(layer.bgSprite)) + 1);
+  function positionMotion() {
+    if (!(width > 0 && height > 0)) return;
+    root.graphics.clear();
+    root.graphics.drawRect(0, 0, width, height, matteColor);
+    if (matte) root.graphics.drawTexture(matte, 0, 0, width, height);
+    motion?.fit(0, 0, width, height);
+  }
+  void skinMatte(window, imageUrl, scope).then(texture => {
+    if (!texture || scope.closed) return;
+    matte = texture;
+    positionMotion();
+  }).catch(() => { /* The opaque base still covers the viewport. */ });
+  const timer = setTimeout(() => fail('待机动画加载超时'), 20000);
+  const cancelTimeout = scope.add(() => clearTimeout(timer));
+  void Promise.resolve().then(() => load(scope.signal)).then(loaded => {
+    cancelTimeout();
+    if (scope.closed) { loaded?.dispose(); return; }
+    if (!loaded) throw new Error('这款皮肤的待机动画暂不可用');
+    motion = loaded;
+    root.addChild(motion.actor);
+    positionMotion();
+    root.visible = visible;
+    motion.setPlaying(visible);
+    ready();
+  }).catch(error => { if (!scope.closed) fail(error?.message || String(error)); });
+  return {
+    get loaded() { return Boolean(motion); },
+    layout(w, h) {
+      if (scope.closed || !(w > 0 && h > 0) || (width === w && height === h)) return;
+      width = w; height = h;
+      root.size(w, h);
+      root.scrollRect = new Rectangle(0, 0, w, h);
+      positionMotion();
+    },
+    show(value) {
+      if (scope.closed || visible === value) return;
+      visible = value;
+      root.visible = visible && Boolean(motion);
+      motion?.setPlaying(visible);
+    },
+  };
+}
+
 // Use the client's own effect factories on an isolated receiver. The classes
 // are closure-private; no window construction, class-name lookup or shared
 // weather/skill effect is needed, including after refreshing inside a battle.

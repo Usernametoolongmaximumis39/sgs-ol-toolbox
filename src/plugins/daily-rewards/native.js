@@ -1,3 +1,4 @@
+import { read } from '../../shared/safe-read.js';
 import { isReturnTask } from './return-tasks.js';
 import { managerSpecs as welfareSpecs, planWelfare, prepareWelfare } from './welfare.js';
 import { managerSpecs as activitySpecs, planActivities, prepareActivities, currentTavernTaskIds } from './activities.js';
@@ -11,9 +12,9 @@ import { createMilitaryPopupGuard } from './military-popup.js';
 import { confirmedJieyueAttempt } from './military-rewards.js';
 import { managerSpecs as exchangeSpecs } from './exchange-native.js';
 import { nativeMethod } from './native-method.js';
+import { findNativeListenerOwner } from '../../shared/native-manager.js';
 export { nativeMethod } from './native-method.js';
 // Read only existing client objects. Never instantiate managers or load Xiaochao.
-const read = fn => { try { return fn(); } catch { return undefined; } };
 const live = object => object && object.destroyed !== true;
 const events = {
   LoginManager: ['error'], MailManager: ['decodeClientGetMailNtf', 'DbsClientGetgmawardRep', 20343],
@@ -54,12 +55,7 @@ export function createNativeAdapter(ctx) {
       const d = type && Object.getOwnPropertyDescriptor(type, key);
       if (d && 'value' in d && validate(d.value)) return d.value;
     }
-    const proxy = read(() => ctx.game.getServerProxy());
-    for (const event of events[name] || []) {
-      const entry = read(() => proxy._events[event]);
-      for (const handler of Array.isArray(entry) ? entry.slice(0, 32) : [entry]) if (validate(read(() => handler.caller))) return handler.caller;
-    }
-    return null;
+    return findNativeListenerOwner(read(() => ctx.game.getServerProxy()), events[name] || [], validate);
   }
   function account() {
     const login = manager('LoginManager');

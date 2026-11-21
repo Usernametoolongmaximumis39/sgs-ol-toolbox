@@ -1,13 +1,17 @@
 import { ResourceScope } from './resources.js';
-import { createBackgroundMotion } from './background-motion.js';
+import { createBackgroundMotion, createSkinBackgroundMotion } from './background-motion.js';
 import { localBackgroundImage, readLocalBackground } from './background-local.js';
 import { nativeSeat } from './seat.js';
 import { supportsSkinBackgroundAttack } from '../shared/skin-detail.js';
 
-export function containBackground(width, height, viewportWidth, viewportHeight) {
+function fitBackground(width, height, viewportWidth, viewportHeight, scaleFor) {
   if (![width, height, viewportWidth, viewportHeight].every(n => Number.isFinite(n) && n > 0)) return null;
-  const scale = Math.min(viewportWidth / width, viewportHeight / height);
+  const scale = scaleFor(viewportWidth / width, viewportHeight / height);
   return { width, height, scale, x: (viewportWidth - width * scale) / 2, y: (viewportHeight - height * scale) / 2 };
+}
+
+export function containBackground(width, height, viewportWidth, viewportHeight) {
+  return fitBackground(width, height, viewportWidth, viewportHeight, Math.min);
 }
 
 function findBackgroundLayer(stage) {
@@ -93,12 +97,14 @@ function watchBackgroundAttack(game, scene, scope, play) {
 // Only the current battle instance is wrapped. Native weather, URL-based skill
 // backgrounds and SpecialBackground children (notably Pei Xiu) keep ownership.
 export class BackgroundRegistry {
-  constructor({ window, game, settings, scope }) {
+  constructor({ window, game, settings, scope, sceneWatch }) {
     Object.assign(this, { window, game, settings, scope });
     this.providers = new Set(); this.listeners = new Set(); this.binding = null;
     this.ready = null; this.loading = null; this.failed = null; this.ticket = 0;
     this.status = '跟随游戏背景';
-    scope.interval(() => this.refresh(), 500);
+    const refresh = () => this.refresh();
+    if (sceneWatch) scope.add(sceneWatch.watch(refresh, 500, true));
+    else scope.interval(refresh, 500);
     scope.add(() => {
       this.importing = null; this.ticket++; this.listeners.clear();
       try { this.detach(true); } finally { this.dropLocalImage(); }
@@ -108,23 +114,35 @@ export class BackgroundRegistry {
     });
   }
   get current() { return this.settings.get('battleBackground', null); }
+  isActive(owner) { return this.providers.has(owner); }
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   emit() { for (const fn of this.listeners) { try { fn(); } catch { /* subscriber isolation */ } } }
   state(text) { if (this.status !== text) { this.status = text; this.emit(); } }
   register(owner) {
     if (this.providers.has(owner)) throw new Error('背景提供方已注册');
-    this.providers.add(owner); this.refresh();
+    this.providers.add(owner); this.refresh(); this.emit();
     let active = true;
     return () => {
       if (!active) return;
       active = false; this.providers.delete(owner);
       if (this.importing?.owner === owner) this.importing = null;
-      this.retryAt = 0; this.loadAttempts = 0; this.refresh();
+      this.retryAt = 0; this.loadAttempts = 0; this.refresh(); this.emit();
     };
   }
   select(owner, spec) {
     if (!this.providers.has(owner)) throw new Error('背景提供方未启用');
     this.saveSelection(spec ? { ...backgroundSpec(spec), owner } : null);
+  }
+  registerSkinMotion(load) {
+    this.skinMotion = load;
+    return () => { if (this.skinMotion === load) this.skinMotion = null; };
+  }
+  setAnimated(owner, enabled) {
+    const choice = this.current;
+    if (choice?.owner !== owner || !this.providers.has(owner)) return;
+    if (choice.skinMotion !== true) { if (!choice.localImageId) this.select(owner, { ...choice, animated: enabled }); return; }
+    this.settings.set('battleBackground', { ...choice, animated: enabled });
+    this.selectionChanged();
   }
   setAttackEffects(owner, enabled) {
     const choice = this.current;
@@ -133,21 +151,25 @@ export class BackgroundRegistry {
     if (!enabled) this.binding?.motion?.stopAttack();
     this.refresh(); this.emit();
   }
-  async selectLocal(owner, file) {
+  async selectLocal(owner, file, { skinKey, skinMotion, animated, isCurrent = () => true } = {}) {
     if (this.scope.closed || !this.providers.has(owner)) throw new Error('背景提供方未启用');
     const pending = this.importing = { owner };
+    const canSave = () => this.importing === pending && isCurrent();
     let id;
     try {
-      const image = await readLocalBackground(this.window, file);
-      if (this.importing !== pending) return;
+      const image = await readLocalBackground(this.window, file, Boolean(skinKey));
+      if (!canSave()) return false;
       // IndexedDB stores the bytes directly for browsers without in-store Blob support.
       id = await localBackgroundImage(this.window, 'readwrite', store => store.add(image));
-      if (this.importing !== pending) return;
+      if (!canSave()) return false;
       const name = file.name?.trim().slice(0, 160) || '本地图片';
-      this.saveSelection({ name, localImageId: id, owner, animated: false, dynamic: null });
+      this.saveSelection({ name, localImageId: id, owner, animated: Boolean(skinMotion && animated), dynamic: null,
+        ...(skinKey && { skinKey, skinMotion: Boolean(skinMotion) }) });
       id = undefined;
+      return true;
     } catch (error) {
-      if (this.importing === pending) throw error;
+      if (canSave()) throw error;
+      return false;
     } finally {
       if (this.importing === pending) this.importing = null;
       this.removeLocalImage(id);
@@ -247,7 +269,7 @@ export class BackgroundRegistry {
     if (localId !== undefined) {
       const url = this.localUrl(localId);
       if (!url) return;
-      choice = { name: choice.name, url };
+      choice = { ...choice, url };
     }
     if (this.failed === choice.url) this.failed = null;
     if (this.ready !== choice.url) {
@@ -276,6 +298,9 @@ export class BackgroundRegistry {
       } catch (error) { this.loadFailed(choice.url, '背景加载失败：' + error.message); }
       return;
     }
+    if (choice.skinKey && !(this.imageSize?.width > this.imageSize?.height)) {
+      this.detach(true); this.state('此皮肤没有可用的横版原画'); return;
+    }
     if (!this.binding) {
       const layer = findBackgroundLayer(laya?.stage);
       const viewport = layer && backgroundViewport(layer, this.window);
@@ -287,10 +312,20 @@ export class BackgroundRegistry {
       const registry = this;
       const originalById = scene.SetWallPaperById;
       const eligible = () => !scene.currentWeatherWallPaper && !b.yielded;
-      b.syncMotion = () => {
-        const visible = eligible() && layer.bg?.skin === choice.url;
+      let covered;
+      function coverStill(next) {
+        if (covered?.node !== next) {
+          if (covered && !covered.node.destroyed) covered.node.visible = covered.visible;
+          covered = next && { node: next, visible: next.visible };
+        }
+        if (next) next.visible = false;
+      }
+      local.add(() => coverStill());
+      const showMotion = visible => {
         b.motion?.show(visible);
+        coverStill(visible && choice.skinMotion && b.motion?.loaded ? layer.bg : undefined);
       };
+      b.syncMotion = () => showMotion(eligible() && layer.bg?.skin === choice.url);
       if (layer) {
         const fill = new laya.Sprite();
         local.add(() => fill.destroy(true));
@@ -298,20 +333,21 @@ export class BackgroundRegistry {
         fill.zOrder = (layer.bgSprite.zOrder || 0) - 1;
         layer.addChildAt(fill, Math.max(0, layer.getChildIndex(layer.bgSprite)));
         const soften = new laya.Sprite(); soften.mouseEnabled = false; fill.addChild(soften);
-        if (laya.BlurFilter) soften.filters = [new laya.BlurFilter(18)];
-        b.hideFill = () => { fill.visible = false; b.motion?.show(false); };
+        if (laya.BlurFilter && !choice.skinKey) soften.filters = [new laya.BlurFilter(18)];
+        b.hideFill = () => { fill.visible = false; showMotion(false); };
         let fillKey = '';
         local.patch(layer, 'updateBgSize', original => function (...args) {
           const result = Reflect.apply(original, this, args);
-          fill.visible = eligible() && this.bg?.skin === choice.url;
+          const customBackground = eligible() && this.bg?.skin === choice.url;
+          fill.visible = customBackground && !choice.skinKey;
           b.syncMotion();
-          if (!fill.visible) return result;
+          if (!customBackground) return result;
           const size = registry.imageSize;
           const { width: w, height: h } = backgroundViewport(this, registry.window);
-          const fit = containBackground(size?.width, size?.height, w, h);
+          const fit = fitBackground(size?.width, size?.height, w, h, choice.skinKey ? Math.max : Math.min);
           if (!fit) { fill.visible = false; return result; }
           const key = `${w}:${h}`;
-          if (key !== fillKey) {
+          if (fill.visible && key !== fillKey) {
             fillKey = key;
             const scale = Math.max(w / fit.width, h / fit.height);
             const dw = fit.width * scale, dh = fit.height * scale;
@@ -325,7 +361,8 @@ export class BackgroundRegistry {
           if (typeof this.bg.scale === 'function') this.bg.scale(fit.scale, fit.scale);
           else this.bg.scale = fit.scale;
           this.bg.posInteger(fit.x, fit.y);
-          if (b.motion) b.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h));
+          if (choice.skinMotion) b.motion?.layout(w, h);
+          else if (b.motion) b.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h));
           return result;
         });
       }
@@ -372,7 +409,8 @@ export class BackgroundRegistry {
         }
       }
       if (!b.yielded) scene.onWallPaperChange();
-      if (choice.dynamic && choice.animated !== false) {
+      const playSkinMotion = choice.skinMotion && !this.window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      if ((choice.dynamic || playSkinMotion) && choice.animated !== false) {
         const motionScope = new ResourceScope(); local.add(() => motionScope.dispose());
         const fail = message => {
           if (local.closed) return;
@@ -380,8 +418,12 @@ export class BackgroundRegistry {
           this.refresh();
         };
         try {
-          b.motion = createBackgroundMotion({ window: this.window, layer, spec: choice.dynamic, size: choice.dynamic, scope: motionScope,
-            ready: () => { if (!local.closed) this.refresh(); }, fail });
+          const options = { window: this.window, layer, scope: motionScope,
+            ready: () => { if (!local.closed) this.refresh(); }, fail };
+          b.motion = choice.skinMotion ? createSkinBackgroundMotion({ ...options,
+            load: signal => this.skinMotion?.(choice.skinKey, signal),
+            imageUrl: this.localImage?.objectUrl })
+            : createBackgroundMotion({ ...options, spec: choice.dynamic, size: choice.dynamic });
           if (motionScope.closed) b.motion = null;
           if (b.motion && supportsSkinBackgroundAttack(choice.dynamic)) {
             b.syncAttackSeat = watchBackgroundAttack(this.game, scene, motionScope, () => {

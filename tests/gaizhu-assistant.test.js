@@ -247,6 +247,75 @@ test('assistant handles a target-only inquiry and prioritizes the lord for hosti
   }
 });
 
+test('identity rescue checks the dying seat before either assistant can play a Peach', () => {
+  for (const { mine, target, hinted = true, expected } of [
+    { mine: 3, target: 1, expected: ['btnCancel'] },
+    { mine: 3, target: 2, hinted: false, expected: ['btnCancel'] },
+    { mine: 1, target: 2, expected: ['hint', 'btnOK'] },
+    { mine: 2, target: 3, expected: ['btnCancel'] },
+    { mine: 3, target: 3, hinted: false, expected: ['local', 'btnOK'] },
+    { mine: 4, target: 4, expected: ['btnCancel'] },
+    { mine: 3, target: 0, expected: ['btnCancel'] },
+    { mine: 3, target: 'self', expected: ['hint', 'btnOK'] },
+    { mine: 3, target: null, expected: ['btnCancel'] },
+  ]) {
+    const calls = [], assistant = createAssistant();
+    const ok = { name: 'btnOK', enabled: false };
+    const cancel = { name: 'btnCancel', enabled: true };
+    const card = {
+      Card: { CardId: 42, FirstSkillId: 3 }, activated: true,
+      CardUI_Click() { this.selected = true; ok.enabled = true; calls.push('hint'); },
+      setSelected(value) { this.selected = value; ok.enabled = value; calls.push('local'); },
+    };
+    const self = {
+      seat: { Index: 0, Figure: mine, IsAskingTao: target === 'self' },
+      cardContainer: { selectCardContext: { SpecifySkillId: 3 }, cardUis: [card] },
+      Pt: { btns: [ok, cancel], Button_Click(button) { calls.push(button.name); this.visible = false; } },
+      ...(hinted ? { CurStepHelpData: { cardIds: [42] } } : {}),
+    };
+    const seatUIs = target == null || target === 'self' ? [] : [{ seat: { Index: 1, Figure: target, IsAskingTao: true } }];
+    const frame = { self, scene: { seatContainer: { seatUIs } } };
+    assistant.run(frame, 0, { identity: true });
+    if (expected.length > 1) assistant.run(frame, 1000, { identity: true });
+    assert.deepEqual(calls, expected, `own identity ${mine}, dying identity ${target}, hinted ${hinted}`);
+  }
+});
+
+test('identity declines an enemy rescue even when the only control is the native skill selector', () => {
+  const calls = [], assistant = createAssistant({ getPeachTarget: () => 1 });
+  const heal = { name: 'skill', enabled: true, data: { sendData: 1 } };
+  const cancel = { enabled: false, data: { sendData: 255 } };
+  const self = {
+    seat: { Index: 0, Figure: 3, InOwnRound: true },
+    spellSelector: { txtOptMsg: { text: '主公濒死，需要1个桃' }, btnList: [heal, cancel], btnClick(b) { calls.push(b); } },
+    CurStepHelpData: { optionIndex: 0 },
+    onTrusteeshipClick() { calls.push('trustee'); },
+  };
+  const frame = { self, scene: { seatContainer: { seatUIs: [{ Seat: { Index: 1, Figure: 1 } }] } } };
+  for (const now of [0, 1000, 5000]) assistant.run(frame, now, { identity: true });
+  assert.deepEqual(calls, []);
+  cancel.enabled = true;
+  assistant.run(frame, 5500, { identity: true });
+  assert.deepEqual(calls, [cancel]);
+});
+
+test('identity plays Peach normally on its own turn and does not hand other prompts to trusteeship', () => {
+  const calls = [], assistant = createAssistant();
+  const self = {
+    seat: { Index: 0, Figure: 3, InOwnRound: true, IsAiControl: false },
+    cardContainer: { cardUis: [{ activated: true, Card: { CardId: 42, FirstSkillId: 3 },
+      CardUI_Click() { this.selected = true; calls.push('peach'); } }] },
+    CurStepHelpData: { cardIds: [42] },
+    onTrusteeshipClick() { calls.push('trustee'); },
+  };
+  const frame = { self, scene: {} };
+  assistant.run(frame, 0, { identity: true });
+  self.CurStepHelpData = null;
+  self.cardContainer = { activatedCardtems: [{ activated: true }] };
+  for (const now of [1000, 2000, 5000, 6000]) assistant.run(frame, now, { identity: true });
+  assert.deepEqual(calls, ['peach']);
+});
+
 test('legacy fallback: own-turn trustee starts once after local timeout and respects mulligan guard', () => {
   const calls = [], assistant = createAssistant();
   const frame = { self: { seat: { InOwnRound: true, IsAiControl: false },

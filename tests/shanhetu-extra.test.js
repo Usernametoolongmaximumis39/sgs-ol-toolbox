@@ -120,7 +120,7 @@ test('Normal 1 shows independent battle-and-item and defeat estimates', () => {
   assert.equal(current().total, 524);
 });
 
-test('Rebirth costs 500 before the difficulty multiplier when the fight is finished', () => {
+test('Only recorded Rebirth use costs 500 before the difficulty multiplier', () => {
   const { hd_roguelike } = fixtureConfig(), data = fixtureData();
   hd_roguelike.Root.DifficultySelection.push({ seasonID: '5', difID: 1, bdif: 1, sdif: 1 });
   const config = scoreConfig(hd_roguelike), game = data.gameData;
@@ -128,13 +128,16 @@ test('Rebirth costs 500 before the difficulty multiplier when the fight is finis
   game.itemId = [];
   data.chapterData.record = { fightScore: 30, items: [] };
   const current = () => estimateScore(config, readScoreRun(data));
-  assert.equal(current().total, 30);
+  assert.deepEqual([current().rebirthPenalty, current().total], [0, 30]);
 
   game.dyingCnt = 1;
-  assert.deepEqual([current().rebirthPenalty, current().total], [null, null]);
+  assert.deepEqual([current().rebirthPenalty, current().total], [0, 30]);
+  const otherSpell = { uSpellId: 37, uTimes: 1 };
+  game.myGeneral.spellUseInfo = [otherSpell];
+  assert.deepEqual([current().rebirthPenalty, current().total], [0, 30]);
   const rebirth = { uSpellId: 3324, uTimes: 0 };
-  game.myGeneral.spellUseInfo = [{ uSpellId: 37, uTimes: 1 }, rebirth];
-  assert.equal(current().total, 30);
+  game.myGeneral.spellUseInfo.push(rebirth);
+  assert.deepEqual([current().rebirthPenalty, current().total], [0, 30]);
   rebirth.uTimes = 1;
   assert.deepEqual([current().rebirthPenalty, current().total, current().loss.points], [500, 0, 500]);
   Object.assign(data.seasonData, { seasonId: 6, difficulty: 15 });

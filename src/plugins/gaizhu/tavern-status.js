@@ -1,4 +1,4 @@
-import { account, manager, read } from '../../shared/info-runtime.js';
+import { read } from '../../shared/info-runtime.js';
 
 const SLOTS = ['NewDayQuestId1', 'NewDayQuestId2', 'NewWeekQuestId'];
 const RETRY_MS = 10000;
@@ -9,7 +9,7 @@ const protocol = event => event?.Protocol ?? event;
 const payload = event => protocol(event)?.Data?.ProtoObj;
 
 function calendarDay(ctx) {
-  const clock = manager(ctx, 'TimerManager', 'ClientPingMsg', value => positive(value.LocalServerTime));
+  const clock = ctx.native.manager('TimerManager', 'ClientPingMsg', value => positive(value.LocalServerTime));
   const seconds = read(() => clock.LocalServerTime);
   // The client has already applied the server's time zone to LocalServerTime.
   return positive(Math.floor(seconds)) ? Math.floor(seconds / 86400) : null;
@@ -18,18 +18,18 @@ function calendarDay(ctx) {
 function taskManagers(ctx) {
   const hasTask = value => typeof value.GetServerTaskDataByTaskID === 'function';
   return {
-    modern: manager(ctx, 'ActivityQuestManager', 'decodeUserQuestInfoRep',
+    modern: ctx.native.manager('ActivityQuestManager', 'decodeUserQuestInfoRep',
       value => hasTask(value) && typeof value.UpTaskState === 'function')
-      ?? manager(ctx, 'ActivityQuestManager', 107009, value => hasTask(value) && typeof value.UpTaskState === 'function'),
-    legacy: manager(ctx, 'TaskManager', 'SmsgTaskFailed', hasTask)
-      ?? manager(ctx, 'TaskManager', 22011, hasTask),
+      ?? ctx.native.manager('ActivityQuestManager', 107009, value => hasTask(value) && typeof value.UpTaskState === 'function'),
+    legacy: ctx.native.manager('TaskManager', 'SmsgTaskFailed', hasTask)
+      ?? ctx.native.manager('TaskManager', 22011, hasTask),
   };
 }
 
 function currentConfig(ctx) {
   const guard = value => typeof value.ReqJgqyInfo === 'function';
-  const welfare = manager(ctx, 'WelfareManger', 'decodeClientTavernInfoRep', guard)
-    ?? manager(ctx, 'WelfareManger', 180004, guard);
+  const welfare = ctx.native.manager('WelfareManger', 'decodeClientTavernInfoRep', guard)
+    ?? ctx.native.manager('WelfareManger', 180004, guard);
   const config = read(() => welfare.CurPubCommonVo);
   const ids = SLOTS.map(slot => Number(read(() => config[slot])));
   const round = Number(read(() => config.Round)) || null;
@@ -39,7 +39,7 @@ function currentConfig(ctx) {
 export function createTavernStatus(ctx, accountId, now) {
   const proxy = read(() => ctx.game.getServerProxy());
   let disposed = false;
-  const active = () => !disposed && !ctx.scope.signal.aborted && account(ctx).id === accountId && read(() => ctx.game.getServerProxy()) === proxy;
+  const active = () => !disposed && !ctx.scope.signal.aborted && ctx.native.account().id === accountId && read(() => ctx.game.getServerProxy()) === proxy;
   const statuses = new Map();
   let day = null, round = null, ids = [], confirmedRound = null, queryRound = false;
   let configAt = -Infinity, progressAt = -Infinity, recheckAt = -Infinity, waitingUntil = 0;

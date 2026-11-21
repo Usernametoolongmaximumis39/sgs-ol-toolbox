@@ -1,13 +1,11 @@
-const read = fn => { try { return fn(); } catch { return undefined; } };
+import { read } from '../../shared/safe-read.js';
+import { isNativeNodeMounted } from '../../shared/native-tree.js';
+
 const SHOP_WINDOW = 'RogueJiShiWindow';
 export const CHOICE_WINDOWS = ['RogueAwardSelectWindow', 'RogueCampSelectWindow'];
 
 export function mounted(node, stage) {
-  for (let depth = 0; node && depth < 24; depth++, node = node.parent) {
-    if (node.destroyed || node.visible === false) return false;
-    if (node === stage) return true;
-  }
-  return false;
+  return isNativeNodeMounted(node, stage, 24);
 }
 
 export function nativeWindow(game, stage, name) {

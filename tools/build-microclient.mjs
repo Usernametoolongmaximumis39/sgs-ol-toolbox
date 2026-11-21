@@ -3,7 +3,7 @@ import { resolve, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { build } from 'esbuild';
-import { bundleCore } from './distribution-build.mjs';
+import { bundleCore, configuredUpdateMirror } from './distribution-build.mjs';
 import { validateRepositoryPlugins } from './plugin-validation.mjs';
 import { pluginReleases, makePluginPackage } from './plugin-packages.mjs';
 import { CORE_VERSION } from '../src/core/version.js';
@@ -11,10 +11,13 @@ import { zipFiles } from './microclient-zip.mjs';
 
 export async function buildMicroclientHost(root) {
   const security = await build({ absWorkingDir: root, stdin: {
-    contents: "export { toolboxDownloadRequest, mobileSkinPartialLength } from './src/core/mobile-skin-download.js';", resolveDir: root,
+    contents: `export { toolboxDownloadRequest, mobileSkinPartialLength } from './src/core/mobile-skin-download.js';
+      export { privateHttpRequest, PRIVATE_HTTP_LIMIT, PRIVATE_HTTP_TIMEOUT } from './src/shared/private-sync-http.js';`, resolveDir: root,
   }, bundle: true, format: 'iife', target: 'node12', globalName: 'MobileSkinSecurity', write: false });
   const host = await readFile(resolve(root, 'microclient/host.cjs'), 'utf8');
-  return Buffer.from(host.replace("'use strict';", "'use strict';\n" + security.outputFiles[0].text));
+  const mirror = configuredUpdateMirror();
+  const source = mirror ? host.replace('const UPDATE_SOURCES = [', `const UPDATE_SOURCES = [\n  ${JSON.stringify(mirror + '/microclient/')},`) : host;
+  return Buffer.from(source.replace("'use strict';", "'use strict';\n" + security.outputFiles[0].text));
 }
 
 export async function buildMicroclient({ root = resolve(import.meta.dirname, '..'), out = resolve(root, 'release/microclient'), editions = ['full', 'lite'] } = {}) {

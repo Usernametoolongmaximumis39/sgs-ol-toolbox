@@ -275,7 +275,10 @@ export function createAssistant(config = {}) {
     }
     if (trusteeOwned && self.seat?.IsAiControl === false && self.seat?.InOwnRound === false) trusteeOwned = false;
     if (config.canOperate?.() === false) { mode = 'ai'; reason = '等待游戏允许操作'; return false; }
-    const protection = guards.run(frame, { official: true });
+    if (identity && (self.seat ?? self.Seat)?.IsAiControl === true) {
+      mode = 'ai'; reason = '等待退出游戏托管'; return false;
+    }
+    const protection = guards.run(frame, { official: true, identity });
     const wuxie = protection?.officialOnly;
     if (protection && !wuxie) { mode = 'local'; reason = protection.reason; return protection.acted; }
     const special = !wuxie && specialWindows.run(frame);
@@ -322,7 +325,8 @@ export function createAssistant(config = {}) {
         acted = fallback?.playWuxie ? fallback.playWuxie() : Boolean(fallback?.acted);
       } else acted = local(frame, now, identity, preferIronChainRecast);
     }
-    if (allowTrustee && now - task.localAt >= 3000 && !task.triedTrustee && self.seat?.InOwnRound === true
+    // Native trusteeship can answer a later rescue before the plugin sees it.
+    if (!identity && allowTrustee && now - task.localAt >= 3000 && !task.triedTrustee && self.seat?.InOwnRound === true
       && self.seat?.IsAiControl !== true && typeof self.onTrusteeshipClick === 'function') {
       task.triedTrustee = true; trusteeOwned = true; self.onTrusteeshipClick(); mode = 'trustee'; return true;
     }

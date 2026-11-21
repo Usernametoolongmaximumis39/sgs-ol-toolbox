@@ -1,6 +1,7 @@
 import { mountPluginUI } from '../src/ui/plugin-ui.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createPluginNative } from '../src/core/plugin-native.js';
 import { JSDOM } from 'jsdom';
 import { ResourceScope } from '../src/core/resources.js';
 import { Settings } from '../src/core/storage.js';
@@ -13,7 +14,7 @@ import { bundlePlugin, makePluginPackage } from '../tools/plugin-packages.mjs';
 import { PluginManager } from '../src/core/plugins.js';
 import { SessionJournal } from '../src/core/session.js';
 import { verifyPackage } from '../src/core/packages.js';
-import { eligibleMode, robotStatus, projectSettlement, winSummary, winStatistics, retainedScope } from '../src/plugins/appearances/battle.js';
+import { eligibleMode, projectSettlement, winSummary, winStatistics, retainedScope } from '../src/plugins/appearances/battle.js';
 import { BACKUP_FORMAT } from '../src/plugins/appearances/controller.js';
 
 const ach = { AchievementAll: { Achievement: [
@@ -39,6 +40,7 @@ function fixture(t, id) {
     getScene: () => ({ SceneName: 'GameScene' }), getConfigData: name => name === 'character' ? chars : ach,
     loadConfigData: async name => name === 'character' ? chars : ach,
   } };
+  ctx.native = createPluginNative(ctx);
   t.after(() => { scope.dispose(); dom.window.close(); });
   return { ctx, scope, proxy, handlers, requests, account: id => { self = { ClientId: id, NickName: id === 41 ? '甲' : '乙' }; },
     mode: value => { mode = value; }, group: value => { group = value; }, seat: value => { selfSeat = value; }, replay: value => { replay = value; } };
@@ -90,6 +92,47 @@ test('official achievement projection: request/nickname, flags, multiple criteri
   assert.equal(projectAchievements({ requestType: 2, NickName: '甲', Achs: [] }), null);
   assert.equal(projectAchievements({ NickName: '甲', Achs: [] }), null);
   assert.equal(evaluate(definitions(ach, chars), null, {})[0].value, null);
+});
+
+test('appearances: only a cloud binding triggers sync, and changing accounts or bindings discards stale responses', async t => {
+  const f = fixture(t, 'appearances'), checks = [], exchanges = [];
+  f.account(0);
+  f.scope.interval = callback => { checks.push(callback); };
+  const bindings = new Map();
+  const transport = (account, matches, signal) => new Promise(resolve => {
+    exchanges.push({ account, matches, signal, resolve });
+  });
+  transport.available = id => bindings.has(id);
+  transport.cacheKey = id => bindings.get(id);
+  f.ctx.devAppearanceSync = transport;
+  const controller = appearances(f.ctx);
+  await flush();
+  assert.equal(exchanges.length, 0);
+  const tick = () => checks.forEach(callback => callback());
+  f.account(41); tick(); tick();
+  assert.equal(exchanges.length, 0);
+  bindings.set('41', 'private-41'); tick(); tick();
+  assert.deepEqual(exchanges.map(({ account, matches }) => ({ account, matches })), [{ account: '41', matches: [] }]);
+  bindings.set('42', 'private-42');
+  f.account(42); tick();
+  assert.deepEqual(exchanges.map(({ account }) => account), ['41', '42']);
+  assert.equal(exchanges[0].signal.aborted, true);
+  const row = { gameId: '123', mode: 35, rawMode: 148, rawGroup: 3, endedAt: Date.now(), general: [1], result: 0, duration: 100, figure: 1 };
+  exchanges[0].resolve([row]); exchanges[1].resolve([]);
+  await flush(); tick();
+  assert.equal(controller.view().matches.length, 0);
+  assert.equal(exchanges.length, 2);
+  f.account(0); tick(); f.account(42); tick();
+  assert.deepEqual(exchanges.map(({ account }) => account), ['41', '42', '42']);
+  bindings.set('42', 'public-42'); tick();
+  assert.equal(exchanges[2].signal.aborted, true);
+  assert.equal(exchanges.length, 4);
+  exchanges[2].resolve([row]); await flush();
+  assert.equal(controller.view().matches.length, 0);
+  exchanges[3].resolve([row]); await flush();
+  assert.equal(controller.view().matches[0].gameId, '123');
+  bindings.delete('42'); tick(); tick();
+  assert.equal(exchanges.length, 4);
 });
 test('achievement controller rejects another nickname and old-account responses; storage/reload and disposal', async t => {
   const f = fixture(t, 'baisheng'), c = achievements(f.ctx);
@@ -189,9 +232,6 @@ test('statistics whitelist requires exact native Model/Section and never accepts
   for (const g of [undefined,null,0,1,2,4,99]) assert.equal(eligibleMode(132,g),0);
   assert.equal(retainedScope({mode:26,rawMode:133,rawGroup:3}),false);
   assert.equal(retainedScope({mode:26,rawMode:132,rawGroup:3}),true);
-  assert.equal(robotStatus([{isRobot:false},{isRobot:false}]),false);
-  assert.equal(robotStatus([{isRobot:false},{}]),null);
-  assert.equal(robotStatus([{isRobot:false},{isProjectRobot:true}]),true);
 });
 test('win rates exclude draws and unknown results, and general counts deduplicate each match', () => {
   const matches=[0,1,255,null].map((result,i)=>({general:[1,1],result,duration:i===0?120:null}));
@@ -231,17 +271,21 @@ test('battle without frame is recorded separately; reconnect, wrong user, exclud
   for(const m of [33,77,133,157,169,175]){f.mode(m);await emit('MsgGameDealCharacter',{Type:1,Datas:[1,2]});await selection();await over({ModeType:m});}
   assert.equal(c.view().records.length,0);assert.equal(c.view().matches.length,1);
 });
-test('single-rider matchmaking bot discovered at settlement retains appearance and win; unknown remains explicit', async t=>{
+test('single-rider matchmaking records results regardless of player flags and excludes training', async t=>{
   const f=fixture(t,'appearances'),c=appearances(f.ctx);f.mode(160);
   const emit=async(type,p={})=>{f.proxy.event(type,{Protocol:p});await flush();};
   const round=async()=>{await emit('MsgGameDealCharacter',{Type:1,Datas:[1,2]});await emit('SmsgGameSetCharacter',{Infos:[{SeatID:0,CharacterID:1}]});};
   await round();assert.equal(c.view().records.length,1);
   await emit('MsgGameOver',{ModeType:160,GoupID:3,GameModel:37,Players:[{SeatID:0,userId:41,Result:0,isRobot:false},{SeatID:1,Result:1,isRobot:true}]});
   assert.equal(c.view().records.length,1);assert.equal(c.view().matches.length,1);
-  assert.equal(c.view().matches[0].isAiMatch,true);assert.equal(c.view().matches[0].result,0);
+  assert.equal(c.view().matches[0].result,0);
   await round();await emit('MsgGameOver',{ModeType:160,GoupID:3,GameModel:37,Players:[{SeatID:0,userId:41,Result:1},{SeatID:1,Result:0}]});
-  assert.equal(c.view().records.length,2);assert.equal(c.view().matches[1].isAiMatch,null);
-  assert.equal(c.view().matches[1].result,1);
+  await emit('ClientTrainingRep', { Result: 1 });
+  await round(); await emit('MsgGameOver', { ModeType: 160, GoupID: 3, GameModel: 37,
+    Players: [{ SeatID: 0, userId: 41, Result: 0, isRobot: false }, { SeatID: 1, Result: 1, isRobot: true }] });
+  assert.equal(c.view().records.length,2);
+  assert.deepEqual(c.view().matches.map(row => row.result), [0, 1]);
+  assert.ok([...c.view().records, ...c.view().matches].every(row => !Object.hasOwn(row, 'isAiMatch')));
 });
 test('failed frame and settlement save recover atomically and late retry cannot cross accounts',async t=>{
   const f=fixture(t,'appearances'),c=appearances(f.ctx);
@@ -267,7 +311,7 @@ test('own backup restore is atomic/account-bound and old xiaochao formats are no
   assert.equal(c.view().records.length,0);
 });
 
-test('native single-rider matchmaking robot flag permits early capture; valid old local records survive',async t=>{
+test('native single-rider capture preserves valid old local records regardless of player flags',async t=>{
   const f=fixture(t,'appearances'),row={id:'already-local',mode:44,position:1,general:[1,2],selected:[1],time:1794000000000,source:'xiaochao'};
   f.ctx.storage.set('account:41:records-v1',{schema:1,records:[row],gaps:2});
   const context=f.ctx.game.getClass('GameContext');context.GetSeat=i=>({FixedViewId:i+1,IsRobot:i===1,PlayerInfo:{IsRobot:i===1}});
@@ -276,8 +320,28 @@ test('native single-rider matchmaking robot flag permits early capture; valid ol
   f.proxy.event('SmsgGameSetCharacter',{Protocol:{Infos:[{SeatID:0,CharacterID:1}]}});await flush();
   f.proxy.event('MsgGameOver',{Protocol:{ModeType:160,GoupID:3,GameModel:37,Players:[{SeatID:0,userId:41,Result:0},{SeatID:1,isRobot:true}]}});await flush();
   assert.equal(c.view().records.length,2);assert.deepEqual(c.view().records[0],row);assert.equal(c.view().matches.length,1);
-  assert.equal(c.view().records[1].isAiMatch,true);assert.equal(c.view().matches[0].result,0);
+  assert.deepEqual(c.view().records[1].selected,[1]);assert.equal(c.view().matches[0].result,0);
   c.clear();assert.equal(f.ctx.storage.get('account:41:records-v1').gaps,0);
+});
+
+test('old account data and restored backups discard the retired flag while preserving linked rows', async t => {
+  const f = fixture(t, 'appearances'), key = 'account:41:records-v1';
+  const time = 1794000000000;
+  const frame = { id: 'legacy', mode: 44, position: 1, general: [1, 2], selected: [1], time, source: 'toolbox' };
+  const match = { id: frame.id, mode: 44, position: 1, general: [1], time, result: 0, duration: 98, gameId: '123' };
+  const legacy = { records: [{ ...frame, isAiMatch: true }], matches: [{ ...match, isAiMatch: null }] };
+  f.ctx.storage.set(key, { schema: 1, startedAt: time, ...legacy });
+  const c = appearances(f.ctx);
+  assert.deepEqual(c.view().records, [frame]);
+  assert.deepEqual(c.view().matches, [match]);
+  assert.deepEqual(f.ctx.storage.get(key).records, [frame]);
+  assert.deepEqual(f.ctx.storage.get(key).matches, [match]);
+  const restore = () => c.restore({ size: 1000, text: async () => JSON.stringify({ format: BACKUP_FORMAT, schema: 1, accountId: '41', ...legacy }) });
+  await restore();
+  assert.equal(c.view().error, '');
+  c.clear(); await restore();
+  assert.deepEqual(f.ctx.storage.get(key).records, [frame]);
+  assert.deepEqual(f.ctx.storage.get(key).matches, [match]);
 });
 
 
@@ -434,7 +498,7 @@ for (const early of [true, false]) test(`single-rider native table seat and ${ea
   await emit('SmsgGameSetCharacter', { Infos: [{ SeatID: 1, CharacterID: 1 }] });
   await emit('MsgGameOver', { ...over, Players: [{ SeatID: 0, Result: 1, isRobot: true }, over.Players[1]] });
   assert.equal(c.view().matches.length, 2); assert.equal(c.view().records.length, 2);
-  assert.equal(c.view().matches[1].isAiMatch, true);
+  assert.equal(c.view().matches[1].result, 0);
 });
 
 test('achievement initializes without a mounted panel and remount does not query again', async t => {
@@ -524,6 +588,45 @@ test(`ranked real event replay with unavailable native positions: ${variant}`, a
 });
 
 
+test('ranked rematch uses the opening roster instead of the old table and UI seat for candidates, selection and settlement', async t => {
+  const f = fixture(t, 'appearances'), c = appearances(f.ctx);
+  f.mode(132);
+  const emit = (type, Protocol) => f.proxy.event(type, { Protocol });
+  const roster = ownSeat => [0, 1, 2, 3].map(SeatID => ({ SeatID, ClientID: SeatID === ownSeat ? 41 : 90 + SeatID }));
+  emit('ClientSitdownRep', { Result: 1, TypeID: 132, GroupID: 3, SeatID: 0 });
+  emit('GsCModifyUserseatNtf', { IsGameStart: true, Infos: roster(3) });
+  emit('MsgGameDealCharacterPaiwei', { randomHt: new Map([[0, { Datas: [2, 4] }], [3, { Datas: [1, 2] }]]) });
+  emit('GsCFirstPhaseRole', { SeatID: 0 });
+  emit('SmsgGameSetCharacter', { Infos: [{ SeatID: 0, CharacterID: 2 }] });
+  await flush();
+  assert.equal(c.view().records[0].selected, null);
+  emit('SmsgGameSetCharacter', { Infos: [{ SeatID: 3, CharacterID: 1 }] });
+  await flush();
+  assert.deepEqual(c.view().records[0].selected, [1]);
+  emit('MsgGameOver', { ModeType: 132, GoupID: 3, GameModel: 7, time: 141, Players: [
+    { SeatID: 1, Result: 1 }, { SeatID: 0, userId: 90, Result: 0 }, { SeatID: 3, userId: 41, Result: 0 }, { SeatID: 2, Result: 1 },
+  ] });
+  await flush();
+  const { records, matches } = c.view();
+  assert.equal(records.length, 1);
+  assert.deepEqual(records[0].general, [1, 2]);
+  assert.deepEqual(records[0].selected, [1]);
+  assert.equal(records[0].position, 4);
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0].id, records[0].id);
+  assert.equal(matches[0].result, 0);
+  assert.equal(matches[0].duration, 141);
+
+  // The next game has its own seat map, and a spectator/absent account cannot
+  // inherit the previous seat, even if it is still the UI's self seat.
+  emit('GsCModifyUserseatNtf', { IsGameStart: true, Infos: roster(-1) });
+  emit('MsgGameDealCharacter', { Type: 1, Datas: [2, 3] });
+  emit('SmsgGameSetCharacter', { Infos: [{ SeatID: 0, CharacterID: 2 }] });
+  await flush();
+  assert.equal(c.view().records.length, 1);
+  assert.equal(c.view().matches.length, 1);
+});
+
 test('appearances: official history requests on login and next opening; deduplicates, isolates account and disposes', async t => {
   const f = fixture(t, 'appearances'), calls = [];
   f.ctx.game.getClass = ((original) => name => name === 'UserInfoManger'
@@ -554,15 +657,55 @@ test('appearances: official history requests on login and next opening; deduplic
   f.scope.dispose(); assert.equal([...f.handlers.values()].flat().length, 0);
 });
 
+test('ranked official history uses the native 排位 tab and repairs a binary-list record after clicking 战绩', async t => {
+  const f = fixture(t, 'appearances'), requests = [];
+  const manager = { SendClientGameRecordInfoReq() {}, SendGetLastModeHighScore(...args) { requests.push(args); } };
+  const getClass = f.ctx.game.getClass;
+  f.ctx.game.getClass = name => name === 'UserInfoManger' ? manager : getClass(name);
+  const endedAt = Math.floor(Date.now() / 1000) * 1000 - 60000;
+  const frame = { id: 'teammate-was-recorded', mode: 26, rawMode: 132, rawGroup: 3, source: 'toolbox',
+    seat: 0, position: 1, selected: [102], general: [101, 102, 103], time: endedAt - 150000 };
+  const key = 'account:41:records-v1';
+  f.ctx.storage.set(key, { schema: 1, records: [frame], matches: [] });
+  const c = appearances(f.ctx);
+  for (let i = 0; i < 15 && !requests.length; i++) await flush();
+  assert.deepEqual(requests, [[41, 100, 1, false]]);
+  const recordId = { high: 1, low: 2 };
+  const row = { GameId: recordId, Label: 13203, GameTime: 141,
+    GameResult: 0, GameOverTime: endedAt / 1000 + 28800, UsedGenerals: [101] };
+  const list = (uuid, tab = 1) => f.proxy.event('ClientGameRecordInfoRep',
+    { Protocol: { Uuid: uuid, RecordId: 9999, Tab: tab, RecordItems: [row] } });
+  const detail = (ownAccount, gameid = recordId) => f.proxy.event('decodeClientGameOverRecordResp', {
+    Protocol: { Data: { ProtoObj: { gameid, info: { info: { gamemodel: 7, label_model: 132, section: 3 },
+      player_list: [
+        { uid: 90, general_id: [102, 0] }, { seatid: 1, uid: 91, general_id: [4] },
+        { seatid: 2, uid: 92, general_id: [5] }, { seatid: 3, uid: ownAccount, general_id: [101, 0] },
+      ] } } } },
+  });
+  list(42); detail(41); await flush();
+  assert.equal(c.view().matches.length, 0, 'another account’s list is ignored');
+  list(41); detail(42); detail(41, '42'); await flush();
+  assert.deepEqual(c.view().records, [frame], 'the list, another player or another game ID alone cannot overwrite a frame');
+  detail(41); await flush();
+  const saved = f.ctx.storage.get(key);
+  assert.deepEqual(saved.records, [{ ...frame, seat: 3, position: 4, selected: [101] }]);
+  assert.equal(saved.matches[0].id, frame.id);
+  assert.equal(saved.matches[0].result, 0);
+  assert.equal(saved.matches[0].duration, 141);
+  assert.equal(c.view().historyStatus, '已补收 1 局战绩');
+  list(41, 0); detail(41); await flush();
+  assert.equal(c.view().matches.length, 1, 'opening the same official record cannot duplicate it');
+});
+
 test('appearances: capture notices are separate from save failures and idle proxy changes do not count gaps', async t => {
- const f=fixture(t,'appearances'), ticks=[];
- f.ctx.scope.interval=fn=>{ticks.push(fn);return ()=>{};};
+ t.mock.timers.enable({ apis: ['setInterval'] });
+ const f=fixture(t,'appearances');
  const c=appearances(f.ctx); await flush();
  const proxy=f.ctx.game.getServerProxy();
  f.ctx.game.getServerProxy=()=>({...proxy});
- ticks[0](); await flush(); assert.equal(c.view().gaps,0); assert.equal(c.view().error,'');
+ t.mock.timers.tick(500); await flush(); assert.equal(c.view().gaps,0); assert.equal(c.view().error,'');
  // Rebind to a stable native proxy, then provoke a malformed candidate packet.
- f.ctx.game.getServerProxy=()=>proxy; ticks[0]();
+ f.ctx.game.getServerProxy=()=>proxy; t.mock.timers.tick(500);
  f.proxy.event('MsgGameDealCharacter',{Protocol:{Type:1,Datas:[1,2]}}); await flush();
  f.proxy.event('MsgGameDealCharacter',{Protocol:{Type:3,Datas:Array(257).fill(2)}}); await flush();
  assert.equal(c.view().gaps,1); assert.match(c.view().captureNotice,/采集中断/);

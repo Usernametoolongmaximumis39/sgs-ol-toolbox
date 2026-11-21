@@ -4,7 +4,8 @@ import { resolve } from 'node:path';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 const out='test-results/player-info/lamps';await mkdir(out,{recursive:true});
-const bundle=await build({stdin:{contents:`export {createStatsView} from './src/plugins/player-info/stats-view.js';export {createLampStrip} from './src/plugins/player-info/lamps-view.js';export {createBattleLamps} from './src/plugins/player-info/lamps.js';export {renderPlayerSettings,createPlayerSettings} from './src/plugins/player-info/settings.js';export {DEFAULT_GENERALS,generalCatalogue,classifyLamps,ddzSearchCatalogue} from './src/plugins/player-info/lamps-model.js';export {ResourceScope} from './src/core/resources.js';`,resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'Check',write:false});
+const bundle=await build({stdin:{contents:`export {createStatsView} from './src/plugins/player-info/stats-view.js';export {createLampStrip} from './src/plugins/player-info/lamps-view.js';export {createBattleLamps} from './src/plugins/player-info/lamps.js';export {renderPlayerSettings,createPlayerSettings} from './src/plugins/player-info/settings.js';export {DEFAULT_GENERALS,generalCatalogue,classifyLamps,ddzSearchCatalogue} from './src/plugins/player-info/lamps-model.js';export {ResourceScope} from './src/core/resources.js';
+  export {createPluginNative} from './src/core/plugin-native.js'; export {mountPluginUI} from './src/ui/plugin-ui.js'; export {createNativeTheme} from './src/ui/native-theme.js';`,resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'Check',write:false});
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try {
  const page=await browser.newPage({viewport:{width:1280,height:800}}),errors=[];
@@ -21,6 +22,8 @@ try {
   Laya.init(1000,800);Laya.stage.bgColor='#182321';window.scope=new Check.ResourceScope();
   document.querySelector('aside').style.zIndex='1000';
   window.ctx={scope,window,document,themes:{current:{tokens:{}},subscribe:()=>()=>{}},game:{getClass:()=>null,getServerProxy:()=>null,getSelf:()=>({ClientId:100})},storage:{get:()=>null,set(){}}};
+  ctx.ui={...Check.mountPluginUI(ctx,()=>ctx),nativeTheme:Check.createNativeTheme(ctx)};
+  ctx.native=Check.createPluginNative(ctx);
   const names=[...new Set([...Check.DEFAULT_GENERALS.landlord,...Check.DEFAULT_GENERALS.farmer,'界吕布','神吕布'])];
   const catalogue=Check.generalCatalogue({GameCharacters:{character:names.map((name,i)=>({id:name==='谋诸葛亮'?717:name==='谋周瑜'?770:i+1,name,...(['谋诸葛亮','谋周瑜'].includes(name)?{exType:51,GeneralItemType:'64'}:{})}))}});
   window.opts=Check.createPlayerSettings(ctx,()=>{});opts.set({lamps:true});

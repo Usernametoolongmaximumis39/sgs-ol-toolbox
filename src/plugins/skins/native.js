@@ -28,6 +28,18 @@ export function findSkinWindow(stage) {
   return null;
 }
 
+export function openNativeSkinWindow(ctx) {
+  const stage = (ctx.window.Laya ?? ctx.window.laya)?.stage;
+  if (findSkinWindow(stage)) return;
+  if (!ctx.native.account().id) throw new Error('请登录本服后再打开皮肤管理。');
+  const dispatcher = ctx.game.getDispatcher?.();
+  if (typeof dispatcher?.ShowWindowAfterCloseOther !== 'function' || typeof ctx.game.getClass?.('SkinWindow') !== 'function') {
+    throw new Error('本服皮肤管理暂不可用，请在游戏大厅重试。');
+  }
+  // The lobby opens SkinWindow on its skin tab (Ti.SKIN = 2).
+  dispatcher.ShowWindowAfterCloseOther('SkinWindow', null, 2);
+}
+
 export function enhanceSkinWindow(ctx, owner) {
   const laya = ctx.window.Laya ?? ctx.window.laya;
   const required = ['showGeneralSkinNew', 'onClearPanelItems', 'clearLineBackItem', 'ShowNewView', 'changeView', 'onSearchChange', 'refreshNewSkinEntryState'];

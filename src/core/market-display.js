@@ -1,8 +1,9 @@
-import { GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL } from './distribution.js';
+import { GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL, UPDATE_MIRROR } from './distribution.js';
 
 // Stable user-facing identifiers; never derive these from fallback order.
 const servers = [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL];
 export function marketServerLabel(baseUrl) {
+  if (UPDATE_MIRROR && baseUrl === UPDATE_MIRROR + '/plugins') return '更新镜像';
   const index = servers.indexOf(String(baseUrl).replace(/\/+$/, ''));
   return index < 0 ? '自定义服务器' : `服务器 ${index + 1}`;
 }

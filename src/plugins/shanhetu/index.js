@@ -1,4 +1,4 @@
-import { PLUGIN_ICONS } from '../../ui/plugin-icons.js';
+import { SHANHETU_ICON } from '../../ui/plugin-icons.js';
 import { CONFIG_FILES, MAP_SCENES, buildConfig, buildView, itemTypes, num } from './model.js';
 import { createNativeAdapter, createMapLabels } from './native.js';
 import { statTokens, nodeCaption, optionTokens } from './presentation.js';
@@ -390,8 +390,8 @@ export function activate(ctx) {
   ctx.scope.add(() => { offManager?.(); offScene?.(); cancelPending(); listeners.clear(); });
   return () => { offPanel(); labels.clear(); };
 }
-export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.42', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "概况新增流派进度与套装关注，支持在集市和选战法时提示关注的战法。可开启奇遇数值标注。换将预览在微端按游戏区域居中，避开工具箱侧栏。", minCoreVersion: '0.6.121', categories: ['game'], icon: PLUGIN_ICONS['shanhetu'], priority: 11000,
+export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.43', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "调整换将预览、学堂提醒和战法计数与原生窗口的配合。", minCoreVersion: '0.6.121', categories: ['game'], icon: SHANHETU_ICON, priority: 11000,
     description: '敌军、奇遇与商店预览，换将卡预判、战法计数与流派进度' }, initialState, reduce, activate };
 
 

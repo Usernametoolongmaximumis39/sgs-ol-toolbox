@@ -127,6 +127,51 @@ test('mobile catalogue finds official character originals independently of skin 
   assert.equal(await mobile.resolveSkin(entry.id, entry.general), entry);
 });
 
+test('十常侍 variants share their official skin family and keep each resource and saved ID', async t => {
+  const members = Array.from({ length: 10 }, (_, index) => `${731 + index}01`);
+  const groups = ['7300101', '7300102', '7300103', '7300104'];
+  const originals = [730, ...Array.from({ length: 10 }, (_, index) => 731 + index), 752,
+    ...Array.from({ length: 10 }, (_, index) => 741 + index)];
+  const files = [
+    ...['73001', ...members, '38701', '87002'].map(id => `ui/face/skin/${id}.png`),
+    ...groups.map(id => `ui/bface/skin/horSkin/${id}_1_horizon.jpg`),
+    ...[...groups, ...members].map(id => `ui/face/skin/dynamicSkin/${id}_1.zip`),
+    ...[387, ...originals].map(id => `ui/face/char/${id}.png`),
+    'audio/skill/SKILL_73101_taoluan_1.mp3',
+  ].map(path => resource(path, path));
+  const sample = source('461009', files);
+  const mobile = createMobileCatalogue({
+    window: globalThis,
+    scope: { signal: new AbortController().signal, add: cleanup => t.after(cleanup) },
+    game: { downloadMobileSkinAsset: async url => url === endpoint ? sample.metadata.buffer : sample.archive.buffer },
+  });
+  const catalogue = await mobile.load();
+  const outfit = catalogue.findSkin('cloud-73001');
+  const classic = catalogue.findSkin('cloud-char-730');
+  const member = await mobile.resolveSkin('cloud-73101', '张让');
+  assert.deepEqual(catalogue.searchSkins('十常侍').all, [classic, outfit]);
+  assert.deepEqual(catalogue.searchSkins('朝华同袍').all, [outfit]);
+  assert.deepEqual(catalogue.searchSkins('赵忠').all, [outfit, classic]);
+  assert.deepEqual(catalogue.searchSkins('张让').all.map(entry => entry.id),
+    ['cloud-char-387', 'cloud-73001', 'cloud-38701', 'cloud-char-730']);
+  assert.equal(outfit.name, '朝华同袍');
+  assert.equal(outfit.isDynamic, true);
+  assert.equal(outfit.mobileMotion, undefined);
+  assert.equal(catalogue.skinForms(outfit), catalogue.skinForms(member));
+  assert.deepEqual(catalogue.skinForms(member).map(form => form.number), ['73001', ...groups, ...members]);
+  assert.deepEqual(catalogue.skinForms(classic).map(form => form.number), originals.map(id => `char-${id}`));
+  assert.equal(catalogue.skinForms(outfit)[1].formButtonLabel, '张让、赵忠');
+  assert.equal(catalogue.skinForms(outfit)[1].art, 'ui/bface/skin/horSkin/7300101_1_horizon.jpg');
+  assert.equal(member.formButtonLabel, '张让');
+  assert.equal(member.portrait, 'ui/face/skin/73101.png');
+  assert.equal(member.mobileMotion, 'ui/face/skin/dynamicSkin/73101_1.zip');
+  assert.equal(member.mobileForm, '');
+  const [voice] = catalogue.skinVoices(member);
+  assert.deepEqual(catalogue.skinVoices(outfit, 6), [voice]);
+  assert.deepEqual(catalogue.findVoice(`cloud-73101:${voice.id}:张让`).urls, ['audio/skill/SKILL_73101_taoluan_1.mp3']);
+  assert.deepEqual(catalogue.searchSkins('').all.slice(0, 2), [catalogue.findSkin('cloud-87002'), outfit]);
+});
+
 test('mobile legacy gallery orders the general filters while preserving the search results', async () => {
   const names = ['诸葛亮', '界・诸葛亮', '星诸葛亮', '谋诸葛亮', '势·诸葛亮', '魔诸葛亮',
     '神诸葛亮', '标诸葛亮', '谋诸葛亮', 'SP诸葛亮'];

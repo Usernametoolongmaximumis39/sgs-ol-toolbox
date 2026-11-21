@@ -21,7 +21,8 @@ try {
   await page.addScriptTag({ content: `window.CapturedBag=(${captured});` });
   await page.evaluate(() => {
     const L = window.Laya; L.init(1200, 850); L.stage.bgColor = '#151513';
-    const scope = new BagCheck.ResourceScope(), owner = new L.Sprite(); owner.size(807, 506); owner.pos(130, 110); L.stage.addChild(owner);
+    const scope = new BagCheck.ResourceScope(), owner = new L.Sprite(); owner.size(807, 506); owner.pos(130, 110);
+    const profile = new L.Sprite(); profile.viewStack = { displayedChild: owner }; profile.addChild(owner); L.stage.addChild(profile);
     owner.graphics.drawRect(0, 0, 807, 506, '#252119', '#665635', 1); owner.graphics.drawRect(31, 76, 745, 347, '#171613', '#51452f', 1);
     const text = (parent, value, x, y, width, height = 24, size = 13) => { const node = new L.Text(); Object.assign(node, { text: value, x, y, width, height, font: 'Microsoft YaHei', fontSize: size, color: '#e3d3b2', align: 'center', valign: 'middle', mouseEnabled: false }); parent.addChild(node); return node; };
     text(owner, '背 包', 330, -35, 140, 28, 22); text(owner, '道具　　礼包　　材料　　其他', 47, 31, 350);
@@ -73,7 +74,8 @@ try {
     const gm = { GetGoodsNumByBaseID() {}, _events: { BAG_ADD_PROP: [{ caller: owner, method: owner.onAddBagItem }], BAG_DELETE_PROP: [{ caller: owner, method: owner.onDelBagItem }] } };
     let config = null; const couponConfig = { sgs_config: { couponsys: { GRmb: { seting: [{ AID: 1, AVV: '7000-2000' }] } } } };
     let tokens = { bg: '#211e18', surface: '#302b22', raised: '#3b3326', text: '#f0e4cc', muted: '#a99c80', accent: '#d8b66b', border: '#66573d', danger: '#d26155' }; const subscribers = new Set();
-    const ctx = { scope, window, document, game: { getClass: () => gm, getServerProxy: () => null, getConfigData: () => config, loadConfigData: async () => config = couponConfig },
+    const dispatcher = { _events: { OPEN_WINDOW: { caller: { WindowInstanceDict: { getStringKey: key => key === 'UserInfoWindow' ? profile : null } } } } };
+    const ctx = { scope, window, document, game: { getClass: () => gm, getServerProxy: () => null, getDispatcher: () => dispatcher, getConfigData: () => config, loadConfigData: async () => config = couponConfig },
       themes: { get current() { return { tokens }; }, subscribe(fn) { subscribers.add(fn); return () => subscribers.delete(fn); } }, ui: {} };
     ctx.ui.nativeTheme = BagCheck.createNativeTheme({ window, document, scope, themes: ctx.themes });
     const original = owner.showBags, originalAdd = gm._events.BAG_ADD_PROP[0].method;
@@ -159,8 +161,23 @@ try {
   await page.evaluate(() => { const f = bagFixture; f.owner.visible = false; f.runtime.tick(); });
   assert.equal(await page.evaluate(() => bagFixture.owner.showBags === bagFixture.original), true);
   assert.ok((await countdownLayout()).every(nativeCountdown));
-  await page.evaluate(() => { bagFixture.owner.visible = true; bagFixture.runtime.tick(); });
-  assert.equal(await page.evaluate(() => bagFixture.owner.topSp._children.filter(n => n.name === 'sgs-toolbox-coupon-amount').length), 36);
+  const reopen = await page.evaluate(() => new Promise(resolve => {
+    const { owner, runtime } = bagFixture;
+    const start = performance.now();
+    owner.visible = true; runtime.tick();
+    const expected = owner.bags.filter(slot => slot.visible !== false && slot.BaseData?.TypeID === 98).length;
+    function check() {
+      const badges = owner.topSp._children.filter(n => n.name === 'sgs-toolbox-coupon-amount');
+      const visible = badges.filter(n => n.visible), elapsed = performance.now() - start;
+      if (visible.length === expected || elapsed >= 200) {
+        resolve({ elapsed, expected, total: badges.length, visible: visible.length,
+          unique: new Set(visible.map(n => owner.bags.find(slot => n.x >= slot._x && n.x < slot._x + slot.width && n.y >= slot._y && n.y < slot._y + slot.height))).size });
+      } else requestAnimationFrame(check);
+    }
+    check();
+  }));
+  assert.ok(reopen.expected > 0 && reopen.elapsed <= 200);
+  assert.deepEqual([reopen.total, reopen.visible, reopen.unique], [reopen.expected, reopen.expected, reopen.expected]);
   assert.ok((await countdownLayout()).every(nativeCountdown));
   assert.ok((await badgeLayout()).every(fitsSlot));
   await page.evaluate(() => { bagFixture.scope.dispose(); });
@@ -168,6 +185,6 @@ try {
   assert.ok((await countdownLayout()).every(nativeCountdown));
   checks.push('浅/深主题即时更新；关闭/重新打开与停用释放节点、监听和原生方法');
   assert.deepEqual(errors, []);
-  await writeFile(path.join(output, 'report.json'), JSON.stringify({ checks, errors, openWork, searchWork, clientPath, environment: 'Chrome headless + 本机真实 Laya 引擎，捕获客户端列表/分页/增删方法；合成物品与图像，非官服实局' }, null, 2));
+  await writeFile(path.join(output, 'report.json'), JSON.stringify({ checks, errors, openWork, searchWork, reopen, clientPath, environment: 'Chrome headless + 本机真实 Laya 引擎，捕获客户端列表/分页/增删方法；合成物品与图像，非官服实局' }, null, 2));
   console.log(checks.join('\n'));
 } finally { await browser.close(); }

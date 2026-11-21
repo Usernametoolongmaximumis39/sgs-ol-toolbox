@@ -1,7 +1,6 @@
 import { textNode } from './controls.js';
-import { controlIcon } from '../../ui/controls.js';
-import { DEFAULT_NATIVE_PALETTE } from '../../ui/native-theme.js';
 import { formLabel } from './form-label.js';
+import { isNativeNodeVisibleOnStage as isVisible } from '../../shared/native-tree.js';
 
 const diameter = 38;
 const chooserStyles = `
@@ -16,14 +15,6 @@ button:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:
 .close svg{width:15px;height:15px}
 .choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,7em),1fr));gap:8px;padding:12px}
 `;
-
-function isVisible(node, stage) {
-  for (; node; node = node.parent) {
-    if (node.destroyed || node.visible === false || node.alpha === 0) return false;
-    if (node === stage) return true;
-  }
-  return false;
-}
 
 export function createSeatFormButton(ctx) {
   const { window: win, document: doc, scope } = ctx;
@@ -44,7 +35,7 @@ export function createSeatFormButton(ctx) {
     dialog.setAttribute('aria-labelledby', 'sgs-seat-form-choice-title');
     dialog.innerHTML = '<header><h2 id="sgs-seat-form-choice-title">切换形态</h2><button class="close" type="button" aria-label="关闭" title="关闭"></button></header><div class="choices"></div>';
     const close = dialog.querySelector('.close');
-    close.append(controlIcon(doc, 'close'));
+    close.append(ctx.ui.icon('close'));
     const choices = dialog.querySelector('.choices');
     const applyTheme = theme => {
       for (const [key, value] of Object.entries(theme?.tokens ?? {})) host.style.setProperty('--sgs-' + key, value);
@@ -92,7 +83,8 @@ export function createSeatFormButton(ctx) {
     button.addChild(caption);
     button.addChild(number);
     parent.addChild(button);
-    let hovered = false, request, menu, menuForm, palette = DEFAULT_NATIVE_PALETTE;
+    const theme = ctx.ui.nativeTheme;
+    let hovered = false, request, menu, menuForm, palette = theme.palette;
     let painted, paintedCount;
 
     function paint() {
@@ -184,7 +176,7 @@ export function createSeatFormButton(ctx) {
     });
     button.on('mouseover', button, () => { hovered = true; paint(); });
     button.on('mouseout', button, () => { hovered = false; paint(); });
-    const unwatch = ctx.ui?.nativeTheme?.watch(colors => { palette = colors; paint(); });
+    const unwatch = theme.watch(colors => { palette = colors; paint(); });
     paint();
     return { parent, marker, forms, button, paint, activate, available, refresh, dispose() {
       menu?.();

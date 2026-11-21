@@ -202,7 +202,8 @@ export const pluginQuality = {
       "tools/browser-yjcm-skin-effects-check.mjs",
       "tools/browser-mobile-skin-bridge-check.mjs",
       "tools/browser-mobile-motion-check.mjs",
-      "tools/browser-mobile-seat-layout-check.mjs"
+      "tools/browser-mobile-seat-layout-check.mjs",
+      "tools/browser-skin-picker-viewport-check.mjs"
     ]
   },
   "stargazing": {
@@ -284,7 +285,8 @@ export const pluginQuality = {
     "tests": [
       "tests/info-plugins.test.js",
       "tests/appearance-mode-evidence.test.js",
-      "tests/appearance-history.test.js"
+      "tests/appearance-history.test.js",
+      "tests/appearance-sync.test.js"
     ],
     "browser": [
       "tools/browser-info-check.mjs"
@@ -296,11 +298,13 @@ export const pluginQuality = {
     ],
     "tests": [
       "tests/ledger.test.js",
-      "tests/ledger-bag.test.js"
+      "tests/ledger-bag.test.js",
+      "tests/ledger-sync.test.js"
     ],
     "browser": [
       "tools/browser-ledger-check.mjs",
       "tools/browser-ledger-bag-check.mjs",
+      "tools/browser-ledger-sync-check.mjs",
       "tools/microclient-ledger-alert-check.mjs"
     ]
   },

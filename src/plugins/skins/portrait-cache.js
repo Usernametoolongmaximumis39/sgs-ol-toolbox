@@ -1,46 +1,17 @@
 import { loadYjcmPortrait } from './yjcm.js';
 import { loadMobilePortrait } from './mobile-skins.js';
+import { createSkinCacheStore } from './cache-store.js';
 
 const keyFor = entry => JSON.stringify(entry.source === 'mobile' ? ['mobile', ...entry.assets] : entry.assets);
 const diskEntries = 6, diskBytes = 24 * 1024 * 1024;
 
 export function createPortraitCache(win, scope) {
   const images = new Map(), loading = new Map();
-  let database, warmed;
+  const { transaction, close } = createSkinCacheStore(win, scope.signal, {
+    name: 'sgs-toolbox-cross-portrait', store: 'portraits', label: '皮肤图片缓存',
+  });
+  let warmed;
 
-  function open() {
-    database ??= new Promise((resolve, reject) => {
-      const request = win.indexedDB.open('sgs-toolbox-cross-portrait', 1);
-      let blocked = false;
-      request.onupgradeneeded = () => request.result.createObjectStore('portraits');
-      request.onsuccess = () => {
-        const db = request.result;
-        if (blocked || scope.signal.aborted) {
-          db.close();
-          reject(new Error('皮肤图片缓存读取已取消'));
-        } else {
-          db.onversionchange = () => db.close();
-          resolve(db);
-        }
-      };
-      request.onerror = () => reject(request.error);
-      request.onblocked = () => {
-        blocked = true;
-        reject(new Error('皮肤图片缓存暂不可用'));
-      };
-    });
-    return database;
-  }
-  async function transaction(mode, operation) {
-    const db = await open();
-    if (scope.signal.aborted) return;
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('portraits', mode);
-      const request = operation(tx.objectStore('portraits'));
-      tx.oncomplete = () => resolve(request.result);
-      tx.onabort = () => reject(tx.error);
-    });
-  }
   function retain(key, entry) {
     if (scope.signal.aborted) return;
     images.delete(key);
@@ -149,7 +120,7 @@ export function createPortraitCache(win, scope) {
     images.clear();
     for (const job of loading.values()) job.controller.abort();
     loading.clear();
-    void database?.then(db => db.close()).catch(() => {});
+    close();
   });
   return { warm, get: entry => readMemory(keyFor(entry)), load };
 }

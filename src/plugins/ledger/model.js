@@ -45,9 +45,11 @@ export function totals(records) {
   return result;
 }
 export function filterRecords(records, { from = 0, to = Infinity, item = '', kind = 'all', session = '' } = {}) {
+  const query = item.toLocaleLowerCase('zh-CN');
   return records.filter(row => row.at >= from && row.at <= to && (!session || row.session === session) &&
-    (kind === 'all' || row.kind === kind || kind === 'prayer' && row.prayerReward) && (!item || [...(row.items || []), ...(row.rewards || [])].some(i => String(i.id) === item || i.name.includes(item)) ||
-      row.prayer?.name?.includes(item) || String(row.prayer?.itemId) === item));
+    (kind === 'all' || row.kind === kind || kind === 'prayer' && (row.prayerReward || row.source === 'DbsCcUserGoodshintNtf' && row.type === 2010)) &&
+    (!query || [...(row.items || []), ...(row.rewards || [])].some(i => String(i.id) === query || i.name.toLocaleLowerCase('zh-CN').includes(query)) ||
+      row.prayer?.name?.toLocaleLowerCase('zh-CN').includes(query) || String(row.prayer?.itemId) === query));
 }
 // A hint and an instance notification describe the same balance change. Match
 // opposite streams only, same sign/base ID, consuming each overlap once. Keep

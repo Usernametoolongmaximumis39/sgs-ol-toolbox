@@ -1,13 +1,6 @@
 import { DEFAULT_NATIVE_PALETTE } from '../../ui/native-theme.js';
 import { createBattleCollapse } from './battle-collapse.js';
-
-function visibleOnStage(node, stage) {
-  for (; node; node = node.parent) {
-    if (node.destroyed || node.visible === false || node.alpha === 0) return false;
-    if (node === stage) return true;
-  }
-  return false;
-}
+import { isNativeNodeVisibleOnStage as visibleOnStage } from '../../shared/native-tree.js';
 
 function attach(ctx, laya, host, bar, ui) {
   const { stage } = laya;

@@ -1,5 +1,8 @@
 import { createNative } from './native.js';
-import { openLedgerStore } from './store.js';
+import { openLedgerStore, openLedgerSyncCache } from './store.js';
+import { createLedgerSync } from './sync.js';
+import { BACKUP_RESTORED, SYNC_HISTORY_UPDATED } from '../../shared/sync-paths.js';
+import { projectLedgerBalance, projectLedgerProfile } from './sync-model.js';
 import { read } from '../../shared/info-runtime.js';
 import { YUANBAO, JADE_SEAL, JADE_SHARDS, canAlert, defaultThreshold, integer, goodsDefinitions, isOtherJadeSeal,
   importantItems, totals, prayerSummary, createReconciler } from './model.js';
@@ -32,12 +35,43 @@ export function createController(ctx, options = {}) {
     if (currencySample !== count) { currencySample = count; currencySampleAt = now; return; }
     // Login populates the wallet in stages. Never persist or compare a partial
     // wallet merely because the unrelated bag response has already arrived.
-    if (now - currencySampleAt >= 2000) { currencyReady = true; currencyPending = false; }
+    if (now - currencySampleAt >= 2000) {
+      currencyReady = true; currencyPending = false;
+      ledgerSync?.requestLogin();
+    }
   }
   const notify = () => { if (ctx.scope.signal.aborted) return; ctx.reportError?.(error || configError); for (const fn of [...listeners]) fn(); };
   const fail = e => { if (ctx.scope.signal.aborted) return; error = String(e?.stack || e); notify(); };
   const store = options.store || openLedgerStore(ctx.window, ctx.scope, fail);
-  function persist(row) { store.put(structuredClone(row)).catch(fail); }
+  const transport = typeof ctx.devLedgerSync?.available === 'function' ? ctx.devLedgerSync : null;
+  const syncCache = options.syncCache ?? (transport && !transport.readHistory && !options.store ? openLedgerSyncCache(ctx.window, ctx.scope, fail) : undefined);
+  const ledgerSync = transport && createLedgerSync(ctx, () => native.account().id, notify, syncCache);
+  const bindingKey = id => transport?.cacheKey?.(id);
+  let ledgerBinding, bindingCache;
+  function checkSyncBinding() {
+    const key = bindingKey(who.id);
+    if (key === ledgerBinding) return;
+    ledgerBinding = key;
+    bindingCache = null;
+    ledgerSync?.reset();
+    if (!key || !ledgerSync) return;
+    for (const row of records) ledgerSync.queue(row, true);
+    if (transport.readHistory) void ledgerSync.readCloud(who.id)?.catch(fail);
+    if (!syncCache) return;
+    const lookup = bindingCache = syncCache.get(key);
+    void lookup.then(cached => {
+      if (bindingCache === lookup && !ctx.scope.signal.aborted) ledgerSync.restore(cached);
+    }, error => { if (bindingCache === lookup) fail(error); }).finally(() => {
+      if (bindingCache !== lookup || ctx.scope.signal.aborted) return;
+      bindingCache = null;
+      notify();
+      syncLedger();
+    });
+  }
+  function persist(row) {
+    ledgerSync?.queue(row);
+    store.put(structuredClone(row)).catch(fail);
+  }
   function add(data) {
     if (!who.id || ctx.scope.signal.aborted) return null;
     const row = { id: uid(ctx.window), account: who.id, session: session.id, at: Date.now(), items: [], ...data };
@@ -61,7 +95,7 @@ export function createController(ctx, options = {}) {
       // Clear outdated seasonal warnings when restoring a hot-loaded session.
       watch.alerts = watch.alerts.filter(message => !message.startsWith('如意结'));
     }
-    const rows = visibleItems(native.knots(qifu, trackedItems)), now = Date.now();
+    const knots = native.knots(qifu), rows = visibleItems(knots), now = Date.now();
     for (const row of rows) {
       const id = Number(row.ID), count = id === YUANBAO ? currencyReady ? native.yuanbao() : null : inventoryReady ? native.count(id) : null;
       if (!Number.isSafeInteger(count) || count < 0) continue;
@@ -69,7 +103,9 @@ export function createController(ctx, options = {}) {
         const old = watch.previous[id];
         watch.changes[id] = Number.isSafeInteger(old?.count) && (id !== YUANBAO || old.basis === 'all-yuanbao') ? { previous: old.count, count, delta: count - old.count, at: old.at } : null;
       }
-      if (watch.latest[id]?.count !== count || now - (watch.latest[id]?.at || 0) >= 30000 || id === YUANBAO && watch.latest[id]?.basis !== 'all-yuanbao') watch.latest[id] = { count, at: now, ...(id === YUANBAO ? { basis: 'all-yuanbao' } : {}) };
+      const expiresAt = knots.expires.get(id);
+      if (watch.latest[id]?.count !== count || now - (watch.latest[id]?.at || 0) >= 30000 || id === YUANBAO && watch.latest[id]?.basis !== 'all-yuanbao'
+        || watch.latest[id]?.expiresAt !== expiresAt) watch.latest[id] = { count, at: now, ...(id === YUANBAO ? { basis: 'all-yuanbao' } : {}), ...(expiresAt ? { expiresAt } : {}) };
     }
     const jade = watch.changes[JADE_SEAL], shards = watch.changes[JADE_SHARDS];
     const combined = jade && shards ? { previous: (jade.previous * 10 + shards.previous) / 10, count: (jade.count * 10 + shards.count) / 10, delta: (jade.delta * 10 + shards.delta) / 10, at: Math.min(jade.at || 0, shards.at || 0) } : null;
@@ -98,7 +134,10 @@ export function createController(ctx, options = {}) {
   function sync() {
     const next = native.account();
     if (next.id === who.id) { who = next; return; }
-    who = next; watch = null; records = []; instances.clear(); waiting.length = rewards.length = 0; reconcile.reset(); error = ''; generation++;
+    ledgerSync?.reset();
+    bindingCache = null;
+    who = next; watch = null; records = []; instances.clear(); waiting.length = rewards.length = 0; reconcile.reset(); loading = false; error = ''; generation++;
+    ledgerBinding = bindingKey(who.id);
     if (!who.id) { session = null; runtime.account = ''; runtime.session = null; notify(); return; }
     // A changed account cannot reuse the previous account's still-mounted bag
     // or currency model. Wait for its own incoming baseline/notification.
@@ -108,11 +147,17 @@ export function createController(ctx, options = {}) {
     if (!native.inventoryComplete()) beginCurrencyBaseline();
     lastAccount = who.id;
     if (runtime.account === who.id && runtime.session) session = runtime.session; else newSession();
-    seed(); const expected = generation, id = who.id; loading = true;
-    store.list(id).then(saved => {
+    seed(); const expected = generation, id = who.id, cacheKey = bindingKey(id); loading = true;
+    Promise.allSettled([store.list(id), cacheKey ? syncCache?.get(cacheKey) : undefined]).then(([saved, cached]) => {
       if (ctx.scope.signal.aborted || generation !== expected) return;
-      const merged = new Map((saved || []).map(r => [r.id, r])); for (const r of records) merged.set(r.id, r);
-      records = [...merged.values()].sort((a, b) => a.at - b.at); loading = false; notify();
+      const merged = new Map((saved.value || []).map(r => [r.id, r])); for (const r of records) merged.set(r.id, r);
+      records = [...merged.values()].sort((a, b) => a.at - b.at); loading = false;
+      if (ledgerSync) for (const row of records) ledgerSync.queue(row, true);
+      if (cacheKey === bindingKey(id)) ledgerSync?.restore(cached.value);
+      const failure = saved.reason || cached.reason;
+      if (failure) fail(failure);
+      else notify();
+      syncLedger();
     }).catch(e => { if (generation === expected) { loading = false; fail(e); } });
     notify();
   }
@@ -157,6 +202,7 @@ export function createController(ctx, options = {}) {
     if (type === 'ClientLoginRep') {
       if (data.id !== who.id) return;
       newSession(); inventoryReady = false; beginCurrencyBaseline(); seed(); add({ kind: 'notice', source: type, note: '本次登录开始；仅统计插件观察到的变动。' });
+      ledgerSync?.requestLogin();
     } else if (type === 'DbsCcUserGoodslistRep') {
       // Initial/list refresh is a baseline, never income.
       inventoryReady = true;
@@ -197,11 +243,32 @@ export function createController(ctx, options = {}) {
   prayer = read(() => ctx.game.getConfigData('ff_tiangong'));
   let metrics = '';
   sync(); checkAssets();
+  function syncLedger(manual = false) {
+    checkSyncBinding();
+    if (!ledgerSync || !who.id || !transport.available(who.id) || loading || bindingCache || !manual && !ledgerSync.due()) return;
+    const knots = native.knots(qifu), now = Date.now();
+    const balances = visibleItems(knots).map(({ ID, name }) => {
+      const id = Number(ID);
+      if (name === '如意结' && !(watch?.latest[id]?.expiresAt > now)) return null;
+      return projectLedgerBalance({ ...watch?.latest[id], id, name });
+    }).filter(Boolean);
+    const profile = projectLedgerProfile(who.id, who.nickname, session);
+    const knotWindow = knots.confirmed && inventoryReady && native.inventoryComplete() ? { at: now, active: [...knots.active] } : undefined;
+    void ledgerSync.run(who.id, balances, manual, { profile: profile ?? undefined, knotWindow });
+  }
   ctx.scope.interval(() => {
-    sync(); checkAssets(); const knots = native.knots(qifu, trackedItems), next = JSON.stringify([who.id, currencyReady, inventoryReady, native.yuanbao(), [...knots.active], knots.known,
+    sync(); checkAssets(); const knots = native.knots(qifu), next = JSON.stringify([who.id, currencyReady, inventoryReady, native.yuanbao(), [...knots.active], knots.known,
       visibleItems(knots).map(row => native.count(Number(row.ID)))]);
     if (metrics !== next) { metrics = next; notify(); }
+    syncLedger();
   }, 1000);
+  if (transport?.localBackup) ctx.scope.listen(ctx.window, BACKUP_RESTORED, () => {
+    ledgerSync.requestLogin();
+    syncLedger();
+  });
+  if (transport?.readHistory) ctx.scope.listen(ctx.window, SYNC_HISTORY_UPDATED, event => {
+    if (event.detail?.includes('ledger')) void ledgerSync.readCloud(who.id)?.catch(fail);
+  });
   ctx.scope.add(() => { if (session) session.incomplete = true; listeners.clear(); });
   async function load(force = false) {
     if (ctx.scope.signal.aborted || loadedConfig && !force || loadingConfig) return;
@@ -228,10 +295,11 @@ export function createController(ctx, options = {}) {
       ctx.settings?.set('threshold:' + who.id + ':' + id, value); checkAssets(); notify(); return true;
     },
     getAlerts() { return watch?.alerts || noAlerts; },
+    syncLedger() { sync(); checkAssets(); syncLedger(true); },
     dismissAlerts() { if (watch) watch.alerts = noAlerts; notify(); },
     load, subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     view({ currentOnly = false } = {}) {
-      sync(); checkAssets();
+      sync(); checkAssets(); checkSyncBinding();
       const namedItems = items => (items || []).filter(canRecordItem).map(i => ({ ...i, name: defs.get(i.id)?.name || i.name || metadata(i.id).name }));
       const hydrated = [];
       for (const row of records) {
@@ -248,11 +316,22 @@ export function createController(ctx, options = {}) {
         hydrated.push(record);
       }
       const current = currentOnly ? hydrated : hydrated.filter(r => r.session === session?.id);
-      const sum = totals(current), knots = native.knots(qifu, trackedItems);
+      const sum = totals(current), knots = native.knots(qifu);
+      if (!currentOnly && ledgerSync) {
+        const localIds = new Set(records.map(row => row.id));
+        for (const row of ledgerSync.events()) {
+          if (localIds.has(row.id)) continue;
+          const items = namedItems(row.items);
+          if (row.kind === 'goods' && !items.length) continue;
+          hydrated.push({ ...row, account: who.id, items, synced: true,
+            ...(row.kind === 'prayer' ? { rewards: [] } : row.type === 2010 ? { prayerReward: true } : {}) });
+        }
+      }
       return { who, session, records: hydrated, alerts: watch?.alerts || noAlerts, jadeComparison: watch?.combined || null,
         loading, loadingConfig, error: error || configError, knotsKnown: knots.known,
+        sync: ledgerSync ? { ...ledgerSync.view(), bound: Boolean(who.id && transport.available(who.id)) } : undefined,
         items: visibleItems(knots).map(row => ({ ...row, count: row.ID === YUANBAO ? currencyReady ? native.yuanbao() : null : inventoryReady ? native.count(Number(row.ID)) : null,
-          comparison: watch?.changes[row.ID] || null, threshold: threshold(row.ID),
+          syncedBalance: ledgerSync?.balance(Number(row.ID)), comparison: watch?.changes[row.ID] || null, threshold: threshold(row.ID),
           icon: native.icon(Number(row.ID), row.PicID), ...(sum.get(Number(row.ID)) || { income: 0, expense: 0 }) })),
         prayers: prayerSummary(current), unmatched: current.filter(r => r.prayerReward && !r.linkedPrayer),
       };

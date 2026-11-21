@@ -1,4 +1,10 @@
 const HASH = /^[a-f0-9]{64}$/;
+const INLINE_IMAGE = /^data:image\/(?:png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+function validInlineImage(value, limit) {
+  return typeof value === 'string' && value.length <= limit && INLINE_IMAGE.test(value);
+}
+
 function resource(value) {
   if (value?.fallbackUrls !== undefined && (!Array.isArray(value.fallbackUrls) || value.fallbackUrls.length > 3)) throw new Error('卡图备用地址最多 3 个');
   const urls = [value?.url, ...(value?.fallbackUrls || [])].map(address => {
@@ -13,11 +19,10 @@ function resource(value) {
 export function validateCardAtlas(value) {
   if (!value || !Array.isArray(value.pages) || !value.pages.length || value.pages.length > 4
     || typeof value.source !== 'string' || !value.source.trim() || value.source.length > 500) throw new Error('卡图来源或图片清单无效');
-  if (value.backImage !== undefined && (typeof value.backImage !== 'string' || value.backImage.length > 1024 * 1024 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value.backImage))) throw new Error('卡背须为不超过 1 MiB 的内嵌 PNG');
+  if (value.backImage !== undefined && !validInlineImage(value.backImage, 1024 * 1024)) throw new Error('卡背须为不超过 1 MiB 的内嵌 PNG 或 WebP');
   const pixelRatio = value.pixelRatio ?? 1;
   if (!Number.isInteger(pixelRatio) || pixelRatio < 1 || pixelRatio > 3) throw new Error('卡图像素倍率须为 1、2 或 3');
-  if (value.previewImage !== undefined && (typeof value.previewImage !== 'string' || value.previewImage.length > 160 * 1024
-    || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value.previewImage))) throw new Error('卡面预览须为内嵌 PNG，且不超过 160 KiB');
+  if (value.previewImage !== undefined && !validInlineImage(value.previewImage, 160 * 1024)) throw new Error('卡面预览须为内嵌 PNG 或 WebP，且不超过 160 KiB');
   if (value.replaceCards !== undefined && (!Array.isArray(value.replaceCards) || value.replaceCards.length > 2048
     || value.replaceCards.some(name => typeof name !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,95}$/.test(name))
     || new Set(value.replaceCards).size !== value.replaceCards.length)) throw new Error('差异卡面清单无效');

@@ -219,21 +219,32 @@ export async function readSkinImage(win, url, signal, inspect, priority, types, 
 
 export const readYjcmImage = readSkinImage;
 
-export async function loadYjcmWindow(win, entry, signal) {
+export async function loadYjcmWindow(win, entry, signal, inspect = image => image) {
   // The native tooltip uses the static skin resource, also used for the
   // seat and big images. Linked skins can have an unrelated catalogue ID.
   const asset = entry.assets.find(([kind]) => kind === 0 || kind === 1);
-  if (asset) return readYjcmImage(win, base + 'window/' + asset[1] + '.png', signal, image => image);
+  if (asset) return readYjcmImage(win, base + 'window/' + asset[1] + '.png', signal, inspect);
+}
+
+async function readYjcmAssets(win, assets, signal, inspect) {
+  for (const [kind, stem] of assets) {
+    const image = await readYjcmImage(win, base + directories[kind] + '/' + stem + '.png', signal, inspect)
+      .catch(() => undefined);
+    if (image || signal.aborted) return image;
+  }
 }
 
 export async function loadYjcmPreview(win, entry, signal) {
   const windowArt = await loadYjcmWindow(win, entry, signal).catch(() => undefined);
   if (windowArt || signal.aborted) return windowArt;
-  for (const [kind, stem] of [...entry.assets].sort(([a], [b]) => Number(a === 0) - Number(b === 0))) {
-    const image = await readYjcmImage(win, base + directories[kind] + '/' + stem + '.png', signal, image => image)
-      .catch(() => undefined);
-    if (image || signal.aborted) return image;
-  }
+  return readYjcmAssets(win, [...entry.assets].sort(([a], [b]) => Number(a === 0) - Number(b === 0)), signal, image => image);
+}
+
+export async function loadYjcmArtwork(win, entry, signal) {
+  const landscape = (image, blob) => image.naturalWidth > image.naturalHeight ? blob : undefined;
+  const assets = [...entry.assets].sort(([a], [b]) => b - a);
+  const original = await readYjcmAssets(win, assets, signal, landscape);
+  return original ?? loadYjcmWindow(win, entry, signal, landscape).catch(() => undefined);
 }
 
 function portraitPixels(document, image, maxSize) {
