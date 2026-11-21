@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         三国杀OL工具箱
 // @namespace    sgs-ol-toolbox
-// @version      0.6.213
+// @version      0.6.214
 // @license      MIT
 // @icon         data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Crect%20width%3D%2224%22%20height%3D%2224%22%20rx%3D%225%22%20fill%3D%22%23171b1d%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c8ab6a%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3%207h18v13H3ZM8%207V4h8v3M3%2012h6M15%2012h6%22%2F%3E%3Cpath%20d%3D%22M12%209l3%203-3%203-3-3Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E
 // @description  完整版：工具箱核心与全部插件
@@ -2981,7 +2981,7 @@ return {...SGSPlugin.default, manifest:{"id":"recharge","name":"\u65E7\u5468\u67
   };
 
   // src/core/version.js
-  var CORE_VERSION = "0.6.213", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
+  var CORE_VERSION = "0.6.214", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]);
   var REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
@@ -8089,10 +8089,97 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), form;
   }
 
+  // src/shared/base64url.js
+  function base64url(bytes2) {
+    let binary = "";
+    for (let byte of bytes2) binary += String.fromCharCode(byte);
+    return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  }
+  function fromBase64url(value, length) {
+    if (typeof value != "string" || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error("invalid_code");
+    let bytes2 = Uint8Array.from(atob(value.replaceAll("-", "+").replaceAll("_", "/")), (char) => char.charCodeAt(0));
+    if (base64url(bytes2) !== value || length !== void 0 && bytes2.length !== length) throw new Error("invalid_code");
+    return bytes2;
+  }
+
   // src/shared/match-sync-records.js
   var MODES = { 26: "\u6392\u4F4D\u8D5B", 35: "\u6597\u5730\u4E3B", 44: "\u5355\u9A91\u65E0\u53CC" }, MATCH_SYNC_LIMIT = 1e4, sameGenerals = (left, right) => left.length === right.length && right.every((id) => left.includes(id));
   function sameSyncMatch(left, right) {
     return left.mode === right.mode && left.endedAt === right.endedAt && left.result === right.result && left.duration === right.duration && sameGenerals(left.general, right.general);
+  }
+
+  // src/shared/public-sync-view.js
+  var encode = new TextEncoder(), decode = new TextDecoder("utf-8", { fatal: !0 }), publicSharePath = "/ledger/share/", publicViewPath = "/v2/vault/view", passFormat = /^[2-9A-HJ-NP-Z]{6}$/, tokenFormat = /^[A-Za-z0-9_-]{43}$/, invalidPublicCode = () => new Error("\u516C\u5171\u540C\u6B65\u51ED\u636E\u683C\u5F0F\u65E0\u6548");
+  function publicOrigin(value) {
+    let url;
+    try {
+      url = new URL(value);
+    } catch {
+      throw new Error("\u8BF7\u8F93\u5165\u5B8C\u6574\u7684 HTTPS \u5730\u5740");
+    }
+    if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash)
+      throw new Error("\u8BF7\u8F93\u5165 HTTPS \u670D\u52A1\u5668\u5730\u5740\uFF0C\u5730\u5740\u4E2D\u65E0\u9700\u586B\u5199\u8DEF\u5F84");
+    return url.origin;
+  }
+  var packPublicCode = (prefix2, values) => prefix2 + "." + base64url(encode.encode(JSON.stringify(values)));
+  function unpackPublicCode(prefix2, value, count) {
+    try {
+      if (!value.startsWith(prefix2 + ".") || value.length > 1600) throw invalidPublicCode();
+      let data = JSON.parse(decode.decode(fromBase64url(value.slice(prefix2.length + 1))));
+      if (!Array.isArray(data) || data.length !== count || data.some((item) => typeof item != "string")) throw invalidPublicCode();
+      return data;
+    } catch {
+      throw invalidPublicCode();
+    }
+  }
+  var publicViewCode = ({ origin, vault, seed }) => packPublicCode("SGSV1", [origin, vault, seed]), publicViewLink = (entry) => publicOrigin(entry.origin) + publicSharePath + "#" + publicViewCode(entry);
+  function readPublicView(value) {
+    let code = value.trim(), link;
+    if (code.length > 2048) throw invalidPublicCode();
+    if (code.startsWith("https://")) {
+      try {
+        link = new URL(code);
+      } catch {
+        throw invalidPublicCode();
+      }
+      if (link.pathname !== publicSharePath || link.username || link.password || link.search) throw invalidPublicCode();
+      code = link.hash.slice(1);
+    }
+    let [address, vault, seed] = unpackPublicCode("SGSV1", code, 3), origin = publicOrigin(address);
+    if (!tokenFormat.test(vault) || !tokenFormat.test(seed) || link && link.origin !== origin) throw invalidPublicCode();
+    return { origin, vault, seed };
+  }
+  async function createVaultCipher(crypto, { vault, seed, password }) {
+    let material = await crypto.subtle.importKey("raw", encode.encode(seed + ":" + password), "PBKDF2", !1, ["deriveBits"]), bits2 = new Uint8Array(await crypto.subtle.deriveBits({
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: encode.encode("sgs-public-vault-v1:" + vault),
+      iterations: 6e5
+    }, material, 512)), key = await crypto.subtle.importKey("raw", bits2.slice(0, 32), "AES-GCM", !1, ["encrypt", "decrypt"]), params = (iv, kind, id) => ({ name: "AES-GCM", iv, additionalData: encode.encode(JSON.stringify([vault, kind, id])) });
+    return {
+      verifier: base64url(bits2.slice(32)),
+      async seal([kind, id, details]) {
+        let iv = crypto.getRandomValues(new Uint8Array(12)), data = new Uint8Array(await crypto.subtle.encrypt(params(iv, kind, id), key, encode.encode(JSON.stringify(details)))), envelope = new Uint8Array(iv.length + data.length);
+        return envelope.set(iv), envelope.set(data, iv.length), [kind, id, base64url(envelope)];
+      },
+      async open([kind, id, envelope]) {
+        let bytes2 = fromBase64url(envelope), data = await crypto.subtle.decrypt(params(bytes2.subarray(0, 12), kind, id), key, bytes2.subarray(12));
+        return [kind, id, JSON.parse(decode.decode(data))];
+      }
+    };
+  }
+  async function readPublicRecords(crypto, post, share, pass) {
+    let { origin, vault, seed } = share, password = pass.trim().toUpperCase();
+    if (!passFormat.test(password)) throw new Error("\u8BF7\u8F93\u5165\u6709\u6548\u7684\u516D\u4F4D\u67E5\u770B\u7801");
+    let cipher = await createVaultCipher(crypto, { vault, seed, password }), { records } = await post(origin, publicViewPath, { vault, verifier: cipher.verifier });
+    return Promise.all(records.filter(([kind]) => kind === "event" || kind === "match").map(cipher.open));
+  }
+  function publicRecordText(stream, row) {
+    return stream === "events" ? row.prayer ? `${row.prayer.name} \xD7 ${row.prayer.times}` : Array.isArray(row.items) && row.items.filter((item) => typeof item?.name == "string" && Number.isFinite(item.delta)).map((item) => `${item.name} ${item.delta > 0 ? "+" : ""}${item.delta}`).join("\u3001") || "\u7269\u54C1\u6D41\u6C34" : [
+      MODES[row.mode] || "\u5BF9\u5C40",
+      { 0: "\u80DC", 1: "\u8D1F", 255: "\u5E73" }[row.result],
+      Array.isArray(row.general) && row.general.filter(Number.isFinite).join(" / ")
+    ].filter(Boolean).join(" \xB7 ");
   }
 
   // src/ui/sync-service-icons.js
@@ -8261,26 +8348,28 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }, !0), details("\u66F4\u6539\u79C1\u6709\u670D\u52A1\u5668\u5730\u5740", address.wrapper)), privateFields.append(node("p", privateConsent, "muted"), ways, fourDigit, credentialBinding.form), privatePanel.append(privateSetup, privateFields, joining);
     let server = input("\u516C\u5171\u670D\u52A1\u5668 HTTPS \u5730\u5740"), restore = input("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea");
     server.control.placeholder = "https://sync.example.com";
-    let publicBinding = node("div", "", "sync-stack");
+    let publicBinding = node("div", "", "sync-stack"), publicConsent = "\u670D\u52A1\u5668\u7BA1\u7406\u5458\u53EF\u89C1\u7528\u6237\u7801\u3001\u6635\u79F0\u548C\u8BB0\u5F55\u7F16\u53F7\u3002\u8D26\u672C\u3001\u6218\u7EE9\u548C\u5907\u4EFD\u5185\u5BB9\u5728\u5DE5\u5177\u7BB1\u52A0\u5BC6\u3002";
     publicBinding.append(
-      node("p", "\u8D26\u672C\u4E0E\u6218\u7EE9\u5728\u5DE5\u5177\u7BB1\u52A0\u5BC6\uFF0C\u670D\u52A1\u5668\u53EF\u89C1\u8BB0\u5F55\u7F16\u53F7\u3002\u5207\u6362\u6E38\u620F\u8D26\u53F7\u540E\u9700\u8981\u624B\u52A8\u7ED1\u5B9A\u3002", "muted"),
+      node("p", publicConsent, "muted"),
       server.wrapper,
       act("\u540C\u610F\u5E76\u7ED1\u5B9A\u516C\u5171\u670D\u52A1\u5668", async () => {
         await sync.bindPublic(server.control.value.trim()), say("\u516C\u5171\u670D\u52A1\u5668\u7ED1\u5B9A\u6210\u529F");
       }, !0),
       details(
         "\u5728\u65B0\u8BBE\u5907\u6062\u590D\u516C\u5171\u8D26\u53F7",
+        node("p", "\u540C\u4E00\u8D26\u53F7\u8BF7\u4F7F\u7528\u539F\u8BBE\u5907\u590D\u5236\u7684\u6062\u590D\u51ED\u636E\u3002", "muted"),
         restore.wrapper,
         act("\u6062\u590D\u516C\u5171\u7ED1\u5B9A", async () => {
           await sync.bindPublic(server.control.value.trim(), restore.control.value), restore.control.value = "", say("\u516C\u5171\u7ED1\u5B9A\u5DF2\u6062\u590D");
         })
       )
     ), publicPanel.append(publicBinding), pairing.append(chooser, privatePanel, publicPanel);
-    let privateActions = node("div", "", "sync-stack"), publicActions = node("div", "", "sync-stack"), share = readout("\u8D26\u672C\u4E0E\u6218\u7EE9\u67E5\u770B\u94FE\u63A5"), prepared = readout("\u8F6C\u6362\u7528\u7684\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), addressUpdate = input("\u5730\u5740\u66F4\u65B0\u7801", "textarea"), recovery = readout("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), publicShare = readout("\u516C\u5171\u5206\u4EAB\u51ED\u636E", "textarea"), password = readout("\u6211\u7684\u516D\u4F4D\u67E5\u770B\u7801");
+    let privateActions = node("div", "", "sync-stack"), publicActions = node("div", "", "sync-stack"), share = readout("\u8D26\u672C\u4E0E\u6218\u7EE9\u67E5\u770B\u94FE\u63A5"), prepared = readout("\u8F6C\u6362\u7528\u7684\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), addressUpdate = input("\u5730\u5740\u66F4\u65B0\u7801", "textarea"), recovery = readout("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), publicShare = readout("\u516C\u5171\u5206\u4EAB\u51ED\u636E", "textarea"), password = readout("\u6211\u7684\u516D\u4F4D\u67E5\u770B\u7801"), publicLink = readout("\u516C\u5171 HTTPS \u5206\u4EAB\u94FE\u63A5", "textarea");
     short(password.control, 6);
     let publicMigration = details(
       "\u51C6\u5907\u8F6C\u4E3A\u516C\u5171\u6A21\u5F0F",
       node("p", "\u7BA1\u7406\u5458\u914D\u7F6E HTTPS \u540E\uFF0C\u5728\u8FD9\u91CC\u751F\u6210\u5386\u53F2\u7684\u52A0\u5BC6\u526F\u672C\u3002\u7BA1\u7406\u9875\u786E\u8BA4\u8F6C\u6362\u540E\uFF0C\u518D\u542F\u7528\u516C\u5171\u8FDE\u63A5\u3002\u8BF7\u5907\u4EFD\u751F\u6210\u7684\u6062\u590D\u51ED\u636E\u3002", "muted"),
+      node("p", publicConsent, "muted"),
       act("\u51C6\u5907\u5F53\u524D\u8D26\u53F7\u7684\u52A0\u5BC6\u5386\u53F2", async () => {
         prepared.control.value = await sync.preparePublic(), prepared.wrapper.hidden = !1, say("\u52A0\u5BC6\u526F\u672C\u5DF2\u4E0A\u4F20\uFF0C\u8BF7\u5907\u4EFD\u6062\u590D\u51ED\u636E");
       }),
@@ -8306,15 +8395,27 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       publicMigration,
       detach
     ), publicActions.append(
-      node("p", "\u5206\u4EAB\u65F6\u5C06\u5206\u4EAB\u51ED\u636E\u548C\u516D\u4F4D\u7801\u5206\u5F00\u3002\u6062\u590D\u51ED\u636E\u53EF\u5728\u65B0\u8BBE\u5907\u540C\u6B65\uFF0C\u9002\u5408\u5355\u72EC\u5907\u4EFD\u3002", "muted"),
+      node("p", "\u7BA1\u7406\u5458\u5141\u8BB8\u5206\u4EAB\u65F6\uFF0C\u63A5\u6536\u4EBA\u53EF\u5728\u6D4F\u89C8\u5668\u6253\u5F00 HTTPS \u94FE\u63A5\u5E76\u8F93\u5165\u516D\u4F4D\u67E5\u770B\u7801\u3002\u8BF7\u5206\u5F00\u53D1\u9001\u3002", "muted"),
+      act("\u590D\u5236\u516C\u5171\u5206\u4EAB\u94FE\u63A5", async () => copy2(await sync.viewLink(), publicLink), !0),
+      publicLink.wrapper,
       act("\u663E\u793A\u516D\u4F4D\u67E5\u770B\u7801", () => {
         password.wrapper.hidden = !password.wrapper.hidden;
       }),
       password.wrapper,
-      act("\u590D\u5236\u516C\u5171\u5206\u4EAB\u51ED\u636E", () => copy2(sync.viewCode(), publicShare)),
-      publicShare.wrapper,
-      act("\u590D\u5236\u516C\u5171\u6062\u590D\u51ED\u636E", () => copy2(sync.recoveryCode(), recovery)),
-      recovery.wrapper,
+      details(
+        "\u5176\u4ED6\u516C\u5171\u51ED\u636E",
+        act("\u590D\u5236\u516C\u5171\u5206\u4EAB\u51ED\u636E", () => copy2(sync.viewCode(), publicShare)),
+        publicShare.wrapper,
+        act("\u590D\u5236\u516C\u5171\u6062\u590D\u51ED\u636E", () => copy2(sync.recoveryCode(), recovery)),
+        recovery.wrapper
+      ),
+      details(
+        "\u8865\u767B\u6216\u66F4\u65B0\u540E\u53F0\u8D26\u53F7\u8D44\u6599",
+        node("p", "\u5DF2\u7ED1\u5B9A\u7684\u8D26\u53F7\u53EF\u4EE5\u628A\u5F53\u524D\u7528\u6237\u7801\u548C\u6635\u79F0\u8865\u767B\u5230\u670D\u52A1\u5668\u540E\u53F0\uFF0C\u4F9B\u7BA1\u7406\u5458\u8BC6\u522B\u3002", "muted"),
+        act("\u540C\u610F\u5E76\u66F4\u65B0\u8D26\u53F7\u8D44\u6599", async () => {
+          await sync.updatePublicProfile(), say("\u540E\u53F0\u8D26\u53F7\u8D44\u6599\u5DF2\u66F4\u65B0");
+        })
+      ),
       act("\u65AD\u5F00\u5F53\u524D\u8D26\u53F7", async () => {
         window2.confirm("\u8BF7\u5148\u4FDD\u5B58\u516C\u5171\u6062\u590D\u51ED\u636E\u3002\u65AD\u5F00\u5F53\u524D\u8D26\u53F7\uFF1F") && (await sync.disconnect(), say("\u5F53\u524D\u8D26\u53F7\u5DF2\u65AD\u5F00"));
       })
@@ -8335,8 +8436,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       events.setAttribute("aria-pressed", String(stream === "events")), matches.setAttribute("aria-pressed", String(stream === "matches"));
       let perPage = 20, pages = Math.max(1, Math.ceil(records.length / perPage));
       page = Math.max(0, Math.min(page, pages - 1)), prev.hidden = !page, next.hidden = page + 1 >= pages, count.textContent = records.length ? `${records.length} \u6761 \xB7 \u7B2C ${page + 1} / ${pages} \u9875` : "\u6682\u65E0\u8BB0\u5F55", rows.replaceChildren(...records.slice(page * perPage, (page + 1) * perPage).map((row) => {
-        let text3 = stream === "events" ? row.prayer ? `${row.prayer.name} \xD7 ${row.prayer.times}` : row.items.map((item) => `${item.name} ${item.delta > 0 ? "+" : ""}${item.delta}`).join("\u3001") : [MODES[row.mode] || "\u5BF9\u5C40", { 0: "\u80DC", 1: "\u8D1F", 255: "\u5E73" }[row.result], row.general.join(" / ")].filter(Boolean).join(" \xB7 "), element = node("li");
-        return element.append(node("p", text3), node("p", new Date(row.at ?? row.endedAt).toLocaleString() + " \xB7 " + (row.id ?? row.gameId), "muted")), element;
+        let element = node("li");
+        return element.append(node("p", publicRecordText(stream, row)), node("p", new Date(row.at ?? row.endedAt).toLocaleString() + " \xB7 " + (row.id ?? row.gameId), "muted")), element;
       }));
     }
     let readNotice = node("p", "", "notice error");
@@ -8371,7 +8472,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       let info = status.joinError || "\u6B64\u8BBE\u5907\u4F1A\u81EA\u52A8\u68C0\u67E5\u5F53\u524D\u8D26\u53F7\u7684\u79C1\u6709\u7ED1\u5B9A\u3002";
       if (joining.textContent !== info && (joining.textContent = info), privateActions.hidden = status.public, publicActions.hidden = !status.public, detach.hidden = !status.privatePair, detachInactive.hidden = !status.signedIn || !status.privatePair || !status.joinError, credentialBinding.clearFor(status.accountId), rebind.clearFor(status.accountId), bindingIdentity !== status.bindingIdentity) {
         bindingIdentity = status.bindingIdentity;
-        for (let output of [share, prepared, recovery, publicShare, password])
+        for (let output of [share, prepared, recovery, publicShare, publicLink, password])
           output.wrapper.hidden = !0, output.control.value = "";
       }
       password.control.value !== status.password && (password.control.value = status.password);
@@ -9108,14 +9209,14 @@ ${FEEDBACK_STYLES}
         pluginCards();
         return;
       }
-      let pack2 = el("section", void 0, "card");
-      pack2.append(el("strong", "\u5B98\u65B9\u63D2\u4EF6\u5957\u88C5"), el("div", `\u4E00\u952E\u8865\u9F50 ${officialPluginIds.length} \u4E2A\u5B98\u65B9\u63D2\u4EF6\uFF1B\u4FDD\u7559\u5DF2\u6709\u7248\u672C\u3001\u8BBE\u7F6E\u548C\u505C\u7528\u72B6\u6001\u3002`, "notice"));
+      let pack = el("section", void 0, "card");
+      pack.append(el("strong", "\u5B98\u65B9\u63D2\u4EF6\u5957\u88C5"), el("div", `\u4E00\u952E\u8865\u9F50 ${officialPluginIds.length} \u4E2A\u5B98\u65B9\u63D2\u4EF6\uFF1B\u4FDD\u7559\u5DF2\u6709\u7248\u672C\u3001\u8BBE\u7F6E\u548C\u505C\u7528\u72B6\u6001\u3002`, "notice"));
       let complete = button(officialBusy ? "\u6B63\u5728\u8865\u9F50\u2026" : "\u4E00\u952E\u8865\u9F50\u5B98\u65B9\u63D2\u4EF6", completeOfficialPlugins);
-      if (complete.disabled = officialBusy || !!installing.size || !currentMarketState().client, pack2.append(complete), officialStatus) {
+      if (complete.disabled = officialBusy || !!installing.size || !currentMarketState().client, pack.append(complete), officialStatus) {
         let status = el("div", officialStatus, "notice");
-        status.setAttribute("role", "status"), pack2.append(status);
+        status.setAttribute("role", "status"), pack.append(status);
       }
-      content.append(pack2), updateControls(), pluginCards(), content.append(el("h3", "\u63D2\u4EF6\u76EE\u5F55"));
+      content.append(pack), updateControls(), pluginCards(), content.append(el("h3", "\u63D2\u4EF6\u76EE\u5F55"));
       let catalog = el("div"), actions = el("div", void 0, "actions"), refresh = button("\u8FDE\u63A5 / \u5237\u65B0\u5E02\u573A", fetchCatalog);
       refresh.disabled = !currentMarketState().client || !!currentMarketState().loading, actions.append(refresh, button("\u5BFC\u5165\u63D2\u4EF6\u5305", () => {
         let file = doc.createElement("input");
@@ -10760,17 +10861,6 @@ ${FEEDBACK_STYLES}
 
   // src/core/sync-pairing-code.js
   var suite = new CipherSuite({ kem: new DhkemP256HkdfSha256(), kdf: new HkdfSha256(), aead: new Aes128Gcm() }), utf8 = new TextEncoder(), decodeAscii = new TextDecoder("utf-8", { fatal: !0 }), PAIR_REQUEST = "SGSP1", PAIR_INVITE = "SGSI2", PAIR_UPDATE = "SGSU2", PIN_FORMAT = /^[0-9]{4}$/, domainFormat = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/;
-  function base64url(bytes2) {
-    let binary = "";
-    for (let byte of bytes2) binary += String.fromCharCode(byte);
-    return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
-  }
-  function fromBase64url(value, length) {
-    if (typeof value != "string" || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error("invalid_code");
-    let bytes2 = Uint8Array.from(atob(value.replaceAll("-", "+").replaceAll("_", "/")), (char) => char.charCodeAt(0));
-    if (base64url(bytes2) !== value || length !== void 0 && bytes2.length !== length) throw new Error("invalid_code");
-    return bytes2;
-  }
   function joinBytes(...parts) {
     let bytes2 = new Uint8Array(parts.reduce((size, part) => size + part.length, 0)), offset = 0;
     for (let part of parts)
@@ -10955,23 +11045,12 @@ ${FEEDBACK_STYLES}
   }
 
   // src/core/public-sync.js
-  var encode = new TextEncoder(), decode = new TextDecoder("utf-8", { fatal: !0 }), alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ", passFormat = /^[2-9A-HJ-NP-Z]{6}$/, tokenFormat = /^[A-Za-z0-9_-]{43}$/, invalid = () => new Error("\u516C\u5171\u540C\u6B65\u51ED\u636E\u683C\u5F0F\u65E0\u6548");
+  var alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
   function ledgerVersion(crypto) {
     let bytes2 = crypto.getRandomValues(new Uint8Array(16));
     bytes2[6] = bytes2[6] & 15 | 64, bytes2[8] = bytes2[8] & 63 | 128;
     let hex2 = Array.from(bytes2, (byte) => byte.toString(16).padStart(2, "0")).join("");
     return [hex2.slice(0, 8), hex2.slice(8, 12), hex2.slice(12, 16), hex2.slice(16, 20), hex2.slice(20)].join("-");
-  }
-  function publicOrigin(value) {
-    let url;
-    try {
-      url = new URL(value);
-    } catch {
-      throw new Error("\u8BF7\u8F93\u5165\u5B8C\u6574\u7684 HTTPS \u5730\u5740");
-    }
-    if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash)
-      throw new Error("\u8BF7\u8F93\u5165 HTTPS \u670D\u52A1\u5668\u5730\u5740\uFF0C\u5730\u5740\u4E2D\u65E0\u9700\u586B\u5199\u8DEF\u5F84");
-    return url.origin;
   }
   function randomPass(crypto) {
     let value;
@@ -10980,42 +11059,11 @@ ${FEEDBACK_STYLES}
     while (!/[2-9]/.test(value) || !/[A-Z]/.test(value));
     return value;
   }
-  var pack = (prefix2, values) => prefix2 + "." + base64url(encode.encode(JSON.stringify(values)));
-  function unpack2(prefix2, value, count) {
-    try {
-      if (!value.startsWith(prefix2 + ".") || value.length > 1600) throw invalid();
-      let data = JSON.parse(decode.decode(fromBase64url(value.slice(prefix2.length + 1))));
-      if (!Array.isArray(data) || data.length !== count || data.some((value2) => typeof value2 != "string")) throw invalid();
-      return data;
-    } catch {
-      throw invalid();
-    }
-  }
-  var publicRecovery = ({ origin, signer, vault, credential, seed, password, gameKey }) => pack("SGSC1", [origin, signer, vault, credential, seed, password, gameKey]);
+  var publicRecovery = ({ origin, signer, vault, credential, seed, password, gameKey }) => packPublicCode("SGSC1", [origin, signer, vault, credential, seed, password, gameKey]);
   function readPublicRecovery(value) {
-    let [origin, signer, vault, credential, seed, password, gameKey] = unpack2("SGSC1", value.trim(), 7);
-    if (![vault, credential, seed].every((item) => tokenFormat.test(item)) || !passFormat.test(password) || !/^[a-f0-9]{64}$/.test(gameKey)) throw invalid();
+    let [origin, signer, vault, credential, seed, password, gameKey] = unpackPublicCode("SGSC1", value.trim(), 7);
+    if (![vault, credential, seed].every((item) => tokenFormat.test(item)) || !passFormat.test(password) || !/^[a-f0-9]{64}$/.test(gameKey)) throw invalidPublicCode();
     return fromBase64url(signer, 65), { origin: publicOrigin(origin), signer, vault, credential, seed, password, gameKey };
-  }
-  var publicViewCode = ({ origin, vault, seed }) => pack("SGSV1", [origin, vault, seed]);
-  async function createVaultCipher(crypto, { vault, seed, password }) {
-    let material = await crypto.subtle.importKey("raw", encode.encode(seed + ":" + password), "PBKDF2", !1, ["deriveBits"]), bits2 = new Uint8Array(await crypto.subtle.deriveBits({
-      name: "PBKDF2",
-      hash: "SHA-256",
-      salt: encode.encode("sgs-public-vault-v1:" + vault),
-      iterations: 6e5
-    }, material, 512)), key = await crypto.subtle.importKey("raw", bits2.slice(0, 32), "AES-GCM", !1, ["encrypt", "decrypt"]), params = (iv, kind, id) => ({ name: "AES-GCM", iv, additionalData: encode.encode(JSON.stringify([vault, kind, id])) });
-    return {
-      verifier: base64url(bits2.slice(32)),
-      async seal([kind, id, details]) {
-        let iv = crypto.getRandomValues(new Uint8Array(12)), data = new Uint8Array(await crypto.subtle.encrypt(params(iv, kind, id), key, encode.encode(JSON.stringify(details)))), envelope = new Uint8Array(iv.length + data.length);
-        return envelope.set(iv), envelope.set(data, iv.length), [kind, id, base64url(envelope)];
-      },
-      async open([kind, id, envelope]) {
-        let bytes2 = fromBase64url(envelope), data = await crypto.subtle.decrypt(params(bytes2.subarray(0, 12), kind, id), key, bytes2.subarray(12));
-        return [kind, id, JSON.parse(decode.decode(data))];
-      }
-    };
   }
   function createPublicTransport(crypto, post) {
     let states = /* @__PURE__ */ new WeakMap(), authorize = ({ vault, credential }) => ({ vault, credential });
@@ -11076,22 +11124,27 @@ ${FEEDBACK_STYLES}
     }
     return {
       exchange,
-      async register(entry) {
+      async register(entry, profile) {
         let { cipher } = await stateFor(entry);
-        return post(entry.origin, "/v2/vault/register", { ...authorize(entry), verifier: cipher.verifier });
+        return post(entry.origin, "/v2/vault/register", { ...authorize(entry), verifier: cipher.verifier, profile });
       },
-      async stage(entry, device) {
+      async stage(entry, device, profile) {
         let { cipher } = await stateFor(entry), { snapshot, fingerprint } = await post(entry.origin, "/v2/migrate/read", {}, { device }), records = await Promise.all(vaultRecords(snapshot).map(cipher.seal));
-        await post(entry.origin, "/v2/migrate/stage", { ...authorize(entry), verifier: cipher.verifier, fingerprint, records }, { device });
+        await post(entry.origin, "/v2/migrate/stage", { ...authorize(entry), verifier: cipher.verifier, fingerprint, records, profile }, { device });
       },
-      check: (entry) => post(entry.origin, "/v2/vault/exchange", { ...authorize(entry), revision: -1, keys: [], records: [] }),
+      check: (entry, profile) => post(entry.origin, "/v2/vault/exchange", { ...authorize(entry), revision: -1, keys: [], records: [], profile }),
       async preview(code, pass) {
-        let [address, vault, seed] = unpack2("SGSV1", code.trim(), 3), password = pass.trim().toUpperCase();
-        if (!tokenFormat.test(vault) || !tokenFormat.test(seed) || !passFormat.test(password)) throw invalid();
-        let origin = publicOrigin(address), cipher = await createVaultCipher(crypto, { vault, seed, password }), { records } = await post(origin, "/v2/vault/view", { vault, verifier: cipher.verifier });
-        return vaultSnapshot(await Promise.all(records.map(cipher.open)));
+        return vaultSnapshot(await readPublicRecords(crypto, post, readPublicView(code), pass));
       }
     };
+  }
+
+  // src/shared/public-sync-account.js
+  function publicUserCode(id) {
+    return typeof id == "string" && /^\d{1,10}$/.test(id) && Number(id) > 0 && Number(id) <= 4294967295 ? id.padStart(10, "0") : "";
+  }
+  function publicUserName(name) {
+    return name.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, "").trim().slice(0, 100);
   }
 
   // src/core/private-sync-code.js
@@ -11144,6 +11197,7 @@ ${FEEDBACK_STYLES}
     invalid_view: "\u67E5\u770B\u7801\u9519\u8BEF\u6216\u5206\u4EAB\u51ED\u636E\u65E0\u6548",
     view_locked: "\u6B64 IP \u8F93\u9519 50 \u6B21\uFF0C\u67E5\u770B\u5DF2\u9501\u5B9A 30 \u5206\u949F",
     public_preview_disabled: "\u670D\u52A1\u5668\u7BA1\u7406\u5458\u5173\u95ED\u4E86\u516C\u5171\u9884\u89C8",
+    public_recovery_required: "\u6B64\u7528\u6237\u7801\u5DF2\u5728\u8BE5\u670D\u52A1\u5668\u7ED1\u5B9A\uFF0C\u8BF7\u7528\u539F\u8BBE\u5907\u7684\u516C\u5171\u6062\u590D\u51ED\u636E\u63A5\u7EED\u540C\u6B65",
     migration_records_changed: "\u5386\u53F2\u8BB0\u5F55\u6709\u66F4\u65B0\uFF0C\u8BF7\u91CD\u65B0\u51C6\u5907\u8F6C\u6362",
     migration_already_staged: "\u6B64\u8D26\u53F7\u5DF2\u6709\u53E6\u4E00\u4EFD\u52A0\u5BC6\u5386\u53F2\uFF0C\u8BF7\u5148\u5728\u540E\u53F0\u91CD\u7F6E\u51C6\u5907\u72B6\u6001",
     migration_staged: "\u5386\u53F2\u52A0\u5BC6\u526F\u672C\u5DF2\u5C31\u7EEA\uFF0C\u7B49\u5F85\u7BA1\u7406\u5458\u5B8C\u6210\u8F6C\u6362",
@@ -11180,8 +11234,8 @@ ${FEEDBACK_STYLES}
   function describeOrigin(data) {
     return safeOrigin(`${data.tls ? "https" : "http"}://${data.domain || data.ipv4 || "[" + data.ipv6 + "]"}:${data.port}`);
   }
-  function createManagedSync(win, scope, currentAccount, gameAccountKey, privateHttp) {
-    let exchangeStore = openStore(win, scope), navigator = win.navigator, clientInfo = { ipad: navigator?.platform === "MacIntel" && navigator.maxTouchPoints > 1 || void 0 }, clientHints = navigator?.userAgentData;
+  function createManagedSync(win, scope, getAccount, gameAccountKey, privateHttp) {
+    let currentAccount = () => getAccount().id, exchangeStore = openStore(win, scope), navigator = win.navigator, clientInfo = { ipad: navigator?.platform === "MacIntel" && navigator.maxTouchPoints > 1 || void 0 }, clientHints = navigator?.userAgentData;
     clientHints?.platform === "Windows" && typeof clientHints.getHighEntropyValues == "function" && clientHints.getHighEntropyValues(["platformVersion"]).then(({ platformVersion }) => {
       let version = Number(platformVersion?.split(".")[0]);
       version >= 13 ? clientInfo.windows = 11 : version > 0 && version <= 10 && (clientInfo.windows = 10);
@@ -11205,6 +11259,13 @@ ${FEEDBACK_STYLES}
     let ensureAccount = (id) => {
       if (currentAccount() !== id || scope.signal.aborted) throw fail("account_mismatch");
     };
+    function publicProfile(id) {
+      let account = getAccount();
+      if (account.id !== id || scope.signal.aborted) throw fail("account_mismatch");
+      let userCode = publicUserCode(id);
+      if (!userCode) throw fail("invalid_public_profile", "\u65E0\u6CD5\u8BFB\u53D6\u5F53\u524D\u8D26\u53F7\u7684\u7528\u6237\u7801");
+      return { userCode, name: publicUserName(account.nickname) };
+    }
     async function post(origin, path, body, { device, signal } = {}) {
       safeOrigin(origin);
       let insecure = new URL(origin), useBridge = privateHttp && insecure.protocol === "http:" && !/^(?:127\.0\.0\.1|\[::1\]|(?:[a-z0-9-]+\.)*localhost)$/.test(insecure.hostname), timeout = new AbortController(), timer = win.setTimeout(() => timeout.abort(), useBridge ? PRIVATE_HTTP_TIMEOUT : path === BACKUP_READ_PATH || path === "/v2/vault/backup" ? 6e4 : 9500), cancel = () => timeout.abort();
@@ -11595,11 +11656,11 @@ ${FEEDBACK_STYLES}
       if (recovery) {
         let saved = readPublicRecovery(recovery);
         if (saved.gameKey !== await gameAccountKey(id)) throw fail("account_mismatch");
-        entry = { ...saved, id, origin: origin ? publicOrigin(origin) : saved.origin, public: !0, device: random() }, await prove(entry.origin, entry.signer), await publicTransport.check(entry);
+        entry = { ...saved, id, origin: origin ? publicOrigin(origin) : saved.origin, public: !0, device: random() }, await prove(entry.origin, entry.signer), await publicTransport.check(entry, publicProfile(id));
       } else {
         let address = publicOrigin(origin.trim()), pendingId = "public-registration:" + id + ":" + address;
         entry = (await get2("requests", pendingId))?.entry ?? await newVault(id, address, ""), await put("requests", { id: pendingId, entry });
-        let { signer } = await publicTransport.register(entry);
+        let { signer } = await publicTransport.register(entry, publicProfile(id));
         entry.signer = signer;
       }
       let proof = await prove(entry.origin, entry.signer);
@@ -11613,7 +11674,7 @@ ${FEEDBACK_STYLES}
       let proof = await prove(current.origin, current.signer), target = publicOrigin(proof.next || proof.origin), verified = await prove(target, current.signer);
       ensureAccount(id), await confirm(verified, current.device);
       let pending = (await get2("requests", preparedId(id)))?.entry, entry = pending?.signer === current.signer ? { ...pending, origin: verified.origin } : await newVault(id, verified.origin, current.signer);
-      return await put("requests", { id: preparedId(id), entry }), await publicTransport.stage(entry, current.device), ensureAccount(id), publicRecovery(entry);
+      return await put("requests", { id: preparedId(id), entry }), await publicTransport.stage(entry, current.device, publicProfile(id)), ensureAccount(id), publicRecovery(entry);
     }
     async function usePrepared() {
       let id = obtainAccount();
@@ -11621,7 +11682,15 @@ ${FEEDBACK_STYLES}
       let current = bindingIndex.get(id), entry = (await get2("requests", preparedId(id)))?.entry;
       if (!current || current.public || !entry) throw fail("binding_required");
       let proof = await prove(entry.origin, entry.signer);
-      await publicTransport.check(entry), ensureAccount(id), await save({ ...entry, account: entry.vault, revision: proof.revision }, current.device), await del("requests", preparedId(id));
+      await publicTransport.check(entry, publicProfile(id)), ensureAccount(id), await save({ ...entry, account: entry.vault, revision: proof.revision }, current.device), await del("requests", preparedId(id));
+    }
+    async function updatePublicProfile() {
+      let id = obtainAccount();
+      await bindingsReady;
+      let entry = bindingIndex.get(id);
+      if (!entry?.public) throw fail("binding_required");
+      let resolved = await resolveOnce(entry), { profileRegistered } = await publicTransport.check(resolved, publicProfile(id));
+      if (ensureAccount(id), !profileRegistered) throw fail("profile_upgrade_required", "\u540C\u6B65\u670D\u52A1\u5668\u66F4\u65B0\u540E\u624D\u80FD\u767B\u8BB0\u8D26\u53F7\u8D44\u6599");
     }
     async function update(code) {
       let id = obtainAccount();
@@ -11673,12 +11742,18 @@ ${FEEDBACK_STYLES}
       exchange,
       previewLink,
       bindPublic: (origin, recovery) => enroll(() => bindPublic(origin, recovery)),
+      updatePublicProfile: () => enroll(updatePublicProfile),
       preparePublic: () => enroll(preparePublic),
       usePrepared: () => enroll(usePrepared),
       viewCode() {
         let entry = bindingIndex.get(obtainAccount());
         if (!entry?.public) throw fail("binding_required");
         return publicViewCode(entry);
+      },
+      async viewLink() {
+        let entry = bindingIndex.get(obtainAccount());
+        if (!entry?.public) throw fail("binding_required");
+        return publicViewLink(await resolveOnce(entry));
       },
       previewPublic: publicTransport.preview,
       recoveryCode() {
@@ -12037,7 +12112,7 @@ ${FEEDBACK_STYLES}
     installTouchPreview(win, scope), !1;
     let onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
     Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
-    let game = createGameAdapter(win, scope, mobileSkinPort, { watchScene: !1 }), sceneWatch = createSceneWatch({ game, scope }), getAccount = () => readNativeAccount({ game }), syncKey = (id) => syncGameAccountKey(win, id), managedSync = !win.__SGS_TOOLBOX_DEMO__ || win.__SGS_TOOLBOX_DEMO__.managedSync === !0 ? createManagedSync(win, scope, () => getAccount().id, syncKey, createPrivateHttpTransport(win, mobileSkinPort)) : null;
+    let game = createGameAdapter(win, scope, mobileSkinPort, { watchScene: !1 }), sceneWatch = createSceneWatch({ game, scope }), getAccount = () => readNativeAccount({ game }), syncKey = (id) => syncGameAccountKey(win, id), managedSync = !win.__SGS_TOOLBOX_DEMO__ || win.__SGS_TOOLBOX_DEMO__.managedSync === !0 ? createManagedSync(win, scope, getAccount, syncKey, createPrivateHttpTransport(win, mobileSkinPort)) : null;
     if (managedSync) {
       let readDirectReport = game.readStargazingReport;
       game.readStargazingReport = async (options) => await managedSync.readStargazingReport(options) ?? readDirectReport(options);

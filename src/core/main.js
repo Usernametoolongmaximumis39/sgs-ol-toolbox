@@ -57,7 +57,7 @@ async function initialize(win, api, mobileSkinPort) {
   const getAccount = () => readNativeAccount({ game });
   const syncKey = id => syncGameAccountKey(win, id);
   const managedSync = !win.__SGS_TOOLBOX_DEMO__ || win.__SGS_TOOLBOX_DEMO__.managedSync === true
-    ? createManagedSync(win, scope, () => getAccount().id, syncKey, createPrivateHttpTransport(win, mobileSkinPort)) : null;
+    ? createManagedSync(win, scope, getAccount, syncKey, createPrivateHttpTransport(win, mobileSkinPort)) : null;
   if (managedSync) {
     const readDirectReport = game.readStargazingReport;
     game.readStargazingReport = async options => await managedSync.readStargazingReport(options) ?? readDirectReport(options);

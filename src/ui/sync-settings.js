@@ -1,4 +1,4 @@
-import { MODES } from '../shared/match-sync-records.js';
+import { publicRecordText } from '../shared/public-sync-view.js';
 import { createIcon } from './icons.js';
 import { ALIYUN_ICON, CODEX_ICON, DEEPSEEK_HARNESS_ICON, DOUBAO_WORK_ICON, TENCENT_CLOUD_ICON, WORKBUDDY_ICON } from './sync-service-icons.js';
 
@@ -215,11 +215,13 @@ export function mountSyncSettings(document, window, sync, preferences) {
   const server = input('公共服务器 HTTPS 地址'), restore = input('公共恢复凭据', 'textarea');
   server.control.placeholder = 'https://sync.example.com';
   const publicBinding = node('div', '', 'sync-stack');
-  publicBinding.append(node('p', '账本与战绩在工具箱加密，服务器可见记录编号。切换游戏账号后需要手动绑定。', 'muted'),
+  const publicConsent = '服务器管理员可见用户码、昵称和记录编号。账本、战绩和备份内容在工具箱加密。';
+  publicBinding.append(node('p', publicConsent, 'muted'),
     server.wrapper, act('同意并绑定公共服务器', async () => {
       await sync.bindPublic(server.control.value.trim());
       say('公共服务器绑定成功');
-    }, true), details('在新设备恢复公共账号', restore.wrapper,
+    }, true), details('在新设备恢复公共账号',
+      node('p', '同一账号请使用原设备复制的恢复凭据。', 'muted'), restore.wrapper,
       act('恢复公共绑定', async () => {
         await sync.bindPublic(server.control.value.trim(), restore.control.value);
         restore.control.value = '';
@@ -232,9 +234,11 @@ export function mountSyncSettings(document, window, sync, preferences) {
   const share = readout('账本与战绩查看链接'), prepared = readout('转换用的公共恢复凭据', 'textarea');
   const addressUpdate = input('地址更新码', 'textarea'), recovery = readout('公共恢复凭据', 'textarea');
   const publicShare = readout('公共分享凭据', 'textarea'), password = readout('我的六位查看码');
+  const publicLink = readout('公共 HTTPS 分享链接', 'textarea');
   short(password.control, 6);
   const publicMigration = details('准备转为公共模式',
     node('p', '管理员配置 HTTPS 后，在这里生成历史的加密副本。管理页确认转换后，再启用公共连接。请备份生成的恢复凭据。', 'muted'),
+    node('p', publicConsent, 'muted'),
     act('准备当前账号的加密历史', async () => {
       prepared.control.value = await sync.preparePublic();
       prepared.wrapper.hidden = false;
@@ -255,10 +259,18 @@ export function mountSyncSettings(document, window, sync, preferences) {
     details('服务器地址变更', addressUpdate.wrapper, act('验证并更新地址', async () => {
       await sync.update(addressUpdate.control.value); addressUpdate.control.value = ''; say('同步地址已更新');
     })), details('使用主账号凭据重新绑定', rebind.form), publicMigration, detach);
-  publicActions.append(node('p', '分享时将分享凭据和六位码分开。恢复凭据可在新设备同步，适合单独备份。', 'muted'),
+  publicActions.append(node('p', '管理员允许分享时，接收人可在浏览器打开 HTTPS 链接并输入六位查看码。请分开发送。', 'muted'),
+    act('复制公共分享链接', async () => copy(await sync.viewLink(), publicLink), true), publicLink.wrapper,
     act('显示六位查看码', () => { password.wrapper.hidden = !password.wrapper.hidden; }), password.wrapper,
-    act('复制公共分享凭据', () => copy(sync.viewCode(), publicShare)), publicShare.wrapper,
-    act('复制公共恢复凭据', () => copy(sync.recoveryCode(), recovery)), recovery.wrapper,
+    details('其他公共凭据',
+      act('复制公共分享凭据', () => copy(sync.viewCode(), publicShare)), publicShare.wrapper,
+      act('复制公共恢复凭据', () => copy(sync.recoveryCode(), recovery)), recovery.wrapper),
+    details('补登或更新后台账号资料',
+      node('p', '已绑定的账号可以把当前用户码和昵称补登到服务器后台，供管理员识别。', 'muted'),
+      act('同意并更新账号资料', async () => {
+        await sync.updatePublicProfile();
+        say('后台账号资料已更新');
+      })),
     act('断开当前账号', async () => {
       if (!window.confirm('请先保存公共恢复凭据。断开当前账号？')) return;
       await sync.disconnect(); say('当前账号已断开');
@@ -290,12 +302,8 @@ export function mountSyncSettings(document, window, sync, preferences) {
     next.hidden = page + 1 >= pages;
     count.textContent = records.length ? `${records.length} 条 · 第 ${page + 1} / ${pages} 页` : '暂无记录';
     rows.replaceChildren(...records.slice(page * perPage, (page + 1) * perPage).map(row => {
-      const text = stream === 'events'
-        ? row.prayer ? `${row.prayer.name} × ${row.prayer.times}`
-          : row.items.map(item => `${item.name} ${item.delta > 0 ? '+' : ''}${item.delta}`).join('、')
-        : [MODES[row.mode] || '对局', { 0: '胜', 1: '负', 255: '平' }[row.result], row.general.join(' / ')].filter(Boolean).join(' · ');
       const element = node('li');
-      element.append(node('p', text), node('p', new Date(row.at ?? row.endedAt).toLocaleString() + ' · ' + (row.id ?? row.gameId), 'muted'));
+      element.append(node('p', publicRecordText(stream, row)), node('p', new Date(row.at ?? row.endedAt).toLocaleString() + ' · ' + (row.id ?? row.gameId), 'muted'));
       return element;
     }));
   }
@@ -347,7 +355,7 @@ export function mountSyncSettings(document, window, sync, preferences) {
     rebind.clearFor(status.accountId);
     if (bindingIdentity !== status.bindingIdentity) {
       bindingIdentity = status.bindingIdentity;
-      for (const output of [share, prepared, recovery, publicShare, password]) {
+      for (const output of [share, prepared, recovery, publicShare, publicLink, password]) {
         output.wrapper.hidden = true;
         output.control.value = '';
       }

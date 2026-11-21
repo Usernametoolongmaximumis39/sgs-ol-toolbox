@@ -1,5 +1,7 @@
 import { base64url, createPairingRequest, fromBase64url, openPairing, PAIR_INVITE, PAIR_UPDATE, PIN_FORMAT, syncProofBytes } from './sync-pairing-code.js';
 import { createPublicTransport, publicOrigin, publicRecovery, publicViewCode, randomPass, readPublicRecovery } from './public-sync.js';
+import { publicViewLink } from '../shared/public-sync-view.js';
+import { publicUserCode, publicUserName } from '../shared/public-sync-account.js';
 import { openPrivateCredential } from './private-sync-code.js';
 import { MICROCLIENT } from './distribution.js';
 import { BACKUP_READ_PATH, SYNC_CHANGES_PATH } from '../shared/sync-paths.js';
@@ -29,6 +31,7 @@ const messages = {
   invalid_view: '查看码错误或分享凭据无效',
   view_locked: '此 IP 输错 50 次，查看已锁定 30 分钟',
   public_preview_disabled: '服务器管理员关闭了公共预览',
+  public_recovery_required: '此用户码已在该服务器绑定，请用原设备的公共恢复凭据接续同步',
   migration_records_changed: '历史记录有更新，请重新准备转换',
   migration_already_staged: '此账号已有另一份加密历史，请先在后台重置准备状态',
   migration_staged: '历史加密副本已就绪，等待管理员完成转换',
@@ -76,7 +79,8 @@ function describeOrigin(data) {
   return safeOrigin(`${data.tls ? 'https' : 'http'}://${data.domain || data.ipv4 || '[' + data.ipv6 + ']'}:${data.port}`);
 }
 
-export function createManagedSync(win, scope, currentAccount, gameAccountKey, privateHttp) {
+export function createManagedSync(win, scope, getAccount, gameAccountKey, privateHttp) {
+  const currentAccount = () => getAccount().id;
   const exchangeStore = openStore(win, scope);
   const navigator = win.navigator;
   const clientInfo = MICROCLIENT ? { microclient: true }
@@ -110,6 +114,13 @@ export function createManagedSync(win, scope, currentAccount, gameAccountKey, pr
   const ensureAccount = id => {
     if (currentAccount() !== id || scope.signal.aborted) throw fail('account_mismatch');
   };
+  function publicProfile(id) {
+    const account = getAccount();
+    if (account.id !== id || scope.signal.aborted) throw fail('account_mismatch');
+    const userCode = publicUserCode(id);
+    if (!userCode) throw fail('invalid_public_profile', '无法读取当前账号的用户码');
+    return { userCode, name: publicUserName(account.nickname) };
+  }
   async function post(origin, path, body, { device, signal } = {}) {
     safeOrigin(origin);
     const insecure = new URL(origin);
@@ -539,13 +550,13 @@ export function createManagedSync(win, scope, currentAccount, gameAccountKey, pr
       if (saved.gameKey !== await gameAccountKey(id)) throw fail('account_mismatch');
       entry = { ...saved, id, origin: origin ? publicOrigin(origin) : saved.origin, public: true, device: random() };
       await prove(entry.origin, entry.signer);
-      await publicTransport.check(entry);
+      await publicTransport.check(entry, publicProfile(id));
     } else {
       const address = publicOrigin(origin.trim());
       const pendingId = 'public-registration:' + id + ':' + address;
       entry = (await get('requests', pendingId))?.entry ?? await newVault(id, address, '');
       await put('requests', { id: pendingId, entry });
-      const { signer } = await publicTransport.register(entry);
+      const { signer } = await publicTransport.register(entry, publicProfile(id));
       entry.signer = signer;
     }
     const proof = await prove(entry.origin, entry.signer);
@@ -566,7 +577,7 @@ export function createManagedSync(win, scope, currentAccount, gameAccountKey, pr
     const pending = (await get('requests', preparedId(id)))?.entry;
     const entry = pending?.signer === current.signer ? { ...pending, origin: verified.origin } : await newVault(id, verified.origin, current.signer);
     await put('requests', { id: preparedId(id), entry });
-    await publicTransport.stage(entry, current.device);
+    await publicTransport.stage(entry, current.device, publicProfile(id));
     ensureAccount(id);
     return publicRecovery(entry);
   }
@@ -577,10 +588,20 @@ export function createManagedSync(win, scope, currentAccount, gameAccountKey, pr
     const entry = (await get('requests', preparedId(id)))?.entry;
     if (!current || current.public || !entry) throw fail('binding_required');
     const proof = await prove(entry.origin, entry.signer);
-    await publicTransport.check(entry);
+    await publicTransport.check(entry, publicProfile(id));
     ensureAccount(id);
     await save({ ...entry, account: entry.vault, revision: proof.revision }, current.device);
     await del('requests', preparedId(id));
+  }
+  async function updatePublicProfile() {
+    const id = obtainAccount();
+    await bindingsReady;
+    const entry = bindingIndex.get(id);
+    if (!entry?.public) throw fail('binding_required');
+    const resolved = await resolveOnce(entry);
+    const { profileRegistered } = await publicTransport.check(resolved, publicProfile(id));
+    ensureAccount(id);
+    if (!profileRegistered) throw fail('profile_upgrade_required', '同步服务器更新后才能登记账号资料');
   }
   async function update(code) {
     const id = obtainAccount();
@@ -621,11 +642,17 @@ export function createManagedSync(win, scope, currentAccount, gameAccountKey, pr
     bindPrivateCredential: code => enrollPrivate(() => bindPrivateCredential(code)),
     recover: (code, address) => enroll(() => recover(code, address)), disconnect, detachPrivate: () => enrollPrivate(detachPrivate), update, exchange, previewLink,
     bindPublic: (origin, recovery) => enroll(() => bindPublic(origin, recovery)),
+    updatePublicProfile: () => enroll(updatePublicProfile),
     preparePublic: () => enroll(preparePublic), usePrepared: () => enroll(usePrepared),
     viewCode() {
       const entry = bindingIndex.get(obtainAccount());
       if (!entry?.public) throw fail('binding_required');
       return publicViewCode(entry);
+    },
+    async viewLink() {
+      const entry = bindingIndex.get(obtainAccount());
+      if (!entry?.public) throw fail('binding_required');
+      return publicViewLink(await resolveOnce(entry));
     },
     previewPublic: publicTransport.preview,
     recoveryCode() {
