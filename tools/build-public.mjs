@@ -9,7 +9,7 @@ import { validateRepositoryPlugins } from './plugin-validation.mjs';
 const root = resolve(import.meta.dirname, '..');
 const edition = process.argv[2];
 if (edition && !['full', 'lite'].includes(edition)) throw new Error('Public builds support full/lite only');
-await validateRepositoryPlugins({ root });
+const { bundles } = await validateRepositoryPlugins({ root });
 const packages = [];
 if (edition !== 'lite') for (const spec of pluginReleases.filter(spec => !spec.localOnly)) {
   const pkg = await makePluginPackage(await bundlePlugin(spec.id, { root })); packages.push(pkg);
@@ -18,7 +18,7 @@ if (edition !== 'lite') for (const spec of pluginReleases.filter(spec => !spec.l
 }
 const toolboxSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#171b1d"/><g fill="none" stroke="#c8ab6a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${TOOLBOX_ICON.paths.map(d => `<path d="${d}"/>`).join('')}</g></svg>`;
 for (const target of edition ? [edition] : ['full', 'lite']) {
-  const { code } = await bundleCore({ root, edition: target, packages });
+  const { code } = await bundleCore({ root, edition: target, packages, panelSources: bundles });
   const header = userscriptHeader({ edition: target, version: CORE_VERSION, toolboxSvg });
   const dir = resolve(root, 'dist', target); await mkdir(dir, { recursive: true });
   await writeFile(resolve(dir, 'toolbox.user.js'), header + code);

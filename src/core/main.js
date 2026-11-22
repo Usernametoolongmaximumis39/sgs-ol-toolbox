@@ -2,7 +2,7 @@ import { installRefreshReentry } from './refresh-reentry.js';
 import { installTouchPreview } from './touch-preview.js';
 import { DEVELOPMENT, EDITION, MICROCLIENT, LOCAL_APPEARANCE_SYNC } from './distribution.js';
 import { installMicroCompatibility } from './micro-compatibility.js';
-import { bundledPackages, localAppearanceSyncPackage } from './bundled-plugins.js';
+import { bundledPackages, fullPluginPanels, localAppearanceSyncPackage } from './bundled-plugins.js';
 import { startOwnedRuntime } from './runtime-owner.js';
 import { Settings, PackageStore } from './storage.js';
 import { SessionJournal, installMessageBridge } from './session.js';
@@ -24,6 +24,7 @@ import { createPluginNative, readNativeAccount } from './plugin-native.js';
 import { field } from '../shared/info-runtime.js';
 import { createDevAppearanceSync, createDevLedgerSync, installLocalAppearanceSyncPackage, syncGameAccountKey } from './dev-appearance-sync.js';
 import { createManagedSync } from './managed-sync.js';
+import { canUseSyncTest } from './sync-test-access.js';
 import { createPreferenceSync } from './sync-preferences.js';
 import { openSyncBackupCache } from './sync-backup-cache.js';
 import { createPrivateHttpTransport } from './private-sync-http.js';
@@ -57,7 +58,10 @@ async function initialize(win, api, mobileSkinPort) {
   const getAccount = () => readNativeAccount({ game });
   const syncKey = id => syncGameAccountKey(win, id);
   const managedSync = !win.__SGS_TOOLBOX_DEMO__ || win.__SGS_TOOLBOX_DEMO__.managedSync === true
-    ? createManagedSync(win, scope, getAccount, syncKey, createPrivateHttpTransport(win, mobileSkinPort)) : null;
+    ? createManagedSync(win, scope, getAccount, syncKey, createPrivateHttpTransport(win, mobileSkinPort), {
+      testEligible: id => canUseSyncTest(game, id),
+      loadOfficerConfig: () => game.loadConfigData('h5_officer'),
+    }) : null;
   if (managedSync) {
     const readDirectReport = game.readStargazingReport;
     game.readStargazingReport = async options => await managedSync.readStargazingReport(options) ?? readDirectReport(options);
@@ -114,13 +118,14 @@ async function initialize(win, api, mobileSkinPort) {
   if (DEVELOPMENT) replacements.appearances = [...replacements.appearances,
     'f58af5e65b29699995e5584d7ccccf6736842e91f16fa808f651a711aaa3c358'];
   for (const pkg of bundledPackages) if (!onlyPlugin || pkg.manifest.id === onlyPlugin || (onlyPlugin === 'gaizhu' && pkg.manifest.id === 'baisheng')) {
-    await manager.registerBundled(pkg, replacements[pkg.manifest.id] || []);
+    await manager.registerBundled(pkg, replacements[pkg.manifest.id] || []).catch(() => {});
     if (scope.closed) return null;
   }
   shell.setHandlers({ manager, themes, cardStyles, compat, market: marketConnection.get, setMarketUrl: marketConnection.set,
+    fullPluginPanels: onlyPlugin ? [] : fullPluginPanels,
     screenshot: screenshot.capture,
     exportDiagnostics: async () => { await bridge.flush(); return diagnostics.serialize({ bridge: bridge.getStatus() }); },
-  });
+  }, { deferStartupMarket: true });
   shell.setStatusVisible(false);
   scope.add(journal.subscribe(event => {
     if (event.type === 'ClientLoginRep' && event.payload?.userID) preferenceSync?.login(String(Number(event.payload.userID)));
@@ -149,6 +154,7 @@ async function initialize(win, api, mobileSkinPort) {
     catch (error) { shell.notify(`同步内测插件安装失败：${error.message}`); }
     if (scope.closed) return null;
   }
+  scope.timeout(shell.startMarketUpdates, 1500);
   Object.assign(api, { manager, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get });
   if (win.__SGS_TOOLBOX_DEMO__) snapshots.request();
   if (manager.storageError) shell.notify('无法读取插件存储，请刷新游戏重试。');

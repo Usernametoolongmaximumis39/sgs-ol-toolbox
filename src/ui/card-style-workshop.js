@@ -221,7 +221,7 @@ function mountLocalBacks(container, doc, cardStyles) {
   return () => { active = false; off(); };
 }
 
-export function mountCardStyleWorkshop(container, { document: doc, cardStyles, settings }) {
+export function mountCardStyleWorkshop(container, { document: doc, cardStyles, settings, bindFold }) {
   const details = doc.createElement('section'); details.className = 'card-style-workshop plugin-group';
   const heading = doc.createElement('h3'); heading.className = 'plugin-heading';
   const toggle = doc.createElement('button'); toggle.type = 'button'; toggle.className = 'plugin-toggle';
@@ -233,14 +233,6 @@ export function mountCardStyleWorkshop(container, { document: doc, cardStyles, s
     body.hidden = !expanded; toggle.setAttribute('aria-expanded', String(expanded));
     toggle.title = (expanded ? '收起' : '展开') + '卡牌外观'; toggle.setAttribute('aria-label', toggle.title);
   };
-  apply(settings.get('cardStyleExpanded', false));
-  toggle.onclick = () => {
-    const expanded = body.hidden;
-    settings.set('cardStyleExpanded', expanded);
-    apply(expanded);
-    if (expanded) localFaces?.loadCatalog();
-    else catalog?.close();
-  };
   heading.append(toggle); details.append(heading, body); container.append(details);
   const options = doc.createElement('div'); body.append(options);
   const faceOptions = doc.createElement('div'); body.append(faceOptions);
@@ -248,6 +240,17 @@ export function mountCardStyleWorkshop(container, { document: doc, cardStyles, s
   const faceEditor = doc.createElement('section'); body.append(faceEditor);
   const localFaces = cardStyles?.listLocalFaces ? mountLocalFaces(faceEditor, doc, cardStyles) : null;
   if (!localFaces) faceEditor.hidden = true;
+  const onChange = expanded => expanded ? localFaces?.loadCatalog() : catalog?.close();
+  const defaultExpanded = settings.get('cardStyleExpanded', false);
+  if (bindFold) bindFold(':card-style-workshop', toggle, body, '卡牌外观', !defaultExpanded, { onChange });
+  else {
+    apply(defaultExpanded);
+    toggle.onclick = () => {
+      const expanded = body.hidden;
+      settings.set('cardStyleExpanded', expanded);
+      apply(expanded); onChange(expanded);
+    };
+  }
   if (!body.hidden) localFaces?.loadCatalog();
   const backOptions = doc.createElement('div'); body.append(backOptions);
   const unmountLocal = cardStyles?.listLocalBacks ? mountLocalBacks(body, doc, cardStyles) : null;

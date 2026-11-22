@@ -16,8 +16,8 @@ function nativeSlice(start, end) {
   assert.ok(first >= 0 && last > first && last - first < 5000, start);
   return clientSource.slice(first, last);
 }
-const selectContextSource = nativeSlice('class yAt{', 'class ');
-const clickCardSource = nativeSlice('CardUI_Click(t){if(V2t.CanOperationInGame())', 'invalidateLayoutHandCardFlag=!1');
+const selectContextSource = nativeSlice('class rGt{', 'class ');
+const clickCardSource = nativeSlice('CardUI_Click(t){if(Zni.CanOperationInGame())if(t.CardUi instanceof iei)', 'invalidateLayoutHandCardFlag=!1');
 const packet = JSON.parse(await readFile(`release/market/packages/cards/${CARDS_VERSION}.json`, 'utf8'));
 const bundle = await build({ stdin: { contents: `export { mountPluginUI } from './src/ui/plugin-ui.js'; export { ResourceScope } from './src/core/resources.js';
   export { createNativeTheme } from './src/ui/native-theme.js';`, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'NativeCardCheck' });
@@ -31,16 +31,16 @@ try {
   await page.addScriptTag({ content: bundle.outputFiles[0].text });
   await page.addScriptTag({ content: `window.NativeCardPlugin = new Function(${JSON.stringify(packet.code)})();` });
   await page.addScriptTag({ content: `(() => {
-    const GAt = { NONE: 'none' };
-    const F1t = { I: () => ({ ID: 0 }) };
-    const V2t = { CanOperationInGame: () => true };
-    const LKi = { I: () => ({ UpdateCardUseGuideYingBianClickCardUI() {}, UpdateCardUseGuideNewbieClickCardUI() {} }) };
-    class Qqi {}
-    class Qas {}
-    class qqi { constructor(Card) { this.Card = Card; this.Activated = true; } }
+    const nGt = { NONE: 'none' };
+    const Jri = { I: () => ({ ID: 0 }) };
+    const Zni = { CanOperationInGame: () => true };
+    const j1i = { I: () => ({ UpdateCardUseGuideYingBianClickCardUI() {}, UpdateCardUseGuideNewbieClickCardUI() {} }) };
+    class iei {}
+    class u2i {}
+    class tei { constructor(Card) { this.Card = Card; this.Activated = true; } }
     ${selectContextSource}
     class CachedHand { ${clickCardSource} }
-    window.ShanheNative = { CardUI: qqi, Selection: yAt, clickCard: CachedHand.prototype.CardUI_Click };
+    window.ShanheNative = { CardUI: tei, Selection: rGt, clickCard: CachedHand.prototype.CardUI_Click };
   })();` });
   await page.evaluate(() => {
     Laya.init(1100, 800); Laya.stage.bgColor = '#172a24';
@@ -369,7 +369,7 @@ try {
     self.getButtonBar = function () { return this.Ai; };
     hand.selectCardContext = selection();
     const cards = skills => skills.map((skill, index) => {
-      const card = { CardId: 100 + index, FirstSkillId: skill, FirstIndexSkillID: skill === 11111 ? 1 : skill, G(value) {
+      const card = { CardId: 100 + index, FirstSkillId: skill, FirstIndexSkillID: skill === 11111 ? 1 : skill, $(value) {
         if (!value) throw new Error('Unexpected deselection');
         selected.push(skill);
         Object.assign(hand.selectCardContext.CardSelector, { SelectedCount: 1, FirstSelectedCard: this });

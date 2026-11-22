@@ -1,4 +1,4 @@
-// 三国杀OL工具箱 · 微端 LITE · 0.6.223
+// 三国杀OL工具箱 · 微端 LITE · 0.6.226
 (() => {
   var __create = Object.create, __defProp = Object.defineProperty, __getOwnPropDesc = Object.getOwnPropertyDescriptor, __getOwnPropNames = Object.getOwnPropertyNames, __getProtoOf = Object.getPrototypeOf, __hasOwnProp = Object.prototype.hasOwnProperty, __commonJS = (cb, mod) => function() {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
@@ -260,7 +260,7 @@
       for (let [host, record] of watched) unwatch(host, record);
     });
   }
-  var bundledPackages = [], ResourceScope = class {
+  var bundledPackages = [], fullPluginPanels = [{ id: "social:market-placeholder", category: "tools", pluginId: "social", pluginName: "\u597D\u53CB\u4E0E\u804A\u5929", pluginIcon: { paths: ["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", "M2 21v-3a6 6 0 0 1 12 0v3", "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"] }, pluginPriority: 30300 }, { id: "player-info:market-placeholder", category: "game", pluginId: "player-info", pluginName: "\u73A9\u5BB6\u4FE1\u606F", pluginIcon: { paths: ["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"] }, pluginPriority: 30200 }, { id: "backgrounds:market-placeholder", category: "appearance", pluginId: "backgrounds", pluginName: "\u81EA\u5B9A\u4E49\u80CC\u666F", pluginIcon: { paths: ["M3 4h18v16H3Z", "M3 16 9 10l4 4 3-3 5 5", "M16 7h1"] }, pluginPriority: 31e3 }, { id: "shanhetu:market-placeholder", category: "game", pluginId: "shanhetu", pluginName: "\u5C71\u6CB3\u56FE", pluginIcon: { paths: ["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z", "M6 12 10 7l4 5 3-3 2 3", "M6 16c3-3 7 3 12-1"] }, pluginPriority: 11e3 }, { id: "cards:market-placeholder", category: "game", pluginId: "cards", pluginName: "\u5361\u724C", pluginIcon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, pluginPriority: 1e4 }, { id: "play-assist:market-placeholder", category: "game", pluginId: "play-assist", pluginName: "\u51FA\u724C\u8F85\u52A9", pluginIcon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] }, pluginPriority: 12e3, gameView: "battle" }, { id: "daily-rewards:market-placeholder", category: "automation", pluginId: "daily-rewards", pluginName: "\u65E5\u5E38\u9886\u5956", pluginIcon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, pluginPriority: 2e4 }, { id: "seckill:market-placeholder", category: "automation", pluginId: "seckill", pluginName: "\u81EA\u52A8\u79D2\u6740", pluginIcon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, pluginPriority: 21e3 }, { id: "gaizhu:market-placeholder", category: "automation", pluginId: "gaizhu", pluginName: "\u76D6\u4E3B\u901F\u5237", pluginIcon: { paths: ["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0", "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3", "M2 21h6"] }, pluginPriority: 21e3 }, { id: "effects:market-placeholder", category: "tools", pluginId: "effects", pluginName: "\u7279\u6548\u5C4F\u853D", pluginIcon: { paths: ["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2", "M3 3 21 21M19 3v4M17 5h4"] }, pluginPriority: 2e4 }, { id: "skins:market-placeholder", category: "tools", pluginId: "skins", pluginName: "\u76AE\u80A4\u7BA1\u7406", pluginIcon: { paths: ["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z", "M8 3l8 9M16 3l-6 7M8 16h8"] }, pluginPriority: 3e4 }, { id: "stargazing:market-placeholder", category: "tools", pluginId: "stargazing", pluginName: "\u81EA\u52A9\u89C2\u661F", pluginIcon: { paths: ["M12 2l2.6 6.6L22 12l-7.4 3.4L12 22l-2.6-6.6L2 12l7.4-3.4L12 2Z", "M19 3v4m-2-2h4"] }, pluginPriority: 32768 }, { id: "baisheng:market-placeholder", category: "info", pluginId: "baisheng", pluginName: "\u767E\u80DC\u6218\u529F", pluginIcon: { paths: ["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4", "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"] }, pluginPriority: 31e3 }, { id: "appearances:market-placeholder", category: "info", pluginId: "appearances", pluginName: "\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1", pluginIcon: { paths: ["M9 21H3V3h18v9", "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1", "M12 21 16 17l3 2 3-5M19 14h3v3"] }, pluginPriority: 32e3 }, { id: "ledger:market-placeholder", category: "info", pluginId: "ledger", pluginName: "\u8D26\u672C", pluginIcon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, pluginPriority: 3e4 }, { id: "recharge:market-placeholder", category: "tools", pluginId: "recharge", pluginName: "\u65E7\u5468\u6708\u5361", pluginIcon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] }, pluginPriority: 45e3 }], localAppearanceSyncPackage = null, ResourceScope = class {
     constructor() {
       this.controller = new AbortController(), this.signal = this.controller.signal, this.cleanups = [], this.closed = !1;
     }
@@ -1645,7 +1645,7 @@
         this.restore(), this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
       }
     }
-  }, CORE_VERSION = "0.6.223", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
+  }, CORE_VERSION = "0.6.226", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
     "43a4cbff657c319e8b7b1bf2ec7689e0a557fc9bb17a9090d24a2163d1857dda",
@@ -3213,11 +3213,46 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
     };
   }
+  var numeric = (a, b) => (a = a.replace(/^0+(?=\d)/, ""), b = b.replace(/^0+(?=\d)/, ""), Math.sign(a.length - b.length) || (a === b ? 0 : a > b ? 1 : -1));
+  function parse(version) {
+    var _a2;
+    let match = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(version);
+    return match && { core: match.slice(1, 4), pre: ((_a2 = match[4]) == null ? void 0 : _a2.split(".")) || [] };
+  }
+  function compareVersions2(a, b) {
+    let left = parse(a), right = parse(b);
+    if (!left || !right) throw new Error("\u63D2\u4EF6\u7248\u672C\u683C\u5F0F\u65E0\u6548\u3002");
+    for (let i2 = 0; i2 < 3; i2++) {
+      let order = numeric(left.core[i2], right.core[i2]);
+      if (order) return order;
+    }
+    if (!left.pre.length || !right.pre.length) return Math.sign(right.pre.length) - Math.sign(left.pre.length);
+    for (let i2 = 0; i2 < Math.max(left.pre.length, right.pre.length); i2++) {
+      let x2 = left.pre[i2], y = right.pre[i2];
+      if (x2 === void 0 || y === void 0) return x2 === void 0 ? -1 : 1;
+      if (x2 === y) continue;
+      let xn = /^\d+$/.test(x2), yn = /^\d+$/.test(y), order = xn && yn ? numeric(x2, y) : xn !== yn ? xn ? -1 : 1 : x2 > y ? 1 : -1;
+      if (order) return order;
+    }
+    return 0;
+  }
+  function findPluginUpdates(installed, entries) {
+    let latest = /* @__PURE__ */ new Map();
+    for (let entry of entries) {
+      if (!/^\d+\.\d+\.\d+$/.test(entry.version)) continue;
+      let previous = latest.get(entry.id);
+      (!previous || compareVersions2(entry.version, previous.version) > 0) && latest.set(entry.id, entry);
+    }
+    return installed.map((plugin) => {
+      let entry = latest.get(plugin.id), order = entry ? compareVersions2(entry.version, plugin.version) : null;
+      return { id: plugin.id, entry, status: order === null ? "unavailable" : order > 0 ? "update" : order < 0 ? "newer" : "current" };
+    });
+  }
   var replayYield = () => new Promise((resolve) => setTimeout(resolve, 0)), receivesEvent = (slot, type) => !slot.journalEvents || slot.journalEvents.has(type) || type === "MsgGamePlayCardNtf" || type === "toolbox:gap", PluginManager = class {
     constructor({ journal, store, settings, context: context2, onChange = () => {
     }, onReplayGap = () => {
     } }) {
-      Object.assign(this, { journal, store, settings, context: context2, onChange, onReplayGap }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.initializing = !0, this.storageError = "", this.loadIssues = /* @__PURE__ */ new Map(), this.priorityPlayActions = /* @__PURE__ */ new Set(), this.eventRoutes = /* @__PURE__ */ new Map(), this.eventSession = null, this.unsubscribe = journal.subscribe((event) => this.dispatch(event));
+      Object.assign(this, { journal, store, settings, context: context2, onChange, onReplayGap }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.initializing = !0, this.storageError = "", this.loadIssues = /* @__PURE__ */ new Map(), this.bundledInstallIssues = /* @__PURE__ */ new Map(), this.priorityPlayActions = /* @__PURE__ */ new Set(), this.eventRoutes = /* @__PURE__ */ new Map(), this.eventSession = null, this.unsubscribe = journal.subscribe((event) => this.dispatch(event));
     }
     serial(fn) {
       let work = this.tail.catch(() => {
@@ -3232,7 +3267,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       validateManifest(module.manifest), this.builtins.set(module.manifest.id, module);
     }
     async registerBundled(pkg, replacesPackageDigests = []) {
-      await verifyPackage(pkg), this.registerBuiltin({ ...compilePackage(pkg), bundledPackage: pkg, replacesPackageDigests });
+      try {
+        await verifyPackage(pkg), this.registerBuiltin({ ...compilePackage(pkg), bundledPackage: pkg, replacesPackageDigests });
+      } catch (error) {
+        let id = pkg.manifest.id;
+        throw this.bundledInstallIssues.set(id, error.message), this.errors.push(`${id}: ${error.message}`), error;
+      }
     }
     dispatch(event) {
       let newSession = this.eventSession !== event.sessionId;
@@ -3633,7 +3673,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           try {
             await this.store.put(portable), record = portable;
           } catch (error) {
-            this.errors.push(`${id}: \u63D2\u4EF6\u72EC\u7ACB\u4FDD\u5B58\u5931\u8D25\uFF0C\u5207\u6362\u8F7B\u91CF\u7248\u524D\u8BF7\u4FEE\u590D\u5B58\u50A8\uFF1A${error.message}`);
+            this.bundledInstallIssues.set(id, error.message), this.errors.push(`${id}: \u63D2\u4EF6\u72EC\u7ACB\u4FDD\u5B58\u5931\u8D25\uFF0C\u5207\u6362\u8F7B\u91CF\u7248\u524D\u8BF7\u4FEE\u590D\u5B58\u50A8\uFF1A${error.message}`);
           }
         }
         if (this.closed) return;
@@ -3670,8 +3710,17 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         return { ...s.module.manifest, enabled: s.record.enabled, active: s.active, error: s.error, ...s.maintenance ? { maintenance: s.maintenance } : {}, hasPrevious: !!s.record.previous, source: s.record.active && !builtinFallback ? "\u63D2\u4EF6\u5E02\u573A / \u6587\u4EF6" : "\u5185\u7F6E" };
       }).sort(comparePluginOrder);
     }
-    install(pkg) {
-      return this.serial(async () => (await verifyPackage(pkg), this.swap(pkg.manifest.id, compilePackage(pkg), pkg, void 0, { restartDependents: !0 })));
+    install(pkg, { updateOnly = !1 } = {}) {
+      return this.serial(async () => {
+        var _a2;
+        await verifyPackage(pkg);
+        let { id, version } = pkg.manifest;
+        if (updateOnly) {
+          let current = (_a2 = this.slots.get(id)) == null ? void 0 : _a2.module.manifest.version;
+          if (!current || compareVersions2(version, current) <= 0) throw new Error("\u63D2\u4EF6\u5B89\u88C5\u72B6\u6001\u5DF2\u6539\u53D8\uFF0C\u8BF7\u91CD\u65B0\u68C0\u6D4B\u66F4\u65B0\u3002");
+        }
+        return this.swap(id, compilePackage(pkg), pkg, void 0, { restartDependents: !0 });
+      });
     }
     async swap(id, module, pkg, previousOverride, { restartDependents = !1 } = {}) {
       var _a2, _b2, _c, _d;
@@ -3695,7 +3744,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         old && (this.markLiveCoverage(old), this.deactivate(old)), restartDependents && (candidate.maintenance = "updating");
         try {
           if (this.attachSlot(id, candidate), this.onChange(), record.enabled && await this.activate(candidate), this.closed) throw new Error("\u63D2\u4EF6\u5B89\u88C5\u5DF2\u53D6\u6D88");
-          await this.store.put(record), this.loadIssues.delete(id);
+          await this.store.put(record), this.loadIssues.delete(id), this.bundledInstallIssues.delete(id);
         } catch (error) {
           if (this.deactivate(candidate), this.slots.delete(id), this.eventRoutes.clear(), old && !this.closed && (old.maintenance = candidate.maintenance, old.restartUsed = !1, old.error = "", await this.catchUp(old), !this.closed && (this.attachSlot(id, old), old.record.enabled)))
             try {
@@ -5463,41 +5512,6 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       dispose
     };
   }
-  var numeric = (a, b) => (a = a.replace(/^0+(?=\d)/, ""), b = b.replace(/^0+(?=\d)/, ""), Math.sign(a.length - b.length) || (a === b ? 0 : a > b ? 1 : -1));
-  function parse(version) {
-    var _a2;
-    let match = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(version);
-    return match && { core: match.slice(1, 4), pre: ((_a2 = match[4]) == null ? void 0 : _a2.split(".")) || [] };
-  }
-  function compareVersions2(a, b) {
-    let left = parse(a), right = parse(b);
-    if (!left || !right) throw new Error("\u63D2\u4EF6\u7248\u672C\u683C\u5F0F\u65E0\u6548\u3002");
-    for (let i2 = 0; i2 < 3; i2++) {
-      let order = numeric(left.core[i2], right.core[i2]);
-      if (order) return order;
-    }
-    if (!left.pre.length || !right.pre.length) return Math.sign(right.pre.length) - Math.sign(left.pre.length);
-    for (let i2 = 0; i2 < Math.max(left.pre.length, right.pre.length); i2++) {
-      let x2 = left.pre[i2], y = right.pre[i2];
-      if (x2 === void 0 || y === void 0) return x2 === void 0 ? -1 : 1;
-      if (x2 === y) continue;
-      let xn = /^\d+$/.test(x2), yn = /^\d+$/.test(y), order = xn && yn ? numeric(x2, y) : xn !== yn ? xn ? -1 : 1 : x2 > y ? 1 : -1;
-      if (order) return order;
-    }
-    return 0;
-  }
-  function findPluginUpdates(installed, entries) {
-    let latest = /* @__PURE__ */ new Map();
-    for (let entry of entries) {
-      if (!/^\d+\.\d+\.\d+$/.test(entry.version)) continue;
-      let previous = latest.get(entry.id);
-      (!previous || compareVersions2(entry.version, previous.version) > 0) && latest.set(entry.id, entry);
-    }
-    return installed.map((plugin) => {
-      let entry = latest.get(plugin.id), order = entry ? compareVersions2(entry.version, plugin.version) : null;
-      return { id: plugin.id, entry, status: order === null ? "unavailable" : order > 0 ? "update" : order < 0 ? "newer" : "current" };
-    });
-  }
   function planDependencies(target, installed, catalog) {
     let existing = new Map(installed.map((item) => [item.id, item])), latest = /* @__PURE__ */ new Map();
     for (let item of catalog)
@@ -5866,7 +5880,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       active = !1, off();
     };
   }
-  function mountCardStyleWorkshop(container, { document: doc, cardStyles, settings }) {
+  function mountCardStyleWorkshop(container, { document: doc, cardStyles, settings, bindFold }) {
     let details = doc.createElement("section");
     details.className = "card-style-workshop plugin-group";
     let heading = doc.createElement("h3");
@@ -5880,10 +5894,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let apply = (expanded) => {
       body.hidden = !expanded, toggle.setAttribute("aria-expanded", String(expanded)), toggle.title = (expanded ? "\u6536\u8D77" : "\u5C55\u5F00") + "\u5361\u724C\u5916\u89C2", toggle.setAttribute("aria-label", toggle.title);
     };
-    apply(settings.get("cardStyleExpanded", !1)), toggle.onclick = () => {
-      let expanded = body.hidden;
-      settings.set("cardStyleExpanded", expanded), apply(expanded), expanded ? localFaces == null || localFaces.loadCatalog() : catalog == null || catalog.close();
-    }, heading.append(toggle), details.append(heading, body), container.append(details);
+    heading.append(toggle), details.append(heading, body), container.append(details);
     let options = doc.createElement("div");
     body.append(options);
     let faceOptions = doc.createElement("div");
@@ -5891,7 +5902,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let catalog = cardStyles != null && cardStyles.previewCardAtlas ? mountCardFaceCatalog(body, doc, cardStyles) : null, faceEditor = doc.createElement("section");
     body.append(faceEditor);
     let localFaces = cardStyles != null && cardStyles.listLocalFaces ? mountLocalFaces(faceEditor, doc, cardStyles) : null;
-    localFaces || (faceEditor.hidden = !0), body.hidden || localFaces == null || localFaces.loadCatalog();
+    localFaces || (faceEditor.hidden = !0);
+    let onChange = (expanded) => expanded ? localFaces == null ? void 0 : localFaces.loadCatalog() : catalog == null ? void 0 : catalog.close(), defaultExpanded = settings.get("cardStyleExpanded", !1);
+    bindFold ? bindFold(":card-style-workshop", toggle, body, "\u5361\u724C\u5916\u89C2", !defaultExpanded, { onChange }) : (apply(defaultExpanded), toggle.onclick = () => {
+      let expanded = body.hidden;
+      settings.set("cardStyleExpanded", expanded), apply(expanded), onChange(expanded);
+    }), body.hidden || localFaces == null || localFaces.loadCatalog();
     let backOptions = doc.createElement("div");
     body.append(backOptions);
     let unmountLocal = cardStyles != null && cardStyles.listLocalBacks ? mountLocalBacks(body, doc, cardStyles) : null, status = doc.createElement("p");
@@ -6641,6 +6657,45 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       event.defaultPrevented || event.repeat || event.isComposing || isTyping(event) || matchesShortcut(event, settings.get("screenshotShortcut", DEFAULT_SCREENSHOT_SHORTCUT)) && (event.preventDefault(), event.stopPropagation(), capture());
     }), { capture };
   }
+  async function updateInstalledPlugins({ manager: manager2, client, catalog, checkCurrent, onProgress }) {
+    let installed = new Map(manager2.list().map((item) => [item.id, item])), entries = new Map(findPluginUpdates([...installed.values()], catalog).filter((item) => item.status === "update").map((item) => [item.id, item.entry])), finished = /* @__PURE__ */ new Map(), visiting = /* @__PURE__ */ new Set(), updated = 0, processed = 0;
+    async function visit(id) {
+      var _a2, _b2;
+      if (visiting.has(id)) throw new Error("\u524D\u7F6E\u63D2\u4EF6\u5FAA\u73AF\u4F9D\u8D56\uFF1A" + id);
+      if (finished.has(id)) return finished.get(id);
+      let entry = entries.get(id);
+      visiting.add(id);
+      let error;
+      try {
+        for (let dependency of (entry == null ? void 0 : entry.dependencies) ?? ((_a2 = installed.get(id)) == null ? void 0 : _a2.dependencies) ?? [])
+          if (await visit(dependency)) throw new Error("\u8BF7\u5148\u4FEE\u590D\u524D\u7F6E\u63D2\u4EF6\u300C" + (((_b2 = installed.get(dependency)) == null ? void 0 : _b2.name) || dependency) + "\u300D\u7684\u66F4\u65B0\u3002");
+        if (entry) {
+          checkCurrent(), onProgress(++processed, entries.size, entry.name);
+          let checkInstall = () => {
+            let list2 = manager2.list(), current = list2.find((item) => item.id === id);
+            if (!current || compareVersions2(entry.version, current.version) <= 0) return !1;
+            if (current.enabled) {
+              let missing = planDependencies(entry, list2, catalog);
+              if (missing.length) throw new Error("\u8BF7\u5728\u6B64\u63D2\u4EF6\u7684\u66F4\u65B0\u5361\u7247\u4E2D\u5B89\u88C5\u65B0\u589E\u524D\u7F6E\uFF1A" + missing.map((item) => item.name).join("\u3001"));
+            }
+            return !0;
+          };
+          if (checkInstall()) {
+            let pkg = await client.getPackage(entry);
+            checkCurrent(), checkInstall() && (await manager2.install(pkg, { updateOnly: !0 }), updated++);
+          }
+        }
+      } catch (failure) {
+        error = failure;
+      } finally {
+        visiting.delete(id);
+      }
+      return finished.set(id, error), error;
+    }
+    for (let id of entries.keys())
+      checkCurrent(), await visit(id);
+    return checkCurrent(), { updated, failures: [...entries].filter(([id]) => finished.get(id)).map(([id, entry]) => ({ entry, error: finished.get(id) })) };
+  }
   var SHANHE_MAP_SCENES = /* @__PURE__ */ new Set(["RogueLikeBigMapScene", "RogueSmallMapScene"]), SHANHE_BATTLE_SCENE = "RogueLikeGameScene";
   function gameViewForScene(scene) {
     let name = (scene == null ? void 0 : scene.SceneName) || (scene == null ? void 0 : scene.sceneName) || (scene == null ? void 0 : scene.name);
@@ -6791,11 +6846,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       Array.isArray(row.general) && row.general.filter(Number.isFinite).join(" / ")
     ].filter(Boolean).join(" \xB7 ");
   }
-  var DEEPSEEK_HARNESS_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAVCAMAAABi3H5uAAAAbFBMVEVNa/0AAABRcf9Ma/1Mav1Maf5Mav1Mav4AAP9Mav1Mav1TVf1/f/9Ldv00Zv8/f/8Af/9paf8A//88Wv8/P/9Ibdp/AP9Scf////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5PzKcAAAAJHRSTlP6AP6uTxLMLwFskgQCDQUFAgYBEQQHAn4BAAAAAAAAAAAAAAAPe0/TAAABIElEQVR42lWSi5LDIAhFuQKiRpO2+/z/L11Q29kyk4xy9PKSAJQDy1TV/0POo6D0AgJu7jUTs8rE5YKQoVwP9xI6voQppUSJSHFHpSwhUCv1Mlq4l7XxXapva2WmRv1qL+TGCpsLdxpB/jNKTttefdLBbzDo0baG3yXObzibeHDznEioAmfkuzKKg/4JvHiqqR6jAJLXLVsyNqEkxr30AeVNI3DW/jth1tJdedOKKI1971BDP1YXxlKOn8R50GBPvnh/PYjs6ikfwTCbUHEWxEDarsY7v6Dm5MLlrD+KM6cVdzJQ914GdQU2WNA89nzJxylOm8xh6Ed0k2vf0N+B5LQbnJmjmXx7LAgftz4zSVl0mOlTdhZRVJpfavZ8TtP+AAg4CCzveQRoAAAAAElFTkSuQmCC", ALIYUN_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAASCAMAAAB/2U7WAAAAbFBMVEX/agAAAAD/fgD/cgD/VwD/aAD/aQD/AAD/awD/aQD/aAD//wD/agD/qgD/aQD/PwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADDHyQ6AAAAJHRSTlP7AAX/BIsTAS+qawHRA1AEAAAAAAAAAAAAAAAAAAAAAAAAAAB5qJ0tAAAAmUlEQVR42n2RSRbEIAhEKVRwTO5/26YN2p2NfyNSj5kgiSahDDVGCc8/CUi6az1rBKLm7moXmnGBeskYMAZy6TR1T5kuARom9sjl/i/VfMxwplVpdSIxMjg60xTvK1TsqB2N6mJSVqtTHatvjrREcIOU1UERNMZL5J/IL1Gt5p03t9XcaY8NPaNoc/R/lOMSDus7Lv54stOxP6ViBpkjWWghAAAAAElFTkSuQmCC", DOUBAO_WORK_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABoAAAAcCAMAAABIzV/hAAABamlDQ1BJQ0MgUHJvZmlsZQAAeJx1kL1Lw1AUxU+rUtA6iA4dHDKJQ9TSCnZxaCsURTBUBatTmn4JbXwkKVJxE1cp+B9YwVlwsIhUcHFwEEQHEd2cOim4aHjel1TaIt7H5f04nHO5XMAbUBkr9gIo6ZaRTMSktdS65HuDh55TqmayqKIsCv79u+vz0fXeT4hZTbt2ENlPXJfOLpd2ngJTf/1d1Z/Jmhr939RBjRkW4JGJlW2LCd4lHjFoKeKq4LzLx4LTLp87npVknPiWWNIKaoa4SSynO/R8B5eKZa21g9jen9VXl8Uc6lHMYRMmGIpQUYEEBeF//NOOP44tcldgUC6PAizKREkRE7LE89ChYRIycQhB6pC4c+t+D637yW1t7xWYbXDOL9raQgM4naGT1dvaeAQYGgBu6kw1VEfqofbmcsD7CTCYAobvKLNh5sIhd3t/DOh74fxjDPAdAnaV868jzu0ahZ+BK/0HFylqvLiAv9gAAADAUExUReHh6S8fG5FpXWVYWdTm+6Sdo0srIdqomcqPeNPm/dXj9ltWXaKy1xsUFbjD4AAA/7CEdaSkpLDg/6S03TYeFptuXikdH3d4h7jF6eKtn2pqAKO03Y1RPFo3NfvRv8Grtr/g/6qqVYdYRZFISP//f3///36BjX+/v2dUT1JAPHhKOFEyLEElHAAAACwXENfo+xcVGOn2/gwICa674vrIt25FN1U3Lv7XyrjG6O+6qql4Zv///6q22MLN78+bh6qq/3J83NsAAABAdFJOU/vy/v6g/vz+/mYYDShY5gH/AxVpqq4w/XI2AtT/LMl0mANxBwIC/wRn/0iEWQD+/P7+/v7+/f7+/v7+Av3+/wMGEVRiAAABv0lEQVR42k3SiXKkIBAG4AYEde7MzuTOXtl7F1AGULzm/d8qDWY2+a3S0s9uURvknHv5/O9ADn+f5P/AfPgin4hSyjuxXsrle7qSf4SK5JUi168WaftN3rkoxPm4X8r77Uz9d1nax1Ql0h2slH0fadvLz5B3KpFXhhC1yeR5i3SWGfCC+WRuN3XK3NRoEs6yhJY6GhuKzgLAzjCtS7mHfqGBC58e0kETI5D0ogdsp6lIK+uKbmpskbsfWJtJWOAdTKX33XVTsKGYaKtjGZSJYgquvLU7T0MUXUJWz2ScDZQ3DSW5jVJnkWqG/Qi1tgHcgoVXAiROYlWwmNAkuFRp/dtUylC0PIS8fiMsBGYU64rcQi54DXVMBmWkugaq2FR0HLjW4zi2LdzCAq9r2HAuDGGK4Vl7Op2GYVjBAnAVpDLqsaqM8YxDG+30sAdZDqaKoQ6PvjJ8jFXtB/wpPUlSEYo7V5EBi4bTwwo/r7yeyVBviDNsTP1W8gw4I+vZBDXCmRtAwHZX80StjcElVJR2Lj6qRfl5GbY1IZ7mDX4nOozjBru9jejy18cmTFORh3ZzO8uFMHdfD8fj8dM+TWzMC3SQaG1K8VniAAAAAElFTkSuQmCC", WORKBUDDY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAAwFBMVEUAAAAAAADm5ub6+vra2tqYmJgWFhYAAAAAAABKSkq4uLipqaloaGiCgoIAAAA7OztUVFQnJyd/f38AAAD////JyckAAAB5eXkAAAAcHBw5OTlVVVVjY2MXFxevr6+srKyqqqqLi4uDg4Nzc3N9fX2srKxoaGhhYWFra2ujo6NmZmZSUlJVVVWzs7NCQkLCwsIVFRXDw8PR0dEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC2Gk4uAAAAQHRSTlP9Av7+/vv9NVP/+f/+/sj//v8CswH+kP9rKwwDLxR6IgPLrY1oiN+DYbAFjiSKF61gyroAAAAAAAAAAAAAAAAANphvowAAAUZJREFUeNpdk9eSgzAMRWXJxoBpoYQkm2y29/7/H7fCBXDuCzM6oytZEiCC9LYCVrfTByFaGwKPUkuctkcfdFB3sFJtHg/iKsB0jSDJUb7OmTGDQkqJd6K3UMcsMchweGfKsIthMyVKUj+ihUtTUCiRRU+TbRWbNhYxlPdvEFXcFAaDCM+wXWWNA7m40zUsrk2OthzJsmkKQ5QveaV0CMeNm5NEKJRRZZHVyhcym7kBCYN0cmjI1i+GPJCp2Hjx5lv0jFAFx7q2nwpeQpqZHWukxu4VTr6TlWNGJBP+ahDPlql1qZyoZFee7V4R10uiUyAaEkgF9OIBwzBGLPxAUEHHW2n707d1YUki3zAb6WllN/3x10O1mmfqbqgVH38ulnDxbGH2wFrx9ekaKogsrPRyt3yje7fXzLJddNTT9eudu7Qunf+Qf4IsDZSJTVD2AAAAAElFTkSuQmCC", CODEX_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAAwFBMVEWWrPHU7e1tm/VvjvhidPqrzuKKnva8xPnU3/Vyi/NyjPzP1faCfv/R2v7//7RrfPj//wCjt/2VsPk/P/9IkW1QY/1mZv9mf5l/f38A//8A/wCq1KoAAAB0lv6Slf5tiP6upP40Of87RP/9//1IV/5bdf5sef5SZ/6Kif/r9P6lm/5CTP4AAP+ut/1/f/+LqPzJ1f2cuP3IyvhVVf9obP1PWfzHxvu4yPxodvjb5v5pePt0k/tWZfdSXfTBvP1gbPqNRrZsAAAAQHRSTlMWHh2YlhlmnV1h6IX9/wNQAcCPBAfVBQoCAQEGAP7+/f79/gL+/v3+/v/+/QH/Av///60D8tPP/3H/w6+spPCiNF86AgAAAY9JREFUeNpdktlimzAQRQcMju1sXZO2GYlFSCCxuTjeYif5/7/KSGBKel4QOlcz8zCADoHoLbruevHHHgUIdwuDu7t+i42J6503pgcphNfV3Fjit2636xahE056eBXzeIItIJwUgPDZGc7jkCy4Wa4MN1NpioKHws4lqCZhRmMML4pijg0I7ytXBf9MUdyoF5L4jUfR/4rc8/MPBGBRxBi/3Y+CUIrkI8KSkWOt1i1zMrJYacvOmGOv1/3hInM1Rzj1d+2trtk/rZTMV3B5SU+PKzbVUi3Bj+xAjNX62DI20UoG8OXkurCjriPGplq9QAUrKZWs9dpWaP9a2t7OYIPnPM+V1lxSAd3TDhLFz4yo41wS9dqy77v6UOG2LLMszbLcYSPSTTFD+I6vKVHaxBDo/enJp573ZZKkaZ/IhoSM5nd2Cxo8J45pIAgRK9qEpoJtMtInMh/9fsFoV97LdOKTMqB6w/b9os/h/BpcCpTvYlONe/vbHTEMStt0e8Cqmmw8Ns1m80B/94fDUlwcfgABqGMlGtELwgAAAABJRU5ErkJggg==", TENCENT_CLOUD_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAUCAMAAACpgK3LAAAAwFBMVEUAAAAAp/4Aff8Acv8A//8Aov8ApPsAbf8AyNsAzeEAmP8Aov8A1eoAqf8Abf8Aav8AAP8Ax9sAxtwAVv8ApP8AxdoA1dUAx9wAof8Ax9sAo/8Abf8Abf8AyNsAbP8AydoAv78AcP8At9YAnf8AiPUAa/8AcP8Av/8AnNUAqtQAseMAsv8Af38AzeEAzeEAqqoAmZkAb/8Ay+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAtI5oBAAAAQHRSTlMA+wT+Aa3L8PL8C5P+B60LAa2NBTAyB8tNTXKUz3AvEwVDCCkPTTYEBgbG/wJOmQMFe8oAAAAAAAAAAAAAAAAAyV+ZsAAAATpJREFUeNplj4d2wyAMRWXMtgHjPbNX9/j/j6uwmyY9ecdgSRd4EsAiAsXWjkKM9ugw+acCVjb+lT1heqcMtiKOhR0GG/5bLNxEnUC0CuEJsVjdQQI2FoODwrkC3CBie7P9gBXmhDg8nzlCRjFem6K4vmJxBEJne+ybHMgC8KumZ87zao6xuu8ZZ30Z2nytJ5kGyakGSojpoyh6wdUbAjRPlWx8I5XMazA6wTpnHPeEQiVV061hPUml/C5j8x0wLeISvJLd4vyd5hdkHN0MQBtFDGTq6ROldAPV2yGwPWiSGUMwRpjDLsxwAbcwEzINyQw93eCrZ9CB6WV6quebXqkK6noHmge/MzEaZaAMnp3CbvFsyUP2p9BtCxuPc/o8D5Ox5KowEUOD9btSqYwelOjwwmfnmwfEWg3ZDzwKEsFIDr3QAAAAAElFTkSuQmCC", PRIVATE_SERVER_REPOSITORY = "https://github.com/Usernametoolongmaximumis39/sgs-ol-toolbox-sync-server";
+  var DEEPSEEK_HARNESS_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAVCAMAAABi3H5uAAAAbFBMVEVNa/0AAABRcf9Ma/1Mav1Maf5Mav1Mav4AAP9Mav1Mav1TVf1/f/9Ldv00Zv8/f/8Af/9paf8A//88Wv8/P/9Ibdp/AP9Scf////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5PzKcAAAAJHRSTlP6AP6uTxLMLwFskgQCDQUFAgYBEQQHAn4BAAAAAAAAAAAAAAAPe0/TAAABIElEQVR42lWSi5LDIAhFuQKiRpO2+/z/L11Q29kyk4xy9PKSAJQDy1TV/0POo6D0AgJu7jUTs8rE5YKQoVwP9xI6voQppUSJSHFHpSwhUCv1Mlq4l7XxXapva2WmRv1qL+TGCpsLdxpB/jNKTttefdLBbzDo0baG3yXObzibeHDznEioAmfkuzKKg/4JvHiqqR6jAJLXLVsyNqEkxr30AeVNI3DW/jth1tJdedOKKI1971BDP1YXxlKOn8R50GBPvnh/PYjs6ikfwTCbUHEWxEDarsY7v6Dm5MLlrD+KM6cVdzJQ914GdQU2WNA89nzJxylOm8xh6Ed0k2vf0N+B5LQbnJmjmXx7LAgftz4zSVl0mOlTdhZRVJpfavZ8TtP+AAg4CCzveQRoAAAAAElFTkSuQmCC", ALIYUN_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAASCAMAAAB/2U7WAAAAbFBMVEX/agAAAAD/fgD/cgD/VwD/aAD/aQD/AAD/awD/aQD/aAD//wD/agD/qgD/aQD/PwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADDHyQ6AAAAJHRSTlP7AAX/BIsTAS+qawHRA1AEAAAAAAAAAAAAAAAAAAAAAAAAAAB5qJ0tAAAAmUlEQVR42n2RSRbEIAhEKVRwTO5/26YN2p2NfyNSj5kgiSahDDVGCc8/CUi6az1rBKLm7moXmnGBeskYMAZy6TR1T5kuARom9sjl/i/VfMxwplVpdSIxMjg60xTvK1TsqB2N6mJSVqtTHatvjrREcIOU1UERNMZL5J/IL1Gt5p03t9XcaY8NPaNoc/R/lOMSDus7Lv54stOxP6ViBpkjWWghAAAAAElFTkSuQmCC", DOUBAO_WORK_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABoAAAAcCAMAAABIzV/hAAABamlDQ1BJQ0MgUHJvZmlsZQAAeJx1kL1Lw1AUxU+rUtA6iA4dHDKJQ9TSCnZxaCsURTBUBatTmn4JbXwkKVJxE1cp+B9YwVlwsIhUcHFwEEQHEd2cOim4aHjel1TaIt7H5f04nHO5XMAbUBkr9gIo6ZaRTMSktdS65HuDh55TqmayqKIsCv79u+vz0fXeT4hZTbt2ENlPXJfOLpd2ngJTf/1d1Z/Jmhr939RBjRkW4JGJlW2LCd4lHjFoKeKq4LzLx4LTLp87npVknPiWWNIKaoa4SSynO/R8B5eKZa21g9jen9VXl8Uc6lHMYRMmGIpQUYEEBeF//NOOP44tcldgUC6PAizKREkRE7LE89ChYRIycQhB6pC4c+t+D637yW1t7xWYbXDOL9raQgM4naGT1dvaeAQYGgBu6kw1VEfqofbmcsD7CTCYAobvKLNh5sIhd3t/DOh74fxjDPAdAnaV868jzu0ahZ+BK/0HFylqvLiAv9gAAADAUExUReHh6S8fG5FpXWVYWdTm+6Sdo0srIdqomcqPeNPm/dXj9ltWXaKy1xsUFbjD4AAA/7CEdaSkpLDg/6S03TYeFptuXikdH3d4h7jF6eKtn2pqAKO03Y1RPFo3NfvRv8Grtr/g/6qqVYdYRZFISP//f3///36BjX+/v2dUT1JAPHhKOFEyLEElHAAAACwXENfo+xcVGOn2/gwICa674vrIt25FN1U3Lv7XyrjG6O+6qql4Zv///6q22MLN78+bh6qq/3J83NsAAABAdFJOU/vy/v6g/vz+/mYYDShY5gH/AxVpqq4w/XI2AtT/LMl0mANxBwIC/wRn/0iEWQD+/P7+/v7+/f7+/v7+Av3+/wMGEVRiAAABv0lEQVR42k3SiXKkIBAG4AYEde7MzuTOXtl7F1AGULzm/d8qDWY2+a3S0s9uURvknHv5/O9ADn+f5P/AfPgin4hSyjuxXsrle7qSf4SK5JUi168WaftN3rkoxPm4X8r77Uz9d1nax1Ql0h2slH0fadvLz5B3KpFXhhC1yeR5i3SWGfCC+WRuN3XK3NRoEs6yhJY6GhuKzgLAzjCtS7mHfqGBC58e0kETI5D0ogdsp6lIK+uKbmpskbsfWJtJWOAdTKX33XVTsKGYaKtjGZSJYgquvLU7T0MUXUJWz2ScDZQ3DSW5jVJnkWqG/Qi1tgHcgoVXAiROYlWwmNAkuFRp/dtUylC0PIS8fiMsBGYU64rcQi54DXVMBmWkugaq2FR0HLjW4zi2LdzCAq9r2HAuDGGK4Vl7Op2GYVjBAnAVpDLqsaqM8YxDG+30sAdZDqaKoQ6PvjJ8jFXtB/wpPUlSEYo7V5EBi4bTwwo/r7yeyVBviDNsTP1W8gw4I+vZBDXCmRtAwHZX80StjcElVJR2Lj6qRfl5GbY1IZ7mDX4nOozjBru9jejy18cmTFORh3ZzO8uFMHdfD8fj8dM+TWzMC3SQaG1K8VniAAAAAElFTkSuQmCC", WORKBUDDY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAAwFBMVEUAAAAAAADm5ub6+vra2tqYmJgWFhYAAAAAAABKSkq4uLipqaloaGiCgoIAAAA7OztUVFQnJyd/f38AAAD////JyckAAAB5eXkAAAAcHBw5OTlVVVVjY2MXFxevr6+srKyqqqqLi4uDg4Nzc3N9fX2srKxoaGhhYWFra2ujo6NmZmZSUlJVVVWzs7NCQkLCwsIVFRXDw8PR0dEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC2Gk4uAAAAQHRSTlP9Av7+/vv9NVP/+f/+/sj//v8CswH+kP9rKwwDLxR6IgPLrY1oiN+DYbAFjiSKF61gyroAAAAAAAAAAAAAAAAANphvowAAAUZJREFUeNpdk9eSgzAMRWXJxoBpoYQkm2y29/7/H7fCBXDuCzM6oytZEiCC9LYCVrfTByFaGwKPUkuctkcfdFB3sFJtHg/iKsB0jSDJUb7OmTGDQkqJd6K3UMcsMchweGfKsIthMyVKUj+ihUtTUCiRRU+TbRWbNhYxlPdvEFXcFAaDCM+wXWWNA7m40zUsrk2OthzJsmkKQ5QveaV0CMeNm5NEKJRRZZHVyhcym7kBCYN0cmjI1i+GPJCp2Hjx5lv0jFAFx7q2nwpeQpqZHWukxu4VTr6TlWNGJBP+ahDPlql1qZyoZFee7V4R10uiUyAaEkgF9OIBwzBGLPxAUEHHW2n707d1YUki3zAb6WllN/3x10O1mmfqbqgVH38ulnDxbGH2wFrx9ekaKogsrPRyt3yje7fXzLJddNTT9eudu7Qunf+Qf4IsDZSJTVD2AAAAAElFTkSuQmCC", CODEX_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAAwFBMVEWWrPHU7e1tm/VvjvhidPqrzuKKnva8xPnU3/Vyi/NyjPzP1faCfv/R2v7//7RrfPj//wCjt/2VsPk/P/9IkW1QY/1mZv9mf5l/f38A//8A/wCq1KoAAAB0lv6Slf5tiP6upP40Of87RP/9//1IV/5bdf5sef5SZ/6Kif/r9P6lm/5CTP4AAP+ut/1/f/+LqPzJ1f2cuP3IyvhVVf9obP1PWfzHxvu4yPxodvjb5v5pePt0k/tWZfdSXfTBvP1gbPqNRrZsAAAAQHRSTlMWHh2YlhlmnV1h6IX9/wNQAcCPBAfVBQoCAQEGAP7+/f79/gL+/v3+/v/+/QH/Av///60D8tPP/3H/w6+spPCiNF86AgAAAY9JREFUeNpdktlimzAQRQcMju1sXZO2GYlFSCCxuTjeYif5/7/KSGBKel4QOlcz8zCADoHoLbruevHHHgUIdwuDu7t+i42J6503pgcphNfV3Fjit2636xahE056eBXzeIItIJwUgPDZGc7jkCy4Wa4MN1NpioKHws4lqCZhRmMML4pijg0I7ytXBf9MUdyoF5L4jUfR/4rc8/MPBGBRxBi/3Y+CUIrkI8KSkWOt1i1zMrJYacvOmGOv1/3hInM1Rzj1d+2trtk/rZTMV3B5SU+PKzbVUi3Bj+xAjNX62DI20UoG8OXkurCjriPGplq9QAUrKZWs9dpWaP9a2t7OYIPnPM+V1lxSAd3TDhLFz4yo41wS9dqy77v6UOG2LLMszbLcYSPSTTFD+I6vKVHaxBDo/enJp573ZZKkaZ/IhoSM5nd2Cxo8J45pIAgRK9qEpoJtMtInMh/9fsFoV97LdOKTMqB6w/b9os/h/BpcCpTvYlONe/vbHTEMStt0e8Cqmmw8Ns1m80B/94fDUlwcfgABqGMlGtELwgAAAABJRU5ErkJggg==", TENCENT_CLOUD_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAUCAMAAACpgK3LAAAAwFBMVEUAAAAAp/4Aff8Acv8A//8Aov8ApPsAbf8AyNsAzeEAmP8Aov8A1eoAqf8Abf8Aav8AAP8Ax9sAxtwAVv8ApP8AxdoA1dUAx9wAof8Ax9sAo/8Abf8Abf8AyNsAbP8AydoAv78AcP8At9YAnf8AiPUAa/8AcP8Av/8AnNUAqtQAseMAsv8Af38AzeEAzeEAqqoAmZkAb/8Ay+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAtI5oBAAAAQHRSTlMA+wT+Aa3L8PL8C5P+B60LAa2NBTAyB8tNTXKUz3AvEwVDCCkPTTYEBgbG/wJOmQMFe8oAAAAAAAAAAAAAAAAAyV+ZsAAAATpJREFUeNplj4d2wyAMRWXMtgHjPbNX9/j/j6uwmyY9ecdgSRd4EsAiAsXWjkKM9ugw+acCVjb+lT1heqcMtiKOhR0GG/5bLNxEnUC0CuEJsVjdQQI2FoODwrkC3CBie7P9gBXmhDg8nzlCRjFem6K4vmJxBEJne+ybHMgC8KumZ87zao6xuu8ZZ30Z2nytJ5kGyakGSojpoyh6wdUbAjRPlWx8I5XMazA6wTpnHPeEQiVV061hPUml/C5j8x0wLeISvJLd4vyd5hdkHN0MQBtFDGTq6ROldAPV2yGwPWiSGUMwRpjDLsxwAbcwEzINyQw93eCrZ9CB6WV6quebXqkK6noHmge/MzEaZaAMnp3CbvFsyUP2p9BtCxuPc/o8D5Ox5KowEUOD9btSqYwelOjwwmfnmwfEWg3ZDzwKEsFIDr3QAAAAAElFTkSuQmCC", PRIVATE_SERVER_REPOSITORY = "https://github.com/Usernametoolongmaximumis39/sgs-ol-toolbox-sync-server", TEST_NOTICE = "\u8FD9\u662F\u4E91\u540C\u6B65\u6D4B\u8BD5\u670D\u52A1\u5668\uFF0C\u6D4B\u8BD5\u7ED3\u675F\u540E\u4F1A\u505C\u7528\u3002\u5907\u4EFD\u7531\u5DE5\u5177\u7BB1\u52A0\u5BC6\u540E\u4E0A\u4F20\u3002\u6CA1\u6709\u516D\u4F4D\u8BBF\u95EE\u7801\uFF0C\u5176\u4ED6\u4EBA\u65E0\u6CD5\u901A\u8FC7\u5206\u4EAB\u94FE\u63A5\u89E3\u5BC6\u4F60\u7684\u6570\u636E\u3002";
   function downloadSyncBackup(window2, preferences) {
     return preferences.restore(() => window2.confirm("\u5C06\u6062\u590D\u5F53\u524D\u8D26\u53F7\u7684\u4E91\u7AEF\u8BBE\u7F6E\u548C\u6C34\u8868\uFF0C\u5E76\u5408\u5E76\u8D26\u672C\u53CA\u6218\u7EE9\u3002\u7EE7\u7EED\u4E0B\u8F7D\uFF1F"));
   }
-  function mountSyncSettings(document2, window2, sync, preferences) {
+  function mountSyncSettings(document2, window2, sync, preferences, { initialMode = "private", onModeChange } = {}) {
     let node = (tag, label, className) => {
       let element = document2.createElement(tag);
       return label && (element.textContent = label), className && (element.className = className), element;
@@ -6805,6 +6860,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     .sync-settings label{display:grid;min-width:0;gap:4px}
     .sync-settings input:not(.sgs-switch),.sync-settings textarea{width:100%;min-width:0;box-sizing:border-box;color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 8px;font:inherit}
     .sync-settings textarea{resize:vertical;line-height:1.45;overflow-wrap:anywhere}
+    .sync-settings .sync-address{min-height:31px;resize:none;overflow:hidden;white-space:pre}
     .sync-settings :is(input,textarea,summary):focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
     .sync-settings summary{cursor:pointer;color:var(--sgs-text)}
     .sync-settings details[open]>summary{margin-bottom:8px}
@@ -6824,6 +6880,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     .sync-download svg{width:16px;height:16px;flex:none;margin:0}
     .sync-private-setup{gap:7px;padding:9px 10px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-surface)}
     .sync-private-setup .sync-actions{min-width:0}
+    .sync-test{gap:6px;padding:8px 10px;border-left:2px solid var(--sgs-accent);background:var(--sgs-surface);border-radius:6px}
     .sync-settings .sync-copy-link{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;white-space:nowrap}
     .sync-copy-link svg{width:14px;height:14px;flex:none}
     .sync-setup-resources{display:grid;gap:4px}
@@ -6842,6 +6899,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     function short(control, size) {
       control.maxLength = size, control.className = "sync-short";
+    }
+    function serverAddress(label, placeholder) {
+      let result2 = input(label, "textarea"), { control } = result2;
+      return control.className = "sync-address", control.rows = 1, control.wrap = "off", control.placeholder = placeholder, control.setAttribute("autocapitalize", "off"), control.addEventListener("keydown", (event) => {
+        event.key === "Enter" && !event.isComposing && event.preventDefault();
+      }), result2;
     }
     function details(title, ...children2) {
       let block = node("details"), body = node("div", "", "sync-stack");
@@ -6887,7 +6950,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     let privatePanel = node("div", "", "sync-stack"), publicPanel = node("div", "", "sync-stack"), chooser = node("div", "", "sync-chooser"), privateButton = act("\u79C1\u6709\u670D\u52A1\u5668", () => select("private")), publicButton = act("\u516C\u5171\u670D\u52A1\u5668", () => select("public")), selectedMode = "private";
     function select(mode) {
-      selectedMode = mode, privateButton.setAttribute("aria-pressed", String(mode === "private")), publicButton.setAttribute("aria-pressed", String(mode === "public")), say("");
+      selectedMode = mode, onModeChange == null || onModeChange(mode), privateButton.setAttribute("aria-pressed", String(mode === "private")), publicButton.setAttribute("aria-pressed", String(mode === "public")), say("");
     }
     chooser.append(privateButton, publicButton);
     function resourceLinks(title, entries) {
@@ -6925,9 +6988,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     );
     let request = readout("\u63D0\u4EA4\u7ED9\u7BA1\u7406\u5458\u7684\u56DB\u4F4D\u7801"), credential = input("\u540E\u53F0\u751F\u6210\u7684\u52A0\u5BC6\u51ED\u636E", "textarea");
     short(request.control, 4), credential.control.maxLength = 660;
-    let address = input("\u79C1\u6709\u670D\u52A1\u5668\u5730\u5740");
-    address.control.placeholder = "http://127.0.0.1:17429";
-    let privateConsent = "\u79C1\u6709\u670D\u52A1\u5668\u652F\u6301 HTTP \u548C HTTPS\uFF0C\u53EF\u8BFB\u53D6\u4E0A\u4F20\u7684\u6570\u636E\u3002HTTP \u4F20\u8F93\u672A\u7ECF\u52A0\u5BC6\u3002\u7ED1\u5B9A\u540E\u5207\u53F7\u53EF\u81EA\u52A8\u63A5\u5165\u540C\u4E00\u670D\u52A1\u5668\uFF0C\u5171 1 \u4E2A\u4E3B\u8D26\u53F7\u548C 4 \u4E2A\u9644\u5C5E\u8D26\u53F7\u3002", privateFields = node("div", "", "sync-stack"), joining = node("p", "", "muted"), ways = node("div", "", "sync-chooser"), fourDigit = node("div", "", "sync-stack");
+    let address = serverAddress("\u79C1\u6709\u670D\u52A1\u5668\u5730\u5740", "http://127.0.0.1:17429"), privateConsent = "\u79C1\u6709\u670D\u52A1\u5668\u652F\u6301 HTTP \u548C HTTPS\uFF0C\u53EF\u8BFB\u53D6\u4E0A\u4F20\u7684\u6570\u636E\u3002HTTP \u4F20\u8F93\u672A\u7ECF\u52A0\u5BC6\u3002\u7ED1\u5B9A\u540E\u5207\u53F7\u53EF\u81EA\u52A8\u63A5\u5165\u540C\u4E00\u670D\u52A1\u5668\uFF0C\u5171 1 \u4E2A\u4E3B\u8D26\u53F7\u548C 4 \u4E2A\u9644\u5C5E\u8D26\u53F7\u3002", privateFields = node("div", "", "sync-stack"), joining = node("p", "", "muted"), ways = node("div", "", "sync-chooser"), fourDigit = node("div", "", "sync-stack");
     function credentialForm(action) {
       let secret = input("\u4E3B\u8D26\u53F7\u7ED1\u5B9A\u51ED\u636E", "textarea"), form = node("div", "", "sync-stack"), inputAccount;
       return secret.control.maxLength = 700, secret.control.addEventListener("input", () => {
@@ -6951,10 +7012,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), request.wrapper, credential.wrapper, act("\u540C\u610F\u5E76\u7ED1\u5B9A\u79C1\u6709\u670D\u52A1\u5668", async () => {
       await sync.bind(credential.control.value.trim()), credential.control.value = request.control.value = "", request.wrapper.hidden = !0, say("\u79C1\u6709\u670D\u52A1\u5668\u7ED1\u5B9A\u6210\u529F");
     }, !0), details("\u66F4\u6539\u79C1\u6709\u670D\u52A1\u5668\u5730\u5740", address.wrapper)), privateFields.append(node("p", privateConsent, "muted"), ways, fourDigit, credentialBinding.form), privatePanel.append(privateSetup, privateFields, joining);
-    let server = input("\u516C\u5171\u670D\u52A1\u5668\u5730\u5740\u6216\u9080\u8BF7\u7801"), restore = input("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea");
-    server.control.placeholder = "https://sync.example.com:8888";
-    let publicBinding = node("div", "", "sync-stack"), publicConsent = "\u670D\u52A1\u5668\u7BA1\u7406\u5458\u53EF\u89C1\u7528\u6237\u7801\u3001\u6635\u79F0\u548C\u8BB0\u5F55\u7F16\u53F7\u3002\u8D26\u672C\u3001\u6218\u7EE9\u548C\u5907\u4EFD\u5185\u5BB9\u5728\u5DE5\u5177\u7BB1\u52A0\u5BC6\u3002";
-    publicBinding.append(
+    let server = serverAddress("\u516C\u5171\u670D\u52A1\u5668\u5730\u5740\u6216\u9080\u8BF7\u7801", "https://sync.example.com:8888"), restore = input("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), publicBinding = node("div", "", "sync-stack"), publicConsent = "\u670D\u52A1\u5668\u7BA1\u7406\u5458\u53EF\u89C1\u7528\u6237\u7801\u3001\u6635\u79F0\u548C\u8BB0\u5F55\u7F16\u53F7\u3002\u8D26\u672C\u3001\u6218\u7EE9\u548C\u5907\u4EFD\u5185\u5BB9\u5728\u5DE5\u5177\u7BB1\u52A0\u5BC6\u3002", testPanel = node("section", "", "sync-stack sync-test"), testButton = act("\u53C2\u52A0\u4E91\u540C\u6B65\u7070\u6D4B", async () => {
+      await sync.bindTest(), say("\u5DF2\u7ED1\u5B9A\u4E91\u540C\u6B65\u6D4B\u8BD5\u670D\u52A1\u5668");
+    }, !0);
+    testButton.dataset.syncBindTest = "", testPanel.append(node("h3", "\u4E91\u540C\u6B65\u7070\u6D4B"), node("p", TEST_NOTICE, "muted"), testButton), publicBinding.append(
       node("p", publicConsent, "muted"),
       server.wrapper,
       node("p", "\u9996\u6B21\u7ED1\u5B9A\u8BF7\u586B\u5199\u7BA1\u7406\u5458\u63D0\u4F9B\u7684\u5730\u5740\u6216\u4E00\u6B21\u6027\u9080\u8BF7\u7801\u3002\u5DF2\u767B\u8BB0\u8D26\u53F7\u53EF\u76F4\u63A5\u586B\u5199\u5730\u5740\u7ED1\u5B9A\u65B0\u8BBE\u5907\u3002", "muted"),
@@ -6969,8 +7030,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           await sync.bindPublic(server.control.value.trim(), restore.control.value), server.control.value = "", restore.control.value = "", say("\u516C\u5171\u7ED1\u5B9A\u5DF2\u6062\u590D");
         })
       )
-    ), publicPanel.append(publicBinding), pairing.append(chooser, privatePanel, publicPanel);
-    let privateActions = node("div", "", "sync-stack"), publicActions = node("div", "", "sync-stack"), share = readout("\u8D26\u672C\u4E0E\u6218\u7EE9\u67E5\u770B\u94FE\u63A5"), prepared = readout("\u8F6C\u6362\u7528\u7684\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), addressUpdate = input("\u5730\u5740\u66F4\u65B0\u7801", "textarea"), recovery = readout("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), publicShare = readout("\u516C\u5171\u5206\u4EAB\u51ED\u636E", "textarea"), password = readout("\u6211\u7684\u516D\u4F4D\u67E5\u770B\u7801"), publicLink = readout("\u516C\u5171 HTTPS \u5206\u4EAB\u94FE\u63A5", "textarea");
+    ), publicPanel.append(testPanel, publicBinding), pairing.append(chooser, privatePanel, publicPanel);
+    let privateActions = node("div", "", "sync-stack"), publicActions = node("div", "", "sync-stack"), share = readout("\u8D26\u672C\u4E0E\u6218\u7EE9\u67E5\u770B\u94FE\u63A5"), prepared = readout("\u8F6C\u6362\u7528\u7684\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), addressUpdate = input("\u5730\u5740\u66F4\u65B0\u7801", "textarea"), recovery = readout("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), publicShare = readout("\u516C\u5171\u5206\u4EAB\u51ED\u636E", "textarea"), password = readout("\u6211\u7684\u516D\u4F4D\u67E5\u770B\u7801"), publicLink = readout("\u516C\u5171 HTTPS \u5206\u4EAB\u94FE\u63A5", "textarea"), testBoundNotice = node("p", TEST_NOTICE, "notice");
     short(password.control, 6);
     let publicMigration = details(
       "\u51C6\u5907\u8F6C\u4E3A\u516C\u5171\u6A21\u5F0F",
@@ -7001,6 +7062,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       publicMigration,
       detach
     ), publicActions.append(
+      testBoundNotice,
       node("p", "\u7BA1\u7406\u5458\u5141\u8BB8\u5206\u4EAB\u65F6\uFF0C\u63A5\u6536\u4EBA\u53EF\u5728\u6D4F\u89C8\u5668\u6253\u5F00 HTTPS \u94FE\u63A5\u5E76\u8F93\u5165\u516D\u4F4D\u67E5\u770B\u7801\u3002\u8BF7\u5206\u5F00\u53D1\u9001\u3002", "muted"),
       act("\u590D\u5236\u516C\u5171\u5206\u4EAB\u94FE\u63A5", async () => copy2(await sync.viewLink(), publicLink), !0),
       publicLink.wrapper,
@@ -7027,7 +7089,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       })
     ), connected.append(privateActions, publicActions);
     let readCode = input("\u63A5\u6536\u7684\u516C\u5171\u5206\u4EAB\u51ED\u636E", "textarea"), readPass = input("\u516D\u4F4D\u67E5\u770B\u7801");
-    short(readPass.control, 6), readPass.control.type = "password";
+    short(readPass.control, 6), readPass.control.type = "password", readPass.control.name = "sgs-sync-view-code";
     let rows = node("ul", "", "sync-preview-rows"), result = node("div", "", "sync-stack"), count = node("p", "", "muted"), filters = node("div", "", "sync-actions"), pager = node("div", "", "sync-actions"), snapshot, page = 0, stream = "events", streamButton = (kind) => act(kind === "events" ? "\u8D26\u672C\u6D41\u6C34" : "\u5BF9\u5C40\u6218\u7EE9", () => {
       stream = kind, page = 0, draw();
     }), events = streamButton("events"), matches = streamButton("matches"), prev = act("\u4E0A\u4E00\u9875", () => {
@@ -7048,8 +7110,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     let readNotice = node("p", "", "notice error");
     readNotice.setAttribute("role", "status"), readNotice.hidden = !0;
-    let viewer = details(
-      "\u67E5\u770B\u4ED6\u4EBA\u5206\u4EAB\u7684\u8BB0\u5F55",
+    let viewForm = node("form", "", "sync-stack");
+    viewForm.autocomplete = "off", viewForm.addEventListener("submit", (event) => event.preventDefault()), viewForm.append(
       readCode.wrapper,
       readPass.wrapper,
       act("\u89E3\u5BC6\u5E76\u67E5\u770B", async () => {
@@ -7064,10 +7126,13 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }, !0),
       readNotice,
       result
-    ), bindingIdentity;
+    );
+    let viewer = details("\u67E5\u770B\u4ED6\u4EBA\u5206\u4EAB\u7684\u8BB0\u5F55", viewForm), bindingIdentity, checkedTestAccount, disposed = !1;
     function refresh() {
-      let status = sync.status(), text3 = status.connected ? status.public ? "\u5F53\u524D\u8D26\u53F7\u5DF2\u7ED1\u5B9A\u516C\u5171\u670D\u52A1\u5668" : "\u5F53\u524D\u8D26\u53F7\u5DF2\u7ED1\u5B9A\u79C1\u6709\u670D\u52A1\u5668" : status.signedIn ? "\u5F53\u524D\u8D26\u53F7\u5C1A\u672A\u7ED1\u5B9A" : "\u767B\u5F55\u6E38\u620F\u540E\u53EF\u7ED1\u5B9A\u540C\u6B65\u670D\u52A1";
-      state.textContent !== text3 && (state.textContent = text3), pairing.hidden = status.connected, privatePanel.hidden = selectedMode !== "private", privateFields.hidden = !status.signedIn, publicPanel.hidden = selectedMode !== "public", publicBinding.hidden = !status.signedIn;
+      if (disposed) return;
+      let status = sync.status(), text3 = status.connected ? status.testing ? "\u5F53\u524D\u8D26\u53F7\u5DF2\u7ED1\u5B9A\u4E91\u540C\u6B65\u6D4B\u8BD5\u670D\u52A1\u5668" : status.public ? "\u5F53\u524D\u8D26\u53F7\u5DF2\u7ED1\u5B9A\u516C\u5171\u670D\u52A1\u5668" : "\u5F53\u524D\u8D26\u53F7\u5DF2\u7ED1\u5B9A\u79C1\u6709\u670D\u52A1\u5668" : status.signedIn ? "\u5F53\u524D\u8D26\u53F7\u5C1A\u672A\u7ED1\u5B9A" : "\u767B\u5F55\u6E38\u620F\u540E\u53EF\u7ED1\u5B9A\u540C\u6B65\u670D\u52A1";
+      state.textContent !== text3 && (state.textContent = text3), pairing.hidden = status.connected, privatePanel.hidden = selectedMode !== "private", privateFields.hidden = !status.signedIn, publicPanel.hidden = selectedMode !== "public", publicBinding.hidden = !status.signedIn, testPanel.hidden = !status.testAvailable, testBoundNotice.hidden = !status.testing, selectedMode === "public" && status.signedIn && !status.connected && !status.testAvailable && checkedTestAccount !== status.accountId && sync.loadTestEligibility && (checkedTestAccount = status.accountId, sync.loadTestEligibility().then(refresh, () => {
+      }));
       let publicSection = status.connected ? publicActions : publicPanel;
       if (viewer.parentElement !== publicSection && publicSection.append(viewer), preferencePanel.hidden = !preferences || !status.connected, preferences) {
         restorePreferences.disabled = preferences.busy, backupError.hidden = !preferences.error, backupError.textContent !== preferences.error && (backupError.textContent = preferences.error);
@@ -7083,10 +7148,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       password.control.value !== status.password && (password.control.value = status.password);
     }
-    root.append(style2, state, pairing, preferencePanel, notice, connected), select("private"), selectPrivate("pin"), refresh(), sync.ready.then(refresh, (error) => say(error.message, !0));
+    root.append(style2, state, pairing, preferencePanel, notice, connected), select(initialMode), selectPrivate("pin"), refresh(), sync.ready.then(refresh, (error) => say(error.message, !0));
     let timer = window2.setInterval(refresh, 1e3);
     return { root, dispose() {
-      window2.clearInterval(timer);
+      disposed = !0, window2.clearInterval(timer);
     } };
   }
   var feedbackIcon = { paths: ["M20 16h-8l-5 4v-4H4V4h16z", "M8 8h8M8 12h6"] }, cloudOffIcon = { paths: ["M8.5 6.5A5.5 5.5 0 0 1 18 10a4 4 0 0 1 2.6 6.9M16 18H6a4 4 0 0 1-1.2-7.8", "M3 3l18 18"] }, categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], COMPACT_OPACITIES = [60, 80, 100], DEFAULT_COMPACT_OPACITY = 80, scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix3, size) => `${prefix3}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
@@ -7104,6 +7169,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .appearance-page .plugin-heading{margin:0}
 .management-tabs{position:sticky;top:-12px;z-index:8;background:var(--sgs-bg)!important;box-shadow:0 5px 8px var(--sgs-bg)!important}
 .management-tabs button{min-width:0;white-space:nowrap}
+.market-update-actions{margin-bottom:8px}.market-update-actions button{display:inline-flex;align-items:center;gap:4px;min-height:29px}
+.market-update-actions button:first-child{color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 45%,var(--sgs-border))}
+.market-update-actions svg{width:14px;height:14px;flex:none}.market-auto-update>span{font-size:12px}
+label.row[data-market-list-filter][hidden]{display:none}
+.plugin-toggle .plugin-placeholder-state{flex:none;color:var(--sgs-muted);font-size:10px}.plugin-toggle .plugin-placeholder-state.error{color:var(--sgs-danger)}
+.plugin-toggle[data-market-placeholder] .plugin-chevron{transform:rotate(-90deg)}
 .custom-card-backs{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--sgs-border)}
 .custom-card-backs-heading{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 10px}
 .custom-card-backs-heading h4{margin:0;font-size:13px}
@@ -7209,14 +7280,32 @@ ${FEEDBACK_STYLES}
     for (let [selector, name] of [[".mark", "toolbox"], ["[data-screenshot]", "camera"], ["[data-expand]", "expand"], ["[data-collapse]", "collapse"], ["[data-update-hint]", "refresh"], ["[data-open-market]", "package"]])
       shadow.querySelector(selector).prepend(createIcon(doc, name));
     for (let [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
-    let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, feedbackForm = createFeedbackForm(win, doc, scope, getFeedbackAccount), feedbackButton = doc.createElement("button");
+    let content = shadow.querySelector(".content"), active = settings.get("category", "game"), management = "market", renderedCleanup, handlers = {}, panels = /* @__PURE__ */ new Map(), toastTimer, pageFolds = /* @__PURE__ */ new Map();
+    function bindPageFold(id, toggle, body, title, legacyCollapsed, { doubleClick = !1, onChange } = {}) {
+      let pageKey = `openPluginGroup:${renderedKey}`, collapsedKey = `pluginCollapsed:${renderedKey}:${id}`, apply = (collapsed) => {
+        let changed = body.hidden !== collapsed;
+        body.hidden = collapsed, toggle.setAttribute("aria-expanded", String(!collapsed)), toggle.title = `${collapsed ? "\u5C55\u5F00" : "\u6536\u8D77"}${title}`, toggle.setAttribute("aria-label", toggle.title), changed && (onChange == null || onChange(!collapsed));
+      };
+      toggle.setAttribute("aria-controls", body.id);
+      let selected = settings.get(pageKey);
+      apply(selected === void 0 ? settings.get(collapsedKey, legacyCollapsed) === !0 : selected !== id), pageFolds.set(id, apply);
+      let open = () => {
+        settings.set(pageKey, id);
+        for (let [peer, fold] of pageFolds) fold(peer !== id);
+      };
+      toggle.onclick = (event) => {
+        doubleClick && event.detail > 1 || (body.hidden ? open() : (settings.get(pageKey) === void 0 ? settings.set(collapsedKey, !0) : settings.set(pageKey, null), apply(!0)));
+      }, doubleClick && (toggle.ondblclick = open);
+    }
+    let feedbackForm = createFeedbackForm(win, doc, scope, getFeedbackAccount), feedbackButton = doc.createElement("button");
     feedbackButton.type = "button", feedbackButton.dataset.feedback = "", feedbackButton.title = "\u524D\u5F80\u53CD\u9988", feedbackButton.setAttribute("aria-label", "\u53CD\u9988");
     let feedbackLabel = doc.createElement("span");
     feedbackLabel.textContent = "\u53CD\u9988", feedbackButton.append(createIcon(doc, feedbackIcon), feedbackLabel), shadow.querySelector("[data-update-hint]").before(feedbackButton), scope.listen(feedbackButton, "click", () => {
       (active !== "manage" || management !== "settings") && (active = "manage", management = "settings", settings.set("category", active), render()), content.scrollTop = 0, feedbackForm.elements.message.focus({ preventScroll: !0 });
     });
+    let syncMode = "private";
     function openSyncSettings() {
-      active = "manage", management = "sync", settings.set("category", active), render(), content.scrollTop = 0;
+      syncMode = "public", active = "manage", management = "sync", settings.set("category", active), render(), content.scrollTop = 0;
     }
     if (managedSync && preferenceSync) {
       let refreshSyncButtons = function() {
@@ -7274,11 +7363,19 @@ ${FEEDBACK_STYLES}
       let target = content.querySelector("[data-core-upgrade].has-update, .plugin-card.has-update");
       target == null || target.scrollIntoView({ block: "nearest" }), target == null || target.setAttribute("tabindex", "-1"), target == null || target.focus({ preventScroll: !0 });
     });
-    let pluginSearch = "", officialBusy = !1, officialStatus = "", onlyUninstalled = settings.get("marketOnlyUninstalled", !0) === !0, marketState = {}, marketRequest = 0, installing = /* @__PURE__ */ new Set(), dependencyPrompts = /* @__PURE__ */ new Map();
+    let pluginSearch = "", marketPluginId = "", officialBusy = !1, officialStatus = "", bulkBusy = !1, bulkStatus = "", bulkFailures = [], autoUpdateKey = "marketAutoUpdate", onlyUninstalled = settings.get("marketOnlyUninstalled", !0) === !0, marketState = {}, marketRequest = 0, installing = /* @__PURE__ */ new Set(), dependencyPrompts = /* @__PURE__ */ new Map();
     function currentMarketState() {
       var _a2;
       let client = (_a2 = handlers.market) == null ? void 0 : _a2.call(handlers);
       return marketState.client !== client && (marketRequest++, marketState = { client }), marketState;
+    }
+    function openMarketForPlugin(id) {
+      active = "manage", management = "market", settings.set("category", active), marketPluginId = pluginSearch = id, render(), fetchCatalog({ reuse: !0 }).then(() => {
+        var _a2, _b2, _c;
+        if (scope.closed || active !== "manage" || management !== "market" || marketPluginId !== id) return;
+        let target = [...content.querySelectorAll("[data-catalog-key]")].find((card) => !card.hidden);
+        target ? ((_a2 = target.querySelector("button:not(:disabled)")) == null || _a2.focus({ preventScroll: !0 }), (_b2 = target.scrollIntoView) == null || _b2.call(target, { block: "center" })) : (_c = content.querySelector(".plugin-search")) == null || _c.focus();
+      });
     }
     let el = (tag, text3, cls) => {
       let n = doc.createElement(tag);
@@ -7331,14 +7428,7 @@ ${FEEDBACK_STYLES}
       let sizeGroup = el("section", void 0, "plugin-group appearance-section font-settings"), sizeHeading = el("h3", void 0, "plugin-heading"), sizeToggle = el("button", void 0, "plugin-toggle");
       sizeToggle.type = "button", sizeToggle.append(createIcon(doc, "typography"), el("span", "\u754C\u9762\u5B57\u53F7", "plugin-title"), createIcon(doc, "chevron", "plugin-chevron"));
       let sizeBody = el("div", void 0, "plugin-body");
-      sizeBody.id = "core-font-settings", sizeToggle.setAttribute("aria-controls", sizeBody.id);
-      let applySizeFold = (collapsed) => {
-        sizeBody.hidden = collapsed, sizeToggle.setAttribute("aria-expanded", String(!collapsed)), sizeToggle.title = `${collapsed ? "\u5C55\u5F00" : "\u6536\u8D77"}\u754C\u9762\u5B57\u53F7`, sizeToggle.setAttribute("aria-label", sizeToggle.title);
-      };
-      applySizeFold(settings.get("fontSettingsCollapsed", !1)), sizeToggle.onclick = () => {
-        let collapsed = !sizeBody.hidden;
-        settings.set("fontSettingsCollapsed", collapsed), applySizeFold(collapsed);
-      }, sizeHeading.append(sizeToggle), sizeGroup.append(sizeHeading, sizeBody);
+      sizeBody.id = "core-font-settings", bindPageFold(":font-settings", sizeToggle, sizeBody, "\u754C\u9762\u5B57\u53F7", settings.get("fontSettingsCollapsed", !1)), sizeHeading.append(sizeToggle), sizeGroup.append(sizeHeading, sizeBody);
       let sizes = el("div", void 0, "sgs-segments");
       sizes.setAttribute("role", "group"), sizes.setAttribute("aria-label", "\u754C\u9762\u5B57\u53F7");
       let selected = FONT_SIZES.some(([id]) => id === settings.get("fontSize", "standard")) ? settings.get("fontSize", "standard") : "standard";
@@ -7358,18 +7448,11 @@ ${FEEDBACK_STYLES}
       let themeHeading = el("h3", void 0, "plugin-heading"), themeToggle = el("button", void 0, "plugin-toggle");
       themeToggle.type = "button", themeToggle.append(createIcon(doc, "palette"), el("span", "\u4E3B\u9898\u5DE5\u574A", "plugin-title"), createIcon(doc, "chevron", "plugin-chevron"));
       let workshop = el("div", void 0, "plugin-body");
-      workshop.id = "core-theme-workshop", themeToggle.setAttribute("aria-controls", workshop.id);
-      let applyThemeFold = (collapsed) => {
-        workshop.hidden = collapsed, themeToggle.setAttribute("aria-expanded", String(!collapsed)), themeToggle.title = `${collapsed ? "\u5C55\u5F00" : "\u6536\u8D77"}\u4E3B\u9898\u5DE5\u574A`, themeToggle.setAttribute("aria-label", themeToggle.title);
-      };
-      applyThemeFold(settings.get("themeWorkshopCollapsed", !1)), themeToggle.onclick = () => {
-        let collapsed = !workshop.hidden;
-        settings.set("themeWorkshopCollapsed", collapsed), applyThemeFold(collapsed);
-      };
+      workshop.id = "core-theme-workshop", bindPageFold(":theme-workshop", themeToggle, workshop, "\u4E3B\u9898\u5DE5\u574A", settings.get("themeWorkshopCollapsed", !1));
       let themeGroup = el("section", void 0, "plugin-group appearance-section");
       themeHeading.append(themeToggle), themeGroup.append(themeHeading, workshop), content.append(themeGroup), cleanups.push(mountThemeWorkshop(workshop, { document: doc, themes: handlers.themes, notify }));
       let cardWorkshop = el("div", void 0, "plugin-group appearance-section");
-      content.append(cardWorkshop), cleanups.push(mountCardStyleWorkshop(cardWorkshop, { document: doc, cardStyles: handlers.cardStyles, settings }));
+      content.append(cardWorkshop), cleanups.push(mountCardStyleWorkshop(cardWorkshop, { document: doc, cardStyles: handlers.cardStyles, settings, bindFold: bindPageFold }));
     }
     function renderSettings(cleanups) {
       var _a2;
@@ -7527,7 +7610,7 @@ ${FEEDBACK_STYLES}
           marker.title = label, marker.setAttribute("aria-label", label), marker.append(svgIcon(update.status === "current" ? "check" : "info"), el("span", label, "sr-only")), bottom.append(marker);
         }
         let actions = el("div", void 0, "plugin-tools");
-        if (actions.append(iconButton(item.enabled ? "\u505C\u7528" : "\u542F\u7528", item.enabled ? "pause" : "play", () => handlers.manager.enable(item.id, !item.enabled), item.enabled ? "" : "is-enable"), iconButton("\u91CD\u8F7D", "reload", () => handlers.manager.reload(item.id))), item.hasPrevious && actions.append(iconButton("\u56DE\u9000", "rollback", () => handlers.manager.rollback(item.id))), actions.append(iconButton("\u5378\u8F7D", "trash", () => handlers.manager.uninstall(item.id), "is-destructive")), maintenance) for (let action of actions.children) action.disabled = !0;
+        if (actions.append(iconButton(item.enabled ? "\u505C\u7528" : "\u542F\u7528", item.enabled ? "pause" : "play", () => handlers.manager.enable(item.id, !item.enabled), item.enabled ? "" : "is-enable"), iconButton("\u91CD\u8F7D", "reload", () => handlers.manager.reload(item.id))), item.hasPrevious && actions.append(iconButton("\u56DE\u9000", "rollback", () => handlers.manager.rollback(item.id))), actions.append(iconButton("\u5378\u8F7D", "trash", () => handlers.manager.uninstall(item.id), "is-destructive")), maintenance || bulkBusy) for (let action of actions.children) action.disabled = !0;
         if (bottom.append(actions), card.append(bottom), failed) {
           let details = el("details", void 0, "plugin-error"), summary = el("summary");
           summary.append(svgIcon("alert"), el("span", "\u63D2\u4EF6\u8FD0\u884C\u5F02\u5E38")), details.append(summary, el("pre", userErrorMessage(item.error || "\u63D2\u4EF6\u672A\u80FD\u6FC0\u6D3B\uFF0C\u8BF7\u5C1D\u8BD5\u91CD\u8F7D\u3002"))), card.append(details);
@@ -7536,7 +7619,7 @@ ${FEEDBACK_STYLES}
           let notice = el("div", void 0, "plugin-update"), info = el("div", void 0, "plugin-update-info");
           info.append(svgIcon("update"), el("span", `\u53D1\u73B0\u66F4\u65B0\uFF1A${item.version} \u2192 ${update.entry.version}`));
           let upgrade = button(`\u66F4\u65B0\u81F3 ${update.entry.version}`, () => installEntry(update.entry, !0));
-          upgrade.prepend(svgIcon("update")), upgrade.disabled = installing.has(item.id) || !!maintenance, notice.append(info, ...releaseNotesBlock(update.entry, !0), upgrade), card.append(notice);
+          upgrade.prepend(svgIcon("update")), upgrade.disabled = bulkBusy || installing.has(item.id) || !!maintenance, notice.append(info, ...releaseNotesBlock(update.entry, !0), upgrade), card.append(notice);
         } else card.append(...releaseNotesBlock(item));
         renderDependencyPrompt(card, (update == null ? void 0 : update.entry) || item), markSearchable(card, item), content.append(card);
       }
@@ -7544,7 +7627,7 @@ ${FEEDBACK_STYLES}
     async function installEntry(entry, updateOnly = !1, confirmed = !1) {
       var _a2, _b2;
       let client = handlers.market();
-      if (officialBusy || installing.has(entry.id)) return;
+      if (bulkBusy || officialBusy || installing.has(entry.id)) return;
       let dependencies;
       try {
         dependencies = planDependencies(entry, handlers.manager.list(), ((_a2 = currentMarketState().catalog) == null ? void 0 : _a2.plugins) || []);
@@ -7580,7 +7663,7 @@ ${FEEDBACK_STYLES}
           let installed = handlers.manager.list().find((item) => item.id === entry.id);
           if (!installed || compareVersions2(entry.version, installed.version) <= 0) throw new Error("\u63D2\u4EF6\u5B89\u88C5\u72B6\u6001\u5DF2\u6539\u53D8\uFF0C\u8BF7\u91CD\u65B0\u68C0\u6D4B\u66F4\u65B0\u3002");
         }
-        await handlers.manager.install(pkg), notify(`${entry.name} ${entry.version} \u5DF2\u5B89\u88C5`);
+        await handlers.manager.install(pkg, { updateOnly }), notify(`${entry.name} ${entry.version} \u5DF2\u5B89\u88C5`);
       } catch (error) {
         throw scope.closed || dependencyPrompts.set(entry.id, { entry, error: userErrorMessage(error), updateOnly }), error;
       } finally {
@@ -7598,37 +7681,86 @@ ${FEEDBACK_STYLES}
         dependencyPrompts.delete(entry.id), render();
       })), card.append(box);
     }
-    async function fetchCatalog() {
+    async function fetchCatalog({ reuse = !1 } = {}) {
       let state = currentMarketState();
-      if (!state.client || state.loading) return;
+      if (!state.client) return;
+      if (state.loading) return state.loading;
+      if (reuse && state.catalog) return state.catalog;
       let request = ++marketRequest;
-      state.loading = !0, state.error = "", render();
+      return state.error = "", state.loading = (async () => {
+        try {
+          let catalog = await Promise.resolve().then(() => state.client.getCatalog());
+          return scope.closed || request !== marketRequest || handlers.market() !== state.client ? void 0 : (state.catalog = catalog, state.checkedAt = /* @__PURE__ */ new Date(), catalog);
+        } catch (e) {
+          if (scope.closed || request !== marketRequest || handlers.market() !== state.client) return;
+          state.catalog = null, state.checkedAt = null, state.error = userErrorMessage(e);
+        } finally {
+          state.loading = null, !scope.closed && request === marketRequest && render();
+        }
+      })(), render(), state.loading;
+    }
+    async function updateAllPlugins(startup = !1) {
+      let manager2 = handlers.manager, state = currentMarketState();
+      if (!state.client || manager2.initializing || manager2.storageError || bulkBusy || officialBusy || installing.size) return;
+      bulkBusy = !0, bulkStatus = "\u6B63\u5728\u68C0\u6D4B\u63D2\u4EF6\u66F4\u65B0\u2026", bulkFailures = [], render();
+      let checkCurrent = () => {
+        if (scope.closed) throw new Error("\u63D2\u4EF6\u66F4\u65B0\u5DF2\u53D6\u6D88\u3002");
+        if (handlers.market() !== state.client) throw new Error("\u5E02\u573A\u5730\u5740\u5DF2\u6539\u53D8\uFF0C\u8BF7\u91CD\u65B0\u68C0\u6D4B\u66F4\u65B0\u3002");
+      };
       try {
-        let catalog = await state.client.getCatalog();
-        if (scope.closed || request !== marketRequest || handlers.market() !== state.client) return;
-        state.catalog = catalog, state.checkedAt = /* @__PURE__ */ new Date();
-      } catch (e) {
-        if (scope.closed || request !== marketRequest || handlers.market() !== state.client) return;
-        state.catalog = null, state.checkedAt = null, state.error = userErrorMessage(e);
+        let catalog = await fetchCatalog({ reuse: startup });
+        if (checkCurrent(), !catalog) throw new Error(state.error || "\u672A\u80FD\u8BFB\u53D6\u63D2\u4EF6\u5E02\u573A\u76EE\u5F55\u3002");
+        if (startup && settings.get(autoUpdateKey, !0) !== !0) {
+          bulkStatus = "";
+          return;
+        }
+        let result = await updateInstalledPlugins({
+          manager: manager2,
+          client: state.client,
+          catalog: catalog.plugins,
+          checkCurrent,
+          onProgress(index, total, name) {
+            bulkStatus = `\u6B63\u5728\u66F4\u65B0 ${index}/${total} \xB7 ${name}`, render();
+          }
+        });
+        bulkFailures = result.failures, bulkStatus = result.updated || bulkFailures.length ? `\u5DF2\u66F4\u65B0 ${result.updated} \u4E2A\u63D2\u4EF6${bulkFailures.length ? `\uFF0C${bulkFailures.length} \u4E2A\u5F85\u5904\u7406` : ""}` : startup ? "" : "\u6CA1\u6709\u53EF\u66F4\u65B0\u7684\u63D2\u4EF6";
+      } catch (error) {
+        bulkStatus = startup && state.error ? "" : userErrorMessage(error);
       } finally {
-        state.loading = !1, !scope.closed && request === marketRequest && render();
+        bulkBusy = !1, scope.closed || render();
       }
     }
     function markSearchable(card, item) {
-      card.dataset.searchText = [item.name, item.id, item.description].filter(Boolean).join(" ").toLocaleLowerCase();
+      card.dataset.searchId = item.id, card.dataset.searchText = [item.name, item.id, item.description].filter(Boolean).join(" ").toLocaleLowerCase();
     }
     function filterPlugins() {
       let terms = pluginSearch.trim().toLocaleLowerCase().split(/\s+/), cards = [...content.querySelectorAll("[data-search-text]")];
-      for (let card of cards) card.hidden = onlyUninstalled && card.dataset.catalogInstalled === "true" || !terms.every((term) => card.dataset.searchText.includes(term));
+      for (let card of cards) card.hidden = marketPluginId ? card.dataset.searchId !== marketPluginId : onlyUninstalled && card.dataset.catalogInstalled === "true" || !terms.every((term) => card.dataset.searchText.includes(term));
       let empty2 = content.querySelector(".plugin-search-empty");
       empty2 && (empty2.hidden = !pluginSearch.trim() || cards.some((card) => !card.hidden));
+      let filter = content.querySelector("[data-market-list-filter]");
+      filter && (filter.hidden = !!marketPluginId);
+      let missing = content.querySelector("[data-market-target-missing]");
+      missing && (missing.hidden = !marketPluginId);
     }
     function updateControls() {
-      let state = currentMarketState(), check = button(state.loading ? "\u6B63\u5728\u68C0\u6D4B\u66F4\u65B0\u2026" : "\u68C0\u6D4B\u63D2\u4EF6\u66F4\u65B0", fetchCatalog);
-      check.disabled = !state.client || !!state.loading, content.append(check);
+      let state = currentMarketState(), actions = el("div", void 0, "actions market-update-actions"), update = button(bulkBusy ? "\u6B63\u5728\u66F4\u65B0\u63D2\u4EF6\u2026" : "\u4E00\u952E\u66F4\u65B0\u63D2\u4EF6", () => updateAllPlugins());
+      update.prepend(svgIcon("update")), update.disabled = !state.client || bulkBusy || officialBusy || !!installing.size;
+      let check = button(state.loading ? "\u6B63\u5728\u68C0\u6D4B\u66F4\u65B0\u2026" : "\u68C0\u6D4B\u63D2\u4EF6\u66F4\u65B0", () => fetchCatalog());
+      check.disabled = !state.client || !!state.loading || bulkBusy, actions.append(update, check), content.append(actions);
+      let autoRow = el("label", void 0, "row market-auto-update"), auto = styleSwitch(el("input"));
+      if (auto.type = "checkbox", auto.checked = settings.get(autoUpdateKey, !0) === !0, auto.addEventListener("change", () => settings.set(autoUpdateKey, auto.checked)), autoRow.append(el("span", "\u542F\u52A8\u65F6\u81EA\u52A8\u66F4\u65B0\u63D2\u4EF6"), auto), content.append(autoRow), bulkStatus) {
+        let status = el("div", bulkStatus, "notice");
+        status.setAttribute("role", "status"), content.append(status);
+      }
+      if (bulkFailures.length) {
+        let details = el("details", void 0, "plugin-error");
+        details.append(el("summary", "\u67E5\u770B\u672A\u66F4\u65B0\u7684\u63D2\u4EF6"), el("pre", bulkFailures.map(({ entry, error }) => `${entry.name} \xB7 ${userErrorMessage(error)}`).join(`
+`))), content.append(details);
+      }
       let search = el("input", void 0, "plugin-search");
       search.type = "search", search.placeholder = "\u641C\u7D22\u63D2\u4EF6\u540D\u79F0\u3001\u7B80\u4ECB\u6216 ID", search.setAttribute("aria-label", "\u641C\u7D22\u63D2\u4EF6"), search.value = pluginSearch, search.addEventListener("input", () => {
-        pluginSearch = search.value, filterPlugins();
+        marketPluginId = "", pluginSearch = search.value, filterPlugins();
       }), content.append(search);
       let empty2 = el("div", "\u6CA1\u6709\u5339\u914D\u7684\u63D2\u4EF6", "notice plugin-search-empty");
       if (empty2.setAttribute("role", "status"), empty2.hidden = !0, content.append(empty2), !state.client) content.append(el("div", "\u5E02\u573A\u8FDE\u63A5\u5DF2\u5173\u95ED\uFF0C\u53EF\u5728\u8BBE\u7F6E\u4E2D\u9009\u62E9\u672C\u673A\u6216\u81EA\u5B9A\u4E49\u5730\u5740\u3002", "notice"));
@@ -7639,7 +7771,7 @@ ${FEEDBACK_STYLES}
       } else content.append(el("div", "\u70B9\u51FB\u68C0\u6D4B\uFF0C\u6BD4\u8F83\u5DF2\u5B89\u88C5\u63D2\u4EF6\u4E0E\u5E02\u573A\u6700\u65B0\u7248\u672C\u3002", "notice"));
     }
     function catalogCards(container) {
-      var _a2, _b2;
+      var _a2, _b2, _c;
       let state = currentMarketState();
       if (!state.client) {
         container.append(el("div", "\u79BB\u7EBF\u6A21\u5F0F\uFF1A\u53EF\u5BFC\u5165\u63D2\u4EF6\u5305\u6587\u4EF6\uFF0C\u5DF2\u5B89\u88C5\u63D2\u4EF6\u7167\u5E38\u8FD0\u884C\u3002", "notice"));
@@ -7657,21 +7789,26 @@ ${FEEDBACK_STYLES}
         container.append(el("div", "\u70B9\u51FB\u8FDE\u63A5\u540E\u8BFB\u53D6\u9759\u6001\u76EE\u5F55\u3002\u76EE\u5F55\u79BB\u7EBF\u4E0D\u4F1A\u505C\u6B62\u5DF2\u5B89\u88C5\u63D2\u4EF6\u3002", "notice"));
         return;
       }
-      let installed = new Map((((_a2 = handlers.manager) == null ? void 0 : _a2.list()) || []).map((item) => [item.id, item])), loadIssues = (_b2 = handlers.manager) == null ? void 0 : _b2.loadIssues, filter = el("label", void 0, "row"), toggle = styleSwitch(el("input"));
+      let installed = new Map((((_a2 = handlers.manager) == null ? void 0 : _a2.list()) || []).map((item) => [item.id, item])), loadIssues = (_b2 = handlers.manager) == null ? void 0 : _b2.loadIssues, bundleIssues = (_c = handlers.manager) == null ? void 0 : _c.bundledInstallIssues, filter = el("label", void 0, "row");
+      filter.dataset.marketListFilter = "";
+      let toggle = styleSwitch(el("input"));
       toggle.type = "checkbox", toggle.checked = onlyUninstalled, toggle.addEventListener("change", () => {
         onlyUninstalled = toggle.checked, settings.set("marketOnlyUninstalled", onlyUninstalled), render();
       }), filter.append(el("span", "\u53EA\u663E\u793A\u672A\u5B89\u88C5"), toggle), container.append(filter);
       let count = state.catalog.plugins.filter((entry) => !onlyUninstalled || !installed.has(entry.id) && !(loadIssues != null && loadIssues.has(entry.id))).length;
-      container.append(el("div", `${count} \u4E2A${onlyUninstalled ? "\u672A\u5B89\u88C5" : "\u53EF\u7528"}\u53D1\u5E03\u5305`, "muted")), count || container.append(el("div", "\u76EE\u5F55\u4E2D\u7684\u63D2\u4EF6\u5747\u5DF2\u5B89\u88C5", "notice"));
+      if (container.append(el("div", `${count} \u4E2A${onlyUninstalled ? "\u672A\u5B89\u88C5" : "\u53EF\u7528"}\u53D1\u5E03\u5305`, "muted")), !count && !marketPluginId && container.append(el("div", "\u76EE\u5F55\u4E2D\u7684\u63D2\u4EF6\u5747\u5DF2\u5B89\u88C5", "notice")), marketPluginId && !state.catalog.plugins.some((entry) => entry.id === marketPluginId)) {
+        let missing = el("div", "\u5F53\u524D\u5E02\u573A\u6682\u65E0\u6B64\u63D2\u4EF6\u3002", "notice");
+        missing.dataset.marketTargetMissing = "", container.append(missing);
+      }
       for (let entry of [...state.catalog.plugins].sort(comparePluginOrder)) {
         let card = el("section", void 0, "card plugin-card");
         pluginIdentity(card, entry), card.dataset.catalogKey = JSON.stringify([entry.id, entry.version]);
-        let current = installed.get(entry.id), same = (current == null ? void 0 : current.version) === entry.version, unavailable = !current && (loadIssues == null ? void 0 : loadIssues.has(entry.id));
+        let current = installed.get(entry.id), same = (current == null ? void 0 : current.version) === entry.version, unavailable = (loadIssues == null ? void 0 : loadIssues.has(entry.id)) || (bundleIssues == null ? void 0 : bundleIssues.has(entry.id)) || !!(current != null && current.error) && !current.maintenance;
         card.dataset.catalogInstalled = String(!!current || !!unavailable);
-        let bottom = el("div", void 0, "plugin-bottom"), status = el("span", unavailable ? "\u5DF2\u4FDD\u5B58 \xB7 \u52A0\u8F7D\u5F02\u5E38" : current ? `\u5DF2\u5B89\u88C5${same ? "\u6B64\u7248\u672C" : " " + current.version}` : "\u672A\u5B89\u88C5", "plugin-status");
+        let bottom = el("div", void 0, "plugin-bottom"), status = el("span", unavailable ? "\u5B89\u88C5\u6216\u52A0\u8F7D\u5F02\u5E38" : current ? `\u5DF2\u5B89\u88C5${same ? "\u6B64\u7248\u672C" : " " + current.version}` : "\u672A\u5B89\u88C5", "plugin-status");
         status.title = status.textContent, status.style.whiteSpace = "normal", bottom.append(status);
-        let busy = installing.has(entry.id), install = button(busy ? "\u6B63\u5728\u5B89\u88C5\u2026" : same ? "\u5DF2\u5B89\u88C5" : current || unavailable ? "\u66FF\u6362\u6B64\u7248\u672C" : "\u5B89\u88C5\u6B64\u7248\u672C", () => installEntry(entry));
-        install.disabled = officialBusy || busy || same, install.style.marginLeft = "auto", install.style.flexShrink = "0", busy && card.setAttribute("aria-busy", "true"), bottom.append(install), card.append(bottom, ...releaseNotesBlock(entry)), renderDependencyPrompt(card, entry), markSearchable(card, entry), container.append(card);
+        let busy = installing.has(entry.id), install = button(busy ? "\u6B63\u5728\u5B89\u88C5\u2026" : same && !unavailable ? "\u5DF2\u5B89\u88C5" : current || unavailable ? "\u91CD\u65B0\u5B89\u88C5" : "\u5B89\u88C5\u6B64\u7248\u672C", () => installEntry(entry));
+        install.disabled = bulkBusy || officialBusy || busy || same && !unavailable, install.style.marginLeft = "auto", install.style.flexShrink = "0", busy && card.setAttribute("aria-busy", "true"), bottom.append(install), card.append(bottom, ...releaseNotesBlock(entry)), renderDependencyPrompt(card, entry), markSearchable(card, entry), container.append(card);
       }
     }
     function coreUpdateStatus() {
@@ -7719,7 +7856,7 @@ ${FEEDBACK_STYLES}
     }
     async function completeOfficialPlugins() {
       var _a2;
-      if (officialBusy || installing.size) return;
+      if (bulkBusy || officialBusy || installing.size) return;
       let client = handlers.market();
       officialBusy = !0, officialStatus = "\u6B63\u5728\u51C6\u5907\u5B98\u65B9\u63D2\u4EF6\u5957\u88C5\u2026", render();
       let completed = 0;
@@ -7753,23 +7890,30 @@ ${FEEDBACK_STYLES}
       let pack = el("section", void 0, "card");
       pack.append(el("strong", "\u5B98\u65B9\u63D2\u4EF6\u5957\u88C5"), el("div", `\u4E00\u952E\u8865\u9F50 ${officialPluginIds.length} \u4E2A\u5B98\u65B9\u63D2\u4EF6\uFF1B\u4FDD\u7559\u5DF2\u6709\u7248\u672C\u3001\u8BBE\u7F6E\u548C\u505C\u7528\u72B6\u6001\u3002`, "notice"));
       let complete = button(officialBusy ? "\u6B63\u5728\u8865\u9F50\u2026" : "\u4E00\u952E\u8865\u9F50\u5B98\u65B9\u63D2\u4EF6", completeOfficialPlugins);
-      if (complete.disabled = officialBusy || !!installing.size || !currentMarketState().client, pack.append(complete), officialStatus) {
+      if (complete.disabled = bulkBusy || officialBusy || !!installing.size || !currentMarketState().client, pack.append(complete), officialStatus) {
         let status = el("div", officialStatus, "notice");
         status.setAttribute("role", "status"), pack.append(status);
       }
       content.append(pack), updateControls(), pluginCards(), content.append(el("h3", "\u63D2\u4EF6\u76EE\u5F55"));
-      let catalog = el("div"), actions = el("div", void 0, "actions"), refresh = button("\u8FDE\u63A5 / \u5237\u65B0\u5E02\u573A", fetchCatalog);
-      refresh.disabled = !currentMarketState().client || !!currentMarketState().loading, actions.append(refresh, button("\u5BFC\u5165\u63D2\u4EF6\u5305", () => {
+      let catalog = el("div"), actions = el("div", void 0, "actions"), refresh = button("\u8FDE\u63A5 / \u5237\u65B0\u5E02\u573A", () => fetchCatalog());
+      refresh.disabled = bulkBusy || !currentMarketState().client || !!currentMarketState().loading;
+      let importPackage = button("\u5BFC\u5165\u63D2\u4EF6\u5305", () => {
         let file = doc.createElement("input");
         file.type = "file", file.accept = ".json", file.onchange = async () => {
           try {
             if (!file.files[0]) return;
+            if (bulkBusy) throw new Error("\u8BF7\u7B49\u5F85\u63D2\u4EF6\u66F4\u65B0\u5B8C\u6210\u3002");
             await handlers.manager.install(JSON.parse(await file.files[0].text())), notify("\u63D2\u4EF6\u5305\u5DF2\u5B89\u88C5");
           } catch (e) {
             notify(userErrorMessage(e));
           }
         }, file.click();
-      })), (_b2 = (_a2 = handlers.manager) == null ? void 0 : _a2.builtins) != null && _b2.has("cards") && !handlers.manager.list().some((p) => p.id === "cards") && actions.append(button("\u6062\u590D\u5185\u7F6E\u5361\u724C", () => handlers.manager.restoreBuiltin("cards"))), (_e = handlers.market) != null && _e.call(handlers) && content.append(el("div", "\u4E0B\u8F7D\u6765\u6E90\uFF1A" + marketServerLabel(handlers.market().baseUrl), "muted")), content.append(actions, catalog), catalogCards(catalog);
+      });
+      if (importPackage.disabled = bulkBusy, actions.append(refresh, importPackage), (_b2 = (_a2 = handlers.manager) == null ? void 0 : _a2.builtins) != null && _b2.has("cards") && !handlers.manager.list().some((p) => p.id === "cards")) {
+        let restore = button("\u6062\u590D\u5185\u7F6E\u5361\u724C", () => handlers.manager.restoreBuiltin("cards"));
+        restore.disabled = bulkBusy, actions.append(restore);
+      }
+      (_e = handlers.market) != null && _e.call(handlers) && content.append(el("div", "\u4E0B\u8F7D\u6765\u6E90\uFF1A" + marketServerLabel(handlers.market().baseUrl), "muted")), content.append(actions, catalog), catalogCards(catalog);
     }
     function renderManagement(cleanups) {
       let tabs = el("div", void 0, "tabs management-tabs"), sections = [["settings", "\u8BBE\u7F6E"], ["market", "\u63D2\u4EF6\u5E02\u573A"], ["appearance", "\u5916\u89C2"]];
@@ -7784,12 +7928,17 @@ ${FEEDBACK_STYLES}
       else if (management === "market") renderMarket();
       else if (management === "appearance") renderAppearance(cleanups);
       else if (management === "sync") {
-        let syncSettings = mountSyncSettings(doc, win, managedSync, preferenceSync);
+        let syncSettings = mountSyncSettings(doc, win, managedSync, preferenceSync, {
+          initialMode: syncMode,
+          onModeChange: (mode) => {
+            syncMode = mode;
+          }
+        });
         content.append(syncSettings.root), cleanups.push(syncSettings.dispose);
       }
     }
     function render() {
-      var _a2, _b2, _c, _d, _e, _f;
+      var _a2, _b2, _c, _d, _e, _f, _g, _h;
       let previousKey = renderedKey, anchors = renderedKey === "manage:market" ? [...content.querySelectorAll("[data-catalog-key]")].filter((card) => !card.hidden && card.getBoundingClientRect().bottom > content.getBoundingClientRect().top).map((card) => ({ key: card.dataset.catalogKey, top: card.getBoundingClientRect().top })) : [], restoreScroll = () => {
         if (content.scrollTop = viewScroll.get(renderedKey) || 0, previousKey === renderedKey)
           for (let anchor of anchors) {
@@ -7805,7 +7954,7 @@ ${FEEDBACK_STYLES}
         renderedCleanup == null || renderedCleanup();
       } catch {
       }
-      renderedCleanup = null, content.replaceChildren(), content.classList.remove("has-plugin-panels", "appearance-page");
+      renderedCleanup = null, content.replaceChildren(), pageFolds.clear(), content.classList.remove("has-plugin-panels", "appearance-page");
       let cleanups = [];
       renderedCleanup = () => {
         for (let clean2 of cleanups.splice(0))
@@ -7815,9 +7964,10 @@ ${FEEDBACK_STYLES}
           }
       };
       let installed = ((_a2 = handlers.manager) == null ? void 0 : _a2.list()) || [], market = currentMarketState(), failedPlugins = new Set((_c = (_b2 = handlers.manager) == null ? void 0 : _b2.loadIssues) == null ? void 0 : _c.keys());
+      for (let id of ((_e = (_d = handlers.manager) == null ? void 0 : _d.bundledInstallIssues) == null ? void 0 : _e.keys()) || []) failedPlugins.add(id);
       for (let item of installed) !item.maintenance && (item.error || item.enabled && !item.active) && failedPlugins.add(item.id);
-      let failures = failedPlugins.size, storageError = !!((_d = handlers.manager) != null && _d.storageError), upgrades = market.catalog ? findPluginUpdates(installed, market.catalog.plugins).filter((item) => item.status === "update").length : 0, manage = shadow.querySelector('[data-category="manage"]');
-      (_e = manage.querySelector(".nav-alert")) == null || _e.remove();
+      let failures = failedPlugins.size, storageError = !!((_f = handlers.manager) != null && _f.storageError), upgrades = market.catalog ? findPluginUpdates(installed, market.catalog.plugins).filter((item) => item.status === "update").length : 0, manage = shadow.querySelector('[data-category="manage"]');
+      (_g = manage.querySelector(".nav-alert")) == null || _g.remove();
       let coreUpgrade = !!(microUpdate != null && microUpdate.newer) && !(microUpdate != null && microUpdate.pending), updateHint = shadow.querySelector("[data-update-hint]");
       updateHint.hidden = !coreUpgrade && !upgrades, updateHint.parentElement.classList.toggle("has-update", !updateHint.hidden), updateHint.title = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`, "\u70B9\u51FB\u524D\u5F80\u66F4\u65B0"].filter(Boolean).join(" \xB7 ");
       let alerts = [coreUpgrade && "\u6838\u5FC3\u53EF\u5347\u7EA7", storageError && "\u63D2\u4EF6\u5B58\u50A8\u8BFB\u53D6\u5931\u8D25", failures && `${failures} \u4E2A\u63D2\u4EF6\u5F02\u5E38`, upgrades && `${upgrades} \u4E2A\u63D2\u4EF6\u53EF\u66F4\u65B0`].filter(Boolean).join(" \xB7 ");
@@ -7827,7 +7977,18 @@ ${FEEDBACK_STYLES}
       }
       for (let b of shadow.querySelectorAll("[data-category]")) b.setAttribute("aria-selected", String(b.dataset.category === active));
       renderedKey = active + ":" + (active === "game" ? gameView : active === "manage" ? management : ""), active === "manage" && (renderManagement(cleanups), filterPlugins());
-      let categoryPanels = [...panels.values()].filter((p) => p.category === (active === "manage" && management === "appearance" ? "appearance" : active)).sort(comparePanelOrder), available = active === "game" ? selectGamePanels(categoryPanels, gameView) : categoryPanels;
+      let category = active === "manage" && management === "appearance" ? "appearance" : active, manager2 = handlers.manager, registered = [...panels.values()].filter((p) => p.category === category), placeholders = [];
+      if (manager2 && !manager2.initializing) {
+        let byId = new Map(installed.map((item) => [item.id, item])), issues = manager2.bundledInstallIssues;
+        for (let spec of handlers.fullPluginPanels || []) {
+          if (spec.category !== category) continue;
+          let id = spec.pluginId, state = byId.get(id);
+          if (state != null && state.maintenance || state && !state.enabled || registered.some((panel) => panel.pluginId === id) && !(issues != null && issues.has(id)) || state != null && state.active && !(issues != null && issues.has(id))) continue;
+          let failed = failedPlugins.has(id) || !!state || !!storageError;
+          placeholders.push({ ...spec, placeholder: failed ? "\u5B89\u88C5\u5F02\u5E38" : "\u672A\u5B89\u88C5" });
+        }
+      }
+      let unavailable = new Set(placeholders.map((spec) => spec.pluginId)), categoryPanels = [...registered.filter((panel) => !unavailable.has(panel.pluginId)), ...placeholders].sort(comparePanelOrder), available = active === "game" ? selectGamePanels(categoryPanels, gameView) : categoryPanels;
       if (!available.length) {
         active !== "manage" && empty("\u5C1A\u672A\u5B89\u88C5\u6B64\u7C7B\u63D2\u4EF6", active === "game" ? "\u524D\u5F80\u7BA1\u7406 \u2192 \u63D2\u4EF6\u5E02\u573A\u5B89\u88C5\u5361\u724C\u63D2\u4EF6\u3002" : "\u6B64\u5206\u7C7B\u4E3A\u540E\u7EED\u63D2\u4EF6\u4FDD\u7559\u3002"), restoreScroll();
         return;
@@ -7864,17 +8025,12 @@ ${FEEDBACK_STYLES}
           let heading = el("h2", void 0, "plugin-heading"), toggle = el("button", void 0, "plugin-toggle");
           toggle.type = "button";
           let icon2 = el("span");
-          icon2.setAttribute("aria-hidden", "true"), icon2.append(svgIcon(panel.pluginIcon || "package")), toggle.append(icon2, el("span", title, "plugin-title")), toggle.append(createIcon(doc, "chevron", "plugin-chevron")), body = el("div", void 0, "plugin-body"), body.id = `plugin-body-${groups.size}`, toggle.setAttribute("aria-controls", body.id);
-          let apply = (collapsed) => {
-            body.hidden = collapsed, toggle.setAttribute("aria-expanded", String(!collapsed)), toggle.setAttribute("aria-label", `${collapsed ? "\u5C55\u5F00" : "\u6536\u8D77"}${title}`), toggle.title = `${collapsed ? "\u5C55\u5F00" : "\u6536\u8D77"}${title}`;
-          };
-          apply(settings.get(`pluginCollapsed:${id}`, !1) === !0), toggle.onclick = (event) => {
-            if (event.detail > 1) return;
-            let collapsed = !body.hidden;
-            settings.set(`pluginCollapsed:${id}`, collapsed), apply(collapsed);
-          }, toggle.ondblclick = () => {
-            settings.set(`pluginCollapsed:${id}`, !1), apply(!1);
-          }, heading.append(toggle), group.append(heading, body), content.append(group), groups.set(id, body);
+          if (icon2.setAttribute("aria-hidden", "true"), icon2.append(svgIcon(panel.pluginIcon || "package")), toggle.append(icon2, el("span", title, "plugin-title")), panel.placeholder) {
+            let state = panel.placeholder;
+            toggle.dataset.marketPlaceholder = "", toggle.append(el("span", `\uFF08${state}\uFF09`, `plugin-placeholder-state${state === "\u672A\u5B89\u88C5" ? "" : " error"}`), createIcon(doc, "chevron", "plugin-chevron")), toggle.setAttribute("aria-label", `${title}\uFF08${state}\uFF09\uFF0C\u524D\u5F80\u63D2\u4EF6\u5E02\u573A`), toggle.title = "\u524D\u5F80\u63D2\u4EF6\u5E02\u573A", toggle.onclick = () => openMarketForPlugin(id), heading.append(toggle), group.append(heading), content.append(group);
+            continue;
+          }
+          toggle.append(createIcon(doc, "chevron", "plugin-chevron")), body = el("div", void 0, "plugin-body"), body.id = `plugin-body-${groups.size}`, bindPageFold(id, toggle, body, title, settings.get(`pluginCollapsed:${id}`, !1), { doubleClick: !0 }), heading.append(toggle), group.append(heading, body), content.append(group), groups.set(id, body);
         }
         appendPanel(panel, body);
       }
@@ -8074,14 +8230,13 @@ ${FEEDBACK_STYLES}
         let title = label + "\uFF1B\u53CC\u51FB\u5C55\u5F00\uFF0C\u6309\u4F4F\u62D6\u52A8";
         slash.title !== title && (slash.title = title);
       },
-      setHandlers(value) {
+      setHandlers(value, { deferStartupMarket = !1 } = {}) {
         var _a2;
         let first = !handlers.manager;
-        handlers = value, render(), first && (_a2 = handlers.market) != null && _a2.call(handlers) && scope.timeout(() => {
-          scope.closed || fetchCatalog();
-        }, 1500), first && typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ == "function" && scope.timeout(() => {
-          scope.closed || runMicroUpdate("check");
-        }, 1500);
+        handlers = value, render(), first && (_a2 = handlers.market) != null && _a2.call(handlers) && !deferStartupMarket && scope.timeout(() => fetchCatalog({ reuse: !0 }), 1500), first && typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ == "function" && scope.timeout(() => runMicroUpdate("check"), 1500);
+      },
+      startMarketUpdates() {
+        return settings.get(autoUpdateKey, !0) === !0 && handlers.manager.list().length && !handlers.manager.storageError ? updateAllPlugins(!0) : fetchCatalog({ reuse: !0 });
       },
       setStatusVisible(visible) {
         statusLine.hidden !== !visible && (statusLine.hidden = !visible);
@@ -9651,6 +9806,19 @@ ${FEEDBACK_STYLES}
     if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/" || url.href !== url.origin + "/") throw new Error("\u8BF7\u8F93\u5165\u5B8C\u6574\u7684 HTTP \u6216 HTTPS \u5730\u5740\uFF0C\u65E0\u9700\u586B\u5199\u8DEF\u5F84");
     return url.origin;
   }
+  var TEST_SYNC_ORIGIN = "https://test-sync.3gs.xyz:8888", knownTestRank = (level) => level >= 31 && level <= 38 || level === 255;
+  function canUseSyncTest(game, accountId) {
+    var _a2;
+    if (!accountId) return !1;
+    let self = read3(() => game.getSelf());
+    if (String(read3(() => self.ClientId ?? self.clientId)) !== accountId) return !1;
+    let level = Number(read3(() => self.OfficerLevel));
+    if (!Number.isSafeInteger(level) || level < 1) return !1;
+    let config = read3(() => game.getConfigData("h5_officer")), rows = ((_a2 = config == null ? void 0 : config.root) == null ? void 0 : _a2.officer) || (config == null ? void 0 : config.officer);
+    if (!Array.isArray(rows)) return knownTestRank(level);
+    let rowId = (row) => Number((row == null ? void 0 : row.id) ?? (row == null ? void 0 : row.ID)), minimum = rows.find((row) => String((row == null ? void 0 : row.bigName) || "").trim() === "\u56FD\u90FD\u62A4"), current = rows.find((row) => rowId(row) === level), groupId = (row) => Number((row == null ? void 0 : row.officerid) ?? (row == null ? void 0 : row.Officerid));
+    return groupId(minimum) > 0 && groupId(current) > 0 ? groupId(current) >= groupId(minimum) : current && rowId(minimum) > 0 ? level >= rowId(minimum) : knownTestRank(level);
+  }
   var databaseName = "sgs-toolbox-managed-sync", recoveryPrefix = "SGSR1.", messages = {
     account_limit: "\u540C\u6B65\u8D26\u53F7\u540D\u989D\u5DF2\u6EE1",
     account_mismatch: "\u7ED1\u5B9A\u8D26\u53F7\u548C\u5F53\u524D\u6E38\u620F\u8D26\u53F7\u4E0D\u4E00\u81F4",
@@ -9712,7 +9880,7 @@ ${FEEDBACK_STYLES}
   function describeOrigin(data) {
     return safeOrigin(`${data.tls ? "https" : "http"}://${data.domain || data.ipv4 || "[" + data.ipv6 + "]"}:${data.port}`);
   }
-  function createManagedSync(win, scope, getAccount, gameAccountKey, privateHttp) {
+  function createManagedSync(win, scope, getAccount, gameAccountKey, privateHttp, { testEligible, loadOfficerConfig } = {}) {
     let currentAccount = () => getAccount().id, exchangeStore = openStore(win, scope), navigator = win.navigator, clientInfo = { microclient: !0 }, clientHints = navigator == null ? void 0 : navigator.userAgentData;
     (clientHints == null ? void 0 : clientHints.platform) === "Windows" && typeof clientHints.getHighEntropyValues == "function" && clientHints.getHighEntropyValues(["platformVersion"]).then(({ platformVersion }) => {
       let version = Number(platformVersion == null ? void 0 : platformVersion.split(".")[0]);
@@ -10137,19 +10305,24 @@ ${FEEDBACK_STYLES}
       var _a2;
       let id = obtainAccount();
       if (await bindingsReady, bindingIndex.has(id)) throw fail("already_bound", "\u8BF7\u5148\u89E3\u9664\u5F53\u524D\u8D26\u53F7\u7684\u540C\u6B65\u7ED1\u5B9A");
+      function checkTarget(origin) {
+        if (ensureAccount(id), origin === TEST_SYNC_ORIGIN && !(testEligible != null && testEligible(id))) throw fail("test_unavailable", "\u5F53\u524D\u8D26\u53F7\u6682\u65E0\u6CD5\u4F7F\u7528\u4E91\u540C\u6B65\u7070\u6D4B\u3002");
+      }
       let entry;
       if (recovery) {
         let saved = readPublicRecovery(recovery);
         if (saved.gameKey !== await gameAccountKey(id)) throw fail("account_mismatch");
-        entry = { ...saved, id, origin: target ? publicBindingTarget(target).origin : saved.origin, public: !0, device: random() }, await prove(entry.origin, entry.signer), await publicTransport.check(entry, publicProfile(id));
+        entry = { ...saved, id, origin: target ? publicBindingTarget(target).origin : saved.origin, public: !0, device: random() }, checkTarget(entry.origin), await prove(entry.origin, entry.signer), await publicTransport.check(entry, publicProfile(id));
       } else {
-        let { origin: address, invitation } = publicBindingTarget(target), pendingId = "public-registration:" + id + ":" + address;
-        entry = ((_a2 = await get2("requests", pendingId)) == null ? void 0 : _a2.entry) ?? await newVault(id, address, ""), await put("requests", { id: pendingId, entry });
+        let { origin: address, invitation } = publicBindingTarget(target);
+        checkTarget(address);
+        let pendingId = "public-registration:" + id + ":" + address;
+        entry = ((_a2 = await get2("requests", pendingId)) == null ? void 0 : _a2.entry) ?? await newVault(id, address, ""), await put("requests", { id: pendingId, entry }), checkTarget(address);
         let { signer } = await publicTransport.register(entry, publicProfile(id), invitation);
         entry.signer = signer;
       }
       let proof = await prove(entry.origin, entry.signer);
-      ensureAccount(id), await save({ ...entry, account: entry.vault, revision: proof.revision }), recovery || await del("requests", "public-registration:" + id + ":" + entry.origin);
+      checkTarget(entry.origin), await save({ ...entry, account: entry.vault, revision: proof.revision }), recovery || await del("requests", "public-registration:" + id + ":" + entry.origin);
     }
     async function preparePublic() {
       var _a2;
@@ -10214,6 +10387,8 @@ ${FEEDBACK_STYLES}
           public: !!(entry != null && entry.public),
           password: entry != null && entry.public ? entry.password : "",
           bindingIdentity: entry == null ? void 0 : entry.device,
+          testAvailable: !entry && !!(testEligible != null && testEligible(id)),
+          testing: (entry == null ? void 0 : entry.public) && entry.origin === TEST_SYNC_ORIGIN,
           joinError: id === checkedAccount ? joinError : ""
         };
       },
@@ -10232,6 +10407,8 @@ ${FEEDBACK_STYLES}
       exchange,
       previewLink,
       bindPublic: (target, recovery) => enroll(() => bindPublic(target, recovery)),
+      loadTestEligibility: loadOfficerConfig,
+      bindTest: () => enroll(() => bindPublic(TEST_SYNC_ORIGIN)),
       updatePublicProfile: () => enroll(updatePublicProfile),
       preparePublic: () => enroll(preparePublic),
       usePrepared: () => enroll(usePrepared),
@@ -10605,7 +10782,10 @@ ${FEEDBACK_STYLES}
     installMicroCompatibility(win, scope);
     let onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
     Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
-    let game = createGameAdapter(win, scope, mobileSkinPort, { watchScene: !1 }), sceneWatch = createSceneWatch({ game, scope }), getAccount = () => readNativeAccount({ game }), syncKey = (id) => syncGameAccountKey(win, id), managedSync = !win.__SGS_TOOLBOX_DEMO__ || win.__SGS_TOOLBOX_DEMO__.managedSync === !0 ? createManagedSync(win, scope, getAccount, syncKey, createPrivateHttpTransport(win, mobileSkinPort)) : null;
+    let game = createGameAdapter(win, scope, mobileSkinPort, { watchScene: !1 }), sceneWatch = createSceneWatch({ game, scope }), getAccount = () => readNativeAccount({ game }), syncKey = (id) => syncGameAccountKey(win, id), managedSync = !win.__SGS_TOOLBOX_DEMO__ || win.__SGS_TOOLBOX_DEMO__.managedSync === !0 ? createManagedSync(win, scope, getAccount, syncKey, createPrivateHttpTransport(win, mobileSkinPort), {
+      testEligible: (id) => canUseSyncTest(game, id),
+      loadOfficerConfig: () => game.loadConfigData("h5_officer")
+    }) : null;
     if (managedSync) {
       let readDirectReport = game.readStargazingReport;
       game.readStargazingReport = async (options) => await managedSync.readStargazingReport(options) ?? readDirectReport(options);
@@ -10679,7 +10859,8 @@ ${FEEDBACK_STYLES}
       baisheng: REPLACED_BAISHENG_PACKAGES,
       appearances: REPLACED_APPEARANCE_PACKAGES
     };
-    for (let pkg of bundledPackages) if ((!onlyPlugin || pkg.manifest.id === onlyPlugin || onlyPlugin === "gaizhu" && pkg.manifest.id === "baisheng") && (await manager2.registerBundled(pkg, replacements[pkg.manifest.id] || []), scope.closed))
+    for (let pkg of bundledPackages) if ((!onlyPlugin || pkg.manifest.id === onlyPlugin || onlyPlugin === "gaizhu" && pkg.manifest.id === "baisheng") && (await manager2.registerBundled(pkg, replacements[pkg.manifest.id] || []).catch(() => {
+    }), scope.closed))
       return null;
     return shell.setHandlers({
       manager: manager2,
@@ -10688,9 +10869,10 @@ ${FEEDBACK_STYLES}
       compat,
       market: marketConnection.get,
       setMarketUrl: marketConnection.set,
+      fullPluginPanels: onlyPlugin ? [] : fullPluginPanels,
       screenshot: screenshot.capture,
       exportDiagnostics: async () => (await bridge.flush(), diagnostics.serialize({ bridge: bridge.getStatus() }))
-    }), shell.setStatusVisible(!1), scope.add(journal.subscribe((event) => {
+    }, { deferStartupMarket: !0 }), shell.setStatusVisible(!1), scope.add(journal.subscribe((event) => {
       var _a3, _b3;
       event.type === "ClientLoginRep" && (_a3 = event.payload) != null && _a3.userID && (preferenceSync == null || preferenceSync.login(String(Number(event.payload.userID)))), event.type === "toolbox:snapshot" && typeof ((_b3 = event.payload) == null ? void 0 : _b3.inGame) == "boolean" ? shell.setStatusVisible(event.payload.inGame) : event.type === "MsgGamePlayCardNtf" ? shell.setStatusVisible(!0) : ["MsgGameOver", "ClientLeavetableRep"].includes(event.type) && shell.setStatusVisible(!1);
     })), snapshots = attachSessionSnapshots({ journal, game, scope, settled: bridge.flush }), scope.add(sceneWatch.watch(() => {
@@ -10700,7 +10882,7 @@ ${FEEDBACK_STYLES}
       shell.host.style.display !== display && (shell.host.style.display = display), ready && !mounted && (mounted = !0, snapshots.request());
       let capture = bridge.getStatus();
       shell.setStatus(bridge.error || (ready ? capture.received ? `\u5DF2\u6536 ${capture.received} \u6761\u6D88\u606F \xB7 ${journal.incomplete ? "\u7F3A\u5C11\u5F00\u5C40\u8BB0\u5F55" : "\u672C\u5C40\u8BB0\u5F55\u4E2D"}` : capture.targets.length ? "\u6D88\u606F\u5165\u53E3\u5DF2\u8FDE\u63A5 \xB7 \u7B49\u5F85\u6536\u5305" : "\u672A\u63A5\u5165\u6E38\u620F\u6D88\u606F \xB7 \u4EC5\u539F\u751F\u663E\u793A\u53EF\u7528" : "\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6"));
-    }, 500)), !win.__SGS_TOOLBOX_DEMO__ && !((_c = win.Laya) != null && _c.stage) && (shell.host.style.display = "none"), await manager2.init(), scope.closed ? null : (Object.assign(api, { manager: manager2, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager2.storageError ? shell.notify("\u65E0\u6CD5\u8BFB\u53D6\u63D2\u4EF6\u5B58\u50A8\uFF0C\u8BF7\u5237\u65B0\u6E38\u620F\u91CD\u8BD5\u3002") : manager2.loadIssues.size ? shell.notify(`${manager2.loadIssues.size} \u4E2A\u63D2\u4EF6\u52A0\u8F7D\u5F02\u5E38\uFF0C\u5DF2\u4FDD\u7559\u5B89\u88C5\u8BB0\u5F55\u3002`) : manager2.errors.length && shell.notify(manager2.errors.join("\uFF1B")), api);
+    }, 500)), !win.__SGS_TOOLBOX_DEMO__ && !((_c = win.Laya) != null && _c.stage) && (shell.host.style.display = "none"), await manager2.init(), scope.closed ? null : (scope.timeout(shell.startMarketUpdates, 1500), Object.assign(api, { manager: manager2, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager2.storageError ? shell.notify("\u65E0\u6CD5\u8BFB\u53D6\u63D2\u4EF6\u5B58\u50A8\uFF0C\u8BF7\u5237\u65B0\u6E38\u620F\u91CD\u8BD5\u3002") : manager2.loadIssues.size ? shell.notify(`${manager2.loadIssues.size} \u4E2A\u63D2\u4EF6\u52A0\u8F7D\u5F02\u5E38\uFF0C\u5DF2\u4FDD\u7559\u5B89\u88C5\u8BB0\u5F55\u3002`) : manager2.errors.length && shell.notify(manager2.errors.join("\uFF1B")), api);
   }
   boot(window, typeof sgsToolboxMobileSkinPort > "u" ? void 0 : sgsToolboxMobileSkinPort).catch((error) => {
     console.error("[\u4E09\u56FD\u6740OL\u5DE5\u5177\u7BB1]", error);

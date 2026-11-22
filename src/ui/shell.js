@@ -11,6 +11,7 @@ import { CORE_VERSION } from '../core/version.js';
 import { DEFAULT_SCREENSHOT_SHORTCUT, shortcutFromEvent, shortcutLabel } from '../core/screenshot.js';
 import { planDependencies } from '../market/dependencies.js';
 import { findPluginUpdates, compareVersions } from '../market/updates.js';
+import { updateInstalledPlugins } from '../market/bulk-updates.js';
 import { selectGamePanels } from '../core/game-view.js';
 import { comparePanelOrder, comparePluginOrder } from '../core/plugin-contract.js';
 import { createIcon } from './icons.js';
@@ -38,6 +39,12 @@ const style = `
 .appearance-page .plugin-heading{margin:0}
 .management-tabs{position:sticky;top:-12px;z-index:8;background:var(--sgs-bg)!important;box-shadow:0 5px 8px var(--sgs-bg)!important}
 .management-tabs button{min-width:0;white-space:nowrap}
+.market-update-actions{margin-bottom:8px}.market-update-actions button{display:inline-flex;align-items:center;gap:4px;min-height:29px}
+.market-update-actions button:first-child{color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 45%,var(--sgs-border))}
+.market-update-actions svg{width:14px;height:14px;flex:none}.market-auto-update>span{font-size:12px}
+label.row[data-market-list-filter][hidden]{display:none}
+.plugin-toggle .plugin-placeholder-state{flex:none;color:var(--sgs-muted);font-size:10px}.plugin-toggle .plugin-placeholder-state.error{color:var(--sgs-danger)}
+.plugin-toggle[data-market-placeholder] .plugin-chevron{transform:rotate(-90deg)}
 .custom-card-backs{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--sgs-border)}
 .custom-card-backs-heading{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 10px}
 .custom-card-backs-heading h4{margin:0;font-size:13px}
@@ -144,6 +151,36 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
   }
   for (const [id] of categories) shadow.querySelector('[data-category="' + id + '"]').prepend(createIcon(doc, id));
   const content = shadow.querySelector('.content'); let active = settings.get('category', 'game'); let management = 'market'; let renderedCleanup; let handlers = {}; const panels = new Map(); let toastTimer;
+  const pageFolds = new Map();
+  function bindPageFold(id, toggle, body, title, legacyCollapsed, { doubleClick = false, onChange } = {}) {
+    const pageKey = `openPluginGroup:${renderedKey}`, collapsedKey = `pluginCollapsed:${renderedKey}:${id}`;
+    const apply = collapsed => {
+      const changed = body.hidden !== collapsed;
+      body.hidden = collapsed;
+      toggle.setAttribute('aria-expanded', String(!collapsed));
+      toggle.title = `${collapsed ? '展开' : '收起'}${title}`;
+      toggle.setAttribute('aria-label', toggle.title);
+      if (changed) onChange?.(!collapsed);
+    };
+    toggle.setAttribute('aria-controls', body.id);
+    const selected = settings.get(pageKey);
+    apply(selected === undefined ? settings.get(collapsedKey, legacyCollapsed) === true : selected !== id);
+    pageFolds.set(id, apply);
+    const open = () => {
+      settings.set(pageKey, id);
+      for (const [peer, fold] of pageFolds) fold(peer !== id);
+    };
+    toggle.onclick = event => {
+      if (doubleClick && event.detail > 1) return;
+      if (body.hidden) open();
+      else {
+        if (settings.get(pageKey) === undefined) settings.set(collapsedKey, true);
+        else settings.set(pageKey, null);
+        apply(true);
+      }
+    };
+    if (doubleClick) toggle.ondblclick = open;
+  }
   const feedbackForm = createFeedbackForm(win, doc, scope, getFeedbackAccount);
   const feedbackButton = doc.createElement('button');
   feedbackButton.type = 'button'; feedbackButton.dataset.feedback = ''; feedbackButton.title = '前往反馈';
@@ -158,7 +195,9 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     content.scrollTop = 0;
     feedbackForm.elements.message.focus({ preventScroll: true });
   });
+  let syncMode = 'private';
   function openSyncSettings() {
+    syncMode = 'public';
     active = 'manage'; management = 'sync'; settings.set('category', active); render();
     content.scrollTop = 0;
   }
@@ -237,14 +276,27 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     target?.scrollIntoView({ block: 'nearest' });
     target?.setAttribute('tabindex', '-1'); target?.focus({ preventScroll: true });
   });
-  let pluginSearch = '';
+  let pluginSearch = '', marketPluginId = '';
   let officialBusy = false, officialStatus = '';
+  let bulkBusy = false, bulkStatus = '', bulkFailures = [];
+  const autoUpdateKey = 'marketAutoUpdate';
   let onlyUninstalled = settings.get('marketOnlyUninstalled', true) === true;
   let marketState = {}; let marketRequest = 0; const installing = new Set(); const dependencyPrompts = new Map();
   function currentMarketState() {
     const client = handlers.market?.();
     if (marketState.client !== client) { marketRequest++; marketState = { client }; }
     return marketState;
+  }
+  function openMarketForPlugin(id) {
+    active = 'manage'; management = 'market'; settings.set('category', active);
+    marketPluginId = pluginSearch = id;
+    render();
+    void fetchCatalog({ reuse: true }).then(() => {
+      if (scope.closed || active !== 'manage' || management !== 'market' || marketPluginId !== id) return;
+      const target = [...content.querySelectorAll('[data-catalog-key]')].find(card => !card.hidden);
+      if (target) { target.querySelector('button:not(:disabled)')?.focus({ preventScroll: true }); target.scrollIntoView?.({ block: 'center' }); }
+      else content.querySelector('.plugin-search')?.focus();
+    });
   }
   const el = (tag, text, cls) => { const n = doc.createElement(tag); if (text !== undefined) n.textContent = text; if (cls) n.className = cls; return n; };
   const button = (text, fn) => { const n = el('button', text); n.addEventListener('click', async () => { n.disabled = true; try { await fn(); } catch (e) { notify(userErrorMessage(e)); } finally { n.disabled = false; } }); return n; };
@@ -311,13 +363,7 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     const sizeToggle = el('button', undefined, 'plugin-toggle'); sizeToggle.type = 'button';
     sizeToggle.append(createIcon(doc, 'typography'), el('span', '界面字号', 'plugin-title'), createIcon(doc, 'chevron', 'plugin-chevron'));
     const sizeBody = el('div', undefined, 'plugin-body'); sizeBody.id = 'core-font-settings';
-    sizeToggle.setAttribute('aria-controls', sizeBody.id);
-    const applySizeFold = collapsed => {
-      sizeBody.hidden = collapsed; sizeToggle.setAttribute('aria-expanded', String(!collapsed));
-      sizeToggle.title = `${collapsed ? '展开' : '收起'}界面字号`; sizeToggle.setAttribute('aria-label', sizeToggle.title);
-    };
-    applySizeFold(settings.get('fontSettingsCollapsed', false));
-    sizeToggle.onclick = () => { const collapsed = !sizeBody.hidden; settings.set('fontSettingsCollapsed', collapsed); applySizeFold(collapsed); };
+    bindPageFold(':font-settings', sizeToggle, sizeBody, '界面字号', settings.get('fontSettingsCollapsed', false));
     sizeHeading.append(sizeToggle); sizeGroup.append(sizeHeading, sizeBody);
     const sizes = el('div', undefined, 'sgs-segments'); sizes.setAttribute('role', 'group'); sizes.setAttribute('aria-label', '界面字号');
     const selected = FONT_SIZES.some(([id]) => id === settings.get('fontSize', 'standard')) ? settings.get('fontSize', 'standard') : 'standard';
@@ -343,23 +389,12 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     const themeToggle = el('button', undefined, 'plugin-toggle'); themeToggle.type = 'button';
     themeToggle.append(createIcon(doc, 'palette'), el('span', '主题工坊', 'plugin-title'), createIcon(doc, 'chevron', 'plugin-chevron'));
     const workshop = el('div', undefined, 'plugin-body'); workshop.id = 'core-theme-workshop';
-    themeToggle.setAttribute('aria-controls', workshop.id);
-    const applyThemeFold = collapsed => {
-      workshop.hidden = collapsed;
-      themeToggle.setAttribute('aria-expanded', String(!collapsed));
-      themeToggle.title = `${collapsed ? '展开' : '收起'}主题工坊`;
-      themeToggle.setAttribute('aria-label', themeToggle.title);
-    };
-    applyThemeFold(settings.get('themeWorkshopCollapsed', false));
-    themeToggle.onclick = () => {
-      const collapsed = !workshop.hidden;
-      settings.set('themeWorkshopCollapsed', collapsed); applyThemeFold(collapsed);
-    };
+    bindPageFold(':theme-workshop', themeToggle, workshop, '主题工坊', settings.get('themeWorkshopCollapsed', false));
     const themeGroup = el('section', undefined, 'plugin-group appearance-section');
     themeHeading.append(themeToggle); themeGroup.append(themeHeading, workshop); content.append(themeGroup);
     cleanups.push(mountThemeWorkshop(workshop, { document: doc, themes: handlers.themes, notify }));
     const cardWorkshop = el('div', undefined, 'plugin-group appearance-section'); content.append(cardWorkshop);
-    cleanups.push(mountCardStyleWorkshop(cardWorkshop, { document: doc, cardStyles: handlers.cardStyles, settings }));
+    cleanups.push(mountCardStyleWorkshop(cardWorkshop, { document: doc, cardStyles: handlers.cardStyles, settings, bindFold: bindPageFold }));
   }
   function renderSettings(cleanups) {
     const first = content.children.length;
@@ -534,7 +569,7 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
       actions.append(iconButton(item.enabled ? '停用' : '启用', item.enabled ? 'pause' : 'play', () => handlers.manager.enable(item.id, !item.enabled), item.enabled ? '' : 'is-enable'), iconButton('重载', 'reload', () => handlers.manager.reload(item.id)));
       if (item.hasPrevious) actions.append(iconButton('回退', 'rollback', () => handlers.manager.rollback(item.id)));
       actions.append(iconButton('卸载', 'trash', () => handlers.manager.uninstall(item.id), 'is-destructive'));
-      if (maintenance) for (const action of actions.children) action.disabled = true;
+      if (maintenance || bulkBusy) for (const action of actions.children) action.disabled = true;
       bottom.append(actions); card.append(bottom);
       if (failed) {
         const details = el('details', undefined, 'plugin-error'), summary = el('summary');
@@ -543,7 +578,7 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
       if (update?.status === 'update') {
         const notice = el('div', undefined, 'plugin-update'), info = el('div', undefined, 'plugin-update-info');
         info.append(svgIcon('update'), el('span', `发现更新：${item.version} → ${update.entry.version}`));
-        const upgrade = button(`更新至 ${update.entry.version}`, () => installEntry(update.entry, true)); upgrade.prepend(svgIcon('update')); upgrade.disabled = installing.has(item.id) || !!maintenance;
+        const upgrade = button(`更新至 ${update.entry.version}`, () => installEntry(update.entry, true)); upgrade.prepend(svgIcon('update')); upgrade.disabled = bulkBusy || installing.has(item.id) || !!maintenance;
         notice.append(info, ...releaseNotesBlock(update.entry, true), upgrade); card.append(notice);
       }
       else card.append(...releaseNotesBlock(item));
@@ -552,7 +587,7 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
   }
   async function installEntry(entry, updateOnly = false, confirmed = false) {
     const client = handlers.market();
-    if (officialBusy || installing.has(entry.id)) return;
+    if (bulkBusy || officialBusy || installing.has(entry.id)) return;
     let dependencies;
     try { dependencies = planDependencies(entry, handlers.manager.list(), currentMarketState().catalog?.plugins || []); }
     catch (error) { dependencyPrompts.set(entry.id, { entry, error: userErrorMessage(error), updateOnly }); render(); return; }
@@ -585,7 +620,7 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
         const installed = handlers.manager.list().find(item => item.id === entry.id);
         if (!installed || compareVersions(entry.version, installed.version) <= 0) throw new Error('插件安装状态已改变，请重新检测更新。');
       }
-      await handlers.manager.install(pkg); notify(`${entry.name} ${entry.version} 已安装`);
+      await handlers.manager.install(pkg, { updateOnly }); notify(`${entry.name} ${entry.version} 已安装`);
     } catch (error) {
       if (!scope.closed) dependencyPrompts.set(entry.id, { entry, error: userErrorMessage(error), updateOnly });
       throw error;
@@ -602,37 +637,91 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     box.append(button(prompt.error ? '关闭提示' : '取消', () => { dependencyPrompts.delete(entry.id); render(); }));
     card.append(box);
   }
-  async function fetchCatalog() {
-    const state = currentMarketState(); if (!state.client || state.loading) return;
+  async function fetchCatalog({ reuse = false } = {}) {
+    const state = currentMarketState();
+    if (!state.client) return;
+    if (state.loading) return state.loading;
+    if (reuse && state.catalog) return state.catalog;
     const request = ++marketRequest;
-    state.loading = true; state.error = ''; render();
+    state.error = '';
+    state.loading = (async () => {
+      try {
+        const catalog = await Promise.resolve().then(() => state.client.getCatalog());
+        if (scope.closed || request !== marketRequest || handlers.market() !== state.client) return;
+        state.catalog = catalog; state.checkedAt = new Date();
+        return catalog;
+      } catch (e) {
+        if (scope.closed || request !== marketRequest || handlers.market() !== state.client) return;
+        state.catalog = null; state.checkedAt = null; state.error = userErrorMessage(e);
+      } finally {
+        state.loading = null;
+        if (!scope.closed && request === marketRequest) render();
+      }
+    })();
+    render();
+    return state.loading;
+  }
+  async function updateAllPlugins(startup = false) {
+    const manager = handlers.manager, state = currentMarketState();
+    if (!state.client || manager.initializing || manager.storageError || bulkBusy || officialBusy || installing.size) return;
+    bulkBusy = true; bulkStatus = '正在检测插件更新…'; bulkFailures = []; render();
+    const checkCurrent = () => {
+      if (scope.closed) throw new Error('插件更新已取消。');
+      if (handlers.market() !== state.client) throw new Error('市场地址已改变，请重新检测更新。');
+    };
     try {
-      const catalog = await state.client.getCatalog();
-      if (scope.closed || request !== marketRequest || handlers.market() !== state.client) return;
-      state.catalog = catalog; state.checkedAt = new Date();
-    } catch (e) {
-      if (scope.closed || request !== marketRequest || handlers.market() !== state.client) return;
-      state.catalog = null; state.checkedAt = null; state.error = userErrorMessage(e);
-    } finally {
-      state.loading = false;
-      if (!scope.closed && request === marketRequest) render();
-    }
+      const catalog = await fetchCatalog({ reuse: startup });
+      checkCurrent();
+      if (!catalog) throw new Error(state.error || '未能读取插件市场目录。');
+      if (startup && settings.get(autoUpdateKey, true) !== true) { bulkStatus = ''; return; }
+      const result = await updateInstalledPlugins({ manager, client: state.client, catalog: catalog.plugins, checkCurrent,
+        onProgress(index, total, name) { bulkStatus = `正在更新 ${index}/${total} · ${name}`; render(); },
+      });
+      bulkFailures = result.failures;
+      bulkStatus = result.updated || bulkFailures.length
+        ? `已更新 ${result.updated} 个插件${bulkFailures.length ? `，${bulkFailures.length} 个待处理` : ''}`
+        : startup ? '' : '没有可更新的插件';
+    } catch (error) { bulkStatus = startup && state.error ? '' : userErrorMessage(error); }
+    finally { bulkBusy = false; if (!scope.closed) render(); }
   }
   function markSearchable(card, item) {
+    card.dataset.searchId = item.id;
     card.dataset.searchText = [item.name, item.id, item.description].filter(Boolean).join(' ').toLocaleLowerCase();
   }
   function filterPlugins() {
     const terms = pluginSearch.trim().toLocaleLowerCase().split(/\s+/);
     const cards = [...content.querySelectorAll('[data-search-text]')];
-    for (const card of cards) card.hidden = (onlyUninstalled && card.dataset.catalogInstalled === 'true') || !terms.every(term => card.dataset.searchText.includes(term));
+    for (const card of cards) card.hidden = marketPluginId ? card.dataset.searchId !== marketPluginId
+      : (onlyUninstalled && card.dataset.catalogInstalled === 'true') || !terms.every(term => card.dataset.searchText.includes(term));
     const empty = content.querySelector('.plugin-search-empty');
     if (empty) empty.hidden = !pluginSearch.trim() || cards.some(card => !card.hidden);
+    const filter = content.querySelector('[data-market-list-filter]');
+    if (filter) filter.hidden = !!marketPluginId;
+    const missing = content.querySelector('[data-market-target-missing]');
+    if (missing) missing.hidden = !marketPluginId;
   }
   function updateControls() {
     const state = currentMarketState();
-    const check = button(state.loading ? '正在检测更新…' : '检测插件更新', fetchCatalog); check.disabled = !state.client || !!state.loading; content.append(check);
+    const actions = el('div', undefined, 'actions market-update-actions');
+    const update = button(bulkBusy ? '正在更新插件…' : '一键更新插件', () => updateAllPlugins());
+    update.prepend(svgIcon('update'));
+    update.disabled = !state.client || bulkBusy || officialBusy || !!installing.size;
+    const check = button(state.loading ? '正在检测更新…' : '检测插件更新', () => fetchCatalog()); check.disabled = !state.client || !!state.loading || bulkBusy;
+    actions.append(update, check); content.append(actions);
+    const autoRow = el('label', undefined, 'row market-auto-update');
+    const auto = styleSwitch(el('input')); auto.type = 'checkbox'; auto.checked = settings.get(autoUpdateKey, true) === true;
+    auto.addEventListener('change', () => settings.set(autoUpdateKey, auto.checked));
+    autoRow.append(el('span', '启动时自动更新插件'), auto); content.append(autoRow);
+    if (bulkStatus) {
+      const status = el('div', bulkStatus, 'notice'); status.setAttribute('role', 'status'); content.append(status);
+    }
+    if (bulkFailures.length) {
+      const details = el('details', undefined, 'plugin-error');
+      details.append(el('summary', '查看未更新的插件'), el('pre', bulkFailures.map(({ entry, error }) => `${entry.name} · ${userErrorMessage(error)}`).join('\n')));
+      content.append(details);
+    }
     const search = el('input', undefined, 'plugin-search'); search.type = 'search'; search.placeholder = '搜索插件名称、简介或 ID'; search.setAttribute('aria-label', '搜索插件'); search.value = pluginSearch;
-    search.addEventListener('input', () => { pluginSearch = search.value; filterPlugins(); }); content.append(search);
+    search.addEventListener('input', () => { marketPluginId = ''; pluginSearch = search.value; filterPlugins(); }); content.append(search);
     const empty = el('div', '没有匹配的插件', 'notice plugin-search-empty'); empty.setAttribute('role', 'status'); empty.hidden = true; content.append(empty);
     if (!state.client) content.append(el('div', '市场连接已关闭，可在设置中选择本机或自定义地址。', 'notice'));
     else if (state.error) content.append(el('div', `检测失败：${state.error}`, 'notice error'));
@@ -649,26 +738,32 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     if (state.error) { container.append(el('div', DEVELOPMENT ? '请检查目录地址、网络与跨域权限。' : '请检查网络后重试，已安装插件可继续使用。', 'muted')); return; }
     if (!state.catalog) { container.append(el('div', '点击连接后读取静态目录。目录离线不会停止已安装插件。', 'notice')); return; }
     const installed = new Map((handlers.manager?.list() || []).map(item => [item.id, item]));
-    const loadIssues = handlers.manager?.loadIssues;
+    const loadIssues = handlers.manager?.loadIssues, bundleIssues = handlers.manager?.bundledInstallIssues;
     const filter = el('label', undefined, 'row');
+    filter.dataset.marketListFilter = '';
     const toggle = styleSwitch(el('input')); toggle.type = 'checkbox'; toggle.checked = onlyUninstalled;
     toggle.addEventListener('change', () => { onlyUninstalled = toggle.checked; settings.set('marketOnlyUninstalled', onlyUninstalled); render(); });
-    filter.append(el('span', '只显示未安装'), toggle); container.append(filter);
+    filter.append(el('span', '只显示未安装'), toggle);
+    container.append(filter);
     const count = state.catalog.plugins.filter(entry => !onlyUninstalled || (!installed.has(entry.id) && !loadIssues?.has(entry.id))).length;
     container.append(el('div', `${count} 个${onlyUninstalled ? '未安装' : '可用'}发布包`, 'muted'));
-    if (!count) container.append(el('div', '目录中的插件均已安装', 'notice'));
+    if (!count && !marketPluginId) container.append(el('div', '目录中的插件均已安装', 'notice'));
+    if (marketPluginId && !state.catalog.plugins.some(entry => entry.id === marketPluginId)) {
+      const missing = el('div', '当前市场暂无此插件。', 'notice'); missing.dataset.marketTargetMissing = ''; container.append(missing);
+    }
 
     for (const entry of [...state.catalog.plugins].sort(comparePluginOrder)) {
       const card = el('section', undefined, 'card plugin-card'); pluginIdentity(card, entry);
       card.dataset.catalogKey = JSON.stringify([entry.id, entry.version]);
-      const current = installed.get(entry.id), same = current?.version === entry.version, unavailable = !current && loadIssues?.has(entry.id);
+      const current = installed.get(entry.id), same = current?.version === entry.version;
+      const unavailable = loadIssues?.has(entry.id) || bundleIssues?.has(entry.id) || (!!current?.error && !current.maintenance);
       card.dataset.catalogInstalled = String(!!current || !!unavailable);
       const bottom = el('div', undefined, 'plugin-bottom');
-      const status = el('span', unavailable ? '已保存 · 加载异常' : current ? `已安装${same ? '此版本' : ' ' + current.version}` : '未安装', 'plugin-status');
+      const status = el('span', unavailable ? '安装或加载异常' : current ? `已安装${same ? '此版本' : ' ' + current.version}` : '未安装', 'plugin-status');
       status.title = status.textContent; status.style.whiteSpace = 'normal'; bottom.append(status);
       const busy = installing.has(entry.id);
-      const install = button(busy ? '正在安装…' : same ? '已安装' : current || unavailable ? '替换此版本' : '安装此版本', () => installEntry(entry));
-      install.disabled = officialBusy || busy || same; install.style.marginLeft = 'auto'; install.style.flexShrink = '0';
+      const install = button(busy ? '正在安装…' : same && !unavailable ? '已安装' : current || unavailable ? '重新安装' : '安装此版本', () => installEntry(entry));
+      install.disabled = bulkBusy || officialBusy || busy || (same && !unavailable); install.style.marginLeft = 'auto'; install.style.flexShrink = '0';
       if (busy) card.setAttribute('aria-busy', 'true');
       bottom.append(install); card.append(bottom, ...releaseNotesBlock(entry)); renderDependencyPrompt(card, entry); markSearchable(card, entry); container.append(card);
     }
@@ -721,7 +816,7 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     content.append(card);
   }
   async function completeOfficialPlugins() {
-    if (officialBusy || installing.size) return;
+    if (bulkBusy || officialBusy || installing.size) return;
     const client = handlers.market();
     officialBusy = true; officialStatus = '正在准备官方插件套装…'; render();
     let completed = 0;
@@ -752,14 +847,18 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     const pack = el('section', undefined, 'card');
     pack.append(el('strong', '官方插件套装'), el('div', `一键补齐 ${officialPluginIds.length} 个官方插件；保留已有版本、设置和停用状态。`, 'notice'));
     const complete = button(officialBusy ? '正在补齐…' : '一键补齐官方插件', completeOfficialPlugins);
-    complete.disabled = officialBusy || !!installing.size || !currentMarketState().client;
+    complete.disabled = bulkBusy || officialBusy || !!installing.size || !currentMarketState().client;
     pack.append(complete); if (officialStatus) { const status = el('div', officialStatus, 'notice'); status.setAttribute('role', 'status'); pack.append(status); } content.append(pack);
     updateControls();
     pluginCards(); content.append(el('h3', '插件目录'));
     const catalog = el('div'); const actions = el('div', undefined, 'actions');
-    const refresh = button('连接 / 刷新市场', fetchCatalog); refresh.disabled = !currentMarketState().client || !!currentMarketState().loading;
-    actions.append(refresh, button('导入插件包', () => { const file = doc.createElement('input'); file.type = 'file'; file.accept = '.json'; file.onchange = async () => { try { if (!file.files[0]) return; await handlers.manager.install(JSON.parse(await file.files[0].text())); notify('插件包已安装'); } catch (e) { notify(userErrorMessage(e)); } }; file.click(); }));
-    if (handlers.manager?.builtins?.has('cards') && !handlers.manager.list().some(p => p.id === 'cards')) actions.append(button('恢复内置卡牌', () => handlers.manager.restoreBuiltin('cards')));
+    const refresh = button('连接 / 刷新市场', () => fetchCatalog()); refresh.disabled = bulkBusy || !currentMarketState().client || !!currentMarketState().loading;
+    const importPackage = button('导入插件包', () => { const file = doc.createElement('input'); file.type = 'file'; file.accept = '.json'; file.onchange = async () => { try { if (!file.files[0]) return; if (bulkBusy) throw new Error('请等待插件更新完成。'); await handlers.manager.install(JSON.parse(await file.files[0].text())); notify('插件包已安装'); } catch (e) { notify(userErrorMessage(e)); } }; file.click(); });
+    importPackage.disabled = bulkBusy;
+    actions.append(refresh, importPackage);
+    if (handlers.manager?.builtins?.has('cards') && !handlers.manager.list().some(p => p.id === 'cards')) {
+      const restore = button('恢复内置卡牌', () => handlers.manager.restoreBuiltin('cards')); restore.disabled = bulkBusy; actions.append(restore);
+    }
     if (DEVELOPMENT) content.append(el('div', handlers.market?.()?.baseUrl || '离线 · 未连接市场', 'muted'));
     else if (handlers.market?.()) content.append(el('div', '下载来源：' + marketServerLabel(handlers.market().baseUrl), 'muted'));
     content.append(actions, catalog);
@@ -780,7 +879,9 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     else if (management === 'market') renderMarket();
     else if (management === 'appearance') renderAppearance(cleanups);
     else if (management === 'sync') {
-      const syncSettings = mountSyncSettings(doc, win, managedSync, preferenceSync);
+      const syncSettings = mountSyncSettings(doc, win, managedSync, preferenceSync, {
+        initialMode: syncMode, onModeChange: mode => { syncMode = mode; },
+      });
       content.append(syncSettings.root);
       cleanups.push(syncSettings.dispose);
     }
@@ -799,11 +900,12 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
       }
     };
     if (renderedKey) viewScroll.set(renderedKey, content.scrollTop);
-    try { renderedCleanup?.(); } catch {} renderedCleanup = null; content.replaceChildren(); content.classList.remove('has-plugin-panels', 'appearance-page');
+    try { renderedCleanup?.(); } catch {} renderedCleanup = null; content.replaceChildren(); pageFolds.clear(); content.classList.remove('has-plugin-panels', 'appearance-page');
     const cleanups = [];
     renderedCleanup = () => { for (const clean of cleanups.splice(0)) { try { clean(); } catch {} } };
     const installed = handlers.manager?.list() || [], market = currentMarketState();
     const failedPlugins = new Set(handlers.manager?.loadIssues?.keys());
+    for (const id of handlers.manager?.bundledInstallIssues?.keys() || []) failedPlugins.add(id);
     for (const item of installed) if (!item.maintenance && (item.error || (item.enabled && !item.active))) failedPlugins.add(item.id);
     const failures = failedPlugins.size, storageError = !!handlers.manager?.storageError;
     const upgrades = market.catalog ? findPluginUpdates(installed, market.catalog.plugins).filter(item => item.status === 'update').length : 0;
@@ -819,7 +921,24 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     for (const b of shadow.querySelectorAll('[data-category]')) b.setAttribute('aria-selected', String(b.dataset.category === active));
     renderedKey = active + ':' + (active === 'game' ? gameView : active === 'manage' ? management : '');
     if (active === 'manage') { renderManagement(cleanups); filterPlugins(); }
-    const categoryPanels = [...panels.values()].filter(p => p.category === (active === 'manage' && management === 'appearance' ? 'appearance' : active)).sort(comparePanelOrder);
+    const category = active === 'manage' && management === 'appearance' ? 'appearance' : active;
+    const manager = handlers.manager, registered = [...panels.values()].filter(p => p.category === category);
+    const placeholders = [];
+    if (manager && !manager.initializing) {
+      const byId = new Map(installed.map(item => [item.id, item]));
+      const issues = manager.bundledInstallIssues;
+      for (const spec of handlers.fullPluginPanels || []) {
+        if (spec.category !== category) continue;
+        const id = spec.pluginId, state = byId.get(id);
+        if (state?.maintenance || (state && !state.enabled)) continue;
+        if (registered.some(panel => panel.pluginId === id) && !issues?.has(id)) continue;
+        if (state?.active && !issues?.has(id)) continue;
+        const failed = failedPlugins.has(id) || !!state || !!storageError;
+        placeholders.push({ ...spec, placeholder: failed ? '安装异常' : '未安装' });
+      }
+    }
+    const unavailable = new Set(placeholders.map(spec => spec.pluginId));
+    const categoryPanels = [...registered.filter(panel => !unavailable.has(panel.pluginId)), ...placeholders].sort(comparePanelOrder);
     const available = active === 'game' ? selectGamePanels(categoryPanels, gameView) : categoryPanels;
     if (!available.length) { if (active !== 'manage') empty('尚未安装此类插件', active === 'game' ? '前往管理 → 插件市场安装卡牌插件。' : '此分类为后续插件保留。'); restoreScroll(); return; }
     content.classList.add('has-plugin-panels');
@@ -857,16 +976,18 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
         const icon = el('span'); icon.setAttribute('aria-hidden', 'true');
         icon.append(svgIcon(panel.pluginIcon || 'package'));
         toggle.append(icon, el('span', title, 'plugin-title'));
+        if (panel.placeholder) {
+          const state = panel.placeholder;
+          toggle.dataset.marketPlaceholder = '';
+          toggle.append(el('span', `（${state}）`, `plugin-placeholder-state${state === '未安装' ? '' : ' error'}`), createIcon(doc, 'chevron', 'plugin-chevron'));
+          toggle.setAttribute('aria-label', `${title}（${state}），前往插件市场`); toggle.title = '前往插件市场';
+          toggle.onclick = () => openMarketForPlugin(id);
+          heading.append(toggle); group.append(heading); content.append(group);
+          continue;
+        }
         toggle.append(createIcon(doc, 'chevron', 'plugin-chevron'));
         body = el('div', undefined, 'plugin-body'); body.id = `plugin-body-${groups.size}`;
-        toggle.setAttribute('aria-controls', body.id);
-        const apply = collapsed => {
-          body.hidden = collapsed; toggle.setAttribute('aria-expanded', String(!collapsed));
-          toggle.setAttribute('aria-label', `${collapsed ? '展开' : '收起'}${title}`); toggle.title = `${collapsed ? '展开' : '收起'}${title}`;
-        };
-        apply(settings.get(`pluginCollapsed:${id}`, false) === true);
-        toggle.onclick = event => { if (event.detail > 1) return; const collapsed = !body.hidden; settings.set(`pluginCollapsed:${id}`, collapsed); apply(collapsed); };
-        toggle.ondblclick = () => { settings.set(`pluginCollapsed:${id}`, false); apply(false); };
+        bindPageFold(id, toggle, body, title, settings.get(`pluginCollapsed:${id}`, false), { doubleClick: true });
         heading.append(toggle); group.append(heading, body); content.append(group); groups.set(id, body);
       }
       appendPanel(panel, body);
@@ -1063,7 +1184,15 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
     if (slashCount.getAttribute('aria-label') !== label) slashCount.setAttribute('aria-label', label);
     const title = label + '；双击展开，按住拖动';
     if (slash.title !== title) slash.title = title;
-  }, setHandlers(value) { const first = !handlers.manager; handlers = value; render(); if (first && handlers.market?.()) scope.timeout(() => { if (!scope.closed) fetchCatalog(); }, 1500); if (first && MICROCLIENT && typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ === 'function') scope.timeout(() => { if (!scope.closed) runMicroUpdate('check'); }, 1500); },
+  }, setHandlers(value, { deferStartupMarket = false } = {}) {
+    const first = !handlers.manager; handlers = value; render();
+    if (first && handlers.market?.() && !deferStartupMarket) scope.timeout(() => fetchCatalog({ reuse: true }), 1500);
+    if (first && MICROCLIENT && typeof win.__SGS_TOOLBOX_SCRIPT_UPDATE__ === 'function') scope.timeout(() => runMicroUpdate('check'), 1500);
+  },
+  startMarketUpdates() {
+    if (settings.get(autoUpdateKey, true) === true && handlers.manager.list().length && !handlers.manager.storageError) return updateAllPlugins(true);
+    return fetchCatalog({ reuse: true });
+  },
   setStatusVisible(visible) { if (statusLine.hidden !== !visible) statusLine.hidden = !visible; },
   setStatus(text) { if (statusText.textContent !== text) statusText.textContent = text; },
   applyTheme(tokens) { host.dataset.themeScheme = tokens.scheme === 'light' ? 'light' : 'dark'; for (const [key, value] of Object.entries(tokens)) host.style.setProperty('--sgs-' + key, value); }, registerPanel(spec) { if (panels.has(spec.id)) throw new Error('面板重复注册：' + spec.id); panels.set(spec.id, spec); render(); return () => { panels.delete(spec.id); render(); }; } };

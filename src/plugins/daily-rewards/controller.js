@@ -173,7 +173,6 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
     if (change.codeServerUrl !== undefined) verifiedCodes.clear();
     try { settings.set(key(owner) + 'options', next); }
     catch { state.status = '设置保存失败，未启用自动领取'; emit(); return false; }
-    if (change.automatic === false) { aborter?.abort(); sourceAborter?.abort(); }
     if (change.clipboardCodes === false || change.serverCodes === false || change.codes === false || change.shareCodes === false || change.codeServerUrl !== undefined) sourceAborter?.abort();
     if (change.clipboardCodes === true) { sources?.resumeClipboard?.(); nextClipboardAt = 0; }
     if (Object.keys(change).some(name => name !== 'codeText')) nextAutoAt = 0;
@@ -186,14 +185,14 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
   async function importCodes(kind, { duringRun = false, signal } = {}) {
     if (!['server', 'clipboard'].includes(kind) || !sources || state.sourceLoading || (running && !duringRun) || scope.signal.aborted) return false;
     const owner = account(), before = config();
-    if (!owner || !before.automatic || !before.codes || (kind === 'clipboard' && (!before.clipboardCodes || sources.canReadClipboard?.() === false)) || (kind === 'server' && (!before.serverCodes || appliedServer.has(owner)))) return false;
+    if (!owner || !before.codes || (kind === 'clipboard' && (!before.clipboardCodes || sources.canReadClipboard?.() === false)) || (kind === 'server' && (!before.serverCodes || appliedServer.has(owner)))) return false;
     if (seenAccount !== owner) { seenAccount = owner; logs = []; }
     const control = new AbortController(); sourceAborter = control;
     const cancel = () => control.abort();
     signal?.addEventListener('abort', cancel, { once: true });
     if (signal?.aborted) cancel();
     const valid = () => !control.signal.aborted && !scope.signal.aborted && account() === owner &&
-      config().automatic && config().codes &&
+      config().codes &&
       (kind === 'server' ? config().codeServerUrl === before.codeServerUrl : config().clipboardCodes);
     state.sourceLoading = true; state.sourceStatus = kind === 'server' ? '正在读取服务器兑换码' : '正在读取剪贴板'; emit();
     let timer, abortListener;
@@ -311,13 +310,16 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
     if (!owner || !date || scope.signal.aborted) {
       state.status = !owner ? '等待登录账号就绪' : !date ? '等待游戏服务器日期就绪' : '插件已停用'; emit(); return Promise.resolve(snapshot());
     }
-    if (!config().automatic) return Promise.resolve(snapshot());
+    const initial = config();
+    if (!initial.automatic && !initial.codes) return Promise.resolve(snapshot());
     // A first run can start before the account monitor's first tick.
     // Adopt its owner now so that tick cannot abort this same-account run.
     if (seenAccount !== owner) { seenAccount = owner; logs = []; }
     aborter = new AbortController();
     const signal = aborter.signal;
-    const valid = () => !scope.signal.aborted && !signal.aborted && config().automatic && account() === owner && day() === date;
+    const valid = () => !scope.signal.aborted && !signal.aborted && account() === owner && day() === date;
+    const ordinaryRewards = () => source !== 'clipboard' && config().automatic;
+    const enabled = category => config()[category] && (category === 'codes' || ordinaryRewards());
     const storageKey = key(owner) + 'attempts';
     const previous = settings.get(storageKey, {});
     const ledger = previous?.day === date && previous?.items && typeof previous.items === 'object' ? { day: date, items: { ...previous.items } } : { day: date, items: {} };
@@ -359,7 +361,8 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
         if (reconciled) write();
       }
       const selection = () => {
-        const selected = source === 'clipboard' ? { ...config(), sign: false, mail: false, tasks: false, welfare: false, activities: false } : config();
+        const selected = config();
+        if (!ordinaryRewards()) Object.assign(selected, { sign: false, mail: false, tasks: false, welfare: false, activities: false, autoFlip: false });
         // Pre-fix clipboard queues lack provenance and may contain private prose.
         // Preserve their stored value until import, but never send that old queue.
         if (selected.codeInputVersion !== 1) selected.codeText = '';
@@ -381,10 +384,10 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
       const isJieyue = key => key.startsWith('activity:new-jd:');
       while (valid() && count < 200) {
         const plan = inspect(selection());
-        if (!jieyueLists && config().activities && source !== 'clipboard' &&
+        if (!jieyueLists && enabled('activities') &&
             (plan.actions.some(item => isJieyue(item.key)) || Object.entries(ledger.items).some(([key, entry]) => isJieyue(key) && uncertainStatuses.has(entry?.status)))) {
           jieyueManager = adapter.manager('ActivityManager');
-          jieyueLists = await syncJieyueLists(jieyueManager, { signal, valid, timeout: Math.min(timeout, 2500) });
+          jieyueLists = await syncJieyueLists(jieyueManager, { signal, valid: () => valid() && enabled('activities'), timeout: Math.min(timeout, 2500) });
           if (!valid()) break;
           reconcile();
           continue; // Re-plan with the refreshed lists before selecting a tier.
@@ -423,7 +426,8 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
             !(tier && blockedGroups.has(`activity:${tier[1]}`)) && !(item.skipAfter && ledger.items[item.skipAfter]);
         });
         if (!action) break;
-        if (!valid() || !config()[action.category]) break;
+        if (!valid()) break;
+        if (!enabled(action.category)) { skipped.add(action.key); continue; }
         const records = record(action);
         const attempts = action.maxRejectedAttempts ? { attempts: (Number(records[action.key]?.attempts) || (records[action.key] ? 1 : 0)) + 1 } : {};
         if (!safely(action.eligible)) { skipped.add(action.key); continue; }
@@ -442,7 +446,7 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
         count++; state.status = action.category === 'codes'
           ? `正在兑换 ${++codeAttempted}/${codeTotal}：${action.code}`
           : `正在领取：${action.label}`; emit();
-        const result = await awaitClaim(action, { signal, valid, timeout, poll });
+        const result = await awaitClaim(action, { signal, valid: () => valid() && (action.category === 'codes' || ordinaryRewards()), timeout, poll });
         records[action.key] = { status: result.status, at: now(), label: action.label, text: result.text, workflowGroup: rewardWorkflowGroup(action), ...attempts, ...(action.flowVersion ? { flowVersion: action.flowVersion } : {}) };
         if (!uncertainStatuses.has(result.status)) pendingActions.delete(action.key);
         try { write(); } catch { /* The persisted pending intent still prevents a duplicate after reload. */ }
@@ -481,10 +485,11 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
   scope.interval(() => {
     const owner = account();
     if (owner !== seenAccount) { seenAccount = owner; aborter?.abort(); sourceAborter?.abort(); verifiedCodes.clear(); logs = []; nextAutoAt = 0; state.confirmed = 0; state.sourceStatus = ''; state.sourceError = ''; state.status = owner ? '已切换账号，使用该账号独立设置' : '等待登录账号就绪'; emit(); }
-    if (!running && !state.sourceLoading && owner && config().automatic && now() >= nextAutoAt) void run('automatic');
-    else if (!running && !state.sourceLoading && owner && config().automatic && config().codes && config().clipboardCodes && now() >= nextClipboardAt && sources?.canReadClipboard?.() !== false) {
+    const selected = config();
+    if (!running && !state.sourceLoading && owner && (selected.automatic || selected.codes) && now() >= nextAutoAt) void run('automatic');
+    else if (!running && !state.sourceLoading && owner && selected.codes && selected.clipboardCodes && now() >= nextClipboardAt && sources?.canReadClipboard?.() !== false) {
       nextClipboardAt = now() + 1000;
-      void importCodes('clipboard').then(changed => { if (changed && config().automatic) void run('clipboard'); });
+      void importCodes('clipboard').then(changed => { if (changed && config().codes) void run('clipboard'); });
     }
   }, 2000);
   return { snapshot, options, run, stop, refresh, refreshChoices, claimChoice, importCodes, subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); } };

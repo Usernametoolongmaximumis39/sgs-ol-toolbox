@@ -195,10 +195,12 @@ try {
   }
   await host.locator('.management-tabs').getByRole('button',{name:'插件市场',exact:true}).click();await host.locator('.management-tabs').getByRole('button',{name:'外观',exact:true}).click();
   assert.equal(await host.locator('.card-style-workshop .plugin-toggle').getAttribute('aria-expanded'),'true');
+  const themeToggle = host.locator('[aria-controls="core-theme-workshop"]');
+  assert.equal(await themeToggle.getAttribute('aria-expanded'), 'false', 'opening the card workshop collapses the theme workshop');
   await host.locator('.content').evaluate(node => { node.scrollTop = 0; });
   await page.screenshot({path:'test-results/card-style-heading-expanded.png'});
   await host.locator('.card-style-workshop .plugin-toggle').focus();await page.keyboard.press('Enter');await page.waitForTimeout(50);assert.equal(await host.locator('.card-style-workshop .plugin-toggle').getAttribute('aria-expanded'),'false');
-  await host.getByRole('button', {name:'收起主题工坊',exact:true}).click();
+  assert.equal(await themeToggle.getAttribute('aria-expanded'), 'false', 'closing the card workshop leaves the theme workshop collapsed');
   const appearanceHeadings = host.locator('[aria-controls="core-theme-workshop"], [aria-controls="core-card-style-workshop"]');
   for (const width of [248,280,420]) {
     await host.evaluate((node,width)=>{node.style.width=width+'px';},width);
@@ -263,10 +265,8 @@ try {
     assert.equal(await originalBack.getAttribute('aria-pressed'), 'false');
   }
   const upload = custom.getByRole('button', { name: '选择图片' });
-  await upload.focus();
-  const chooserPromise = page.waitForEvent('filechooser');
-  await page.keyboard.press('Enter');
-  const chooser = await chooserPromise;
+  await upload.scrollIntoViewIfNeeded();
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), upload.press('Enter')]);
   await chooser.setFiles({ name: wideName, mimeType: 'image/png', buffer: Buffer.from(fixture.wide, 'base64') });
   await assertLocalBack(wideName);
   const touchChooser = page.waitForEvent('filechooser');

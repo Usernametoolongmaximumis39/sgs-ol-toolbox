@@ -11,6 +11,7 @@ try {
   await page.route('https://web.sanguosha.com/__redeem_probe', route => route.fulfill({ contentType: 'text/html', body: '<title>Redeem HTTPS probe</title>' }));
   await page.route('https://web.sanguosha.com/code-sources.js', async route => route.fulfill({ contentType: 'text/javascript', body: await readFile('src/plugins/daily-rewards/code-sources.js', 'utf8') }));
   await page.route('https://web.sanguosha.com/codes.js', async route => route.fulfill({ contentType: 'text/javascript', body: await readFile('src/plugins/daily-rewards/codes.js', 'utf8') }));
+  await page.route('https://web.sanguosha.com/shared/safe-read.js', async route => route.fulfill({ contentType: 'text/javascript', body: await readFile('src/shared/safe-read.js', 'utf8') }));
   // Public list is live. Registration/report writes are simulated to avoid fake production successes.
   const reports = [];
   await page.route('https://redeem.3gs.xyz/register', route => route.fulfill({ contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': 'https://web.sanguosha.com' }, body: JSON.stringify({ ok: true, token: 'a'.repeat(64) }) }));

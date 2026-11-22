@@ -133,6 +133,7 @@ try {
 
   const hud = page.locator('[data-sgs-toolbox=core]');
   await hud.getByRole('button', { name: '云同步未启用，打开同步设置' }).click();
+  await hud.getByRole('button', { name: '私有服务器', exact: true }).click();
   await hud.getByText('更改私有服务器地址').click();
   await hud.getByLabel('私有服务器地址').fill(syncHttp);
   await hud.getByRole('button', { name: '生成四位配对码' }).click();

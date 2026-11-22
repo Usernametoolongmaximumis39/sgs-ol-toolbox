@@ -5,6 +5,7 @@ import { compilePackage, verifyPackage, validateManifest } from './packages.js';
 import { createNativeTheme } from '../ui/native-theme.js';
 import { normalizePanel, comparePluginOrder } from './plugin-contract.js';
 import { createPluginNative } from './plugin-native.js';
+import { compareVersions } from '../market/updates.js';
 
 const replayYield = () => new Promise(resolve => setTimeout(resolve, 0));
 const receivesEvent = (slot, type) => !slot.journalEvents || slot.journalEvents.has(type) ||
@@ -14,7 +15,7 @@ export class PluginManager {
   constructor({ journal, store, settings, context, onChange = () => {}, onReplayGap = () => {} }) {
     Object.assign(this, { journal, store, settings, context, onChange, onReplayGap });
     this.builtins = new Map(); this.slots = new Map(); this.tail = Promise.resolve(); this.errors = []; this.closed = false;
-    this.initializing = true; this.storageError = ''; this.loadIssues = new Map();
+    this.initializing = true; this.storageError = ''; this.loadIssues = new Map(); this.bundledInstallIssues = new Map();
     this.priorityPlayActions = new Set();
     this.eventRoutes = new Map(); this.eventSession = null;
     this.unsubscribe = journal.subscribe(event => this.dispatch(event));
@@ -22,8 +23,15 @@ export class PluginManager {
   serial(fn) { const work = this.tail.catch(() => {}).then(() => { if (this.closed) throw new Error('插件管理器已停止'); if (this.storageError) throw new Error(this.storageError); return fn(); }); this.tail = work; return work; }
   registerBuiltin(module) { validateManifest(module.manifest); this.builtins.set(module.manifest.id, module); }
   async registerBundled(pkg, replacesPackageDigests = []) {
-    await verifyPackage(pkg);
-    this.registerBuiltin({ ...compilePackage(pkg), bundledPackage: pkg, replacesPackageDigests });
+    try {
+      await verifyPackage(pkg);
+      this.registerBuiltin({ ...compilePackage(pkg), bundledPackage: pkg, replacesPackageDigests });
+    } catch (error) {
+      const id = pkg.manifest.id;
+      this.bundledInstallIssues.set(id, error.message);
+      this.errors.push(`${id}: ${error.message}`);
+      throw error;
+    }
   }
   dispatch(event) {
     const newSession = this.eventSession !== event.sessionId;
@@ -337,7 +345,10 @@ export class PluginManager {
         const portable = { ...record, active: record.active || builtin.bundledPackage,
           previous: record.previous?.builtin ? builtin.bundledPackage : record.previous };
         try { await this.store.put(portable); record = portable; }
-        catch (error) { this.errors.push(`${id}: 插件独立保存失败，切换轻量版前请修复存储：${error.message}`); }
+        catch (error) {
+          this.bundledInstallIssues.set(id, error.message);
+          this.errors.push(`${id}: 插件独立保存失败，切换轻量版前请修复存储：${error.message}`);
+        }
       }
       if (this.closed) return;
       const slot = this.makeSlot(module, record);
@@ -372,7 +383,17 @@ export class PluginManager {
     const builtinFallback = this.loadIssues.has(s.record.id) && s.module === this.builtins.get(s.record.id);
     return { ...s.module.manifest, enabled: s.record.enabled, active: s.active, error: s.error, ...(s.maintenance ? { maintenance: s.maintenance } : {}), hasPrevious: !!s.record.previous, source: s.record.active && !builtinFallback ? '插件市场 / 文件' : '内置' };
   }).sort(comparePluginOrder); }
-  install(pkg) { return this.serial(async () => { await verifyPackage(pkg); return this.swap(pkg.manifest.id, compilePackage(pkg), pkg, undefined, { restartDependents: true }); }); }
+  install(pkg, { updateOnly = false } = {}) {
+    return this.serial(async () => {
+      await verifyPackage(pkg);
+      const { id, version } = pkg.manifest;
+      if (updateOnly) {
+        const current = this.slots.get(id)?.module.manifest.version;
+        if (!current || compareVersions(version, current) <= 0) throw new Error('插件安装状态已改变，请重新检测更新。');
+      }
+      return this.swap(id, compilePackage(pkg), pkg, undefined, { restartDependents: true });
+    });
+  }
   async swap(id, module, pkg, previousOverride, { restartDependents = false } = {}) {
     const old = this.slots.get(id);
     const saved = old?.record || this.loadIssues.get(id)?.record;
@@ -399,7 +420,7 @@ export class PluginManager {
         this.attachSlot(id, candidate); this.onChange();
         if (record.enabled) await this.activate(candidate);
         if (this.closed) throw new Error('插件安装已取消');
-        await this.store.put(record); this.loadIssues.delete(id);
+        await this.store.put(record); this.loadIssues.delete(id); this.bundledInstallIssues.delete(id);
       }
       catch (error) {
         this.deactivate(candidate); this.slots.delete(id); this.eventRoutes.clear();

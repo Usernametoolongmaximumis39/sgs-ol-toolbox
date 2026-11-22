@@ -3,12 +3,13 @@ import { createIcon } from './icons.js';
 import { ALIYUN_ICON, CODEX_ICON, DEEPSEEK_HARNESS_ICON, DOUBAO_WORK_ICON, TENCENT_CLOUD_ICON, WORKBUDDY_ICON } from './sync-service-icons.js';
 
 const PRIVATE_SERVER_REPOSITORY = 'https://github.com/Usernametoolongmaximumis39/sgs-ol-toolbox-sync-server';
+const TEST_NOTICE = '这是云同步测试服务器，测试结束后会停用。备份由工具箱加密后上传。没有六位访问码，其他人无法通过分享链接解密你的数据。';
 
 export function downloadSyncBackup(window, preferences) {
   return preferences.restore(() => window.confirm('将恢复当前账号的云端设置和水表，并合并账本及战绩。继续下载？'));
 }
 
-export function mountSyncSettings(document, window, sync, preferences) {
+export function mountSyncSettings(document, window, sync, preferences, { initialMode = 'private', onModeChange } = {}) {
   const node = (tag, label, className) => {
     const element = document.createElement(tag);
     if (label) element.textContent = label;
@@ -22,6 +23,7 @@ export function mountSyncSettings(document, window, sync, preferences) {
     .sync-settings label{display:grid;min-width:0;gap:4px}
     .sync-settings input:not(.sgs-switch),.sync-settings textarea{width:100%;min-width:0;box-sizing:border-box;color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 8px;font:inherit}
     .sync-settings textarea{resize:vertical;line-height:1.45;overflow-wrap:anywhere}
+    .sync-settings .sync-address{min-height:31px;resize:none;overflow:hidden;white-space:pre}
     .sync-settings :is(input,textarea,summary):focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
     .sync-settings summary{cursor:pointer;color:var(--sgs-text)}
     .sync-settings details[open]>summary{margin-bottom:8px}
@@ -41,6 +43,7 @@ export function mountSyncSettings(document, window, sync, preferences) {
     .sync-download svg{width:16px;height:16px;flex:none;margin:0}
     .sync-private-setup{gap:7px;padding:9px 10px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-surface)}
     .sync-private-setup .sync-actions{min-width:0}
+    .sync-test{gap:6px;padding:8px 10px;border-left:2px solid var(--sgs-accent);background:var(--sgs-surface);border-radius:6px}
     .sync-settings .sync-copy-link{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;white-space:nowrap}
     .sync-copy-link svg{width:14px;height:14px;flex:none}
     .sync-setup-resources{display:grid;gap:4px}
@@ -66,6 +69,20 @@ export function mountSyncSettings(document, window, sync, preferences) {
   function short(control, size) {
     control.maxLength = size;
     control.className = 'sync-short';
+  }
+  function serverAddress(label, placeholder) {
+    const result = input(label, 'textarea');
+    const { control } = result;
+    // Chrome's password parser considers text inputs as username candidates.
+    control.className = 'sync-address';
+    control.rows = 1;
+    control.wrap = 'off';
+    control.placeholder = placeholder;
+    control.setAttribute('autocapitalize', 'off');
+    control.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && !event.isComposing) event.preventDefault();
+    });
+    return result;
   }
   function details(title, ...children) {
     const block = node('details'), body = node('div', '', 'sync-stack');
@@ -124,6 +141,7 @@ export function mountSyncSettings(document, window, sync, preferences) {
   let selectedMode = 'private';
   function select(mode) {
     selectedMode = mode;
+    onModeChange?.(mode);
     privateButton.setAttribute('aria-pressed', String(mode === 'private'));
     publicButton.setAttribute('aria-pressed', String(mode === 'public'));
     say('');
@@ -171,8 +189,7 @@ export function mountSyncSettings(document, window, sync, preferences) {
   const request = readout('提交给管理员的四位码'), credential = input('后台生成的加密凭据', 'textarea');
   short(request.control, 4);
   credential.control.maxLength = 660;
-  const address = input('私有服务器地址');
-  address.control.placeholder = 'http://127.0.0.1:17429';
+  const address = serverAddress('私有服务器地址', 'http://127.0.0.1:17429');
   const privateConsent = '私有服务器支持 HTTP 和 HTTPS，可读取上传的数据。HTTP 传输未经加密。绑定后切号可自动接入同一服务器，共 1 个主账号和 4 个附属账号。';
   const privateFields = node('div', '', 'sync-stack'), joining = node('p', '', 'muted');
   const ways = node('div', '', 'sync-chooser'), fourDigit = node('div', '', 'sync-stack');
@@ -212,10 +229,16 @@ export function mountSyncSettings(document, window, sync, preferences) {
   }, true), details('更改私有服务器地址', address.wrapper));
   privateFields.append(node('p', privateConsent, 'muted'), ways, fourDigit, credentialBinding.form);
   privatePanel.append(privateSetup, privateFields, joining);
-  const server = input('公共服务器地址或邀请码'), restore = input('公共恢复凭据', 'textarea');
-  server.control.placeholder = 'https://sync.example.com:8888';
+  const server = serverAddress('公共服务器地址或邀请码', 'https://sync.example.com:8888'), restore = input('公共恢复凭据', 'textarea');
   const publicBinding = node('div', '', 'sync-stack');
   const publicConsent = '服务器管理员可见用户码、昵称和记录编号。账本、战绩和备份内容在工具箱加密。';
+  const testPanel = node('section', '', 'sync-stack sync-test');
+  const testButton = act('参加云同步灰测', async () => {
+    await sync.bindTest();
+    say('已绑定云同步测试服务器');
+  }, true);
+  testButton.dataset.syncBindTest = '';
+  testPanel.append(node('h3', '云同步灰测'), node('p', TEST_NOTICE, 'muted'), testButton);
   publicBinding.append(node('p', publicConsent, 'muted'),
     server.wrapper, node('p', '首次绑定请填写管理员提供的地址或一次性邀请码。已登记账号可直接填写地址绑定新设备。', 'muted'),
     act('同意并绑定公共服务器', async () => {
@@ -230,7 +253,7 @@ export function mountSyncSettings(document, window, sync, preferences) {
         restore.control.value = '';
         say('公共绑定已恢复');
       })));
-  publicPanel.append(publicBinding);
+  publicPanel.append(testPanel, publicBinding);
   pairing.append(chooser, privatePanel, publicPanel);
 
   const privateActions = node('div', '', 'sync-stack'), publicActions = node('div', '', 'sync-stack');
@@ -238,6 +261,7 @@ export function mountSyncSettings(document, window, sync, preferences) {
   const addressUpdate = input('地址更新码', 'textarea'), recovery = readout('公共恢复凭据', 'textarea');
   const publicShare = readout('公共分享凭据', 'textarea'), password = readout('我的六位查看码');
   const publicLink = readout('公共 HTTPS 分享链接', 'textarea');
+  const testBoundNotice = node('p', TEST_NOTICE, 'notice');
   short(password.control, 6);
   const publicMigration = details('准备转为公共模式',
     node('p', '管理员配置 HTTPS 后，在这里生成历史的加密副本。管理页确认转换后，再启用公共连接。请备份生成的恢复凭据。', 'muted'),
@@ -262,7 +286,7 @@ export function mountSyncSettings(document, window, sync, preferences) {
     details('服务器地址变更', addressUpdate.wrapper, act('验证并更新地址', async () => {
       await sync.update(addressUpdate.control.value); addressUpdate.control.value = ''; say('同步地址已更新');
     })), details('使用主账号凭据重新绑定', rebind.form), publicMigration, detach);
-  publicActions.append(node('p', '管理员允许分享时，接收人可在浏览器打开 HTTPS 链接并输入六位查看码。请分开发送。', 'muted'),
+  publicActions.append(testBoundNotice, node('p', '管理员允许分享时，接收人可在浏览器打开 HTTPS 链接并输入六位查看码。请分开发送。', 'muted'),
     act('复制公共分享链接', async () => copy(await sync.viewLink(), publicLink), true), publicLink.wrapper,
     act('显示六位查看码', () => { password.wrapper.hidden = !password.wrapper.hidden; }), password.wrapper,
     details('其他公共凭据',
@@ -283,6 +307,7 @@ export function mountSyncSettings(document, window, sync, preferences) {
   const readCode = input('接收的公共分享凭据', 'textarea'), readPass = input('六位查看码');
   short(readPass.control, 6);
   readPass.control.type = 'password';
+  readPass.control.name = 'sgs-sync-view-code';
   const rows = node('ul', '', 'sync-preview-rows'), result = node('div', '', 'sync-stack'), count = node('p', '', 'muted');
   const filters = node('div', '', 'sync-actions'), pager = node('div', '', 'sync-actions');
   let snapshot, page = 0, stream = 'events';
@@ -313,7 +338,10 @@ export function mountSyncSettings(document, window, sync, preferences) {
   const readNotice = node('p', '', 'notice error');
   readNotice.setAttribute('role', 'status');
   readNotice.hidden = true;
-  const viewer = details('查看他人分享的记录', readCode.wrapper, readPass.wrapper,
+  const viewForm = node('form', '', 'sync-stack');
+  viewForm.autocomplete = 'off';
+  viewForm.addEventListener('submit', event => event.preventDefault());
+  viewForm.append(readCode.wrapper, readPass.wrapper,
     act('解密并查看', async () => {
       result.hidden = true;
       readNotice.hidden = true;
@@ -324,11 +352,13 @@ export function mountSyncSettings(document, window, sync, preferences) {
       draw();
       result.hidden = false;
     }, true), readNotice, result);
+  const viewer = details('查看他人分享的记录', viewForm);
 
-  let bindingIdentity;
+  let bindingIdentity, checkedTestAccount, disposed = false;
   function refresh() {
+    if (disposed) return;
     const status = sync.status();
-    const text = status.connected ? (status.public ? '当前账号已绑定公共服务器' : '当前账号已绑定私有服务器')
+    const text = status.connected ? (status.testing ? '当前账号已绑定云同步测试服务器' : status.public ? '当前账号已绑定公共服务器' : '当前账号已绑定私有服务器')
       : status.signedIn ? '当前账号尚未绑定' : '登录游戏后可绑定同步服务';
     if (state.textContent !== text) state.textContent = text;
     pairing.hidden = status.connected;
@@ -336,6 +366,13 @@ export function mountSyncSettings(document, window, sync, preferences) {
     privateFields.hidden = !status.signedIn;
     publicPanel.hidden = selectedMode !== 'public';
     publicBinding.hidden = !status.signedIn;
+    testPanel.hidden = !status.testAvailable;
+    testBoundNotice.hidden = !status.testing;
+    if (selectedMode === 'public' && status.signedIn && !status.connected && !status.testAvailable &&
+      checkedTestAccount !== status.accountId && sync.loadTestEligibility) {
+      checkedTestAccount = status.accountId;
+      void sync.loadTestEligibility().then(refresh, () => {});
+    }
     const publicSection = status.connected ? publicActions : publicPanel;
     if (viewer.parentElement !== publicSection) publicSection.append(viewer);
     preferencePanel.hidden = !preferences || !status.connected;
@@ -366,10 +403,10 @@ export function mountSyncSettings(document, window, sync, preferences) {
     if (password.control.value !== status.password) password.control.value = status.password;
   }
   root.append(style, state, pairing, preferencePanel, notice, connected);
-  select('private');
+  select(initialMode);
   selectPrivate('pin');
   refresh();
   void sync.ready.then(refresh, error => say(error.message, true));
   const timer = window.setInterval(refresh, 1000);
-  return { root, dispose() { window.clearInterval(timer); } };
+  return { root, dispose() { disposed = true; window.clearInterval(timer); } };
 }

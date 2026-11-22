@@ -9,8 +9,8 @@ import { createExchangeUI } from './exchange-ui.js';
 
 
 export default {
-  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.45', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "改进领取功能对新版工具箱的兼容性，保留现有自动领取设置。兑换仍可能消耗欢乐豆。", minCoreVersion: '0.6.38', categories: ['automation'], icon: DAILY_REWARDS_ICON, priority: 20000,
+  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.46', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "兑换码开关独立于自动领取：关闭自动领取后，已开启的兑换码功能仍会运行，请按需关闭兑换码开关。兑换可能消耗欢乐豆。", minCoreVersion: '0.6.38', categories: ['automation'], icon: DAILY_REWARDS_ICON, priority: 20000,
     description: '自动领取签到、任务、邮件与活动奖励，按账号记录' },
   activate(ctx) {
     const native = createNativeAdapter(ctx);
@@ -50,7 +50,8 @@ export default {
         [data-daily-rewards] .reward-card.is-excluded{filter:grayscale(1);color:var(--sgs-muted);border-color:color-mix(in srgb,var(--sgs-border) 60%,transparent);background:color-mix(in srgb,#000 28%,var(--sgs-surface))}
         [data-daily-rewards] .reward-card.is-excluded .reward-name{text-decoration:line-through;text-decoration-thickness:1px;opacity:.6}
         [data-daily-rewards] .reward-card.is-excluded .reward-mark{color:var(--sgs-muted);opacity:.6}
-        [data-daily-rewards] .reward-card:hover{border-color:var(--sgs-accent)}
+        [data-daily-rewards] .reward-card:hover:not(:disabled){border-color:var(--sgs-accent)}
+        [data-daily-rewards] .reward-card:disabled{opacity:.45;cursor:default}
         [data-daily-rewards] [data-reward-code-options]{display:flex;align-items:center;gap:7px;margin:10px 0;font-size:12px}
         [data-daily-rewards] .reward-code-toggles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;flex:1;min-width:0}
         [data-daily-rewards] .reward-code-toggles .reward-toggle{gap:4px;padding:4px 3px}
@@ -101,11 +102,12 @@ export default {
         for (const [key, input] of Object.entries(inputs)) {
           const checked = !!state.config[key], exclusion = input.classList.contains('reward-card');
           const excluded = input.hasAttribute('data-reward-inverted') ? !checked : checked;
-          input.setAttribute(exclusion ? 'aria-pressed' : 'aria-checked', String(exclusion ? excluded : checked)); input.disabled = !state.accountReady;
+          input.setAttribute(exclusion ? 'aria-pressed' : 'aria-checked', String(exclusion ? excluded : checked));
+          input.disabled = !state.accountReady || (exclusion && !state.config.automatic);
           if (exclusion) {
             input.classList.toggle('is-excluded', excluded);
             input.querySelector('.reward-mark').textContent = excluded ? '跳过' : '领取';
-            input.title = key === 'autoFlip' ? `${checked ? '已开启' : '默认关闭'}：只续翻用户已开始轮次中的免费一张，五张全未翻时不操作` : `${excluded ? '已排除，点击恢复领取' : '将会领取，点击排除'}${input.querySelector('.reward-name').textContent}`;
+            input.title = !state.config.automatic ? '开启自动领取后可调整' : key === 'autoFlip' ? `${checked ? '已开启' : '默认关闭'}：只续翻用户已开始轮次中的免费一张，五张全未翻时不操作` : `${excluded ? '已排除，点击恢复领取' : '将会领取，点击排除'}${input.querySelector('.reward-name').textContent}`;
           }
         }
         inputs.automatic.querySelector('.reward-name').textContent = state.config.automatic ? '已开启' : '已关闭';

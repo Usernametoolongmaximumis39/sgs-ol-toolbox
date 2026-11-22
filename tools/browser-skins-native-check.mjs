@@ -28,6 +28,7 @@ const seatAudio = ['PlaySkillSound', 'PlaySkillHurtSound', 'PlayDeadSound', 'Get
 const mvpAudio = ['showMvpEgg', 'playRandomSound'].map(name => nativeMethod('O_s', name));
 const seatSkillOwner = ['GetGeneralBySkillIdOnlyId', 'GetGeneralBySkillId', 'GetSkillFromWhichGeneral'].map(name => nativeMethod('Xas', name));
 const seatFormTrigger = nativeMethod('Xas', 'OnChangeOriSkinBySkill');
+const conversionUpdate = nativeMethod('c$t', 'UpdateRoleDataResponse');
 const skillAudio = ['GetSoundUrl', 'SoundSkinID', 'getSkillSoundUrl'].map(name => nativeMethod('iZt', name));
 const skinEffects = ['useCardAniPlay', 'playGeneralSpEffect', 'aniEventNew'].map(name => nativeMethod('zzt', name));
 const roundEffects = ['playSkinRoundEffect', 'showSkinEffect', 'skinInWindowLoaded', 'clearSkinRoundEffect',
@@ -110,6 +111,7 @@ try {
   await page.addScriptTag({ content: `window.capturedStaticSkin={${staticSkin.join(',')}};` });
   await page.addScriptTag({ content: `window.capturedSeatAudio={${seatAudio.join(',')}};window.capturedMvpAudio={${mvpAudio.join(',')}};window.capturedSeatForms={${seatFormTrigger}};window.capturedSkillAudio={${skillAudio.join(',')}};window.capturedSkinEffects={${skinEffects.join(',')}};` });
   await page.addScriptTag({ content: `window.capturedSeatSkillOwner={${seatSkillOwner.join(',')}};` });
+  await page.addScriptTag({ content: `window.CapturedConversionSkill=class extends class { UpdateRoleDataResponse() {} } { ${conversionUpdate} };` });
   await page.addScriptTag({ content: `window.capturedRoundEffects={${roundEffects.join(',')}};` });
   await page.addScriptTag({ content: `window.capturedDebutEffects={${debutEffects.join(',')}};` });
   await page.addScriptTag({ content: `window.capturedChatRowLayout=({${chatRowLayout}}).layoutBottomButtonBar;` });
@@ -2611,6 +2613,69 @@ try {
   assert.equal(await page.evaluate(() => matchSelectorFixture.settings.get('formRule.1001.101.cross.1163001', null)), null);
   await page.evaluate(() => matchSelectorFixture.local.reset(matchSelectorFixture.local.ownPortraitTarget(101)));
 
+  for (const [id, art] of [[1252101, seatArt], [1252102, sparseSeat]]) {
+    officialArt.set(`seat/static/${id}.png`, art);
+    officialArt.set(`big/static/${id}.png`, art);
+  }
+  await page.evaluate(() => {
+    const { game, ui: { seat }, local } = matchSelectorFixture;
+    const general = seat.General;
+    const generalState = { CardId: general.CardId, CardName: general.CardName, GetSkill: general.GetSkill, cardInfo: general.cardInfo };
+    const seatState = { GeneralId: seat.GeneralId, GetGeneralSkill: seat.GetGeneralSkill, GetSeatState: seat.GetSeatState,
+      UpdateState: seat.UpdateState, SetSkillBuffInfo: seat.SetSkillBuffInfo };
+    const config = game.getConfigData;
+    const skill = Object.assign(new CapturedConversionSkill(), { ID: 3746, SkillId: 3746, IsSwitchSkill: true, switchValue: 1 });
+    Object.defineProperty(skill, 'IsSecondState', { get: () => skill.switchValue === 2 });
+    const switchState = { StateSkillId: 0, Value: 0 };
+    const skillFor = id => id === 3746 ? skill : null;
+    Object.assign(general, { CardId: 717, CardName: '谋诸葛亮', GetSkill: skillFor, cardInfo: { Skills: [3744, 3745, 3746] } });
+    Object.assign(seat, { GeneralId: 717, GetGeneralSkill: skillFor, GetSeatState: id => id === 251 ? switchState : null,
+      UpdateState(id, value) { if (id === 251) switchState.Value = value; }, SetSkillBuffInfo() {} });
+    const event = window.qk;
+    window.qk = { ...event, UPDATE_SWITCH_SKILL: 'UPDATE_SWITCH_SKILL' };
+    window.zf.DATA_SWITCH = 251;
+    game.getConfigData = name => name === 'character' ? { GameCharacters: { character: [{ a: 717, j: 3744, k: 3745, l: 3746 }] } } :
+      name === 'cha_spell' ? { GameSpells: { spell: [] } } : config(name);
+    window.mouZhugeLiangForms = {
+      change(value) { skill.UpdateRoleDataResponse({ IsSpell: true, Datas: [value] }, seat); },
+      restore() {
+        local.reset(local.ownPortraitTarget(717));
+        game.getConfigData = config;
+        window.qk = event;
+        delete window.zf.DATA_SWITCH;
+        Object.assign(general, generalState);
+        Object.assign(seat, seatState);
+        local.refresh();
+      },
+    };
+    local.refresh();
+  });
+  await toolboxEntry.click();
+  await query.fill('谋诸葛亮');
+  await crossResults.getByRole('button', { name: /经典形象.*1252101/ }).click();
+  await apply.click();
+  await picker.waitFor({ state: 'detached' });
+  await waitForSeatForm('1/2');
+  await page.screenshot({ path: path.join(output, 'mou-zhugeliang-yang.png') });
+  for (const phase of [2, 1, 2, 1]) {
+    await page.evaluate(value => {
+      const { avatar } = matchSelectorFixture;
+      mouZhugeLiangForms.previousPortrait = avatar.getChildByName('sgs-local-skin-portrait');
+      mouZhugeLiangForms.change(value);
+    }, phase);
+    await waitForSeatForm(`${phase}/2`);
+    assert.equal(await page.evaluate(() => {
+      const current = matchSelectorFixture.avatar.getChildByName('sgs-local-skin-portrait');
+      return Boolean(current && current !== mouZhugeLiangForms.previousPortrait && current.visible);
+    }), true);
+  }
+  assert.ok(pictureRequests.includes('seat/static/1252101.png') && pictureRequests.includes('seat/static/1252102.png'));
+  assert.equal(await page.evaluate(() => matchSelectorFixture.settings.get('formRule.1001.717.cross.1252101', null)), null);
+  await page.evaluate(() => mouZhugeLiangForms.change(2));
+  await waitForSeatForm('2/2');
+  await page.screenshot({ path: path.join(output, 'mou-zhugeliang-yin.png') });
+  await page.evaluate(() => mouZhugeLiangForms.restore());
+
   if (officialMotionDir) {
     await page.evaluate(() => { matchSelectorFixture.openYjcm({ initialQuery: '赵云' }); });
     const linked = crossResults.getByRole('button', { name: /武动乾坤.*赵云.*600501.*动态/ });
@@ -3386,11 +3451,12 @@ try {
       'mobile form preferences preserve valid older rules and starting forms, old saved variant IDs still restore, and Yjcm and mobile share the same seat-marker position independently of portrait clipping',
       'mobile official configuration cold start with HTTP Range, official names and voice IDs, hot update and cached fallback',
       'default external dual forms use awakening and both conversion directions; saved custom rules can be reset',
+      'OL Mou Zhuge Liang switches both Yjcm classic portraits repeatedly on Zhi Jue without saved rules or a loaded skill table',
       'mobile card and MVP toggles default on, preserve explicit off, exact card name falls back when unavailable, and MVP replacement plays or suppresses both native variants',
       'scope cleanup'],
     screenshots: ['match-selector-local.png', 'yjcm-native-entry.png', 'yjcm-search-results.png', 'yjcm-general-filter-order.png', 'yjcm-merged-voices.png', 'yjcm-preview.png', 'yjcm-seat-crop.png',
       'yjcm-seat-nameplate.png', 'yjcm-window-preview.png', 'yjcm-voice-bindings.png', 'yjcm-voice-narrow-light.png', 'yjcm-seat-form-1.png', 'yjcm-seat-form-2.png',
-      'dual-form-rules.png', 'dual-form-rules-narrow-light.png', 'dual-form-conversion-narrow-light.png', 'cross-default-form-rules-248.png', 'yjcm-hall-entry.png', 'yjcm-hall-search.png', 'yjcm-hall-audition.png', 'yjcm-hall-yue-cao-zhi.png', 'yjcm-derived-paiyi.png',
+      'dual-form-rules.png', 'dual-form-rules-narrow-light.png', 'dual-form-conversion-narrow-light.png', 'cross-default-form-rules-248.png', 'mou-zhugeliang-yang.png', 'mou-zhugeliang-yin.png', 'yjcm-hall-entry.png', 'yjcm-hall-search.png', 'yjcm-hall-audition.png', 'yjcm-hall-yue-cao-zhi.png', 'yjcm-derived-paiyi.png',
       'mobile-skins-avatar.png', 'mobile-skins-picker-248.png', 'mobile-general-filter-order.png', 'mobile-general-filter-248.png',
       'mobile-jiangwei-skill-names.png', 'mobile-official-victory-voice.png', 'mobile-voice-replacement-248.png',
       'mobile-forms-248.png', 'mobile-forms-280-light.png', 'mobile-three-form-rules.png', 'mobile-bound-settings.png', 'mobile-seat-form-3.png', 'mobile-seat-form-choices.png'] }, null, 2));

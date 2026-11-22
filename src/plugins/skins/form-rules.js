@@ -46,11 +46,23 @@ export function nativeConversionUpdate(seat) {
 const cycleTransitions = count => Array.from({ length: count }, (_, i) => ({ from: i + 1, to: (i + 1) % count + 1 }));
 const edgeKey = ({ from, to }) => `${from}:${to}`;
 
-export function defaultCrossFormRules(skills) {
+export function defaultCrossFormRules(skills, target) {
   const rules = [];
+  const conversions = new Set();
   for (const { id: skill, awakening, conversion } of skills ?? []) {
     if (awakening) rules.push({ from: 1, to: 2, kind: 'awakening', skill });
-    if (conversion) rules.push(
+    if (conversion) conversions.add(skill);
+  }
+  // The live card already has its innate skills before the config tables load.
+  // Its current skill list can also contain temporary skills, so use the printed IDs.
+  const printed = read(() => target.general.cardInfo.Skills);
+  if (Array.isArray(printed)) {
+    for (const id of printed) {
+      if (Number.isSafeInteger(id) && id > 0 && nativeConversionSkill(target, id)) conversions.add(id);
+    }
+  }
+  for (const skill of conversions) {
+    rules.push(
       { from: 1, to: 2, kind: 'conversion', phase: 'yang', skill },
       { from: 2, to: 1, kind: 'conversion', phase: 'yin', skill },
     );
@@ -185,7 +197,9 @@ export function createFormProgress({ form = 1, count = 2, transitions, customTra
         if (!conversionSkills.has(id) || nativeConversionSkill(target, id) !== nativeSkill) return current;
         const previous = conversions.get(id);
         conversions.set(id, { skill: nativeSkill, phase });
-        if (phase && previous?.skill === nativeSkill && phase !== previous.phase && getConversionSkillIds?.()?.has(id)) {
+        // Default rules already come from the card. Saved custom rules may be stale.
+        if (phase && previous?.skill === nativeSkill && phase !== previous.phase &&
+            (!settings || getConversionSkillIds?.()?.has(id))) {
           const route = activeRules.find(({ condition }) => condition.kind === 'conversion' && condition.skill === id &&
             previous.phase === (condition.phase ?? condition.from));
           if (route) enter(route.to);

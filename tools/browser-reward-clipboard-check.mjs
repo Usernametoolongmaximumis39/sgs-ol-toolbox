@@ -28,7 +28,7 @@ try {
     const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))].map(x => x.toString(16).padStart(2, '0')).join('');
     settings.set('account:41:last-clipboard', digest);
     settings.set('account:41:permanent-attempts', { ['code:' + encodeURIComponent('主播赴战局')]: { status: 'rejected' } });
-    settings.set('account:41:options', { schemaVersion: 2, automatic: true, codes: true, clipboardCodes: true, serverCodes: false, shareCodes: false, sign: false, mail: false, tasks: false, welfare: false, activities: false });
+    settings.set('account:41:options', { schemaVersion: 2, automatic: false, codes: true, clipboardCodes: true, serverCodes: false, shareCodes: false });
     await api.manager.reload('daily-rewards');
   }, codes);
   await page.waitForFunction(() => window.__SGS_TOOLBOX_DEMO__.sent.length === 12);

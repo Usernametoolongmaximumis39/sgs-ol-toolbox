@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import { compareVersions, findPluginUpdates } from '../src/market/updates.js';
+import { updateInstalledPlugins } from '../src/market/bulk-updates.js';
 import { createShell } from '../src/ui/shell.js';
 import { ResourceScope } from '../src/core/resources.js';
 import { Settings } from '../src/core/storage.js';
@@ -66,6 +67,44 @@ async function harness(t, releaseNotes) {
   assert.ok(openMarket, 'missing accessible plugin-market entry'); openMarket.click();
   return { shell, manager, store, client, pkg, click, setClient(value) { currentClient = value; shell.render(); }, calls: () => ({ catalogCalls, packageCalls }) };
 }
+
+test('market startup updates by default and honors a saved opt-out while manual updates still work', async t => {
+  const automatic = await harness(t);
+  await automatic.shell.startMarketUpdates();
+  assert.equal(automatic.manager.list()[0].version, '0.1.10');
+  assert.equal(automatic.calls().packageCalls, 1);
+  const manual = await harness(t);
+  const toggle = manual.shell.shadow.querySelector('.market-auto-update input');
+  assert.equal(toggle.checked, true);
+  toggle.click();
+  await manual.shell.startMarketUpdates();
+  assert.equal(manual.manager.list()[0].version, '0.1.9');
+  assert.equal(manual.calls().packageCalls, 0);
+  manual.click('一键更新插件');
+  await tick(); await manual.manager.tail; await tick();
+  assert.equal(manual.manager.list()[0].version, '0.1.10');
+  assert.match(manual.shell.shadow.textContent, /已更新 1 个插件/);
+});
+
+test('bulk update follows transitive prerequisites and keeps processing independent plugins after a failure', async () => {
+  const make = (id, dependencies = []) => ({ id, name: id, dependencies, version: '1.0.0', enabled: true, active: true });
+  const installed = [make('child', ['bridge']), make('broken-child', ['broken']), make('bridge', ['parent']), make('parent'), make('broken'), make('independent')];
+  const catalog = installed.filter(item => item.id !== 'bridge').map(item => ({ ...item, version: '2.0.0' }));
+  const downloads = [], updates = [];
+  const result = await updateInstalledPlugins({
+    manager: { list: () => installed, async install(pkg) { updates.push(pkg.id); } },
+    client: { async getPackage(item) {
+      downloads.push(item.id);
+      if (item.id === 'broken') throw new Error('模拟下载失败');
+      return item;
+    } },
+    catalog, checkCurrent() {}, onProgress() {},
+  });
+  assert.deepEqual(updates, ['parent', 'child', 'independent']);
+  assert.deepEqual(downloads, ['parent', 'child', 'broken', 'independent']);
+  assert.equal(result.updated, 3);
+  assert.deepEqual(result.failures.map(({ entry }) => entry.id), ['broken-child', 'broken']);
+});
 
 test('latest update notes render as text before update, survive installation and show legacy fallback', async t => {
   const notes = '修复重复请求。\n<img src=x onerror="alert(1)">';

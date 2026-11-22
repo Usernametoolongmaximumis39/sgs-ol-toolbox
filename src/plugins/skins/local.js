@@ -1008,8 +1008,9 @@ export function createLocalSkins(ctx) {
     const needsSkillNames = useDefaultRules || needsVoiceSkills || forms.some(form => form.mobileMotion || form.effects?.actions.length);
     const skillOptions = useDefaultRules ? CARD_SKILL_DETAILS : { includeDerived: true };
     let skills = needsSkillNames ? read(() => configuredCardSkills(ctx, target.id, skillOptions)) : null;
-    const makeProgress = (form, defaultRules) => formProgress(target, rule, { count, form, transitions, customTransitions, defaultRules });
-    let progress = rulesAvailable ? makeProgress(initial, useDefaultRules ? defaultCrossFormRules(skills) : undefined) : null;
+    const makeProgress = form => formProgress(target, rule, { count, form, transitions, customTransitions,
+      defaultRules: useDefaultRules ? defaultCrossFormRules(skills, target) : undefined });
+    let progress = rulesAvailable ? makeProgress(initial) : null;
     const playback = target.isSelf ? selfVoiceHistory.get(target.id) ?? {} : {};
     const voiceFiles = new Map();
     function audible(voice) {
@@ -1169,7 +1170,7 @@ export function createLocalSkins(ctx) {
     if (needsSkillNames && !skills) void loadCardSkills(ctx, target.id, skillOptions).then(result => {
       if (result && active()) {
         skills = result;
-        if (useDefaultRules) choice.progress = progress = makeProgress(progress.current, defaultCrossFormRules(result));
+        if (useDefaultRules) choice.progress = progress = makeProgress(progress.current);
         if (needsVoiceSkills) choice.voice = voiceAt(choice.formControl?.current ?? initial);
       }
     }).catch(() => {});

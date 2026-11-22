@@ -1,14 +1,14 @@
 {
-  "version": "0.6.223",
+  "version": "0.6.226",
   "editions": {
     "full": {
-      "bytes": 2710268,
+      "bytes": 2727525,
       "plugins": 22,
       "updatesTo": "full",
       "toolboxUpdatesTo": "lite"
     },
     "lite": {
-      "bytes": 601144,
+      "bytes": 617800,
       "plugins": 0,
       "updatesTo": "lite",
       "toolboxUpdatesTo": "lite"
@@ -72,8 +72,8 @@
     },
     {
       "id": "daily-rewards",
-      "version": "0.7.45",
-      "sha256": "71abf999969dadf7c6d51bfb1eb994fdd09e6a361eca33ef2f6ff0176b44ae2e"
+      "version": "0.7.46",
+      "sha256": "2ff324076a40ea6390cd11144c7e5403912eab3a9d52226197e8fca606be8878"
     },
     {
       "id": "seckill",
@@ -92,8 +92,8 @@
     },
     {
       "id": "skins",
-      "version": "0.4.106",
-      "sha256": "b91b15c60baa2d3cbc28fd27d3dba8d0ce5af50cc5a1d1d88dcbbfcf61a2602f"
+      "version": "0.4.107",
+      "sha256": "31afb0b9c5f56d99cc0de263fa18f3548ccc245e73457c4fdc80bf22fb081306"
     },
     {
       "id": "stargazing",

@@ -380,6 +380,12 @@ test('release panel contains six reward cards and three code switches with no ed
   assert.equal(shadow.querySelectorAll('[data-rewards-attention], [data-rewards-code-history], [data-reward-choices]').length, 0);
   assert.equal(shadow.querySelectorAll('input').length, 0);
   const excluded = shadow.querySelector('[data-reward-option=excludeBeans]');
+  assert.ok([...shadow.querySelectorAll('[data-reward-exclusions] button')].every(button => button.disabled));
+  assert.ok([...shadow.querySelectorAll('[data-reward-code-options] button')].every(button => !button.disabled));
+  excluded.click();
+  assert.equal(f.controller.snapshot().config.excludeBeans, false);
+  shadow.querySelector('[data-reward-option=automatic]').click();
+  assert.ok([...shadow.querySelectorAll('[data-reward-exclusions] button')].every(button => !button.disabled));
   excluded.click();
   assert.equal(excluded.getAttribute('aria-pressed'), 'true');
   assert.equal(excluded.classList.contains('is-excluded'), true);

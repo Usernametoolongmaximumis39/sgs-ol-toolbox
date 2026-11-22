@@ -74,6 +74,23 @@ test('external dual forms match awakening uses and each conversion direction unl
   }
 });
 
+test('Mou Zhuge Liang binds Zhi Jue by default before the skill catalogue is available', () => {
+  const skill = { IsSwitchSkill: true, switchValue: 1, get IsSecondState() { return this.switchValue === 2; } };
+  const general = { cardInfo: { Skills: [3744, 3745, 3746] },
+    GetSkill: id => id === 3746 || id === 83 ? skill : null };
+  const target = { general };
+  const defaultRules = defaultCrossFormRules(null, target);
+  assert.deepEqual(defaultRules, [
+    { from: 1, to: 2, kind: 'conversion', phase: 'yang', skill: 3746 },
+    { from: 2, to: 1, kind: 'conversion', phase: 'yin', skill: 3746 },
+  ]);
+  const progress = createFormProgress({ target, defaultRules });
+  assert.equal(progress.update({ conversion: { id: 83, skill, phase: 'yin' } }), 1);
+  for (const phase of ['yin', 'yang', 'yin', 'yang']) {
+    assert.equal(progress.update({ conversion: { id: 3746, skill, phase } }), phase === 'yin' ? 2 : 1);
+  }
+});
+
 test('mobile idle framing keeps the whole sampled face visible when the backdrop is on the other side', () => {
   const authored = { x: 136, y: -234, scale: .243 };
   const background = { x: -1285, y: -724, width: 974, height: 1094 };

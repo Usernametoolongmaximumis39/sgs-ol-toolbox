@@ -8,6 +8,7 @@ import { MICROCLIENT } from './distribution.js';
 import { BACKUP_READ_PATH, SYNC_CHANGES_PATH } from '../shared/sync-paths.js';
 import { PRIVATE_HTTP_TIMEOUT, privateSyncOrigin } from '../shared/private-sync-http.js';
 import { readStargazingJson, STARGAZING_REPORT_LIMIT, STARGAZING_SYNC_PATH } from '../shared/stargazing-source.js';
+import { TEST_SYNC_ORIGIN } from './sync-test-access.js';
 
 const databaseName = 'sgs-toolbox-managed-sync';
 const recoveryPrefix = 'SGSR1.';
@@ -83,7 +84,7 @@ function describeOrigin(data) {
   return safeOrigin(`${data.tls ? 'https' : 'http'}://${data.domain || data.ipv4 || '[' + data.ipv6 + ']'}:${data.port}`);
 }
 
-export function createManagedSync(win, scope, getAccount, gameAccountKey, privateHttp) {
+export function createManagedSync(win, scope, getAccount, gameAccountKey, privateHttp, { testEligible, loadOfficerConfig } = {}) {
   const currentAccount = () => getAccount().id;
   const exchangeStore = openStore(win, scope);
   const navigator = win.navigator;
@@ -548,23 +549,30 @@ export function createManagedSync(win, scope, getAccount, gameAccountKey, privat
     const id = obtainAccount();
     await bindingsReady;
     if (bindingIndex.has(id)) throw fail('already_bound', '请先解除当前账号的同步绑定');
+    function checkTarget(origin) {
+      ensureAccount(id);
+      if (origin === TEST_SYNC_ORIGIN && !testEligible?.(id)) throw fail('test_unavailable', '当前账号暂无法使用云同步灰测。');
+    }
     let entry;
     if (recovery) {
       const saved = readPublicRecovery(recovery);
       if (saved.gameKey !== await gameAccountKey(id)) throw fail('account_mismatch');
       entry = { ...saved, id, origin: target ? publicBindingTarget(target).origin : saved.origin, public: true, device: random() };
+      checkTarget(entry.origin);
       await prove(entry.origin, entry.signer);
       await publicTransport.check(entry, publicProfile(id));
     } else {
       const { origin: address, invitation } = publicBindingTarget(target);
+      checkTarget(address);
       const pendingId = 'public-registration:' + id + ':' + address;
       entry = (await get('requests', pendingId))?.entry ?? await newVault(id, address, '');
       await put('requests', { id: pendingId, entry });
+      checkTarget(address);
       const { signer } = await publicTransport.register(entry, publicProfile(id), invitation);
       entry.signer = signer;
     }
     const proof = await prove(entry.origin, entry.signer);
-    ensureAccount(id);
+    checkTarget(entry.origin);
     await save({ ...entry, account: entry.vault, revision: proof.revision });
     if (!recovery) await del('requests', 'public-registration:' + id + ':' + entry.origin);
   }
@@ -638,6 +646,7 @@ export function createManagedSync(win, scope, getAccount, gameAccountKey, privat
       const id = currentAccount(), entry = bindingIndex.get(id);
       return { signedIn: Boolean(id), accountId: id, connected: Boolean(entry), origin: entry?.origin, privatePair: Boolean(installation),
         public: Boolean(entry?.public), password: entry?.public ? entry.password : '', bindingIdentity: entry?.device,
+        testAvailable: !entry && !!testEligible?.(id), testing: entry?.public && entry.origin === TEST_SYNC_ORIGIN,
         joinError: id === checkedAccount ? joinError : '' };
     },
     available: account => bindingIndex.has(account),
@@ -646,6 +655,8 @@ export function createManagedSync(win, scope, getAccount, gameAccountKey, privat
     bindPrivateCredential: code => enrollPrivate(() => bindPrivateCredential(code)),
     recover: (code, address) => enroll(() => recover(code, address)), disconnect, detachPrivate: () => enrollPrivate(detachPrivate), update, exchange, previewLink,
     bindPublic: (target, recovery) => enroll(() => bindPublic(target, recovery)),
+    loadTestEligibility: loadOfficerConfig,
+    bindTest: () => enroll(() => bindPublic(TEST_SYNC_ORIGIN)),
     updatePublicProfile: () => enroll(updatePublicProfile),
     preparePublic: () => enroll(preparePublic), usePrepared: () => enroll(usePrepared),
     viewCode() {

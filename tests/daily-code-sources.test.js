@@ -157,11 +157,13 @@ test('clipboard rejection remains visible after a successful server refresh', as
   assert.deepEqual(f.sent, ['SERVER']);
 });
 
-test('all automatic execution is gated by the master switch and code opt-in', async t => {
+test('only the code switch gates automatic redemption with ordinary rewards switched off', async t => {
   const f = fixture(t);
-  await f.controller.run(); assert.deepEqual(f.counts(), { serverReads: 0, clipboardReads: 0 }); assert.deepEqual(f.sent, []);
+  await f.controller.run();
+  assert.deepEqual(f.counts(), { serverReads: 1, clipboardReads: 0 }); assert.deepEqual(f.sent, ['SERVER']);
   f.controller.options({ automatic: true, codes: false, clipboardCodes: true });
-  await f.controller.run(); assert.deepEqual(f.counts(), { serverReads: 0, clipboardReads: 0 }); assert.deepEqual(f.sent, []);
+  await f.controller.run();
+  assert.deepEqual(f.counts(), { serverReads: 1, clipboardReads: 0 }); assert.deepEqual(f.sent, ['SERVER']);
 });
 
 test('clipboard prose and copied status lines send nothing, including a valid-looking serial embedded in prose', async t => {
