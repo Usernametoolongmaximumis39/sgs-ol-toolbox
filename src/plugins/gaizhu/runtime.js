@@ -1,5 +1,5 @@
 import { read, generalNames, field } from '../../shared/info-runtime.js';
-import { cleanOptions, definitions, projectAchievements, evaluate, chooseGeneral, bannedGeneral, durationOf } from './model.js';
+import { cleanOptions, definitions, evaluate, chooseGeneral, bannedGeneral, durationOf } from './model.js';
 import { projectBattleGuard } from './battle-guards.js';
 import { createAssistant, TRAINING_SHOP_IDS } from './assistant.js';
 import { inspectHostRoom, isIdentityPractice, roomMode } from './room-settings.js';
@@ -35,7 +35,7 @@ const firstRebelSeat = scene => read(() => scene.startUI.rc.TableSetting.DoubleN
 // owns all business actions; opening/collapsing the panel never starts a run.
 export function createGaiZhu(ctx) {
   const native = createNative(ctx), listeners = new Set();
-  const policy = createStopPolicy(ctx);
+  const policy = createStopPolicy(ctx), achievements = ctx.native.achievements;
   let who = { id: '', nickname: '' }, role = 'off', options = cleanOptions(), error = '', status = '已停止';
   let settingsJob = null;
   let roomCheck = null, roomPassword = '', settingsRelease = null;
@@ -152,10 +152,10 @@ export function createGaiZhu(ctx) {
   }
   function queryAchievements() {
     if (pendingAch || now() - lastQuery < 1000 || !who.nickname) return;
-    const mgr = ctx.native.manager('AchievementManager', 'ClientDbsGetuserachinfoRep', m => typeof m.sendGetAchInfo === 'function');
-    if (!mgr) { state('等待战功查询接口'); return; }
-    lastQuery = now(); pendingAch = { seq, at: now(), nickname: who.nickname };
-    mgr.sendGetAchInfo(who.nickname, 0); state('正在查询百胜战功');
+    const id = achievements.query();
+    if (id == null) { state('等待战功查询接口'); return; }
+    lastQuery = now(); pendingAch = { id, seq, at: lastQuery, nickname: who.nickname };
+    state('正在查询百胜战功');
   }
   function rows() {
     const gm = ctx.native.manager('GameGeneralManager', 'ClientGeneralFromRep', m => typeof m.HasGeneral === 'function');
@@ -984,13 +984,16 @@ export function createGaiZhu(ctx) {
     } catch (e) { fail(e); }
   }
   const projectGuardEvent = packet => ({ ...projectBattleGuard(packet), run: seq });
-  const projectAchievementReply = packet => {
-    const data = projectAchievements(packet);
-    return data && { ...data, run: seq, requestAt: pendingAch?.at };
-  };
+  const messageGap = () => { if (role !== 'off') fail('原生消息连接发生变化或消息有缺口，已停止，请重新核对当前房间后启动'); };
+  achievements.subscribe((snapshot, id) => {
+    const account = ctx.native.account();
+    if (role === 'off' || account.id !== who.id || account.nickname !== who.nickname
+      || !pendingAch || !alive(pendingAch.seq) || pendingAch.id !== id || snapshot.nickname !== pendingAch.nickname) return;
+    progress = snapshot; pendingAch = null; round.achFailures = 0; note('已收到当前账号百胜快照');
+    notify();
+  }, messageGap, { strict: true });
   const projectDisconnect = () => ({ run: seq });
-  ctx.native.observe({ ClientDbsGetuserachinfoRep: projectAchievementReply,
-    MsgGameOver: () => ({ run: seq, phase: round.serial }), GsCTriggerSpellNew: projectGuardEvent, GsCGamephaseNtf: projectGuardEvent,
+  ctx.native.observe({ MsgGameOver: () => ({ run: seq, phase: round.serial }), GsCTriggerSpellNew: projectGuardEvent, GsCGamephaseNtf: projectGuardEvent,
     MsgGameTurnNtf: projectGuardEvent, PubGsCMoveCard: projectGuardEvent, PubGsCUseSpell: projectGuardEvent,
     close: projectDisconnect, error: projectDisconnect }, (type, data, sender) => {
     if (type === 'close' || type === 'error') {
@@ -998,13 +1001,9 @@ export function createGaiZhu(ctx) {
       return;
     }
     if (role === 'off' || sender.id !== who.id || !alive(data.run)) return;
-    if (type === 'ClientDbsGetuserachinfoRep') {
-      if (!pendingAch || pendingAch.seq !== seq || pendingAch.at !== data.requestAt || data.nickname !== who.nickname || pendingAch.nickname !== who.nickname) return;
-      progress = data; pendingAch = null; round.achFailures = 0; note('已收到当前账号百胜快照');
-      notify();
-    } else if (type !== 'MsgGameOver') assistant.observe(type, data);
+    if (type !== 'MsgGameOver') assistant.observe(type, data);
     else if (round.serial === data.phase) markRoundOver();
-  }, () => { if (role !== 'off') fail('原生消息连接发生变化或消息有缺口，已停止，请重新核对当前房间后启动'); });
+  }, messageGap);
   sync(); ctx.scope.interval(tick, 250);
   ctx.scope.add(() => { stopped = true; role = 'off'; cancelRun(); listeners.clear(); });
   return {

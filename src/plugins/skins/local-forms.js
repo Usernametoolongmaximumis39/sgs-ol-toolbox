@@ -114,6 +114,10 @@ export function indexOfficialFormRules(config) {
   return result;
 }
 
+export function isAwakeningSkill(types) {
+  return [3, 4, 5, 6].every(type => types.includes(type));
+}
+
 export function indexFormSkills(config) {
   const rows = config?.GameSpells?.spell;
   if (!Array.isArray(rows) || !rows.length) return null;
@@ -127,7 +131,7 @@ export function indexFormSkills(config) {
     const name = cleanCondition(field(row, 'name', 'c'));
     if (!Number.isSafeInteger(id) || id <= 0 || !name) continue;
     const types = String(field(row, 'type', 'b') ?? '').split(',').map(Number);
-    const awakening = [3, 4, 5, 6].every(type => types.includes(type));
+    const awakening = isAwakeningSkill(types);
     // A derived spell can also belong to another player. Infer an awakening
     // from the granted spell only where the description grants it to the hero.
     const granted = [];

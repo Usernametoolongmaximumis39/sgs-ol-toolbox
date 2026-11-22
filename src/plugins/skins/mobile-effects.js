@@ -83,14 +83,15 @@ function effectAudio(win, entry, lifetime, volume) {
   } };
 }
 
-export async function loadMobileMotion(win, entry, signal) {
+export async function loadMobileMotion(win, entry, signal, backgroundQuality) {
   const laya = win.Laya ?? win.laya;
   if (!entry.mobileMotion || !entry.download || signal.aborted || !laya?.SpineTemplet || !win.spine?.SkeletonJson ||
       win.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
   const archive = await openMotionArchive(win, entry, signal);
   if (!archive || signal.aborted) return;
-  const motion = await createMobileMotion(win, archive, signal, entry.mobileForm, entry.mobileMotionLayout);
+  const motion = await createMobileMotion(win, archive, signal, entry.mobileForm, entry.mobileMotionLayout, backgroundQuality);
   if (!motion || signal.aborted) { motion?.dispose(); return; }
+  if (backgroundQuality) return motion;
   descriptions.set(entry, motion.effects);
   return { ...motion, playEffect(plan, { kind, viewport, volume, onFinish } = {}) {
     const audio = typeof volume === 'function' ? effectAudio(win, entry, signal, volume) : null;

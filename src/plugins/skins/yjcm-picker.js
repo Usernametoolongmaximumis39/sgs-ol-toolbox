@@ -1,5 +1,5 @@
 import { bindVoicesInOrder, DEATH_VOICE, isAutomaticSkillVoice, isBindableVoice, loadCardSkills, NATIVE_VOICE,
-  normalizeVoiceOptions, remapVoiceBindings, resolveVoiceBindings, skinVoiceFormKey, updateVoiceBindingsForForms,
+  normalizeMobileVoiceOptions, remapVoiceBindings, resolveVoiceBindings, skinVoiceFormKey, updateVoiceBindingsForForms,
   unmatchedSkillClips, voiceBindingsForForm, voiceClipKey } from './cross-voice.js';
 import { loadYjcmArtwork, loadYjcmHead, loadYjcmPreview, loadYjcmWindow, yjcmVoiceReference } from './yjcm.js';
 import { previewSeatMotion, previewYjcmMotion } from './yjcm-motion.js';
@@ -218,8 +218,9 @@ export function createYjcmPicker(ctx, local, openForms) {
     const formConfig = entry => {
       const draft = skinDraft(entry);
       const saved = mobile ? null : bindingFor(entry);
+      const forms = catalogue.skinForms(entry);
       return draft.rule !== undefined ? draft.rule :
-        local.formRule?.(recipient?.id, kind, saved?.id ?? entry.id, catalogue.skinForms(entry).length, catalogue.skinTransitions?.(entry));
+        local.formRule?.(recipient?.id, kind, saved?.id ?? forms[0].id, forms.length, catalogue.skinTransitions?.(entry));
     };
     let draftError = false;
     function setDraftSetting(key, value) {
@@ -483,8 +484,9 @@ export function createYjcmPicker(ctx, local, openForms) {
       const entry = artwork;
       if (formButton.hidden || request) return;
       effectPicker?.stop();
+      const count = catalogue.skinForms(entry).length;
       closeRules = openForms({ generalId: recipient.id, name: skinLabel(entry), value: formConfig(entry), draft: skinDraft(entry).ruleEdit,
-        count: catalogue.skinForms(entry).length, transitions: catalogue.skinTransitions?.(entry), customTransitions: mobile, trigger: formButton,
+        count, allowDefault: count === 2, transitions: catalogue.skinTransitions?.(entry), customTransitions: mobile, trigger: formButton,
         onDraft(config) { editDraft({ ruleEdit: config }); },
         onApply(config) { editDraft({ rule: config, ruleEdit: null }); } });
     });
@@ -740,7 +742,7 @@ export function createYjcmPicker(ctx, local, openForms) {
       selectionTitle.textContent = entry.name;
       effectPicker.setForm(artForm + 1);
       if (mobile) {
-        const audio = normalizeVoiceOptions(draft.audio ?? saved?.voiceOptions);
+        const audio = normalizeMobileVoiceOptions(draft.audio ?? saved?.voiceOptions);
         cardVoice.checked = audio.card;
         victoryVoice.checked = audio.victory;
       }

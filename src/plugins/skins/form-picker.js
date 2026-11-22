@@ -40,7 +40,8 @@ input.sgs-input,select.sgs-select{width:100%;font-size:inherit}
 export function createFormPicker(ctx) {
   const { document: doc, window: win, scope } = ctx;
   let closeCurrent;
-  return function open({ generalId, name, official, value, draft, count = 2, transitions, customTransitions = false, trigger, onApply, onDraft }) {
+  return function open({ generalId, name, official, value, draft, count = 2, transitions, customTransitions = false,
+    allowDefault = false, trigger, onApply, onDraft }) {
     if (scope.signal.aborted) return;
     closeCurrent?.();
     const host = doc.createElement('div');
@@ -74,7 +75,7 @@ export function createFormPicker(ctx) {
     const positions = Array.from({ length: count }, (_, i) => i + 1);
     const edges = transitions ?? positions.map(from => ({ from, to: from % count + 1 }));
     const variableRoutes = customTransitions && count > 3;
-    const modes = official === undefined ? [['manual', '仅手动'], ['custom', '自定义']]
+    const modes = official === undefined ? [...(allowDefault ? [['default', '默认规则']] : []), ['manual', '仅手动'], ['custom', '自定义']]
       : [['official', '原皮规则'], ['custom', '自定义'], ['manual', '仅手动']];
     let mode = modes.some(([id]) => id === draft?.mode) ? draft.mode : value?.mode ?? modes[0][0];
     let skills, live = true, pending;
@@ -289,6 +290,15 @@ export function createFormPicker(ctx) {
       }).finally(() => { pending = null; if (live) showMode(); });
       submit.disabled = mode === 'custom' && forms.some(form => form.needsSkills());
     }
+    function defaultSummary() {
+      if (!skills) return '按该武将的觉醒技与转换技切换。';
+      const awakening = skills.filter(skill => skill.awakening).map(skill => skill.name).join('、');
+      const conversion = skills.filter(skill => skill.conversion).map(skill => skill.name).join('、');
+      return [
+        awakening && `「${awakening}」发动时 1→2。`,
+        conversion && `「${conversion}」阳转阴 1→2，阴转阳 2→1。`,
+      ].filter(Boolean).join('') || '当前武将没有觉醒技或转换技，可在局内手动切换形态。';
+    }
     function showMode() {
       for (const button of segment.children) button.setAttribute('aria-pressed', String(button.dataset.mode === mode));
       directions.hidden = mode !== 'custom';
@@ -298,16 +308,18 @@ export function createFormPicker(ctx) {
       }
       forms.forEach(form => { form.refreshKind(); form.update(); });
       const custom = mode === 'custom';
+      const showSkills = custom || mode === 'default';
       const needsSkills = custom && forms.some(form => form.needsSkills());
       summary.textContent = mode === 'official' && official ? official :
+        mode === 'default' ? defaultSummary() :
         mode === 'manual' ? '局内点击立绘上的「形态」切换。' :
           (customTransitions || transitions ? '满足当前形态的规则时自动切换。局内也可手动选择形态。' :
             '手动切换后，从当前形态等待下一次触发。');
-      if (custom && !skills && !pending && !status.textContent) requestSkills();
+      if (showSkills && !skills && !pending && !status.textContent) requestSkills();
       if (skills) status.textContent = needsSkills && forms.some(form => form.hasInvalidSkill()) ?
         '旧规则绑定了其他武将的技能，请重新选择。' : '';
-      status.hidden = !custom || !status.textContent;
-      retry.hidden = !custom || Boolean(skills || pending);
+      status.hidden = !showSkills || !status.textContent;
+      retry.hidden = !showSkills || Boolean(skills || pending);
       submit.disabled = Boolean(needsSkills && pending);
       error.textContent = '';
     }
@@ -346,7 +358,7 @@ export function createFormPicker(ctx) {
     find('form').addEventListener('submit', event => {
       event.preventDefault();
       const config = normalizeFormRule(readRule(), count, transitions, { customTransitions });
-      if (mode !== 'official' && !config) {
+      if (mode !== 'default' && mode !== 'official' && !config) {
         error.textContent = '请填写有效条件，并为组合选择两个不同的技能。';
         return;
       }

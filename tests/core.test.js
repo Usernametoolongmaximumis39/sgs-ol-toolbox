@@ -6,6 +6,7 @@ import { Settings, PackageStore } from '../src/core/storage.js';
 import { SessionJournal, installMessageBridge } from '../src/core/session.js';
 import { ThemeRegistry, BLACK_GOLD } from '../src/core/themes.js';
 import { PluginManager } from '../src/core/plugins.js';
+import { CARD_JOURNAL_EVENTS, initialState as initialCards, reduce as reduceCards } from '../src/plugins/cards/model.js';
 
 const pause = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 const clone = (value) => structuredClone(value);
@@ -303,6 +304,127 @@ test('journal snapshots game payloads and keeps repeated legitimate messages', (
   assert.equal(journal.incomplete, false);
   journal.push('MsgReconnectGame', {});
   assert.equal(journal.incomplete, true);
+});
+
+test('projected signatures match cross-source echoes and keep all same-source copies and distinct card lists', async t => {
+  const journal = new SessionJournal(), scope = new ResourceScope();
+  t.after(() => scope.dispose());
+  const native = { event() {} }, other = { event() {} }, win = { console: { log() {} } };
+  const type = 'PubGsCMoveCard';
+  const bridge = installMessageBridge(win, journal, scope, undefined, { getTargets: () => [
+    { name: 'ServerProxy', target: native }, { name: 'ActivityManager', target: other },
+  ] });
+  const raw = { CardIDs: [{ CardId: 41, CardID: 41 }, 42], CardCount: 2, FromID: 255 };
+  native.event(type, raw);
+  native.event(type, raw);
+  await Promise.resolve().then(() => {
+    const echo = { ClassName: type, CardCount: 2, FromID: 255, CardIDs: [{ CardID: 41, CardId: 41 }, 42] };
+    win.console.log('recv', echo);
+    win.console.log('recv', echo);
+    other.event(type, raw);
+    win.console.log('recv', { ...echo, CardIDs: [{ CardID: 41, CardId: 41 }, 43] });
+    other.event(type, { ...raw, CardIDs: [42, { CardId: 41, CardID: 41 }] });
+  });
+  await bridge.flush();
+  assert.deepEqual(journal.events.map(event => event.payload.CardIDs.map(id => id.CardId ?? id)), [
+    [41, 42], [41, 42], [41, 43], [42, 41],
+  ]);
+  win.console.log('recv', { ClassName: type, ...raw });
+  await bridge.flush();
+  assert.equal(journal.events.length, 5, 'the next task starts a new echo window');
+});
+
+test('journal replay truncation is ordered, private to replay, and clears at the next opening', () => {
+  const journal = new SessionJournal({ historyLimit: 3 }), observed = [];
+  journal.subscribe(event => observed.push(event));
+  journal.push('MsgGamePlayCardNtf', { CardList: [1] });
+  for (let i = 0; i < 5; i++) journal.push('PubGsCUseCard', { CardID: i + 1 });
+  assert.deepEqual(journal.events.map(event => event.seq), [4, 5, 6]);
+  assert.equal(journal.snapshot().omittedEvents, 3);
+  assert.equal(journal.incomplete, false);
+  assert.equal(observed.length, 6);
+  assert.ok(observed.every(event => event.type !== 'toolbox:gap'));
+  const replay = [...journal.replayAfter(0)];
+  assert.deepEqual(replay.map(event => event.seq), [3, 4, 5, 6]);
+  assert.equal(replay[0].payload.replayOnly, true);
+  assert.deepEqual([...journal.replayAfter(3)], journal.events);
+  assert.deepEqual([...journal.replayAfter(5)].map(event => event.seq), [6]);
+  const start = journal.push('MsgGamePlayCardNtf', { CardList: [2] });
+  assert.deepEqual([...journal.replayAfter(0)], [start]);
+  assert.equal(journal.snapshot().omittedEvents, 0);
+});
+
+test('selective reducers and subscriptions receive their events and lifecycle signals while legacy plugins see all', async t => {
+  const { manager, journal, metrics } = await harness(t);
+  const delivered = [], reduced = [];
+  const manifest = { id: 'selective', name: '选择事件', apiVersion: 1, version: '1.0.0', categories: [], journalEvents: ['PubGsCUseCard'] };
+  assert.throws(() => manager.registerBuiltin({ manifest: { ...manifest, journalEvents: ['Duplicate', 'Duplicate'] } }), /事件订阅/);
+  manager.registerBuiltin({ manifest, initialState: () => 0,
+    reduce(state, event) { reduced.push(event.type); return state + 1; },
+    activate(ctx) { ctx.subscribe((_, event) => delivered.push(event.type)); },
+  });
+  await manager.restoreBuiltin('selective');
+  const types = ['MsgGamePlayCardNtf', 'PubGsCMoveCard', 'PubGsCUseCard', 'toolbox:gap'];
+  for (const type of types) journal.push(type, { CardList: [1] });
+  assert.deepEqual(reduced, [types[0], types[2], types[3]]);
+  assert.deepEqual(delivered, reduced);
+  assert.equal(metrics.seen.length, types.length);
+  await manager.disable('selective');
+  journal.push('PubGsCUseCard', {});
+  assert.equal(reduced.length, 4);
+  assert.equal(delivered.length, 3);
+  await manager.enable('selective');
+  journal.push('MsgGamePlayCardNtf', { CardList: [2] });
+  assert.equal(manager.slots.get('selective').state, 1);
+  assert.equal(delivered.at(-1), 'MsgGamePlayCardNtf');
+});
+
+test('history eviction preserves live cards and reload, signals only a rebuilding reducer, and requests resync', async t => {
+  const journal = new SessionJournal({ historyLimit: 4 });
+  const module = { manifest: { id: 'test.cards', name: '测试卡牌', version: '1.0.0', categories: [], apiVersion: 1,
+    journalEvents: CARD_JOURNAL_EVENTS }, initialState: initialCards, reduce: reduceCards, activate() {} };
+  const { manager } = await harness(t, { journal, builtin: module });
+  let resync = 0;
+  manager.onReplayGap = () => { resync++; };
+  journal.push('MsgGamePlayCardNtf', { CardList: [1, 2, 3] });
+  journal.push('toolbox:snapshot', { inGame: true, selfSeatId: 0, handCardIds: [1], seats: [{ seatId: 0 }] });
+  const live = state(manager);
+  for (let i = 0; i < 8; i++) journal.push('decodeRogueLikeItemEffectNtf', { ItemID: i });
+  assert.equal(state(manager), live);
+  assert.equal(live.historyComplete, true);
+  assert.equal(resync, 0);
+  await manager.reload('test.cards');
+  assert.equal(state(manager), live, 'reloading the same module keeps its live state');
+  assert.equal(resync, 0);
+  manager.registerBuiltin({ ...module, manifest: { ...module.manifest, id: 'late.cards' } });
+  await manager.restoreBuiltin('late.cards');
+  const late = manager.slots.get('late.cards').state;
+  assert.equal(late.historyComplete, false);
+  assert.ok(late.limitations.some(item => item.code === 'history-gap'));
+  assert.equal(resync, 1);
+  assert.equal(state(manager), live);
+  await assert.rejects(manager.install(await pluginPackage('2.0.0', { failActivate: true })), /测试激活失败/);
+  assert.equal(state(manager), live, 'a failed replacement recovers the old live state');
+});
+
+test('large replay yields to new native events and catches them up in order without live notifications', async t => {
+  const { manager, journal } = await harness(t);
+  for (let i = 0; i < 192; i++) journal.push('PubGsCUseCard', {});
+  let injected = false, timerQueued = false, liveNotified = 0;
+  const id = 'test.replay';
+  manager.registerBuiltin({ manifest: { id, name: '测试重放', version: '1.0.0', categories: [], apiVersion: 1 },
+    initialState: () => [],
+    reduce(items, event) {
+      if (!timerQueued) { timerQueued = true; setTimeout(() => { injected = true; journal.push('PubGsCUseCard', {}); }, 0); }
+      return [...items, event.seq];
+    },
+    activate(ctx) { assert.equal(injected, true); ctx.subscribe(() => liveNotified++); },
+  });
+  await manager.restoreBuiltin(id);
+  assert.deepEqual(manager.slots.get(id).state, Array.from({ length: 193 }, (_, i) => i + 1));
+  assert.equal(liveNotified, 0);
+  journal.push('PubGsCUseCard', {});
+  assert.equal(liveNotified, 1);
 });
 
 test('console bridge replaces a configurable legacy accessor without invoking its setter', async () => {

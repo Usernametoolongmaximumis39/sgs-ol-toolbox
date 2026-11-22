@@ -127,6 +127,8 @@ const fixtureSource = baseline ? await readFile(baseline, 'utf8') : (await build
     export { createLocalSkins } from './src/plugins/skins/local.js';
     export { createPluginNative } from './src/core/plugin-native.js';
     export { ResourceScope } from './src/core/resources.js';
+    export { createNativeTheme } from './src/ui/native-theme.js';
+    export { createIcon } from './src/ui/icons.js';
   ` }, bundle: true, write: false, format: 'iife', globalName: 'MobileSeatCheck',
 })).outputFiles[0].text;
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -200,6 +202,10 @@ try {
         } },
     };
     if (MobileSeatCheck.createPluginNative) ctx.native = MobileSeatCheck.createPluginNative(ctx);
+    if (MobileSeatCheck.createNativeTheme) ctx.ui = {
+      nativeTheme: MobileSeatCheck.createNativeTheme(ctx),
+      icon: name => MobileSeatCheck.createIcon(document, name),
+    };
     const local = MobileSeatCheck.createLocalSkins(ctx);
     const catalogue = await local.mobile.load();
     function fit([width, height, showType, clip, scaleX, scaleY]) {
@@ -280,7 +286,7 @@ try {
         .filter(name => /^r-(?:fa\d|toukui|toujiao)/.test(name))
         .map(name => project(character, name)).filter(Boolean);
       return {
-        face: project(character, 'r-tou'),
+        face: actor.visible ? project(character, id === '55204' ? 'tou' : 'r-tou') : null,
         headwearTop: headwear.length ? Math.min(...headwear.map(bounds => bounds.top)) : null,
         wolfEars: id === '90001' ? ['lang-erduo1', 'lang-erduo2'].map(name => project(actor.getChildAt(0), name)) : undefined,
       };
@@ -570,6 +576,25 @@ try {
     const { name, general, motion, formCount } = await applySample(id);
     const archive = `ui/face/skin/dynamicSkin/${id}_${version}.zip`;
     assert.equal(motion, id === '85101' ? undefined : archive, id + ' respects the initial form resources');
+    async function checkDuYuFace(form) {
+      await page.waitForFunction(() => seatFixture.tracks()?.[1]?.name === 'DaiJi', null, { timeout: 30000 });
+      const faces = await page.evaluate(() => [.08, .34, .58, .83].map(progress => {
+        seatFixture.stepIdle(progress);
+        return seatFixture.motionSubjects('55204').face;
+      }));
+      for (const face of faces) {
+        assert.ok(face && face.left >= 0 && face.right <= 146 && face.top >= 0 && face.bottom <= 172,
+          `Du Yu form ${form} keeps the face inside the card during idle`);
+        const centerY = (face.top + face.bottom) / 2;
+        assert.ok(centerY >= 172 * .25 && centerY <= 172 * .50, `Du Yu form ${form} keeps the face in the upper half`);
+      }
+      return faces;
+    }
+    if (!baseline && id === '55204') {
+      const faces = await checkDuYuFace(1);
+      await capture('55204-form-1.png', layouts.single);
+      sharedForms.push({ id, name, general, archive, form: 1, faces, screenshot: '55204-form-1.png' });
+    }
     const labels = ['第二形态', '第三形态', '第四形态'];
     for (const [index, expected] of expectedBones.entries()) {
       const form = index + 2;
@@ -582,10 +607,11 @@ try {
       }, `${form}/${formCount}`, { timeout: 30000 });
       const tracks = await page.evaluate(() => seatFixture.tracks());
       assert.deepEqual(tracks.map(track => track.bones), expected, `${id} ${labels[index]} uses its own two skeletons`);
+      const faces = !baseline && id === '55204' ? await checkDuYuFace(form) : undefined;
       const filename = `${id}-form-${form}.png`;
       const { png } = await capture(filename, layouts.single);
       captures.push({ id, name: `${general} · ${name}`, label: labels[index], png });
-      sharedForms.push({ id, name, general, archive, form, tracks, screenshot: filename });
+      sharedForms.push({ id, name, general, archive, form, tracks, ...(faces && { faces }), screenshot: filename });
     }
     await resetSample(id);
   }

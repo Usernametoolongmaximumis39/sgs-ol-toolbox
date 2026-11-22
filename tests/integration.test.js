@@ -7,6 +7,59 @@ import { createMarketConnection } from '../src/core/market-connection.js';
 import { initialState, reduce } from '../src/plugins/cards/model.js';
 
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+test('a rejected settlement does not block the next snapshot request', async t => {
+  const journal = new SessionJournal(), scope = new ResourceScope(); t.after(() => scope.dispose());
+  let attempts = 0;
+  const snapshots = attachSessionSnapshots({
+    journal, scope,
+    settled: async () => { if (++attempts === 1) throw new Error('settlement failed'); },
+    game: {
+      getSnapshot: () => ({ inGame: false }),
+      onSceneChange: () => () => {},
+    },
+  });
+  await tick();
+  assert.equal(journal.events.length, 0);
+  snapshots.request();
+  await tick();
+  assert.equal(attempts, 2);
+  assert.equal(journal.events.at(-1)?.type, 'toolbox:snapshot');
+});
+
+test('a scene request coalesced into a rejected settlement is retried', async t => {
+  const journal = new SessionJournal(), scope = new ResourceScope(); t.after(() => scope.dispose());
+  let reject, attempts = 0;
+  const snapshots = attachSessionSnapshots({
+    journal, scope,
+    settled: () => ++attempts === 1 ? new Promise((_, fail) => { reject = fail; }) : Promise.resolve(),
+    game: {
+      getSnapshot: () => ({ inGame: false }),
+      onSceneChange: () => () => {},
+    },
+  });
+  await tick();
+  snapshots.request();
+  reject(new Error('settlement failed'));
+  await tick();
+  assert.equal(attempts, 2);
+  assert.equal(journal.events.at(-1)?.type, 'toolbox:snapshot');
+});
+
+test('replay recovery can publish an unchanged fresh snapshot without a live gap', async t => {
+  const journal = new SessionJournal(), scope = new ResourceScope(); t.after(() => scope.dispose());
+  const snapshots = attachSessionSnapshots({ journal, scope, game: {
+    getSnapshot: () => ({ inGame: true, selfSeatId: 0, seats: [{ seatId: 0 }] }), onSceneChange: () => () => {},
+  } });
+  await tick();
+  snapshots.request();
+  await tick();
+  assert.equal(journal.events.length, 1);
+  snapshots.refreshForReplay();
+  snapshots.refreshForReplay();
+  await tick();
+  assert.deepEqual(journal.events.map(event => event.type), ['toolbox:snapshot', 'toolbox:snapshot']);
+});
+
 test('delayed seat retries also wait for native observer batches to settle', async t => {
   const journal = new SessionJournal(), scope = new ResourceScope(); t.after(() => scope.dispose());
   let gate = Promise.resolve(), ready = false, release;

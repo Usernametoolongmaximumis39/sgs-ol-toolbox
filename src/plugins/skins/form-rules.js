@@ -46,6 +46,18 @@ export function nativeConversionUpdate(seat) {
 const cycleTransitions = count => Array.from({ length: count }, (_, i) => ({ from: i + 1, to: (i + 1) % count + 1 }));
 const edgeKey = ({ from, to }) => `${from}:${to}`;
 
+export function defaultCrossFormRules(skills) {
+  const rules = [];
+  for (const { id: skill, awakening, conversion } of skills ?? []) {
+    if (awakening) rules.push({ from: 1, to: 2, kind: 'awakening', skill });
+    if (conversion) rules.push(
+      { from: 1, to: 2, kind: 'conversion', phase: 'yang', skill },
+      { from: 2, to: 1, kind: 'conversion', phase: 'yin', skill },
+    );
+  }
+  return rules;
+}
+
 function normalizeCondition(rule) {
   if (rule?.kind === 'none') return { kind: 'none' };
   if (rule?.kind === 'hp' && FORM_HP_COMPARE.some(([id]) => id === rule.compare) &&
@@ -118,13 +130,14 @@ function hpMatches(rule, hp) {
 // Track the actual form separately from the native form the client would pick.
 // Entry snapshots discard conditions already satisfied by a manual switch.
 export function createFormProgress({ form = 1, count = 2, transitions, customTransitions = false, config, target, getSkillCount,
-  getCardSkillIds, getConversionSkillIds, official }) {
+  getCardSkillIds, getConversionSkillIds, official, defaultRules = [] }) {
   let current = form, lastOfficial = form, activeRules;
   const settings = transitions === undefined && !customTransitions ? config :
     normalizeFormRule(config, count, transitions, { customTransitions });
-  const rules = settings?.rules ?? [];
+  const rules = settings ? settings.rules ?? [] : defaultRules;
   const defaultEdges = transitions ?? (customTransitions ? [] : cycleTransitions(count));
-  const edges = customTransitions && settings?.mode === 'custom' ? rules : defaultEdges;
+  const useRuleEdges = (customTransitions && settings?.mode === 'custom') || (!settings && defaultRules.length > 0);
+  const edges = useRuleEdges ? rules : defaultEdges;
   const exits = new Map();
   for (const [index, { from, to, enabled }] of edges.entries()) {
     if (enabled === false) continue;
@@ -198,6 +211,7 @@ export function createFormProgress({ form = 1, count = 2, transitions, customTra
           state.activeHp = matches;
           return crossed;
         }
+        if (condition.kind === 'awakening') return condition.skill === skill;
         if (!condition.skills?.includes(skill)) return false;
         const cardSkills = getCardSkillIds();
         // Saved rules from earlier versions can reference another general.

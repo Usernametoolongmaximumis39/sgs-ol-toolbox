@@ -49,6 +49,7 @@ export function enhanceSkinWindow(ctx, owner) {
     quality: 0, lastCountry: owner.tabGroup.SelectedValue === owner.NEW_TYPE_VALUE ? 1 : owner.tabGroup.SelectedValue,
     owned: true, missing: true, craft: 'all', backgroundOnly: false, dynamic: emptyDynamicFilters(), query: '', searchOpen: false };
   let running = false, disposed = false, runtime, controls, lastRuntime, pending = false, sourceKey = null, wasVisible = true;
+  let refreshReceipts;
   let backgroundInstalled = ctx.backgrounds?.isInstalled?.() === true;
   let crystalCatalogue = readCrystalCatalogue(null), catalogueSource = null, catalogueAttempted = false;
   const GOODS_CONFIG = 'sys_gs_dbs_fs_goodsbaseinfo';
@@ -133,16 +134,30 @@ export function enhanceSkinWindow(ctx, owner) {
     for (let i = 0; i < panel.numChildren; i++) nodes.push(panel.getChildAt(i));
     panel.removeChildren(); for (const node of nodes) node?.destroy?.(true);
   }
-  const receipts = () => {
-    const value = ctx.settings.get('readRecent:' + runtime.accountId, []);
+  const receipts = accountId => {
+    const value = accountId && ctx.settings.get('readRecent:' + accountId, []);
     return Array.isArray(value) ? value : [];
   };
-  const recentIds = () => [...new Set([...(owner.gsm?.skinNewList || []), ...(owner.gsm?.collectNewList || [])])].filter(id => !receipts().includes(id));
+  const activeRecent = () => new Set([...(owner.gsm?.skinNewList || []), ...(owner.gsm?.collectNewList || [])]);
+  const unreadRecent = (readIds, active = activeRecent()) => [...active].filter(id => !readIds.has(id));
   function markRead(ids) {
     if (!runtime?.ready || disposed) return;
-    ctx.settings.set('readRecent:' + runtime.accountId, [...new Set([...receipts(), ...ids])].slice(-30000));
-    for (const id of ids) if (owner.gsm?.skinNewList?.includes(id)) owner.gsm.deleteToNew?.(id);
-    scheduleRefresh();
+    const current = resolveSkinRuntime(ctx.game);
+    if (!current.ready || current.accountId !== runtime.accountId || current.skinManager !== runtime.skinManager) {
+      scheduleRefresh(); return;
+    }
+    const readIds = new Set(receipts(current.accountId));
+    const selected = ids ?? unreadRecent(readIds);
+    const count = readIds.size;
+    for (const id of selected) readIds.add(id);
+    const changed = readIds.size !== count;
+    if (changed) ctx.settings.set('readRecent:' + current.accountId, [...readIds].slice(-30000));
+    const nativeNew = new Set(owner.gsm?.skinNewList || []);
+    let nativeChanged = false;
+    for (const id of selected) if (nativeNew.has(id) && typeof owner.gsm?.deleteToNew === 'function') {
+      owner.gsm.deleteToNew(id); nativeChanged = true;
+    }
+    if (changed || nativeChanged) scheduleRefresh();
   }
   function grayNewCard(card) {
     if (!card?.data?.skinID || typeof card.init !== 'function') return;
@@ -163,7 +178,7 @@ export function enhanceSkinWindow(ctx, owner) {
     clearNewPanel(panel);
     const all = flatten(allGroups), byId = new Map(all.filter(row => row.skinBaseVo).map(row => [row.skinBaseVo.skinID, row.skinBaseVo]));
     for (const vo of [...(view.newSkinData || []), ...(view.discountSkinData || [])]) byId.set(vo.skinID, vo);
-    const unreadIds = recentIds();
+    const unreadIds = unreadRecent(refreshReceipts ?? new Set(receipts(runtime.accountId)));
     for (const id of unreadIds) if (!byId.has(id)) {
       const candidates = read(() => owner.gsm.GetGeneralSkinIncludeHide(Math.floor(id / 100), true));
       if (Array.isArray(candidates)) for (const vo of candidates) if (vo?.skinID === id) byId.set(id, vo);
@@ -226,9 +241,10 @@ export function enhanceSkinWindow(ctx, owner) {
       runtime = { ...current, crystalCatalogue, dynamicMaterials: readDynamicMaterials(current) };
       lastRuntime = runtime; statuses.clear();
       if (runtime.ready) {
-        const activeIds = new Set([...(owner.gsm?.skinNewList || []), ...(owner.gsm?.collectNewList || [])]);
-        const old = receipts(), active = old.filter(id => activeIds.has(id));
+        const activeIds = activeRecent();
+        const old = receipts(runtime.accountId), active = old.filter(id => activeIds.has(id));
         if (active.length !== old.length) ctx.settings.set('readRecent:' + runtime.accountId, active);
+        refreshReceipts = new Set(active);
       }
       // Keep native generation unfiltered, then filter its actual result in place.
       // isSearch stays false so search never resets the selected country/tab.
@@ -246,10 +262,10 @@ export function enhanceSkinWindow(ctx, owner) {
         Reflect.apply(original.formData, owner, []); sourceKey = key;
       } else draw();
       layout();
-    } finally { running = false; }
+    } finally { refreshReceipts = undefined; running = false; }
   }
   function changed() { ctx.settings.set('nativeGroup', state.group); refresh(false); }
-  controls = createSkinControls(ctx, owner, state, changed, () => markRead(recentIds()));
+  controls = createSkinControls(ctx, owner, state, changed, () => markRead());
   patch(owner, 'selectGenerals', function (value) {
     const all = state.group === 'quality' || newPage(), sources = [Reflect.apply(original.selectGenerals, this, [all ? 0 : value])];
     // Native ALL loops countries 1..5; its OTHER branch also includes Jin.

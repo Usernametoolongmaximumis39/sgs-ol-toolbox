@@ -1,6 +1,7 @@
 import { isObservedMessage, projectMessage } from './protocol.js';
 import { cardPacketWrappers } from '../shared/card-packet-fields.js';
 const WRAPPERS = new Set(cardPacketWrappers);
+const HISTORY_LIMIT = 2048;
 function packetBody(payload) {
   const queue = [payload], seen = new Set(), body = {};
   for (let i = 0; i < queue.length && i < 32; i++) {
@@ -14,11 +15,10 @@ function packetBody(payload) {
   }
   return body;
 }
-function canonicalBody(value) {
-  if (Array.isArray(value)) return value.map(canonicalBody);
-  if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(Object.keys(value).filter(key => !key.startsWith('_') && !['ClassName', 'className'].includes(key))
-    .sort().map(key => [key, canonicalBody(value[key])]));
+function packetSignature(type, payload) {
+  // The projector constructs top-level and list-record keys in schema order.
+  // Include every projected value, including array order and individual card IDs.
+  return type + ':' + JSON.stringify(payload);
 }
 function copy(value, depth = 0, seen = new WeakSet(), budget = { remaining: 8192 }) {
   if (--budget.remaining < 0) return undefined;
@@ -38,21 +38,53 @@ function copy(value, depth = 0, seen = new WeakSet(), budget = { remaining: 8192
   seen.delete(value); return result;
 }
 export class SessionJournal {
-  constructor() { this.sessionId = 1; this.seq = 0; this.events = []; this.listeners = new Set(); this.incomplete = true; }
+  #history = [];
+  #head = 0;
+  #omitted = 0;
+  #limit;
+  constructor({ historyLimit = HISTORY_LIMIT } = {}) {
+    this.#limit = Number.isInteger(historyLimit) && historyLimit > 0 ? Math.min(historyLimit, HISTORY_LIMIT) : HISTORY_LIMIT;
+    this.sessionId = 1; this.seq = 0; this.listeners = new Set(); this.incomplete = true;
+  }
+  get events() {
+    if (!this.#head) return this.#history.slice();
+    return this.#history.slice(this.#head).concat(this.#history.slice(0, this.#head));
+  }
+  *replayAfter(cursor) {
+    const history = this.#history, head = this.#head, length = history.length;
+    const first = history[head];
+    if (!first || cursor >= this.seq) return;
+    if (this.#omitted && cursor < first.seq - 1) {
+      // This warning belongs only to a consumer rebuilding from incomplete history.
+      yield { seq: first.seq - 1, sessionId: first.sessionId, at: first.at, type: 'toolbox:gap',
+        payload: { reason: '本局较早事件已超出重放上限，无法完整重建', replayOnly: true } };
+    }
+    const start = Math.max(0, cursor - first.seq + 1);
+    for (let i = start; i < length; i++) yield history[(head + i) % length];
+  }
   push(type, payload, at = Date.now()) {
     payload = copy(payload);
-    const body = packetBody(payload), lists = [body.CardList, body.cardList, body.card_list];
-    const deck = lists.find(value => value?.length > 0) ?? lists.find(value => value != null);
-    const hasDeck = deck && typeof deck === 'object' && Number.isInteger(deck.length) && deck.length >= 0 && deck.length <= 10000;
-    if (type === 'MsgGamePlayCardNtf' && hasDeck) { this.sessionId++; this.events = []; this.incomplete = !deck.length || !!(body.IsResume ?? body.isResume); }
+    if (type === 'MsgGamePlayCardNtf') {
+      const body = packetBody(payload), lists = [body.CardList, body.cardList, body.card_list];
+      const deck = lists.find(value => value?.length > 0) ?? lists.find(value => value != null);
+      if (deck && typeof deck === 'object' && Number.isInteger(deck.length) && deck.length >= 0 && deck.length <= 10000) {
+        this.sessionId++; this.#history = []; this.#head = this.#omitted = 0;
+        this.incomplete = !deck.length || !!(body.IsResume ?? body.isResume);
+      }
+    }
     if (/Reconnect/.test(type) || type === 'toolbox:gap') this.incomplete = true;
     const event = { seq: ++this.seq, sessionId: this.sessionId, type, payload, at };
-    this.events.push(event);
+    if (this.#history.length < this.#limit) this.#history.push(event);
+    else {
+      this.#history[this.#head] = event;
+      this.#head = (this.#head + 1) % this.#limit;
+      this.#omitted++;
+    }
     for (const fn of this.listeners) { try { fn(event); } catch { /* Consumers cannot break the game. */ } }
     return event;
   }
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  snapshot() { return { sessionId: this.sessionId, seq: this.seq, incomplete: this.incomplete, events: this.events.slice() }; }
+  snapshot() { return { sessionId: this.sessionId, seq: this.seq, incomplete: this.incomplete, omittedEvents: this.#omitted, events: this.events }; }
 }
 export function installMessageBridge(win, journal, scope, onStatus = () => {}, { getTargets = () => [], observeType = () => {}, sceneWatch } = {}) {
   let activeWrapper, restoreCurrent, depth = 0, consoleError = '', nativeErrors = [];
@@ -82,13 +114,14 @@ export function installMessageBridge(win, journal, scope, onStatus = () => {}, {
   }
   function receive(type, data, source) {
     if (scope.closed) return;
-    try { observeType(type, source, isObservedMessage(type)); } catch { /* Diagnostics cannot affect delivery. */ }
-    if (!isObservedMessage(type)) return;
+    const observed = isObservedMessage(type);
+    try { observeType(type, source, observed); } catch { /* Diagnostics cannot affect delivery. */ }
+    if (!observed) return;
     let payload;
     try { payload = projectMessage(type, data); }
     catch { stats.rejected++; queue('toolbox:gap', { reason: '卡牌消息字段超出支持范围，已跳过该条记录' }); return; }
     if (payload?.isSend) return;
-    const signature = type + ':' + JSON.stringify(canonicalBody(payload));
+    const signature = packetSignature(type, payload);
     let entry = duplicates.get(signature);
     if (!entry) {
       if (duplicates.size >= 2048) {

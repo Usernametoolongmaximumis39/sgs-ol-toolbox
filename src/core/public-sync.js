@@ -1,6 +1,7 @@
 import { fromBase64url } from '../shared/base64url.js';
 import { createVaultCipher, invalidPublicCode, packPublicCode, passFormat, publicOrigin, publicViewCode,
   readPublicRecords, readPublicView, tokenFormat, unpackPublicCode } from '../shared/public-sync-view.js';
+import { PUBLIC_INVITE_PATH } from '../shared/public-sync-invite.js';
 import { EMPTY_LEDGER, ledgerDownload, mergeLedgerUpload } from './sync-ledger-records.js';
 import { vaultRecords, vaultSnapshot } from './sync-vault-records.js';
 import { MATCH_SYNC_LIMIT, sameSyncMatch } from '../shared/match-sync-records.js';
@@ -108,9 +109,10 @@ export function createPublicTransport(crypto, post) {
   }
   return {
     exchange,
-    async register(entry, profile) {
+    async register(entry, profile, invitation) {
       const { cipher } = await stateFor(entry);
-      return post(entry.origin, '/v2/vault/register', { ...authorize(entry), verifier: cipher.verifier, profile });
+      return post(entry.origin, invitation ? PUBLIC_INVITE_PATH : '/v2/vault/register',
+        { ...authorize(entry), verifier: cipher.verifier, profile, ...(invitation && { invitation }) });
     },
     async stage(entry, device, profile) {
       const { cipher } = await stateFor(entry);

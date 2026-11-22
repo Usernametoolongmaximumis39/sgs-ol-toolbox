@@ -1,21 +1,16 @@
+import { enclosingRect, rectCorners } from './map-rect.js';
 import { stableControlBounds } from './stable-control-bounds.js';
 const finiteRect = r => r && [r.x,r.y,r.w,r.h].every(Number.isFinite) && r.w > 0 && r.h > 0;
 export function intersectRect(a,b) {
   const x=Math.max(a.x,b.x),y=Math.max(a.y,b.y);
   return {x,y,w:Math.max(0,Math.min(a.x+a.w,b.x+b.w)-x),h:Math.max(0,Math.min(a.y+a.h,b.y+b.h)-y)};
 }
-function enclosing(points) {
-  const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
-  return {x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)};
-}
-const corners = r => [[r.x,r.y],[r.x+r.w,r.y],[r.x,r.y+r.h],[r.x+r.w,r.y+r.h]];
-
 // localToGlobal stops at Laya.stage: its logical width alone does not describe
 // the visible browser canvas (noborder, CSS scaling, clipping or page offsets).
 export function visibleMapViewport(win, cityView, scene = cityView.parent) {
   const L=win.Laya,stage=L?.stage;
   if (!(stage?.width>0 && stage?.height>0)) return null;
-  const toMap=(sprite,r)=>enclosing(corners(r).map(([x,y])=>
+  const toMap=(sprite,r)=>enclosingRect(rectCorners(r).map(([x,y])=>
     cityView.globalToLocal(sprite.localToGlobal(new L.Point(x,y),true),true)));
   let viewport=toMap(stage,{x:8,y:8,w:stage.width-16,h:stage.height-16});
   // Port the old cheat sheet's qE map-space boundary, instead of treating the
@@ -71,7 +66,7 @@ export function visibleMapViewport(win, cityView, scene = cityView.parent) {
     // scaling. Quarter-turn canvas rotation is used by Laya's screen adapter.
     visible={x:visible.x+8,y:visible.y+8,w:Math.max(0,visible.w-16),h:Math.max(0,visible.h-16)};
     const degree=((Number(stage.canvasDegree)||0)%360+360)%360;
-    const clippedMap=enclosing(corners(visible).map(([x,y])=>{
+    const clippedMap=enclosingRect(rectCorners(visible).map(([x,y])=>{
       const u=(x-rect.left)/rect.width,v=(y-rect.top)/rect.height;
       const [cx,cy]=degree===90?[v,1-u]:degree===270?[1-v,u]:degree===180?[1-u,1-v]:[u,v];
       const point=new L.Point(cx*canvas.width,cy*canvas.height);

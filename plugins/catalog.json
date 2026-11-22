@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.214"
+    "version": "0.6.223"
   },
   "plugins": [
     {
@@ -30,7 +30,7 @@
     {
       "id": "player-info",
       "name": "玩家信息",
-      "version": "0.4.25",
+      "version": "0.4.27",
       "icon": {
         "paths": [
           "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
@@ -45,9 +45,9 @@
       "minCoreVersion": "0.6.185",
       "apiVersion": 1,
       "description": "可选玩家资料卡与斗地主将灯检查，支持自定义关注武将、人机提示与自选身份补全",
-      "releaseNotes": "修复自选身份局中等待座位与牌局座位顺序不一致时的身份提示错位，改善玩家信息设置页的搜索和长名称显示。",
-      "packageUrl": "packages/player-info/0.4.25.json",
-      "sha256": "780cd1f804a0f9df57e02cbfad8f1f453d34349b29b79136e8ece6430f06e9e5"
+      "releaseNotes": "改善玩家资料卡切换目标后的加载和刷新，减少重复查询，优化关注武将设置的显示。",
+      "packageUrl": "packages/player-info/0.4.27.json",
+      "sha256": "742c458b983a8888ceb338087e8c147f47546f04c929d88bbc695fd123f01e41"
     },
     {
       "id": "native-cards",
@@ -86,7 +86,7 @@
     {
       "id": "dafeiyu-cards",
       "name": "大肥鱼卡面",
-      "version": "0.4.5",
+      "version": "0.4.7",
       "icon": {
         "paths": [
           "M3 5h13v16H3Z",
@@ -102,14 +102,14 @@
       "minCoreVersion": "0.6.185",
       "apiVersion": 1,
       "description": "三倍高清大肥鱼卡面与鲸浪藏锋卡背，含军争卡组、衍生装备和山河图装备，图片按需加载",
-      "releaseNotes": "适配新版工具箱的外观界面，保留已有卡面与卡背选择。卡面素材按需联网加载。",
-      "packageUrl": "packages/dafeiyu-cards/0.4.5.json",
-      "sha256": "93745de01d1020b1cb7f6e412dab86c6b0d05129d70f36ceb0b2091445ddcae2"
+      "releaseNotes": "94 张卡面的图集采用无损压缩，四页下载合计减少约 16.6%，分辨率、透明度和图案均保持原样。选择卡面后按需联网加载。",
+      "packageUrl": "packages/dafeiyu-cards/0.4.7.json",
+      "sha256": "8ad857e49ca44304963b9e8918f60e9c0569b1793da05e90073d360b22a1ab9f"
     },
     {
       "id": "backgrounds",
       "name": "自定义背景",
-      "version": "0.2.11",
+      "version": "0.2.12",
       "icon": {
         "paths": [
           "M3 4h18v16H3Z",
@@ -128,9 +128,9 @@
         "skins"
       ],
       "description": "将本地图片或游戏皮肤用作牌局背景，保留天气与武将技能背景",
-      "releaseNotes": "可从皮肤详情直接把支持的横版皮肤设为牌局背景。支持的动态背景循环播放待机动画，原画和动态资源按需联网加载。",
-      "packageUrl": "packages/backgrounds/0.2.11.json",
-      "sha256": "7bfcb116aac51e6975bc2eb5abaf601eb573391ef84b8dd59040c6f7ea7d57ff"
+      "releaseNotes": "动态皮肤背景可选高、低画质。低画质限制大型图集的分辨率，可减轻显存占用。动态素材仍按需联网加载。",
+      "packageUrl": "packages/backgrounds/0.2.12.json",
+      "sha256": "26662731460bcbd1b8d74b87d286cfa8db09ad8b218e0dc7cf93f031b0b6810f"
     },
     {
       "id": "gold-cards",
@@ -149,7 +149,7 @@
     {
       "id": "shanhetu",
       "name": "山河图",
-      "version": "0.2.43",
+      "version": "0.2.45",
       "icon": {
         "paths": [
           "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
@@ -165,9 +165,9 @@
       "minCoreVersion": "0.6.121",
       "apiVersion": 1,
       "description": "敌军、奇遇与商店预览，换将卡预判、战法计数与流派进度",
-      "releaseNotes": "调整换将预览、学堂提醒和战法计数与原生窗口的配合。",
-      "packageUrl": "packages/shanhetu/0.2.43.json",
-      "sha256": "fbad88e6ad917a085d2833231db6f7fed8467b0d71d32e9bb330fcf56bc70069"
+      "releaseNotes": "减少牌局中与战法计数无关的处理，整理地图标注的坐标计算。地图和战法计数的用法保持不变。",
+      "packageUrl": "packages/shanhetu/0.2.45.json",
+      "sha256": "54a8da77c89f5c6ba3d6128261c33db069f32052ff9db5736d134f24586f975e"
     },
     {
       "id": "shanhetu-beta",
@@ -197,7 +197,7 @@
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.88",
+      "version": "0.1.89",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -212,9 +212,9 @@
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
-      "releaseNotes": "改进亮牌与观战界面的显示，调整座位牌区布局和手牌排序入口。",
-      "packageUrl": "packages/cards/0.1.88.json",
-      "sha256": "ff0e8c8e311f53e6000056e55f4f37b4663525b3c5903f6b2028627e606cc05b"
+      "releaseNotes": "牌局记录和显示只处理所需的牌局消息，减少长局和登录期间的处理开销。",
+      "packageUrl": "packages/cards/0.1.89.json",
+      "sha256": "6ed614c20efdeccb77dd0d9ac9551bd5509e80d34f836261c701df3191525ebe"
     },
     {
       "id": "play-assist",
@@ -285,7 +285,7 @@
     {
       "id": "gaizhu",
       "name": "盖主速刷",
-      "version": "0.2.10",
+      "version": "0.2.11",
       "icon": {
         "paths": [
           "M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0",
@@ -298,15 +298,15 @@
         "automation"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.185",
+      "minCoreVersion": "0.6.222",
       "apiVersion": 1,
       "dependencies": [
         "baisheng"
       ],
       "description": "双人盖主速刷，以及身份、国战、单骑自动挂机。",
-      "releaseNotes": "改善单骑续局、挂机中断和大厅状态识别。点将和部分商店操作可能消耗道具或局内货币。",
-      "packageUrl": "packages/gaizhu/0.2.10.json",
-      "sha256": "1b85937833cb47873fc1e97668cbe70c5fd26a77cd4e3c636f5f72f4a1037740"
+      "releaseNotes": "同一账号同时使用盖主和百胜时，共用战功查询，避免重复请求。更新插件需要新版工具箱。点将和部分商店操作可能消耗道具或局内货币。",
+      "packageUrl": "packages/gaizhu/0.2.11.json",
+      "sha256": "881d8e2e312ba945ee7f9b7cc5f25a708efff9a5ca52794cdf8ee9638b4f456f"
     },
     {
       "id": "effects",
@@ -333,7 +333,7 @@
     {
       "id": "skins",
       "name": "皮肤管理",
-      "version": "0.4.99",
+      "version": "0.4.106",
       "icon": {
         "paths": [
           "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
@@ -348,9 +348,9 @@
       "minCoreVersion": "0.6.206",
       "apiVersion": 1,
       "description": "整理皮肤收藏、下载原图和在本地切换牌局皮肤",
-      "releaseNotes": "改进一将成名和移动版皮肤的搜索、缓存与动皮布局。支持从皮肤详情将可用横版皮肤设为牌局背景，素材按需联网加载。外服及导入皮肤仅自己可见或可听。",
-      "packageUrl": "packages/skins/0.4.99.json",
-      "sha256": "9177c44c290dbf95cf02ef21dcccd5b2e1f19c0c7350be8bdecf3f45d4a60f5a"
+      "releaseNotes": "改进移动版多形态皮肤的切换和动皮背景画质设置，统一一将成名特效的预览与局内播放。素材按需联网加载，外服及导入皮肤仅自己可见或可听。",
+      "packageUrl": "packages/skins/0.4.106.json",
+      "sha256": "b91b15c60baa2d3cbc28fd27d3dba8d0ce5af50cc5a1d1d88dcbbfcf61a2602f"
     },
     {
       "id": "stargazing",
@@ -418,7 +418,7 @@
     {
       "id": "baisheng",
       "name": "百胜战功",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "icon": {
         "paths": [
           "M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4",
@@ -430,12 +430,12 @@
         "info"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.185",
+      "minCoreVersion": "0.6.222",
       "apiVersion": 1,
       "description": "查看当前账号百胜进度、完成日期与技能战功，仅保存在本机",
-      "releaseNotes": "改善百胜进度查询和账号切换时的刷新，保留已有筛选设置。",
-      "packageUrl": "packages/baisheng/0.1.10.json",
-      "sha256": "32fc91037f870fecbeda70df5142640a629ce69beab8d250e43a89a4dca6d26f"
+      "releaseNotes": "同一账号同时使用百胜和盖主时，共用战功查询。保留原有百胜进度和导出方式，更新插件需要新版工具箱。",
+      "packageUrl": "packages/baisheng/0.1.11.json",
+      "sha256": "d44c259a0be3b41bc20a04237b000897b5282ab4de87e35b88d5a47b81760226"
     },
     {
       "id": "appearances",

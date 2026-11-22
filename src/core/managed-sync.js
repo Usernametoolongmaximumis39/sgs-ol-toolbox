@@ -2,6 +2,7 @@ import { base64url, createPairingRequest, fromBase64url, openPairing, PAIR_INVIT
 import { createPublicTransport, publicOrigin, publicRecovery, publicViewCode, randomPass, readPublicRecovery } from './public-sync.js';
 import { publicViewLink } from '../shared/public-sync-view.js';
 import { publicUserCode, publicUserName } from '../shared/public-sync-account.js';
+import { publicBindingTarget } from '../shared/public-sync-invite.js';
 import { openPrivateCredential } from './private-sync-code.js';
 import { MICROCLIENT } from './distribution.js';
 import { BACKUP_READ_PATH, SYNC_CHANGES_PATH } from '../shared/sync-paths.js';
@@ -32,6 +33,9 @@ const messages = {
   view_locked: '此 IP 输错 50 次，查看已锁定 30 分钟',
   public_preview_disabled: '服务器管理员关闭了公共预览',
   public_recovery_required: '此用户码已在该服务器绑定，请用原设备的公共恢复凭据接续同步',
+  public_invite_required: '首次绑定此服务器需要一次性邀请码，请向管理员获取',
+  public_invite_unavailable: '一次性邀请码无效或已使用，请向管理员获取新码',
+  public_invite_disabled: '服务器已停用一次性邀请码，请向管理员确认绑定方式',
   migration_records_changed: '历史记录有更新，请重新准备转换',
   migration_already_staged: '此账号已有另一份加密历史，请先在后台重置准备状态',
   migration_staged: '历史加密副本已就绪，等待管理员完成转换',
@@ -540,7 +544,7 @@ export function createManagedSync(win, scope, getAccount, gameAccountKey, privat
     return { id, origin, signer, public: true, device: random(), vault: random(), credential: random(),
       seed: random(), password: await uniquePassword(gameKey), gameKey };
   }
-  async function bindPublic(origin, recovery) {
+  async function bindPublic(target, recovery) {
     const id = obtainAccount();
     await bindingsReady;
     if (bindingIndex.has(id)) throw fail('already_bound', '请先解除当前账号的同步绑定');
@@ -548,15 +552,15 @@ export function createManagedSync(win, scope, getAccount, gameAccountKey, privat
     if (recovery) {
       const saved = readPublicRecovery(recovery);
       if (saved.gameKey !== await gameAccountKey(id)) throw fail('account_mismatch');
-      entry = { ...saved, id, origin: origin ? publicOrigin(origin) : saved.origin, public: true, device: random() };
+      entry = { ...saved, id, origin: target ? publicBindingTarget(target).origin : saved.origin, public: true, device: random() };
       await prove(entry.origin, entry.signer);
       await publicTransport.check(entry, publicProfile(id));
     } else {
-      const address = publicOrigin(origin.trim());
+      const { origin: address, invitation } = publicBindingTarget(target);
       const pendingId = 'public-registration:' + id + ':' + address;
       entry = (await get('requests', pendingId))?.entry ?? await newVault(id, address, '');
       await put('requests', { id: pendingId, entry });
-      const { signer } = await publicTransport.register(entry, publicProfile(id));
+      const { signer } = await publicTransport.register(entry, publicProfile(id), invitation);
       entry.signer = signer;
     }
     const proof = await prove(entry.origin, entry.signer);
@@ -641,7 +645,7 @@ export function createManagedSync(win, scope, getAccount, gameAccountKey, privat
     generate, bind: (code, pin) => enrollPrivate(() => bind(code, pin)),
     bindPrivateCredential: code => enrollPrivate(() => bindPrivateCredential(code)),
     recover: (code, address) => enroll(() => recover(code, address)), disconnect, detachPrivate: () => enrollPrivate(detachPrivate), update, exchange, previewLink,
-    bindPublic: (origin, recovery) => enroll(() => bindPublic(origin, recovery)),
+    bindPublic: (target, recovery) => enroll(() => bindPublic(target, recovery)),
     updatePublicProfile: () => enroll(updatePublicProfile),
     preparePublic: () => enroll(preparePublic), usePrepared: () => enroll(usePrepared),
     viewCode() {

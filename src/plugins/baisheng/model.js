@@ -1,4 +1,3 @@
-import { field } from '../../shared/info-runtime.js';
 const list = value => Array.isArray(value) ? value : value ? [value] : [];
 const num = value => value === null || value === undefined || value === '' ? NaN : Number(value);
 export function validSnapshot(snapshot) {
@@ -15,22 +14,6 @@ export function definitions(config, character) {
     return { id, characterId: num(a.characterId), flags: num(a.flags), name: String(desc?.name || a.name || ''), desc: String(desc?.describe || a.desc || a.describe || ''),
       criteria: list(raw.CriteriaEntry ?? raw.criteriaEntry).map(raw => { const c = raw._attributes || raw; return { id: num(c.Id ?? c.id), count: num(c.count) }; }).filter(c => c.id > 0 && c.count > 0) };
   }).filter(row => row.id > 0 && row.characterId > 0);
-}
-export function projectAchievements(packet) {
-  const rows = field(packet, 'Achs'), nickname = field(packet, 'NickName'), requestType = num(field(packet, 'requestType'));
-  if (requestType !== 0 || typeof nickname !== 'string' || !Array.isArray(rows) || rows.length > 20000) return null;
-  const finish = {}, progress = {};
-  for (const raw of rows) {
-    const row = raw?.ProtoObj || raw?.protoObj || raw;
-    const id = num(row?.id ?? row?.ID), type = num(row?.type ?? row?.Type), value = num(row?.detailInfo ?? row?.DetailInfo);
-    if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(type)) throw new Error('战功条目格式无效');
-    // TYPE_UNLOCK/DELETE/USING records need not carry detailInfo in the native protocol.
-    if (!(type & 3)) continue;
-    if (!Number.isFinite(value) || value < 0) throw new Error('战功进度或完成时间无效');
-    if ((type & 1) && value > 0) finish[id] = Math.max(finish[id] || 0, value);
-    else if (type & 2) progress[id] = Math.max(progress[id] || 0, value);
-  }
-  return { nickname, finish, progress, at: Date.now() };
 }
 export function evaluate(defs, snapshot, names, owns = () => null) {
   const skill = new Map();

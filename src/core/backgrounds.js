@@ -4,6 +4,8 @@ import { localBackgroundImage, readLocalBackground } from './background-local.js
 import { nativeSeat } from './seat.js';
 import { supportsSkinBackgroundAttack } from '../shared/skin-detail.js';
 
+const skinQualitySetting = 'backgrounds:skinQuality';
+
 function fitBackground(width, height, viewportWidth, viewportHeight, scaleFor) {
   if (![width, height, viewportWidth, viewportHeight].every(n => Number.isFinite(n) && n > 0)) return null;
   const scale = scaleFor(viewportWidth / width, viewportHeight / height);
@@ -110,7 +112,9 @@ export class BackgroundRegistry {
       try { this.detach(true); } finally { this.dropLocalImage(); }
     });
     if (window.addEventListener && settings.prefix) scope.listen(window, 'storage', event => {
-      if (event.storageArea === settings.storage && (event.key === settings.prefix + 'battleBackground' || event.key === null)) this.selectionChanged();
+      if (event.storageArea !== settings.storage) return;
+      if (event.key === settings.prefix + 'battleBackground' || event.key === null) this.selectionChanged();
+      if (event.key === settings.prefix + skinQualitySetting) { this.refresh(); this.emit(); }
     });
   }
   get current() { return this.settings.get('battleBackground', null); }
@@ -133,9 +137,23 @@ export class BackgroundRegistry {
     if (!this.providers.has(owner)) throw new Error('背景提供方未启用');
     this.saveSelection(spec ? { ...backgroundSpec(spec), owner } : null);
   }
-  registerSkinMotion(load) {
+  registerSkinMotion(load, { quality = false } = {}) {
     this.skinMotion = load;
-    return () => { if (this.skinMotion === load) this.skinMotion = null; };
+    this.skinQualityAvailable = quality;
+    this.emit();
+    return () => {
+      if (this.skinMotion !== load) return;
+      this.skinMotion = null;
+      this.skinQualityAvailable = false;
+      this.emit();
+    };
+  }
+  setSkinQuality(owner, quality) {
+    if (owner !== 'backgrounds' || !this.providers.has(owner) || !this.skinQualityAvailable || !['high', 'low'].includes(quality)) return;
+    if (this.settings.get(skinQualitySetting, 'high') === quality) return;
+    this.settings.set(skinQualitySetting, quality);
+    this.refresh();
+    this.emit();
   }
   setAnimated(owner, enabled) {
     const choice = this.current;
@@ -301,13 +319,16 @@ export class BackgroundRegistry {
     if (choice.skinKey && !(this.imageSize?.width > this.imageSize?.height)) {
       this.detach(true); this.state('此皮肤没有可用的横版原画'); return;
     }
+    const skinQuality = this.settings.get(skinQualitySetting) === 'low' ? 'low' : 'high';
+    if (choice.skinMotion && choice.animated !== false && this.binding && this.binding.skinQuality !== skinQuality) this.detach(false);
     if (!this.binding) {
       const layer = findBackgroundLayer(laya?.stage);
       const viewport = layer && backgroundViewport(layer, this.window);
       if (!laya?.Sprite || !laya.Rectangle || !(viewport?.width > 0 && viewport.height > 0)) {
         this.state('等待游戏背景层与布局就绪'); return;
       }
-      const local = new ResourceScope(), b = { scene, layer, stage: laya.stage, scope: local, applied: false, yielded: this.yieldedScene === scene, writing: false };
+      const local = new ResourceScope(), b = { scene, layer, stage: laya.stage, scope: local, skinQuality,
+        applied: false, yielded: this.yieldedScene === scene, writing: false };
       this.binding = b;
       const registry = this;
       const originalById = scene.SetWallPaperById;
@@ -340,8 +361,7 @@ export class BackgroundRegistry {
           const result = Reflect.apply(original, this, args);
           const customBackground = eligible() && this.bg?.skin === choice.url;
           fill.visible = customBackground && !choice.skinKey;
-          b.syncMotion();
-          if (!customBackground) return result;
+          if (!customBackground) { b.syncMotion(); return result; }
           const size = registry.imageSize;
           const { width: w, height: h } = backgroundViewport(this, registry.window);
           const fit = fitBackground(size?.width, size?.height, w, h, choice.skinKey ? Math.max : Math.min);
@@ -363,6 +383,7 @@ export class BackgroundRegistry {
           this.bg.posInteger(fit.x, fit.y);
           if (choice.skinMotion) b.motion?.layout(w, h);
           else if (b.motion) b.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h));
+          b.syncMotion();
           return result;
         });
       }
@@ -421,7 +442,7 @@ export class BackgroundRegistry {
           const options = { window: this.window, layer, scope: motionScope,
             ready: () => { if (!local.closed) this.refresh(); }, fail };
           b.motion = choice.skinMotion ? createSkinBackgroundMotion({ ...options,
-            load: signal => this.skinMotion?.(choice.skinKey, signal),
+            load: signal => this.skinMotion?.(choice.skinKey, signal, { imageUrl: this.localImage?.objectUrl, quality: skinQuality }),
             imageUrl: this.localImage?.objectUrl })
             : createBackgroundMotion({ ...options, spec: choice.dynamic, size: choice.dynamic });
           if (motionScope.closed) b.motion = null;
@@ -440,6 +461,7 @@ export class BackgroundRegistry {
     if (b.motion) b.syncAttackSeat?.(choice.attackEffects !== false);
     this.state(scene.currentWeatherWallPaper || b.yielded ? '技能背景优先'
       : b.motionError ? '动态背景失败，已显示静态原画：' + b.motionError
+      : b.motion?.unsuitableSize ? '当前窗口比例不适合动态构图，已显示静态原画'
       : b.motion ? (b.motion.loaded ? '动态牌局背景已启用' : '正在加载动态背景，暂显静态原画')
       : '静态牌局背景已启用');
   }

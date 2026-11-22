@@ -6,7 +6,7 @@ import { isPrioritySkill, nodePrioritySkills, prioritySkills } from './priority-
 import { rewardTokens, currencyTokens } from './reward-tokens.js';
 import { infoIcon } from './info-icons.js';
 import { infoLineTokens } from './info-content.js';
-import { createTacticCounts, initialState, reduce } from './tactic-counts.js';
+import { createTacticCounts, initialState, reduce, TACTIC_JOURNAL_EVENTS } from './tactic-counts.js';
 import { createBackgroundPreference } from './background.js';
 import { createShopButtonReveal } from './shop-button.js';
 import { createGeneralPreview } from './general-preview.js';
@@ -390,8 +390,8 @@ export function activate(ctx) {
   ctx.scope.add(() => { offManager?.(); offScene?.(); cancelPending(); listeners.clear(); });
   return () => { offPanel(); labels.clear(); };
 }
-export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.43', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "调整换将预览、学堂提醒和战法计数与原生窗口的配合。", minCoreVersion: '0.6.121', categories: ['game'], icon: SHANHETU_ICON, priority: 11000,
+export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.45', apiVersion: 1, contractVersion: 1, journalEvents: TACTIC_JOURNAL_EVENTS,
+    releaseNotes: "减少牌局中与战法计数无关的处理，整理地图标注的坐标计算。地图和战法计数的用法保持不变。", minCoreVersion: '0.6.121', categories: ['game'], icon: SHANHETU_ICON, priority: 11000,
     description: '敌军、奇遇与商店预览，换将卡预判、战法计数与流派进度' }, initialState, reduce, activate };
 
 

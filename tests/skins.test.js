@@ -10,9 +10,10 @@ import { ResourceScope } from '../src/core/resources.js';
 import { isNativeNodeMounted, isNativeNodeVisibleOnStage } from '../src/shared/native-tree.js';
 import { createSkinDownload } from '../src/plugins/skins/download.js';
 import { createLocalSkins } from '../src/plugins/skins/local.js';
-import { updateVoiceBindingsForForms, voiceBindingsForForm } from '../src/plugins/skins/cross-voice.js';
+import { fitMobileSeat } from '../src/plugins/skins/mobile-seat-framing.js';
+import { configuredCardSkills, normalizeMobileVoiceOptions, updateVoiceBindingsForForms, voiceBindingsForForm } from '../src/plugins/skins/cross-voice.js';
 import { indexFormSkills, indexOfficialFormRules, localSkinForm, skinFormInfo } from '../src/plugins/skins/local-forms.js';
-import { createFormProgress, normalizeFormRule } from '../src/plugins/skins/form-rules.js';
+import { CARD_SKILL_DETAILS, createFormProgress, defaultCrossFormRules, normalizeFormRule } from '../src/plugins/skins/form-rules.js';
 import { createYjcmIndex } from '../src/plugins/skins/yjcm.js';
 import { buildYjcmData } from '../src/plugins/skins/yjcm-data.js';
 import { isYjcmSkillEffect, listYjcmEffects, normalizeYjcmEffectBindings, resolveYjcmEffect, yjcmBattleEvents,
@@ -26,6 +27,83 @@ const config = { root: { manu: { item: [
   { skinID: 10201, name: '勇冠三军', skinlevel: '0,1' },
   { skinID: 10301, name: '未知品质', skinlevel: 'new' },
 ] } } };
+
+test('mobile replacement audio defaults on and preserves each explicit off setting', () => {
+  assert.deepEqual(normalizeMobileVoiceOptions(), { card: true, victory: true });
+  assert.deepEqual(normalizeMobileVoiceOptions({ card: false }), { card: false, victory: true });
+  assert.deepEqual(normalizeMobileVoiceOptions({ victory: false }), { card: true, victory: false });
+  assert.deepEqual(normalizeMobileVoiceOptions({ card: false, victory: false }), { card: false, victory: false });
+});
+
+test('external dual forms match awakening uses and each conversion direction unless overridden', () => {
+  const configs = {
+    character: { GameCharacters: { character: [{ a: 900, j: 81 }] } },
+    cha_spell: { GameSpells: { spell: [
+      { a: 81, c: '觉醒', b: '3,4,5,6,23', m: '82' }, { a: 82, c: '转换', b: '3,13' },
+      { a: 83, c: '另一武将的觉醒技', b: '3,4,5,6' },
+    ] } },
+  };
+  const skills = configuredCardSkills({ game: { getConfigData: name => configs[name] } }, 900, CARD_SKILL_DETAILS);
+  const defaultRules = defaultCrossFormRules(skills);
+  const skill = { IsSwitchSkill: true, switchValue: 1, IsSecondState: false };
+  const target = { general: { GetSkill: id => id === 82 ? skill : null } };
+  const conversion = phase => ({ conversion: { id: 82, skill, phase } });
+
+  for (const mobile of [false, true]) {
+    const options = { defaultRules, target, getCardSkillIds: () => new Set([81]),
+      getConversionSkillIds: () => new Set([82]), getSkillCount: () => 1,
+      ...(mobile && { transitions: [], customTransitions: true }) };
+    const progress = createFormProgress(options);
+    assert.equal(progress.update({ skill: 83 }), 1);
+    assert.equal(progress.update({ skill: 82 }), 1);
+    assert.equal(progress.update({ skill: 81 }), 2);
+    assert.equal(progress.update(conversion('yin')), 2);
+    assert.equal(progress.update(conversion('yang')), 1);
+    assert.equal(progress.update(conversion('yin')), 2);
+    assert.equal(progress.update(conversion('yin')), 2);
+    assert.equal(progress.update(conversion('yang')), 1);
+
+    const manual = createFormProgress({ ...options, config: { mode: 'manual' } });
+    assert.equal(manual.update({ skill: 81 }), 1);
+    assert.equal(manual.update(conversion('yin')), 1);
+    assert.equal(manual.advance(), 2);
+    const rules = mobile ? [{ from: 1, to: 2, kind: 'none' }] : [{ kind: 'none' }, { kind: 'none' }];
+    const custom = createFormProgress({ ...options, config: { mode: 'custom', rules } });
+    assert.equal(custom.update({ skill: 81 }), 1);
+    assert.equal(custom.update(conversion('yin')), 1);
+  }
+});
+
+test('mobile idle framing keeps the whole sampled face visible when the backdrop is on the other side', () => {
+  const authored = { x: 136, y: -234, scale: .243 };
+  const background = { x: -1285, y: -724, width: 974, height: 1094 };
+  const face = { left: -45, top: -214, right: 61, bottom: -106, width: 93 };
+  const layout = fitMobileSeat(background, 146, 172, authored, face, authored);
+  assert.equal(layout.verifyCoverage, true);
+  assert.ok((face.left - layout.x) * layout.scale + 73 >= 146 * .08);
+  assert.ok((face.right - layout.x) * layout.scale + 73 <= 146 * .92);
+  const faceCenterY = ((face.top + face.bottom) / 2 - layout.y) * layout.scale + 86;
+  assert.ok(faceCenterY >= 172 * .30 && faceCenterY <= 172 * .46);
+});
+
+test('mobile idle framing uses background coverage when compatible with the subject and guards large pans without an anchor', () => {
+  const background = { x: 0, y: 0, width: 300, height: 300 };
+  const authored = { x: 30, y: 105, scale: 1 };
+  assert.deepEqual(fitMobileSeat(background, 146, 172, authored,
+    { left: 35, top: 80, right: 65, bottom: 130 }, authored), { x: 73, y: 105, scale: 1 });
+  assert.deepEqual(fitMobileSeat(background, 146, 172, { ...authored, x: -120 }, false,
+    { ...authored, x: -120 }), { ...authored, x: -120, verifyCoverage: true });
+  assert.deepEqual(fitMobileSeat(background, 146, 172, authored, false, authored), { x: 73, y: 105, scale: 1 });
+});
+
+test('mobile idle framing raises a small face stranded below the middle of the viewport', () => {
+  const authored = { x: 130, y: 140, scale: 1 };
+  const background = { x: 0, y: 0, width: 300, height: 300 };
+  const face = { left: 116, top: 146, right: 138, bottom: 174, width: 22 };
+  const placement = fitMobileSeat(background, 146, 172, authored, face, authored);
+  assert.ok((160 - placement.y) * placement.scale + 86 < 86);
+  assert.ok(placement.scale > authored.scale);
+});
 
 test('native mount and seat visibility preserve distinct alpha and ancestor rules', () => {
   const stage = {};

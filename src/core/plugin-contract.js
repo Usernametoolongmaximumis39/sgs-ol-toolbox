@@ -20,6 +20,9 @@ export function validatePluginPresentation(manifest, { requireContract = false, 
   if (requireContract && m.contractVersion !== 1) throw new Error('新插件必须声明 contractVersion: 1 并遵守插件开发规范。');
   if (m.contractVersion !== undefined && m.contractVersion !== 1) throw new Error('不支持此插件开发约定版本。');
   if (!Array.isArray(m.categories) || m.categories.some(c => !PANEL_CATEGORIES.includes(c)) || new Set(m.categories).size !== m.categories.length) throw new Error('插件分类无效或重复。');
+  if (m.journalEvents !== undefined && (!Array.isArray(m.journalEvents) || m.journalEvents.length > 128 ||
+      [...m.journalEvents].some(type => typeof type !== 'string' || !/^[a-z][a-z0-9_:-]{0,63}$/i.test(type)) ||
+      new Set(m.journalEvents).size !== m.journalEvents.length)) throw new Error('牌局事件订阅必须是不重复的事件名称数组。');
   if (m.dependencies !== undefined && (!Array.isArray(m.dependencies) || m.dependencies.length > 64 || m.dependencies.some(id => typeof id !== 'string' || !localId.test(id) || id === m.id) || new Set(m.dependencies).size !== m.dependencies.length)) throw new Error('前置插件必须是不重复的插件 ID 数组，且不能依赖自身。');
   if (m.dependencies?.length && (!stableVersion.test(m.minCoreVersion || '') || compareVersions(m.minCoreVersion, '0.5.62') < 0)) throw new Error('前置插件功能要求 minCoreVersion 至少为 0.5.62。');
   const strict = m.contractVersion === 1;

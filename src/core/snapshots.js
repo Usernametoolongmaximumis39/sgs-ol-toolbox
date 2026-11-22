@@ -17,8 +17,13 @@ export function attachSessionSnapshots({ journal, game, scope, settled = () => P
     queueMicrotask(async () => {
       // A native burst may be queued in several observer batches. Reading the
       // final scene halfway through them would mix future hand state with old moves.
-      try { await settled(); } catch { return; }
-      pending = false; if (scope.closed) return;
+      const waitingFor = generation;
+      try { await settled(); }
+      catch {
+        if (!scope.closed && waitingFor !== generation) queueMicrotask(request);
+        return;
+      } finally { pending = false; }
+      if (scope.closed) return;
       const current = generation;
       const collect = async attempt => {
         if (attempt) { try { await settled(); } catch { return; } }
@@ -54,5 +59,5 @@ export function attachSessionSnapshots({ journal, game, scope, settled = () => P
   scope.add(game.onSceneChange(request));
   scope.add(() => { generation++; cancel(); });
   request();
-  return { request };
+  return { request, refreshForReplay() { lastSignature = ''; request(); } };
 }

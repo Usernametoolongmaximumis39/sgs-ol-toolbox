@@ -1,6 +1,7 @@
 import { readYjcmImage, seatPortraitPanel } from './yjcm.js';
 import { yjcmClipFile } from './yjcm-effect-data.js';
-import { attachmentFrame } from './spine-layout.js';
+import { spineIdleRate } from './seat-idle-rate.js';
+import { limitedAtlasScale, resizeAtlasPage } from './motion-atlas.js';
 
 const runtime = 'https://web.sanguosha.com/x/pc/res/assets/runtime/';
 const motionRoot = runtime + 'general/big/dynamic/';
@@ -20,7 +21,7 @@ async function readAsset(win, url, signal, limit) {
   return bytes;
 }
 
-async function loadTemplate(win, laya, url, isSpine, signal) {
+async function loadTemplate(win, laya, url, isSpine, signal, lowQuality = false) {
   const controller = new win.AbortController();
   const abort = () => controller.abort();
   signal.addEventListener('abort', abort, { once: true });
@@ -29,13 +30,21 @@ async function loadTemplate(win, laya, url, isSpine, signal) {
   const data = (path, limit) => readAsset(win, path, controller.signal, limit);
   const textures = [];
   let template;
-  function texture(value, Type) {
+  function texture(value, Type, scale = 1) {
     if (!value || controller.signal.aborted) throw new Error('动画图集不可用');
-    const bitmap = new laya.Texture2D(value.naturalWidth, value.naturalHeight);
+    const source = resizeAtlasPage(win.document, value, scale);
+    const width = source.naturalWidth ?? source.width, height = source.naturalHeight ?? source.height;
+    const bitmap = new laya.Texture2D(width, height, undefined, source === value ? undefined : false);
     const record = { bitmap };
     textures.push(record);
-    bitmap.loadImageSource(value, true);
-    return record.texture = new Type(bitmap);
+    bitmap.loadImageSource(source, true);
+    const result = record.texture = new Type(bitmap);
+    if (source !== value) {
+      // Spine's mesh offsets are in the original atlas coordinate system.
+      const original = { width: value.naturalWidth, height: value.naturalHeight };
+      result.getImage = () => original;
+    }
+    return result;
   }
   function dispose() {
     template?.destroy();
@@ -58,9 +67,11 @@ async function loadTemplate(win, laya, url, isSpine, signal) {
       }
       const directory = url.slice(0, url.lastIndexOf('/') + 1);
       const images = await Promise.all(atlas.pages.map(page => image(directory + page.name)));
+      const scale = lowQuality ? limitedAtlasScale(images.reduce((sum, value) =>
+        sum + (value?.naturalWidth || 0) * (value?.naturalHeight || 0), 0)) : 1;
       template = new laya.SpineTemplet(laya.SpineVersion.v4_0);
       for (const [index, page] of atlas.pages.entries()) {
-        const pageTexture = texture(images[index], laya.SpineGLTexture);
+        const pageTexture = texture(images[index], laya.SpineGLTexture, scale);
         page.setTexture(pageTexture);
         template._textureDic[page.name] = pageTexture;
       }
@@ -144,7 +155,7 @@ function measureSeatPanel(laya, actor, bounds) {
   }
 }
 
-export async function loadYjcmMotion(win, motion, signal, forSeat = false, forBackground = false) {
+export async function loadYjcmMotion(win, motion, signal, forSeat = false, backgroundQuality) {
   const laya = win.Laya ?? win.laya;
   if (!laya || !motion || !/^[A-Za-z0-9_-]+$/.test(motion.resource)) return;
   for (const file of motion.files ?? []) {
@@ -154,24 +165,32 @@ export async function loadYjcmMotion(win, motion, signal, forSeat = false, forBa
     if (!canLoad(laya, win, spine)) continue;
     let loaded, actor;
     try {
-      loaded = await loadTemplate(win, laya, motionRoot + motion.resource + '/' + file, spine, signal);
+      loaded = await loadTemplate(win, laya, motionRoot + motion.resource + '/' + file, spine, signal, backgroundQuality === 'low');
       if (signal.aborted) { loaded.dispose(); return; }
       actor = loaded.template.buildArmature(spine ? undefined : 2);
       const names = Array.from({ length: actor.getAnimNum() }, (_, i) => actor.getAniNameByIndex(i));
       // Old catalogue entries still point to the standard framed idle by file name.
       const framed = forSeat && (motion.seat?.some(clip => clip.file === file) ?? (file === 'daiji2.sk'));
       const index = framed && names.length ? 0
-        : (forBackground ? backgroundIdleNames : idleNames).map(name => names.findIndex(actual => actual?.toLowerCase() === name)).find(i => i >= 0);
-      if (index === undefined && (names.length !== 1 || (forBackground && /^(chuchang|gongji|hudong|jineng|attack|enter)/i.test(names[0])))) {
+        : (backgroundQuality ? backgroundIdleNames : idleNames).map(name => names.findIndex(actual => actual?.toLowerCase() === name)).find(i => i >= 0);
+      if (index === undefined && (names.length !== 1 || (backgroundQuality && /^(chuchang|gongji|hudong|jineng|attack|enter)/i.test(names[0])))) {
         throw new Error('未找到待机片段');
       }
       if (spine) actor.forceUpdate = true;
       const play = () => actor.play(index ?? 0, true, true, 0, 0, true, false);
       play();
       const bounds = animationBounds(actor, spine ? win.spine : null);
-      if (!bounds || (forBackground && bounds.width <= bounds.height)) throw new Error('没有可用的横版待机动画');
+      if (!bounds) throw new Error('没有可用的待机动画画幅');
       const seatPanel = forSeat && !framed ? measureSeatPanel(laya, actor, bounds) : undefined;
-      return { actor, bounds, seatPanel, framed, file, play, dispose() { actor.destroy(true); loaded.dispose(); } };
+      let setSmoothIdle;
+      if (forSeat) {
+        if (spine) setSmoothIdle = spineIdleRate(actor);
+        else if (actor.player?.cacheFrameRate === 30) setSmoothIdle = smooth => {
+          if (!actor.destroyed) actor.player.cacheFrameRate = smooth ? 60 : 30;
+        };
+      }
+      return { actor, bounds, seatPanel, framed, file, play, setSmoothIdle,
+        dispose() { actor.destroy(true); loaded.dispose(); } };
     } catch {
       actor?.destroy(true);
       loaded?.dispose();
@@ -179,37 +198,19 @@ export async function loadYjcmMotion(win, motion, signal, forSeat = false, forBa
   }
 }
 
-function backdropFrame(spine, backdrop) {
-  const { actor, bounds } = backdrop;
-  // Wings and particles can extend well beyond the primary background plate.
-  for (const slot of (spine && actor.skeleton?.drawOrder) || []) {
-    if (!/^(?:bj|bg|beijing)$/i.test(slot.getAttachment()?.name ?? '')) continue;
-    const frame = attachmentFrame(spine, slot);
-    if (frame && frame.width > frame.height && frame.width >= bounds.width / 2 && frame.height >= bounds.height / 2) return frame;
-  }
-  return bounds;
-}
-
-export async function loadYjcmBackgroundMotion(win, motion, signal) {
+export async function loadYjcmBackgroundMotion(win, motion, signal, quality = 'high') {
   const framed = new Set(motion.seat?.map(clip => clip.file) ?? ['daiji2.sk']);
-  const files = [...motion.files].sort((a, b) => Number(framed.has(a)) - Number(framed.has(b)));
+  const files = motion.files.filter(file => !framed.has(file));
   const backdropFiles = files.some(file => file.endsWith('.skel')) ? ['beijing.skel'] : ['beijing.sk'];
   const [foreground, backdrop] = await Promise.all([
-    loadYjcmMotion(win, { ...motion, files }, signal, false, true),
-    loadYjcmMotion(win, { ...motion, files: backdropFiles }, signal, false, true),
+    loadYjcmMotion(win, { ...motion, files }, signal, false, quality),
+    loadYjcmMotion(win, { ...motion, files: backdropFiles }, signal, false, quality),
   ]);
   if (!foreground || signal.aborted) { foreground?.dispose(); backdrop?.dispose(); return; }
   const layers = backdrop ? [backdrop, foreground] : [foreground];
-  const bounds = backdrop ? backgroundFrames.get(motion.resource) ?? backdropFrame(win.spine, backdrop) : foreground.bounds;
   const actor = new (win.Laya ?? win.laya).Sprite();
-  for (const layer of layers) actor.addChild(layer.actor);
-  return { actor, bounds,
-    fit(x, y, width, height) {
-      const scale = Math.max(width / bounds.width, height / bounds.height);
-      actor.scale(scale, scale);
-      actor.pos(x + (width - bounds.width * scale) / 2 - bounds.x * scale,
-        y + (height - bounds.height * scale) / 2 - bounds.y * scale);
-    },
+  for (const layer of layers) { layer.actor.paused(); actor.addChild(layer.actor); }
+  return { actor, authoredFrame: backdrop && backgroundFrames.get(motion.resource),
     setPlaying(value) {
       for (const layer of layers) {
         if (!value) layer.actor.paused();
@@ -332,8 +333,9 @@ export async function previewSeatMotion(win, canvas, signal, load) {
     finally { frame?.destroy(); }
   }
   signal.addEventListener('abort', dispose, { once: true });
-  if (motion.fit) motion.fit(0, 0, canvas.width, canvas.height);
-  else fitYjcmMotion(motion, 0, 0, canvas.width, canvas.height);
+  const heightAbove = motion.fit ? motion.fit(0, 0, canvas.width, canvas.height)
+    : fitYjcmMotion(motion, 0, 0, canvas.width, canvas.height);
+  if (heightAbove === undefined) { dispose(); return; }
   root.addChild(motion.actor);
   if (!draw()) return;
   timer = win.setInterval(draw, 100);
@@ -342,4 +344,17 @@ export async function previewSeatMotion(win, canvas, signal, load) {
 
 export function previewYjcmMotion(win, entry, canvas, signal) {
   if (entry.motion) return previewSeatMotion(win, canvas, signal, () => loadYjcmMotion(win, entry.motion, signal));
+}
+
+export function createEffectArmature(asset, name) {
+  const actor = asset.template.buildArmature(asset.spine ? undefined : 2);
+  try {
+    const count = actor.getAnimNum();
+    const index = name === 0 ? 0 : Array.from({ length: count }, (_, i) => actor.getAniNameByIndex(i)).indexOf(name);
+    if (index >= 0 && index < count) return { actor, index };
+  } catch (error) {
+    actor.destroy(true);
+    throw error;
+  }
+  actor.destroy(true);
 }

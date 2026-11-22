@@ -130,6 +130,69 @@ test('unknown fork needs fixed overlay, branding, version and multiple feature b
   assert.equal(controller.getStatus().hiddenCount, 1);
 });
 
+test('ordinary mutations only queue incremental structural work and idle polls do not query the DOM', async t => {
+  const { controller, document, window } = fixture(t, '<main><div id="changed"></div><div id="unrelated"></div></main>', { takeover: 'exit-known' });
+  let poll, pageQueries = 0;
+  window.setInterval = (fn, delay) => { assert.equal(delay, 1000); poll = fn; return 1; };
+  const queryPage = document.querySelectorAll.bind(document);
+  document.querySelectorAll = selector => { pageQueries++; return queryPage(selector); };
+  const checked = [];
+  const queryElement = window.Element.prototype.querySelectorAll;
+  window.Element.prototype.querySelectorAll = function (selector) {
+    if (selector === 'button,[role="tab"]') checked.push(this.id);
+    return queryElement.call(this, selector);
+  };
+
+  controller.start();
+  assert.ok(pageQueries > 0);
+  pageQueries = 0; checked.length = 0;
+  const changed = document.getElementById('changed');
+  for (let i = 0; i < 8; i++) {
+    changed.className = 'state-' + i;
+    await flushed(window);
+  }
+  assert.equal(pageQueries, 0);
+  assert.deepEqual(checked, []);
+
+  let exits = 0;
+  window.SGSMODULE = [command => { assert.equal(command, 'EXIT'); exits++; }];
+  poll(); poll();
+  assert.equal(pageQueries, 0);
+  assert.deepEqual(checked, ['changed']);
+  assert.equal(exits, 1);
+});
+
+test('added subtrees and late text are recognized while newly protected content is revealed promptly', async t => {
+  const { controller, document, window } = fixture(t);
+  let poll;
+  window.setInterval = fn => { poll = fn; return 1; };
+  controller.start();
+  const wrapper = document.createElement('main');
+  wrapper.innerHTML = '<div id="xc95Zoom"></div><aside style="position:fixed;z-index:3000;display:grid">工具面板<button>卡牌</button><button>配置</button><button>工具</button><button>百胜战功</button></aside>';
+  document.body.append(wrapper);
+  const [known, unknown] = wrapper.children;
+  await flushed(window);
+  assert.equal(known.style.display, 'none');
+  poll();
+  assert.equal(unknown.style.display, 'grid');
+
+  unknown.firstChild.data = '小抄 v9.9.9';
+  await flushed(window);
+  assert.equal(unknown.style.display, 'grid');
+  poll();
+  assert.equal(unknown.style.display, 'none');
+
+  const canvas = unknown.appendChild(document.createElement('canvas'));
+  await flushed(window);
+  assert.equal(unknown.style.display, 'grid');
+  canvas.remove();
+  await flushed(window);
+  poll();
+  assert.equal(unknown.style.display, 'none');
+  controller.stop();
+  assert.equal(unknown.style.display, 'grid');
+});
+
 test('manual hide is reversible and an explicit restore is not immediately undone', t => {
   const { controller, document } = fixture(t, '<aside id="custom" style="display:inline-block;color:red"></aside><div id="xiaochao-app"></div>');
   controller.start();

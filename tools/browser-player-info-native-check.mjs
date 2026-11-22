@@ -18,7 +18,8 @@ const protocolNames = Object.fromEntries([20508, 21208].map(id => {
   const match = source.match(new RegExp('t\\[' + id + '\\]="([^"]+)"'));
   assert.ok(match); return [id, match[1]];
 }));
-const bundle = await build({ stdin: { contents: `export {createIdentityHints} from './src/plugins/player-info/identity.js';export {ResourceScope} from './src/core/resources.js';`, resolveDir: process.cwd() }, bundle: true, format: 'iife', globalName: 'Check', write: false });
+const bundle = await build({ stdin: { contents: `export {createIdentityHints} from './src/plugins/player-info/identity.js';export {ResourceScope} from './src/core/resources.js';
+  export {createPluginNative} from './src/core/plugin-native.js';`, resolveDir: process.cwd() }, bundle: true, format: 'iife', globalName: 'Check', write: false });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 1000, height: 650 } }), errors = [];
@@ -50,8 +51,9 @@ try {
     proxy.AddEventListener = new Function(protocolName, 'return ({' + addEventListener + '}).AddEventListener')({ GetProtocolNameById: id => protocolNames[id] });
     proxy.AddEventListener(20508, rc, function clientTableInfoRep() {});
     proxy.AddEventListener(21208, rc, function ServerProxy_StartGame() {});
-    window.runtime = Check.createIdentityHints({ scope, game: { getClass: () => null,
-      getServerProxy: () => proxy, getSeatUIs: () => seats } });
+    const ctx = { scope, game: { getClass: () => null, getServerProxy: () => proxy, getSeatUIs: () => seats } };
+    ctx.native = Check.createPluginNative(ctx);
+    window.runtime = Check.createIdentityHints(ctx);
     window.snapshot = { inGame: true, isReplay: false };
     runtime.update(snapshot, false);
   }, { method, contextName, settingsName, menuName, addEventListener, protocolName, protocolNames });

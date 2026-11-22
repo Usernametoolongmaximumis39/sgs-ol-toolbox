@@ -448,10 +448,13 @@ try {
     const character = motion.actor.getChildAt(1);
     const background = motion.actor.getChildAt(0);
     const name = actor => actor.state.getCurrent(0).animation.name;
+    const intervals = () => [character.animationFrameInterval, background.animationFrameInterval];
+    motion.setSmoothIdle(true);
+    const smoothIdle = intervals();
     const attack = resolveYjcmEffect(motion.effects, 1, '', {}).plan;
     const skill = resolveYjcmEffect(motion.effects, 891, '本局技能', getConfig(), 3).plan;
     const playedAudio = [], originalAudio = window.Audio;
-    let natural;
+    let natural, attackRate;
     let completed;
     try {
       window.Audio = class extends EventTarget {
@@ -461,9 +464,11 @@ try {
       completed = await new Promise(resolve => {
         if (!motion.playEffect(attack, { kind: 'attack', volume: () => .4, onFinish: resolve })) return resolve(false);
         natural = [name(character), name(background)];
+        attackRate = intervals();
       });
     } finally { window.Audio = originalAudio; }
     const ended = [name(character), name(background)];
+    const restoredRate = intervals();
     motion.playEffect(attack, { kind: 'attack' });
     motion.playEffect(skill, { kind: 'skill' });
     const bound = [name(character), name(background)];
@@ -472,10 +477,12 @@ try {
     controller.abort();
     picker.stop();
     shell.remove();
-    return { natural, ended, completed, playedAudio, bound, idle, released: motion.actor.destroyed, downloads };
+    return { natural, ended, completed, playedAudio, bound, idle, smoothIdle, attackRate, restoredRate,
+      released: motion.actor.destroyed, downloads };
   });
   assert.deepEqual(mountedEffects, { natural: ['GongJi', 'BeiJing'], ended: ['DaiJi', 'BeiJing'], completed: true,
     playedAudio: [[true, .4]], bound: ['TeShu', 'TeShu'], idle: ['DaiJi', 'BeiJing'], released: true,
+    smoothIdle: [1000 / 60, 0], attackRate: [0, 0], restoredRate: [1000 / 60, 0],
     downloads: ['official-83502_2.zip', 'audio/effect/effect_dynamicSkin_83502#2.mp3'] });
   assert.deepEqual(errors, []);
   await writeFile(path.join(output, 'result.json'), JSON.stringify({ states, weiYanForms, effectBinding, mountedEffects, disposed, errors }, null, 2));

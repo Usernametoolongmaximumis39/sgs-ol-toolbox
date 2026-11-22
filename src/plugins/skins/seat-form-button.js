@@ -157,7 +157,7 @@ export function createSeatFormButton(ctx) {
       }
       button.visible = Number.isFinite(nextX) && isVisible(avatar, stage) && isVisible(parent, stage);
       const count = forms.destinations().length;
-      if (!button.visible || !count) {
+      if (!button.visible || (!count && !request)) {
         if (stage.focus === button) stage.focus = null;
       }
       if (!button.visible || forms.current !== menuForm || count < 2) menu?.();

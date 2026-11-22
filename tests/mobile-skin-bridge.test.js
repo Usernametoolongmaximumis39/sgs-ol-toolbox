@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 import { webcrypto } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { buildMicroclientHost } from '../tools/build-microclient.mjs';
 import { createGameAssetDownloads, createMobileSkinDownload, mobileSkinRequest } from '../src/core/mobile-skin-download.js';
@@ -101,7 +102,9 @@ test('packaged microclient transfers official mobile skin bytes and cancels main
       handle(name, fn) { handlers.set(name, fn); }, on(name, fn) { handlers.set(name, fn); },
     } };
     if (id === 'fs') return { readFileSync: () => 'void 0;' };
-    if (id === 'path') return { join: (...parts) => parts.join('/') };
+    if (id === 'path') return { resolve, join: (...parts) => parts.join('/') };
+    if (id === 'url') return { fileURLToPath };
+    if (id === 'child_process') return { spawn: () => assert.fail('Unexpected subprocess in skin bridge test') };
     if (id === 'crypto') return {};
     if (id === 'https') return https;
     if (id === 'http') return { request(url, options, callback) {

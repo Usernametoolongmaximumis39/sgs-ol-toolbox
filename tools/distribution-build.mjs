@@ -19,7 +19,7 @@ export async function bundleCore({ root, edition, packages, microclient = false,
     throw new Error('Local appearance sync requires a microclient Lite build and the appearances package');
   const injected = edition === 'lite' ? [] : edition === 'full' ? fullBundledPackages(packages) : packages;
   const result = await build({ absWorkingDir: root, entryPoints: [resolve(root, 'src/core/main.js')], bundle: true,
-    format: 'iife', target: microclient ? 'chrome85' : 'es2022', write: false, metafile: true, legalComments: 'inline', minifySyntax: true,
+    format: 'iife', target: microclient ? 'chrome85' : 'es2022', write: false, metafile: true, legalComments: 'inline', minifySyntax: true, minifyWhitespace: !microclient,
     define: { __SGS_TOOLBOX_DEVELOPMENT__: String(edition === 'dev'), __SGS_TOOLBOX_EDITION__: JSON.stringify(edition),
       __SGS_TOOLBOX_MICROCLIENT__: String(microclient), __SGS_TOOLBOX_LOCAL_APPEARANCE_SYNC__: String(Boolean(localAppearanceSyncPackage)),
       __SGS_TOOLBOX_UPDATE_MIRROR__: JSON.stringify(edition === 'dev' ? '' : configuredUpdateMirror()) },
@@ -40,7 +40,7 @@ export async function bundleCore({ root, edition, packages, microclient = false,
     code = (await transform(pageCode, { target: 'chrome85', minifySyntax: true, legalComments: 'inline' })).code;
   } else {
     const loader = await build({ absWorkingDir: root, entryPoints: [resolve(root, 'src/core/userscript.js')], bundle: true,
-      format: 'iife', target: 'es2022', globalName: 'Userscript', write: false, minifySyntax: true });
+      format: 'iife', target: 'es2022', globalName: 'Userscript', write: false, minifySyntax: true, minifyWhitespace: true });
     code = `(() => {\n${loader.outputFiles[0].text}\nUserscript.runUserscript(function (sgsToolboxMobileSkinPort) {\n${pageCode}\n});\n})();\n`;
   }
   return { code, inputs };
@@ -60,7 +60,7 @@ export function userscriptHeader({ edition, version, toolboxSvg }) {
 // @version      ${version}${dev ? '-dev' : ''}
 // @license      MIT
 // @icon         data:image/svg+xml,${encodeURIComponent(toolboxSvg)}
-// @description  ${label}：${edition === 'lite' ? '独立核心，按需安装插件并沿用已保存的插件' : '工具箱核心与全部插件'}
+// @description  ${label}：${edition === 'lite' ? '独立核心，按需安装插件并沿用已保存的插件' : dev ? '工具箱核心与演练插件' : '工具箱核心与随附官方插件'}
 // @match        https://web.sanguosha.com/*
 // @match        http://web.sanguosha.com/*
 ${dev ? '// @match        http://127.0.0.1:17321/dev/*\n' : ''}${update}// @exclude      *://web.sanguosha.com/10/*

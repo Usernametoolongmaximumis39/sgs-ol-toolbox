@@ -4,7 +4,13 @@ const TOOLBOX = '[data-sgs-toolbox]';
 const GAME = '#bgDiv,#layaContainer,#laya_container,#GameDiv,canvas,iframe';
 const PROTECTED = `${TOOLBOX},${GAME}`;
 const FORBIDDEN_TAGS = new Set(['HTML', 'BODY', 'HEAD', 'SCRIPT', 'STYLE', 'LINK', 'META']);
+const KNOWN_PROFILES = [[OFFICIAL_ROOTS.join(','), 'official'], [FORK_ROOTS.join(','), 'fork95'], [EXTENSION_ROOTS.join(','), 'extension']];
+const KNOWN_ROOTS = KNOWN_PROFILES.map(([selector]) => selector).join(',');
+const STRUCTURAL_ROOTS = 'div,aside,section';
+const STRUCTURAL_LIMIT = 4000;
+const WATCH_INTERVAL = 1000;
 const BRAND = /(?:小抄|桌游助手)/;
+const VERSION = /(?:小抄|桌游助手)\s*v?\d+\.\d+(?:\.\d+)?/i;
 const FEATURE_LABELS = ['卡牌', '记牌', '明牌', '山河图', '配置', '工具', '百胜战功', '皮肤收集', '战绩出框', '聊天表情', '自助观星', '杀批账本'];
 
 /**
@@ -19,7 +25,6 @@ export function createCompatibility({ window, document = window?.document, onSta
   let policy = takeover === 'exit-known' ? 'exit-known' : 'hide';
   let observer = null;
   let interval = null;
-  let queued = false;
   let scanning = false;
   let lastStatus = '';
   const hidden = new Map();
@@ -27,6 +32,7 @@ export function createCompatibility({ window, document = window?.document, onSta
   const called = new WeakSet();
   const sources = new Set();
   const exitCalls = [];
+  const structuralChanges = new Map();
 
   function protectedElement(el) {
     if (!el || el.nodeType !== 1 || el.ownerDocument !== document || !el.style) return true;
@@ -70,20 +76,28 @@ export function createCompatibility({ window, document = window?.document, onSta
 
   function structuralMatch(el) {
     if (el.closest(PROTECTED)) return false;
-    const rawText = el.textContent || '';
-    if (rawText.length < 12 || !BRAND.test(rawText)) return false;
-    if (protectedElement(el)) return false;
-    const text = rawText.replace(/\s+/g, ' ').trim();
-    if (text.length < 12 || text.length > 20000) return false;
-    const buttons = [...el.querySelectorAll('button,[role="tab"]')];
+    const buttons = el.querySelectorAll('button,[role="tab"]');
     if (buttons.length < 4) return false;
-    const labels = buttons.map(b => (b.textContent || '').replace(/\s+/g, ''));
-    const count = FEATURE_LABELS.filter(label => labels.some(t => t === label || t.startsWith(label + '（'))).length;
-    if (count < 4) return false;
-    const brandedLink = [...el.querySelectorAll('a[href]')].some(a => {
-      try { const host = new URL(a.href, window.location.href).hostname; return host === 'xiaochao.org' || host.endsWith('.xiaochao.org') || host === 'xc.95chong.cn'; } catch { return false; }
-    });
-    if (!brandedLink && !el.querySelector('input#seatUISwitch') && !/(?:小抄|桌游助手)\s*v?\d+\.\d+(?:\.\d+)?/i.test(text)) return false;
+    const labels = new Set();
+    for (const button of buttons) {
+      const label = (button.textContent || '').replace(/\s+/g, '').split('（', 1)[0];
+      if (FEATURE_LABELS.includes(label)) labels.add(label);
+      if (labels.size === 4) break;
+    }
+    if (labels.size < 4) return false;
+    const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    if (text.length < 12 || text.length > 20000 || !BRAND.test(text)) return false;
+    if (!el.querySelector('input#seatUISwitch') && !VERSION.test(text)) {
+      const links = el.querySelectorAll('a[href]');
+      const brandedLink = Array.prototype.some.call(links, link => {
+        try {
+          const host = new URL(link.href, window.location.href).hostname;
+          return host === 'xiaochao.org' || host.endsWith('.xiaochao.org') || host === 'xc.95chong.cn';
+        } catch { return false; }
+      });
+      if (!brandedLink) return false;
+    }
+    if (protectedElement(el)) return false;
     const style = window.getComputedStyle(el);
     return style.position === 'fixed' && Number(style.zIndex) >= 1000;
   }
@@ -149,62 +163,130 @@ export function createCompatibility({ window, document = window?.document, onSta
     try { onStatus(status); } catch { /* Status UI failure must not stop cleanup. */ }
   }
 
+  function checkKnown(el) {
+    if (!el.isConnected || !el.matches(KNOWN_ROOTS) || protectedElement(el)) return false;
+    for (const [selector, source] of KNOWN_PROFILES) {
+      if (!el.matches(selector)) continue;
+      sources.add(source);
+      if (enabled) hide(el, source);
+    }
+    return true;
+  }
+
+  function checkStructure(el) {
+    if (hidden.has(el) || ignored.has(el) || !structuralMatch(el)) return;
+    sources.add('structural');
+    if (enabled) hide(el, 'structural');
+  }
+
+  function checkGlobals() {
+    if (Array.isArray(window.SGSMODULE) || Array.isArray(window.VIiR0YfvE4s)) sources.add('official');
+    if (window.__XIAOCHAO_STARTUP__?.entry === 'preboot-v2') sources.add('fork95');
+    if (enabled) exitKnown();
+  }
+
+  function repairHidden(el, record) {
+    if (!el.isConnected || protectedElement(el)) return restore(el);
+    return !ownHidden(el) && hide(el, record.source);
+  }
+
   function scan() {
     if (!running || scanning) return getStatus();
     scanning = true;
     try {
-      for (const [selectors, source] of [[OFFICIAL_ROOTS, 'official'], [FORK_ROOTS, 'fork95'], [EXTENSION_ROOTS, 'extension']]) {
-        for (const el of document.querySelectorAll(selectors.join(','))) { if (!protectedElement(el)) sources.add(source); if (enabled) hide(el, source); }
-      }
-      // Bound fallback work and require several independent identity signals.
-      for (const el of [...document.querySelectorAll('div,aside,section')].slice(0, 4000)) {
-        if (!hidden.has(el) && structuralMatch(el)) { sources.add('structural'); if (enabled) hide(el, 'structural'); }
-      }
-      if (Array.isArray(window.SGSMODULE) || Array.isArray(window.VIiR0YfvE4s)) sources.add('official');
-      if (window.__XIAOCHAO_STARTUP__?.entry === 'preboot-v2') sources.add('fork95');
-      if (enabled) exitKnown();
-      for (const [el, record] of hidden) {
-        if (!el.isConnected) { restore(el); continue; }
-        if (protectedElement(el)) restore(el);
-        else hide(el, record.source);
-      }
+      for (const el of document.querySelectorAll(KNOWN_ROOTS)) checkKnown(el);
+      const candidates = document.querySelectorAll(STRUCTURAL_ROOTS);
+      for (let i = 0; i < candidates.length && i < STRUCTURAL_LIMIT; i++) checkStructure(candidates[i]);
+      checkGlobals();
+      for (const [el, record] of hidden) repairHidden(el, record);
     } finally { scanning = false; }
     emit();
     return getStatus();
   }
 
-  function schedule() {
-    if (queued || !running || !enabled) return;
-    queued = true;
-    const watching = observer;
-    window.queueMicrotask(() => {
-      if (observer !== watching) return;
-      queued = false;
-      if (running && enabled) scan();
-    });
+  function rememberStructure(el, subtree = false) {
+    if (!structuralChanges.has(el) && structuralChanges.size >= STRUCTURAL_LIMIT) return;
+    if (subtree || !structuralChanges.has(el)) structuralChanges.set(el, subtree);
+  }
+
+  function checkStructuralChanges() {
+    const checked = new Set();
+    const check = el => {
+      if (checked.has(el) || !el.matches(STRUCTURAL_ROOTS)) return;
+      checked.add(el);
+      checkStructure(el);
+    };
+    // Check the changed nodes and ancestors first, then boundedly explore added subtrees.
+    let remaining = STRUCTURAL_LIMIT;
+    for (const el of structuralChanges.keys()) {
+      if (el.isConnected) check(el);
+      remaining--;
+    }
+    for (const [root, subtree] of structuralChanges) {
+      if (!remaining) break;
+      if (!subtree || !root.isConnected || root.closest(PROTECTED)) continue;
+      const tree = document.createTreeWalker(root, window.NodeFilter.SHOW_ELEMENT);
+      for (let el; remaining && (el = tree.nextNode()); remaining--) check(el);
+    }
+    structuralChanges.clear();
+  }
+
+  function onMutations(records) {
+    const changed = new Set(), added = new Set();
+    let removed = false;
+    for (const record of records) {
+      const target = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+      const boundary = target?.closest(PROTECTED);
+      if (boundary && target !== boundary) continue;
+      if (record.attributeName === 'style' && hidden.has(target) && ownHidden(target)) continue;
+      for (let el = target; el && el !== document.body && el !== document.documentElement && !changed.has(el); el = el.parentElement) {
+        if (el.isConnected) changed.add(el);
+      }
+      if (record.type !== 'childList') continue;
+      removed ||= record.removedNodes.length > 0;
+      for (const node of record.addedNodes) {
+        if (node.nodeType === 1 && node.isConnected && !node.closest(PROTECTED)) added.add(node);
+      }
+    }
+    let statusChanged = false;
+    for (const el of changed) {
+      if (hidden.has(el) && repairHidden(el, hidden.get(el))) statusChanged = true;
+      if (checkKnown(el)) statusChanged = true;
+      if (el.matches(STRUCTURAL_ROOTS)) rememberStructure(el);
+    }
+    for (const root of added) {
+      if (checkKnown(root)) statusChanged = true;
+      for (const el of root.querySelectorAll(KNOWN_ROOTS)) if (checkKnown(el)) statusChanged = true;
+      rememberStructure(root, true);
+    }
+    if (removed) for (const el of hidden.keys()) {
+      if (!el.isConnected && restore(el)) statusChanged = true;
+    }
+    if (statusChanged) emit();
   }
 
   function watch() {
     if (!running || !enabled || interval !== null) return;
     if (typeof window.MutationObserver === 'function') {
-      observer = new window.MutationObserver(records => {
-        if (records.some(r => {
-          const target = r.target.nodeType === 1 ? r.target : r.target.parentElement;
-          if (target?.closest(TOOLBOX)) return false;
-          if (r.type === 'attributes' && r.attributeName === 'style' && hidden.has(target) && ownHidden(target)) return false;
-          return true;
-        })) schedule();
+      observer = new window.MutationObserver(onMutations);
+      observer.observe(document, {
+        childList: true, subtree: true, characterData: true, attributes: true,
+        attributeFilter: ['id', 'class', 'style', 'href', 'role', 'data-sgs-toolbox'],
       });
-      observer.observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['id', 'class', 'style'] });
     }
-    // Globals may be published without a DOM mutation. This only inspects them.
-    interval = window.setInterval(scan, 1000);
+    interval = window.setInterval(() => {
+      if (!observer) { scan(); return; }
+      checkStructuralChanges();
+      checkGlobals(); // Globals may be published without a DOM mutation.
+      for (const [el, record] of hidden) repairHidden(el, record);
+      emit();
+    }, WATCH_INTERVAL);
   }
 
   function unwatch() {
     observer?.disconnect();
     observer = null;
-    queued = false;
+    structuralChanges.clear();
     if (interval !== null) window.clearInterval(interval);
     interval = null;
   }

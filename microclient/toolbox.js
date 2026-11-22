@@ -1,4 +1,4 @@
-// 三国杀OL工具箱 · 微端 LITE · 0.6.214
+// 三国杀OL工具箱 · 微端 LITE · 0.6.223
 (() => {
   var __create = Object.create, __defProp = Object.defineProperty, __getOwnPropDesc = Object.getOwnPropertyDescriptor, __getOwnPropNames = Object.getOwnPropertyNames, __getProtoOf = Object.getPrototypeOf, __hasOwnProp = Object.prototype.hasOwnProperty, __commonJS = (cb, mod) => function() {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
@@ -335,8 +335,8 @@
     })(), api.ready;
   }
   var Settings = class _Settings {
-    constructor(storage, prefix2 = "sgstoolbox:", listeners = /* @__PURE__ */ new Set()) {
-      this.storage = storage, this.prefix = prefix2, this.listeners = listeners;
+    constructor(storage, prefix3 = "sgstoolbox:", listeners = /* @__PURE__ */ new Set()) {
+      this.storage = storage, this.prefix = prefix3, this.listeners = listeners;
     }
     get(key, fallback) {
       var _a2;
@@ -522,7 +522,7 @@
     }
     return result;
   }
-  var WRAPPERS = new Set(cardPacketWrappers);
+  var WRAPPERS = new Set(cardPacketWrappers), HISTORY_LIMIT = 2048;
   function packetBody(payload) {
     let queue = [payload], seen = /* @__PURE__ */ new Set(), body = {};
     for (let i2 = 0; i2 < queue.length && i2 < 32; i2++) {
@@ -535,8 +535,8 @@
     }
     return body;
   }
-  function canonicalBody(value) {
-    return Array.isArray(value) ? value.map(canonicalBody) : !value || typeof value != "object" ? value : Object.fromEntries(Object.keys(value).filter((key) => !key.startsWith("_") && !["ClassName", "className"].includes(key)).sort().map((key) => [key, canonicalBody(value[key])]));
+  function packetSignature(type, payload) {
+    return type + ":" + JSON.stringify(payload);
   }
   function copy(value, depth = 0, seen = /* @__PURE__ */ new WeakSet(), budget = { remaining: 8192 }) {
     if (--budget.remaining < 0) return;
@@ -555,15 +555,37 @@
     return seen.delete(value), result;
   }
   var SessionJournal = class {
-    constructor() {
-      this.sessionId = 1, this.seq = 0, this.events = [], this.listeners = /* @__PURE__ */ new Set(), this.incomplete = !0;
+    #history = [];
+    #head = 0;
+    #omitted = 0;
+    #limit;
+    constructor({ historyLimit = HISTORY_LIMIT } = {}) {
+      this.#limit = Number.isInteger(historyLimit) && historyLimit > 0 ? Math.min(historyLimit, HISTORY_LIMIT) : HISTORY_LIMIT, this.sessionId = 1, this.seq = 0, this.listeners = /* @__PURE__ */ new Set(), this.incomplete = !0;
+    }
+    get events() {
+      return this.#head ? this.#history.slice(this.#head).concat(this.#history.slice(0, this.#head)) : this.#history.slice();
+    }
+    *replayAfter(cursor) {
+      let history = this.#history, head = this.#head, length = history.length, first = history[head];
+      if (!first || cursor >= this.seq) return;
+      this.#omitted && cursor < first.seq - 1 && (yield {
+        seq: first.seq - 1,
+        sessionId: first.sessionId,
+        at: first.at,
+        type: "toolbox:gap",
+        payload: { reason: "\u672C\u5C40\u8F83\u65E9\u4E8B\u4EF6\u5DF2\u8D85\u51FA\u91CD\u653E\u4E0A\u9650\uFF0C\u65E0\u6CD5\u5B8C\u6574\u91CD\u5EFA", replayOnly: !0 }
+      });
+      let start = Math.max(0, cursor - first.seq + 1);
+      for (let i2 = start; i2 < length; i2++) yield history[(head + i2) % length];
     }
     push(type, payload, at = Date.now()) {
-      payload = copy(payload);
-      let body = packetBody(payload), lists2 = [body.CardList, body.cardList, body.card_list], deck = lists2.find((value) => (value == null ? void 0 : value.length) > 0) ?? lists2.find((value) => value != null), hasDeck = deck && typeof deck == "object" && Number.isInteger(deck.length) && deck.length >= 0 && deck.length <= 1e4;
-      type === "MsgGamePlayCardNtf" && hasDeck && (this.sessionId++, this.events = [], this.incomplete = !deck.length || !!(body.IsResume ?? body.isResume)), (/Reconnect/.test(type) || type === "toolbox:gap") && (this.incomplete = !0);
+      if (payload = copy(payload), type === "MsgGamePlayCardNtf") {
+        let body = packetBody(payload), lists2 = [body.CardList, body.cardList, body.card_list], deck = lists2.find((value) => (value == null ? void 0 : value.length) > 0) ?? lists2.find((value) => value != null);
+        deck && typeof deck == "object" && Number.isInteger(deck.length) && deck.length >= 0 && deck.length <= 1e4 && (this.sessionId++, this.#history = [], this.#head = this.#omitted = 0, this.incomplete = !deck.length || !!(body.IsResume ?? body.isResume));
+      }
+      (/Reconnect/.test(type) || type === "toolbox:gap") && (this.incomplete = !0);
       let event = { seq: ++this.seq, sessionId: this.sessionId, type, payload, at };
-      this.events.push(event);
+      this.#history.length < this.#limit ? this.#history.push(event) : (this.#history[this.#head] = event, this.#head = (this.#head + 1) % this.#limit, this.#omitted++);
       for (let fn of this.listeners)
         try {
           fn(event);
@@ -575,7 +597,7 @@
       return this.listeners.add(fn), () => this.listeners.delete(fn);
     }
     snapshot() {
-      return { sessionId: this.sessionId, seq: this.seq, incomplete: this.incomplete, events: this.events.slice() };
+      return { sessionId: this.sessionId, seq: this.seq, incomplete: this.incomplete, omittedEvents: this.#omitted, events: this.events };
     }
   };
   function installMessageBridge(win, journal, scope, onStatus = () => {
@@ -606,11 +628,12 @@
     }
     function receive(type, data, source) {
       if (scope.closed) return;
+      let observed = isObservedMessage(type);
       try {
-        observeType(type, source, isObservedMessage(type));
+        observeType(type, source, observed);
       } catch {
       }
-      if (!isObservedMessage(type)) return;
+      if (!observed) return;
       let payload;
       try {
         payload = projectMessage(type, data);
@@ -619,7 +642,7 @@
         return;
       }
       if (payload != null && payload.isSend) return;
-      let signature = type + ":" + JSON.stringify(canonicalBody(payload)), entry = duplicates.get(signature);
+      let signature = packetSignature(type, payload), entry = duplicates.get(signature);
       entry || (duplicates.size >= 2048 && (duplicates.clear(), queue("toolbox:gap", { reason: "\u77ED\u65F6\u95F4\u6D88\u606F\u8FC7\u591A\uFF0C\u53BB\u91CD\u7A97\u53E3\u5DF2\u91CD\u5EFA" })), duplicates.set(signature, entry = { sources: /* @__PURE__ */ new Map(), max: 0 }));
       let count = (entry.sources.get(source) || 0) + 1;
       entry.sources.set(source, count), !(count <= entry.max) && (entry.max = count, expiryTimer || (expiryTimer = setTimeout(() => {
@@ -634,8 +657,8 @@
         try {
           if (outer)
             try {
-              let prefix2 = args.filter((x2) => typeof x2 == "string").join(" ");
-              if (!/\bsend\b|发送/i.test(prefix2)) for (let i2 = args.length - 1; i2 >= 0; i2--) {
+              let prefix3 = args.filter((x2) => typeof x2 == "string").join(" ");
+              if (!/\bsend\b|发送/i.test(prefix3)) for (let i2 = args.length - 1; i2 >= 0; i2--) {
                 let data = args[i2], type = (data == null ? void 0 : data.ClassName) || (data == null ? void 0 : data.className);
                 if (typeof type == "string" && (receive(type, data, "console"), isObservedMessage(type)))
                   break;
@@ -1613,16 +1636,16 @@
         for (let [ui, binding] of this.bindings) found.has(ui) || (binding.release(), this.bindings.delete(ui));
         for (let ui of found)
           this.bindCard(ui);
-        let waiting = [(_h = selectedAtlas == null ? void 0 : selectedAtlas.native) == null ? void 0 : _h.face, (_i = back == null ? void 0 : back.native) == null ? void 0 : _i.back].some((name) => name && !this.nativeTexture(name)), localStatus = backImage && (backImage.complete ? backImage.naturalWidth !== (back.localBackImage ? LOCAL_BACK_WIDTH : LOCAL_FACE_WIDTH) || backImage.naturalHeight !== (back.localBackImage ? LOCAL_BACK_HEIGHT : LOCAL_FACE_HEIGHT) ? "\u81EA\u5B9A\u4E49\u5361\u80CC\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u80CC" : "" : "\u6B63\u5728\u52A0\u8F7D\u81EA\u5B9A\u4E49\u5361\u80CC"), backgroundStatus = faceImage && (faceImage.complete ? faceImage.naturalWidth !== LOCAL_FACE_WIDTH || faceImage.naturalHeight !== LOCAL_FACE_HEIGHT ? "\u5361\u9762\u5E95\u56FE\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u9762" : "" : "\u6B63\u5728\u52A0\u8F7D\u5361\u9762\u5E95\u56FE"), atlas = this.atlases.get(selectedAtlas == null ? void 0 : selectedAtlas.id), prefix2 = atlas != null && atlas.error ? "\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25\uFF0C\u5DF2\u4FDD\u7559\u6E38\u620F\u5916\u89C2\uFF1A" + atlas.error : atlas != null && atlas.loading ? "\u6B63\u5728\u52A0\u8F7D\u5B8C\u6574\u5361\u9762\uFF0C\u5F53\u524D\u4FDD\u7559\u6E38\u620F\u5916\u89C2" : null, faces = atlas != null && atlas.data ? [...this.bindings].filter(([ui]) => {
+        let waiting = [(_h = selectedAtlas == null ? void 0 : selectedAtlas.native) == null ? void 0 : _h.face, (_i = back == null ? void 0 : back.native) == null ? void 0 : _i.back].some((name) => name && !this.nativeTexture(name)), localStatus = backImage && (backImage.complete ? backImage.naturalWidth !== (back.localBackImage ? LOCAL_BACK_WIDTH : LOCAL_FACE_WIDTH) || backImage.naturalHeight !== (back.localBackImage ? LOCAL_BACK_HEIGHT : LOCAL_FACE_HEIGHT) ? "\u81EA\u5B9A\u4E49\u5361\u80CC\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u80CC" : "" : "\u6B63\u5728\u52A0\u8F7D\u81EA\u5B9A\u4E49\u5361\u80CC"), backgroundStatus = faceImage && (faceImage.complete ? faceImage.naturalWidth !== LOCAL_FACE_WIDTH || faceImage.naturalHeight !== LOCAL_FACE_HEIGHT ? "\u5361\u9762\u5E95\u56FE\u52A0\u8F7D\u5931\u8D25\uFF0C\u5F53\u524D\u8DDF\u968F\u6E38\u620F\u5361\u9762" : "" : "\u6B63\u5728\u52A0\u8F7D\u5361\u9762\u5E95\u56FE"), atlas = this.atlases.get(selectedAtlas == null ? void 0 : selectedAtlas.id), prefix3 = atlas != null && atlas.error ? "\u5B8C\u6574\u5361\u9762\u52A0\u8F7D\u5931\u8D25\uFF0C\u5DF2\u4FDD\u7559\u6E38\u620F\u5916\u89C2\uFF1A" + atlas.error : atlas != null && atlas.loading ? "\u6B63\u5728\u52A0\u8F7D\u5B8C\u6574\u5361\u9762\uFF0C\u5F53\u524D\u4FDD\u7559\u6E38\u620F\u5916\u89C2" : null, faces = atlas != null && atlas.data ? [...this.bindings].filter(([ui]) => {
           var _a3;
           return !((_a3 = ui.theCard) != null && _a3.IsEmpty);
         }) : [], applied = faces.filter(([ui, b]) => b.applied && !b.reason && !b.error && ui.bmpFace.texture === b.applied).length, fallback = [...new Set(faces.filter(([, b]) => b.reason).map(([, b]) => b.reason))], detail = atlas != null && atlas.data ? ` \xB7 \u5B8C\u6574\u5361\u9762 R3 \u5DF2\u66FF\u6362 ${applied}/${faces.length}${fallback.length ? " \xB7 \u56DE\u9000\uFF1A" + fallback.join("\uFF1B") : ""}` : "";
-        this.setStatus(prefix2 || backgroundStatus || localStatus || (waiting ? "\u7B49\u5F85\u5B98\u65B9\u5361\u9762\uFF0F\u5361\u80CC\u8D44\u6E90\u52A0\u8F7D\uFF0C\u5DF2\u5C31\u7EEA\u7684\u9762\u72EC\u7ACB\u5E94\u7528" : found.size ? `\u5DF2\u63A5\u5165 ${found.size} \u5F20\u539F\u751F\u5361\u724C \xB7 \u4EC5\u672C\u673A\u663E\u793A${detail}` : "\u5957\u88C5\u5DF2\u5C31\u7EEA\uFF0C\u7B49\u5F85\u539F\u751F\u5361\u724C\u51FA\u73B0"));
+        this.setStatus(prefix3 || backgroundStatus || localStatus || (waiting ? "\u7B49\u5F85\u5B98\u65B9\u5361\u9762\uFF0F\u5361\u80CC\u8D44\u6E90\u52A0\u8F7D\uFF0C\u5DF2\u5C31\u7EEA\u7684\u9762\u72EC\u7ACB\u5E94\u7528" : found.size ? `\u5DF2\u63A5\u5165 ${found.size} \u5F20\u539F\u751F\u5361\u724C \xB7 \u4EC5\u672C\u673A\u663E\u793A${detail}` : "\u5957\u88C5\u5DF2\u5C31\u7EEA\uFF0C\u7B49\u5F85\u539F\u751F\u5361\u724C\u51FA\u73B0"));
       } catch (error) {
         this.restore(), this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
       }
     }
-  }, CORE_VERSION = "0.6.214", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
+  }, CORE_VERSION = "0.6.223", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
     "43a4cbff657c319e8b7b1bf2ec7689e0a557fc9bb17a9090d24a2163d1857dda",
@@ -1722,7 +1745,7 @@
   function createSkinBackgroundMotion({ window: window2, layer, scope, load, ready, fail: fail2, imageUrl }) {
     let { Sprite, Rectangle } = window2.Laya, root = new Sprite();
     root.name = "sgs-background-motion", root.mouseEnabled = root.mouseChildren = root.visible = !1, root.zOrder = layer.bgSprite.zOrder || 0;
-    let motion2, matte, visible = !1, width, height;
+    let motion2, matte, visible = !1, canFit = !1, playing = !1, width, height;
     scope.add(() => {
       try {
         motion2 == null || motion2.dispose();
@@ -1730,8 +1753,12 @@
         root.destroy(!0);
       }
     }), layer.addChildAt(root, Math.max(0, layer.getChildIndex(layer.bgSprite)) + 1);
+    function syncPlaying() {
+      let play = !!(visible && motion2 && canFit);
+      root.visible = play, play !== playing && (playing = play, motion2 == null || motion2.setPlaying(play));
+    }
     function positionMotion() {
-      width > 0 && height > 0 && (root.graphics.clear(), root.graphics.drawRect(0, 0, width, height, matteColor), matte && root.graphics.drawTexture(matte, 0, 0, width, height), motion2 == null || motion2.fit(0, 0, width, height));
+      width > 0 && height > 0 && (root.graphics.clear(), root.graphics.drawRect(0, 0, width, height, matteColor), matte && root.graphics.drawTexture(matte, 0, 0, width, height), motion2 && (canFit = motion2.fit(0, 0, width, height) !== !1), syncPlaying());
     }
     skinMatte(window2, imageUrl, scope).then((texture) => {
       !texture || scope.closed || (matte = texture, positionMotion());
@@ -1744,18 +1771,21 @@
         return;
       }
       if (!loaded) throw new Error("\u8FD9\u6B3E\u76AE\u80A4\u7684\u5F85\u673A\u52A8\u753B\u6682\u4E0D\u53EF\u7528");
-      motion2 = loaded, root.addChild(motion2.actor), positionMotion(), root.visible = visible, motion2.setPlaying(visible), ready();
+      motion2 = loaded, motion2.setPlaying(!1), root.addChild(motion2.actor), positionMotion(), ready();
     }).catch((error) => {
       scope.closed || fail2((error == null ? void 0 : error.message) || String(error));
     }), {
       get loaded() {
-        return !!motion2;
+        return !!(motion2 && canFit);
+      },
+      get unsuitableSize() {
+        return !!(motion2 && width && height && !canFit);
       },
       layout(w, h) {
         scope.closed || !(w > 0 && h > 0) || width === w && height === h || (width = w, height = h, root.size(w, h), root.scrollRect = new Rectangle(0, 0, w, h), positionMotion());
       },
       show(value) {
-        scope.closed || visible === value || (visible = value, root.visible = visible && !!motion2, motion2 == null || motion2.setPlaying(visible));
+        scope.closed || visible === value || (visible = value, syncPlaying());
       }
     };
   }
@@ -1970,6 +2000,7 @@
   function supportsSkinBackgroundAttack(dynamic) {
     return (dynamic == null ? void 0 : dynamic.kind) === "spine" && dynamic.modern === !0 && dynamic.attack !== !1;
   }
+  var skinQualitySetting = "backgrounds:skinQuality";
   function fitBackground(width, height, viewportWidth, viewportHeight, scaleFor) {
     if (![width, height, viewportWidth, viewportHeight].every((n) => Number.isFinite(n) && n > 0)) return null;
     let scale = scaleFor(viewportWidth / width, viewportHeight / height);
@@ -2070,7 +2101,7 @@
           this.dropLocalImage();
         }
       }), window2.addEventListener && settings.prefix && scope.listen(window2, "storage", (event) => {
-        event.storageArea === settings.storage && (event.key === settings.prefix + "battleBackground" || event.key === null) && this.selectionChanged();
+        event.storageArea === settings.storage && ((event.key === settings.prefix + "battleBackground" || event.key === null) && this.selectionChanged(), event.key === settings.prefix + skinQualitySetting && (this.refresh(), this.emit()));
       });
     }
     get current() {
@@ -2105,10 +2136,13 @@
       if (!this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
       this.saveSelection(spec ? { ...backgroundSpec(spec), owner } : null);
     }
-    registerSkinMotion(load) {
-      return this.skinMotion = load, () => {
-        this.skinMotion === load && (this.skinMotion = null);
+    registerSkinMotion(load, { quality = !1 } = {}) {
+      return this.skinMotion = load, this.skinQualityAvailable = quality, this.emit(), () => {
+        this.skinMotion === load && (this.skinMotion = null, this.skinQualityAvailable = !1, this.emit());
       };
+    }
+    setSkinQuality(owner, quality) {
+      owner !== "backgrounds" || !this.providers.has(owner) || !this.skinQualityAvailable || !["high", "low"].includes(quality) || this.settings.get(skinQualitySetting, "high") !== quality && (this.settings.set(skinQualitySetting, quality), this.refresh(), this.emit());
     }
     setAnimated(owner, enabled) {
       let choice = this.current;
@@ -2216,7 +2250,7 @@
       this.ticket++, this.loading = null, this.failed = url, this.loadAttempts = (this.loadAttempts || 0) + 1, this.retryAt = Date.now() + Math.min(3e4, 2e3 * 2 ** (this.loadAttempts - 1)), this.state(message + "\uFF1B\u7A0D\u540E\u81EA\u52A8\u91CD\u8BD5");
     }
     refreshReady() {
-      var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q;
+      var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r;
       let choice = this.current;
       if (!choice || !this.providers.has(choice.owner)) {
         this.ticket++, this.ready = this.loading = null;
@@ -2280,7 +2314,8 @@
         this.detach(!0), this.state("\u6B64\u76AE\u80A4\u6CA1\u6709\u53EF\u7528\u7684\u6A2A\u7248\u539F\u753B");
         return;
       }
-      if (!this.binding) {
+      let skinQuality = this.settings.get(skinQualitySetting) === "low" ? "low" : "high";
+      if (choice.skinMotion && choice.animated !== !1 && this.binding && this.binding.skinQuality !== skinQuality && this.detach(!1), !this.binding) {
         let coverStill = function(next) {
           (covered == null ? void 0 : covered.node) !== next && (covered && !covered.node.destroyed && (covered.node.visible = covered.visible), covered = next && { node: next, visible: next.visible }), next && (next.visible = !1);
         }, layer = findBackgroundLayer(laya == null ? void 0 : laya.stage), viewport = layer && backgroundViewport(layer, this.window);
@@ -2288,7 +2323,16 @@
           this.state("\u7B49\u5F85\u6E38\u620F\u80CC\u666F\u5C42\u4E0E\u5E03\u5C40\u5C31\u7EEA");
           return;
         }
-        let local = new ResourceScope(), b2 = { scene, layer, stage: laya.stage, scope: local, applied: !1, yielded: this.yieldedScene === scene, writing: !1 };
+        let local = new ResourceScope(), b2 = {
+          scene,
+          layer,
+          stage: laya.stage,
+          scope: local,
+          skinQuality,
+          applied: !1,
+          yielded: this.yieldedScene === scene,
+          writing: !1
+        };
         this.binding = b2;
         let registry = this, originalById = scene.SetWallPaperById, eligible = () => !scene.currentWeatherWallPaper && !b2.yielded, covered;
         local.add(() => coverStill());
@@ -2310,7 +2354,8 @@
           local.patch(layer, "updateBgSize", (original) => function(...args) {
             var _a3, _b3;
             let result = Reflect.apply(original, this, args), customBackground = eligible() && ((_a3 = this.bg) == null ? void 0 : _a3.skin) === choice.url;
-            if (fill.visible = customBackground && !choice.skinKey, b2.syncMotion(), !customBackground) return result;
+            if (fill.visible = customBackground && !choice.skinKey, !customBackground)
+              return b2.syncMotion(), result;
             let size = registry.imageSize, { width: w, height: h } = backgroundViewport(this, registry.window), fit = fitBackground(size == null ? void 0 : size.width, size == null ? void 0 : size.height, w, h, choice.skinKey ? Math.max : Math.min);
             if (!fit)
               return fill.visible = !1, result;
@@ -2320,7 +2365,7 @@
               let scale = Math.max(w / fit.width, h / fit.height), dw = fit.width * scale, dh = fit.height * scale;
               fill.size(w, h), fill.scrollRect = new laya.Rectangle(0, 0, w, h), soften.graphics.clear(), soften.graphics.drawTexture(registry.imageTexture, (w - dw) / 2, (h - dh) / 2, dw, dh), soften.graphics.drawRect(0, 0, w, h, "rgba(0,0,0,0.28)");
             }
-            return this.bg.size(fit.width, fit.height), typeof this.bg.scale == "function" ? this.bg.scale(fit.scale, fit.scale) : this.bg.scale = fit.scale, this.bg.posInteger(fit.x, fit.y), choice.skinMotion ? (_b3 = b2.motion) == null || _b3.layout(w, h) : b2.motion && b2.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h)), result;
+            return this.bg.size(fit.width, fit.height), typeof this.bg.scale == "function" ? this.bg.scale(fit.scale, fit.scale) : this.bg.scale = fit.scale, this.bg.posInteger(fit.x, fit.y), choice.skinMotion ? (_b3 = b2.motion) == null || _b3.layout(w, h) : b2.motion && b2.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h)), b2.syncMotion(), result;
           });
         }
         typeof scene.OnWeatherWallPaperChange == "function" && local.patch(scene, "OnWeatherWallPaperChange", (original) => function(...args) {
@@ -2387,8 +2432,8 @@
             b2.motion = choice.skinMotion ? createSkinBackgroundMotion({
               ...options,
               load: (signal) => {
-                var _a3;
-                return (_a3 = this.skinMotion) == null ? void 0 : _a3.call(this, choice.skinKey, signal);
+                var _a3, _b3;
+                return (_b3 = this.skinMotion) == null ? void 0 : _b3.call(this, choice.skinKey, signal, { imageUrl: (_a3 = this.localImage) == null ? void 0 : _a3.objectUrl, quality: skinQuality });
               },
               imageUrl: (_n = this.localImage) == null ? void 0 : _n.objectUrl
             }) : createBackgroundMotion({ ...options, spec: choice.dynamic, size: choice.dynamic }), motionScope.closed && (b2.motion = null), b2.motion && supportsSkinBackgroundAttack(choice.dynamic) && (b2.syncAttackSeat = watchBackgroundAttack(this.game, scene, motionScope, () => {
@@ -2402,7 +2447,7 @@
       }
       scene.currentWeatherWallPaper || this.binding.yielded ? (_p = (_o = this.binding).hideFill) == null || _p.call(_o) : this.binding.syncMotion();
       let b = this.binding;
-      b.motion && ((_q = b.syncAttackSeat) == null || _q.call(b, choice.attackEffects !== !1)), this.state(scene.currentWeatherWallPaper || b.yielded ? "\u6280\u80FD\u80CC\u666F\u4F18\u5148" : b.motionError ? "\u52A8\u6001\u80CC\u666F\u5931\u8D25\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B\uFF1A" + b.motionError : b.motion ? b.motion.loaded ? "\u52A8\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528" : "\u6B63\u5728\u52A0\u8F7D\u52A8\u6001\u80CC\u666F\uFF0C\u6682\u663E\u9759\u6001\u539F\u753B" : "\u9759\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528");
+      b.motion && ((_q = b.syncAttackSeat) == null || _q.call(b, choice.attackEffects !== !1)), this.state(scene.currentWeatherWallPaper || b.yielded ? "\u6280\u80FD\u80CC\u666F\u4F18\u5148" : b.motionError ? "\u52A8\u6001\u80CC\u666F\u5931\u8D25\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B\uFF1A" + b.motionError : (_r = b.motion) != null && _r.unsuitableSize ? "\u5F53\u524D\u7A97\u53E3\u6BD4\u4F8B\u4E0D\u9002\u5408\u52A8\u6001\u6784\u56FE\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B" : b.motion ? b.motion.loaded ? "\u52A8\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528" : "\u6B63\u5728\u52A0\u8F7D\u52A8\u6001\u80CC\u666F\uFF0C\u6682\u663E\u9759\u6001\u539F\u753B" : "\u9759\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528");
     }
   }, BLACK_GOLD = { id: "core.black-gold", name: "\u7384\u91D1", tokens: { bg: "#201e1a", surface: "#2c2922", raised: "#383327", text: "#eee3cc", muted: "#b7aa8c", accent: "#dbba70", border: "#665b42", danger: "#f3988c", radius: "10px", font: '"Microsoft YaHei", system-ui, sans-serif', motion: "240ms", scheme: "dark" } }, allowed = Object.keys(BLACK_GOLD.tokens);
   function clean(tokens) {
@@ -2665,6 +2710,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     if (requireContract && m.contractVersion !== 1) throw new Error("\u65B0\u63D2\u4EF6\u5FC5\u987B\u58F0\u660E contractVersion: 1 \u5E76\u9075\u5B88\u63D2\u4EF6\u5F00\u53D1\u89C4\u8303\u3002");
     if (m.contractVersion !== void 0 && m.contractVersion !== 1) throw new Error("\u4E0D\u652F\u6301\u6B64\u63D2\u4EF6\u5F00\u53D1\u7EA6\u5B9A\u7248\u672C\u3002");
     if (!Array.isArray(m.categories) || m.categories.some((c) => !PANEL_CATEGORIES.includes(c)) || new Set(m.categories).size !== m.categories.length) throw new Error("\u63D2\u4EF6\u5206\u7C7B\u65E0\u6548\u6216\u91CD\u590D\u3002");
+    if (m.journalEvents !== void 0 && (!Array.isArray(m.journalEvents) || m.journalEvents.length > 128 || [...m.journalEvents].some((type) => typeof type != "string" || !/^[a-z][a-z0-9_:-]{0,63}$/i.test(type)) || new Set(m.journalEvents).size !== m.journalEvents.length)) throw new Error("\u724C\u5C40\u4E8B\u4EF6\u8BA2\u9605\u5FC5\u987B\u662F\u4E0D\u91CD\u590D\u7684\u4E8B\u4EF6\u540D\u79F0\u6570\u7EC4\u3002");
     if (m.dependencies !== void 0 && (!Array.isArray(m.dependencies) || m.dependencies.length > 64 || m.dependencies.some((id) => typeof id != "string" || !localId.test(id) || id === m.id) || new Set(m.dependencies).size !== m.dependencies.length)) throw new Error("\u524D\u7F6E\u63D2\u4EF6\u5FC5\u987B\u662F\u4E0D\u91CD\u590D\u7684\u63D2\u4EF6 ID \u6570\u7EC4\uFF0C\u4E14\u4E0D\u80FD\u4F9D\u8D56\u81EA\u8EAB\u3002");
     if ((_a2 = m.dependencies) != null && _a2.length && (!stableVersion.test(m.minCoreVersion || "") || compareVersions(m.minCoreVersion, "0.5.62") < 0)) throw new Error("\u524D\u7F6E\u63D2\u4EF6\u529F\u80FD\u8981\u6C42 minCoreVersion \u81F3\u5C11\u4E3A 0.5.62\u3002");
     let strict = m.contractVersion === 1;
@@ -2976,6 +3022,103 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     return null;
   }
+  function field(packet2, key) {
+    for (let node of [
+      packet2,
+      read3(() => packet2.Protocol),
+      read3(() => packet2.ProtoObj),
+      read3(() => packet2.protoObj),
+      read3(() => packet2.data.protoObj),
+      read3(() => packet2.data.ProtoObj)
+    ]) {
+      let value = read3(() => node[key]);
+      if (value != null) return value;
+    }
+  }
+  var reply = "ClientDbsGetuserachinfoRep", number = (value) => value == null || value === "" ? NaN : Number(value), isNumber = (value) => typeof value == "number" || typeof value == "string" && !!value.trim();
+  function projectAchievementReply(packet2) {
+    let rows = field(packet2, "Achs"), nickname = field(packet2, "NickName"), type = field(packet2, "requestType");
+    if (number(type) !== 0 || typeof nickname != "string" || !Array.isArray(rows) || rows.length > 2e4) return null;
+    let finish = {}, progress = {}, automationError = "";
+    for (let raw of rows) {
+      let row = (raw == null ? void 0 : raw.ProtoObj) || (raw == null ? void 0 : raw.protoObj) || raw, rawId = (row == null ? void 0 : row.id) ?? (row == null ? void 0 : row.ID), rawType = (row == null ? void 0 : row.type) ?? (row == null ? void 0 : row.Type), rawValue = (row == null ? void 0 : row.detailInfo) ?? (row == null ? void 0 : row.DetailInfo), id = number(rawId), flags = number(rawType);
+      if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(flags)) throw new Error("\u6218\u529F\u6761\u76EE\u683C\u5F0F\u65E0\u6548");
+      if ((!isNumber(rawId) || !isNumber(rawType) || flags < 0) && (automationError ||= "\u6218\u529F\u6761\u76EE\u683C\u5F0F\u65E0\u6548"), !(flags & 3)) continue;
+      let value = number(rawValue);
+      if (!Number.isFinite(value) || value < 0) throw new Error("\u6218\u529F\u8FDB\u5EA6\u6216\u5B8C\u6210\u65F6\u95F4\u65E0\u6548");
+      isNumber(rawValue) || (automationError ||= "\u6218\u529F\u8FDB\u5EA6\u6216\u5B8C\u6210\u65F6\u95F4\u65E0\u6548"), flags & 1 && value > 0 ? finish[id] = Math.max(finish[id] || 0, value) : flags & 2 && (progress[id] = Math.max(progress[id] || 0, value));
+    }
+    return {
+      snapshot: Object.freeze({ nickname, finish: Object.freeze(finish), progress: Object.freeze(progress), at: Date.now() }),
+      forAutomation: isNumber(type),
+      automationError
+    };
+  }
+  var sameAccount = (a, b) => (a == null ? void 0 : a.id) === b.id && a.nickname === b.nickname, queryLifetime = 8e3;
+  function reportGap(gap, detail) {
+    try {
+      gap(detail);
+    } catch {
+    }
+  }
+  function createAchievementQueries(native, now) {
+    let subscribers = /* @__PURE__ */ new Set(), pending = null, serial = 0, stop, manager2 = () => native.manager("AchievementManager", reply, (m) => typeof m.sendGetAchInfo == "function");
+    function observe() {
+      return native.observe({ [reply]: (packet2) => {
+        let projected = projectAchievementReply(packet2);
+        if (!projected) return null;
+        let account = native.account();
+        return { ...projected, request: pending && sameAccount(pending.account, account) && projected.snapshot.nickname === account.nickname ? pending.id : null };
+      }, close: () => !0, error: () => !0 }, (type, data, sender) => {
+        if (type !== reply) {
+          pending = null;
+          return;
+        }
+        let account = native.account();
+        if (!(!sameAccount(sender, account) || data.snapshot.nickname !== account.nickname)) {
+          pending && pending.id === data.request && (pending = null);
+          for (let { receive, strict, gap } of [...subscribers])
+            if (!(strict && !data.forAutomation))
+              try {
+                strict && data.automationError ? reportGap(gap, { reason: "projection", type: reply, message: data.automationError }) : receive(data.snapshot, data.request);
+              } catch (error) {
+                reportGap(gap, { reason: "consume", type: reply, message: String((error == null ? void 0 : error.message) || error) });
+              }
+        }
+      }, (detail) => {
+        pending = null;
+        for (let { gap } of [...subscribers]) reportGap(gap, detail);
+      });
+    }
+    return {
+      ready: () => !!manager2(),
+      query() {
+        let account = native.account();
+        if (!subscribers.size || !account.id || !account.nickname) return null;
+        let at = now();
+        if (pending && sameAccount(pending.account, account) && at - pending.at < queryLifetime) return pending.id;
+        let target = manager2();
+        if (!target) return null;
+        let request = { id: ++serial, account, at };
+        pending = request;
+        try {
+          target.sendGetAchInfo(account.nickname, 0);
+        } catch (error) {
+          throw pending === request && (pending = null), error;
+        }
+        return request.id;
+      },
+      subscribe(scope, receive, gap, strict) {
+        if (scope.closed) return () => {
+        };
+        let listener = { receive, gap, strict };
+        return subscribers.size || (stop = observe()), subscribers.add(listener), scope.add(() => {
+          subscribers.delete(listener), !subscribers.size && (stop(), stop = null, pending = null);
+        });
+      }
+    };
+  }
+  var achievementsByGame = /* @__PURE__ */ new WeakMap();
   function readNativeAccount(ctx) {
     let login = manager(ctx, "LoginManager", "error", (m) => "IsOnLine" in m || "IsAccountLoggingOut" in m);
     if (read3(() => login.IsAccountLoggingOut) === !0 || read3(() => login.IsOnLine) === !1) return { id: "", nickname: "" };
@@ -3054,23 +3197,27 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return {
       account: () => readNativeAccount(ctx),
       manager: (name, event, guard) => manager(ctx, name, event, guard),
-      observe: (project, consume, gap, options) => observeNative(ctx, project, consume, gap, options)
+      observe: (project, consume, gap, options) => observeNative(ctx, project, consume, gap, options),
+      get achievements() {
+        let service = achievementsByGame.get(ctx.game);
+        if (!service) {
+          let root = { game: ctx.game, scope: new ResourceScope() };
+          service = createAchievementQueries(createPluginNative(root), ctx.now ?? Date.now), achievementsByGame.set(ctx.game, service);
+        }
+        return {
+          ready: service.ready,
+          query: () => ctx.scope.closed ? null : service.query(),
+          subscribe: (receive, gap = () => {
+          }, { strict = !1 } = {}) => service.subscribe(ctx.scope, receive, gap, strict)
+        };
+      }
     };
   }
-  var PluginManager = class {
+  var replayYield = () => new Promise((resolve) => setTimeout(resolve, 0)), receivesEvent = (slot, type) => !slot.journalEvents || slot.journalEvents.has(type) || type === "MsgGamePlayCardNtf" || type === "toolbox:gap", PluginManager = class {
     constructor({ journal, store, settings, context: context2, onChange = () => {
+    }, onReplayGap = () => {
     } }) {
-      Object.assign(this, { journal, store, settings, context: context2, onChange }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.initializing = !0, this.storageError = "", this.loadIssues = /* @__PURE__ */ new Map(), this.priorityPlayActions = /* @__PURE__ */ new Set(), this.unsubscribe = journal.subscribe((event) => {
-        let changed = !1;
-        for (let slot of this.slots.values())
-          try {
-            this.reduce(slot, event);
-            for (let fn of slot.listeners) fn(slot.state, event);
-          } catch (e) {
-            this.runtimeError(slot, e);
-          }
-        changed && this.onChange();
-      });
+      Object.assign(this, { journal, store, settings, context: context2, onChange, onReplayGap }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.initializing = !0, this.storageError = "", this.loadIssues = /* @__PURE__ */ new Map(), this.priorityPlayActions = /* @__PURE__ */ new Set(), this.eventRoutes = /* @__PURE__ */ new Map(), this.eventSession = null, this.unsubscribe = journal.subscribe((event) => this.dispatch(event));
     }
     serial(fn) {
       let work = this.tail.catch(() => {
@@ -3087,15 +3234,61 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     async registerBundled(pkg, replacesPackageDigests = []) {
       await verifyPackage(pkg), this.registerBuiltin({ ...compilePackage(pkg), bundledPackage: pkg, replacesPackageDigests });
     }
-    makeSlot(module, record) {
-      var _a2;
-      let slot = { module, record, state: ((_a2 = module.initialState) == null ? void 0 : _a2.call(module)) ?? {}, listeners: /* @__PURE__ */ new Set(), scope: null, active: !1, sessionId: null, cursor: 0, error: "" };
-      for (let event of this.journal.events) this.reduce(slot, event);
-      return slot;
+    dispatch(event) {
+      let newSession = this.eventSession !== event.sessionId;
+      this.eventSession = event.sessionId;
+      let slots = this.eventRoutes.get(event.type);
+      newSession ? slots = this.slots.values() : slots || (slots = [...this.slots.values()].filter((slot) => (slot.module.reduce || slot.listeners.size) && receivesEvent(slot, event.type)), this.eventRoutes.size >= 64 && this.eventRoutes.clear(), this.eventRoutes.set(event.type, slots));
+      for (let slot of slots)
+        if (!slot.replaying)
+          try {
+            let deliver = !newSession || receivesEvent(slot, event.type);
+            if (this.reduce(slot, event, deliver), deliver) for (let fn of slot.listeners) fn(slot.state, event);
+          } catch (error) {
+            this.runtimeError(slot, error);
+          }
     }
-    reduce(slot, event) {
+    makeSlot(module, record, previous) {
+      var _a2;
+      return {
+        module,
+        record,
+        state: previous ? previous.state : ((_a2 = module.initialState) == null ? void 0 : _a2.call(module)) ?? {},
+        listeners: /* @__PURE__ */ new Set(),
+        scope: null,
+        active: !1,
+        sessionId: (previous == null ? void 0 : previous.sessionId) ?? null,
+        cursor: (previous == null ? void 0 : previous.cursor) ?? 0,
+        error: "",
+        journalEvents: module.manifest.journalEvents ? new Set(module.manifest.journalEvents) : null
+      };
+    }
+    reduce(slot, event, deliver = receivesEvent(slot, event.type)) {
       var _a2, _b2;
-      event.seq <= slot.cursor || (slot.sessionId !== event.sessionId && (slot.state = ((_b2 = (_a2 = slot.module).initialState) == null ? void 0 : _b2.call(_a2)) ?? {}, slot.sessionId = event.sessionId), slot.module.reduce && (slot.state = slot.module.reduce(slot.state, event)), slot.cursor = event.seq);
+      event.seq <= slot.cursor || (slot.reduceFailed = !0, slot.sessionId !== event.sessionId && (slot.state = ((_b2 = (_a2 = slot.module).initialState) == null ? void 0 : _b2.call(_a2)) ?? {}, slot.sessionId = event.sessionId), deliver && slot.module.reduce && (slot.state = slot.module.reduce(slot.state, event)), slot.cursor = event.seq, slot.reduceFailed = !1);
+    }
+    markLiveCoverage(slot) {
+      slot && !slot.reduceFailed && slot.sessionId === this.eventSession && Number.isInteger(this.journal.seq) && (slot.cursor = this.journal.seq);
+    }
+    replay(slot, bounded = !1) {
+      var _a2, _b2, _c;
+      let { journal } = this;
+      if (slot.cursor >= journal.seq) return !1;
+      if (!slot.module.reduce && Number.isInteger(journal.seq))
+        return slot.sessionId !== journal.sessionId && (slot.state = ((_b2 = (_a2 = slot.module).initialState) == null ? void 0 : _b2.call(_a2)) ?? {}), slot.sessionId = journal.sessionId, slot.cursor = journal.seq, !1;
+      let events = journal.replayAfter ? journal.replayAfter(slot.cursor) : journal.events, started = bounded ? performance.now() : 0, count = 0;
+      for (let event of events)
+        if (event.type === "toolbox:gap" && ((_c = event.payload) == null ? void 0 : _c.replayOnly) === !0 && (slot.replayGap = !0), this.reduce(slot, event), bounded && (++count >= 64 || performance.now() - started >= 4)) return slot.cursor < journal.seq;
+      return !1;
+    }
+    async catchUp(slot) {
+      for (; !this.closed && this.replay(slot, !0); ) await replayYield();
+    }
+    requestReplaySnapshot(slot) {
+      slot.replayGap && (slot.replayGap = !1, receivesEvent(slot, "toolbox:snapshot") && this.onReplayGap());
+    }
+    attachSlot(id, slot) {
+      this.replay(slot), this.slots.set(id, slot), this.eventRoutes.clear(), this.requestReplaySnapshot(slot);
     }
     dependencyError(message) {
       return Object.assign(new Error(message), { dependency: !0 });
@@ -3143,8 +3336,13 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         }
         this.deactivate(slot), slot.error = "";
         try {
-          for (let event of this.journal.events) this.reduce(slot, event);
-          await this.activate(slot), slot.error = slot.reportedError || "";
+          this.markLiveCoverage(slot), slot.replaying = !0;
+          try {
+            await this.catchUp(slot), this.closed || this.replay(slot);
+          } finally {
+            slot.replaying = !1;
+          }
+          this.requestReplaySnapshot(slot), await this.activate(slot), slot.error = slot.reportedError || "";
         } catch (e) {
           slot.error = `\u81EA\u52A8\u91CD\u542F\u5931\u8D25\uFF1A${String((e == null ? void 0 : e.stack) || e)}
 \u9996\u6B21\u9519\u8BEF\uFF1A${message}`;
@@ -3194,8 +3392,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         storage: this.settings.namespace(id),
         getState: () => slot.state,
         subscribe: (fn) => {
-          slot.listeners.add(fn);
-          let off = () => slot.listeners.delete(fn);
+          slot.listeners.size || this.eventRoutes.clear(), slot.listeners.add(fn);
+          let off = () => {
+            slot.listeners.delete(fn) && !slot.listeners.size && this.eventRoutes.clear();
+          };
           return scope.add(off), off;
         },
         playActions: {
@@ -3285,9 +3485,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             let animated = this.settings.namespace("backgrounds").get("animated", !0) !== !1;
             return context2.backgrounds.selectLocal("backgrounds", file, { skinKey, skinMotion, animated, isCurrent });
           },
-          registerSkinMotion: (load) => {
+          registerSkinMotion: (load, options) => {
             var _a3, _b2;
-            if (id === "skins" && !scope.closed) return scope.add((_b2 = (_a3 = context2.backgrounds) == null ? void 0 : _a3.registerSkinMotion) == null ? void 0 : _b2.call(_a3, load));
+            if (id === "skins" && !scope.closed) return scope.add((_b2 = (_a3 = context2.backgrounds) == null ? void 0 : _a3.registerSkinMotion) == null ? void 0 : _b2.call(_a3, load, options));
           },
           register: () => scope.closed ? () => {
           } : scope.add(this.context.backgrounds.register(id)),
@@ -3299,6 +3499,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           },
           setAnimated: (enabled) => {
             scope.closed || this.context.backgrounds.setAnimated(id, enabled);
+          },
+          setSkinQuality: (quality) => {
+            scope.closed || this.context.backgrounds.setSkinQuality(id, quality);
+          },
+          get skinQualityAvailable() {
+            return !scope.closed && thisContext.backgrounds.skinQualityAvailable === !0;
           },
           selectLocal: (file) => {
             if (!scope.closed) return this.context.backgrounds.selectLocal(id, file);
@@ -3432,7 +3638,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         }
         if (this.closed) return;
         let slot = this.makeSlot(module, record);
-        this.slots.set(id, slot);
+        if (await this.catchUp(slot), this.closed) return;
+        this.attachSlot(id, slot);
       }
       for (let [id, slot] of this.slots) {
         let { record } = slot;
@@ -3447,12 +3654,13 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
                 let fallback = alt.builtin ? this.builtins.get(id) : (await verifyPackage(alt), compilePackage(alt));
                 if (!fallback) continue;
                 let fallbackRecord = { ...record, active: alt.builtin ? fallback.bundledPackage || null : alt, previous: null }, fallbackSlot = this.makeSlot(fallback, fallbackRecord);
-                this.slots.set(id, fallbackSlot), await this.activate(fallbackSlot), await this.store.put(fallbackRecord), recovered = !0;
+                if (await this.catchUp(fallbackSlot), this.closed) return;
+                this.attachSlot(id, fallbackSlot), await this.activate(fallbackSlot), await this.store.put(fallbackRecord), recovered = !0;
                 break;
               } catch {
                 this.deactivate(this.slots.get(id));
               }
-            recovered || (this.slots.set(id, slot), slot.error = e.message);
+            recovered || (this.attachSlot(id, slot), slot.error = e.message);
           }
       }
     }
@@ -3474,25 +3682,27 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       } finally {
         old ? this.slots.set(id, old) : this.slots.delete(id);
       }
-      let previous = old ? old.record.active || { builtin: !0 } : (saved == null ? void 0 : saved.active) || (saved == null ? void 0 : saved.previous) || null, record = { id, enabled: (saved == null ? void 0 : saved.enabled) ?? !0, uninstalled: !1, active: pkg, previous: previousOverride ?? previous, appliedBuiltinMigrations: (saved == null ? void 0 : saved.appliedBuiltinMigrations) || [] }, candidate = this.makeSlot(module, record), dependents = old && restartDependents ? this.enabledDependents(id) : [];
+      let previous = old ? old.record.active || { builtin: !0 } : (saved == null ? void 0 : saved.active) || (saved == null ? void 0 : saved.previous) || null, record = { id, enabled: (saved == null ? void 0 : saved.enabled) ?? !0, uninstalled: !1, active: pkg, previous: previousOverride ?? previous, appliedBuiltinMigrations: (saved == null ? void 0 : saved.appliedBuiltinMigrations) || [] };
+      this.markLiveCoverage(old);
+      let candidate = this.makeSlot(module, record, (old == null ? void 0 : old.module) === module ? old : void 0);
+      if ((old == null ? void 0 : old.module) !== module && await this.catchUp(candidate), this.closed) throw new Error("\u63D2\u4EF6\u5B89\u88C5\u5DF2\u53D6\u6D88");
+      this.replay(candidate);
+      let dependents = old && restartDependents ? this.enabledDependents(id) : [];
       for (let slot of [...dependents].reverse())
         slot.maintenance = "waiting", this.deactivate(slot);
       let updateError, recoveryErrors = [];
       try {
-        old && this.deactivate(old), restartDependents && (candidate.maintenance = "updating"), this.slots.set(id, candidate);
+        old && (this.markLiveCoverage(old), this.deactivate(old)), restartDependents && (candidate.maintenance = "updating");
         try {
-          if (this.onChange(), record.enabled && await this.activate(candidate), this.closed) throw new Error("\u63D2\u4EF6\u5B89\u88C5\u5DF2\u53D6\u6D88");
+          if (this.attachSlot(id, candidate), this.onChange(), record.enabled && await this.activate(candidate), this.closed) throw new Error("\u63D2\u4EF6\u5B89\u88C5\u5DF2\u53D6\u6D88");
           await this.store.put(record), this.loadIssues.delete(id);
         } catch (error) {
-          if (this.deactivate(candidate), this.slots.delete(id), old && !this.closed) {
-            let restored = this.makeSlot(old.module, old.record);
-            if (restored.maintenance = candidate.maintenance, this.slots.set(id, restored), old.record.enabled)
-              try {
-                await this.activate(restored);
-              } catch (e) {
-                restored.error = e.message;
-              }
-          }
+          if (this.deactivate(candidate), this.slots.delete(id), this.eventRoutes.clear(), old && !this.closed && (old.maintenance = candidate.maintenance, old.restartUsed = !1, old.error = "", await this.catchUp(old), !this.closed && (this.attachSlot(id, old), old.record.enabled)))
+            try {
+              await this.activate(old);
+            } catch (e) {
+              old.error = e.message;
+            }
           throw error;
         }
       } catch (error) {
@@ -3575,7 +3785,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return this.serial(async () => {
         this.assertUnused(id), await this.store.put({ id, uninstalled: !0, enabled: !1, active: null, previous: null });
         let slot = this.slots.get(id);
-        slot && this.deactivate(slot), this.slots.delete(id), this.loadIssues.delete(id), this.onChange();
+        slot && this.deactivate(slot), this.slots.delete(id), this.eventRoutes.clear(), this.loadIssues.delete(id), this.onChange();
       });
     }
     restoreBuiltin(id) {
@@ -3588,6 +3798,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     dispose() {
       this.closed = !0, this.unsubscribe();
       for (let slot of [...this.slots.values()].reverse()) this.deactivate(slot);
+      this.eventRoutes.clear();
     }
   }, u8 = Uint8Array, u16 = Uint16Array, i32 = Int32Array, fleb = new u8([
     0,
@@ -4313,7 +4524,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function list(value) {
     return Array.isArray(value) ? value : object(value) ? typeof value.values == "function" ? read5(() => [...value.values()]) || [] : read5(() => Object.values(value)) || [] : [];
   }
-  function number(...values) {
+  function number2(...values) {
     for (let value of values) {
       if (value == null || value === "") continue;
       let result = Number(value);
@@ -4321,15 +4532,15 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
   }
   function cardId(card) {
-    return typeof card == "number" || typeof card == "string" ? number(card) : number(read5(() => card.CardId), read5(() => card.CardID), read5(() => card.ID), read5(() => card.Id), read5(() => card.id), read5(() => card.cardId), read5(() => card.cardID));
+    return typeof card == "number" || typeof card == "string" ? number2(card) : number2(read5(() => card.CardId), read5(() => card.CardID), read5(() => card.ID), read5(() => card.Id), read5(() => card.id), read5(() => card.cardId), read5(() => card.cardID));
   }
   function cardIds(cards) {
     return [...new Set(list(cards).map(cardId).filter((id) => Number.isInteger(id) && id > 0))];
   }
   function projectDeckCardMeta(value) {
     if (!value || value.unknown) return null;
-    let suit = Number(value.suit), number3 = Number(value.number), type = Number(value.type);
-    return suit >= 1 && suit <= 4 && number3 >= 1 && number3 <= 13 ? { suit, number: number3, type: Number.isInteger(type) ? type : 0 } : null;
+    let suit = Number(value.suit), number4 = Number(value.number), type = Number(value.type);
+    return suit >= 1 && suit <= 4 && number4 >= 1 && number4 <= 13 ? { suit, number: number4, type: Number.isInteger(type) ? type : 0 } : null;
   }
   function publicHandIds(seat, ui) {
     let shown = [], cached = [], hidden = /* @__PURE__ */ new Set();
@@ -4359,12 +4570,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let configs = scope ? createConfigData(win, scope) : null, selfClass = null, selfSearchAt = -1 / 0, current = null, stage = null, dispatcher = null, dispatcherOwner = null, providers = /* @__PURE__ */ new Set(), definitionTables = /* @__PURE__ */ new WeakMap(), deckDefinitions = null, sceneCycle = null, listeners = /* @__PURE__ */ new Set();
     function walk(predicate, root = read5(() => win.Laya.stage)) {
       let queue = root ? [root] : [], seen = /* @__PURE__ */ new Set();
-      for (let i2 = 0; i2 < queue.length && i2 < 4e3; i2++) {
+      for (let i2 = 0; i2 < queue.length; i2++) {
         let item = queue[i2];
-        if (!(!alive(item) || seen.has(item))) {
-          if (seen.add(item), read5(() => predicate(item))) return item;
-          queue.push(...children(item));
-        }
+        if (!alive(item) || seen.has(item)) continue;
+        if (seen.add(item), read5(() => predicate(item))) return item;
+        let nodes = children(item);
+        for (let j = 0; j < nodes.length && queue.length < 4e3; j++) queue.push(nodes[j]);
       }
       return null;
     }
@@ -4432,9 +4643,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       let inspectUserNode = (node) => {
         for (let key of ["userData", "data"]) {
           let descriptor = read5(() => Object.getOwnPropertyDescriptor(node, key)), value = descriptor && "value" in descriptor ? descriptor.value : null;
-          if (!object(value) || !number(read5(() => value.ClientId))) continue;
+          if (!object(value) || !number2(read5(() => value.ClientId))) continue;
           let ctor = read5(() => value.constructor), own3 = read5(() => Object.getOwnPropertyDescriptor(ctor, "self"));
-          if (own3 && "value" in own3 && object(own3.value) && number(read5(() => own3.value.ClientId)))
+          if (own3 && "value" in own3 && object(own3.value) && number2(read5(() => own3.value.ClientId)))
             return selfClass = ctor, !0;
         }
         return !1;
@@ -4552,7 +4763,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     function getCardProperties(card, definition) {
       return {
-        suit: number(
+        suit: number2(
           read5(() => card == null ? void 0 : card.FlowerOnSeat),
           read5(() => card == null ? void 0 : card.CardFlower),
           read5(() => card == null ? void 0 : card.Flower),
@@ -4561,7 +4772,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           read5(() => definition == null ? void 0 : definition.CardSuit),
           read5(() => definition == null ? void 0 : definition.suit)
         ),
-        number: number(
+        number: number2(
           read5(() => card == null ? void 0 : card.CardNumber),
           read5(() => card == null ? void 0 : card.Number),
           read5(() => card == null ? void 0 : card.number),
@@ -4569,7 +4780,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           read5(() => definition == null ? void 0 : definition.CardNumber),
           read5(() => definition == null ? void 0 : definition.Number)
         ),
-        type: number(
+        type: number2(
           read5(() => card == null ? void 0 : card.CardType),
           read5(() => card == null ? void 0 : card.Type),
           read5(() => card == null ? void 0 : card.type),
@@ -4580,7 +4791,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       };
     }
     function getCardMeta(id) {
-      if (id = number(id), !Number.isInteger(id) || id <= 0) return { id, name: "\u672A\u77E5\u724C", unknown: !0 };
+      if (id = number2(id), !Number.isInteger(id) || id <= 0) return { id, name: "\u672A\u77E5\u724C", unknown: !0 };
       let scene = getScene(), demo = read5(() => {
         var _a2, _b2;
         return (_b2 = (_a2 = win.__SGS_TOOLBOX_DEMO__) == null ? void 0 : _a2.cards) == null ? void 0 : _b2[id];
@@ -4597,7 +4808,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }) || read5(() => card == null ? void 0 : card.cardClass) || read5(() => {
         var _a2;
         return (_a2 = card == null ? void 0 : card.cardInfo) == null ? void 0 : _a2.Class;
-      }) || read5(() => card == null ? void 0 : card.className) || read5(() => card == null ? void 0 : card.ClassName) || read5(() => definition == null ? void 0 : definition.Class) || read5(() => definition == null ? void 0 : definition.class) || read5(() => definition == null ? void 0 : definition.className), firstSkillId = number(read5(() => card == null ? void 0 : card.FirstSkillId));
+      }) || read5(() => card == null ? void 0 : card.className) || read5(() => card == null ? void 0 : card.ClassName) || read5(() => definition == null ? void 0 : definition.Class) || read5(() => definition == null ? void 0 : definition.class) || read5(() => definition == null ? void 0 : definition.className), firstSkillId = number2(read5(() => card == null ? void 0 : card.FirstSkillId));
       return {
         id,
         name: typeof name == "string" && name ? name : `\u724C #${id}`,
@@ -4628,7 +4839,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return deckDefinitions = stable ? { ids, definitions, metadata: Object.freeze(metadata) } : null, metadata;
     }
     function getCountdown() {
-      let scene = getScene(), ui = selfUI(scene), timer = read5(() => ui.countdownTimer) || read5(() => scene.countdownTimer), value = alive(timer) ? number(read5(() => timer.RemainValue)) : void 0;
+      let scene = getScene(), ui = selfUI(scene), timer = read5(() => ui.countdownTimer) || read5(() => scene.countdownTimer), value = alive(timer) ? number2(read5(() => timer.RemainValue)) : void 0;
       return value === void 0 ? null : Math.max(0, value);
     }
     function getRemainingSlash() {
@@ -4644,14 +4855,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         return Number.isFinite(used) && Number.isFinite(limit2) ? Math.max(0, limit2 - used) : null;
       }
       if (read5(() => seat.ShaNoLimit) === !0) return 1 / 0;
-      let count = number(read5(() => info.Count), read5(() => seat.ShaCount));
+      let count = number2(read5(() => info.Count), read5(() => seat.ShaCount));
       return count === void 0 ? null : Math.max(0, count);
     }
     function getSnapshot(deckIds) {
-      let scene = getScene(), self = selfUI(scene), selfSeatId = seatId(self), selfSeat = read5(() => self.cardContainer.seat) || seatData(self), ownModels = read5(() => selfSeat.HandCards) ?? read5(() => selfSeat.handCards), handCardIds = Array.isArray(ownModels) ? cardIds(ownModels) : cardIds(handUIs(self).map(model)), mode = read5(() => getClass("GameContext").GetModeVO()), countdown = read5(() => self.countdownTimer) || read5(() => scene.countdownTimer), remaining = alive(countdown) ? number(read5(() => countdown.RemainValue)) : void 0, snapshot = {
+      let scene = getScene(), self = selfUI(scene), selfSeatId = seatId(self), selfSeat = read5(() => self.cardContainer.seat) || seatData(self), ownModels = read5(() => selfSeat.HandCards) ?? read5(() => selfSeat.handCards), handCardIds = Array.isArray(ownModels) ? cardIds(ownModels) : cardIds(handUIs(self).map(model)), mode = read5(() => getClass("GameContext").GetModeVO()), countdown = read5(() => self.countdownTimer) || read5(() => scene.countdownTimer), remaining = alive(countdown) ? number2(read5(() => countdown.RemainValue)) : void 0, snapshot = {
         sceneName: sceneName(scene),
         inGame: isGameScene(scene),
-        modeId: number(read5(() => scene.ModeID), read5(() => scene.modeId), read5(() => mode.ModeID), read5(() => mode.Id), read5(() => mode.id)),
+        modeId: number2(read5(() => scene.ModeID), read5(() => scene.modeId), read5(() => mode.ModeID), read5(() => mode.Id), read5(() => mode.id)),
         selfSeatId,
         handCardIds,
         emptySeatIds: list(read5(() => scene.seatContainer.seatUIs) || read5(() => scene.seatUIs)).filter((ui) => alive(ui) && !nativeSeatOccupied(ui)).map(seatId).filter((id) => id !== void 0),
@@ -4661,8 +4872,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           let seat = seatData(ui), id = seatId(ui), result = {
             seatId: id,
             position: nativeSeatPosition(ui) ?? null,
-            viewId: number(read5(() => seat.fixedViewId), read5(() => seat.FixedViewId), read5(() => ui.fixedViewId), read5(() => ui.viewId), read5(() => ui.actualSeatID)),
-            handCount: number(read5(() => seat.HandCardCount), read5(() => seat.HandCount), id === selfSeatId ? read5(() => ownModels.length) : void 0),
+            viewId: number2(read5(() => seat.fixedViewId), read5(() => seat.FixedViewId), read5(() => ui.fixedViewId), read5(() => ui.viewId), read5(() => ui.actualSeatID)),
+            handCount: number2(read5(() => seat.HandCardCount), read5(() => seat.HandCount), id === selfSeatId ? read5(() => ownModels.length) : void 0),
             dead: read5(() => seat.IsDead) ?? read5(() => seat.isDead),
             knownHandCardIds: publicHandIds(seat, ui)
           };
@@ -5000,12 +5211,16 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     function request() {
       scope.closed || (generation++, cancel(), !pending && (pending = !0, queueMicrotask(async () => {
+        let waitingFor = generation;
         try {
           await settled();
         } catch {
+          !scope.closed && waitingFor !== generation && queueMicrotask(request);
           return;
+        } finally {
+          pending = !1;
         }
-        if (pending = !1, scope.closed) return;
+        if (scope.closed) return;
         let current = generation, collect = async (attempt) => {
           if (attempt)
             try {
@@ -5054,7 +5269,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       event.type === "MsgGamePlayCardNtf" && (deckIds = Object.freeze((((_a2 = event.payload) == null ? void 0 : _a2.CardList) || []).map(Number).filter((id) => Number.isInteger(id) && id > 0).slice(0, 2048))), (event.type === "ClientLeavetableRep" || event.type === "ClientLoginRep") && (deckIds = []), RESYNC.has(event.type) && request();
     })), scope.add(game.onSceneChange(request)), scope.add(() => {
       generation++, cancel();
-    }), request(), { request };
+    }), request(), { request, refreshForReplay() {
+      lastSignature = "", request();
+    } };
   }
   var EVENT_NAME = /^(?:Msg|PubGs|Smsg|GsC|CGs|decode|Client)[A-Za-z0-9_]{0,90}$/, SOURCES = /* @__PURE__ */ new Set(["console", "native:ServerProxy", "native:ActivityManager"]), SKIP = /* @__PURE__ */ new Set(["ClientLoginRep"]), FIELDS = [
     "CardList",
@@ -5118,7 +5335,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       } catch {
         return;
       }
-  }, number2 = (value) => typeof value == "number" && Number.isFinite(value) ? value : void 0, atom = (value) => typeof value == "boolean" ? value : number2(value) ?? (typeof value == "string" && /^-?\d{1,16}$/.test(value) ? value : void 0), validType = (type) => typeof type == "string" && type.length <= 96 && EVENT_NAME.test(type), limit = (value, fallback, max2) => Number.isInteger(value) ? Math.min(max2, Math.max(1, value)) : fallback;
+  }, number3 = (value) => typeof value == "number" && Number.isFinite(value) ? value : void 0, atom = (value) => typeof value == "boolean" ? value : number3(value) ?? (typeof value == "string" && /^-?\d{1,16}$/.test(value) ? value : void 0), validType = (type) => typeof type == "string" && type.length <= 96 && EVENT_NAME.test(type), limit = (value, fallback, max2) => Number.isInteger(value) ? Math.min(max2, Math.max(1, value)) : fallback;
   function array(value, key, truncated) {
     if (!Array.isArray(value)) return;
     let length = own2(value, "length");
@@ -5160,7 +5377,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     function record(event) {
       if (disposed) return;
-      let nextSession = number2(own2(event, "sessionId"));
+      let nextSession = number3(own2(event, "sessionId"));
       nextSession !== void 0 && nextSession !== sessionId && resetSession(nextSession);
       let type = own2(event, "type");
       if (type === "toolbox:snapshot") {
@@ -5178,11 +5395,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           projected.seats.push(result);
         }
         let empty = own2(payload, "emptySeatIds");
-        Array.isArray(empty) && (projected.emptySeatIds = Array.from({ length: Math.min(32, empty.length) }, (_, i2) => number2(own2(empty, String(i2)))).filter((value) => value !== void 0)), seatSnapshot = projected;
+        Array.isArray(empty) && (projected.emptySeatIds = Array.from({ length: Math.min(32, empty.length) }, (_, i2) => number3(own2(empty, String(i2)))).filter((value) => value !== void 0)), seatSnapshot = projected;
         return;
       }
       if (SKIP.has(type) || !(validType(type) || type === "toolbox:gap")) return;
-      let record2 = { type }, seq = number2(own2(event, "seq")), at = number2(own2(event, "at"));
+      let record2 = { type }, seq = number3(own2(event, "seq")), at = number3(own2(event, "at"));
       if (seq !== void 0 && (record2.seq = seq), at !== void 0 && (record2.at = at, firstAt === null && (firstAt = at)), type === "toolbox:gap") record2.gap = !0;
       else {
         let projected = packet(own2(event, "payload"));
@@ -5207,7 +5424,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function snapshot({ bridge } = {}) {
       let status = {};
       for (let key of BRIDGE_NUMBERS) {
-        let value = number2(own2(bridge, key));
+        let value = number3(own2(bridge, key));
         value !== void 0 && (status[key] = value);
       }
       let lastType = own2(bridge, "lastType");
@@ -5216,7 +5433,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return Array.isArray(targets) && (status.targets = [0, 1, 2, 3].map((index) => own2(targets, String(index))).filter((value) => value === "ServerProxy" || value === "ActivityManager")), JSON.parse(JSON.stringify({
         format: "sgs-toolbox-card-diagnostics-v1",
         coreVersion,
-        generatedAt: number2(now()) ?? null,
+        generatedAt: number3(now()) ?? null,
         sessionId,
         firstAt,
         limits: { events: eventLimit, types: typeLimit, cardArray: 256 },
@@ -6514,11 +6731,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       throw new Error("\u8BF7\u8F93\u5165 HTTPS \u670D\u52A1\u5668\u5730\u5740\uFF0C\u5730\u5740\u4E2D\u65E0\u9700\u586B\u5199\u8DEF\u5F84");
     return url.origin;
   }
-  var packPublicCode = (prefix2, values) => prefix2 + "." + base64url(encode.encode(JSON.stringify(values)));
-  function unpackPublicCode(prefix2, value, count) {
+  var packPublicCode = (prefix3, values) => prefix3 + "." + base64url(encode.encode(JSON.stringify(values)));
+  function unpackPublicCode(prefix3, value, count) {
     try {
-      if (!value.startsWith(prefix2 + ".") || value.length > 1600) throw invalidPublicCode();
-      let data = JSON.parse(decode.decode(fromBase64url(value.slice(prefix2.length + 1))));
+      if (!value.startsWith(prefix3 + ".") || value.length > 1600) throw invalidPublicCode();
+      let data = JSON.parse(decode.decode(fromBase64url(value.slice(prefix3.length + 1))));
       if (!Array.isArray(data) || data.length !== count || data.some((item) => typeof item != "string")) throw invalidPublicCode();
       return data;
     } catch {
@@ -6734,21 +6951,22 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), request.wrapper, credential.wrapper, act("\u540C\u610F\u5E76\u7ED1\u5B9A\u79C1\u6709\u670D\u52A1\u5668", async () => {
       await sync.bind(credential.control.value.trim()), credential.control.value = request.control.value = "", request.wrapper.hidden = !0, say("\u79C1\u6709\u670D\u52A1\u5668\u7ED1\u5B9A\u6210\u529F");
     }, !0), details("\u66F4\u6539\u79C1\u6709\u670D\u52A1\u5668\u5730\u5740", address.wrapper)), privateFields.append(node("p", privateConsent, "muted"), ways, fourDigit, credentialBinding.form), privatePanel.append(privateSetup, privateFields, joining);
-    let server = input("\u516C\u5171\u670D\u52A1\u5668 HTTPS \u5730\u5740"), restore = input("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea");
-    server.control.placeholder = "https://sync.example.com";
+    let server = input("\u516C\u5171\u670D\u52A1\u5668\u5730\u5740\u6216\u9080\u8BF7\u7801"), restore = input("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea");
+    server.control.placeholder = "https://sync.example.com:8888";
     let publicBinding = node("div", "", "sync-stack"), publicConsent = "\u670D\u52A1\u5668\u7BA1\u7406\u5458\u53EF\u89C1\u7528\u6237\u7801\u3001\u6635\u79F0\u548C\u8BB0\u5F55\u7F16\u53F7\u3002\u8D26\u672C\u3001\u6218\u7EE9\u548C\u5907\u4EFD\u5185\u5BB9\u5728\u5DE5\u5177\u7BB1\u52A0\u5BC6\u3002";
     publicBinding.append(
       node("p", publicConsent, "muted"),
       server.wrapper,
+      node("p", "\u9996\u6B21\u7ED1\u5B9A\u8BF7\u586B\u5199\u7BA1\u7406\u5458\u63D0\u4F9B\u7684\u5730\u5740\u6216\u4E00\u6B21\u6027\u9080\u8BF7\u7801\u3002\u5DF2\u767B\u8BB0\u8D26\u53F7\u53EF\u76F4\u63A5\u586B\u5199\u5730\u5740\u7ED1\u5B9A\u65B0\u8BBE\u5907\u3002", "muted"),
       act("\u540C\u610F\u5E76\u7ED1\u5B9A\u516C\u5171\u670D\u52A1\u5668", async () => {
-        await sync.bindPublic(server.control.value.trim()), say("\u516C\u5171\u670D\u52A1\u5668\u7ED1\u5B9A\u6210\u529F");
+        await sync.bindPublic(server.control.value.trim()), server.control.value = "", say("\u516C\u5171\u670D\u52A1\u5668\u7ED1\u5B9A\u6210\u529F");
       }, !0),
       details(
         "\u5728\u65B0\u8BBE\u5907\u6062\u590D\u516C\u5171\u8D26\u53F7",
-        node("p", "\u540C\u4E00\u8D26\u53F7\u8BF7\u4F7F\u7528\u539F\u8BBE\u5907\u590D\u5236\u7684\u6062\u590D\u51ED\u636E\u3002", "muted"),
+        node("p", "\u4F7F\u7528\u539F\u8BBE\u5907\u7684\u6062\u590D\u51ED\u636E\u63A5\u7EED\u4E91\u7AEF\u5386\u53F2\u3002\u76F4\u63A5\u7528\u5730\u5740\u7ED1\u5B9A\u4F1A\u521B\u5EFA\u72EC\u7ACB\u5B58\u50A8\u3002", "muted"),
         restore.wrapper,
         act("\u6062\u590D\u516C\u5171\u7ED1\u5B9A", async () => {
-          await sync.bindPublic(server.control.value.trim(), restore.control.value), restore.control.value = "", say("\u516C\u5171\u7ED1\u5B9A\u5DF2\u6062\u590D");
+          await sync.bindPublic(server.control.value.trim(), restore.control.value), server.control.value = "", restore.control.value = "", say("\u516C\u5171\u7ED1\u5B9A\u5DF2\u6062\u590D");
         })
       )
     ), publicPanel.append(publicBinding), pairing.append(chooser, privatePanel, publicPanel);
@@ -6871,7 +7089,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       window2.clearInterval(timer);
     } };
   }
-  var feedbackIcon = { paths: ["M20 16h-8l-5 4v-4H4V4h16z", "M8 8h8M8 12h6"] }, cloudOffIcon = { paths: ["M8.5 6.5A5.5 5.5 0 0 1 18 10a4 4 0 0 1 2.6 6.9M16 18H6a4 4 0 0 1-1.2-7.8", "M3 3l18 18"] }, categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], COMPACT_OPACITIES = [60, 80, 100], DEFAULT_COMPACT_OPACITY = 80, scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix2, size) => `${prefix2}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
+  var feedbackIcon = { paths: ["M20 16h-8l-5 4v-4H4V4h16z", "M8 8h8M8 12h6"] }, cloudOffIcon = { paths: ["M8.5 6.5A5.5 5.5 0 0 1 18 10a4 4 0 0 1 2.6 6.9M16 18H6a4 4 0 0 1-1.2-7.8", "M3 3l18 18"] }, categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], COMPACT_OPACITIES = [60, 80, 100], DEFAULT_COMPACT_OPACITY = 80, scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix3, size) => `${prefix3}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
 /* A moving perimeter marker keeps the folded HUD easy to locate without covering controls. */
 .hud-locator{display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible;color:var(--sgs-accent)}
 .hud-locator rect{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;x:1px;y:1px;width:calc(100% - 2px);height:calc(100% - 2px);rx:10px;stroke-dasharray:18 8 3 71;animation:hud-locator-flow 3.6s linear infinite,hud-locator-breathe 2.4s ease-in-out infinite}
@@ -7883,19 +8101,6 @@ ${FEEDBACK_STYLES}
       }
     };
   }
-  function field(packet2, key) {
-    for (let node of [
-      packet2,
-      read3(() => packet2.Protocol),
-      read3(() => packet2.ProtoObj),
-      read3(() => packet2.protoObj),
-      read3(() => packet2.data.protoObj),
-      read3(() => packet2.data.ProtoObj)
-    ]) {
-      let value = read3(() => node[key]);
-      if (value != null) return value;
-    }
-  }
   var MATCH_SYNC_PATH = "/appearances/sync", LEDGER_SYNC_PATH = "/ledger/sync", PREFERENCES_SYNC_PATH = "/v1/preferences/sync", PREFERENCES_RESTORED = "sgs-toolbox:preferences-restored", BACKUP_READ_PATH = "/v1/backup/read", BACKUP_RESTORED = "sgs-toolbox:backup-restored", SYNC_CHANGES_PATH = "/v1/sync/changes", PUBLIC_CHANGES_PATH = "/v2/vault/changes", SYNC_HISTORY_UPDATED = "sgs-toolbox:sync-history-updated";
   function validSyncCursor(cursor) {
     return /^[A-Za-z0-9_-]{43}$/.test((cursor == null ? void 0 : cursor.epoch) ?? "") && Number.isSafeInteger(cursor == null ? void 0 : cursor.seq) && cursor.seq >= 0;
@@ -8043,13 +8248,13 @@ ${FEEDBACK_STYLES}
       } },
       async exchange(account, data, signal) {
         var _a2;
-        let { pull, ...upload } = data, reply = backup && pull != null && pull.offset ? { conflicts: 0 } : await exchange(account, backup ? { ...upload, uploadOnly: !0 } : data, signal);
-        if (!Number.isSafeInteger(reply.conflicts) || reply.conflicts < 0) throw new Error("\u8D26\u672C\u540C\u6B65\u56DE\u6267\u65E0\u6548");
+        let { pull, ...upload } = data, reply2 = backup && pull != null && pull.offset ? { conflicts: 0 } : await exchange(account, backup ? { ...upload, uploadOnly: !0 } : data, signal);
+        if (!Number.isSafeInteger(reply2.conflicts) || reply2.conflicts < 0) throw new Error("\u8D26\u672C\u540C\u6B65\u56DE\u6267\u65E0\u6548");
         if (backup && pull) {
           let ledger = ((_a2 = await backup.history(account)) == null ? void 0 : _a2.ledger) ?? EMPTY_LEDGER;
-          return { ...reply, download: ledgerDownload(ledger, pull, confirmed(ledger)) };
+          return { ...reply2, download: ledgerDownload(ledger, pull, confirmed(ledger)) };
         }
-        return reply;
+        return reply2;
       }
     });
   }
@@ -9138,10 +9343,10 @@ ${FEEDBACK_STYLES}
       bytes2.set(part, offset), offset += part.length;
     return bytes2;
   }
-  function unpack(code, prefix2, limit2) {
+  function unpack(code, prefix3, limit2) {
     let value = typeof code == "string" ? code.trim() : "";
-    if (value.length > limit2 || !value.startsWith(prefix2 + ".")) throw new Error("invalid_code");
-    return fromBase64url(value.slice(prefix2.length + 1));
+    if (value.length > limit2 || !value.startsWith(prefix3 + ".")) throw new Error("invalid_code");
+    return fromBase64url(value.slice(prefix3.length + 1));
   }
   async function createPairingRequest(crypto) {
     let id = crypto.getRandomValues(new Uint8Array(16)), keys = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, !1, ["deriveBits"]), publicKey = new Uint8Array(await crypto.subtle.exportKey("raw", keys.publicKey));
@@ -9159,17 +9364,29 @@ ${FEEDBACK_STYLES}
     if (offset !== bytes2.length || hasDomain && !domainFormat.test(domain)) throw new Error("invalid_endpoint");
     return { tls: !!(flags & 1), local: !!(flags & 2), port, expiry, token, signer, ipv4, ipv6, domain };
   }
-  async function openPairing(code, prefix2, findRecipientKeys) {
-    let bytes2 = unpack(code, prefix2, 640);
+  async function openPairing(code, prefix3, findRecipientKeys) {
+    let bytes2 = unpack(code, prefix3, 640);
     if (bytes2.length < 173) throw new Error("invalid_code");
     let id = bytes2.slice(0, 16), requestId = base64url(id), recipientKey = await findRecipientKeys(requestId);
     if (!recipientKey) throw new Error("pairing_device_mismatch");
-    let plaintext = await (await suite.createRecipientContext({ recipientKey, enc: bytes2.slice(16, 81), info: utf8.encode(prefix2) })).open(bytes2.slice(81), id);
-    return { ...parseEndpoint(new Uint8Array(plaintext), prefix2 === PAIR_INVITE), requestId };
+    let plaintext = await (await suite.createRecipientContext({ recipientKey, enc: bytes2.slice(16, 81), info: utf8.encode(prefix3) })).open(bytes2.slice(81), id);
+    return { ...parseEndpoint(new Uint8Array(plaintext), prefix3 === PAIR_INVITE), requestId };
   }
   function syncProofBytes({ nonce, origin, next, revision, challenge, stargazing }) {
     let fields2 = [nonce, origin, next, revision, challenge];
     return typeof stargazing == "boolean" && fields2.push(stargazing), utf8.encode(JSON.stringify(fields2));
+  }
+  var prefix = "SGPI1", PUBLIC_INVITE_PATH = "/v2/vault/redeem-invitation";
+  function publicBindingTarget(value) {
+    let target = value.trim();
+    if (!target.startsWith(prefix + ".")) return { origin: publicOrigin(target) };
+    try {
+      let [address, invitation] = unpackPublicCode(prefix, target, 2);
+      if (!tokenFormat.test(invitation)) throw new Error();
+      return { origin: publicOrigin(address), invitation };
+    } catch {
+      throw new Error("\u4E00\u6B21\u6027\u9080\u8BF7\u7801\u683C\u5F0F\u65E0\u6548\uFF0C\u8BF7\u91CD\u65B0\u590D\u5236");
+    }
   }
   var generalPoolKey = (account) => "schemes:" + account, PREFERENCES_LIMIT = 4 * 1024 * 1024, PREFERENCE_GROUPS = Object.freeze(["toolbox", "generalPools", "friends", "friendLamps", "pluginSettings"]), isObject2 = (value) => value !== null && typeof value == "object" && !Array.isArray(value), has = (object2, key) => Object.prototype.hasOwnProperty.call(object2, key), oneOf = (...values) => (value) => values.includes(value), boolean = (value) => typeof value == "boolean", text2 = (limit2) => (value) => typeof value == "string" && value.length <= limit2, positiveId = (value) => Number.isSafeInteger(value) && value > 0, userId = (value) => typeof value == "string" && /^\d{10}$/.test(value) && Number(value) > 0 && Number(value) <= 4294967295, timestamp = (value) => Number.isSafeInteger(value) && value >= 0 && value <= 864e13, listOf = (test, max2) => (value) => Array.isArray(value) && value.length <= max2 && value.every(test), boolFields = (keys) => Object.fromEntries(keys.split(" ").map((key) => [key, boolean])), fields = Object.freeze({
     fontSize: oneOf("tiny", "small", "standard", "large"),
@@ -9339,22 +9556,22 @@ ${FEEDBACK_STYLES}
     }
     async function exchange(entry, origin, path, data, signal) {
       if (path === BACKUP_READ_PATH) {
-        let { cipher } = await stateFor(entry), reply = await post(origin, "/v2/vault/backup", { ...authorize(entry), device: entry.device }, { signal });
-        return reply.retryAfter ? reply : { snapshot: vaultSnapshot(await Promise.all(reply.snapshot.map(cipher.open))), cursor: reply.cursor };
+        let { cipher } = await stateFor(entry), reply2 = await post(origin, "/v2/vault/backup", { ...authorize(entry), device: entry.device }, { signal });
+        return reply2.retryAfter ? reply2 : { snapshot: vaultSnapshot(await Promise.all(reply2.snapshot.map(cipher.open))), cursor: reply2.cursor };
       }
       if (path === SYNC_CHANGES_PATH) {
-        let { cipher } = await stateFor(entry), reply = await post(origin, PUBLIC_CHANGES_PATH, { ...authorize(entry), after: data.after }, { signal });
-        if (reply.reset) return reply;
-        let records = await Promise.all(reply.records.map((row) => row[2] === null ? row : cipher.open(row)));
-        return { ...reply, records };
+        let { cipher } = await stateFor(entry), reply2 = await post(origin, PUBLIC_CHANGES_PATH, { ...authorize(entry), after: data.after }, { signal });
+        if (reply2.reset) return reply2;
+        let records = await Promise.all(reply2.records.map((row) => row[2] === null ? row : cipher.open(row)));
+        return { ...reply2, records };
       }
       let state = await stateFor(entry), auth = authorize(entry), keys;
       data.uploadOnly && (path === PREFERENCES_SYNC_PATH ? keys = data.groups.map((group) => ["preferences", group]) : path === LEDGER_SYNC_PATH ? keys = [["ledger", "details"], ...data.events.map((row) => ["event", row.id])] : keys = [...data.names ? [["ledger", "details"]] : [], ...data.matches.map((row) => ["match", row.gameId])]);
       let run = state.pending.then(async () => {
         let revision = keys ? -1 : state.revision, before = state.snapshot;
         for (let attempt = 0; attempt < 5; attempt++) {
-          let parameters = keys ? { ...auth, keys } : auth, reply = await post(origin, "/v2/vault/exchange", { ...parameters, revision, records: [] }, { signal });
-          reply.records !== null && (before = vaultSnapshot(await Promise.all(reply.records.map(state.cipher.open)))), revision = reply.revision, keys || (state.snapshot = before, state.revision = revision);
+          let parameters = keys ? { ...auth, keys } : auth, reply2 = await post(origin, "/v2/vault/exchange", { ...parameters, revision, records: [] }, { signal });
+          reply2.records !== null && (before = vaultSnapshot(await Promise.all(reply2.records.map(state.cipher.open)))), revision = reply2.revision, keys || (state.snapshot = before, state.revision = revision);
           let next = before, result;
           if (path === PREFERENCES_SYNC_PATH) {
             let known = before.preferences ?? {};
@@ -9386,9 +9603,13 @@ ${FEEDBACK_STYLES}
     }
     return {
       exchange,
-      async register(entry, profile) {
+      async register(entry, profile, invitation) {
         let { cipher } = await stateFor(entry);
-        return post(entry.origin, "/v2/vault/register", { ...authorize(entry), verifier: cipher.verifier, profile });
+        return post(
+          entry.origin,
+          invitation ? PUBLIC_INVITE_PATH : "/v2/vault/register",
+          { ...authorize(entry), verifier: cipher.verifier, profile, ...invitation && { invitation } }
+        );
       },
       async stage(entry, device, profile) {
         let { cipher } = await stateFor(entry), { snapshot, fingerprint } = await post(entry.origin, "/v2/migrate/read", {}, { device }), records = await Promise.all(vaultRecords(snapshot).map(cipher.seal));
@@ -9406,7 +9627,7 @@ ${FEEDBACK_STYLES}
   function publicUserName(name) {
     return name.replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, "").trim().slice(0, 100);
   }
-  var prefix = "SGSD1.", utf82 = new TextEncoder(), context = utf82.encode(prefix);
+  var prefix2 = "SGSD1.", utf82 = new TextEncoder(), context = utf82.encode(prefix2);
   async function credentialKey(crypto, gameKey, salt) {
     let material = await crypto.subtle.importKey("raw", utf82.encode(gameKey), "PBKDF2", !1, ["deriveKey"]);
     return crypto.subtle.deriveKey(
@@ -9419,8 +9640,8 @@ ${FEEDBACK_STYLES}
   }
   async function openPrivateCredential(crypto, gameKey, value) {
     let code = value.trim();
-    if (code.length > 700 || !code.startsWith(prefix)) throw new Error("invalid_private_credential");
-    let bytes2 = fromBase64url(code.slice(prefix.length)), iv = bytes2.slice(16, 28), key = await credentialKey(crypto, gameKey, bytes2.slice(0, 16)), decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: context }, key, bytes2.slice(28)), [origin, signer, grant] = JSON.parse(new TextDecoder("utf-8", { fatal: !0 }).decode(decrypted));
+    if (code.length > 700 || !code.startsWith(prefix2)) throw new Error("invalid_private_credential");
+    let bytes2 = fromBase64url(code.slice(prefix2.length)), iv = bytes2.slice(16, 28), key = await credentialKey(crypto, gameKey, bytes2.slice(0, 16)), decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv, additionalData: context }, key, bytes2.slice(28)), [origin, signer, grant] = JSON.parse(new TextDecoder("utf-8", { fatal: !0 }).decode(decrypted));
     if (fromBase64url(signer, 65), fromBase64url(grant, 32), typeof origin != "string") throw new Error("invalid_private_credential");
     return { origin, signer, grant };
   }
@@ -9452,6 +9673,9 @@ ${FEEDBACK_STYLES}
     view_locked: "\u6B64 IP \u8F93\u9519 50 \u6B21\uFF0C\u67E5\u770B\u5DF2\u9501\u5B9A 30 \u5206\u949F",
     public_preview_disabled: "\u670D\u52A1\u5668\u7BA1\u7406\u5458\u5173\u95ED\u4E86\u516C\u5171\u9884\u89C8",
     public_recovery_required: "\u6B64\u7528\u6237\u7801\u5DF2\u5728\u8BE5\u670D\u52A1\u5668\u7ED1\u5B9A\uFF0C\u8BF7\u7528\u539F\u8BBE\u5907\u7684\u516C\u5171\u6062\u590D\u51ED\u636E\u63A5\u7EED\u540C\u6B65",
+    public_invite_required: "\u9996\u6B21\u7ED1\u5B9A\u6B64\u670D\u52A1\u5668\u9700\u8981\u4E00\u6B21\u6027\u9080\u8BF7\u7801\uFF0C\u8BF7\u5411\u7BA1\u7406\u5458\u83B7\u53D6",
+    public_invite_unavailable: "\u4E00\u6B21\u6027\u9080\u8BF7\u7801\u65E0\u6548\u6216\u5DF2\u4F7F\u7528\uFF0C\u8BF7\u5411\u7BA1\u7406\u5458\u83B7\u53D6\u65B0\u7801",
+    public_invite_disabled: "\u670D\u52A1\u5668\u5DF2\u505C\u7528\u4E00\u6B21\u6027\u9080\u8BF7\u7801\uFF0C\u8BF7\u5411\u7BA1\u7406\u5458\u786E\u8BA4\u7ED1\u5B9A\u65B9\u5F0F",
     migration_records_changed: "\u5386\u53F2\u8BB0\u5F55\u6709\u66F4\u65B0\uFF0C\u8BF7\u91CD\u65B0\u51C6\u5907\u8F6C\u6362",
     migration_already_staged: "\u6B64\u8D26\u53F7\u5DF2\u6709\u53E6\u4E00\u4EFD\u52A0\u5BC6\u5386\u53F2\uFF0C\u8BF7\u5148\u5728\u540E\u53F0\u91CD\u7F6E\u51C6\u5907\u72B6\u6001",
     migration_staged: "\u5386\u53F2\u52A0\u5BC6\u526F\u672C\u5DF2\u5C31\u7EEA\uFF0C\u7B49\u5F85\u7BA1\u7406\u5458\u5B8C\u6210\u8F6C\u6362",
@@ -9554,14 +9778,14 @@ ${FEEDBACK_STYLES}
     }
     let publicTransport = createPublicTransport(win.crypto, post);
     async function readPrivateBackup(origin, body, options) {
-      let reply = await post(origin, BACKUP_READ_PATH, body, options);
-      if (reply.retryAfter || reply.snapshot) return reply;
-      let { downloadId, cursor } = reply, decoder = new TextDecoder("utf-8", { fatal: !0 }), chunks = [];
+      let reply2 = await post(origin, BACKUP_READ_PATH, body, options);
+      if (reply2.retryAfter || reply2.snapshot) return reply2;
+      let { downloadId, cursor } = reply2, decoder = new TextDecoder("utf-8", { fatal: !0 }), chunks = [];
       for (let offset = 0; ; ) {
-        let bytes2 = Uint8Array.from(win.atob(reply.chunk), (c) => c.charCodeAt(0));
-        if (chunks.push(decoder.decode(bytes2, { stream: reply.next !== null })), reply.next === null) break;
-        if (!downloadId || !bytes2.length || reply.next !== offset + bytes2.length) throw new Error("\u4E91\u7AEF\u5907\u4EFD\u5206\u9875\u65E0\u6548");
-        offset = reply.next, reply = await post(origin, BACKUP_READ_PATH, { ...body, downloadId, offset }, options);
+        let bytes2 = Uint8Array.from(win.atob(reply2.chunk), (c) => c.charCodeAt(0));
+        if (chunks.push(decoder.decode(bytes2, { stream: reply2.next !== null })), reply2.next === null) break;
+        if (!downloadId || !bytes2.length || reply2.next !== offset + bytes2.length) throw new Error("\u4E91\u7AEF\u5907\u4EFD\u5206\u9875\u65E0\u6548");
+        offset = reply2.next, reply2 = await post(origin, BACKUP_READ_PATH, { ...body, downloadId, offset }, options);
       }
       return { snapshot: JSON.parse(chunks.join("")), cursor };
     }
@@ -9636,15 +9860,15 @@ ${FEEDBACK_STYLES}
       if (!PIN_FORMAT.test(pin)) throw fail("invalid_code", "\u670D\u52A1\u7AEF\u8FD4\u56DE\u7684\u914D\u5BF9\u7801\u65E0\u6548");
       return pin;
     }
-    async function readInvite(code, prefix2) {
+    async function readInvite(code, prefix3) {
       let invitation;
       try {
-        invitation = await openPairing(code, prefix2, async (id) => {
+        invitation = await openPairing(code, prefix3, async (id) => {
           let request = await get2("requests", id);
           return request && request.expires > Date.now() ? request.keys : null;
         });
       } catch (error) {
-        throw error.message === "pairing_device_mismatch" ? fail(error.message) : fail("invalid_code", prefix2 === PAIR_INVITE ? "\u9080\u8BF7\u7801\u683C\u5F0F\u9519\u8BEF\u6216\u5DF2\u635F\u574F" : "\u5730\u5740\u66F4\u65B0\u7801\u683C\u5F0F\u9519\u8BEF\u6216\u5DF2\u635F\u574F");
+        throw error.message === "pairing_device_mismatch" ? fail(error.message) : fail("invalid_code", prefix3 === PAIR_INVITE ? "\u9080\u8BF7\u7801\u683C\u5F0F\u9519\u8BEF\u6216\u5DF2\u635F\u574F" : "\u5730\u5740\u66F4\u65B0\u7801\u683C\u5F0F\u9519\u8BEF\u6216\u5DF2\u635F\u574F");
       }
       if (invitation.expiry <= Math.floor(Date.now() / 1e3)) throw fail("invitation_unavailable");
       return invitation;
@@ -9820,12 +10044,12 @@ ${FEEDBACK_STYLES}
         let options = { device: entry.device, signal: controller.signal };
         if (path === STARGAZING_SYNC_PATH) {
           if (controller.signal.throwIfAborted(), !resolved.stargazing) return null;
-          let reply2 = resolved.public ? await post(resolved.origin, path, { vault: resolved.vault, credential: resolved.credential }, { signal: controller.signal }) : await post(resolved.origin, path, {}, options);
-          if (ensureAccount(account), controller.signal.throwIfAborted(), !Array.isArray(reply2 == null ? void 0 : reply2.sections)) throw fail("stargazing_unavailable");
-          return reply2;
+          let reply3 = resolved.public ? await post(resolved.origin, path, { vault: resolved.vault, credential: resolved.credential }, { signal: controller.signal }) : await post(resolved.origin, path, {}, options);
+          if (ensureAccount(account), controller.signal.throwIfAborted(), !Array.isArray(reply3 == null ? void 0 : reply3.sections)) throw fail("stargazing_unavailable");
+          return reply3;
         }
-        let reply = resolved.public ? { account: gameKey, ...await publicTransport.exchange(resolved, resolved.origin, path, data, controller.signal) } : path === BACKUP_READ_PATH ? await readPrivateBackup(resolved.origin, { account: gameKey }, options) : await post(resolved.origin, path, { ...data, account: gameKey }, options);
-        return ensureAccount(account), reply;
+        let reply2 = resolved.public ? { account: gameKey, ...await publicTransport.exchange(resolved, resolved.origin, path, data, controller.signal) } : path === BACKUP_READ_PATH ? await readPrivateBackup(resolved.origin, { account: gameKey }, options) : await post(resolved.origin, path, { ...data, account: gameKey }, options);
+        return ensureAccount(account), reply2;
       } catch (error) {
         throw entry.privatePair && error.code === "binding_required" && (await forgetBinding(account, entry.device), retryAt = 0), error;
       } finally {
@@ -9909,7 +10133,7 @@ ${FEEDBACK_STYLES}
         gameKey
       };
     }
-    async function bindPublic(origin, recovery) {
+    async function bindPublic(target, recovery) {
       var _a2;
       let id = obtainAccount();
       if (await bindingsReady, bindingIndex.has(id)) throw fail("already_bound", "\u8BF7\u5148\u89E3\u9664\u5F53\u524D\u8D26\u53F7\u7684\u540C\u6B65\u7ED1\u5B9A");
@@ -9917,11 +10141,11 @@ ${FEEDBACK_STYLES}
       if (recovery) {
         let saved = readPublicRecovery(recovery);
         if (saved.gameKey !== await gameAccountKey(id)) throw fail("account_mismatch");
-        entry = { ...saved, id, origin: origin ? publicOrigin(origin) : saved.origin, public: !0, device: random() }, await prove(entry.origin, entry.signer), await publicTransport.check(entry, publicProfile(id));
+        entry = { ...saved, id, origin: target ? publicBindingTarget(target).origin : saved.origin, public: !0, device: random() }, await prove(entry.origin, entry.signer), await publicTransport.check(entry, publicProfile(id));
       } else {
-        let address = publicOrigin(origin.trim()), pendingId = "public-registration:" + id + ":" + address;
+        let { origin: address, invitation } = publicBindingTarget(target), pendingId = "public-registration:" + id + ":" + address;
         entry = ((_a2 = await get2("requests", pendingId)) == null ? void 0 : _a2.entry) ?? await newVault(id, address, ""), await put("requests", { id: pendingId, entry });
-        let { signer } = await publicTransport.register(entry, publicProfile(id));
+        let { signer } = await publicTransport.register(entry, publicProfile(id), invitation);
         entry.signer = signer;
       }
       let proof = await prove(entry.origin, entry.signer);
@@ -10007,7 +10231,7 @@ ${FEEDBACK_STYLES}
       update,
       exchange,
       previewLink,
-      bindPublic: (origin, recovery) => enroll(() => bindPublic(origin, recovery)),
+      bindPublic: (target, recovery) => enroll(() => bindPublic(target, recovery)),
       updatePublicProfile: () => enroll(updatePublicProfile),
       preparePublic: () => enroll(preparePublic),
       usePrepared: () => enroll(usePrepared),
@@ -10200,27 +10424,27 @@ ${FEEDBACK_STYLES}
       return ensureCurrent(state), accepted === !1 ? (state.hydrated = !1, await hydrate(state), onUpdated(["matches", "ledger"]), !1) : (Object.assign(state, { history, cursor, acknowledged, ready: !0, error: "" }), !0);
     }
     async function fullBackup(state, key, signal, manual) {
-      let baseline = state.storage.baseline(), local = state.storage.collect(!0), reply = await sync.exchange(state.account, BACKUP_READ_PATH, {}, key, signal);
-      if (ensureCurrent(state), Number.isSafeInteger(reply.retryAfter) && reply.retryAfter > 0)
-        return state.ready || (state.acknowledged = local), state.ready = !0, state.error = "", (!manual || !state.cursor) && (state.nextDownload = now() + reply.retryAfter), manual ? "\u6BCF\u5C0F\u65F6\u6700\u591A\u4E0B\u8F7D\u4E00\u6B21\uFF0C\u7EA6 " + Math.ceil(reply.retryAfter / 6e4) + " \u5206\u949F\u540E\u53EF\u518D\u6B21\u4E0B\u8F7D" : "";
-      let { snapshot, cursor } = reply;
+      let baseline = state.storage.baseline(), local = state.storage.collect(!0), reply2 = await sync.exchange(state.account, BACKUP_READ_PATH, {}, key, signal);
+      if (ensureCurrent(state), Number.isSafeInteger(reply2.retryAfter) && reply2.retryAfter > 0)
+        return state.ready || (state.acknowledged = local), state.ready = !0, state.error = "", (!manual || !state.cursor) && (state.nextDownload = now() + reply2.retryAfter), manual ? "\u6BCF\u5C0F\u65F6\u6700\u591A\u4E0B\u8F7D\u4E00\u6B21\uFF0C\u7EA6 " + Math.ceil(reply2.retryAfter / 6e4) + " \u5206\u949F\u540E\u53EF\u518D\u6B21\u4E0B\u8F7D" : "";
+      let { snapshot, cursor } = reply2;
       if (!validHistory(snapshot) || cursor !== void 0 && !validSyncCursor(cursor)) throw new Error("\u4E91\u7AEF\u5907\u4EFD\u683C\u5F0F\u65E0\u6548");
       let values = cleanPreferences(snapshot.preferences ?? {}), allowed2 = !manual && state.cursor ? preservePending(values, local, state.acknowledged) : values, history = { matches: snapshot.matches, ledger: snapshot.ledger }, changed = applyPreferences(state, allowed2, baseline);
       return onRestored(changed), await save(state, history, cursor, values), state.nextDownload = cursor ? now() + INTERVAL : null, onDownloaded(), changed.includes("toolbox") || changed.includes("pluginSettings") ? "\u5DF2\u4E0B\u8F7D\u8BBE\u7F6E\u3001\u6C34\u8868\u3001\u8D26\u672C\u548C\u6218\u7EE9\uFF0C\u5237\u65B0\u6E38\u620F\u540E\u5E94\u7528\u8BBE\u7F6E" : "\u5DF2\u4E0B\u8F7D\u8BBE\u7F6E\u3001\u6C34\u8868\u3001\u8D26\u672C\u548C\u6218\u7EE9";
     }
     async function pull(state, key, signal) {
       for (let page = 0; page < pagesPerRun; page++) {
-        let baseline = state.storage.baseline(), local = state.storage.collect(!0), after = state.cursor, reply = await sync.exchange(state.account, SYNC_CHANGES_PATH, { after }, key, signal);
-        if (ensureCurrent(state), reply.reset === !0) return fullBackup(state, key, signal, !1);
-        let { history, preferences, updated } = applySyncChangePage(state.history, after, reply);
-        if (reply.records.length) {
+        let baseline = state.storage.baseline(), local = state.storage.collect(!0), after = state.cursor, reply2 = await sync.exchange(state.account, SYNC_CHANGES_PATH, { after }, key, signal);
+        if (ensureCurrent(state), reply2.reset === !0) return fullBackup(state, key, signal, !1);
+        let { history, preferences, updated } = applySyncChangePage(state.history, after, reply2);
+        if (reply2.records.length) {
           let values = preservePending(preferences, local, state.acknowledged), acknowledged = { ...state.acknowledged, ...preferences }, changed = applyPreferences(state, values, baseline);
           changed.length && onRestored(changed);
-          let accepted = await save(state, history, reply.cursor, acknowledged);
+          let accepted = await save(state, history, reply2.cursor, acknowledged);
           if (accepted && updated.length && onUpdated(updated), !accepted)
             return state.nextDownload = now() + 1e3, "";
         }
-        if (!reply.more)
+        if (!reply2.more)
           return state.nextDownload = now() + INTERVAL, state.error = "", "";
       }
       return state.nextDownload = now() + 1e3, "";
@@ -10420,7 +10644,7 @@ ${FEEDBACK_STYLES}
       sceneWatch
     }), compat, mounted = !1, legacyWarned = !1, marketConnection = createMarketConnection(settings, win.fetch.bind(win), shell.notify);
     marketConnection.start();
-    let manager2 = new PluginManager({
+    let snapshots, manager2 = new PluginManager({
       journal,
       store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : "sgs-ol-toolbox"),
       settings,
@@ -10439,7 +10663,8 @@ ${FEEDBACK_STYLES}
         },
         notify: shell.notify
       },
-      onChange: () => shell.render()
+      onChange: () => shell.render(),
+      onReplayGap: () => snapshots == null ? void 0 : snapshots.refreshForReplay()
     });
     scope.add(() => manager2.dispose());
     let replacements = {
@@ -10456,7 +10681,7 @@ ${FEEDBACK_STYLES}
     };
     for (let pkg of bundledPackages) if ((!onlyPlugin || pkg.manifest.id === onlyPlugin || onlyPlugin === "gaizhu" && pkg.manifest.id === "baisheng") && (await manager2.registerBundled(pkg, replacements[pkg.manifest.id] || []), scope.closed))
       return null;
-    shell.setHandlers({
+    return shell.setHandlers({
       manager: manager2,
       themes,
       cardStyles,
@@ -10468,9 +10693,7 @@ ${FEEDBACK_STYLES}
     }), shell.setStatusVisible(!1), scope.add(journal.subscribe((event) => {
       var _a3, _b3;
       event.type === "ClientLoginRep" && (_a3 = event.payload) != null && _a3.userID && (preferenceSync == null || preferenceSync.login(String(Number(event.payload.userID)))), event.type === "toolbox:snapshot" && typeof ((_b3 = event.payload) == null ? void 0 : _b3.inGame) == "boolean" ? shell.setStatusVisible(event.payload.inGame) : event.type === "MsgGamePlayCardNtf" ? shell.setStatusVisible(!0) : ["MsgGameOver", "ClientLeavetableRep"].includes(event.type) && shell.setStatusVisible(!1);
-    }));
-    let snapshots = attachSessionSnapshots({ journal, game, scope, settled: bridge.flush });
-    return scope.add(sceneWatch.watch(() => {
+    })), snapshots = attachSessionSnapshots({ journal, game, scope, settled: bridge.flush }), scope.add(sceneWatch.watch(() => {
       var _a3;
       shell.setRemainingSlash(game.getRemainingSlash());
       let ready = !!(game.getScene() || (_a3 = win.Laya) != null && _a3.stage || win.__SGS_TOOLBOX_DEMO__), display = ready ? "" : "none";

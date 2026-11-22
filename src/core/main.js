@@ -98,11 +98,12 @@ async function initialize(win, api, mobileSkinPort) {
   }
   const marketConnection = createMarketConnection(settings, win.fetch.bind(win), shell.notify);
   void marketConnection.start();
+  let snapshots;
   const manager = new PluginManager({ journal, store: new PackageStore(win.indexedDB, onlyPlugin ? `sgs-ol-toolbox-demo-${onlyPlugin}` : 'sgs-ol-toolbox'), settings,
     context: { core: Object.freeze({ version: CORE_VERSION, distribution: EDITION, platform: MICROCLIENT ? 'microclient' : 'browser' }), window: win, document: win.document, game, ui: shell, themes, cardStyles, backgrounds,
       ...(managedSync && { devAppearanceSync: createDevAppearanceSync(win, managedSync, preferenceSync),
         devLedgerSync: createDevLedgerSync(win, managedSync, preferenceSync) }),
-      notify: shell.notify }, onChange: () => shell.render() });
+      notify: shell.notify }, onChange: () => shell.render(), onReplayGap: () => snapshots?.refreshForReplay() });
   scope.add(() => manager.dispose());
   const replacements = { cards: REPLACED_CARD_PACKAGES, backgrounds: REPLACED_BACKGROUND_PACKAGES,
     'daily-rewards': REPLACED_REWARD_PACKAGES, effects: REPLACED_EFFECT_PACKAGES, skins: REPLACED_SKIN_PACKAGES,
@@ -127,7 +128,7 @@ async function initialize(win, api, mobileSkinPort) {
     else if (event.type === 'MsgGamePlayCardNtf') shell.setStatusVisible(true);
     else if (['MsgGameOver', 'ClientLeavetableRep'].includes(event.type)) shell.setStatusVisible(false);
   }));
-  const snapshots = attachSessionSnapshots({ journal, game, scope, settled: bridge.flush });
+  snapshots = attachSessionSnapshots({ journal, game, scope, settled: bridge.flush });
   scope.add(sceneWatch.watch(() => {
     shell.setRemainingSlash(game.getRemainingSlash());
     const ready = !!(game.getScene() || win.Laya?.stage || win.__SGS_TOOLBOX_DEMO__);

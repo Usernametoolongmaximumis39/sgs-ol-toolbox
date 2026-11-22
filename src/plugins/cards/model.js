@@ -23,7 +23,7 @@ const SIQI = 3543, JIELI = 3483;
 const orderedSiqiMove = data => Number(data.SpellID) === SIQI &&
   (Number(data.ToZone) === 1 && Number(data.ToPosition) === POSITION.bottom && Number(data.CardCount) === 1 ||
    Number(data.FromZone) === 1 && Number(data.FromPosition) === POSITION.bottom);
-const EVENT_TYPES = new Set([
+export const CARD_JOURNAL_EVENTS = Object.freeze([
   'toolbox:snapshot', 'toolbox:gap', 'MsgGamePlayCardNtf', 'PubGsCMoveCard',
   'PubGsCUseCard', 'PubGsCUseSpell', 'MsgGameTurnNtf', 'GsCGamephaseNtf',
   'MsgGameRoundNtf', 'MsgReconnectGame', 'MsgReconnectGameHand',
@@ -33,6 +33,7 @@ const EVENT_TYPES = new Set([
   'MsgGameOver', 'ClientLeavetableRep', 'ClientLoginRep',
   'GsCUpdateRoleDataExNtf', 'MsgClientOperateInGameNtf',
 ]);
+const EVENT_TYPES = new Set(CARD_JOURNAL_EVENTS);
 const int = value => value === null || value === undefined || value === '' || typeof value === 'boolean'
   ? null : Number.isInteger(Number(value)) ? Number(value) : null;
 const list = values => values && typeof values === 'object' && Number.isInteger(values.length) && values.length >= 0 && values.length <= 10000

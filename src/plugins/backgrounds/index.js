@@ -5,8 +5,8 @@ import { isTyping, matchesShortcut, shortcutLabel } from '../../shared/keyboard-
 const nativeSkinShortcut = { code: 'KeyK', ctrl: true, alt: true };
 
 export const manifest = {
-  id: 'backgrounds', name: '自定义背景', version: '0.2.11', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "可从皮肤详情直接把支持的横版皮肤设为牌局背景。支持的动态背景循环播放待机动画，原画和动态资源按需联网加载。", minCoreVersion: '0.6.206', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
+  id: 'backgrounds', name: '自定义背景', version: '0.2.12', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "动态皮肤背景可选高、低画质。低画质限制大型图集的分辨率，可减轻显存占用。动态素材仍按需联网加载。", minCoreVersion: '0.6.206', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
   icon: { paths: ['M3 4h18v16H3Z', 'M3 16 9 10l4 4 3-3 5 5', 'M16 7h1'] },
   description: '将本地图片或游戏皮肤用作牌局背景，保留天气与武将技能背景',
 };
@@ -20,8 +20,8 @@ const STYLES = `
 [data-sgs-backgrounds] .bg-note{color:var(--sgs-muted)}
 [data-sgs-backgrounds] .bg-error{color:var(--sgs-danger,var(--sgs-text))}
 [data-sgs-backgrounds] .bg-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-[data-sgs-backgrounds] .bg-mode{display:flex;align-items:center;gap:6px;margin:10px 0 8px}
-[data-sgs-backgrounds] .bg-mode>span{color:var(--sgs-muted);flex:none}
+[data-sgs-backgrounds] .bg-mode{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:6px;margin:10px 0 8px;font-size:calc(12px + var(--sgs-font-offset,0px))}
+[data-sgs-backgrounds] .bg-mode-label{display:inline-flex;align-items:center;gap:6px;min-inline-size:calc(4em + 30px);color:var(--sgs-muted);white-space:nowrap}
 [data-sgs-backgrounds] .bg-attack{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;min-height:30px;color:var(--sgs-muted);font-size:calc(12px + var(--sgs-font-offset,0px));cursor:pointer}
 [data-sgs-backgrounds] [hidden]{display:none}
 [data-sgs-backgrounds] .bg-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
@@ -34,8 +34,8 @@ const STYLES = `
 [data-sgs-backgrounds] button[data-skin-source=native]{justify-content:space-between}
 [data-sgs-backgrounds] .bg-skin-links kbd{flex:none;padding:1px 5px;border:1px solid var(--sgs-border);border-radius:4px;color:var(--sgs-muted);font:inherit;font-size:.88em;line-height:1.35}
 [data-sgs-backgrounds] .bg-local-note{margin:6px 0 0}
-[data-sgs-backgrounds] .sgs-segments{flex:1;min-width:0}
-[data-sgs-backgrounds] .sgs-segments>button{border:0;border-radius:5px;background:transparent;padding:6px;color:var(--sgs-muted)}
+[data-sgs-backgrounds] .sgs-segments{min-width:0}
+[data-sgs-backgrounds] .sgs-segments>button{border:0;border-radius:5px;background:transparent;padding:6px;color:var(--sgs-muted);white-space:nowrap}
 [data-sgs-backgrounds] .sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent);background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 18%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent),0 1px 3px #0003}
 [data-sgs-backgrounds].bg-skin-action{position:fixed;z-index:2147483000;filter:drop-shadow(0 3px 8px #0008)}
 [data-sgs-backgrounds].bg-skin-action button{box-sizing:border-box;min-width:178px;min-height:52px;padding:12px 20px;font-size:18px;font-weight:600;line-height:1.4;white-space:nowrap;border-radius:10px}
@@ -162,7 +162,15 @@ export function activate(ctx) {
     const dynamic = element('button', '动态'), still = element('button', '静态');
     dynamic.type = still.type = 'button'; segments.append(dynamic, still);
     const hint = ctx.ui.helpTip('默认播放皮肤动态，无需拥有皮肤或解锁动态；没有动态时显示原画。仅横版或 16:9 原画可选，技能背景保持优先。', '背景播放说明');
-    mode.append(element('span', '背景播放'), hint, segments);
+    const modeLabel = element('span', '背景播放', 'bg-mode-label'); modeLabel.append(hint);
+    mode.append(modeLabel, segments);
+    const qualityRow = element('div', '', 'bg-mode');
+    const qualityLabel = element('span', '画质', 'bg-mode-label');
+    qualityLabel.append(ctx.ui.helpTip('高画质保留动态图集原尺寸。低画质限制大型图集分辨率，减少显存占用。', '背景画质说明'));
+    const qualitySegments = element('div', '', 'sgs-segments');
+    qualitySegments.setAttribute('role', 'group'); qualitySegments.setAttribute('aria-label', '背景画质');
+    const high = element('button', '高'), low = element('button', '低');
+    high.type = low.type = 'button'; qualitySegments.append(high, low); qualityRow.append(qualityLabel, qualitySegments);
     const attack = ctx.ui.styleSwitch(element('input'));
     attack.type = 'checkbox';
     const attackRow = element('label', '', 'bg-attack');
@@ -213,6 +221,9 @@ export function activate(ctx) {
       picker.disabled = importing; pickerLabel.textContent = importing ? '正在读取图片…' : '选择本地图片';
       error.textContent = importError; error.hidden = !importError;
       mode.hidden = capability.hidden = local && !skinMotion;
+      qualityRow.hidden = !skinMotion || ctx.backgrounds.skinQualityAvailable !== true;
+      const lowQuality = ctx.settings.get('skinQuality') === 'low';
+      high.setAttribute('aria-pressed', String(!lowQuality)); low.setAttribute('aria-pressed', String(lowQuality));
       dynamic.setAttribute('aria-pressed', String(animated())); still.setAttribute('aria-pressed', String(!animated()));
       attackRow.hidden = local || !supportsSkinBackgroundAttack(current?.dynamic);
       attack.disabled = !animated(); attack.checked = attackEffects();
@@ -224,6 +235,8 @@ export function activate(ctx) {
       update(); refreshButton();
     };
     const chooseDynamic = () => change(true), chooseStill = () => change(false);
+    const chooseHigh = () => ctx.backgrounds.setSkinQuality('high');
+    const chooseLow = () => ctx.backgrounds.setSkinQuality('low');
     const changeAttack = () => {
       ctx.settings.set('attackEffects', attack.checked);
       ctx.backgrounds.setAttackEffects(attack.checked);
@@ -247,16 +260,18 @@ export function activate(ctx) {
     reset.addEventListener('click', click);
     picker.addEventListener('click', openFile); input.addEventListener('change', importFile);
     dynamic.addEventListener('click', chooseDynamic); still.addEventListener('click', chooseStill);
+    high.addEventListener('click', chooseHigh); low.addEventListener('click', chooseLow);
     attack.addEventListener('change', changeAttack);
     updatePanel = update;
     const release = ctx.backgrounds.subscribe(update); update();
-    root.append(name, status, mode, attackRow, capability, skinLinks, actions, localNote, error); container.append(root);
+    root.append(name, status, mode, qualityRow, attackRow, capability, skinLinks, actions, localNote, error); container.append(root);
     return () => {
       if (updatePanel === update) updatePanel = null;
       closeCatalogue?.(); skinLinks.removeEventListener('click', openFromPanel);
       release(); reset.removeEventListener('click', click);
       picker.removeEventListener('click', openFile); input.removeEventListener('change', importFile);
       dynamic.removeEventListener('click', chooseDynamic); still.removeEventListener('click', chooseStill);
+      high.removeEventListener('click', chooseHigh); low.removeEventListener('click', chooseLow);
       attack.removeEventListener('change', changeAttack); root.remove();
     };
   } });

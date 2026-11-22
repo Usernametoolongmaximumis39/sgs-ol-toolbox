@@ -56,8 +56,9 @@ export function createBattleLamps(ctx, settings, refresh = () => {}) {
   function sync(snapshot, session) {
     reconcileAccount();
     const opts = settings(), mode = snapshot.modeId ?? roomMode(read(() => roomController(ctx).TableId));
-    const self = read(() => ctx.game.getSelf()?.ClientId), proxy = read(() => ctx.game.getServerProxy());
+    const self = read(() => ctx.game.getSelf()?.ClientId);
     if (!opts.cards || !opts.lamps || !snapshot.inGame || snapshot.isReplay || ![148,149].includes(mode) || !self) { clear(); return false; }
+    const proxy = read(() => ctx.game.getServerProxy());
     // Seats may finish loading separately. Roster changes must not restart
     // requests already in flight for the same match and player.
     const key = JSON.stringify([self, session, mode]);
@@ -96,6 +97,7 @@ export function createBattleLamps(ctx, settings, refresh = () => {}) {
     } else if (type === 'MsgGameShowFigure') confirmed = true;
     refresh();
   }, () => { clear(); refresh(); });
+  let watchInput, watchCatalogue, resolvedWatch;
   return { clear, load, acceptResult, searchStatus:()=>poolMessage, catalogue: () => { load(); return catalogue; }, searchCatalogue() {
     load();
     if (!read(() => ctx.game.getSelf()?.ClientId)) return null;
@@ -140,8 +142,12 @@ export function createBattleLamps(ctx, settings, refresh = () => {}) {
     }
   }, rows(user, role) {
     if (!identity || selectionEnded || !confirmed || ![1,3].includes(role)) return null;
-    const opts = resolveWatchSettings(settings(catalogue),catalogue), listRole = role === 1 ? 'landlord' : 'farmer';
-    const names = watchedGenerals(opts,listRole);
+    const input = settings(catalogue);
+    if (input !== watchInput || catalogue !== watchCatalogue) {
+      resolvedWatch = resolveWatchSettings(input, catalogue);
+      watchInput = input; watchCatalogue = catalogue;
+    }
+    const names = watchedGenerals(resolvedWatch, role === 1 ? 'landlord' : 'farmer');
     const m=gm(),name=lampNickname(user,m),id=String(user.ClientId),task=tasks.get(id);
     const saved=verified.get(id),status=task?.reader.snapshot();
     const owned=saved&&(task?.accepted||Date.now()-saved.at<=600000)?saved.ids:null;

@@ -206,7 +206,11 @@ ipcMain.handle('sgs-toolbox:private-sync-http:v1', async (event, message) => {
 ipcMain.on('sgs-toolbox:private-sync-http-cancel:v1', (event, id) => {
   if (allowed(event)) privateSyncJobs.get(event.sender)?.get(id)?.destroy(new Error('私有同步请求已取消'));
 });
+const accounts = typeof MicroclientAccounts === 'undefined' ? null : MicroclientAccounts.register({
+  app, ipcMain, channelState, shellFile: path.resolve(__dirname, '..', 'index_wd.html')
+});
 ipcMain.handle('sgs-toolbox:channel-shell:v1', (event, request) => {
+  if (accounts && typeof request?.action === 'string' && request.action.startsWith('accounts:')) return accounts.handle(event, request);
   const url = event.senderFrame ? event.senderFrame.url : event.sender.getURL();
   if (!/^file:/i.test(url) || !/index_wd\.html(?:[?#]|$)/i.test(url)) throw new Error('仅允许微端外壳切换游戏渠道');
   if (!request || typeof request !== 'object') throw new Error('无效的渠道请求');
@@ -215,6 +219,7 @@ ipcMain.handle('sgs-toolbox:channel-shell:v1', (event, request) => {
   const packageId = Number(request.packageId);
   if (!Number.isInteger(packageId) || !channelList().some(channel => channel.id === packageId)) throw new Error('当前客户端不包含该游戏渠道');
   saveChannel(packageId);
+  accounts?.notify(event.sender);
   return channelState();
 });
 // Electron 10 getURL() can still return the previous document during preload.

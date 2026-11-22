@@ -1,3 +1,4 @@
+import { enclosingRect, rectCorners } from './map-rect.js';
 import { stableControlBounds } from './stable-control-bounds.js';
 import { visibleMapViewport } from './map-viewport.js';
 import { mapControlRegions } from './control-regions.js';
@@ -16,11 +17,10 @@ export function collectMapGeometry(ctx, scene, nodes = []) {
   if (!visible(cityView) || !L?.Point) return empty;
   const project = (part, r) => read(() => {
     if (!r || !(r.width > 0 && r.height > 0)) return null;
-    const points = [[r.x, r.y], [r.x + r.width, r.y], [r.x, r.y + r.height], [r.x + r.width, r.y + r.height]]
+    const points = rectCorners({ x: r.x, y: r.y, w: r.width, h: r.height })
       .map(([x, y]) => cityView.globalToLocal(part.localToGlobal(new L.Point(x, y), true), true));
     if (!points.every(p => Number.isFinite(p.x) && Number.isFinite(p.y))) return null;
-    const xs = points.map(p => p.x), ys = points.map(p => p.y);
-    return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+    return enclosingRect(points);
   });
   const bounds = (part, includeHidden = false, stable = false) => read(() => {
     if (!part || part.destroyed || !includeHidden && !visible(part)) return null;

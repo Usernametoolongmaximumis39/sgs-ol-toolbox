@@ -15,3 +15,27 @@ export function cachedNativeWindow(dispatcher, name) {
 export function isMountedWindowNode(stage, node) {
   return isNativeNodeMounted(node, stage, 64);
 }
+
+export function watchNativeWindowEvents(scope, names, changed) {
+  const caller = {};
+  const events = ['OPEN_WINDOW', 'OPENED_WINDOW', 'UPDATE_WINDOW', 'HIDE_WINDOW', 'CLOSE_WINDOW', 'windowClosed'];
+  let current = null;
+  const subscribed = [];
+  function onWindow(packet) {
+    const name = typeof packet === 'string' ? packet : read(() => packet.WindowName);
+    if (names.includes(name)) changed();
+  }
+  function bind(dispatcher) {
+    if (current === dispatcher) return;
+    for (const type of subscribed.splice(0)) {
+      try { current.off(type, caller, onWindow); } catch { /* Dispatcher may be disposed. */ }
+    }
+    current = dispatcher;
+    if (scope.signal.aborted || typeof dispatcher?.on !== 'function' || typeof dispatcher.off !== 'function') return;
+    for (const type of events) {
+      try { dispatcher.on(type, caller, onWindow); subscribed.push(type); } catch { /* Fallback polling remains available. */ }
+    }
+  }
+  scope.add(() => bind(null));
+  return bind;
+}

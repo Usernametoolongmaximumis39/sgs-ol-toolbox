@@ -1,5 +1,3 @@
-import { field } from '../../shared/info-runtime.js';
-
 const list = value => Array.isArray(value) ? value : value ? [value] : [];
 const number = value => typeof value === 'number' || (typeof value === 'string' && value.trim()) ? Number(value) : NaN;
 const positiveId = value => Number.isSafeInteger(value) && value > 0;
@@ -40,25 +38,6 @@ export function definitions(config) {
     }).filter(item => positiveId(item.id) && Number.isFinite(item.count) && item.count > 0);
     return { id, characterId, flags: number(row.flags), criteria };
   }).filter(row => positiveId(row.id) && positiveId(row.characterId));
-}
-
-// Accept only the native full achievement reply for the queried nickname.
-// The controller is responsible for matching that nickname to its active run.
-export function projectAchievements(packet) {
-  const rows = field(packet, 'Achs'), nickname = field(packet, 'NickName');
-  if (number(field(packet, 'requestType')) !== 0 || typeof nickname !== 'string' || !Array.isArray(rows) || rows.length > 20000) return null;
-  const finish = {}, progress = {};
-  for (const raw of rows) {
-    const row = raw?.ProtoObj || raw?.protoObj || raw;
-    const id = number(row?.id ?? row?.ID), type = number(row?.type ?? row?.Type);
-    if (!positiveId(id) || !Number.isSafeInteger(type) || type < 0) throw new Error('战功条目格式无效');
-    if (!(type & 3)) continue;
-    const value = number(row?.detailInfo ?? row?.DetailInfo);
-    if (!Number.isFinite(value) || value < 0) throw new Error('战功进度或完成时间无效');
-    if ((type & 1) && value > 0) finish[id] = Math.max(finish[id] || 0, value);
-    else if (type & 2) progress[id] = Math.max(progress[id] || 0, value);
-  }
-  return { nickname, finish, progress, at: Date.now() };
 }
 
 export function bannedGeneral(id, name) {

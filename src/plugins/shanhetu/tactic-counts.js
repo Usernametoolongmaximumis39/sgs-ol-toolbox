@@ -7,9 +7,10 @@ const uses = [2079, 2080, 2081], draws = [2082, 2083, 2084];
 const dragons = [2104, 2143];
 const valid = n => Number.isSafeInteger(n) && n >= 0;
 const seatID = n => valid(n) && n < 255;
-const events = new Set(['MsgGamePlayCardNtf', 'toolbox:snapshot', 'toolbox:gap', 'MsgReconnectGame', 'MsgReconnectGameHand',
+export const TACTIC_JOURNAL_EVENTS = Object.freeze(['MsgGamePlayCardNtf', 'toolbox:snapshot', 'toolbox:gap', 'MsgReconnectGame', 'MsgReconnectGameHand',
   'MsgGameTurnNtf', 'GsCGamephaseNtf', 'PubGsCMoveCard', 'PubGsCUseCard', 'MsgNtfUseCardType', 'decodeRogueLikeItemEffectNtf',
   'GsCRoleOptTargetNtf', 'MsgGameOver', 'ClientLeavetableRep', 'ClientLoginRep']);
+const events = new Set(TACTIC_JOURNAL_EVENTS);
 export function initialState() {
   return { sessionId: null, lastSeq: 0, active: false, started: false, complete: false, turnKnown: false, roundKnown: false,
     selfSeatId: null, currentSeatId: null, phase: null, round: null, seats: {} };

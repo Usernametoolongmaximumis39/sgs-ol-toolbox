@@ -1,7 +1,7 @@
 import { singleRiderShopVisible } from '../../shared/native-shop.js';
 import { scopedStyles } from '../../shared/scoped-styles.js';
 import { CARDS_ICON } from '../../ui/plugin-icons.js';
-import { initialState, reduce, observedHandCandidates, handCandidates, zoneKey, metadata, sortCards, queryCardNames, queryCardPreview, deckComposition, wasSeen, ZONE_NAMES, REFERENCE, seatLabel } from './model.js';
+import { initialState, reduce, CARD_JOURNAL_EVENTS, observedHandCandidates, handCandidates, zoneKey, metadata, sortCards, queryCardNames, queryCardPreview, deckComposition, wasSeen, ZONE_NAMES, REFERENCE, seatLabel } from './model.js';
 import { createNativeEnhancements, REVEAL_COLUMN_LEVELS, REVEAL_OPACITY_LEVELS, revealColumns, revealOpacity, roundInfoBounds } from './native.js';
 import { skillHints, SKILL_HINT_GROUPS } from './skill-hints.js';
 
@@ -706,8 +706,8 @@ export function activate(ctx) {
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.88', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "改进亮牌与观战界面的显示，调整座位牌区布局和手牌排序入口。", minCoreVersion: '0.6.87', categories: ['game'], icon: CARDS_ICON, priority: 10000,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.89', apiVersion: 1, contractVersion: 1, journalEvents: CARD_JOURNAL_EVENTS,
+    releaseNotes: "牌局记录和显示只处理所需的牌局消息，减少长局和登录期间的处理开销。", minCoreVersion: '0.6.87', categories: ['game'], icon: CARDS_ICON, priority: 10000,
     description: '记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数' },
   initialState, reduce, activate,
 };

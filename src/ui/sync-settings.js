@@ -212,18 +212,21 @@ export function mountSyncSettings(document, window, sync, preferences) {
   }, true), details('更改私有服务器地址', address.wrapper));
   privateFields.append(node('p', privateConsent, 'muted'), ways, fourDigit, credentialBinding.form);
   privatePanel.append(privateSetup, privateFields, joining);
-  const server = input('公共服务器 HTTPS 地址'), restore = input('公共恢复凭据', 'textarea');
-  server.control.placeholder = 'https://sync.example.com';
+  const server = input('公共服务器地址或邀请码'), restore = input('公共恢复凭据', 'textarea');
+  server.control.placeholder = 'https://sync.example.com:8888';
   const publicBinding = node('div', '', 'sync-stack');
   const publicConsent = '服务器管理员可见用户码、昵称和记录编号。账本、战绩和备份内容在工具箱加密。';
   publicBinding.append(node('p', publicConsent, 'muted'),
-    server.wrapper, act('同意并绑定公共服务器', async () => {
+    server.wrapper, node('p', '首次绑定请填写管理员提供的地址或一次性邀请码。已登记账号可直接填写地址绑定新设备。', 'muted'),
+    act('同意并绑定公共服务器', async () => {
       await sync.bindPublic(server.control.value.trim());
+      server.control.value = '';
       say('公共服务器绑定成功');
     }, true), details('在新设备恢复公共账号',
-      node('p', '同一账号请使用原设备复制的恢复凭据。', 'muted'), restore.wrapper,
+      node('p', '使用原设备的恢复凭据接续云端历史。直接用地址绑定会创建独立存储。', 'muted'), restore.wrapper,
       act('恢复公共绑定', async () => {
         await sync.bindPublic(server.control.value.trim(), restore.control.value);
+        server.control.value = '';
         restore.control.value = '';
         say('公共绑定已恢复');
       })));

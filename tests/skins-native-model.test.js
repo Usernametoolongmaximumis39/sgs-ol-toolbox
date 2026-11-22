@@ -5,9 +5,79 @@ import { bindVoicesInOrder, configuredCardSkills, createCrossVoice, DEATH_VOICE,
 import { createYjcmIndex, yjcmVoiceReference } from '../src/plugins/skins/yjcm.js';
 import { buildYjcmData } from '../src/plugins/skins/yjcm-data.js';
 import { mobileCloudVoice } from '../src/plugins/skins/mobile-voice.js';
+import { ResourceScope } from '../src/core/resources.js';
+import { createSeatIdleRate, spineIdleRate } from '../src/plugins/skins/seat-idle-rate.js';
 import yjcmSource from './fixtures/yjcm-source.json' with { type: 'json' };
 
 const { findYjcmSkin, findYjcmVoice, hasYjcmVoices, searchYjcmSkins, yjcmSkillVoices, yjcmSkinVoices } = createYjcmIndex(buildYjcmData(yjcmSource));
+
+test('seat idle smoothness follows the game frame mode and backs off for the rest of the battle', () => {
+  const callbacks = new Map(), document = new EventTarget(), stage = { frameRate: 'slow' };
+  let time = 0, sequence = 0;
+  const scope = new ResourceScope();
+  const rate = createSeatIdleRate({ document, Laya: { stage }, requestAnimationFrame(fn) {
+    callbacks.set(++sequence, fn);
+    return sequence;
+  }, cancelAnimationFrame(id) { callbacks.delete(id); } }, scope);
+  function advance(gap, frames) {
+    for (let i = 0; i < frames; i++) {
+      time += gap;
+      const current = [...callbacks.values()];
+      callbacks.clear();
+      for (const callback of current) callback(time);
+    }
+  }
+  const changes = [], previewChanges = [];
+  let inSeat = true;
+  const release = rate.watch(value => changes.push(value), () => inSeat);
+  advance(16.7, 60);
+  assert.deepEqual(changes, []);
+  stage.frameRate = 'fast';
+  advance(16.7, 60);
+  assert.deepEqual(changes, [true]);
+  stage.frameRate = 'slow';
+  advance(16.7, 1);
+  assert.deepEqual(changes, [true, false]);
+  stage.frameRate = 'fast';
+  advance(16.7, 60);
+  advance(100, 1);
+  advance(16.7, 60);
+  assert.deepEqual(changes, [true, false, true]);
+  inSeat = false;
+  const releasePreview = rate.watch(value => previewChanges.push(value), () => true);
+  advance(16.7, 60);
+  assert.deepEqual(changes, [true, false, true, false]);
+  assert.deepEqual(previewChanges, [true]);
+  advance(32, 56);
+  advance(16.7, 90);
+  assert.deepEqual(previewChanges, [true, false]);
+  assert.equal(callbacks.size, 0);
+  releasePreview();
+  inSeat = true;
+  rate.reset();
+  advance(16.7, 60);
+  assert.equal(changes.at(-1), true);
+  document.hidden = true;
+  document.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(changes.at(-1), false);
+  assert.equal(callbacks.size, 0);
+  release();
+  scope.dispose();
+});
+
+test('Spine idle rate invalidates stale geometry only when its cache bucket width changes', () => {
+  let invalidations = 0;
+  const actor = { animationFrameInterval: 0, skeletonRenderer: { invalidateVertexCache() { invalidations++; } } };
+  const setSmooth = spineIdleRate(actor);
+  setSmooth(true);
+  assert.equal(actor.animationFrameInterval, 1000 / 60);
+  setSmooth(true);
+  assert.equal(invalidations, 1);
+  setSmooth(false);
+  assert.equal(actor.animationFrameInterval, 0);
+  assert.equal(invalidations, 2);
+  assert.equal(spineIdleRate({ animationFrameInterval: 0 }), undefined);
+});
 
 test('Jie Zhong Hui can bind and play the official derived skill Pai Yi', () => {
   const tables = {

@@ -1,19 +1,22 @@
 import { readMobileSpine36 } from './mobile-spine36.js';
 import { seatPortraitPanel } from './yjcm.js';
-import { attachmentFrame, checkedFrame } from './spine-layout.js';
+import { attachmentFrame, checkedFrame, rotatedFrame } from './spine-layout.js';
+import { spineIdleRate } from './seat-idle-rate.js';
+import { fitMobileSeat, measureMobileSeatFace } from './mobile-seat-framing.js';
+import { limitedAtlasScale, resizeAtlasPage } from './motion-atlas.js';
 
 const backgroundClips = ['beijing', 'background', 'play'];
 const idleClips = ['daiji', 'idle', 'standby', 'play'];
 const imageLimit = 8 * 1024 * 1024;
 const skeletonLimit = 4 * 1024 * 1024;
 const atlasLimit = 256 * 1024;
-const atlasPixels = 8 * 1024 * 1024;
 const archiveForms = new WeakMap();
 // Reference portrait height when adapting the mobile composition to an OL seat.
 const seatDesignHeight = 410;
-const attackDesignWidth = 1534, attackDesignHeight = 750;
+const mobileWideWidth = 1534, mobileWideHeight = 750;
 // Only character art is allowed to project into the space just above the seat.
 const seatOverflowRatio = .28;
+const minimumSeatCoverage = .84;
 const maxEffectTime = 12000;
 const mobileSoundName = /^effect_dynamicSkin_[1-9]\d{0,11}(?:#\d{1,3})?(?:_[A-Za-z0-9-]{1,30})?$/i;
 const defaultAttackMargins = [300, 400, 650, 650];
@@ -34,7 +37,6 @@ const seatFraming = new Map([
   ['90001_1', { slot: 'r-tou', faceWidth: .145, focusX: .46, focusY: .35, backdropSubjects: /^(?:lang|texture\/djsd\/)/ }],
   ['3000405_2', { slot: 'caochun128' }],
 ]);
-const safeIdleSamples = [0, .2, .4, .6, .8];
 const isPowerOfTwo = size => (size & (size - 1)) === 0;
 
 async function imageFromBytes(win, bytes) {
@@ -49,28 +51,6 @@ async function imageFromBytes(win, bytes) {
   } finally {
     win.URL.revokeObjectURL(url);
   }
-}
-
-function resizeAtlasPage(doc, image, scale) {
-  if (scale >= 1) return image;
-  const canvas = doc.createElement('canvas');
-  canvas.width = Math.max(1, Math.floor(image.naturalWidth * scale));
-  canvas.height = Math.max(1, Math.floor(image.naturalHeight * scale));
-  const context = canvas.getContext('2d');
-  context.imageSmoothingQuality = 'high';
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-  return canvas;
-}
-
-function rotatedFrame(frame, rotation) {
-  if (!rotation) return frame;
-  const { x, y, width, height } = frame;
-  const angle = rotation * Math.PI / 180, cos = Math.cos(angle), sin = Math.sin(angle);
-  const corners = [[x, y], [x + width, y], [x, y + height], [x + width, y + height]];
-  const xs = corners.map(([x, y]) => x * cos - y * sin);
-  const ys = corners.map(([x, y]) => x * sin + y * cos);
-  const left = Math.min(...xs), top = Math.min(...ys);
-  return { x: left, y: top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
 }
 
 function paintedFrame(laya, actor, frame, rotation, minimumCoverage) {
@@ -125,26 +105,34 @@ function measureBackdrop(laya, spine, actor, rotation, minimumCoverage) {
   return rotation ? paintedFrame(laya, actor, rotatedPlate, rotation, minimumCoverage) ?? rotatedPlate : rotatedPlate;
 }
 
-function measureFace(spine, actor, slotName, rotation) {
-  const track = actor.state.getCurrent(0);
-  const skeleton = new spine.Skeleton(actor.skeleton.data);
-  const slot = skeleton.findSlot(slotName);
-  if (!slot || !track?.animation) return;
-  let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity, width = 0, samples = 0;
-  for (const time of safeIdleSamples) {
-    skeleton.setToSetupPose();
-    track.animation.apply(skeleton, -1, time * track.animation.duration, false, null, 1, spine.MixBlend.setup, spine.MixDirection.mixIn);
-    skeleton.updateWorldTransform();
-    const frame = attachmentFrame(spine, slot, rotation);
-    if (!frame) continue;
-    left = Math.min(left, frame.x);
-    top = Math.min(top, frame.y);
-    right = Math.max(right, frame.x + frame.width);
-    bottom = Math.max(bottom, frame.y + frame.height);
-    width += frame.width;
-    samples++;
+function seatPaintCoverage(actor, width, height, centerOnly) {
+  const visible = actor.visible;
+  let sample;
+  try {
+    actor.visible = true;
+    sample = actor.drawToCanvas(width, height, 0, 0);
+    const left = centerOnly ? Math.floor(width * .18) : 0;
+    const top = centerOnly ? Math.floor(height * .12) : 0;
+    const columns = centerOnly ? Math.ceil(width * .64) : width;
+    const rows = centerOnly ? Math.ceil(height * .60) : height;
+    const pixels = sample.source.getContext('2d', { willReadFrequently: true }).getImageData(left, top, columns, rows).data;
+    let covered = 0;
+    for (let i = 3; i < pixels.length; i += 4) if (pixels[i] >= 128) covered++;
+    return covered / (columns * rows);
+  } catch {
+    // Some clients cannot read back the Spine canvas.
+  } finally {
+    actor.visible = visible;
+    sample?.destroy();
   }
-  if (samples) return { x: (left + right) / 2, y: (top + bottom) / 2, width: width / samples };
+}
+
+function backdropCoverage(frame, placement, width, height) {
+  const { x, y, scale } = placement;
+  const halfWidth = width / (2 * scale), halfHeight = height / (2 * scale);
+  const overlapX = Math.min(x + halfWidth, frame.x + frame.width) - Math.max(x - halfWidth, frame.x);
+  const overlapY = Math.min(y + halfHeight, frame.y + frame.height) - Math.max(y - halfHeight, frame.y);
+  return Math.max(0, overlapX) * Math.max(0, overlapY) * scale * scale / (width * height);
 }
 
 function createBackdropOverflow(laya, source, textures, subjects) {
@@ -169,7 +157,7 @@ function createBackdropOverflow(laya, source, textures, subjects) {
   }, dispose() { sprite.destroy(true); } };
 }
 
-async function loadLayer(win, laya, archive, stem, background, signal, rotation, minimumCoverage) {
+async function loadLayer(win, laya, archive, stem, backdrop, signal, rotation, minimumCoverage, backgroundQuality) {
   const [skeletonBytes, atlasBytes] = await Promise.all([
     archive.read(stem + '.skel', { limit: skeletonLimit }),
     archive.read(stem + '.atlas', { limit: atlasLimit }),
@@ -181,10 +169,10 @@ async function loadLayer(win, laya, archive, stem, background, signal, rotation,
     throw new Error('移动版动画图集路径无效');
   }
   const data = readMobileSpine36(skeletonBytes);
-  const clips = background ? backgroundClips : idleClips;
+  const clips = backdrop ? backgroundClips : idleClips;
   const names = Object.keys(data.animations);
   const clip = clips.map(clip => names.find(name => name.toLowerCase() === clip)).find(Boolean);
-  if (!clip) throw new Error(background ? '移动版动态皮肤没有背景循环' : '移动版动态皮肤没有待机循环');
+  if (!clip) throw new Error(backdrop ? '移动版动态皮肤没有背景循环' : '移动版动态皮肤没有待机循环');
   const directory = stem.slice(0, stem.lastIndexOf('/') + 1);
   const template = new laya.SpineTemplet(laya.SpineVersion.v4_0), bitmaps = [], textures = [];
   let actor;
@@ -199,7 +187,7 @@ async function loadLayer(win, laya, archive, stem, background, signal, rotation,
   }
   try {
     const pixels = atlas.pages.reduce((sum, page) => sum + page.width * page.height, 0);
-    const scale = Math.min(1, Math.sqrt(atlasPixels / pixels));
+    const scale = backgroundQuality === 'high' ? 1 : limitedAtlasScale(pixels);
     for (const page of atlas.pages) {
       const image = await imageFromBytes(win, await archive.read(directory + page.name, { limit: imageLimit }));
       if (signal.aborted) { dispose(); return; }
@@ -224,14 +212,15 @@ async function loadLayer(win, laya, archive, stem, background, signal, rotation,
     }
     template.skeletonData = new win.spine.SkeletonJson(new win.spine.AtlasAttachmentLoader(atlas)).readSkeletonData(data);
     const duration = template.skeletonData.findAnimation(clip)?.duration;
-    if (!(Number.isFinite(duration) && (duration > 0 || (background && duration === 0)))) throw new Error('移动版动画循环无效');
+    if (!(Number.isFinite(duration) && (duration > 0 || (backdrop && duration === 0)))) throw new Error('移动版动画循环无效');
     actor = template.buildArmature();
     actor.forceUpdate = true;
     actor.play(clip, duration > 0, true, 0, 0, true, false);
     // Building one layer can finish well before the other layer's atlas.
     actor.paused();
-    const frame = background ? measureBackdrop(laya, win.spine, actor, rotation, minimumCoverage) : undefined;
-    if (background && !frame) throw new Error('移动版动画画幅不可用');
+    const measureSeatBackdrop = backdrop && !backgroundQuality;
+    const frame = measureSeatBackdrop ? measureBackdrop(laya, win.spine, actor, rotation, minimumCoverage) : undefined;
+    if (measureSeatBackdrop && !frame) throw new Error('移动版动画画幅不可用');
     return { actor, template, duration, frame, idle: clip, data, textures: template._textureDic, dispose };
   } catch (error) {
     dispose();
@@ -301,7 +290,7 @@ export async function readMobileMotionEffects(archive, form = '') {
 function mountAttack(laya, viewport, character, layout) {
   const { host, x, y, width, height, origin } = viewport;
   if (host.destroyed || !checkedFrame(x, y, width, height) || ![origin.x, origin.y].every(Number.isFinite)) return;
-  const scale = Math.min(width / attackDesignWidth, height / attackDesignHeight);
+  const scale = Math.min(width / mobileWideWidth, height / mobileWideHeight);
   const margins = layout?.attackMargins;
   const [top, bottom, left, right] = Array.isArray(margins) && margins.length === 4 &&
     margins.every(value => Number.isFinite(value) && value >= 0) ? margins : defaultAttackMargins;
@@ -349,7 +338,7 @@ function mountAttack(laya, viewport, character, layout) {
   } };
 }
 
-export async function createMobileMotion(win, archive, signal, form = '', layout) {
+export async function createMobileMotion(win, archive, signal, form = '', layout, backgroundQuality) {
   const laya = win.Laya ?? win.laya, spine = win.spine;
   if (signal.aborted || !laya?.SpineTemplet || !laya.SpineVersion?.v4_0 || !laya.SpineGLTexture ||
       !spine?.SkeletonJson || !spine.RegionAttachment || win.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
@@ -374,29 +363,46 @@ export async function createMobileMotion(win, archive, signal, form = '', layout
   try {
     // Await both jobs so a successful sibling can still release its resources.
     const results = await Promise.allSettled([
-      loadLayer(win, laya, archive, background, true, signal, rotation, framing?.backdropCoverage ?? .2),
-      loadLayer(win, laya, archive, character, false, signal, rotation),
+      loadLayer(win, laya, archive, background, true, signal, rotation, framing?.backdropCoverage ?? .2, backgroundQuality),
+      loadLayer(win, laya, archive, character, false, signal, rotation, undefined, backgroundQuality),
     ]);
     for (const result of results) if (result.status === 'fulfilled' && result.value) layers.push(result.value);
     if (signal.aborted) { dispose(); return; }
     for (const result of results) if (result.status === 'rejected') throw result.reason;
     if (layers.length !== 2) throw new Error('移动版动画层不可用');
-    const face = framing && measureFace(spine, layers[1].actor, framing.slot, rotation);
-    backdropOverflow = createBackdropOverflow(laya, layers[0].actor, layers[0].textures, framing?.backdropSubjects);
     actor = new laya.Sprite();
     actor.name = 'sgs-mobile-idle';
     actor.mouseEnabled = false;
     for (const layer of layers) {
       actor.addChild(layer.actor);
-      if (layer.duration) {
+      if (layer.duration && !backgroundQuality) {
         layer.actor.timeKeeper?.update();
         layer.actor.resume();
       }
     }
     signal.addEventListener('abort', dispose, { once: true });
+    function setPlaying(value) {
+      for (const layer of layers) if (layer.duration) {
+        if (value) { layer.actor.timeKeeper?.update(); layer.actor.resume(); }
+        else layer.actor.paused();
+      }
+    }
+    if (backgroundQuality) {
+      const authored = layout && { x: -layout.offsetX / layout.scale, y: layout.offsetY / layout.scale,
+        scale: layout.scale * 172 / seatDesignHeight };
+      const face = measureMobileSeatFace(spine, layers[1].actor, rotation, framing?.slot, authored, 146, 172);
+      const subject = face && checkedFrame(face.left, face.top, face.right - face.left, face.bottom - face.top);
+      const preferredFrame = { x: -mobileWideWidth / 2, y: -mobileWideHeight / 2,
+        width: mobileWideWidth, height: mobileWideHeight };
+      return { actor, dispose, setPlaying, rotation, subject, preferredFrame };
+    }
+    backdropOverflow = createBackdropOverflow(laya, layers[0].actor, layers[0].textures, framing?.backdropSubjects);
     const effects = mobileEffectSpec(layers[1].data, layers[0].data);
     for (const layer of layers) delete layer.data;
     const plans = [effects.enter, ...effects.actions].filter(Boolean);
+    const setCharacterRate = spineIdleRate(layers[1].actor);
+    let smoothIdle = false;
+    function syncIdleRate() { if (!disposed) setCharacterRate?.(smoothIdle && !effect); }
     function playEffect(candidate, { kind, viewport, onFinish, onSound } = {}) {
       if (disposed) return false;
       const plan = plans.find(plan => plan.key === candidate?.key);
@@ -415,6 +421,7 @@ export async function createMobileMotion(win, archive, signal, form = '', layout
       for (const track of tracks) track.actor = track === characterTrack && attack ? attack.actor : track.layer.actor;
       const timers = [];
       const run = effect = { priority, finish };
+      syncIdleRate();
       let unfinished = tracks.length;
       function finish(completed = true) {
         if (effect !== run) return;
@@ -429,6 +436,7 @@ export async function createMobileMotion(win, archive, signal, form = '', layout
             if (!layer.duration) actor.paused();
           }
         } finally {
+          if (smoothIdle && !disposed) queueMicrotask(syncIdleRate);
           onFinish?.(completed);
         }
       }
@@ -456,14 +464,32 @@ export async function createMobileMotion(win, archive, signal, form = '', layout
         child.pos(x, y);
       }
     }
-    function fit(x, y, width, height) {
-      // Both skeletons share the same origin in the mobile client. Keep their
-      // authored registration and adapt the viewport to OL's portrait clip.
+    let face, seatPlacement, seatSize;
+    function sampleSeat(placement, width, height, characterOnly = false) {
+      const factor = Math.min(1, 96 / Math.max(width, height));
+      const sampleWidth = Math.max(1, Math.round(width * factor));
+      const sampleHeight = Math.max(1, Math.round(height * factor));
+      const sampleScale = placement.scale * factor;
+      positionLayers(sampleWidth / 2 - placement.x * sampleScale,
+        sampleHeight / 2 - placement.y * sampleScale, sampleScale);
+      const backdrop = layers[0].actor, visible = backdrop.visible;
+      try {
+        if (characterOnly) backdrop.visible = false;
+        return seatPaintCoverage(actor, sampleWidth, sampleHeight, characterOnly);
+      } finally {
+        backdrop.visible = visible;
+      }
+    }
+    function planSeat(width, height) {
       const { frame } = layers[0];
-      const baseScale = Math.max(width / frame.width, height / frame.height, (layout?.scale ?? 0) * height / seatDesignHeight);
+      const authored = layout && { x: -layout.offsetX / layout.scale, y: layout.offsetY / layout.scale,
+        scale: layout.scale * height / seatDesignHeight };
+      face ??= measureMobileSeatFace(spine, layers[1].actor, rotation, framing?.slot, authored, width, height) ?? false;
+      const baseScale = Math.max(width / frame.width, height / frame.height, authored?.scale ?? 0);
       const { focusX = .47, focusY = .40 } = framing ?? {};
       let scale = baseScale;
-      if (face) {
+      // Keep the authored focus and zoom for the existing composition overrides.
+      if (face && framing) {
         const targetWidth = Math.min(width, height * 146 / 172);
         const faceScale = (framing.faceWidth ?? .21) * targetWidth / face.width;
         const frameScale = Math.max(
@@ -472,33 +498,46 @@ export async function createMobileMotion(win, archive, signal, form = '', layout
           focusY * height / Math.max(1, face.y - frame.y),
           (1 - focusY) * height / Math.max(1, frame.y + frame.height - face.y),
         );
-        // Use the opaque viewport even if a requested framing is unreachable
-        // without cropping away most of the official illustration.
         scale = Math.max(baseScale, faceScale, Math.min(frameScale, Math.max(baseScale * 1.35, faceScale)));
       }
-      const halfWidth = width / (2 * scale), halfHeight = height / (2 * scale);
-      const centerX = face ? face.x + (1 - 2 * focusX) * halfWidth :
-        layout ? -layout.offsetX / layout.scale : frame.x + frame.width / 2;
-      const centerY = face ? face.y + (1 - 2 * focusY) * halfHeight :
-        layout ? layout.offsetY / layout.scale : frame.y + frame.height / 2;
-      const clampedX = Math.max(frame.x + halfWidth, Math.min(centerX, frame.x + frame.width - halfWidth));
-      const clampedY = Math.max(frame.y + halfHeight, Math.min(centerY, frame.y + frame.height - halfHeight));
-      positionLayers(x + width / 2 - clampedX * scale, y + height / 2 - clampedY * scale, scale);
+      const useFaceFocus = face && framing;
+      const preferred = {
+        x: useFaceFocus ? face.x + (.5 - focusX) * width / scale : authored?.x ?? frame.x + frame.width / 2,
+        y: useFaceFocus ? face.y + (.5 - focusY) * height / scale : authored?.y ?? frame.y + frame.height / 2,
+        scale,
+      };
+      if (useFaceFocus) return fitMobileSeat(frame, width, height, preferred);
+      const placement = fitMobileSeat(frame, width, height, preferred, face, authored);
+      // The frame estimate can exclude usable pixels from either skeleton.
+      // Inspect their composite only when the camera had to leave that frame.
+      if (!placement.verifyCoverage || effect || backdropCoverage(frame, placement, width, height) >= minimumSeatCoverage) {
+        return placement;
+      }
+      const coverage = sampleSeat(placement, width, height);
+      if (coverage === undefined || coverage >= minimumSeatCoverage) return placement;
+      // In a rig with unfamiliar slot names, retain a full frame if the
+      // character layer has substantial coverage in the middle of that frame.
+      if (!face) {
+        const covered = fitMobileSeat(frame, width, height, preferred);
+        if (sampleSeat(covered, width, height, true) >= .22) return covered;
+      }
+    }
+    function fit(x, y, width, height) {
+      // Both skeletons share the same origin in the mobile client. Keep their
+      // authored registration and adapt the viewport to OL's portrait clip.
+      const size = width + '/' + height;
+      if (seatSize !== size) {
+        seatPlacement = planSeat(width, height);
+        seatSize = size;
+      }
+      if (!seatPlacement) return;
+      const { x: centerX, y: centerY, scale } = seatPlacement;
+      positionLayers(x + width / 2 - centerX * scale, y + height / 2 - centerY * scale, scale);
       return height * seatOverflowRatio;
     }
     return { actor, dispose, effects, playEffect, fit, stopEffect: () => effect?.finish(false),
-      fitBackground(x, y, width, height) {
-        const { frame } = layers[0];
-        const scale = Math.max(width / frame.width, height / frame.height);
-        positionLayers(x + (width - frame.width * scale) / 2 - frame.x * scale,
-          y + (height - frame.height * scale) / 2 - frame.y * scale, scale);
-      },
-      setPlaying(value) {
-        for (const layer of layers) if (layer.duration) {
-          if (value) { layer.actor.timeKeeper?.update(); layer.actor.resume(); }
-          else layer.actor.paused();
-        }
-      },
+      setSmoothIdle: setCharacterRate && (smooth => { smoothIdle = smooth; syncIdleRate(); }),
+      setPlaying,
       renderOverhang(context) {
         // Keep in-seat effects out of the narrow idle overhang.
         if (effect || disposed) return;

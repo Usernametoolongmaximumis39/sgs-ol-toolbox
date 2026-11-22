@@ -6,7 +6,8 @@ import { JSDOM } from 'jsdom';
 import { ResourceScope } from '../src/core/resources.js';
 import { Settings } from '../src/core/storage.js';
 import { ThemeRegistry } from '../src/core/themes.js';
-import { definitions, evaluate, projectAchievements } from '../src/plugins/baisheng/model.js';
+import { definitions, evaluate } from '../src/plugins/baisheng/model.js';
+import { projectAchievementReply } from '../src/core/native-achievements.js';
 import { createController as achievements, activate as activateAchievements } from '../src/plugins/baisheng/index.js';
 import { createController as appearances } from '../src/plugins/appearances/index.js';
 import { modeId, statistics, capture } from '../src/plugins/appearances/model.js';
@@ -17,6 +18,7 @@ import { verifyPackage } from '../src/core/packages.js';
 import { eligibleMode, projectSettlement, winSummary, winStatistics, retainedScope } from '../src/plugins/appearances/battle.js';
 import { BACKUP_FORMAT } from '../src/plugins/appearances/controller.js';
 
+const projectAchievements = packet => projectAchievementReply(packet)?.snapshot ?? null;
 const ach = { AchievementAll: { Achievement: [
   { _attributes: { Id: 10, characterId: 1, flags: 2048 }, CriteriaEntry: [{ _attributes: { Id: 100, count: 40 } }, { _attributes: { Id: 101, count: 60 } }] },
   { _attributes: { Id: 11, characterId: 2, flags: 2048 }, CriteriaEntry: { _attributes: { Id: 102, count: 100 } } },
@@ -79,6 +81,42 @@ for (const id of ['baisheng', 'appearances']) test(`${id}: automatic initializat
   f.scope.dispose();
   const disposedCount = loads.length;
   f.account(41); ticks.forEach(fn => fn()); await flush(); assert.equal(loads.length, disposedCount);
+});
+
+test('百胜与盖主的同账号战功查询共用请求和回包', async t => {
+  const f = fixture(t, 'baisheng'), secondScope = new ResourceScope();
+  t.after(() => secondScope.dispose());
+  const first = f.ctx.native.achievements;
+  const second = createPluginNative({ ...f.ctx, scope: secondScope }).achievements;
+  const received = [], strict = [];
+  first.subscribe((snapshot, id) => received.push([snapshot, id]));
+  second.subscribe((snapshot, id) => strict.push([snapshot, id]), undefined, { strict: true });
+  const request = first.query();
+  assert.equal(second.query(), request);
+  assert.deepEqual(f.requests, [['甲', 0]]);
+  const reply = (NickName, detailInfo = 12) => ({ requestType: 0, NickName, Achs: [{ id: 100, type: 2, detailInfo }] });
+  f.proxy.event('ClientDbsGetuserachinfoRep', reply('别人'));
+  await flush();
+  assert.equal(received.length, 0);
+  f.proxy.event('ClientDbsGetuserachinfoRep', reply('甲'));
+  await flush();
+  assert.equal(received[0][1], request);
+  assert.strictEqual(received[0][0], strict[0][0]);
+  assert.equal(received[0][0].progress[100], 12);
+
+  const old = first.query();
+  f.proxy.event('ClientDbsGetuserachinfoRep', reply('甲'));
+  f.account(42);
+  const current = second.query();
+  assert.notEqual(current, old);
+  assert.deepEqual(f.requests, [['甲', 0], ['甲', 0], ['乙', 0]]);
+  await flush();
+  assert.equal(received.length, 1);
+  secondScope.dispose();
+  f.proxy.event('ClientDbsGetuserachinfoRep', reply('乙', ' '));
+  await flush();
+  assert.equal(received.at(-1)[0].progress[100], 0);
+  assert.equal(strict.length, 1);
 });
 
 test('official achievement projection: request/nickname, flags, multiple criteria and completion time', () => {

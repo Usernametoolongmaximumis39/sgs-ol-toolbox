@@ -4,12 +4,12 @@ import { roomController, roomMode } from './identity.js';
 import { statsMode, hundredRate, ddzRoleRates, currentStreak, rankSummary } from './stats-model.js';
 import { createStatsView } from './stats-view.js';
 
-export function createPlayerStats(ctx, lamps = null) {
+export function createPlayerStats(ctx, lamps = null, refresh) {
   const view = createStatsView(ctx);
   let generation = 0, identity = '', requests = new Map(), ranks = new Map(), records = new Map(), proxy = null, release = () => {}, nextSend = 0;
-  let config = null, configRequested = false;
+  let config = null, configRequested = false, requestQueued = false;
   const getManager = () => ctx.native.manager('UserInfoManger', 'ClientGameRecordInfoRep', m => typeof m.SendClientGameRecordInfoReq === 'function');
-  function clear() { generation++; requests.clear(); ranks.clear(); records.clear(); view.clear(); identity = ''; release(); proxy = null; }
+  function clear() { generation++; requests.clear(); ranks.clear(); records.clear(); view.clear(); identity = ''; release(); proxy = null; requestQueued = false; }
   ctx.scope.add(clear);
   function bind() {
     const p = read(() => ctx.game.getServerProxy()); if (p === proxy) return;
@@ -26,7 +26,7 @@ export function createPlayerStats(ctx, lamps = null) {
         maxLevel: { level: read(() => record.maxLevel.level), star: read(() => record.maxLevel.star) },
       } } };
       const token = generation;
-      ctx.scope.timeout(() => { if (generation === token && !ctx.scope.signal.aborted) ranks.set(name, value); }, 0);
+      ctx.scope.timeout(() => { if (generation === token && !ctx.scope.signal.aborted) { ranks.set(name, value); refresh?.(); } }, 0);
     };
     p.on('ClientTTRankInfoRep', owner, accept);
     const acceptRecords = packet => {
@@ -36,13 +36,25 @@ export function createPlayerStats(ctx, lamps = null) {
       if (!requests.has(key) || !Array.isArray(rows) || rows.length > 100) return;
       const value = rows.map(r => ({ GameOverTime: read(() => r.GameOverTime), GameResult: read(() => r.GameResult) }));
       const token = generation;
-      ctx.scope.timeout(() => { if (generation === token && !ctx.scope.signal.aborted) records.set(key, value); }, 0);
+      ctx.scope.timeout(() => { if (generation === token && !ctx.scope.signal.aborted) { records.set(key, value); refresh?.(); } }, 0);
     };
     p.on('ClientGameRecordInfoRep', owner, acceptRecords);
     release = ctx.scope.add(() => { p.off('ClientTTRankInfoRep', owner, accept); p.off('ClientGameRecordInfoRep', owner, acceptRecords); });
   }
   function request(key, action) {
-    if (requests.has(key) || Date.now() < nextSend) return;
+    if (requests.has(key)) return;
+    const delay = nextSend - Date.now();
+    if (delay > 0) {
+      if (refresh && !requestQueued) {
+        requestQueued = true;
+        const token = generation;
+        ctx.scope.timeout(() => {
+          if (token !== generation) return;
+          requestQueued = false; refresh();
+        }, delay);
+      }
+      return;
+    }
     requests.set(key, true); nextSend = Date.now() + 400;
     try { action(); } catch (e) { requests.set(key, String(e?.message || e)); }
   }

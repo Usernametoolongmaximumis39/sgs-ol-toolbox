@@ -5,29 +5,39 @@ import { createHash } from 'node:crypto';
 import { build } from 'esbuild';
 import { bundleCore, configuredUpdateMirror } from './distribution-build.mjs';
 import { validateRepositoryPlugins } from './plugin-validation.mjs';
-import { pluginReleases, makePluginPackage } from './plugin-packages.mjs';
+import { fullBundledPackages, makePluginPackage } from './plugin-packages.mjs';
 import { CORE_VERSION } from '../src/core/version.js';
 import { zipFiles } from './microclient-zip.mjs';
 
 export async function buildMicroclientHost(root) {
-  const security = await build({ absWorkingDir: root, stdin: {
-    contents: `export { toolboxDownloadRequest, mobileSkinPartialLength } from './src/core/mobile-skin-download.js';
-      export { privateHttpRequest, PRIVATE_HTTP_LIMIT, PRIVATE_HTTP_TIMEOUT } from './src/shared/private-sync-http.js';`, resolveDir: root,
-  }, bundle: true, format: 'iife', target: 'node12', globalName: 'MobileSkinSecurity', write: false });
-  const host = await readFile(resolve(root, 'microclient/host.cjs'), 'utf8');
+  const [security, accounts, host] = await Promise.all([
+    build({ absWorkingDir: root, stdin: {
+      contents: `export { toolboxDownloadRequest, mobileSkinPartialLength } from './src/core/mobile-skin-download.js';
+        export { privateHttpRequest, PRIVATE_HTTP_LIMIT, PRIVATE_HTTP_TIMEOUT } from './src/shared/private-sync-http.js';`, resolveDir: root,
+    }, bundle: true, format: 'iife', target: 'node12', globalName: 'MobileSkinSecurity', write: false }),
+    build({ absWorkingDir: root, entryPoints: ['microclient/accounts-host.cjs'], bundle: true,
+      platform: 'node', external: ['electron'], format: 'iife', target: 'node12', globalName: 'MicroclientAccounts', write: false }),
+    readFile(resolve(root, 'microclient/host.cjs'), 'utf8')
+  ]);
   const mirror = configuredUpdateMirror();
   const source = mirror ? host.replace('const UPDATE_SOURCES = [', `const UPDATE_SOURCES = [\n  ${JSON.stringify(mirror + '/microclient/')},`) : host;
-  return Buffer.from(source.replace("'use strict';", "'use strict';\n" + security.outputFiles[0].text));
+  return Buffer.from(source.replace("'use strict';", "'use strict';\n" + security.outputFiles[0].text + accounts.outputFiles[0].text));
+}
+
+export async function buildMicroclientPreload(root) {
+  const [preload, accounts] = await Promise.all([
+    readFile(resolve(root, 'microclient/preload.cjs'), 'utf8'),
+    build({ absWorkingDir: root, entryPoints: ['microclient/accounts-guest.cjs'], bundle: true,
+      platform: 'node', external: ['electron'], format: 'iife', target: 'chrome85', write: false })
+  ]);
+  return Buffer.from(preload + '\n' + accounts.outputFiles[0].text);
 }
 
 export async function buildMicroclient({ root = resolve(import.meta.dirname, '..'), out = resolve(root, 'release/microclient'), editions = ['full', 'lite'] } = {}) {
   if (!editions.length || editions.some(edition => !['full', 'lite'].includes(edition))) throw new Error('Microclient builds support full/lite only');
   const { bundles } = await validateRepositoryPlugins({ root });
-  const selected = JSON.parse(await readFile(resolve(root, 'microclient/bundled-plugins.json'), 'utf8'));
-  if (!Array.isArray(selected) || new Set(selected).size !== selected.length || selected.some(id => !pluginReleases.some(spec => spec.id === id))) throw new Error('Invalid microclient Full whitelist');
-  for (const id of selected) for (const dep of bundles.find(b => b.manifest.id === id).manifest.dependencies || []) if (!selected.includes(dep)) throw new Error('Microclient Full dependency must be explicitly selected: ' + dep);
-  const packages = await Promise.all(selected.map(id => makePluginPackage(bundles.find(b => b.manifest.id === id))));
-  const host = await buildMicroclientHost(root), preload = await readFile(resolve(root, 'microclient/preload.cjs'));
+  const packages = await Promise.all(fullBundledPackages(bundles).map(bundle => makePluginPackage(bundle)));
+  const [host, preload] = await Promise.all([buildMicroclientHost(root), buildMicroclientPreload(root)]);
   const readme = await readFile(resolve(root, 'public-docs/microclient/README.txt'), 'utf8').catch(error => {
     if (error.code !== 'ENOENT') throw error;
     return readFile(resolve(root, 'microclient/README.txt'), 'utf8');
@@ -38,7 +48,8 @@ export async function buildMicroclient({ root = resolve(import.meta.dirname, '..
   for (const edition of ['full', 'lite']) {
     built[edition] = await bundleCore({ root, edition, packages, microclient: true });
     built[edition].source = '// 三国杀OL工具箱 · 微端 ' + edition.toUpperCase() + ' · ' + CORE_VERSION + '\n' + built[edition].code;
-    approved.push({ version: CORE_VERSION, edition, toolboxSha256: hash(built[edition].source), hostSha256: hash(host), preloadSha256: hash(preload) });
+    const entry = { version: CORE_VERSION, edition, toolboxSha256: hash(built[edition].source), hostSha256: hash(host), preloadSha256: hash(preload) };
+    if (!approved.some(item => Object.keys(entry).every(key => item[key] === entry[key]))) approved.push(entry);
   }
   const results = {};
   await mkdir(out, { recursive: true });

@@ -82,13 +82,15 @@ export function createGameAdapter(win, scope, mobileSkinPort, { watchScene = tru
   const listeners = new Set();
 
   function walk(predicate, root = read(() => win.Laya.stage)) {
+    const limit = 4000;
     const queue = root ? [root] : [], seen = new Set();
-    for (let i = 0; i < queue.length && i < 4000; i++) {
+    for (let i = 0; i < queue.length; i++) {
       const item = queue[i];
       if (!alive(item) || seen.has(item)) continue;
       seen.add(item);
       if (read(() => predicate(item))) return item;
-      queue.push(...children(item));
+      const nodes = children(item);
+      for (let j = 0; j < nodes.length && queue.length < limit; j++) queue.push(nodes[j]);
     }
     return null;
   }

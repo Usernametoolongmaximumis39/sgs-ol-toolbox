@@ -6,20 +6,18 @@ import { createNativeTheme } from '../ui/native-theme.js';
 import { normalizePanel, comparePluginOrder } from './plugin-contract.js';
 import { createPluginNative } from './plugin-native.js';
 
+const replayYield = () => new Promise(resolve => setTimeout(resolve, 0));
+const receivesEvent = (slot, type) => !slot.journalEvents || slot.journalEvents.has(type) ||
+  type === 'MsgGamePlayCardNtf' || type === 'toolbox:gap';
+
 export class PluginManager {
-  constructor({ journal, store, settings, context, onChange = () => {} }) {
-    Object.assign(this, { journal, store, settings, context, onChange });
+  constructor({ journal, store, settings, context, onChange = () => {}, onReplayGap = () => {} }) {
+    Object.assign(this, { journal, store, settings, context, onChange, onReplayGap });
     this.builtins = new Map(); this.slots = new Map(); this.tail = Promise.resolve(); this.errors = []; this.closed = false;
     this.initializing = true; this.storageError = ''; this.loadIssues = new Map();
     this.priorityPlayActions = new Set();
-    this.unsubscribe = journal.subscribe(event => {
-      let changed = false;
-      for (const slot of this.slots.values()) {
-        try { this.reduce(slot, event); for (const fn of slot.listeners) fn(slot.state, event); }
-        catch (e) { this.runtimeError(slot, e); }
-      }
-      if (changed) this.onChange();
-    });
+    this.eventRoutes = new Map(); this.eventSession = null;
+    this.unsubscribe = journal.subscribe(event => this.dispatch(event));
   }
   serial(fn) { const work = this.tail.catch(() => {}).then(() => { if (this.closed) throw new Error('插件管理器已停止'); if (this.storageError) throw new Error(this.storageError); return fn(); }); this.tail = work; return work; }
   registerBuiltin(module) { validateManifest(module.manifest); this.builtins.set(module.manifest.id, module); }
@@ -27,8 +25,77 @@ export class PluginManager {
     await verifyPackage(pkg);
     this.registerBuiltin({ ...compilePackage(pkg), bundledPackage: pkg, replacesPackageDigests });
   }
-  makeSlot(module, record) { const slot = { module, record, state: module.initialState?.() ?? {}, listeners: new Set(), scope: null, active: false, sessionId: null, cursor: 0, error: '' }; for (const event of this.journal.events) this.reduce(slot, event); return slot; }
-  reduce(slot, event) { if (event.seq <= slot.cursor) return; if (slot.sessionId !== event.sessionId) { slot.state = slot.module.initialState?.() ?? {}; slot.sessionId = event.sessionId; } if (slot.module.reduce) slot.state = slot.module.reduce(slot.state, event); slot.cursor = event.seq; }
+  dispatch(event) {
+    const newSession = this.eventSession !== event.sessionId;
+    this.eventSession = event.sessionId;
+    let slots = this.eventRoutes.get(event.type);
+    if (newSession) slots = this.slots.values();
+    else if (!slots) {
+      slots = [...this.slots.values()].filter(slot => (slot.module.reduce || slot.listeners.size) && receivesEvent(slot, event.type));
+      if (this.eventRoutes.size >= 64) this.eventRoutes.clear();
+      this.eventRoutes.set(event.type, slots);
+    }
+    for (const slot of slots) {
+      if (slot.replaying) continue;
+      try {
+        const deliver = !newSession || receivesEvent(slot, event.type);
+        this.reduce(slot, event, deliver);
+        if (deliver) for (const fn of slot.listeners) fn(slot.state, event);
+      } catch (error) { this.runtimeError(slot, error); }
+    }
+  }
+  makeSlot(module, record, previous) {
+    return { module, record, state: previous ? previous.state : module.initialState?.() ?? {},
+      listeners: new Set(), scope: null, active: false, sessionId: previous?.sessionId ?? null,
+      cursor: previous?.cursor ?? 0, error: '', journalEvents: module.manifest.journalEvents ? new Set(module.manifest.journalEvents) : null };
+  }
+  reduce(slot, event, deliver = receivesEvent(slot, event.type)) {
+    if (event.seq <= slot.cursor) return;
+    slot.reduceFailed = true;
+    if (slot.sessionId !== event.sessionId) {
+      slot.state = slot.module.initialState?.() ?? {}; slot.sessionId = event.sessionId;
+    }
+    if (deliver && slot.module.reduce) slot.state = slot.module.reduce(slot.state, event);
+    slot.cursor = event.seq; slot.reduceFailed = false;
+  }
+  markLiveCoverage(slot) {
+    if (slot && !slot.reduceFailed && slot.sessionId === this.eventSession && Number.isInteger(this.journal.seq)) {
+      // The router deliberately skipped unrequested events while this slot was installed.
+      slot.cursor = this.journal.seq;
+    }
+  }
+  replay(slot, bounded = false) {
+    const { journal } = this;
+    if (slot.cursor >= journal.seq) return false;
+    if (!slot.module.reduce && Number.isInteger(journal.seq)) {
+      if (slot.sessionId !== journal.sessionId) slot.state = slot.module.initialState?.() ?? {};
+      slot.sessionId = journal.sessionId; slot.cursor = journal.seq;
+      return false;
+    }
+    const events = journal.replayAfter ? journal.replayAfter(slot.cursor) : journal.events;
+    const started = bounded ? performance.now() : 0;
+    let count = 0;
+    for (const event of events) {
+      if (event.type === 'toolbox:gap' && event.payload?.replayOnly === true) slot.replayGap = true;
+      this.reduce(slot, event);
+      if (bounded && (++count >= 64 || performance.now() - started >= 4)) return slot.cursor < journal.seq;
+    }
+    return false;
+  }
+  async catchUp(slot) {
+    while (!this.closed && this.replay(slot, true)) await replayYield();
+  }
+  requestReplaySnapshot(slot) {
+    if (!slot.replayGap) return;
+    slot.replayGap = false;
+    if (receivesEvent(slot, 'toolbox:snapshot')) this.onReplayGap();
+  }
+  attachSlot(id, slot) {
+    // Pick up events delivered between the last replay slice and this continuation.
+    this.replay(slot);
+    this.slots.set(id, slot); this.eventRoutes.clear();
+    this.requestReplaySnapshot(slot);
+  }
   dependencyError(message) { return Object.assign(new Error(message), { dependency: true }); }
   assertGraph(module, path = []) {
     const id = module.manifest.id;
@@ -67,7 +134,14 @@ export class PluginManager {
     void this.serial(async () => {
       if (this.slots.get(slot.module.manifest.id) !== slot || slot.scope !== scope || !slot.record.enabled) { slot.recovering = false; return; }
       this.deactivate(slot); slot.error = '';
-      try { for (const event of this.journal.events) this.reduce(slot, event); await this.activate(slot); slot.error = slot.reportedError || ''; }
+      try {
+        this.markLiveCoverage(slot);
+        slot.replaying = true;
+        try { await this.catchUp(slot); if (!this.closed) this.replay(slot); }
+        finally { slot.replaying = false; }
+        this.requestReplaySnapshot(slot);
+        await this.activate(slot); slot.error = slot.reportedError || '';
+      }
       catch (e) { slot.error = `自动重启失败：${String(e?.stack || e)}\n首次错误：${message}`; }
       slot.recovering = false;
       if (slot.error) this.context.notify?.(`插件 ${slot.module.manifest.name} 自动重启后仍有错误，请查看详情。`);
@@ -103,7 +177,12 @@ export class PluginManager {
     const ctx = { ...context, ...(id === 'appearances' && devAppearanceSync ? { devAppearanceSync } : {}),
       ...(id === 'ledger' && devLedgerSync ? { devLedgerSync } : {}),
       scope, settings: this.settings.namespace(id), storage: this.settings.namespace(id), getState: () => slot.state,
-      subscribe: fn => { slot.listeners.add(fn); const off = () => slot.listeners.delete(fn); scope.add(off); return off; },
+      subscribe: fn => {
+        if (!slot.listeners.size) this.eventRoutes.clear();
+        slot.listeners.add(fn);
+        const off = () => { if (slot.listeners.delete(fn) && !slot.listeners.size) this.eventRoutes.clear(); };
+        scope.add(off); return off;
+      },
       playActions: {
         registerPriority: fn => {
           const action = (scene, self) => {
@@ -158,13 +237,15 @@ export class PluginManager {
           const animated = this.settings.namespace('backgrounds').get('animated', true) !== false;
           return context.backgrounds.selectLocal('backgrounds', file, { skinKey, skinMotion, animated, isCurrent });
         },
-        registerSkinMotion: load => {
-          if (id === 'skins' && !scope.closed) return scope.add(context.backgrounds?.registerSkinMotion?.(load));
+        registerSkinMotion: (load, options) => {
+          if (id === 'skins' && !scope.closed) return scope.add(context.backgrounds?.registerSkinMotion?.(load, options));
         },
         register: () => scope.closed ? () => {} : scope.add(this.context.backgrounds.register(id)),
         select: spec => { if (!scope.closed) this.context.backgrounds.select(id, spec); },
         setAttackEffects: enabled => { if (!scope.closed) this.context.backgrounds.setAttackEffects(id, enabled); },
         setAnimated: enabled => { if (!scope.closed) this.context.backgrounds.setAnimated(id, enabled); },
+        setSkinQuality: quality => { if (!scope.closed) this.context.backgrounds.setSkinQuality(id, quality); },
+        get skinQualityAvailable() { return !scope.closed && thisContext.backgrounds.skinQualityAvailable === true; },
         selectLocal: file => { if (!scope.closed) return this.context.backgrounds.selectLocal(id, file); },
         subscribe: fn => scope.closed ? () => {} : scope.add(this.context.backgrounds.subscribe(fn)),
         get current() { return thisContext.backgrounds.current; },
@@ -259,7 +340,10 @@ export class PluginManager {
         catch (error) { this.errors.push(`${id}: 插件独立保存失败，切换轻量版前请修复存储：${error.message}`); }
       }
       if (this.closed) return;
-      const slot = this.makeSlot(module, record); this.slots.set(id, slot);
+      const slot = this.makeSlot(module, record);
+      await this.catchUp(slot);
+      if (this.closed) return;
+      this.attachSlot(id, slot);
     }
     // Resolve dependencies only after all installed modules have been registered.
     for (const [id, slot] of this.slots) {
@@ -273,11 +357,14 @@ export class PluginManager {
             const fallback = alt.builtin ? this.builtins.get(id) : (await verifyPackage(alt), compilePackage(alt));
             if (!fallback) continue;
             const fallbackRecord = { ...record, active: alt.builtin ? fallback.bundledPackage || null : alt, previous: null };
-            const fallbackSlot = this.makeSlot(fallback, fallbackRecord); this.slots.set(id, fallbackSlot);
+            const fallbackSlot = this.makeSlot(fallback, fallbackRecord);
+            await this.catchUp(fallbackSlot);
+            if (this.closed) return;
+            this.attachSlot(id, fallbackSlot);
             await this.activate(fallbackSlot); await this.store.put(fallbackRecord); recovered = true; break;
           } catch { this.deactivate(this.slots.get(id)); }
         }
-        if (!recovered) { this.slots.set(id, slot); slot.error = e.message; }
+        if (!recovered) { this.attachSlot(id, slot); slot.error = e.message; }
       } }
     }
   }
@@ -294,7 +381,11 @@ export class PluginManager {
     try { this.assertGraph(module); } finally { if (old) this.slots.set(id, old); else this.slots.delete(id); }
     const previous = old ? old.record.active || { builtin: true } : saved?.active || saved?.previous || null;
     const record = { id, enabled: saved?.enabled ?? true, uninstalled: false, active: pkg, previous: previousOverride ?? previous, appliedBuiltinMigrations: saved?.appliedBuiltinMigrations || [] };
-    const candidate = this.makeSlot(module, record);
+    this.markLiveCoverage(old);
+    const candidate = this.makeSlot(module, record, old?.module === module ? old : undefined);
+    if (old?.module !== module) await this.catchUp(candidate);
+    if (this.closed) throw new Error('插件安装已取消');
+    this.replay(candidate);
     // Download, verification, compilation, graph checks and state construction
     // have already succeeded. Pause only runtime resources, never saved choices.
     const dependents = old && restartDependents ? this.enabledDependents(id) : [];
@@ -302,16 +393,23 @@ export class PluginManager {
     let updateError;
     const recoveryErrors = [];
     try {
-      if (old) this.deactivate(old);
+      if (old) { this.markLiveCoverage(old); this.deactivate(old); }
       if (restartDependents) candidate.maintenance = 'updating';
-      this.slots.set(id, candidate);
-      try { this.onChange(); if (record.enabled) await this.activate(candidate); if (this.closed) throw new Error('插件安装已取消'); await this.store.put(record); this.loadIssues.delete(id); }
+      try {
+        this.attachSlot(id, candidate); this.onChange();
+        if (record.enabled) await this.activate(candidate);
+        if (this.closed) throw new Error('插件安装已取消');
+        await this.store.put(record); this.loadIssues.delete(id);
+      }
       catch (error) {
-        this.deactivate(candidate); this.slots.delete(id);
+        this.deactivate(candidate); this.slots.delete(id); this.eventRoutes.clear();
         if (old && !this.closed) {
-          const restored = this.makeSlot(old.module, old.record); restored.maintenance = candidate.maintenance;
-          this.slots.set(id, restored);
-          if (old.record.enabled) { try { await this.activate(restored); } catch (e) { restored.error = e.message; } }
+          old.maintenance = candidate.maintenance; old.restartUsed = false; old.error = '';
+          await this.catchUp(old);
+          if (!this.closed) {
+            this.attachSlot(id, old);
+            if (old.record.enabled) { try { await this.activate(old); } catch (e) { old.error = e.message; } }
+          }
         }
         throw error;
       }
@@ -369,7 +467,7 @@ export class PluginManager {
     return this.swap(id, slot.module, slot.record.active, slot.record.previous);
   }); }
   rollback(id) { return this.serial(async () => { const slot = this.slots.get(id), previous = slot?.record.previous; if (!previous) throw new Error('没有可回退版本'); const module = previous.builtin ? this.builtins.get(id) : (await verifyPackage(previous), compilePackage(previous)); if (!module) throw new Error('内置版本不存在'); return this.swap(id, module, previous.builtin ? module.bundledPackage || null : previous); }); }
-  uninstall(id) { return this.serial(async () => { this.assertUnused(id); await this.store.put({ id, uninstalled: true, enabled: false, active: null, previous: null }); const slot = this.slots.get(id); if (slot) this.deactivate(slot); this.slots.delete(id); this.loadIssues.delete(id); this.onChange(); }); }
+  uninstall(id) { return this.serial(async () => { this.assertUnused(id); await this.store.put({ id, uninstalled: true, enabled: false, active: null, previous: null }); const slot = this.slots.get(id); if (slot) this.deactivate(slot); this.slots.delete(id); this.eventRoutes.clear(); this.loadIssues.delete(id); this.onChange(); }); }
   restoreBuiltin(id) { return this.serial(async () => { const module = this.builtins.get(id); if (!module) throw new Error('没有此内置插件'); return this.swap(id, module, module.bundledPackage || null); }); }
-  dispose() { this.closed = true; this.unsubscribe(); for (const slot of [...this.slots.values()].reverse()) this.deactivate(slot); }
+  dispose() { this.closed = true; this.unsubscribe(); for (const slot of [...this.slots.values()].reverse()) this.deactivate(slot); this.eventRoutes.clear(); }
 }

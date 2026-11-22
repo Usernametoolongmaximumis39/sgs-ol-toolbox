@@ -4,11 +4,25 @@ import { realpath } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 import { packageDigest, PACKAGE_FORMAT, validateManifest } from '../src/core/packages.js';
 import { pluginReleases } from './plugin-releases.mjs';
+import fullPluginIds from '../microclient/bundled-plugins.json' with { type: 'json' };
 
 export { pluginReleases };
 
 export function fullBundledPackages(packages) {
-  return packages.filter(pkg => !pluginReleases.some(spec => spec.id === pkg.manifest.id && (spec.localOnly || spec.excludeFromFull)));
+  const selected = new Set(fullPluginIds);
+  const official = new Set(pluginReleases.filter(spec => !spec.localOnly && !spec.excludeFromFull).map(spec => spec.id));
+  if (selected.size !== fullPluginIds.length || fullPluginIds.some(id => !official.has(id))) {
+    throw new Error('Full 随附名单含重复或不可随附的插件');
+  }
+  const available = new Map(packages.map(pkg => [pkg.manifest.id, pkg]));
+  return fullPluginIds.map(id => {
+    const pkg = available.get(id);
+    if (!pkg) throw new Error('Full 缺少随附插件：' + id);
+    for (const dependency of pkg.manifest.dependencies || []) {
+      if (!selected.has(dependency)) throw new Error(`Full 的 ${id} 缺少显式随附的前置插件：${dependency}`);
+    }
+    return pkg;
+  });
 }
 
 /** Each package is bundled from its own entry. Cross-plugin imports are a build error. */

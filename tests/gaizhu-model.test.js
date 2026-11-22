@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanOptions, definitions, projectAchievements, evaluate, chooseGeneral, bannedGeneral } from '../src/plugins/gaizhu/model.js';
+import { cleanOptions, definitions, evaluate, chooseGeneral, bannedGeneral } from '../src/plugins/gaizhu/model.js';
+import { projectAchievementReply } from '../src/core/native-achievements.js';
+
+function projectAchievements(packet) {
+  const data = projectAchievementReply(packet);
+  if (!data?.forAutomation) return null;
+  if (data.automationError) throw new Error(data.automationError);
+  return data.snapshot;
+}
 
 const definition = (id, characterId, flags = 2048, criteria = [{ Id: id + 1000, count: 100 }]) => ({ Id: id, characterId, flags, CriteriaEntry: criteria });
 const source = rows => ({ AchievementAll: { Achievement: rows } });

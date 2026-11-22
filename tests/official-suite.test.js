@@ -30,4 +30,9 @@ test('Full browser and microclient both include stargazing', () => {
   const bundled = fullBundledPackages(catalog().map(manifest => ({ manifest })));
   assert.ok(bundled.some(pkg => pkg.manifest.id === 'stargazing'));
   assert.ok(microclientFull.includes('stargazing'));
+  assert.deepEqual(bundled.map(pkg => pkg.manifest.id), microclientFull);
+  assert.deepEqual([...microclientFull].sort(), officialPluginIds.filter(id => id !== 'shanhetu-beta').sort());
+  assert.throws(() => fullBundledPackages(catalog().filter(m => m.id !== 'baisheng').map(manifest => ({ manifest }))), /缺少随附插件/);
+  assert.throws(() => fullBundledPackages(catalog().map(manifest => ({ manifest: manifest.id === 'gaizhu'
+    ? { ...manifest, dependencies: ['shanhetu-beta'] } : manifest }))), /缺少显式随附的前置插件/);
 });

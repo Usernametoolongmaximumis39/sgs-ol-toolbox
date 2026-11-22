@@ -2,13 +2,18 @@ import { lampSettings, resolveWatchSettings } from './lamps-model.js';
 
 export function createPlayerSettings(ctx, changed) {
   let value = lampSettings(ctx.storage?.get('settings') || {});
+  let resolvedCatalogue;
   return { get: catalogue => {
-    const next=resolveWatchSettings(value,catalogue);
-    if(JSON.stringify(next)!==JSON.stringify(value))try{ctx.storage?.set('settings',next);value=next;}catch(error){ctx.reportError?.(error);}
+    if (!catalogue?.size || resolvedCatalogue === catalogue) return value;
+    const next = resolveWatchSettings(value, catalogue);
+    try {
+      if (JSON.stringify(next) !== JSON.stringify(value)) { ctx.storage?.set('settings', next); value = next; }
+      resolvedCatalogue = catalogue;
+    } catch (error) { ctx.reportError?.(error); }
     return value;
   }, set(patch) {
     const next = lampSettings({ ...value, ...patch });
-    try { ctx.storage?.set('settings', next); value = next; changed(); }
+    try { ctx.storage?.set('settings', next); value = next; resolvedCatalogue = undefined; changed(); }
     catch (error) { ctx.reportError?.(error); }
   } };
 }

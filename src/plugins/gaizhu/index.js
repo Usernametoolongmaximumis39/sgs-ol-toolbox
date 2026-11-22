@@ -3,9 +3,9 @@ import { durationOf } from './model.js';
 import { createGaiZhu } from './runtime.js';
 
 export const manifest = {
-  id: 'gaizhu', name: '盖主速刷', version: '0.2.10', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "改善单骑续局、挂机中断和大厅状态识别。点将和部分商店操作可能消耗道具或局内货币。",
-  minCoreVersion: '0.6.185', dependencies: ['baisheng'], description: '双人盖主速刷，以及身份、国战、单骑自动挂机。',
+  id: 'gaizhu', name: '盖主速刷', version: '0.2.11', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "同一账号同时使用盖主和百胜时，共用战功查询，避免重复请求。更新插件需要新版工具箱。点将和部分商店操作可能消耗道具或局内货币。",
+  minCoreVersion: '0.6.222', dependencies: ['baisheng'], description: '双人盖主速刷，以及身份、国战、单骑自动挂机。',
   icon: GAIZHU_ICON, priority: 21000, categories: ['automation'],
 };
 

@@ -5,11 +5,12 @@ import { bindPortraitAvatar, bindAvatarSkinTransition, bindSkinPresentation, bin
   bindSkinDebut, clearOriginalRoundEntrance, clearSkinEffects, clearLegacyKillEffects } from './local-presentation.js';
 import { indexFormSkills, indexOfficialFormRules, isRepeatingSkinRule, localSkinForm, skinFormInfo } from './local-forms.js';
 import { createSkinPreviews } from './local-preview.js';
-import { configuredCardSkills, createCrossVoice, isBindableVoice, loadCardSkills, normalizeVoiceOptions,
+import { configuredCardSkills, createCrossVoice, isBindableVoice, loadCardSkills, normalizeMobileVoiceOptions,
   playCrossCard, playCrossDeath, playCrossVoice, voiceBindingsForForm, voiceClipKey } from './cross-voice.js';
 import { createMobileMvpVoice } from './mobile-mvp-voice.js';
 import { loadYjcmWindow } from './yjcm.js';
 import { fitYjcmMotion, playYjcmSeatMotion, yjcmSeatTransform } from './yjcm-motion.js';
+import { createSeatIdleRate } from './seat-idle-rate.js';
 import { allowsSkinEffects, createYjcmEffects, normalizeYjcmEffectBindings, resolveYjcmEffect, skinEffectVolume, yjcmBattleEvents } from './yjcm-effects.js';
 import { createYjcmCatalogue } from './yjcm-catalogue.js';
 import { createMobileCatalogue, loadMobileAudio, loadMobileMotion, loadMobilePreview, resizeMobileArtwork } from './mobile-skins.js';
@@ -19,7 +20,7 @@ import { createPortraitCache } from './portrait-cache.js';
 import { createSeatFormButton } from './seat-form-button.js';
 import { createSeatNameToggle } from './seat-name.js';
 import { createChatRowToggle } from './chat-row.js';
-import { CARD_SKILL_DETAILS, createFormProgress, nativeConversionUpdate, normalizeFormRule } from './form-rules.js';
+import { CARD_SKILL_DETAILS, createFormProgress, defaultCrossFormRules, nativeConversionUpdate, normalizeFormRule } from './form-rules.js';
 
 const imageTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const portraitLayers = ['skinTex', 'skinBigSps', 'spineSkeleon', 'skeleton', 'skeletonBg', 'skeletonTop', 'tempStaticSkin'];
@@ -63,6 +64,7 @@ export function createLocalSkins(ctx) {
   const mobile = createMobileCatalogue(ctx);
   const catalogueFor = kind => kind === 'mobile' ? mobile : yjcm;
   const artworkCache = createPortraitCache(ctx.window, ctx.scope);
+  const seatIdleRate = createSeatIdleRate(ctx.window, ctx.scope);
   const updateSeatFormButton = createSeatFormButton(ctx);
   const updateSeatName = createSeatNameToggle(ctx);
   const updateChatRow = createChatRowToggle(ctx);
@@ -182,9 +184,8 @@ export function createLocalSkins(ctx) {
     if (ctx.settings.get(key, null) !== selection) ctx.settings.set(key, selection);
   }
   function portraitSelection(kind, entry, bindings, startingForm, voiceOptions) {
-    const audio = normalizeVoiceOptions(voiceOptions);
     return { kind, id: entry.id, general: entry.general, bindings, ...(startingForm !== undefined && { form: startingForm }),
-      ...(kind === 'mobile' && (audio.card || audio.victory) && { voiceOptions: audio }) };
+      ...(kind === 'mobile' && { voiceOptions: normalizeMobileVoiceOptions(voiceOptions) }) };
   }
   function rememberYjcm(id, entry, bindings, config, effectConfig, startingForm, voiceOptions) {
     const accountId = ctx.native.account().id;
@@ -192,14 +193,16 @@ export function createLocalSkins(ctx) {
     const kind = crossSkinKind(entry);
     save(id, portraitSelection(kind, entry, bindings, startingForm, voiceOptions), accountId);
     const catalogue = catalogueFor(kind).current;
-    const count = catalogue?.skinForms(entry).length, transitions = catalogue?.skinTransitions?.(entry);
+    const forms = catalogue?.skinForms(entry), transitions = catalogue?.skinTransitions?.(entry);
+    const count = forms?.length;
     if (effectConfig !== undefined) {
       saveEffectBindings(id, entry, normalizeYjcmEffectBindings(effectConfig, kind === 'mobile' ? count : undefined), accountId);
     }
     if (count > 1) {
-      const rule = config === undefined ? formRule(id, kind, entry.id, count, transitions) :
+      const ruleId = forms[0].id;
+      const rule = config === undefined ? formRule(id, kind, ruleId, count, transitions) :
         normalizeFormRule(config, count, transitions, { customTransitions: kind === 'mobile' });
-      saveFormRule(id, kind, entry.id, rule);
+      saveFormRule(id, kind, ruleId, rule);
     }
     if (!setting(ctx, 'crossServer') || artworkCache.get(entry)) return;
     lobbyPreload?.abort();
@@ -635,6 +638,7 @@ export function createLocalSkins(ctx) {
       rememberedAttempts.delete(key);
     }
     if (!sameScene || !sameOwner) {
+      seatIdleRate.reset();
       updateFormObservers([]);
       formUses = new WeakMap();
       useOrder = 0;
@@ -996,14 +1000,16 @@ export function createLocalSkins(ctx) {
     const rulesAvailable = count > 1;
     const rule = !rulesAvailable ? null : config === undefined ?
       formRule(target.id, kind, primary.id, count, transitions) : normalizeFormRule(config, count, transitions, { customTransitions });
-    const progress = count > 1 ? formProgress(target, rule, { count, form: initial, transitions, customTransitions }) : null;
-    const audio = normalizeVoiceOptions(kind === 'mobile' ? voiceOptions : undefined);
+    const useDefaultRules = count === 2 && !rule;
+    const audio = kind === 'mobile' ? normalizeMobileVoiceOptions(voiceOptions) : {};
     const formVoiceBindings = forms.map((form, index) => voiceBindingsForForm(bindings, form, index + 1));
     const hasBindings = formVoiceBindings.some(config => Object.keys(config).length);
     const needsVoiceSkills = hasBindings || (source.current ?? catalogue).hasVoices(entry) || source.needsRefresh;
-    const needsSkillNames = needsVoiceSkills || forms.some(form => form.mobileMotion || form.effects?.actions.length);
-    const skillOptions = { includeDerived: true };
+    const needsSkillNames = useDefaultRules || needsVoiceSkills || forms.some(form => form.mobileMotion || form.effects?.actions.length);
+    const skillOptions = useDefaultRules ? CARD_SKILL_DETAILS : { includeDerived: true };
     let skills = needsSkillNames ? read(() => configuredCardSkills(ctx, target.id, skillOptions)) : null;
+    const makeProgress = (form, defaultRules) => formProgress(target, rule, { count, form, transitions, customTransitions, defaultRules });
+    let progress = rulesAvailable ? makeProgress(initial, useDefaultRules ? defaultCrossFormRules(skills) : undefined) : null;
     const playback = target.isSelf ? selfVoiceHistory.get(target.id) ?? {} : {};
     const voiceFiles = new Map();
     function audible(voice) {
@@ -1163,6 +1169,7 @@ export function createLocalSkins(ctx) {
     if (needsSkillNames && !skills) void loadCardSkills(ctx, target.id, skillOptions).then(result => {
       if (result && active()) {
         skills = result;
+        if (useDefaultRules) choice.progress = progress = makeProgress(progress.current, defaultCrossFormRules(result));
         if (needsVoiceSkills) choice.voice = voiceAt(choice.formControl?.current ?? initial);
       }
     }).catch(() => {});
@@ -1179,6 +1186,7 @@ export function createLocalSkins(ctx) {
     return createPortrait(laya, avatar, source, Boolean(seatBounds) || alignTop, preview,
       target.isSelf ? ctx.game.getScene?.() : null, {
         seatTop: source === image ? seatTop : 0, hasArtworkAbove: source === image && hasArtworkAbove,
+        idleRate: target.isSelf && !target.deputy ? seatIdleRate : undefined,
       });
   }
   function installPortrait(target, image, { loadPreview, voice, ...placement } = {}) {
@@ -1281,7 +1289,8 @@ export function createLocalSkins(ctx) {
   return { yjcm, mobile, refresh, allows, options, select, selectNative, clearNative, hasOwnGeneral, ownPortraitTarget, importPortrait, previewYjcm, applyYjcm, rememberYjcm, has, formRule, officialForms, effectBindings,
     portraitBinding,
     bindings: (target, entry) => portraitBinding(target, crossSkinKind(entry), entry)?.bindings,
-    voiceOptions: (target, entry) => normalizeVoiceOptions(portraitBinding(target, crossSkinKind(entry), entry)?.voiceOptions),
+    voiceOptions: (target, entry) => entry.source === 'mobile' ?
+      normalizeMobileVoiceOptions(portraitBinding(target, 'mobile', entry)?.voiceOptions) : { card: false, victory: false },
     reset(target) {
       target = liveTarget(target);
       cancelRemembered(target);
@@ -1401,17 +1410,17 @@ function portraitFrame(avatar) {
   return { x, y, width, height, fullWidth, fullHeight };
 }
 
-function createPortrait(laya, avatar, image, alignTop, preview, scene, { seatTop, hasArtworkAbove }) {
+function createPortrait(laya, avatar, image, alignTop, preview, scene, { seatTop, hasArtworkAbove, idleRate }) {
   const art = createImageTexture(laya, image);
   const { texture } = art;
   const sourceWidth = texture.width, bodyHeight = texture.height - seatTop;
   let sprite, lastBounds, frameTransform, clipped, motion, motionSpec, motionRequest, activeMotion, overhang, overhangAnchor;
-  let staticDraw;
+  let staticDraw, releaseIdleRate, motionVisible = false;
   let effectHidden = false;
   const layers = hidePortraitLayers(avatar, preview);
   function paintOverhang(context) {
-    if (motion?.renderOverhang) motion.renderOverhang(context);
-    else if (motion) motion.actor.render(context, 0, 0);
+    if (motionVisible && motion.renderOverhang) motion.renderOverhang(context);
+    else if (motionVisible) motion.actor.render(context, 0, 0);
     else context.drawTexture(texture, ...staticDraw);
   }
   function draw() {
@@ -1430,11 +1439,19 @@ function createPortrait(laya, avatar, image, alignTop, preview, scene, { seatTop
     sprite.graphics.clear();
     frameTransform = yjcmSeatTransform(-x, -y, fullWidth, fullHeight);
     clipped = x !== 0 || y !== 0 || width < fullWidth || height < fullHeight;
-    let heightAbove = seatTop * scale;
+    let heightAbove;
     if (motion) {
       heightAbove = motion.fit ? motion.fit(-x, -y, fullWidth, fullHeight)
         : fitYjcmMotion(motion, -x, -y, fullWidth, fullHeight);
-    } else {
+      motionVisible = heightAbove !== undefined;
+      if (motion.actor.visible !== motionVisible) {
+        motion.actor.visible = motionVisible;
+        if (!motionVisible) motion.stopEffect?.();
+        motion.setPlaying?.(motionVisible);
+      }
+    }
+    if (!motionVisible) {
+      heightAbove = seatTop * scale;
       staticDraw = [(fullWidth - imageWidth) / 2 - x, imageY - y - heightAbove, imageWidth, texture.height * scale];
       sprite.graphics.drawTexture(texture, ...staticDraw);
     }
@@ -1447,6 +1464,7 @@ function createPortrait(laya, avatar, image, alignTop, preview, scene, { seatTop
     return true;
   }
   function dispose() {
+    releaseIdleRate?.();
     motionRequest?.abort();
     activeMotion?.abort();
     overhang?.destroy();
@@ -1480,14 +1498,14 @@ function createPortrait(laya, avatar, image, alignTop, preview, scene, { seatTop
     avatar.addChildAt(sprite, 0);
   } catch (error) { dispose(); throw error; }
   return { texture, dispose, get needsChromeClearance() {
-    return !avatar.mask && overhang?.height > 0 && Boolean(motion || hasArtworkAbove);
+    return !avatar.mask && overhang?.height > 0 && Boolean(motionVisible || hasArtworkAbove);
   },
     mobileEffects() { return motion?.effects; },
     stopMobileEffect() { motion?.stopEffect?.(); },
-    playMobileEffect(plan, options) { return motion?.playEffect?.(plan, options) ?? false; },
+    playMobileEffect(plan, options) { return motionVisible && (motion.playEffect?.(plan, options) ?? false); },
     effectAnchor(host) {
     if (sprite.destroyed || !draw()) return;
-    const actor = motion?.actor;
+    const actor = motionVisible ? motion.actor : undefined;
     // Entry clips can start while their idle is loading. Use the same authored card frame in that case.
     const { x, y, scaleX, scaleY } = actor?.parent === sprite ? actor : frameTransform;
     const point = host.globalToLocal(sprite.localToGlobal(new laya.Point(x, y)));
@@ -1512,6 +1530,7 @@ function createPortrait(laya, avatar, image, alignTop, preview, scene, { seatTop
     const controller = motionRequest = new win.AbortController();
     function show(animation) {
       if (sprite.destroyed) { controller.abort(); return; }
+      releaseIdleRate?.();
       const started = activeMotion !== controller;
       if (started) {
         activeMotion?.abort();
@@ -1523,6 +1542,13 @@ function createPortrait(laya, avatar, image, alignTop, preview, scene, { seatTop
       motion = animation;
       lastBounds = null;
       refresh();
+      releaseIdleRate = idleRate?.watch(animation.setSmoothIdle, () =>
+        animation.actor.parent === sprite && animation.actor.visible && sprite.visible &&
+        sprite.displayedInStage && sprite.realVisible !== false);
+      if (started && idleRate) controller.signal.addEventListener('abort', () => {
+        releaseIdleRate?.();
+        releaseIdleRate = undefined;
+      }, { once: true });
       if (started) onStarted?.();
     }
     const loading = entry.mobileMotion ? loadMobileMotion(win, entry, controller.signal).then(animation => {

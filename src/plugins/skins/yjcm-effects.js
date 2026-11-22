@@ -1,6 +1,6 @@
 import { read } from './native-model.js';
 import { yjcmEffectSoundFile, yjcmSkillName } from './yjcm-effect-data.js';
-import { loadYjcmEffectTemplate } from './yjcm-motion.js';
+import { createEffectArmature, loadYjcmEffectTemplate } from './yjcm-motion.js';
 
 const SLASH = 1, DODGE = 2;
 const slashNames = new Set(['杀', '火杀', '雷杀', '冰杀']);
@@ -250,14 +250,10 @@ export function createYjcmEffects(ctx, target, active) {
       if (!asset || disposed) return;
       let actor;
       try {
-        actor = asset.template.buildArmature(asset.spine ? undefined : 2);
-        const count = actor.getAnimNum();
-        const index = clip.name === 0 ? 0
-          : Array.from({ length: count }, (_, i) => actor.getAniNameByIndex(i)).indexOf(clip.name);
-        if (index < 0 || index >= count) {
-          actor.destroy(true);
-          return;
-        }
+        const armature = createEffectArmature(asset, clip.name);
+        if (!armature) return;
+        const { index } = armature;
+        actor = armature.actor;
         actor.mouseEnabled = false;
         actor.pos(position.x, position.y);
         const scaleX = position.scaleX ?? position.scale;

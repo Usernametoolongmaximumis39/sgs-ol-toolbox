@@ -1,4 +1,5 @@
 import { read } from './native-model.js';
+import { isAwakeningSkill } from './local-forms.js';
 
 export const NATIVE_VOICE = 'native';
 export const DEATH_VOICE = -1;
@@ -34,8 +35,8 @@ function skillVoicesByName(voices) {
   return byName;
 }
 
-export function normalizeVoiceOptions(options) {
-  return { card: options?.card === true, victory: options?.victory === true };
+export function normalizeMobileVoiceOptions(options) {
+  return { card: options?.card !== false, victory: options?.victory !== false };
 }
 
 export function skinVoiceFormKey(entry, form) {
@@ -93,8 +94,10 @@ export function configuredCardSkills(ctx, id, { includeDerived = false, includeD
     const skill = { id, name };
     if (includeDetails) {
       skill.derived = !baseIds.has(id);
+      const types = String(spell.type ?? spell[typeField] ?? '').split(',').map(Number);
+      skill.awakening = isAwakeningSkill(types);
       // The client uses server skill type 13 for conversion skills.
-      skill.conversion = String(spell.type ?? spell[typeField] ?? '').split(',').some(type => Number(type) === 13);
+      skill.conversion = types.includes(13);
     }
     return [skill];
   });

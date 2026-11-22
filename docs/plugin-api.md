@@ -156,6 +156,7 @@ export default {
 
 ### 原生对象与消息（核心 0.6.185）
 
+- 核心 0.6.222 起，`ctx.native.achievements` 为百胜和盖主提供当前账号的战功查询。先调用 `subscribe((snapshot, requestId) => {}, onGap, { strict })`，再调用 `query()`。同账号和昵称的未完成查询共享请求编号，接口未就绪时返回 `null`。订阅随插件释放。自动选将使用 `strict: true` 并匹配本轮请求编号，面板可以接收当前账号的完整回包。快照为只读。
 - `ctx.native.account()` 返回当前账号的 `{ id, nickname }`。正在登出或原生登录状态明确为离线时，两个字段都为空字符串。无法取得账号 ID 时，`id` 为空字符串。
 - `ctx.native.manager(className, event, guard)` 依次检查已注册类、已有单例和指定事件的监听者。事件可为名称或数值 ID。提供判断实例是否适用的 `guard(manager)`，查不到时返回 `null`。查找过程不会创建单例或发送请求。
 - `ctx.native.observe(project, consume, gap?, { scope }?)` 观察原生消息。用事件名或 ID 作为 `project` 的键，投影函数同步复制所需字段并可返回 `null` 跳过。核心异步调用 `consume(type, data, account)`，其中 `type` 为字符串。账号不匹配的数据会丢弃。消息缺口通过 `gap(detail)` 报告。返回函数可提前停止观察，插件停用时自动清除，也可提供更短的子作用域。

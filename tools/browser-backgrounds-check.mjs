@@ -8,7 +8,21 @@ import { nativeWallpaperFixture } from './native-wallpaper-fixture.mjs';
 const currentClientPath = process.env.SGS_CURRENT_WALLPAPER_CLIENT;
 const out = path.resolve(currentClientPath ? 'test-results/backgrounds-current-client' : 'test-results/backgrounds');
 await mkdir(out, { recursive: true });
-const bundle = await build({ stdin: { contents: `export { mountPluginUI } from './src/ui/plugin-ui.js'; export { BackgroundRegistry } from './src/core/backgrounds.js'; export { ResourceScope } from './src/core/resources.js'; export { Settings } from './src/core/storage.js'; export { activate } from './src/plugins/backgrounds/index.js'; export { createSkinDownload } from './src/plugins/skins/download.js'; export { advancedSkinOption } from './src/shared/skin-options.js'; export { createYjcmPicker } from './src/plugins/skins/yjcm-picker.js'; export { loadYjcmBackgroundMotion } from './src/plugins/skins/yjcm-motion.js'; export { openNativeSkinWindow } from './src/plugins/skins/native.js'; export { PluginManager } from './src/core/plugins.js'; export { SessionJournal } from './src/core/session.js';`, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'Check' });
+const bundle = await build({ stdin: { contents: `
+  export { mountPluginUI } from './src/ui/plugin-ui.js';
+  export { BackgroundRegistry } from './src/core/backgrounds.js';
+  export { ResourceScope } from './src/core/resources.js';
+  export { Settings } from './src/core/storage.js';
+  export { activate } from './src/plugins/backgrounds/index.js';
+  export { createSkinDownload } from './src/plugins/skins/download.js';
+  export { advancedSkinOption } from './src/shared/skin-options.js';
+  export { createYjcmPicker } from './src/plugins/skins/yjcm-picker.js';
+  export { registerSkinBackgroundMotion } from './src/plugins/skins/background-motion.js';
+  export { attachmentFrame } from './src/plugins/skins/spine-layout.js';
+  export { openNativeSkinWindow } from './src/plugins/skins/native.js';
+  export { PluginManager } from './src/core/plugins.js';
+  export { SessionJournal } from './src/core/session.js';
+`, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'Check' });
 const { nativeClass, nativeMethod } = await nativeWallpaperFixture(currentClientPath);
 const client = currentClientPath
   ? { layer: 'tti', scene: 'nti', resources: 'ZOt', setter: 'tt' }
@@ -147,6 +161,8 @@ try {
     ctx.backgrounds.skinShortcutEnabled = () => Check.advancedSkinOption(skinSettings, 'backgroundShortcut');
     ctx.backgrounds.setAttackEffects = enabled => registry.setAttackEffects('backgrounds', enabled);
     ctx.backgrounds.setAnimated = enabled => registry.setAnimated('backgrounds', enabled);
+    ctx.backgrounds.setSkinQuality = quality => registry.setSkinQuality('backgrounds', quality);
+    Object.defineProperty(ctx.backgrounds, 'skinQualityAvailable', { get: () => registry.skinQualityAvailable });
     Check.activate(ctx); Check.createSkinDownload({ ...ctx, settings: skinSettings });
     const resize = (width, height, stageWidth, stageHeight) => {
       Object.assign(cAt, { gameWidth: width, gameHeight: height });
@@ -524,9 +540,10 @@ try {
       open = Check.createYjcmPicker(ctx, local);
       ctx.skinWindows.register((source, trigger) => source === 'native'
         ? Check.openNativeSkinWindow(ctx) : open({ trigger }, source));
-      ctx.backgrounds.registerSkinMotion(key => {
+      ctx.backgrounds.registerSkinMotion((key, _signal, { quality }) => {
         const actor = new Laya.Sprite();
         actor.name = 'fixture-idle';
+        actor.quality = quality;
         let frame = 0, width, height;
         const repaint = () => {
           actor.graphics.clear();
@@ -538,7 +555,7 @@ try {
           setPlaying(value) { motionEvents.push([key, value]); if (value) Laya.timer.loop(35, actor, repaint); else Laya.timer.clearAll(actor); },
           dispose() { Laya.timer.clearAll(actor); actor.destroy(true); },
         };
-      });
+      }, { quality: true });
     } }, { enabled: true });
     manager.slots.set('skins', slot);
     await manager.activate(slot);
@@ -641,6 +658,19 @@ try {
   assert.equal(await page.evaluate(() => fixture.native.bg.visible), true, 'skills restore the native picture layer');
   await page.evaluate(() => fixture.scene.OnNormalWallPaperChange());
   await page.waitForFunction(() => fixture.skinShortcut.motionEvents.at(-1)[1] === true);
+  const qualityGroup = page.getByRole('group', { name: '背景画质' });
+  const highQuality = qualityGroup.getByRole('button', { name: '高', exact: true });
+  const lowQuality = qualityGroup.getByRole('button', { name: '低', exact: true });
+  assert.equal(await highQuality.getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.evaluate(() => fixture.previousMotion.getChildByName('fixture-idle').quality), 'high');
+  await page.evaluate(() => fixture.scene.SetWallPaperByUrl('res/skill.png'));
+  await lowQuality.focus(); await page.keyboard.press('Enter');
+  assert.equal(await lowQuality.getAttribute('aria-pressed'), 'true');
+  assert.ok(await page.evaluate(() => fixture.previousMotion.destroyed && fixture.native.bg.skin === 'res/skill.png'));
+  await page.evaluate(() => fixture.scene.OnNormalWallPaperChange());
+  await page.waitForFunction(() => fixture.native.getChildByName('sgs-background-motion')?.getChildByName('fixture-idle')?.quality === 'low' &&
+    !fixture.native.bg.visible);
+  assert.equal(await page.evaluate(() => fixture.registry.current.localImageId), importedCross.localImageId);
 
   importedDialog = await selectSkin('mobile');
   await page.waitForFunction(() => fixture.skinShortcut.landscapePending());
@@ -664,9 +694,43 @@ try {
   await page.waitForFunction(() => fixture.registry.status === '动态牌局背景已启用');
   assert.match(await page.evaluate(() => fixture.registry.current.name), /#1#2$/);
   assert.equal(await page.evaluate(() => fixture.native.bg.visible), false);
+  assert.equal(await page.evaluate(() => fixture.native.getChildByName('sgs-background-motion').getChildByName('fixture-idle').quality), 'low');
   assert.equal(await readSaved(importedCross.localImageId), false);
   await importedDialog.getByRole('button', { name: '关闭' }).click();
   await page.getByRole('button', { name: '静态', exact: true }).click();
+
+  const qualityPanel = page.locator('#panel');
+  for (const [width, font, light, viewport] of [
+    [248, 2, false, { width: 800, height: 540 }],
+    [280, 0, false, { width: 1024, height: 768 }],
+    [420, -1, true, { width: 768, height: 1024 }],
+    [420, -2, false, { width: 800, height: 540 }],
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.mouse.move(viewport.width - 5, viewport.height - 5);
+    const original = await qualityPanel.evaluate((node, { width, font, light }) => {
+      const previous = node.style.cssText;
+      node.style.cssText += `;top:12px;width:${width}px;--sgs-font-offset:${font}px`;
+      node.style.cssText += light
+        ? ';background:#f7f3e8;--sgs-surface:#f2e9d6;--sgs-text:#30291e;--sgs-muted:#615747;--sgs-accent:#805714;--sgs-border:#b9ab90'
+        : ';background:#24241f;--sgs-surface:#29271f;--sgs-text:#eee3cc;--sgs-muted:#b7aa8c;--sgs-accent:#dbba70;--sgs-border:#665b42';
+      return previous;
+    }, { width, font, light });
+    const layout = await qualityGroup.evaluate(group => {
+      const row = group.parentElement, label = row.firstElementChild;
+      const text = document.createRange(); text.selectNode(label.firstChild);
+      const caption = text.getBoundingClientRect(), tip = label.querySelector('button').getBoundingClientRect();
+      const prior = row.previousElementSibling.lastElementChild.getBoundingClientRect();
+      const segments = group.getBoundingClientRect();
+      return { tipGap: tip.left - caption.right, centerDelta: tip.y + tip.height / 2 - caption.y - caption.height / 2,
+        clip: row.scrollWidth - row.clientWidth, aligned: Math.abs(prior.left - segments.left) < 1,
+        segmentSizes: [...group.children].map(button => button.getBoundingClientRect().width) };
+    });
+    assert.ok(layout.tipGap >= 4 && layout.tipGap <= 8 && Math.abs(layout.centerDelta) < 3 &&
+      layout.clip <= 1 && layout.aligned && layout.segmentSizes.every(size => size >= 44), JSON.stringify(layout));
+    await qualityPanel.screenshot({ path: path.join(out, `background-quality-${width}-${font}.png`) });
+    await qualityPanel.evaluate((node, style) => { node.style.cssText = style; }, original);
+  }
   await page.waitForFunction(() => fixture.registry.status === '静态牌局背景已启用');
   const importedMobile = await page.evaluate(() => fixture.registry.current);
   assert.equal(importedMobile.animated, false);
@@ -698,19 +762,38 @@ try {
   await mount();
   await page.waitForFunction(() => fixture.registry.status === '静态牌局背景已启用');
   assert.deepEqual(await page.evaluate(() => fixture.registry.current), importedMobile);
+  assert.equal(await page.evaluate(() => fixture.settings.get('skinQuality')), 'low');
   await page.getByRole('button',{name:'恢复游戏背景'}).click();
   assert.equal(await readSaved(importedMobile.localImageId), false);
 
   if (process.env.SGS_BACKGROUND_OFFICIAL_REPLAY === '1') {
+    const officialOutput = path.join(out, 'cross-server-framing');
+    await mkdir(officialOutput, { recursive: true });
+    const mobileFixtures = process.env.SGS_BACKGROUND_MOBILE_FIXTURES;
     const sources = new Map([
       ['8123801', { folder: 'ren-wan', still: '6123801', name: '春宵彩翼' }],
       ['8110801', { folder: 'official-yjcm', still: '6110801', name: '玉妃琼华' }],
     ]);
+    const mobileSources = new Map(mobileFixtures ? [
+      ['55204', { name: '杜预 · 弼朝博虬', zip: '55204_2.zip', scale: .58, offsetX: -78.87, offsetY: -135.77, rotation: 0, face: 'tou' }],
+      ['55204#1', { name: '杜预 · 弼朝博虬 · 第二形态', zip: '55204_2.zip', scale: .55, offsetX: -77.87, offsetY: -153.76, rotation: 0, face: 'tou' }],
+      ['80602#1', { name: '司马昭 · 昭威淮南 · 第二形态', zip: '80602_1.zip', scale: .69, offsetX: -121.871, offsetY: -169.078, rotation: -24, face: 'tou' }],
+      ['58003#1', { name: '文鸯 · 破宇开天 · 第二形态', zip: '58003_2.zip', scale: .56, offsetX: -94.51, offsetY: -77.22, rotation: 0, lowFallback: true }],
+    ] : []);
     await page.route('https://backgrounds.fixture/official/*.png', route => {
       const id = path.basename(new URL(route.request().url()).pathname, '.png');
       const asset = sources.get(id);
       return route.fulfill({ path: `test-results/backgrounds/${asset.folder}/maxBig-${asset.still}.png`, contentType: 'image/png' });
     });
+    if (mobileFixtures) {
+      const archives = new Set([...mobileSources.values()].map(asset => asset.zip));
+      await page.route('https://backgrounds.fixture/mobile/*', route => {
+        const file = decodeURIComponent(new URL(route.request().url()).pathname.split('/').at(-1));
+        const variant = file.replace(/-horizon\.jpg$/, '');
+        if (!archives.has(file) && !mobileSources.has(variant)) return route.abort();
+        return route.fulfill({ path: path.join(mobileFixtures, file) });
+      });
+    }
     await page.route('https://web.sanguosha.com/x/pc/res/assets/runtime/general/big/dynamic/*/*', route => {
       const [id, file] = new URL(route.request().url()).pathname.split('/').slice(-2);
       const asset = sources.get(id);
@@ -722,35 +805,115 @@ try {
     for (const script of ['laya.ani.min.js', 'spine-core-4.0.min.js', 'laya.spine.min.js']) {
       await page.addScriptTag({ path: `C:/Users/Admin/AppData/Local/Temp/sgsres/game/${script}` });
     }
-    await page.evaluate(() => {
+    await page.setViewportSize({ width: 1200, height: 675 });
+    await page.evaluate(({ yjcm, mobile }) => {
       fixture.settings.set('animated', true);
+      localStorage.removeItem(fixture.settings.prefix + 'skinQuality');
       fixture.detail.visible = false;
       fixture.special.visible = false;
       document.querySelector('#panel').style.visibility = 'hidden';
-      fixture.scope.add(fixture.registry.registerSkinMotion((resource, signal) =>
-        Check.loadYjcmBackgroundMotion(window, { resource, files: ['daiji.skel'] }, signal)));
-    });
-    for (const id of ['8123801', '8110801', '8123801', '8110801']) {
-      const name = sources.get(id).name;
-      await page.evaluate(async ({ id, name }) => {
-        fixture.previousMotion = fixture.native.getChildByName('sgs-background-motion');
-        const blob = await (await fetch(`/official/${id}.png`)).blob();
-        await fixture.registry.selectLocal('backgrounds', new File([blob], name), { skinKey: id, skinMotion: true, animated: true });
-      }, { id, name });
-      await page.waitForFunction(name => fixture.registry.current?.name === name && fixture.registry.status === '动态牌局背景已启用', name);
-      const visible = await page.evaluate(() => {
-        const motion = fixture.native.getChildByName('sgs-background-motion');
-        const group = motion.getChildAt(0);
-        const tracks = Array.from({ length: group.numChildren }, (_, i) => group.getChildAt(i).state.getCurrent(0));
-        return { previousReleased: !fixture.previousMotion || fixture.previousMotion.destroyed, stillHidden: !fixture.native.bg.visible,
-          scale: group.scaleX, height: motion.height, tracks: tracks.map(track => [track.animation.name, track.loop]) };
+      fixture.resize(1200, 675, 1200, 675);
+      const mobileEntries = new Map(), yjcmEntries = new Map();
+      for (const id of yjcm) yjcmEntries.set(id, { id, motion: { resource: id, files: ['daiji.skel'] } });
+      const download = async (file, { signal }) => (await fetch('/mobile/' + encodeURIComponent(file), { signal })).arrayBuffer();
+      for (const [number, { zip, ...layout }] of mobile) {
+        const base = number.split('#')[0];
+        const forms = mobileEntries.get(base) ?? [];
+        forms.push({ id: 'cloud-' + number, number, source: 'mobile', mobileMotion: zip,
+          mobileForm: number.slice(base.length), mobileMotionLayout: layout, download });
+        mobileEntries.set(base, forms);
+      }
+      Check.registerSkinBackgroundMotion({ window, backgrounds: {
+        registerSkinMotion: (load, options) => fixture.scope.add(fixture.registry.registerSkinMotion(load, options)),
+      } }, {
+        yjcm: { current: { findSkin: id => yjcmEntries.get(id), skinForms: entry => [entry] } },
+        mobile: { current: { findSkin: id => mobileEntries.get(id)?.[0], skinForms: entry => mobileEntries.get(entry.number.split('#')[0]) } },
       });
+    }, { yjcm: [...sources.keys()], mobile: [...mobileSources] });
+    const officialCases = ['8123801', '8110801', ...mobileSources.keys(), '8123801', '8110801'];
+    for (const id of officialCases) {
+      const mobile = mobileSources.get(id);
+      const { name, lowFallback, face } = mobile ?? sources.get(id);
+      const stem = id.replace('#', '-form');
+      const key = JSON.stringify(mobile ? ['mobile', '', id.split('#')[0], id] : ['cross', '', id, '1']);
+      await page.evaluate(async ({ id, name, key, mobile }) => {
+        fixture.previousMotion = fixture.native.getChildByName('sgs-background-motion');
+        const url = mobile ? '/mobile/' + encodeURIComponent(id + '-horizon.jpg') : `/official/${id}.png`;
+        const blob = await (await fetch(url)).blob();
+        await fixture.registry.selectLocal('backgrounds', new File([blob], name), { skinKey: key, skinMotion: true, animated: true });
+      }, { id, name, key, mobile: Boolean(mobile) });
+      await page.waitForFunction(name => fixture.registry.current?.name === name &&
+        /动态牌局背景已启用|已显示静态原画/.test(fixture.registry.status), name);
+      const visible = await page.evaluate(face => {
+        const motion = fixture.native.getChildByName('sgs-background-motion');
+        const group = motion?.getChildAt(0);
+        const tracks = group ? Array.from({ length: group.numChildren }, (_, i) => group.getChildAt(i).state.getCurrent(0)) : [];
+        const character = group?.getChildAt(1);
+        const box = face && character && Check.attachmentFrame(spine, character.skeleton.findSlot(face), group.rotation);
+        return { previousReleased: !fixture.previousMotion || fixture.previousMotion.destroyed, stillHidden: !fixture.native.bg.visible,
+          status: fixture.registry.status, tracks: tracks.map(track => [track.animation.name, track.loop]),
+          face: box && { x: (group.x + box.x * group.scaleX) / motion.width,
+            y: (group.y + box.y * group.scaleY) / motion.height, width: box.width * group.scaleX / motion.width } };
+      }, face);
       assert.equal(visible.previousReleased, true);
-      assert.equal(visible.stillHidden, true);
-      assert.deepEqual(visible.tracks, [['play', true], ['play', true]]);
-      if (id === '8110801') assert.ok(Math.abs(visible.scale - visible.height / 654.5) < .025, 'frame to the painted plate, excluding effects');
-      await page.screenshot({ path: path.join(out, `${id}-after-switch.png`) });
+      assert.equal(visible.stillHidden, true, `${id} ${JSON.stringify(visible)}`);
+      assert.deepEqual(visible.tracks, mobile ? [['BeiJing', true], ['DaiJi', true]] : [['play', true], ['play', true]]);
+      if (face) assert.ok(visible.face.x > .15 && visible.face.x < .82 && visible.face.y > .08 && visible.face.y < .52 &&
+        visible.face.width > .025 && visible.face.width < .22, `${id} 裁切检查 ${JSON.stringify(visible)}`);
+      await page.evaluate(() => {
+        const track = fixture.native.getChildByName('sgs-background-motion').getChildAt(0).getChildAt(1).state.getCurrent(0);
+        fixture.lastTrack = track.trackTime;
+      });
+      await page.waitForFunction(() =>
+        fixture.native.getChildByName('sgs-background-motion').getChildAt(0).getChildAt(1).state.getCurrent(0).trackTime > fixture.lastTrack);
+      await page.screenshot({ path: path.join(officialOutput, stem + '-dynamic.png') });
+      if (lowFallback) {
+        await page.evaluate(() => fixture.registry.setSkinQuality('backgrounds', 'low'));
+        await page.waitForFunction(() => /无法可靠铺满/.test(fixture.registry.status) && fixture.native.bg.visible);
+        await page.screenshot({ path: path.join(officialOutput, stem + '-fallback.png') });
+        await page.evaluate(() => fixture.registry.setSkinQuality('backgrounds', 'high'));
+        await page.waitForFunction(() => fixture.registry.status === '动态牌局背景已启用');
+      }
+      if (id === '55204#1' || id === '8110801') {
+        const textures = () => page.evaluate(() => {
+          const character = fixture.native.getChildByName('sgs-background-motion').getChildAt(0).getChildAt(1);
+          return Object.values(character._templet._textureDic).map(res => [res.bitmap.width, res.bitmap.height]);
+        });
+        const full = await textures();
+        assert.ok(full.length > 1 && full.every(([width]) => width === 2048), JSON.stringify(full));
+        await page.evaluate(() => {
+          fixture.priorQualityMotion = fixture.native.getChildByName('sgs-background-motion');
+          fixture.registry.setSkinQuality('backgrounds', 'low');
+        });
+        await page.waitForFunction(() => fixture.registry.status === '动态牌局背景已启用' && fixture.priorQualityMotion.destroyed);
+        const reduced = await textures();
+        assert.equal(reduced.length, full.length);
+        assert.ok(reduced.every(([width], i) => width > 0 && width < full[i][0]), JSON.stringify(reduced));
+        console.log(`${name} · 图集上传宽度 ${full[0][0]} px → ${reduced[0][0]} px`);
+        await page.screenshot({ path: path.join(officialOutput, stem + '-low-quality.png') });
+        await page.evaluate(() => fixture.registry.setSkinQuality('backgrounds', 'high'));
+        await page.waitForFunction(() => fixture.registry.status === '动态牌局背景已启用');
+        assert.deepEqual(await textures(), full);
+      }
+      if (id === '55204#1') {
+        await page.setViewportSize({ width: 900, height: 675 });
+        await page.evaluate(() => {
+          fixture.resizedMotion = fixture.native.getChildByName('sgs-background-motion');
+          fixture.resize(900, 675, 900, 675);
+        });
+        await page.waitForFunction(() => fixture.native.bg.visible && !fixture.resizedMotion.visible &&
+          /当前窗口比例.*已显示静态原画/.test(fixture.registry.status));
+        await page.screenshot({ path: path.join(officialOutput, stem + '-4by3-fallback.png') });
+        await page.setViewportSize({ width: 1200, height: 520 });
+        await page.evaluate(() => fixture.resize(1200, 520, 1200, 520));
+        await page.waitForFunction(() => !fixture.native.bg.visible && fixture.resizedMotion.visible &&
+          fixture.registry.status === '动态牌局背景已启用');
+        await page.screenshot({ path: path.join(officialOutput, stem + '-ultrawide.png') });
+        await page.setViewportSize({ width: 1200, height: 675 });
+        await page.evaluate(() => fixture.resize(1200, 675, 1200, 675));
+      }
     }
+    await page.setViewportSize({ width: 1200, height: 850 });
     await page.locator('#panel').evaluate(node => { node.style.visibility = ''; });
     await page.getByRole('button', { name: '恢复游戏背景' }).click();
     assert.equal(await page.evaluate(() => fixture.native.bg.visible), true);
@@ -759,5 +922,5 @@ try {
   await page.evaluate(()=>fixture.dispose());
   assert.equal(await page.locator('.bg-skin-action').count(),0);
   assert.equal(await page.evaluate(()=>fixture.native.getChildByName('sgs-background-edge-fill')),null);
-  assert.deepEqual(errors,[]); console.log('背景浏览器演练通过：一将成名和移动版横版原画铺满、竖版不显示入口、待机循环、技能让行、动静切换、刷新保留及原有背景回归。');
+  assert.deepEqual(errors,[]); console.log('背景浏览器演练通过：画质切换与刷新保留、横版原画铺满、竖版不显示入口、待机循环、技能让行及动静切换。');
 } finally { await browser.close(); }

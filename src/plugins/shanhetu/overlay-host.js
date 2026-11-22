@@ -1,3 +1,5 @@
+import { enclosingRect, rectCorners } from './map-rect.js';
+
 // The overlay is a scene sibling of the native UI, while all placement
 // coordinates remain local to cityView. Native scene/map nodes are read only.
 const EPSILON = 1e-6;
@@ -36,10 +38,7 @@ function overlayGeometry({ host, scene, viewport }) {
   if (Math.abs(matrix.b) > EPSILON || Math.abs(matrix.c) > EPSILON) {
     throw new Error('地图浮层暂不支持旋转或斜切裁剪');
   }
-  const points = [
-    [viewport.x, viewport.y], [viewport.x + viewport.w, viewport.y],
-    [viewport.x + viewport.w, viewport.y + viewport.h], [viewport.x, viewport.y + viewport.h],
-  ].map(([x, y]) => {
+  const points = rectCorners(viewport).map(([x, y]) => {
     const point = map(x, y);
     if (Math.abs(point.x - (matrix.a * x + matrix.c * y + matrix.tx)) > EPSILON
       || Math.abs(point.y - (matrix.b * x + matrix.d * y + matrix.ty)) > EPSILON) {
@@ -47,8 +46,7 @@ function overlayGeometry({ host, scene, viewport }) {
     }
     return point;
   });
-  const xs = points.map(point => point.x), ys = points.map(point => point.y);
-  const clip = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+  const clip = enclosingRect(points);
   if (![clip.x, clip.y, clip.w, clip.h].every(finite) || clip.w <= 0 || clip.h <= 0) {
     throw new Error('地图浮层映射后可见区域无效');
   }

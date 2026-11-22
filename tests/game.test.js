@@ -346,3 +346,15 @@ test('missing runtime, cyclic trees and throwing optional getters stay bounded',
   assert.deepEqual(game.getSnapshot().handCardIds, []);
   assert.equal(game.getServerProxy(), null);
 });
+
+test('wide scene trees only read child indexes within the traversal budget', () => {
+  const scene = { SceneName: 'GameScene' };
+  const { game, win, layer } = setup(scene);
+  const wide = new Array(250_000);
+  wide[3998] = layer;
+  let outOfBudgetReads = 0;
+  Object.defineProperty(wide, 3999, { get() { outOfBudgetReads++; } });
+  win.Laya.stage._children = wide;
+  assert.equal(game.getScene(), scene);
+  assert.equal(outOfBudgetReads, 0);
+});

@@ -37,15 +37,23 @@ export function createSkinBackgroundMotion({ window, layer, scope, load, ready, 
   root.name = 'sgs-background-motion';
   root.mouseEnabled = root.mouseChildren = root.visible = false;
   root.zOrder = layer.bgSprite.zOrder || 0;
-  let motion, matte, visible = false, width, height;
+  let motion, matte, visible = false, canFit = false, playing = false, width, height;
   scope.add(() => { try { motion?.dispose(); } finally { root.destroy(true); } });
   layer.addChildAt(root, Math.max(0, layer.getChildIndex(layer.bgSprite)) + 1);
+  function syncPlaying() {
+    const play = Boolean(visible && motion && canFit);
+    root.visible = play;
+    if (play === playing) return;
+    playing = play;
+    motion?.setPlaying(play);
+  }
   function positionMotion() {
     if (!(width > 0 && height > 0)) return;
     root.graphics.clear();
     root.graphics.drawRect(0, 0, width, height, matteColor);
     if (matte) root.graphics.drawTexture(matte, 0, 0, width, height);
-    motion?.fit(0, 0, width, height);
+    if (motion) canFit = motion.fit(0, 0, width, height) !== false;
+    syncPlaying();
   }
   void skinMatte(window, imageUrl, scope).then(texture => {
     if (!texture || scope.closed) return;
@@ -59,14 +67,14 @@ export function createSkinBackgroundMotion({ window, layer, scope, load, ready, 
     if (scope.closed) { loaded?.dispose(); return; }
     if (!loaded) throw new Error('这款皮肤的待机动画暂不可用');
     motion = loaded;
+    motion.setPlaying(false);
     root.addChild(motion.actor);
     positionMotion();
-    root.visible = visible;
-    motion.setPlaying(visible);
     ready();
   }).catch(error => { if (!scope.closed) fail(error?.message || String(error)); });
   return {
-    get loaded() { return Boolean(motion); },
+    get loaded() { return Boolean(motion && canFit); },
+    get unsuitableSize() { return Boolean(motion && width && height && !canFit); },
     layout(w, h) {
       if (scope.closed || !(w > 0 && h > 0) || (width === w && height === h)) return;
       width = w; height = h;
@@ -77,8 +85,7 @@ export function createSkinBackgroundMotion({ window, layer, scope, load, ready, 
     show(value) {
       if (scope.closed || visible === value) return;
       visible = value;
-      root.visible = visible && Boolean(motion);
-      motion?.setPlaying(visible);
+      syncPlaying();
     },
   };
 }

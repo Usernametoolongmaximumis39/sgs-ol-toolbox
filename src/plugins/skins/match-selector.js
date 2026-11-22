@@ -1,30 +1,36 @@
 import { textNode } from './controls.js';
 import { read } from './native-model.js';
 import { createNativeCatalogueButton } from './native-catalogue-button.js';
-import { isNativeNodeMounted as isVisible } from '../../shared/native-tree.js';
+import { cachedNativeWindow, isMountedWindowNode, watchNativeWindowEvents } from '../../shared/window-cache.js';
 
-const windows = new Set(['SelectSkinWindow', 'ChangeSkinWindow']);
+const windows = ['ChangeSkinWindow', 'SelectSkinWindow'];
 
-function findSelector(stage) {
+function isSelector(node, unlockNative) {
+  const name = node?._className_;
+  if (!windows.includes(name) || !unlockNative && name !== 'ChangeSkinWindow' || typeof node.Close !== 'function') return false;
+  const view = node.selectView;
+  return Array.isArray(view?.itemList) && Array.isArray(view.list) && view.pannelContent && typeof view.closeSelectSure === 'function';
+}
+
+function findSelector(stage, unlockNative) {
+  const limit = 1500;
   const queue = [stage];
-  for (let i = 0; i < queue.length && i < 1500; i++) {
+  for (let i = 0; i < queue.length; i++) {
     const node = queue[i];
     if (!node || node.destroyed || node.visible === false) continue;
-    const view = node.selectView;
-    if (windows.has(node._className_) && typeof node.Close === 'function' &&
-        Array.isArray(view?.itemList) && Array.isArray(view.list) && view.pannelContent) return node;
+    if (isSelector(node, unlockNative)) return node;
     const children = node._children;
-    if (Array.isArray(children)) for (let j = children.length - 1; j >= 0; j--) queue.push(children[j]);
+    if (Array.isArray(children)) for (let j = children.length - 1; j >= 0 && queue.length < limit; j--) queue.push(children[j]);
   }
   return null;
 }
 
-function attachSelector(ctx, local, laya, owner, openYjcm, openForms, openMobile) {
+function attachSelector(ctx, local, laya, owner, openYjcm, openForms, openMobile, changed) {
   const view = owner.selectView, content = view.pannelContent, stage = laya.stage;
   const scene = ctx.game.getScene();
   const selectingGeneral = owner._className_ === 'SelectSkinWindow';
-  const visible = () => !ctx.scope.signal.aborted && ctx.game.isInGame?.() && scene === ctx.game.getScene() &&
-    owner.selectView === view && view.pannelContent === content && isVisible(owner, stage);
+  const mounted = () => laya.stage === stage && owner.selectView === view && view.pannelContent === content && isMountedWindowNode(stage, owner);
+  const visible = () => !ctx.scope.signal.aborted && ctx.game.isInGame?.() && scene === ctx.game.getScene() && mounted();
   const nativeEnabled = () => ctx.settings.get('unlockSkin', false) === true;
   const crossEnabled = () => (openYjcm || openMobile) && !selectingGeneral && ctx.settings.get('crossServer', false) === true;
   const enabled = () => visible() && (nativeEnabled() || crossEnabled());
@@ -134,6 +140,12 @@ function attachSelector(ctx, local, laya, owner, openYjcm, openForms, openMobile
     }
     return Reflect.apply(original, this, args);
   });
+  const stops = [];
+  for (const [target, type] of [[owner, laya.Event?.UNDISPLAY ?? 'undisplay'], [content, laya.Event?.RESIZE ?? 'resize']]) {
+    if (typeof target.on !== 'function' || typeof target.off !== 'function') continue;
+    target.on(type, actions, changed);
+    stops.push(() => target.off(type, actions, changed));
+  }
   const offKeys = ctx.scope.listen(ctx.window, 'keydown', event => {
     if (!enabled() || event.defaultPrevented || event.composedPath()[0]?.closest?.('input,select,textarea,button,[contenteditable]')) return;
     const items = [...actions.values(), ...crossActions];
@@ -152,11 +164,11 @@ function attachSelector(ctx, local, laya, owner, openYjcm, openForms, openMobile
       items[index]?.paint();
     }
   });
-  return { enabled, check() {
+  return { scene, mounted, selectingGeneral, check(unlockNative, allowCrossServer) {
     const panel = view.pannel;
-    if (crossEnabled() && panel?.y >= 36 && portraitTarget()) layoutCatalogueActions(panel);
+    if (allowCrossServer && !selectingGeneral && panel?.y >= 36 && portraitTarget()) layoutCatalogueActions(panel);
     else removeCatalogueActions();
-    const canChoose = nativeEnabled() && (selectingGeneral || local.hasOwnGeneral(generalId()));
+    const canChoose = unlockNative && (selectingGeneral || local.hasOwnGeneral(generalId()));
     if (!Array.isArray(view.list)) return;
     const cards = new Map();
     if (canChoose) for (const card of view.itemList) {
@@ -178,29 +190,52 @@ function attachSelector(ctx, local, laya, owner, openYjcm, openForms, openMobile
     }
   }, dispose() {
     offKeys(); unpatch(); unwatch();
+    for (const stop of stops) stop();
     removeCatalogueActions();
     for (const [card, action] of actions) remove(card, action);
   } };
 }
 
 export function createMatchSkinSelector(ctx, local, openYjcm, openForms, openMobile) {
-  let attached;
-  function check() {
-    if (attached && !attached.enabled()) { attached.dispose(); attached = null; }
-    if (!attached && !ctx.scope.signal.aborted && ctx.game.isInGame?.() &&
-        (ctx.settings.get('unlockSkin', false) === true || ((openYjcm || openMobile) && ctx.settings.get('crossServer', false) === true))) {
-      const laya = ctx.window.Laya ?? ctx.window.laya;
-      if (!laya?.Sprite || !laya.Text || !ctx.ui.nativeTheme?.surface) return;
-      const owner = findSelector(laya.stage);
-      if (owner && typeof owner.selectView.closeSelectSure === 'function' &&
-          (owner._className_ === 'ChangeSkinWindow' || ctx.settings.get('unlockSkin', false) === true)) {
-        attached = attachSelector(ctx, local, laya, owner, openYjcm, openForms, openMobile);
-      }
+  const { scope, game, settings } = ctx;
+  const bindWindows = watchNativeWindowEvents(scope, windows, queueCheck);
+  let attached, queued = false;
+  function detach() { attached?.dispose(); attached = null; }
+  function refresh() {
+    if (scope.signal.aborted) return;
+    const unlockNative = settings.get('unlockSkin', false) === true;
+    const allowCrossServer = Boolean((openYjcm || openMobile) && settings.get('crossServer', false) === true);
+    if (!unlockNative && !allowCrossServer) { bindWindows(null); detach(); return; }
+    if (attached && (!attached.mounted() || !unlockNative && attached.selectingGeneral)) detach();
+    if (ctx.document?.hidden) return;
+    const scene = game.isInGame?.() ? game.getScene() : null;
+    if (!scene) { bindWindows(null); detach(); return; }
+    const laya = ctx.window.Laya ?? ctx.window.laya;
+    const stage = laya?.stage;
+    const dispatcher = stage ? read(() => game.getDispatcher()) ?? null : null;
+    bindWindows(dispatcher);
+    if (attached && attached.scene !== scene) detach();
+    if (!attached && stage && laya.Sprite && laya.Text && ctx.ui.nativeTheme?.surface) {
+      const cached = windows.map(name => cachedNativeWindow(dispatcher, name)).find(owner =>
+        isSelector(owner, unlockNative) && isMountedWindowNode(stage, owner));
+      const owner = cached ?? findSelector(stage, unlockNative);
+      if (owner) attached = attachSelector(ctx, local, laya, owner, openYjcm, openForms, openMobile, queueCheck);
     }
-    attached?.check();
+    attached?.check(unlockNative, allowCrossServer);
   }
-  ctx.scope.interval(check, 180);
-  ctx.scope.add(() => { attached?.dispose(); attached = null; });
+  function check() { return game.withSceneCycle ? game.withSceneCycle(refresh) : refresh(); }
+  function queueCheck() {
+    if (queued || scope.signal.aborted) return;
+    queued = true;
+    scope.timeout(() => { queued = false; check(); }, 0);
+  }
+  if (game.onSceneChange) scope.add(game.onSceneChange(queueCheck));
+  if (ctx.document?.addEventListener) scope.listen(ctx.document, 'visibilitychange', queueCheck);
+  if (settings.subscribe) scope.add(settings.subscribe(key => {
+    if (key === settings.prefix + 'unlockSkin' || key === settings.prefix + 'crossServer') queueCheck();
+  }));
+  scope.interval(check, 1000);
+  scope.add(detach);
   check();
   return check;
 }

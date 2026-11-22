@@ -1,4 +1,4 @@
-import { animationBounds, loadYjcmEffectTemplate } from './yjcm-motion.js';
+import { animationBounds, createEffectArmature, loadYjcmEffectTemplate } from './yjcm-motion.js';
 
 export async function previewYjcmEffect(win, canvas, spec, plan, signal, onStart) {
   if (signal.aborted) return;
@@ -52,13 +52,10 @@ export async function previewYjcmEffect(win, canvas, spec, plan, signal, onStart
     if (!asset) return;
     let actor;
     try {
-      actor = asset.template.buildArmature(asset.spine ? undefined : 2);
-      const count = actor.getAnimNum();
-      const index = clip.name === 0 ? 0 : Array.from({ length: count }, (_, i) => actor.getAniNameByIndex(i)).indexOf(clip.name);
-      if (index < 0 || index >= count) {
-        actor.destroy(true);
-        return;
-      }
+      const armature = createEffectArmature(asset, clip.name);
+      if (!armature) return;
+      const { index } = armature;
+      actor = armature.actor;
       actor.pos(point.x, point.y);
       actor.scale(point.mirror ? -point.scale : point.scale, point.scale);
       if (asset.spine) actor.forceUpdate = true;

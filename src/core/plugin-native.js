@@ -1,6 +1,9 @@
 import { findNativeListenerOwner } from '../shared/native-manager.js';
 import { read } from '../shared/safe-read.js';
 import { ResourceScope } from './resources.js';
+import { createAchievementQueries } from './native-achievements.js';
+
+const achievementsByGame = new WeakMap();
 
 export function readNativeAccount(ctx) {
   const login = manager(ctx, 'LoginManager', 'error', m => 'IsOnLine' in m || 'IsAccountLoggingOut' in m);
@@ -72,5 +75,18 @@ export function createPluginNative(ctx) {
     account: () => readNativeAccount(ctx),
     manager: (name, event, guard) => manager(ctx, name, event, guard),
     observe: (project, consume, gap, options) => observeNative(ctx, project, consume, gap, options),
+    get achievements() {
+      let service = achievementsByGame.get(ctx.game);
+      if (!service) {
+        const root = { game: ctx.game, scope: new ResourceScope() };
+        service = createAchievementQueries(createPluginNative(root), ctx.now ?? Date.now);
+        achievementsByGame.set(ctx.game, service);
+      }
+      return {
+        ready: service.ready,
+        query: () => ctx.scope.closed ? null : service.query(),
+        subscribe: (receive, gap = () => {}, { strict = false } = {}) => service.subscribe(ctx.scope, receive, gap, strict),
+      };
+    },
   };
 }
