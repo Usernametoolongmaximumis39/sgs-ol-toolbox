@@ -20,6 +20,7 @@ const CONSERVATIVE = new Set(CONSERVATIVE_SKILLS);
 const ZUIFENG = 4025, OPT_SKILL_FLAG1 = 28;
 const QIANGZHI_PO = 3876, OPT_SEL_CARD_HAND = 3;
 const SIQI = 3543, JIELI = 3483;
+export const YUSHI = 3751;
 const orderedSiqiMove = data => Number(data.SpellID) === SIQI &&
   (Number(data.ToZone) === 1 && Number(data.ToPosition) === POSITION.bottom && Number(data.CardCount) === 1 ||
    Number(data.FromZone) === 1 && Number(data.FromPosition) === POSITION.bottom);
@@ -47,7 +48,8 @@ export function initialState() {
     historyComplete: false, seenHistoryComplete: false, connected: true, selfSeatId: null, currentSeatId: null,
     turn: 0, phase: null, mode: { id: null, sceneName: '', flags: [] },
     seats: {}, cards: {}, cardMeta: {}, zones: {}, deckIds: [], deckStartSeq: 0, deckRemaining: null, deckCycleCompleted: false, recentBySeat: {}, recentCurrent: null,
-    discardTurn: [], skillUses: { complete: false, counts: {} }, pending: {}, limitations: [], moves: [], lastEvent: null };
+    discardTurn: [], skillUses: { complete: false, counts: {} }, yushiUses: { round: null, counts: null },
+    pending: {}, limitations: [], moves: [], lastEvent: null };
 }
 
 export function zoneKey(kind, seat = 255, param = 0) {
@@ -61,6 +63,7 @@ function zone(state, key) {
   if (!state.zones[key]) {
     const [kind, seatId, param = 0] = key.split(':').map(Number);
     state.zones[key] = { key, kind, seatId, param, count: 0, top: [], bottom: [], order: [] };
+    if (kind === 5) state.zones[key].countExact = state.historyComplete;
   }
   return state.zones[key];
 }
@@ -96,6 +99,7 @@ function locate(state, id, key, seq, tag, observed = true) {
 
 function forget(state, reason, seq) {
   state.skillUses = { complete: false, counts: {} };
+  state.yushiUses = { round: state.yushiUses?.round ?? null, counts: null };
   state.historyComplete = false;
   state.seenHistoryComplete = false;
   for (const item of Object.values(state.cards)) item.locations = ['?'];
@@ -131,8 +135,13 @@ function reveal(state, ids, key, seq, count, authoritative = false) {
     target.order = ids.slice();
   }
   for (const id of ids) locate(state, id, key, seq);
-  if (Number.isInteger(count) && count >= ids.length) target.count = count;
-  else target.count = Math.max(target.count, ids.length);
+  if (Number.isInteger(count) && count >= ids.length) {
+    target.count = count;
+    if (target.kind === 5) target.countExact = true;
+  } else if (ids.length > target.count) {
+    target.count = ids.length;
+    if (target.kind === 5) target.countExact = false;
+  }
   target.order = [...new Set([...target.order, ...ids])];
 }
 
@@ -167,8 +176,11 @@ function snapshot(state, data, seq) {
       name: String(source.name ?? source.nickname ?? ''),
       dead: typeof source.dead === 'boolean' ? source.dead : state.seats[seatId]?.dead };
     const visible = source.knownHandCardIds ?? source.handShowCardIDs ?? source.HandShowCardIDs ?? [];
-    const own = seatId === state.selfSeatId ? source.handCardIds ?? source.handCards ?? visible : visible;
-    reveal(state, cardIds(own), zoneKey(5, seatId), seq, int(source.handCount), seatId === state.selfSeatId && Array.isArray(source.handCardIds ?? source.handCards));
+    const own = seatId === state.selfSeatId ? source.handCardIds ?? source.handCards : undefined;
+    const count = int(source.handCount);
+    // The public count can reach zero before the shown card cache clears.
+    const ids = count === 0 && own == null ? [] : cardIds(own ?? visible);
+    reveal(state, ids, zoneKey(5, seatId), seq, count, count === 0 || Array.isArray(own));
   }
   if (validSeat(state.selfSeatId) && data.handCardIds) {
     const ids = cardIds(data.handCardIds);
@@ -222,7 +234,7 @@ function addOrder(target, ids, count, position) {
   target.bottom = target.bottom.slice(0, target.count);
 }
 
-function inferIds(state, payload, source, supplied, count, position) {
+function inferIds(state, payload, source, supplied, count, position, wholeZone) {
   const skill = Number(payload.SpellID) || 0;
   let correlated = null;
   const consume = key => { const value = state.pending[key]; delete state.pending[key]; return value; };
@@ -255,7 +267,9 @@ function inferIds(state, payload, source, supplied, count, position) {
     const prefix = ordered.slice(0, count);
     if (prefix.length === count && prefix.every(id => id > 0)) return prefix;
   }
-  if (source.count === count) {
+  // Skill-window and exchange zones have no semantic order; never turn their
+  // object insertion order into an ordered placement elsewhere.
+  if (wholeZone && (count === 1 || source.kind !== 8 && source.kind !== 10)) {
     const known = Object.values(state.cards).filter(item => item.locations.length === 1 && item.locations[0] === source.key).map(item => item.id);
     if (known.length === count) return known;
   }
@@ -319,6 +333,7 @@ function move(state, data, seq) {
         if (item.locations.includes(from) && !supplied.includes(item.id)) item.locations = ['?'];
       }
       source.count = count;
+      source.countExact = true;
     }
     legacyAfterMove(state, data, seq, legacy.suppressReveal ? [] : supplied, legacyHelpers);
     return;
@@ -334,15 +349,16 @@ function move(state, data, seq) {
     state.pending = {};
     return;
   }
-  const ids = legacy.hiddenCreation ? [] : supplied.length === count ? supplied : legacy.ids?.length === count ? legacy.ids : inferIds(state, data, source, supplied, count, position);
   const previousCount = source.count;
+  const wholeZone = previousCount === count && (source.kind !== 5 || (source.countExact ?? state.historyComplete));
+  const ids = legacy.hiddenCreation ? [] : supplied.length === count ? supplied : legacy.ids?.length === count ? legacy.ids : inferIds(state, data, source, supplied, count, position, wholeZone);
   if (previousCount < count && source.kind !== 0 && source.kind !== 12) {
+    if (source.kind === 5) source.countExact = false;
     state.historyComplete = false;
     state.deckRemaining = null;
     note(state, 'zone-underflow', '记录开始较晚或有缺失事件，部分牌区不完整', seq);
   }
   if (ids.length !== count) {
-    const wholeZone = previousCount === count && previousCount > 0;
     for (const item of Object.values(state.cards)) {
       if (!item.locations.includes(from)) continue;
       const locations = wholeZone ? item.locations.filter(key => key !== from) : item.locations;
@@ -358,6 +374,8 @@ function move(state, data, seq) {
   target.count += count;
   removeOrder(source, ids, count, position);
   addOrder(target, ids, count, destination);
+  // A complete departure also eliminates cards whose identities were only possible here.
+  if (source.kind === 5 && wholeZone) reveal(state, [], from, seq, 0, true);
   legacyAfterMove(state, data, seq, ids, legacyHelpers);
   if (source.kind === 2) state.discardTurn = state.discardTurn.filter(id => !ids.includes(id));
   if (target.kind === 2) state.discardTurn = [...state.discardTurn.filter(id => !ids.includes(id)), ...ids];
@@ -367,15 +385,19 @@ function move(state, data, seq) {
 }
 
 function spell(state, data, seq) {
-  if (validSeat(data.SeatID) && ((Number(data.SpellID) === 0xc12 && Number(data.EffectIndex) === 1) ||
-      (Number(data.SpellID) === 0xea7 && Number(data.EffectIndex) === 2))) {
+  const skill = Number(data.SpellID), ids = cardIds(data.CardIDs);
+  const seat = int(data.SeatID), effect = int(data.EffectIndex);
+  if (validSeat(seat) && skill === 0xc12 && effect === 1) {
     state.skillUses ||= { complete: false, counts: {} };
-    const key = `${Number(data.SpellID)}:${Number(data.SeatID)}`;
+    const key = `${skill}:${seat}`;
     state.skillUses.counts[key] = (state.skillUses.counts[key] || 0) + 1;
   }
-  const skill = Number(data.SpellID), ids = cardIds(data.CardIDs);
+  const yushiCounts = state.yushiUses?.counts;
+  if (validSeat(seat) && skill === YUSHI && effect === 2 && yushiCounts) {
+    yushiCounts[seat] = (yushiCounts[seat] ?? 0) + 1;
+  }
   recent(state, data.SeatID, ids);
-  const seat = int(data.SeatID), count = int(data.CardCount ?? data.card_count) ?? ids.length;
+  const count = int(data.CardCount ?? data.card_count) ?? ids.length;
   if (validSeat(seat)) {
     if ([0x122, 0xbf9].includes(skill) && Number(data.EffectIndex) === 1) {
       delete state.pending[`known:${skill}:${seat}`];
@@ -482,7 +504,7 @@ export function normalizeCardPayload(payload = {}) {
 export function reduce(previous, event) {
   if (!event || !EVENT_TYPES.has(event.type)) return previous;
   const data = event.type.startsWith('toolbox:') ? event.payload || {} : normalizeCardPayload(event.payload);
-  if (data.isSend) return previous;
+  if (data.isSend || event.type === 'toolbox:snapshot' && (data.pokerReplay || data.pokerTable)) return previous;
   const seq = Number(event.seq) || previous.lastSeq + 1;
   const changedSession = previous.sessionId !== null && event.sessionId != null && event.sessionId !== previous.sessionId;
   if (!changedSession && seq <= previous.lastSeq) return previous;
@@ -504,6 +526,7 @@ export function reduce(previous, event) {
         mode: state.mode, seats: state.seats, active: true, historyComplete: ids.length > 0, seenHistoryComplete: ids.length > 0,
         deckIds: ids, deckStartSeq: seq, deckRemaining: ids.length || null, lastEvent: event.type,
         skillUses: { complete: true, counts: {} } };
+      if (ids.length && !data.IsResume) state.yushiUses = { round: 1, counts: {} };
       if (!ids.length) note(state, 'no-deck', '开局牌表缺失，牌堆总数未知', seq);
       for (const id of ids) locate(state, id, zoneKey(1), seq, null, false);
       zone(state, zoneKey(1)).count = ids.length;
@@ -514,7 +537,15 @@ export function reduce(previous, event) {
     case 'PubGsCMoveCard': move(state, data, seq); state.active = true; break;
     case 'PubGsCUseCard': if (Number(data.useType ?? 1) === 1) recent(state, data.SeatID, cardIds(data.CardIDs?.length ? data.CardIDs : [data.CardID])); break;
     case 'PubGsCUseSpell': spell(state, data, seq); break;
-    case 'MsgGameTurnNtf': startTurn(state, data.SeatID, data.TurnCnt); break;
+    case 'MsgGameTurnNtf': {
+      // TurnCnt feeds the native table round display. GsCGamephaseNtf only advances a player's turn.
+      const round = int(data.TurnCnt);
+      if (Number.isSafeInteger(round) && round > (state.yushiUses?.round ?? 0)) {
+        state.yushiUses = { round, counts: data.IsResume ? null : {} };
+      }
+      startTurn(state, data.SeatID, data.TurnCnt);
+      break;
+    }
     case 'GsCGamephaseNtf':
       if (Number(data.Round) === 0 && (Number(data.SeatID) !== state.currentSeatId || state.phase !== 0)) startTurn(state, data.SeatID);
       state.phase = int(data.Round);
@@ -616,7 +647,7 @@ export function handCandidates(state, seatId) {
   if (!living.some(seat => seat.seatId === state.selfSeatId) || seatId === state.selfSeatId) return [];
   const uncertain = living.filter(seat => {
     const key = zoneKey(5, seat.seatId), hand = state.zones[key];
-    return !hand || cardsInZone(state, key).length !== hand.count;
+    return !hand || hand.countExact === false || cardsInZone(state, key).length !== hand.count;
   });
   if (uncertain.length !== 1 || uncertain[0].seatId !== seatId) return [];
   return cardsInZone(state, zoneKey(5, seatId), 'possible');

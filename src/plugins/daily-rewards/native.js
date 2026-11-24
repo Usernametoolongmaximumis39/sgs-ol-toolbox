@@ -7,6 +7,7 @@ import { excludedReward, rewardExclusions } from './exclusions.js';
 import { managerSpecs as questSpecs, planActivityQuests, prepareActivityQuests } from './quest-rewards.js';
 import { managerSpecs as flipSpecs, planFreeFlip } from './free-flip.js';
 import { managerSpecs as freeWelfareSpecs, planFreeWelfare, prepareFreeWelfare } from './free-welfare.js';
+import { DAILY_FREE_GIFT_KEY, DAILY_FREE_GIFT_LABEL } from './daily-free-gift.js';
 import { planMailClaims, confirmedMailAttempt } from './mail-claims.js';
 import { createMilitaryPopupGuard } from './military-popup.js';
 import { confirmedJieyueAttempt } from './military-rewards.js';
@@ -100,6 +101,7 @@ export function createNativeAdapter(ctx) {
       return confirmedJieyueAttempt(adapter, actionKey) || confirmedMailAttempt(adapter, actionKey);
     },
     describeAttempt(actionKey) {
+      if (actionKey === DAILY_FREE_GIFT_KEY) return { label: DAILY_FREE_GIFT_LABEL };
       const match = /^task:(\d+)$/.exec(actionKey);
       if (!match) return null;
       const task = read(() => manager('TaskManager').GetServerTaskDataByTaskID(Number(match[1])));
@@ -125,13 +127,14 @@ export function createNativeAdapter(ctx) {
     async prepare(selected, context = {}) {
       const preparation = { ...adapter, signal: context.signal || adapter.signal, valid: context.valid || (() => !adapter.signal?.aborted) };
       const results = await Promise.allSettled([
+        prepareFreeWelfare(preparation, selected),
         rewardExclusions.some(([key]) => selected[key]) ? adapter.loadConfig('sys_gs_dbs_fs_goodsbaseinfo') : null,
         selected.mail && rewardExclusions.some(([key]) => selected[key]) && [...rows(manager('MailManager')?.systemMailList), ...rows(manager('MailManager')?.friendMailList)].some(mail => Number(mail?.AttachmentType) === 1) ? adapter.loadConfig('gn_dbs_giftbag') : null,
         selected.tasks && rewardExclusions.some(([key]) => selected[key]) && manager('TianTiManager') ? adapter.loadConfig('mod_new_ttrank_config') : null,
         selected.sign && !signRows().length ? adapter.loadConfig('gn_zonghe') : null,
-        prepareWelfare(preparation, selected), prepareActivities(preparation, selected), prepareFreeWelfare(preparation, selected), prepareActivityQuests(preparation, selected),
+        prepareWelfare(preparation, selected), prepareActivities(preparation, selected), prepareActivityQuests(preparation, selected),
       ]);
-      if (results.some(result => result.status === 'rejected')) throw new Error('部分奖励配置未就绪');
+      return { dailyFreeGiftCount: results[0].value, incomplete: results.some(result => result.status === 'rejected') };
     },
   };
   return adapter;

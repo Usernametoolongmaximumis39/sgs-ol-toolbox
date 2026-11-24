@@ -2,7 +2,7 @@ import { compareVersions } from './updates.js';
 import { planDependencies } from './dependencies.js';
 
 // Maintainer-owned identities; catalog claims cannot add official plugins.
-export const officialPluginIds = Object.freeze(['social', 'player-info', 'native-cards', 'yjcm-cards', 'dafeiyu-cards', 'backgrounds', 'gold-cards', 'shanhetu', 'shanhetu-beta', 'cards', 'play-assist', 'daily-rewards', 'seckill', 'gaizhu', 'effects', 'skins', 'stargazing', 'wish-progress', 'themes', 'baisheng', 'appearances', 'ledger', 'recharge']);
+export const officialPluginIds = Object.freeze(['social', 'player-info', 'native-cards', 'yjcm-cards', 'dafeiyu-cards', 'backgrounds', 'gold-cards', 'shanhetu', 'shanhetu-beta', 'cards', 'play-assist', 'daily-rewards', 'seckill', 'gaizhu', 'effects', 'skins', 'poker-lobby', 'stargazing', 'wish-progress', 'themes', 'baisheng', 'appearances', 'ledger', 'recharge']);
 
 export function planOfficialPlugins(installed, catalog) {
   const latest = new Map();

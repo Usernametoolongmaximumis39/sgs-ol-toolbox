@@ -95,7 +95,7 @@ export function createNationRun(ctx, native) {
     return '国战：正在选择主副将';
   }
 
-  function game(frame, now = Date.now(), assistant = null, options = {}) {
+  function game(frame, now = Date.now(), assistant = null) {
     if (!isNationGame(ctx, frame)) return '等待确认国战对局';
     const win = native.matching(/^SelectCountryWarGeneralWindow$/)[0];
     if (win) return selectPair(win, now);
@@ -105,9 +105,8 @@ export function createNationRun(ctx, native) {
       getCardMeta: id => read(() => ctx.game.getCardMeta(id)),
       getSkill: id => read(() => ctx.game.getClass('Skill').GetInstance(id)),
     }));
-    const acted = decision.run(frame, now, options);
-    return decision.reason() || (decision.mode() === 'trustee' ? '国战：托管兜底中'
-      : decision.mode() === 'local' ? '国战：本地处理询问'
+    const acted = decision.run(frame, now);
+    return decision.reason() || (decision.mode() === 'local' ? '国战：本地处理询问'
         : acted ? '国战：正在执行小杀助手提示' : '国战：等待小杀助手提示');
   }
 

@@ -335,6 +335,96 @@ try {
   await page.clock.fastForward(500); await hasRequest('skin-close');
   assert.equal(await requestCount('skin-close'),1);
   await page.evaluate(() => { window.__SGS_TOOLBOX_DEMO__.scene._children=[]; });
+  await page.evaluate(() => {
+    const d = window.__SGS_TOOLBOX_DEMO__, scene = d.scene, self = scene.SelfSeatUi;
+    const original = self.Ai.btns;
+    const target = { Seat: { Index: 1, Hp: 4, HandCardCount: 1, EquipCardCount: 1,
+      EquipCards: [{ FirstSkillId: 16 }], IsAskingTao: true }, Activated: false,
+    seatClickHandler() { this.Seat.Selected = true; ok.enabled = true; } };
+    scene.seatContainer = { seatUIs: [target] };
+    Object.assign(self.seat, { Index: 0, InOwnRound: true, LastAskSkill: { ID: 3 }, GetStateValue: () => 0 });
+    const peach = { Activated: true, Card: { CardId: 20, FirstSkillId: 3 },
+      CardUI_Click() { d.requests.push(['enemy-peach']); } };
+    self.cardContainer = { cardUis: [peach] };
+    self.CurStepHelpData = { target: peach };
+    self.Ai.btns = [{ name: 'btnCancel', enabled: true, onClick() {
+      d.requests.push(['enemy-peach-declined']);
+      this.enabled = false;
+    } }];
+    self.Ai.visible = true;
+
+    const slash = { Card: { CardId: 21, FirstSkillId: 1 }, Activated: true,
+      CardUI_Click() { hand.CardUI_Click({ CardUi: this }); } };
+    const wine = { Card: { CardId: 22, FirstSkillId: 82 }, Activated: true };
+    const ok = { name: 'btnOK', enabled: false, onClick() {
+      if (wine.Selected) { d.requests.push(['wine-play']); return; }
+      if (!slash.Selected || !target.Seat.Selected) throw Error('Slash confirmed without a native target');
+      d.requests.push(['slash-play']);
+      self.cardContainer = {};
+      self.SelectSeatContext = null;
+      self.seat.InActiveState = false;
+      self.seat.LastAskSkill = { ID: 201 };
+      d.proxy.event('GsCTriggerSpellNew', { SrcSpellID: 1, SrcSpellCasterSeat: 0,
+        FirstTriggerParam: { SpellId: 201, SeatId: 0, Targets: [1] } });
+      self.Ai.btns = [
+        { name: 'btnOK', enabled: true, onClick() { d.requests.push(['ice-sword-use']); } },
+        { name: 'btnCancel', enabled: true, onClick() {
+          d.requests.push(['ice-sword-declined']);
+          this.enabled = false;
+          self.Ai.btns = original;
+          self.Ai.visible = false;
+          self.seat.LastAskSkill = null;
+          self.CurStepHelpData = null;
+        } },
+      ];
+      self.CurStepHelpData = { target: self.Ai.btns[0] };
+    } };
+    const hand = { cardUis: [slash, wine], CardUI_Click({ CardUi }) {
+      select(CardUi.Selected ? null : CardUi);
+    } };
+    function select(ui) {
+      slash.Selected = ui === slash;
+      wine.Selected = ui === wine;
+      target.Activated = ui === slash;
+      target.Seat.Selected = false;
+      hand.SelectContext.CardSelector.FirstSelectedCard = ui?.Card;
+      self.SelectSeatContext = ui === slash ? { Card: slash.Card, get SelectedTargetSeatIDs() {
+        return target.Seat.Selected ? [1] : [];
+      } } : null;
+      ok.enabled = ui === wine;
+    }
+    function nextPlay() {
+      hand.SelectContext = { Purpose: 'deal', Message: '出牌阶段，请选择一张卡牌', CardSelector: {} };
+      select(null);
+    }
+    d.beginWineSlash = () => {
+      target.Seat.IsAskingTao = false;
+      Object.assign(self.seat, { InActiveState: true, LastAskSkill: null });
+      self.cardContainer = hand;
+      nextPlay();
+      self.CurStepHelpData = { cardIds: [21], seatIds: [1], buttonName: 'btnOK' };
+      self.Ai.btns = [ok];
+    };
+    d.acknowledgeWine = () => {
+      hand.cardUis = [slash];
+      nextPlay();
+    };
+  });
+  await hasRequest('enemy-peach-declined');
+  assert.equal(await requestCount('enemy-peach'), 0);
+  await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.beginWineSlash());
+  await hasRequest('wine-play');
+  await page.clock.fastForward(1250);
+  assert.equal(await requestCount('wine-play'), 1);
+  assert.equal(await requestCount('slash-play'), 0);
+  await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.acknowledgeWine());
+  await hasRequest('slash-play');
+  await hasRequest('ice-sword-declined');
+  assert.equal(await requestCount('ice-sword-use'), 0);
+  assert.deepEqual(await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.requests.map(([type]) => type)
+    .filter(type => ['enemy-peach-declined', 'wine-play', 'slash-play', 'ice-sword-declined'].includes(type))),
+  ['enemy-peach-declined', 'wine-play', 'slash-play', 'ice-sword-declined']);
+  checks.push('training declines an enemy Peach hint, confirms Wine before Slash with a delayed native update, and keeps the damage instead of using Ice Sword');
   const wuxieCancelBefore = await requestCount('cancel');
   await page.evaluate(() => {
     const d = window.__SGS_TOOLBOX_DEMO__, self = d.scene.SelfSeatUi;
@@ -428,6 +518,54 @@ try {
   assert.equal(await requestCount('popup-confirm'), 1);
   await page.evaluate(() => { window.__SGS_TOOLBOX_DEMO__.scene._children = []; });
   checks.push('training lets the native card popup confirm after the legal minimum when no further cards are available');
+  await page.evaluate(() => {
+    const d = window.__SGS_TOOLBOX_DEMO__, self = d.scene.SelfSeatUi;
+    const equipment = type => ({ Card: { FirstSkill: { Type: type } }, CanBeSelected: true });
+    d.scene._children = [{ name: 'SelectCardWindow', Skill: { ID: 5 },
+      equipCardUis: [equipment(3), equipment(4), equipment(6), equipment(7)],
+      handCardUis: [{ CanBeSelected: true }],
+      onTouchCard({ target }) {
+        d.requests.push(['dismantle-pick', target.Card?.FirstSkill.Type]);
+        this.visible = false;
+      },
+    }];
+    d.promptTaoyuan = hp => {
+      const previous = self.Ai.btns;
+      const finish = name => {
+        d.requests.push([name, self.seat.Hp]);
+        self.seat.InActiveState = false;
+        self.cardContainer = {};
+        self.CurStepHelpData = null;
+        self.Ai.btns = previous;
+        self.Ai.visible = false;
+      };
+      const selector = {};
+      const ok = { name: 'btnOK', enabled: false, onClick() { finish('taoyuan-play'); } };
+      const end = { name: 'btnDiscard', enabled: true, onClick() { finish('taoyuan-end'); } };
+      const card = { Card: { CardId: 31, FirstSkillId: 12 }, Activated: true,
+        CardUI_Click() { container.CardUI_Click({ CardUi: this }); } };
+      const container = { cardUis: [card], SelectContext: { Purpose: 'deal', Message: '出牌阶段，请选择一张卡牌', CardSelector: selector },
+        CardUI_Click({ CardUi }) {
+          CardUi.Selected = !CardUi.Selected;
+          selector.FirstSelectedCard = CardUi.Selected ? CardUi.Card : null;
+          ok.enabled = CardUi.Selected;
+        } };
+      Object.assign(self.seat, { Hp: hp, MaxHp: 4, InActiveState: true });
+      self.cardContainer = container;
+      self.CurStepHelpData = { cardIds: [31], buttonName: 'btnOK' };
+      self.Ai.btns = [ok, end];
+      self.Ai.visible = true;
+    };
+  });
+  await page.clock.fastForward(3500);
+  await hasRequest('dismantle-pick', 6);
+  await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.promptTaoyuan(4));
+  await page.clock.fastForward(1500);
+  await hasRequest('taoyuan-end', 4);
+  assert.equal(await requestCount('taoyuan-play'), 0);
+  await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.promptTaoyuan(3));
+  await hasRequest('taoyuan-play', 3);
+  checks.push('training uses the defensive mount in a Dismantlement popup and only follows a Taoyuan hint when wounded');
   const cancelsBeforeTimeout = await requestCount('cancel');
   await page.evaluate(() => {
     const d = window.__SGS_TOOLBOX_DEMO__, self = d.scene.SelfSeatUi;

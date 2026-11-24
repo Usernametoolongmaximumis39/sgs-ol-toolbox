@@ -9,7 +9,7 @@ import { cachedNativeWindow, watchNativeWindowEvents } from '../../shared/window
 const BATTLE_EVENTS = new Set(['toolbox:gap', 'MsgGamePlayCardNtf', 'MsgReconnectGame',
   'MsgReconnectGameHand', 'SmsgGameSetCharacter', 'GsCGuoZhanSetCharacter', 'ClientLeavetableRep', 'ClientLoginRep']);
 export const manifest = {
-  id: 'player-info', name: '玩家信息', version: '0.4.27', apiVersion: 1, contractVersion: 1,
+  id: 'player-info', name: '玩家信息', version: '0.4.28', apiVersion: 1, contractVersion: 1,
   journalEvents: ['toolbox:snapshot', ...BATTLE_EVENTS],
   releaseNotes: "改善玩家资料卡切换目标后的加载和刷新，减少重复查询，优化关注武将设置的显示。", minCoreVersion: '0.6.185', description: '可选玩家资料卡与斗地主将灯检查，支持自定义关注武将、人机提示与自选身份补全',
   icon: { paths: ['M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0', 'M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3'] },
@@ -134,7 +134,7 @@ export function activate(ctx) {
       identities.clear(); battle = { scene, key }; announced = false;
     }
     identities.update(snapshot, state?.identityBlocked === true);
-    lamps.update(snapshot, key);
+    lamps.update(snapshot);
     if (settings.get().cards) stats.update(snapshot, key); else stats.clear();
     if (!announced && !doc.hidden) {
       const seats = read(() => ctx.game.getSeatUIs()) || [];

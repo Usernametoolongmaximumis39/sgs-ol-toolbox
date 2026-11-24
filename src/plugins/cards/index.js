@@ -1,5 +1,9 @@
 import { singleRiderShopVisible } from '../../shared/native-shop.js';
+import { isPokerReplayActive, POKER_REPLAY_ATTRIBUTE } from '../../shared/poker-replay-mode.js';
+import { isNativePokerTable } from '../../shared/poker-table-mode.js';
 import { scopedStyles } from '../../shared/scoped-styles.js';
+import { CARD_MINIATURE_STYLES, CARD_SUITS, colorCardRank, createCardMiniature } from '../../shared/card-miniatures.js';
+import { CARD_OVERLAY_STYLES, SEAT_REVEAL_STYLES } from '../../shared/card-reveals.js';
 import { CARDS_ICON } from '../../ui/plugin-icons.js';
 import { initialState, reduce, CARD_JOURNAL_EVENTS, observedHandCandidates, handCandidates, zoneKey, metadata, sortCards, queryCardNames, queryCardPreview, deckComposition, wasSeen, ZONE_NAMES, REFERENCE, seatLabel } from './model.js';
 import { createNativeEnhancements, REVEAL_COLUMN_LEVELS, REVEAL_OPACITY_LEVELS, revealColumns, revealOpacity, roundInfoBounds } from './native.js';
@@ -21,10 +25,7 @@ const STYLES = `
 .sgs-card-grid{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.sgs-card-grid+.sgs-card-grid{margin-top:7px}
 .sgs-card-chip{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;border:1px solid var(--sgs-border,#665b42);border-radius:5px;background:var(--sgs-raised,#383327);padding:3px 6px;line-height:1.5;font-size:12px;max-width:100%}
 .sgs-card-chip.is-possible{border-style:dashed;opacity:.75}.sgs-card-chip.is-compact{font-size:11px;padding:2px 4px}
-.sgs-card-chip.sgs-card-mini{position:relative;display:inline-grid;grid-template-rows:1fr 1fr;align-items:stretch;gap:0;flex:0 0 auto;width:40px;height:58px;padding:0;border:1px solid #988568;border-radius:4px;background:linear-gradient(135deg,#fff9e9,#e4d5b9);color:#252018;box-shadow:0 1px 3px #0005;line-height:1.1;white-space:nowrap;overflow:hidden;vertical-align:middle}
-.sgs-card-mini .sgs-card-suit{display:flex;align-items:center;justify-content:center;min-width:0;border-bottom:1px solid #aa906845;font:700 16px/1 Georgia,"Microsoft YaHei",serif;color:#252018;letter-spacing:0}
-.sgs-card-mini .sgs-card-name{display:flex;align-items:center;justify-content:center;min-width:0;max-width:none;writing-mode:horizontal-tb;font:700 16px/1 "Microsoft YaHei",sans-serif;letter-spacing:0;overflow:hidden;text-overflow:clip}
-.sgs-card-mini.is-possible{border-style:dashed;background:#d1d3d5;color:#555b63;filter:grayscale(1)}.sgs-card-certainty{font-size:9px;line-height:10px;color:inherit}.sgs-card-mini.is-red .sgs-card-suit{color:#b72a24}
+${CARD_MINIATURE_STYLES}
 .sgs-card-suit{font-size:14px;letter-spacing:-.03em}.sgs-card-name{overflow:hidden;text-overflow:ellipsis;max-width:110px}.sgs-card-tag{font-size:10px;color:var(--sgs-muted,#b7aa8c);margin-left:3px}
 .sgs-card-setting-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin:10px 0}.sgs-card-setting{display:flex;gap:6px;align-items:center;font-size:12px}.sgs-card-setting input{accent-color:var(--sgs-accent,#dbba70)}
 .sgs-card-settings>summary{cursor:pointer;color:var(--sgs-muted,#b7aa8c);font-size:12px;padding:5px 0}
@@ -37,7 +38,7 @@ const STYLES = `
 .sgs-card-composition button.sgs-card-category{border:0;background:transparent;padding:2px 0;text-align:left;white-space:normal}.sgs-card-composition button.sgs-card-pin{padding:1px 4px;border:0;background:transparent;color:var(--sgs-muted,#b7aa8c)}.sgs-card-composition button.sgs-card-pin[aria-pressed=true]{color:var(--sgs-accent,#dbba70)}
 .sgs-card-category-cards{display:flex;flex-wrap:wrap;gap:5px;max-height:190px;overflow:auto;padding:6px 0}.sgs-card-catalog-item{display:flex;flex-direction:column;align-items:center;gap:2px}.sgs-card-catalog-item small{font-size:10px;color:var(--sgs-muted,#b7aa8c)}.sgs-card-catalog-item.is-seen .sgs-card-mini{opacity:.45}
 .sgs-card-possibilities>summary{cursor:pointer;font-size:11px;color:var(--sgs-muted,#b7aa8c);margin:5px 0}.sgs-card-reason{margin:5px 0;font-size:11px;color:var(--sgs-muted,#b7aa8c)}
-.sgs-cards-overlay{position:fixed;inset:0;z-index:2147482900;pointer-events:none;font:12px/1.4 var(--sgs-font,"Microsoft YaHei",sans-serif);color:var(--sgs-text,#eee3cc)}
+${CARD_OVERLAY_STYLES}
 .sgs-card-hud{position:absolute;top:132px;left:12px;max-width:calc(100vw - 24px);pointer-events:none;display:grid;grid-template-columns:60px var(--sgs-card-pile-width,186px);grid-template-rows:var(--sgs-card-round-height,58px) 32px;gap:6px;padding:0;font-variant-numeric:tabular-nums}
 .sgs-card-hud:not(.has-recent){grid-template-columns:var(--sgs-card-pile-width,186px)}.sgs-card-hud:not(.has-piles){grid-template-columns:60px}
 .sgs-card-hud .sgs-card-hud-recent{grid-column:1;grid-row:1/3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:60px;height:calc(var(--sgs-card-round-height,58px) + 38px);pointer-events:auto;padding:4px;background:color-mix(in srgb,var(--sgs-bg,#201e1a) 80%,transparent);border:1px solid var(--sgs-accent,#dbba70);border-radius:6px}
@@ -56,11 +57,9 @@ const STYLES = `
 .sgs-card-hud-list .sgs-card-controls{margin-bottom:5px}
 .sgs-card-hud-list .sgs-segments>button{flex:1;min-width:0;padding:3px 1px;font-size:10px}
 .sgs-card-hud-caption{font-size:10px;color:var(--sgs-muted,#b7aa8c);margin:0 0 4px}
-.sgs-card-seat-layer{position:absolute;inset:0;pointer-events:none}.sgs-card-seat-reveal,.sgs-card-source-label{position:absolute}
-.sgs-card-seat-reveal{display:grid;grid-template-columns:repeat(var(--sgs-reveal-columns),minmax(0,1fr));gap:calc(2px * var(--sgs-reveal-scale));align-content:start;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;pointer-events:auto;touch-action:pan-y;overscroll-behavior:contain}.sgs-card-seat-reveal::-webkit-scrollbar{display:none}
-.sgs-card-seat-reveal .sgs-card-mini{width:100%;min-width:0;height:calc(54px * var(--sgs-reveal-scale));pointer-events:auto}.sgs-card-seat-reveal .sgs-card-suit,.sgs-card-seat-reveal .sgs-card-name{font-size:calc(16px * var(--sgs-reveal-scale))}.sgs-card-seat-reveal .sgs-card-certainty{font-size:calc(9px * var(--sgs-reveal-scale));line-height:calc(10px * var(--sgs-reveal-scale));text-align:center}.sgs-card-seat-reveal .sgs-card-mini:hover{z-index:1}
+${SEAT_REVEAL_STYLES}
 .sgs-card-possible-count,.sgs-card-overflow{font-size:10px;color:var(--sgs-muted,#b7aa8c);padding:2px}
-.sgs-card-source-label{background:var(--sgs-bg,#201e1a);border:1px solid var(--sgs-border,#665b42);border-radius:3px;padding:1px 4px;font-size:10px;max-width:90px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.sgs-card-source-label{position:absolute;background:var(--sgs-bg,#201e1a);border:1px solid var(--sgs-border,#665b42);border-radius:3px;padding:1px 4px;font-size:10px;max-width:90px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .sgs-card-skill-hint{padding:7px 0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 30%,transparent);overflow-wrap:anywhere}.sgs-card-skill-hint:last-child{border-bottom:0}.sgs-card-skill-hint strong{display:block;color:var(--sgs-accent);font-size:12px;margin-bottom:3px}.sgs-card-skill-hint p{margin:0;color:var(--sgs-text);font-size:12px;line-height:1.65}
 
 .sgs-card-setting-grid{grid-template-columns:1fr;gap:0;margin:4px 0 0}.sgs-card-setting{justify-content:space-between;gap:12px;min-height:37px;padding:7px 2px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent);font-size:12px;cursor:pointer}.sgs-card-setting:last-child{border:0}.sgs-card-setting span{min-width:0;color:var(--sgs-text,#eee3cc)}.sgs-card-settings{padding:0 10px;margin-top:10px;border-radius:9px;background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-accent,#dbba70) 5%,transparent),#00000018);border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 40%,transparent)}.sgs-cards .sgs-fold>summary{padding:10px 0}.sgs-cards .sgs-segments{flex-wrap:nowrap;gap:2px}.sgs-cards .sgs-segments>button{border:0;background:transparent;font-size:11px;border-radius:5px;padding:4px 6px;color:var(--sgs-muted,#b7aa8c)}.sgs-cards .sgs-segments>button.is-active,.sgs-cards .sgs-segments>button[aria-pressed=true]{background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent);color:var(--sgs-accent,#dbba70)}.sgs-cards select.sgs-select{padding:5px 27px 5px 9px;background-color:var(--sgs-bg,#201e1a);border-color:color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);font-size:11px}.sgs-card-section{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 45%,transparent)}.sgs-card-composition th,.sgs-card-composition td{border-bottom-color:color-mix(in srgb,var(--sgs-border,#665b42) 35%,transparent)}.sgs-card-hud .sgs-card-hud-recent{background:linear-gradient(140deg,color-mix(in srgb,var(--sgs-raised,#383327) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions{gap:3px;padding:2px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 60%,transparent);border-radius:7px;background:linear-gradient(color-mix(in srgb,var(--sgs-surface,#2c2922) 93%,transparent),color-mix(in srgb,var(--sgs-bg,#201e1a) 93%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text,#eee3cc) 8%,transparent),0 3px 9px #0003}.sgs-card-hud-actions>button{border:0;background:transparent;padding:0 3px;font-size:14px;color:var(--sgs-muted,#b7aa8c)}.sgs-card-hud-actions>button[aria-expanded=true]{color:var(--sgs-accent,#dbba70);background:color-mix(in srgb,var(--sgs-accent,#dbba70) 10%,transparent);box-shadow:inset 0 -1px color-mix(in srgb,var(--sgs-accent,#dbba70) 50%,transparent)}.sgs-card-hud-list{border-color:color-mix(in srgb,var(--sgs-border,#665b42) 75%,transparent);border-radius:8px;box-shadow:0 8px 24px #0004}
@@ -68,7 +67,6 @@ const STYLES = `
 @media(prefers-reduced-motion:no-preference){.sgs-cards button{transition:background 140ms,border-color 140ms}}
 `;
 
-const SUITS = { 1: '♥', 2: '♦', 3: '♠', 4: '♣' };
 const SHORT_NAMES = {
   '火焰杀': '火杀', '雷电杀': '雷杀', '冰霜杀': '冰杀', '五谷丰登': '五谷', '桃园结义': '桃园',
   '无中生有': '无中', '过河拆桥': '过拆', '顺手牵羊': '顺手', '借刀杀人': '借刀',
@@ -112,7 +110,10 @@ export function activate(ctx) {
   };
   const getMeta = id => metadata(ctx.game, id);
   const setting = (key, fallback = true) => settings.get(key, fallback);
-  const currentState = () => ctx.getState() || initialState();
+  const idleState = initialState();
+  const initialScene = ctx.game.getScene?.();
+  let nativePokerTable = isNativePokerTable(initialScene);
+  const currentState = () => nativePokerTable || isPokerReplayActive(document) ? idleState : ctx.getState() || idleState;
   const mountStyle = scopedStyles(document, scope, STYLES);
   function resolveDeckMeta(id) {
     const info = getMeta(id);
@@ -142,7 +143,7 @@ export function activate(ctx) {
     if (!id) return null;
     const { name, suit, number } = readMeta(id);
     const pip = number > 10 ? ({ 11: 'J', 12: 'Q', 13: 'K' }[number] || number) : number || '';
-    const rank = `${SUITS[suit] || ''}${pip}`;
+    const rank = `${CARD_SUITS[suit] || ''}${pip}`;
     const record = state.cards[id];
     const locations = record?.locations?.map(key => {
       if (key === '?') return '未知位置';
@@ -155,15 +156,18 @@ export function activate(ctx) {
   function drawCard(card, possible = false, compact = false, miniature = false) {
     if (!card) return element('span', 'sgs-card-chip is-possible', '？');
     const { id, name, suit, rank, description, tag } = card;
-    const chip = element('span', `sgs-card-chip${possible ? ' is-possible' : ''}${compact ? ' is-compact' : ''}${miniature ? ' sgs-card-mini' : ''}${suit === 1 || suit === 2 ? ' is-red' : ''}`);
-    chip.dataset.cardId = String(id);
-    const rankLabel = element('span', 'sgs-card-suit', rank);
-    if (!miniature && (suit === 1 || suit === 2)) rankLabel.style.color = '#ef968a';
-    if (setting('fourColors', false) && suit === 2) rankLabel.style.color = '#89bdf5';
-    if (setting('fourColors', false) && suit === 4) rankLabel.style.color = '#8ac8a7';
-    chip.append(rankLabel, element('span', 'sgs-card-name', miniature ? miniatureName(name) : name));
+    const fourColors = setting('fourColors', false);
+    const chip = miniature ? createCardMiniature(document, { id, suit, rank, name: miniatureName(name), description, possible, compact, fourColors })
+      : element('span', `sgs-card-chip${possible ? ' is-possible' : ''}${compact ? ' is-compact' : ''}${suit === 1 || suit === 2 ? ' is-red' : ''}`);
+    if (!miniature) {
+      chip.dataset.cardId = String(id);
+      const rankLabel = element('span', 'sgs-card-suit', rank);
+      if (suit === 1 || suit === 2) rankLabel.style.color = '#ef968a';
+      colorCardRank(rankLabel, suit, fourColors);
+      chip.append(rankLabel, element('span', 'sgs-card-name', name));
+      chip.title = description; chip.setAttribute('aria-label', description);
+    }
     if (possible) chip.append(element('small', 'sgs-card-certainty', '可能'));
-    chip.title = description; chip.setAttribute('aria-label', description);
     if (!miniature && !compact && setting('labels') && tag !== undefined) chip.append(element('small', 'sgs-card-tag', tag));
     return chip;
   }
@@ -674,7 +678,22 @@ export function activate(ctx) {
     };
   }
   const unregister = ctx.ui.registerPanel({ id: 'cards', title: '卡牌', category: 'game', priority: 32768, render: renderPanel });
-  native = createNativeEnhancements(ctx, overlay, makeCard, refresh);
+  const refreshPokerMode = () => {
+    heldKey = activeHudList = hoverHudList = null;
+    refresh();
+    refreshDeck();
+  };
+  const releaseScene = ctx.game.onSceneChange?.(scene => {
+    const next = isNativePokerTable(scene);
+    if (nativePokerTable === next) return;
+    nativePokerTable = next;
+    refreshPokerMode();
+  });
+  if (typeof releaseScene === 'function') scope.add(releaseScene);
+  const pokerMode = new window.MutationObserver(refreshPokerMode);
+  pokerMode.observe(document.documentElement, { attributes: true, attributeFilter: [POKER_REPLAY_ATTRIBUTE] });
+  scope.add(() => pokerMode.disconnect());
+  native = createNativeEnhancements(ctx, overlay, makeCard, refresh, currentState, { initialScene });
   let lastRenderedState = ctx.getState();
   const unsubscribe = ctx.subscribe(state => {
     if (state === lastRenderedState) return;
@@ -706,8 +725,8 @@ export function activate(ctx) {
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.89', apiVersion: 1, contractVersion: 1, journalEvents: CARD_JOURNAL_EVENTS,
-    releaseNotes: "牌局记录和显示只处理所需的牌局消息，减少长局和登录期间的处理开销。", minCoreVersion: '0.6.87', categories: ['game'], icon: CARDS_ICON, priority: 10000,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.95', apiVersion: 1, contractVersion: 1, journalEvents: CARD_JOURNAL_EVENTS,
+    releaseNotes: "修复整手牌转出或手牌清空后仍显示旧推断的问题，减少长局和登录期间的处理开销。", minCoreVersion: '0.6.87', categories: ['game'], icon: CARDS_ICON, priority: 10000,
     description: '记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数' },
   initialState, reduce, activate,
 };

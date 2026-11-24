@@ -2,6 +2,8 @@ import { read, generalNames } from '../../shared/info-runtime.js';
 import { LAMP_PACKET_LIMIT, ownedLampIds, validLampRows } from '../../shared/lamp-packet.js';
 import { userId } from './model.js';
 
+const LAMP_CHECK_INTERVAL = 60 * 60 * 1000;
+
 export function projectLamp(packet) {
   const p = packet?.Protocol ?? packet;
   if (p?.Type !== 1 || typeof p.Nickname !== 'string' || !Array.isArray(p.GeneralIDList) || p.GeneralIDList.length > LAMP_PACKET_LIMIT) return null;
@@ -48,27 +50,41 @@ export function createLampBanner(ctx) {
 }
 
 export function createLampTracking(ctx, friends, banner = createLampBanner(ctx)) {
-  let owner = '', snapshots = {}, pending = null, due = new Map(), names = {}, loading = false, retryNames = 0, readable = true;
+  let owner = '', loginAccount = '', snapshots = {}, pending = null, names = {}, loading = false, retryNames = 0, readable = true;
+  const due = new Map();
   const current = () => userId(ctx.native.account().id);
   const deleted = new Set();
   function flushDeleted() {
     if (!deleted.size || !owner || !readable) return;
     const next = { ...snapshots };
-    for (const id of deleted) { delete next[id]; due.delete(id); if (pending?.id === id) pending = null; }
+    for (const id of deleted) { delete next[id]; if (pending?.id === id) pending = null; }
     try { ctx.storage.set('lamps:' + owner, { version: 1, friends: next }); snapshots = next; deleted.clear(); }
     catch (e) { ctx.reportError?.(e); }
   }
-  if (friends.onDeleted) ctx.scope.add(friends.onDeleted(id => { sync(); deleted.add(id); flushDeleted(); }));
+  if (friends.onDeleted) ctx.scope.add(friends.onDeleted(id => { if (sync()) { deleted.add(id); flushDeleted(); } }));
   function sync(force = false) {
     const next = current();
-    if (force || next !== owner) { owner = next; snapshots = {}; pending = null; due.clear(); deleted.clear(); banner.clear(); readable = true;
-      if (owner) { try { const saved = ctx.storage.get('lamps:' + owner); if (saved?.version === 1 && saved.friends && typeof saved.friends === 'object' && !Array.isArray(saved.friends)) {
-        for (const [id, entry] of Object.entries(saved.friends)) if (userId(id) === id && Array.isArray(entry?.ids) && entry.ids.length <= 10000 && entry.ids.every(n => Number.isSafeInteger(n) && n > 0)) snapshots[id] = entry;
-      } } catch (e) { readable = false; ctx.reportError?.(e); } }
+    if (!next) return false;
+    const newLogin = next === loginAccount || next !== owner;
+    if (newLogin) {
+      owner = next; loginAccount = ''; pending = null; due.clear(); deleted.clear(); banner.clear();
     }
+    if (newLogin || force) {
+      snapshots = {}; readable = true;
+      try {
+        const saved = ctx.storage.get('lamps:' + owner);
+        if (saved?.version === 1 && saved.friends && typeof saved.friends === 'object' && !Array.isArray(saved.friends)) {
+          for (const [id, entry] of Object.entries(saved.friends)) {
+            if (userId(id) === id && Array.isArray(entry?.ids) && entry.ids.length <= 10000 && entry.ids.every(n => Number.isSafeInteger(n) && n > 0)) snapshots[id] = entry;
+          }
+        }
+      } catch (e) { readable = false; ctx.reportError?.(e); }
+    }
+    return true;
   }
   function consume(_, p) {
-    sync(); const task = pending, data = friends.getRecord();
+    if (!sync()) return;
+    const task = pending, data = friends.getRecord();
     if (!task || current() !== owner || task.owner !== owner || p.name !== task.name || !data.pins.includes(task.id) || data.friends[task.id]?.name !== task.name) return;
     p.ids.forEach(id => task.ids.add(id));
     if (task.ids.size > 10000) { pending = null; return; }
@@ -77,7 +93,7 @@ export function createLampTracking(ctx, friends, banner = createLampBanner(ctx))
     const ids = [...task.ids].sort((a,b) => a-b), old = snapshots[task.id];
     const added = Array.isArray(old?.ids) ? ids.filter(id => !old.ids.includes(id)) : [];
     // Missing names must not consume a change before its full name is available.
-    if (added.some(id => !names[id])) { due.set(task.id, Date.now() + 660000); ctx.reportError?.('新增武将名称暂不可读，保留上次将灯记录，稍后重试'); return; }
+    if (added.some(id => !names[id])) { ctx.reportError?.('新增武将名称暂不可读，保留上次将灯记录，稍后重试'); return; }
     const next = { ...snapshots, [task.id]: { name: task.name, ids,
       names: Object.fromEntries(ids.filter(id => names[id] || old?.names?.[id]).map(id => [id, names[id] || old.names[id]])), at: Date.now() } };
     try { ctx.storage.set('lamps:' + owner, { version: 1, friends: next }); snapshots = next; }
@@ -86,7 +102,7 @@ export function createLampTracking(ctx, friends, banner = createLampBanner(ctx))
   }
   ctx.native.observe({ ClientSelfbuygeneralRep: projectLamp }, consume, () => { pending = null; });
   function tick() {
-    sync(); if (!owner || !readable) return;
+    if (!sync() || !readable) return;
     flushDeleted();
     if (!Object.keys(names).length) {
       names = generalNames(read(() => ctx.game.getConfigData('character')));
@@ -97,20 +113,24 @@ export function createLampTracking(ctx, friends, banner = createLampBanner(ctx))
     }
     const data = friends.getRecord();
     if (pending && (!data.pins.includes(pending.id) || data.friends[pending.id]?.name !== pending.name)) pending = null;
-    if (pending && Date.now() - pending.at < 30000) return;
+    const now = Date.now();
+    if (pending && now - pending.at < 30000) return;
     pending = null;
-    const id = data.pins.find(id => data.friends[id]?.name && !data.friends[id].missingAt && !deleted.has(id) && Date.now() >= (due.get(id) || 0));
+    const id = data.pins.find(id => data.friends[id]?.name && !data.friends[id].missingAt && !deleted.has(id) && now >= (due.get(id) || 0));
     if (!id) return;
     const m = ctx.native.manager('GeneralManager', 'ClientSelfbuygeneralRep', m => typeof m.ReqOtherbuygeneral === 'function');
     if (!m) return;
-    pending = { owner, id, name: data.friends[id].name, ids: new Set(), at: Date.now() };
-    due.set(id, Date.now() + 660000);
+    pending = { owner, id, name: data.friends[id].name, ids: new Set(), at: now };
+    due.set(id, now + LAMP_CHECK_INTERVAL);
     try { m.ReqOtherbuygeneral(pending.name); } catch (e) { pending = null; ctx.reportError?.(e); }
   }
+  ctx.subscribe?.((_, event) => {
+    if (event?.type === 'ClientLoginRep') loginAccount = userId(event.payload?.userID) || loginAccount;
+  });
   ctx.scope.add(() => { pending = null; snapshots = {}; due.clear(); });
   ctx.scope.interval(tick, 1000); tick();
   return { tick, reload: () => sync(true), getRecords() {
-    sync();
+    if (!sync()) return {};
     const data = friends.getRecord();
     return structuredClone(Object.fromEntries(Object.entries(snapshots).map(([id, entry]) => [id, {
       name: data.friends[id]?.name || entry.name,

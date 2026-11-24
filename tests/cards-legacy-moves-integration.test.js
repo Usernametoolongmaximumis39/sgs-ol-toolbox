@@ -69,3 +69,38 @@ test('An intervening unrelated move cancels Jieli delayed return inference', () 
   assert.notDeepEqual(g.state.cards[1].locations, [zoneKey(1)]);
   assert.notDeepEqual(g.state.cards[3].locations, [zoneKey(1)]);
 });
+
+function guanxu(entry) {
+  let state = initialState(), seq = 0;
+  const send = (type, payload) => state = reduce(state, { type, payload: type.startsWith('toolbox:') ? payload : projectMessage(type, payload), seq: ++seq, sessionId: 'guanxu' });
+  send('MsgGamePlayCardNtf', { CardList: Array.from({ length: 22 }, (_, index) => index + 1) });
+  send('GsCRoleOptTargetNtf', { SpellID: 987, Type: 29, Param: 1, SrcSeatID: 0, TargetSeatID: 1, Params: [5, 3, 10, 11, 12, 13, 14, 20, 21, 22] });
+  send('PubGsCMoveCard', move(987, 1, 10, 5, { FromID: 255, ToID: 0, FromPosition: POSITION.top, CardIDs: entry }));
+  send('PubGsCMoveCard', move(987, 5, 10, 1, { FromID: 1, ToID: 0, CardIDs: [20] }));
+  return { send, get state() { return state; } };
+}
+
+test('GuanXu records the window block top-first before any exchange', () => {
+  let state = initialState(), seq = 0;
+  const send = (type, payload) => state = reduce(state, { type, payload: type.startsWith('toolbox:') ? payload : projectMessage(type, payload), seq: ++seq, sessionId: 'guanxu' });
+  send('MsgGamePlayCardNtf', { CardList: Array.from({ length: 22 }, (_, index) => index + 1) });
+  send('GsCRoleOptTargetNtf', { SpellID: 987, Type: 29, Param: 1, SrcSeatID: 0, TargetSeatID: 1, Params: [5, 3, 10, 11, 12, 13, 14, 20, 21, 22] });
+  assert.deepEqual(state.zones[zoneKey(1)].top, [14, 13, 12, 11, 10]);
+});
+
+test('GuanXu returns the swapped hand card to the vacated pile slot', () => {
+  for (const entry of [[14, 13, 12, 11, 10], [10, 11, 12, 13, 14]]) {
+    const g = guanxu(entry);
+    g.send('CGsRoleSpellOptRep', { SpellID: 987, SeatID: 0, Type: 12, Datas: [2, 5, 0] });
+    g.send('PubGsCMoveCard', move(987, 10, 5, 1, { FromID: 0, ToID: 1, CardIDs: [12] }));
+    g.send('PubGsCMoveCard', move(987, 10, 1, 5, { FromID: 0, ToID: 255, FromPosition: POSITION.unknown, ToPosition: POSITION.top }));
+    assert.deepEqual(g.state.zones[zoneKey(1)].top, [14, 13, 20, 11, 10], `entry ${entry}`);
+  }
+});
+
+test('GuanXu without drag coordinates never fabricates a returned order', () => {
+  const g = guanxu([14, 13, 12, 11, 10]);
+  g.send('PubGsCMoveCard', move(987, 10, 5, 1, { FromID: 0, ToID: 1, CardIDs: [12] }));
+  g.send('PubGsCMoveCard', move(987, 10, 1, 5, { FromID: 0, ToID: 255, FromPosition: POSITION.unknown, ToPosition: POSITION.top }));
+  assert.deepEqual(g.state.zones[zoneKey(1)].top.filter(id => id > 0), []);
+});

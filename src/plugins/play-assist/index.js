@@ -11,8 +11,8 @@ export const OPTIONS = [
   ['quandaoCount', '权道数量', ''],
   ['rapid', '技能连按', '取消连按间隔'],
 ];
-export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.21', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "修复部分正式牌局中长按技能辅助未生效的问题，观战、回放、阵亡及托管时停用辅助。", minCoreVersion: '0.6.87', description: '长按技能辅助、自动确定与询问跳过。',
+export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.23', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "改进落英、破军和武娘的长按辅助识别，无法确认技能版本时交给玩家操作。三国斗地主牌桌停用出牌辅助。", minCoreVersion: '0.6.87', description: '长按技能辅助、自动确定与询问跳过。',
   icon: { paths: ['M4 5h10v14H4zM7 8h4M7 11h3', 'm17 3-3 8h5l-3 10 7-13h-5l2-5'] }, priority: 12000, categories: ['game'] };
 
 export default { manifest, activate(ctx) {

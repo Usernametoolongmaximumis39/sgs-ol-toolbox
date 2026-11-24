@@ -15,14 +15,18 @@ try {
  await page.waitForFunction(()=>document.querySelector('#event-log')?.textContent.includes('MsgGamePlayCardNtf'));
  await page.evaluate(()=>{
   const api=window[Symbol.for('sgs.ol.toolbox.core')],demo=window.__SGS_TOOLBOX_DEMO__;
-  const seats=[1,2,3].map((id,i)=>({seatID:6-i,seat:{Index:id,FixedViewId:i+1,IsFull:true,HandCount:0,HandShowCardIDs:[]}}));
+  const nativeSeats=demo.scene.seatContainer.seatUIs;
+  const seats=[1,2,3].map((id,i)=>({seatID:6-i,seatAvatar:nativeSeats[i].seatAvatar,
+   seat:{Index:id,FixedViewId:i+1,IsFull:true,HandCount:[1,2,1][i],HandShowCardIDs:[]}}));
   seats[0].seat.HandCards=[1];seats[0].cardContainer={seat:seats[0].seat,cardUis:[]};
   seats.push({seat:{Index:6,FixedViewId:7,IsFull:false,HandShowCardIDs:[2,3,4]}});
   demo.scene.SelfSeatUi=seats[0];demo.scene.seatContainer.seatUIs=seats;
+  const portraits=document.querySelectorAll('.players .player');
+  portraits[0].lastChild.textContent='手牌 2';portraits[1].lastChild.textContent='手牌 1';
   api.journal.push('MsgGamePlayCardNtf',{CardList:[1,2,3,4,5,6]});
-  api.journal.push('toolbox:snapshot',api.game.getSnapshot());
   const move=(from,to,ids,count)=>api.journal.push('PubGsCMoveCard',{FromID:from,FromZone:from===255?1:5,ToID:to,ToZone:5,CardIDs:ids,CardCount:count,MoveType:1});
-  move(255,2,[2,3,4],3);move(2,3,[],1);
+  move(255,1,[1],1);move(255,2,[2,3,4],3);move(2,3,[],1);
+  api.journal.push('toolbox:snapshot',api.game.getSnapshot());
  });
  const host=page.locator('[data-sgs-toolbox="core"]');
  await page.waitForFunction(()=>window[Symbol.for('sgs.ol.toolbox.core')].manager.slots.get('cards').state.seats[3]?.position===3);
@@ -86,6 +90,40 @@ try {
   assert.ok(layout.fits&&layout.scroll&&layout.buttons&&layout.singleRow,JSON.stringify({width,light,font,layout}));
   if(font===2) await host.screenshot({path:`test-results/card-reveal-settings-${width}-${light?'light':'dark'}.png`});
  }
+ await page.setViewportSize({width:1100,height:850});
+ await host.evaluate(h=>{
+  window[Symbol.for('sgs.ol.toolbox.core')].themes.select('core.black-gold');
+  h.style.width='280px';h.style.removeProperty('--sgs-font-offset');
+  h.shadowRoot.querySelector('.shell').style.width='280px';
+  h.shadowRoot.querySelector('.sgs-card-settings').open=false;
+  document.querySelector('[data-sgs-cards-overlay]').style.removeProperty('visibility');
+ });
+ const overlay=page.locator('[data-sgs-cards-overlay]');
+ const seatTwo=overlay.locator('.sgs-card-seat-reveal[data-seat-id="2"]');
+ const seatThree=overlay.locator('.sgs-card-seat-reveal[data-seat-id="3"]');
+ await seatTwo.locator('.is-possible[data-card-id="3"]').waitFor();
+ await seatThree.locator('.is-possible[data-card-id="3"]').waitFor();
+ await host.locator('.sgs-card-seat-heading').first().scrollIntoViewIfNeeded();
+ await page.waitForFunction(()=>{
+  const root=document.querySelector('[data-sgs-cards-overlay]').shadowRoot;
+  return [...document.querySelectorAll('.players .player')].every((portrait,index)=>{
+   const box=root.querySelector(`[data-seat-id="${index+2}"]`)?.getBoundingClientRect();
+   const bounds=portrait.getBoundingClientRect();
+   return box&&Math.abs(box.top-bounds.bottom)<1&&Math.abs(box.left-bounds.left)<20;
+  });
+ });
+ await page.screenshot({path:'test-results/card-last-hand-before.png'});
+ await page.evaluate(()=>{
+  const api=window[Symbol.for('sgs.ol.toolbox.core')],demo=window.__SGS_TOOLBOX_DEMO__;
+  demo.scene.seatContainer.seatUIs[2].seat.HandCount=0;
+  document.querySelectorAll('.players .player')[1].lastChild.textContent='手牌 0';
+  api.journal.push('PubGsCMoveCard',{FromID:3,FromZone:5,ToID:255,ToZone:2,CardIDs:[2],CardCount:1,MoveType:2});
+ });
+ await seatThree.waitFor({state:'detached'});
+ await seatTwo.locator('[data-card-id="3"]:not(.is-possible)').waitFor();
+ assert.equal(await host.locator('.sgs-card-seat-row').count(),0);
+ await page.screenshot({path:'test-results/card-last-hand-after.png'});
+
  assert.deepEqual(errors,[]);
- console.log('Three-player browser fixture: native positions 2/3; empty ID 6 excluded. Reveal size keyboard and layout passed at 248/280/420px in both themes and all four font sizes.');
+ console.log('Three-player browser fixture: native positions 2/3 and last-card loss synchronized across portraits and hand inference. Reveal size keyboard and layout passed at 248/280/420px in both themes and all four font sizes.');
 } finally {await browser.close();await market.close();}

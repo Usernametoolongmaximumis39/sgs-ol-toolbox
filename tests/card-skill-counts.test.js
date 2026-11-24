@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { skillCount } from '../src/plugins/cards/skill-counts.js';
 import { initialState, reduce } from '../src/plugins/cards/model.js';
+import { projectMessage } from '../src/core/protocol.js';
 const skill = (extra = {}) => ({ SkillId: 123, SpecialModeDesc: '出牌阶段限三次，你可以摸牌。',
   TimelimitRound: 3, TimeLimitGame: Number.MAX_SAFE_INTEGER, GetSkillUseCountInRound: () => 1,
   Seat: { Index: 0, InDealRound: true, GetSkillUseCountInGame: () => 0 }, ...extra });
@@ -70,23 +71,74 @@ test('RenChe displays the native play-phase limit from the first use, even at on
   renChe.Seat.InDealRound = false;
   assert.equal(read(), null);
 });
-test('special counters reject partial histories, deduplicate and reset on turn/reconnect', () => {
+test('YuShi shares its MaxHp allowance across player turns and refreshes on the next game round', () => {
+  let state = initialState(), seq = 0;
+  const send = (type, payload) => state = reduce(state, { type, payload: projectMessage(type, payload) ?? payload, seq: ++seq, sessionId: 's' });
+  const seat = { Index: 0, Hp: 1, MaxHp: 4 };
+  const yushi = skill({ SkillId: 3751, Seat: seat, GetSkillUseCountInRound: () => 0 });
+  const remaining = () => skillCount(yushi, new Set(), state).remaining;
+  const use = { SpellID: 3751, EffectIndex: 2, SeatID: 0 };
+
+  assert.equal(remaining(), null);
+  send('MsgGamePlayCardNtf', { CardList: [1, 2] });
+  assert.equal(remaining(), 4);
+  send('PubGsCUseSpell', { ...use, EffectIndex: 1 });
+  send('PubGsCUseSpell', { ...use, isSend: true });
+  send('PubGsCUseSpell', { ...use, SeatID: 1 });
+  assert.equal(remaining(), 4);
+  send('PubGsCUseSpell', use);
+  assert.equal(remaining(), 3);
+  assert.equal(reduce(state, { type: 'PubGsCUseSpell', payload: use, seq, sessionId: 's' }), state);
+  send('MsgGameTurnNtf', { Protocol: { TurnCnt: 1, IsResume: false } });
+  send('GsCGamephaseNtf', { SeatID: 0, Round: 0 });
+  assert.equal(remaining(), 3);
+  send('PubGsCUseSpell', use);
+  send('GsCGamephaseNtf', { SeatID: 1, Round: 0 });
+  assert.equal(remaining(), 2);
+  send('GsCGamephaseNtf', { SeatID: 1, Round: 7 });
+  send('GsCGamephaseNtf', { SeatID: 1, Round: 0 });
+  assert.equal(remaining(), 2);
+  for (const TurnCnt of [1, 0, undefined, 1.5]) send('MsgGameTurnNtf', { TurnCnt });
+  assert.equal(remaining(), 2);
+
+  seat.MaxHp = 1;
+  assert.equal(remaining(), 0);
+  seat.MaxHp = 3;
+  assert.equal(remaining(), 1);
+  send('MsgGameTurnNtf', { TurnCnt: 2 });
+  assert.equal(remaining(), 3);
+  send('PubGsCUseSpell', use);
+  send('MsgGameTurnNtf', { TurnCnt: 1 });
+  assert.equal(remaining(), 2);
+  send('MsgReconnectGame', {});
+  send('GsCGamephaseNtf', { SeatID: 2, Round: 0 });
+  send('MsgGameTurnNtf', { Protocol: { TurnCnt: 2, IsResume: true } });
+  send('MsgGameTurnNtf', { Protocol: { TurnCnt: 3, IsResume: true } });
+  send('PubGsCUseSpell', use);
+  assert.equal(remaining(), null);
+  send('MsgGameTurnNtf', { TurnCnt: 4 });
+  assert.equal(remaining(), 3);
+  send('toolbox:gap', {});
+  send('MsgGameTurnNtf', { TurnCnt: 4 });
+  assert.equal(remaining(), null);
+  send('MsgGameTurnNtf', { TurnCnt: 5 });
+  assert.equal(remaining(), 3);
+  send('MsgGamePlayCardNtf', { Protocol: { CardList: [1, 2], IsResume: true } });
+  assert.equal(remaining(), null);
+  send('MsgGamePlayCardNtf', { CardList: [1, 2] });
+  assert.equal(remaining(), 3);
+});
+
+test('the per-turn observed counter still resets at player turn start', () => {
   let state = initialState(), seq = 0;
   const send = (type, payload) => state = reduce(state, { type, payload, seq: ++seq, sessionId: 's' });
-  const special = skill({ SkillId: 0xea7, Seat: { Index: 0, MaxHp: 4 } });
-  assert.equal(skillCount(special, new Set(), state).remaining, null);
-  send('MsgGameTurnNtf', { SeatID: 0, TurnCnt: 1 });
-  assert.equal(skillCount(special, new Set(), state).remaining, 4);
-  send('PubGsCUseSpell', { SpellID: 0xea7, EffectIndex: 1, SeatID: 0 });
-  send('PubGsCUseSpell', { SpellID: 0xea7, EffectIndex: 2, SeatID: 0, isSend: true });
-  assert.equal(skillCount(special, new Set(), state).remaining, 4);
-  send('PubGsCUseSpell', { SpellID: 0xea7, EffectIndex: 2, SeatID: 0 });
-  assert.equal(skillCount(special, new Set(), state).remaining, 3);
-  assert.equal(reduce(state, { type: 'PubGsCUseSpell', payload: { SpellID: 0xea7, EffectIndex: 2, SeatID: 0 }, seq, sessionId: 's' }), state);
-  send('MsgReconnectGame', {});
-  assert.equal(skillCount(special, new Set(), state).remaining, null);
-  send('MsgGameTurnNtf', { SeatID: 1, TurnCnt: 2 });
-  assert.equal(skillCount(special, new Set(), state).remaining, 4);
+  const shuhui = skill({ SkillId: 0xc12 });
+  const scene = { gameManager: { Seats: Array.from({ length: 4 }, () => ({ IsLegalOperable: true })) } };
+  const remaining = () => skillCount(shuhui, new Set(), state, scene).remaining;
+  assert.equal(remaining(), null);
+  send('GsCGamephaseNtf', { SeatID: 0, Round: 0 });
   send('PubGsCUseSpell', { SpellID: 0xc12, EffectIndex: 1, SeatID: 0 });
-  assert.equal(skillCount(skill({ SkillId: 0xc12 }), new Set(), state, { gameManager: { Seats: Array.from({ length: 4 }, () => ({ IsLegalOperable: true })) } }).remaining, 2);
+  assert.equal(remaining(), 2);
+  send('GsCGamephaseNtf', { SeatID: 1, Round: 0 });
+  assert.equal(remaining(), 3);
 });

@@ -1,5 +1,6 @@
 import { createQuandaoDisplay } from './quandao.js';
 import { read, field } from '../../shared/info-runtime.js';
+import { isNativePokerTable } from '../../shared/poker-table-mode.js';
 import { SHANHE_BATTLE_SCENE } from '../../shared/shanhe-scenes.js';
 import { EXTRA_IDS, skillKind } from './strategies.js';
 import { createExtended, redShaOwnTurn } from './extended.js';
@@ -48,11 +49,11 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
   function alive(s = state, scene) {
     if (disposed || ctx.scope.signal.aborted || !s || s !== state || ended || !visible(s.self)
       || s.self.seat?.IsDead || s.self.seat?.IsAiControl || s.scene.IsViewer === true) return false;
-    if ((scene ?? ctx.game.getScene()) !== s.scene) return false;
+    if ((scene ?? ctx.game.getScene()) !== s.scene || isNativePokerTable(s.scene)) return false;
     const gc = gameContext(), snap = read(() => ctx.game.getSnapshot());
     // GameContext is closure-local in production builds, not a registered
     // Laya class. Native handlers still enforce its operation restrictions.
-    return snap?.inGame === true && !snap?.isReplay && gc?.IsViewer !== true &&
+    return snap?.inGame === true && !snap.isReplay && !snap.pokerTable && gc?.IsViewer !== true &&
       read(() => gc.IsViewerOrReplay()) !== true && read(() => gc.CanOperationInGame()) !== false;
   }
   function notify() { onChange(); }
@@ -176,10 +177,10 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
   function resetRound() { currentSeat = null; sourceCard = null; wuxie = null; judgementFlower = null; }
   function bind(scene, self) {
     clear(); const s = state = {scene,self,seat:self.seat,bindings:new Map(),clean:[],bar:0,selector:0,submittedBar:-1,submittedSelector:-1,lastSkill:0,pending:false};
-    const patch = (target,key,fn) => { if (typeof target?.[key] === 'function') s.clean.push(ctx.scope.patch(target,key,original => function(...args) { const result = original.apply(this,args); fn(); schedule(s); return result; })); };
+    const patch = (target,key,fn) => { if (typeof target?.[key] === 'function') s.clean.push(ctx.scope.patch(target,key,original => function(...args) { const result = original.apply(this,args); fn(...args); schedule(s); return result; })); };
     syncBar(s);
     patch(self.spellSelector,'Show',() => s.selector++); patch(self.spellSelector,'UpdateBtnState',() => {});
-    patch(self,'StartSelectSkillItem',() => {});
+    patch(self,'StartSelectSkillItem',(_trigger, skill) => { s.askedSkillId = Number(skill?.SkillId ?? skill?.ID); });
     if (ctx.ui.nativeTheme?.watch) s.clean.push(ctx.ui.nativeTheme.watch(paint));
   }
   function syncBar(s) {
@@ -485,7 +486,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     observe();
     const scene = ctx.game.getScene(), self = scene?.SelfSeatUi;
     if (state && (state.scene !== scene || state.self !== self || state.seat !== self?.seat)) { clear(); ended = false; resetRound(); }
-    if (!self?.seat || !self.cardContainer) { clear(); resetRound(); return; }
+    if (isNativePokerTable(scene) || !self?.seat || !self.cardContainer) { clear(); resetRound(); return; }
     if (!state && !ended) bind(scene,self);
     if (state) syncBar(state);
     return { scene, self };

@@ -22,6 +22,7 @@ ALLOWED.add('sys_h5_shop');
 ALLOWED.add('gn_dbs_coupon_cfg');
 ALLOWED.add('hd_fight_lord_config');
 ALLOWED.add('sys_ss_gamelabel_config');
+ALLOWED.add('sys_h5_music');
 const YJCM_SKINS = 'yjcm-skins';
 ALLOWED.add(YJCM_SKINS);
 const ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024;
@@ -178,7 +179,10 @@ export function createConfigData(win, scope) {
     for (const container of [read(() => win.CtrUtil.AllDatas), read(() => win.SystemContext.AllDatas),
       read(() => win.__SGS_TOOLBOX_DEMO__.configs)]) {
       const data = read(() => container[`${name}.sgs`]) || read(() => container[name]);
-      if (data && typeof data === 'object') return data;
+      if (!data || typeof data !== 'object') continue;
+      // The native sound manager empties heromusic in place after indexing it.
+      if (name === 'sys_h5_music' && !(data.root ?? data).heromusic?.length) continue;
+      return data;
     }
     return cache.get(name) || null;
   }

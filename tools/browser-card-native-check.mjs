@@ -87,13 +87,20 @@ try {
     const themeListeners = new Set(), themes = { current: { tokens: {} }, subscribe(fn) { themeListeners.add(fn); return () => themeListeners.delete(fn); } };
     const state = Object.assign(NativeCardPlugin.initialState(), { active: true, selfSeatId: 0, seats: { 0: {} } });
     state.cards={4:{id:4,locations:['5:1'],tags:[],lastSeq:1,seen:true},5:{id:5,locations:['5:1','5:2'],tags:[],lastSeq:1,seen:true}};
+    let gameState = state;
+    let onStateChange;
+    const send = (type, payload) => {
+      gameState = NativeCardPlugin.reduce(gameState, { type, payload, sessionId: 'yushi', seq: gameState.lastSeq + 1 });
+      onStateChange?.(gameState);
+    };
     let clicks = 0;
     const scene = { SelfSeatUi: self, SceneName: 'GameScene' };
     const dispose = NativeCardPlugin.activate({ document, window, scope, themes,
       game: { getScene: () => scene, getSelfSeatUI: () => self, getSeatUIs: () => [self,observed], getClass: name => name === 'CheckSeatCardWindow' ? CheckSeatCardWindow : null,
         getCardMeta:id=>({name:'杀',suit:id===4?3:4,number:id===4?10:2}) },
-      getState: () => state, settings: { get: (key, fallback) => settings.has(key) ? settings.get(key) : fallback, set: (key, value) => settings.set(key, value) },
-      subscribe: () => () => {}, ui: { ...NativeCardCheck.mountPluginUI({document,window,scope}, () => ({document,window,scope})),
+      getState: () => gameState, settings: { get: (key, fallback) => settings.has(key) ? settings.get(key) : fallback, set: (key, value) => settings.set(key, value) },
+      subscribe(fn) { onStateChange = fn; return () => { onStateChange = undefined; }; },
+      ui: { ...NativeCardCheck.mountPluginUI({document,window,scope}, () => ({document,window,scope})),
         nativeTheme: NativeCardCheck.createNativeTheme({document,window,scope,themes}), registerPanel(spec) {
         const main = document.querySelector('main'); main.hidden = true;
         return spec.render(main);
@@ -108,7 +115,8 @@ try {
     const countdown = new Laya.Sprite(); countdown.size(230,12); countdown.pos(155,220); countdown.RemainValue=7.4;countdown.countTween={};
     countdown.graphics.drawRect(0,0,230,12,'#70251c'); modal.addChild(countdown); modal.countdownTimer=countdown;
     modal.on('click', modal, () => clicks++);
-    window.nativeCheck = { themes, themeListeners, state, scene, gameLayer, windowLayer, hand, self, avatar, staleTimer, settings, scope, enhancement, modal, renChe, get clicks() { return clicks; }, get handPresses() { return handPresses; } };
+    window.nativeCheck = { themes, themeListeners, state, scene, gameLayer, windowLayer, hand, self, avatar, staleTimer, settings, scope, enhancement, modal, renChe,
+      send, restoreGameState() { gameState = state; onStateChange?.(gameState); }, get clicks() { return clicks; }, get handPresses() { return handPresses; } };
   });
   await page.waitForFunction(() => !!nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort'));
   const counts = () => page.evaluate(() => nativeCheck.self._children.filter(n => n.name === 'sgs-toolbox-skill-count').map(n => n.text));
@@ -142,6 +150,35 @@ try {
     await page.evaluate(({ used, settled }) => Object.assign(nativeCheck.tiaoxin, { used, settled }), { used, settled });
     await page.waitForFunction(expected => nativeCheck.self._children.filter(n => n.name === 'sgs-toolbox-skill-count').at(-1)?.text === expected, remaining);
   }
+  await page.evaluate(() => {
+    const { self, send } = nativeCheck, item = self.skillItems.at(-1);
+    nativeCheck.previousSkill = item.Skill;
+    self.seat.MaxHp = 4;
+    item.Skill = { SkillId: 3751, Seat: self.seat };
+    item.getChildAt(0).text = '驭势';
+    send('MsgGamePlayCardNtf', { CardList: [1, 2, 3] });
+    send('MsgGameTurnNtf', { TurnCnt: 1 });
+  });
+  for (const [type, payload, remaining] of [
+    ['PubGsCUseSpell', { SeatID: 0, SpellID: 3751, EffectIndex: 2 }, '3'],
+    ['GsCGamephaseNtf', { SeatID: 1, Round: 0 }, '3'],
+    ['PubGsCUseSpell', { SeatID: 0, SpellID: 3751, EffectIndex: 2 }, '2'],
+    ['MsgGameTurnNtf', { TurnCnt: 1 }, '2'],
+    ['MsgGameTurnNtf', { TurnCnt: 2 }, '4'],
+    ['MsgReconnectGame', {}, '?'],
+    ['MsgGameTurnNtf', { TurnCnt: 2, IsResume: true }, '?'],
+    ['MsgGameTurnNtf', { TurnCnt: 3 }, '4'],
+  ]) {
+    await page.evaluate(({ type, payload }) => nativeCheck.send(type, payload), { type, payload });
+    await page.waitForFunction(expected => nativeCheck.self._children.filter(n => n.name === 'sgs-toolbox-skill-count').at(-1)?.text === expected, remaining);
+    if (type === 'GsCGamephaseNtf') await page.screenshot({ path: path.join(output, 'card-yushi-across-turns.png') });
+  }
+  await page.evaluate(() => {
+    const item = nativeCheck.self.skillItems.at(-1);
+    item.Skill = nativeCheck.previousSkill;
+    item.getChildAt(0).text = '刃掣';
+    nativeCheck.restoreGameState();
+  });
   await page.evaluate(() => nativeCheck.self.skillItems[0].Skill.GetSkillUseCountInRound = () => 2);
   await page.waitForFunction(() => nativeCheck.self._children.find(n => n.name === 'sgs-toolbox-skill-count').text === '1');
   const measure = () => page.evaluate(() => {
@@ -515,6 +552,7 @@ try {
   assert.deepEqual(errors, []);
   const result = { scope: '官方缓存Laya引擎2.12.2 + 独立牌局节点演练，非真实账号牌局', packageVersion: CARDS_VERSION, checks: ['12原生字号，理牌栏和拖动范围上移6原生像素，随1/1.6缩放', '排序及选中状态保留', '双击锁定/解锁', '真实引擎窗口层遮挡及点击归属', '选牌弹窗原生数字读秒8→4，停止/移除后清理', '旁观未挂载及停止计时器不生成数字', '双将scrollRect.x=36，明牌在1/1.6缩放下对齐可见头像左下', '弹窗关闭后恢复', '整排长按拖动；手牌上方限位及画布/视口限制；不触发手牌手势', '山河图自动打牌图标的三档状态、单行提示、出牌顺序及右键按账号记住', '通过新客户端 getButtonBar 出南蛮入侵，兼容旧操作栏，技能询问不触发自动出牌', '卸载移除并恢复原生按钮'], pageErrors: errors };
   result.checks.push('明牌每行 4／5／6／7／8 张，默认 7 张，卡片随档位缩放并保留滚轮和触控滚动');
+  result.checks.push('驭势跨玩家回合累计，同轮通知不补次数，新一轮恢复，重连缺记录时显示问号');
   await writeFile(path.join(output, 'browser-card-native-report.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally { await browser.close(); }

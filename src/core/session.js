@@ -86,7 +86,9 @@ export class SessionJournal {
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   snapshot() { return { sessionId: this.sessionId, seq: this.seq, incomplete: this.incomplete, omittedEvents: this.#omitted, events: this.events }; }
 }
-export function installMessageBridge(win, journal, scope, onStatus = () => {}, { getTargets = () => [], observeType = () => {}, sceneWatch } = {}) {
+export function installMessageBridge(win, journal, scope, onStatus = () => {}, {
+  getTargets = () => [], observeType = () => {}, observeStartupDispatch, sceneWatch,
+} = {}) {
   let activeWrapper, restoreCurrent, depth = 0, consoleError = '', nativeErrors = [];
   const native = new Map(), restores = [], stats = { received: 0, console: 0, native: 0, lastType: '', lastAt: null };
   const duplicates = new Map(); let expiryTimer;
@@ -177,14 +179,26 @@ export function installMessageBridge(win, journal, scope, onStatus = () => {}, {
         const descriptor = Object.getOwnPropertyDescriptor(target, 'event'), original = target.event;
         const entry = { name, wrapper: null, active: true };
         const wrapper = function (...args) {
-          if (!scope.closed && entry.active) try {
-            const [eventName, data] = args;
-            const packet = Array.isArray(data) && data.length === 1 && typeof data[0] === 'object' ? data[0] : data;
+          if (scope.closed || !entry.active) return Reflect.apply(original, this, args);
+          const [eventName, data] = args;
+          let packet;
+          try {
+            packet = Array.isArray(data) && data.length === 1 && typeof data[0] === 'object' ? data[0] : data;
             // For named unrelated events do not even inspect their payload.
             const type = isObservedMessage(eventName) || /^(?:Msg|PubGs|Smsg|GsC|CGs|decode|Client)/.test(eventName) ? eventName : packet?.ClassName || packet?.className;
             receive(type, packet, `native:${name}`);
           } catch { /* Observing cannot interrupt native dispatch. */ }
-          return Reflect.apply(original, this, args);
+          if (!observeStartupDispatch || name !== 'ServerProxy' || (eventName !== 'ClientLoginRep' && eventName !== 'ClientUserbaseinfoRep')) {
+            return Reflect.apply(original, this, args);
+          }
+          let result;
+          try { result = Reflect.apply(original, this, args); }
+          catch (error) {
+            try { observeStartupDispatch(eventName, 'threw', error); } catch {}
+            throw error;
+          }
+          try { observeStartupDispatch(eventName, 'returned', packet); } catch {}
+          return result;
         };
         if (!descriptor || descriptor.configurable) Object.defineProperty(target, 'event', { value: wrapper, writable: true, configurable: true, enumerable: descriptor?.enumerable ?? true });
         else if ('value' in descriptor && descriptor.writable) target.event = wrapper;

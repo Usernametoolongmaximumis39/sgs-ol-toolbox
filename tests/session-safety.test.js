@@ -107,6 +107,35 @@ test('native forwarding preserves absent arguments, explicit undefined, receiver
   assert.throws(() => target.event('throw'), error => error === failure);
 });
 
+test('startup diagnostics observe only the completion of native login and profile dispatches', async t => {
+  const scope = new ResourceScope(), journal = new SessionJournal(), order = [];
+  t.after(() => scope.dispose());
+  const failure = new TypeError('native login handler');
+  const target = { event(type, data) {
+    order.push(['native', type, data]);
+    if (type === 'ClientLoginRep') throw failure;
+    return 42;
+  } };
+  const bridge = installMessageBridge({ console: { log() {} } }, journal, scope, () => {}, {
+    getTargets: () => [{ name: 'ServerProxy', target }],
+    observeStartupDispatch(type, outcome, detail) {
+      order.push([outcome, type, detail]);
+      throw new Error('diagnostic observation failed');
+    },
+  });
+  const payload = { Protocol: { UserID: 12345 } }, args = [payload];
+  assert.throws(() => target.event('ClientLoginRep', args), error => error === failure);
+  assert.equal(target.event('ClientUserbaseinfoRep', args), 42);
+  assert.equal(target.event('MsgGameOver'), 42);
+  assert.deepEqual(order, [
+    ['native', 'ClientLoginRep', args], ['threw', 'ClientLoginRep', failure],
+    ['native', 'ClientUserbaseinfoRep', args], ['returned', 'ClientUserbaseinfoRep', payload],
+    ['native', 'MsgGameOver', undefined],
+  ]);
+  await bridge.flush();
+  assert.deepEqual(journal.events.map(event => event.type), ['ClientLoginRep', 'MsgGameOver']);
+});
+
 test('disposing the core cancels observations already queued behind native dispatch', async () => {
   const scope = new ResourceScope(), journal = new SessionJournal();
   const target = { event() {} };

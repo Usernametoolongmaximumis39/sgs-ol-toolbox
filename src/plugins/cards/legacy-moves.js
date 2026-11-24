@@ -1,6 +1,9 @@
 // Correlation state is reducer-owned and JSON serializable. No protocol is sent.
 const TOP = 0xff00, BOTTOM = 0, UNKNOWN = 0xff02;
 const TEMP_SKILLS = new Set([987, 988, 3483, 3208, 3776, 3903, 7011]);
+// Their exchange window exposes the revealed block plus a hand row; the
+// swapped-in hand card joins the block at the vacated display slot.
+const EXCHANGE_WINDOW_SKILLS = new Set([987, 988, 3903]);
 const idsOf = values => Array.isArray(values) && values.length <= 2000 && values.every(v => Number.isInteger(v) && v > 0 && v < 65535) && new Set(values).size === values.length ? values.slice() : [];
 const seat = value => Number.isInteger(value) && value >= 0 && value < 255;
 function memory(state) {
@@ -220,8 +223,27 @@ export function legacyBeforeMove(state, data, seq, h) {
       const available = trace.original.filter(id => !trace.returned.includes(id) && exact(state, id, fromKey));
       const destination = Number(data.ToPosition);
       if (to === 1 && [TOP, BOTTOM].includes(destination)) {
-        const selected = available.filter(id => destination === TOP ? trace.grid[id] < trace.original.length : trace.grid[id] >= trace.original.length).sort((a, b) => trace.grid[a] - trace.grid[b]);
-        if (selected.length === count) candidate(destination === TOP ? selected.slice().reverse() : selected);
+        const size = trace.original.length;
+        const selected = available
+          .filter(id => destination === TOP ? trace.grid[id] < size : trace.grid[id] >= size)
+          .sort((a, b) => trace.grid[a] - trace.grid[b]);
+        let ordered = selected.length === count ? selected : null;
+        if (!ordered && selected.length === count - 1 && count > 1 && EXCHANGE_WINDOW_SKILLS.has(skill)) {
+          // The exchanged hand card is outside the deck trace. Put it back in
+          // the single vacated grid slot instead of appending it to the block.
+          const external = members(state, fromKey).filter(id => !trace.original.includes(id) && !trace.returned.includes(id));
+          if (external.length === 1) {
+            const used = new Set(selected.map(id => trace.grid[id]));
+            const missing = [];
+            for (let grid = destination === TOP ? 0 : size; grid < (destination === TOP ? size : size * 2); grid++)
+              if (!used.has(grid)) missing.push(grid);
+            if (missing.length === 1) {
+              const gridOf = id => id === external[0] ? missing[0] : trace.grid[id];
+              ordered = [...selected, external[0]].sort((a, b) => gridOf(a) - gridOf(b));
+            }
+          }
+        }
+        if (ordered) candidate(destination === TOP ? ordered.slice().reverse() : ordered);
       } else if (to === 5 && [987, 988, 3776].includes(skill)) {
         if (skill === 3776 && available.length === count) candidate(available);
         else candidate((trace.displaced || []).filter(id => available.includes(id)));
@@ -298,8 +320,14 @@ export function legacyAfterMove(state, data, seq, ids, h) {
   }
   if (TEMP_SKILLS.has(skill)) {
     if (from === 1 && [8, 10].includes(to) && complete && count > 1 && seat(actor)) {
+      // The exchange window lists the block in the drag-grid order; prefer it
+      // over packet order so the trace matches the coordinates the client sent.
+      const exchange = state.pending[`legacyExchange:${skill}:${actor}`];
+      const observed = EXCHANGE_WINDOW_SKILLS.has(skill) && exchange?.turn === state.turn &&
+        exchange.pile?.length === count && exchange.pile.every(id => ids.includes(id))
+        ? exchange.pile.slice() : null;
       // Grid order is the game's display order, opposite the deck-removal order.
-      const original = [3208, 7011, 987, 988, 3903].includes(skill) ? ids.slice().reverse() : ids.slice();
+      const original = observed || ([3208, 7011, 987, 988, 3903].includes(skill) ? ids.slice().reverse() : ids.slice());
       m.temp[`${actor}:${skill}:${to}`] = { actor, skill, original, logical: original.slice(), grid: Object.fromEntries(original.map((id, i) => [id, i])), returned: [], valid: true, seen: false, closed: false };
     }
     if ([8, 10].includes(from)) {

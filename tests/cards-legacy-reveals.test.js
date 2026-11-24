@@ -67,7 +67,9 @@ test('exchange windows validate exact two group sizes and record pile/hand separ
   for (const [SpellID, Type, Param] of [[987,29,1],[988,29,1],[3483,28,1],[3903,28,0]]) {
     const r = recording();
     assert.equal(r.send({ SpellID, Type, Param, SrcSeatID: 0, TargetSeatID: 2, Params: [2,1,17,18,19] }), true);
-    assert.deepEqual(r.state.zones['1:255'].top, [17,18]); assert.deepEqual(r.hand(2), [19]);
+    // GuanXu/YaShi/TianHou windows list the block bottom-to-top; Jieli does not.
+    assert.deepEqual(r.state.zones['1:255'].top, [987, 988, 3903].includes(SpellID) ? [18,17] : [17,18]);
+    assert.deepEqual(r.hand(2), [19]);
     assert.equal(r.state.cards[2], undefined);
     assert.deepEqual(r.state.pending[`legacyExchange:${SpellID}:0`].hand, [19]);
     const bad = recording();

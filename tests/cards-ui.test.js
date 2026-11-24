@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import cards from '../src/plugins/cards/index.js';
 import { ResourceScope } from '../src/core/resources.js';
+import { markPokerReplay } from '../src/shared/poker-replay-mode.js';
 import { POSITION } from '../src/plugins/cards/model.js';
 import { revealWindowClip, sortHand, SORT_INHIBITOR_SKILL, createNativeEnhancements, nativeAnchor, seatRevealAnchor, handSortAnchor, roundInfoBounds } from '../src/plugins/cards/native.js';
 
@@ -48,10 +49,16 @@ function setup() {
   scene.gameRoundInfo = { ...anchor(600, 40), parent: scene, width: 186, height: 58 };
   class SelectCardWindow { createCardUis(input) { return input; } }
   const originalSelection = SelectCardWindow.prototype.createCardUis;
-  const game = { getScene: () => scene, getSelfSeatUI: () => self, getSeatUIs: () => [self, other],
+  let currentScene = scene;
+  const sceneListeners = new Set();
+  const game = { getScene: () => currentScene, getSelfSeatUI: () => self, getSeatUIs: () => [self, other],
     getCardMeta: id => cardModels.find(card => card.CardId === Number(id)) || { id, name: `卡牌 ${id}` },
     getClass: name => name === 'SelectCardWindow' ? SelectCardWindow : null,
-    getSnapshot: () => ({ selfSeatId: 0 }), onSceneChange: () => () => {} };
+    getSnapshot: () => ({ selfSeatId: 0 }), onSceneChange(fn) { sceneListeners.add(fn); return () => sceneListeners.delete(fn); } };
+  function changeScene(next = scene) {
+    currentScene = next;
+    sceneListeners.forEach(fn => fn(next));
+  }
   const values = new Map(), listeners = new Set(), notifications = [];
   const settings = { get: (key, fallback) => values.has(key) ? values.get(key) : fallback, set: (key, value) => values.set(key, value) };
   let state = cards.initialState(), seq = 0, scope, deactivate, panelCount = 0;
@@ -74,7 +81,7 @@ function setup() {
   function stop() { deactivate?.(); deactivate = null; scope?.dispose(); }
   function close() { stop(); window.close(); }
   return { window, document, game, settings, self, other, container, SelectCardWindow, originalSelection,
-    send, activate, stop, close, notifications, cardModels,
+    send, activate, stop, close, changeScene, notifications, cardModels,
     get state() { return state; }, get listeners() { return listeners.size; }, get panelCount() { return panelCount; },
     set inhibited(value) { inhibited = value; }, get layouts() { return layouts; },
     get overlay() { return document.querySelector('[data-sgs-cards-overlay]')?.shadowRoot; } };
@@ -96,6 +103,52 @@ function controlDeckTimer(window) {
     flush() { for (const [id, run] of [...pending]) { pending.delete(id); run(); } },
   };
 }
+
+test('poker replay suspends the ordinary cards HUD and restores it at exit', async () => {
+  const game = setup(), poker = new ResourceScope();
+  try {
+    game.activate();
+    const hud = game.overlay.querySelector('.sgs-card-hud');
+    const reveals = () => game.overlay.querySelectorAll('.sgs-card-seat-reveal').length;
+    assert.equal(hud.hidden, false);
+    assert.equal(reveals(), 1);
+    const state = game.state;
+    markPokerReplay(poker, game.document);
+    await Promise.resolve();
+    game.send('toolbox:snapshot', { pokerReplay: true, inGame: true, selfSeatId: 2, handCardIds: [51500] });
+    assert.equal(game.state, state);
+    assert.equal(hud.hidden, true);
+    assert.equal(reveals(), 0);
+    assert.equal(game.self.sortCardBtn.mouseEnabled, true);
+    poker.dispose();
+    await Promise.resolve();
+    assert.equal(hud.hidden, false);
+    assert.equal(reveals(), 1);
+  } finally { poker.dispose(); game.close(); }
+});
+
+test('native poker suspend and return restores native and ordinary card controls', () => {
+  const env = setup();
+  try {
+    env.activate();
+    const hud = env.overlay.querySelector('.sgs-card-hud');
+    assert.equal(hud.hidden, false);
+    assert.equal(env.self.sortCardBtn.mouseEnabled, false);
+    assert.notEqual(env.SelectCardWindow.prototype.createCardUis, env.originalSelection);
+
+    const ordinary = env.state;
+    env.changeScene({ sceneName: 'PokerTableGameScene', SelfSeatUi: env.self });
+    env.send('toolbox:snapshot', { pokerTable: true, inGame: true, selfSeatId: 2, handCardIds: [51500] });
+    assert.equal(env.state, ordinary);
+    assert.equal(hud.hidden, true);
+    assert.equal(env.self.sortCardBtn.mouseEnabled, true);
+    assert.equal(env.SelectCardWindow.prototype.createCardUis, env.originalSelection);
+
+    env.changeScene();
+    assert.equal(hud.hidden, false);
+    assert.equal(env.self.sortCardBtn.mouseEnabled, false);
+  } finally { env.close(); }
+});
 
 test('inactive native card overlays never discover seats or classes during loading and lobby ticks', () => {
   const dom = new JSDOM('<!doctype html><body><main></main></body>', { url: 'https://web.sanguosha.com/' });

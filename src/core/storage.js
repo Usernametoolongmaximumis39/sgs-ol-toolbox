@@ -25,6 +25,18 @@ export class PackageStore {
     return this.dbPromise;
   }
   async list() { const db = await this.open(); return new Promise((resolve, reject) => { const req = db.transaction('plugins').objectStore('plugins').getAll(); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); }); }
-  async put(record) { const db = await this.open(); return new Promise((resolve, reject) => { const tx = db.transaction('plugins', 'readwrite'); tx.objectStore('plugins').put(record); tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error || new Error('插件存储事务已中止')); }); }
+  put(record) { return this.putMany([record]); }
+  async putMany(records) {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('plugins', 'readwrite');
+      const store = tx.objectStore('plugins');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('插件存储事务已中止'));
+      try { for (const record of records) store.put(record); }
+      catch (error) { tx.abort(); reject(error); }
+    });
+  }
   async delete(id) { const db = await this.open(); return new Promise((resolve, reject) => { const tx = db.transaction('plugins', 'readwrite'); tx.objectStore('plugins').delete(id); tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error); }); }
 }

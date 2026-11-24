@@ -5,6 +5,7 @@ import { awaitClaim } from '../src/plugins/daily-rewards/controller.js';
 import { createRewardsController } from '../src/plugins/daily-rewards/controller.js';
 import { ResourceScope } from '../src/core/resources.js';
 import { Settings } from '../src/core/storage.js';
+import { DAILY_FREE_GIFT_ID, DAILY_FREE_GIFT_KEY } from '../src/plugins/daily-rewards/daily-free-gift.js';
 
 class Events {
   _events = {};
@@ -23,19 +24,25 @@ function fixture(sendName = 'L') {
     IsTargetSaleCountReady() { return this.countReady; }, CheckGoodsLimit() { return this.count >= goods.LimitNums; },
     IsDailyFreeGoodsCanBuy() { return this.daily; }, GetLimitGoodsBuyCount() { return this.count; },
     GetBuyMsg(id, count, discount, priceType, price) { sent.push(['build', id, count, discount, priceType, price]); return { GoodsCount: 1, BuyType: 1, UsingType: 0, IsSelfBuy: true, GoodsList: [{ ItemID: id, ItemNum: count, Discount: discount, PriceYuanBao: price, PriceTongQian: 0, pricetype: priceType === 140 ? 140 : 0 }] }; },
-    SendCcGoodsHaveBuyCountReqV2(ids) { sent.push(['counts', ids]); this.countReady = true; this.event('GOODS_HAVE_BUY_COUNT'); },
+    SendCcGoodsHaveBuyCountReqV2(ids) {
+      sent.push(['counts', ids]);
+      this.countReady = true;
+      this.event('GOODS_HAVE_BUY_COUNT', { baseid: ids, count: ids.map(() => this.count) });
+    },
   });
   proxy[sendName] = function (message) {
     if (this.useNewPB) message = message.OldProtocalToPb();
     if (this.cacheStarted) return this.addProtocolToCacheList(message, this.CACHE_TYPE_SEND);
     assert.equal(this, proxy);
-    sent.push(['buy', message]); shop.count++; shop.event('SHOP_BUY_ITEM', message.GoodsList[0].ItemID);
+    sent.push(['buy', message]);
+    if (this.onBuy) return this.onBuy(message);
+    shop.count++; shop.event('SHOP_BUY_ITEM', message.GoodsList[0].ItemID);
   };
   Object.assign(managers, { BlessManager: bless, GameGoodsManager: goodsManager, GameShopManager: shop });
   const adapter = { manager: name => managers[name], proxy: () => proxy, day: () => '2026-11-14' };
   return { adapter, managers, sent, bless, goodsManager, goods, row, shop, proxy };
 }
-const plan = f => planFreeWelfare(f.adapter, { welfare: true });
+const plan = f => planFreeWelfare(f.adapter, { welfare: true, dailyFreeGiftCount: f.dailyFreeGiftCount });
 const blessAction = f => plan(f).actions.find(item => item.workflowGroup === 'free-bless');
 const shopAction = f => plan(f).actions.find(item => item.workflowGroup.startsWith('free-shop:'));
 
@@ -191,13 +198,19 @@ function officialGiftFixture(sendName) {
   f.shop.GetItemPrice = (id, type) => { assert.equal(id, 11578201); return [type, 0]; };
   return { ...f, sale, timer };
 }
+async function prepareGift(f) {
+  f.dailyFreeGiftCount = await prepareFreeWelfare(f.adapter, { welfare: true });
+}
 
 test('official type-140 daily gift is found with no open view or registered Shop_json class', async () => {
   const f = officialGiftFixture(); delete f.goods.tongqian;
+  f.shop.daily = false; // Generic item-shop flag is distinct from this activity's server count.
+  await prepareGift(f);
   const action = shopAction(f); assert.ok(action); assert.equal(action.key, 'welfare:free-shop:11578201:0');
   assert.equal((await awaitClaim(action, { valid: () => true, timeout: 20, poll: 1 })).status, 'confirmed');
-  assert.deepEqual(f.sent[0], ['build', 11578201, 1, 100, 140, 0]);
-  assert.equal(f.sent[1][1].GoodsList[0].pricetype, 140);
+  assert.deepEqual(f.sent[0], ['counts', [11578201]]);
+  assert.deepEqual(f.sent[1], ['build', 11578201, 1, 100, 140, 0]);
+  assert.equal(f.sent[2][1].GoodsList[0].pricetype, 140);
   assert.equal(shopAction(f), undefined);
 });
 
@@ -206,7 +219,7 @@ test('client 2026111702 free gift uses the new native transport, with only one c
   f.proxy.L = () => assert.fail('must not use an unrelated minified method');
   f.shop.countReady = false;
   assert.equal(shopAction(f), undefined);
-  await prepareFreeWelfare(f.adapter, { welfare: true });
+  await prepareGift(f);
   const action = shopAction(f);
   assert.ok(action);
   assert.equal((await awaitClaim(action, { valid: () => true, timeout: 20, poll: 1 })).status, 'confirmed');
@@ -218,8 +231,10 @@ test('client 2026111702 free gift uses the new native transport, with only one c
   assert.equal(f.sent.length, 3);
 });
 
-test('free gift skips missing or ambiguous native senders and does not send on a replaced proxy', () => {
+test('free gift skips missing or ambiguous native senders and does not send on a replaced proxy', async () => {
   const f = officialGiftFixture('G');
+  await prepareGift(f);
+  f.sent.length = 0;
   const action = shopAction(f);
   assert.ok(action);
   f.proxy.L = f.proxy.G.bind(f.proxy);
@@ -231,6 +246,10 @@ test('free gift skips missing or ambiguous native senders and does not send on a
   assert.equal(action.send(), false);
   assert.equal(shopAction(f), undefined);
   delete f.proxy.other;
+  f.proxy.cacheStarted = true;
+  assert.equal(action.send(), false);
+  assert.equal(shopAction(f), undefined);
+  f.proxy.cacheStarted = false;
   f.shop.proxy = { G: f.proxy.G };
   assert.equal(action.send(), false);
   delete f.shop.proxy.G;
@@ -246,15 +265,17 @@ test('native free currency marker must survive the builder; unknown currencies s
   assert.equal(buildFreeShopMessage(f.shop, 11578201, 110), null);
 });
 
-test('config fallback refuses unknown requirements, native price changes, missing clocks and expired gifts', () => {
+test('config fallback refuses unknown requirements, native price changes, missing clocks and expired gifts', async () => {
   for (const change of [f => { f.sale.itemUnlock = '1,1'; }, f => { f.sale.time1 = 'bad'; },
     f => { f.goods.maxBuyCount = '1;2'; }, f => { f.goods.maxBuyNum = 0; }, f => { f.goods.pricetype = 110; },
     f => { f.goods.yuanbao = 1; }, f => { f.shop.GetItemPrice = (_, type) => [type, 1]; },
     f => { f.timer.ServerDate = new Date(NaN); }, f => { f.goods.expirytime = '20260101T000000'; },
     f => { f.shop.countReady = false; }]) {
-    const f = officialGiftFixture(); change(f); assert.equal(shopAction(f), undefined); assert.deepEqual(f.sent, []);
+    const f = officialGiftFixture(); await prepareGift(f); f.sent.length = 0;
+    change(f); assert.equal(shopAction(f), undefined); assert.deepEqual(f.sent, []);
   }
-  const f = officialGiftFixture(), action = shopAction(f);
+  const f = officialGiftFixture(); await prepareGift(f);
+  const action = shopAction(f);
   f.shop.GetItemPrice = (_, type) => [type, 1]; assert.equal(action.send(), false);
 });
 
@@ -270,6 +291,9 @@ test('shop gift and task 85263 claim separately once per server day, including r
   const values = new Map(), settings = new Settings({ getItem: k => values.get(k) ?? null, setItem: (k, v) => values.set(k, v) });
   let date = '2026-11-15', taskClaimed = false;
   f.adapter.account = () => 'test'; f.adapter.day = () => date;
+  f.adapter.prepare = async (selected, context) => ({
+    dailyFreeGiftCount: await prepareFreeWelfare({ ...f.adapter, ...context }, selected),
+  });
   const taskManager = { allTasks: [{ id: 85263, get HasAward() { return taskClaimed; }, get CanAward() { return !taskClaimed; }, CanRewardCount: 1,
     FirstMaxCount: 0, baseVo: { name: '免费好礼', maxComplete: 1, TaskRewardItem: [{ ItemID: 11578201, ItemNum: 1 }] }, TaskConditions: [{ reqType: 60, _count: 0 }] }],
     GetServerTaskDataByTaskID() { return this.allTasks[0]; }, RequestTaskAward(id) { f.sent.push(['task', id]); taskClaimed = true; } };
@@ -281,4 +305,122 @@ test('shop gift and task 85263 claim separately once per server day, including r
   date = '2026-11-16'; f.timer.ServerDate.setDate(16); f.shop.count = 0; taskClaimed = false;
   await controller.run();
   assert.equal(f.sent.filter(r => r[0] === 'task').length, 2); assert.equal(f.sent.filter(r => r[0] === 'buy').length, 2);
+});
+
+function giftControllerFixture(t) {
+  const f = officialGiftFixture('G'), values = new Map();
+  const settings = new Settings({ getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) });
+  const owner = 'test', date = '2026-11-15', ledgerKey = `account:${owner}:attempts`;
+  let time = 1_000_000, scope;
+  t.after(() => scope?.dispose());
+  f.adapter.account = () => owner;
+  f.adapter.day = () => date;
+  f.adapter.prepare = async (selected, context) => ({
+    dailyFreeGiftCount: await prepareFreeWelfare({ ...f.adapter, ...context }, selected),
+  });
+  function reload() {
+    scope?.dispose();
+    scope = new ResourceScope();
+    const controller = createRewardsController({ adapter: f.adapter, settings, scope, now: () => time, timeout: 60, poll: 2 });
+    controller.options({ automatic: true, sign: false, mail: false, tasks: false, codes: false, activities: false });
+    return controller;
+  }
+  return {
+    ...f, reload, settings, advance: ms => { time += ms; },
+    seed: entry => settings.set(ledgerKey, { day: date, items: { [DAILY_FREE_GIFT_KEY]: entry } }),
+    attempt: () => settings.get(ledgerKey, {}).items?.[DAILY_FREE_GIFT_KEY],
+    purchases: () => f.sent.filter(([kind]) => kind === 'buy'),
+    queries: () => f.sent.filter(([kind]) => kind === 'counts'),
+  };
+}
+
+test('closed special offer refreshes the count after a silent purchase and confirms only the shop item', async t => {
+  const f = giftControllerFixture(t);
+  let serverCount = 0;
+  const query = f.shop.SendCcGoodsHaveBuyCountReqV2;
+  f.shop.SendCcGoodsHaveBuyCountReqV2 = function (ids) { this.count = serverCount; query.call(this, ids); };
+  f.proxy.onBuy = () => { serverCount++; }; // No purchase event or client count update until the query.
+  const controller = f.reload();
+  await controller.run();
+  await f.reload().run();
+  assert.equal(f.attempt().status, 'confirmed');
+  assert.equal(f.purchases().length, 1);
+  assert.deepEqual(f.queries(), [['counts', [DAILY_FREE_GIFT_ID]], ['counts', [DAILY_FREE_GIFT_ID]]]);
+  assert.equal(f.shop._events.GOODS_HAVE_BUY_COUNT.length, 0);
+});
+
+test('a historical pending gift reconciles on reload even if the offer is no longer listed and the local cache says zero', async t => {
+  const f = giftControllerFixture(t);
+  f.seed({ status: 'pending', at: 1, flowVersion: 2 });
+  f.adapter.config = () => null;
+  f.shop.SendCcGoodsHaveBuyCountReqV2 = ids => {
+    f.sent.push(['counts', ids]);
+    f.shop.event('GOODS_HAVE_BUY_COUNT', { baseid: [DAILY_FREE_GIFT_ID], count: [1] });
+  };
+  const controller = f.reload(); await controller.run();
+  assert.equal(f.attempt().status, 'confirmed');
+  assert.deepEqual(controller.snapshot().issues, []);
+  assert.equal(f.purchases().length, 0);
+  assert.equal(f.queries().length, 1);
+});
+
+test('an uncertain old gift stays pending through the delay, then gets one recovery only after a fresh exact zero', async t => {
+  const f = giftControllerFixture(t);
+  f.seed({ status: 'unconfirmed', at: 1_000_000, flowVersion: 2 });
+  f.proxy.onBuy = () => {}; // Recovery also has no receipt.
+  await f.reload().run(); assert.equal(f.purchases().length, 0);
+  f.advance(60_000);
+  const controller = f.reload(), run = controller.run();
+  assert.equal(controller.run(), run);
+  await run;
+  assert.equal(f.attempt().status, 'unconfirmed');
+  assert.equal(f.attempt().attempts, 2);
+  assert.equal(f.purchases().length, 1);
+  f.advance(60_000);
+  await f.reload().run();
+  assert.equal(f.purchases().length, 1);
+  assert.equal(f.attempt().status, 'rejected');
+  assert.match(f.attempt().text, /今日未领，自动补领次数已用完/);
+  f.shop.count = 1; // A later native update/manual claim closes the remaining issue.
+  await f.reload().run();
+  assert.equal(f.attempt().status, 'confirmed');
+  assert.equal(f.purchases().length, 1);
+});
+
+test('unrelated or incomplete count replies and a cached zero cannot authorize recovery', async t => {
+  const f = giftControllerFixture(t), aborter = new AbortController();
+  f.seed({ status: 'interrupted', at: 1 });
+  f.adapter.signal = aborter.signal;
+  f.shop.SendCcGoodsHaveBuyCountReqV2 = () => {
+    for (const reply of [
+      { baseid: [42], count: [0] }, { baseid: [DAILY_FREE_GIFT_ID], count: [] },
+      { baseid: [DAILY_FREE_GIFT_ID], count: [null] },
+      { baseid: [DAILY_FREE_GIFT_ID, DAILY_FREE_GIFT_ID], count: [0, 1] },
+    ]) f.shop.event('GOODS_HAVE_BUY_COUNT', reply);
+    aborter.abort();
+  };
+  const prepare = f.adapter.prepare;
+  f.adapter.prepare = (selected, context) => prepare(selected, { ...context, signal: aborter.signal });
+  await f.reload().run();
+  assert.equal(f.purchases().length, 0);
+  assert.equal(f.attempt().status, 'interrupted');
+  assert.equal(f.shop._events.GOODS_HAVE_BUY_COUNT.length, 0);
+});
+
+test('an invalid pre-send build does not leave an attempt or use up a legacy gift recovery', async t => {
+  const f = giftControllerFixture(t);
+  const builder = f.shop.GetBuyMsg;
+  f.shop.GetBuyMsg = () => { throw new Error('data not ready'); };
+  await f.reload().run();
+  assert.equal(f.attempt(), undefined);
+  assert.equal(f.purchases().length, 0);
+  const old = { status: 'rejected', at: 1, flowVersion: 2 };
+  f.seed(old);
+  await f.reload().run();
+  assert.deepEqual(f.attempt(), old);
+  f.shop.GetBuyMsg = builder;
+  await f.reload().run();
+  assert.equal(f.attempt().status, 'confirmed');
+  assert.equal(f.attempt().attempts, 2);
+  assert.equal(f.purchases().length, 1);
 });

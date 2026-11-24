@@ -1,4 +1,5 @@
 import { read, generalNames, field } from '../../shared/info-runtime.js';
+import { isNativePokerTable } from '../../shared/poker-table-mode.js';
 import { cleanOptions, definitions, evaluate, chooseGeneral, bannedGeneral, durationOf } from './model.js';
 import { projectBattleGuard } from './battle-guards.js';
 import { createAssistant, TRAINING_SHOP_IDS } from './assistant.js';
@@ -617,26 +618,27 @@ export function createGaiZhu(ctx) {
     const seat = read(() => self.seat) || read(() => self.Seat) || read(() => self.cardContainer.seat);
     const on = read(() => seat.IsAiControl);
     const guarded = (mulligan || !training) && now() < (round.guardUntil || 0);
-    if (guarded || (solo || training || run.nation) && !assistant.isTrustee()) {
+    // Keep auto play in charge of each individual response. Native trusteeship
+    // can answer the next rescue or damage-replacement inquiry on its own.
+    if (guarded || role === 'auto') {
       if (on === true && round.offTries < 3 && now() - round.trusteeAt >= 1200 && typeof read(() => self.onTrusteeshipClick) === 'function') {
         round.offTries++; round.trusteeAt = now(); self.onTrusteeshipClick(); note('手气卡守备：已请求关闭托管');
       }
-      return guarded;
+      return;
     }
-    if (solo || training || role !== 'rebel' || on === true || round.trusteeTries >= 5) return false;
-    if (typeof read(() => self.onTrusteeshipClick) !== 'function') { state('托管接口未就绪，继续等待'); return false; }
+    if (role !== 'rebel' || on === true || round.trusteeTries >= 5) return;
+    if (typeof read(() => self.onTrusteeshipClick) !== 'function') { state('托管接口未就绪，继续等待'); return; }
     if (now() - round.trusteeAt >= 3000) { round.trusteeAt = now(); round.trusteeTries++; self.onTrusteeshipClick(); state('已请求开启托管'); }
-    return false;
   }
   function gameStep(frame) {
-    const guarded = guardTrustee(frame.self);
+    guardTrustee(frame.self);
     if (solo || training) {
-      const acted = assistant.run(frame, now(), { allowTrustee: !guarded, identity: solo, preferIronChainRecast: training });
-      state(assistant.reason() || (assistant.mode() === 'trustee' ? '小杀助手未推进 · 托管兜底中' : assistant.mode() === 'local' ? '小杀助手未推进 · 本地处理询问' : acted ? '正在执行小杀助手提示' : '等待小杀助手提示')); return;
+      const acted = assistant.run(frame, now(), { identity: solo, training });
+      state(assistant.reason() || (assistant.mode() === 'local' ? '正在处理本方出牌或询问' : acted ? '正在执行小杀助手提示' : '等待小杀助手提示')); return;
     }
     if (role === 'rebel') {
       if (cancelPrompt(frame.self)) return;
-      if (guarded) state('手气卡守备中 · 暂缓托管'); else if (!read(() => frame.self.seat.IsAiControl)) state('等待托管确认'); else state('托管中，等待结算'); return;
+      if (now() < (round.guardUntil || 0)) state('手气卡守备中 · 暂缓托管'); else if (!read(() => frame.self.seat.IsAiControl)) state('等待托管确认'); else state('托管中，等待结算'); return;
     }
     if (cancelPrompt(frame.self)) return;
     const items = read(() => frame.self.skillItems);
@@ -825,6 +827,7 @@ export function createGaiZhu(ctx) {
       const replay = read(() => ctx.game.isReplay?.(scene)) ?? read(() => ctx.game.getSnapshot().isReplay);
       if (replay === true) { fail('回放场景不能运行盖主速刷'); return; }
       const frame = native.frame(scene);
+      if (isNativePokerTable(frame.scene)) { fail('三国斗地主牌局不能运行盖主速刷'); return; }
       updateLobby(frame.scene);
       const trainingGame = isTrainingGame(ctx, frame);
       const trainingResult = training ? native.matching(/^RogueLike1v1ZhanJiWindow$/).find(win => !win.isShare) : null;
@@ -907,8 +910,8 @@ export function createGaiZhu(ctx) {
         if (round.overAt != null) { settle(frame, decision); return; }
         if (run.nation) {
           if (refuseMulligan()) { guardTrustee(frame.self); return; }
-          const guarded = guardTrustee(frame.self);
-          state(run.nation.game(frame, now(), assistant, { allowTrustee: !guarded }) || '等待国战出牌');
+          guardTrustee(frame.self);
+          state(run.nation.game(frame, now(), assistant) || '等待国战出牌');
           return;
         }
       }

@@ -1,3 +1,4 @@
+import { YUSHI } from './model.js';
 
 const count = value => Number.isSafeInteger(value) && value >= 0 && value < Number.MAX_SAFE_INTEGER;
 const prefix = /^(?:(?:锁定技|转换技|[魏蜀吴群晋]势力技)[，,])?(?:出牌阶段|每回合|每轮|每阶段|每局|整局)(?:内)?限([一二两三四五六七八九十百\d]+|[Xx])次/;
@@ -15,7 +16,10 @@ export function skillCount(skill, seen = new Set(), state = {}, scene = {}) {
   const id = skill.SkillId, seat = skill.Seat;
   const observed = () => state.skillUses?.complete ? state.skillUses.counts[`${id}:${seat.Index}`] || 0 : null;
   const result = (limit, used) => ({ remaining: count(limit) && count(used) ? Math.max(0, limit - used) : null });
-  if (id === 0xea7) return result(seat.MaxHp, observed());
+  if (id === YUSHI) {
+    const counts = state.yushiUses?.counts;
+    return result(seat.MaxHp, counts && count(seat.Index) ? counts[seat.Index] ?? 0 : null);
+  }
   if (id === 985) { // 界姜维「挑衅」的原生上限为 2，座位状态 286 可提前耗尽次数。
     if (!seat.InDealRound) return null;
     const used = skill.GetSkillUseCountInRound?.(), settled = seat.GetStateValue?.(286);

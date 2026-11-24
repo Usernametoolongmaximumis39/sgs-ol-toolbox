@@ -63,6 +63,11 @@ export const pluginReleases = [
     "compact": true
   },
   {
+    "id": "poker-lobby",
+    "compact": true,
+    "excludeFromFull": true
+  },
+  {
     "id": "stargazing",
     "compact": true
   },

@@ -143,6 +143,44 @@ test('automatic timeout retries once within selection time, accepts completion a
   t.mock.timers.tick(60000);battle.update(snapshot,1);assert.equal(f.requests.length,2);
 });
 
+test('same-round reconnect and journal changes preserve the two-attempt budget',t=>{
+  t.mock.timers.enable({apis:['Date','setTimeout','setInterval'],now:100000});
+  const f=fixture(t),user=new f.User(1000000002,'好友');
+  f.ctx.game.getSeatUIs=()=>[{seat:{PlayerInfo:user,Figure:1}}];
+  const snapshot={inGame:true,modeId:148};
+  f.ctx.game.getSnapshot=()=>snapshot;
+  const battle=createBattleLamps(f.ctx,()=>lampSettings({lamps:true}));
+  battle.update(snapshot,1);
+  assert.equal(f.requests.length,1);
+
+  f.proxy({...f.connection});
+  battle.update(snapshot,2);
+  t.mock.timers.tick(500);
+  battle.update(snapshot,2);
+  assert.equal(f.requests.length,1,'rebind must preserve the original retry delay');
+
+  t.mock.timers.tick(2500);
+  battle.update(snapshot,2);
+  assert.equal(f.requests.length,2);
+  battle.clear();
+  battle.update({inGame:false},2);
+  f.proxy({...f.connection});
+  t.mock.timers.tick(500);
+  battle.update(snapshot,3);
+  t.mock.timers.tick(60000);
+  battle.update(snapshot,3);
+  assert.equal(f.requests.length,2,'round transitions within a reconnect must preserve a spent budget');
+
+  f.connection.emit('MsgGameOver',{});
+  t.mock.timers.tick(1);
+  battle.update(snapshot,3);
+  assert.equal(f.requests.length,2,'settlement alone must not start another query');
+  f.connection.emit('MsgGameDealCharacter',{Protocol:{Type:1,Datas:[1]}});
+  t.mock.timers.tick(1);
+  battle.update(snapshot,3);
+  assert.equal(f.requests.length,3,'the next round gets a fresh budget');
+});
+
 test('seats loading separately do not restart in-flight player requests',t=>{
   const f=fixture(t),first=new f.User(1000000002,'甲'),second=new f.User(1000000003,'乙');
   const seats=[{seat:{PlayerInfo:first}}],snapshot={inGame:true,modeId:148};
@@ -199,7 +237,10 @@ test('own selection confirmation hides lamps and cancels automatic retries; next
   f.connection.emit('SmsgGameSelectCharacterResult',{Protocol:{Result:0,SeatID:0}});t.mock.timers.tick(1);
   assert.equal(battle.rows(user,1),null);
   t.mock.timers.tick(10000);battle.update(snapshot,1);assert.equal(f.requests.length,1);
-  battle.update(snapshot,2);assert.equal(battle.rows(user,1).length,10);
+  battle.update(snapshot,2);assert.equal(battle.rows(user,1),null,'the same-round deck session must not reopen selection');
+  f.connection.emit('ClientLeavetableRep',{});
+  f.connection.emit('MsgGameDealCharacter',{Protocol:{Type:1,Datas:[1]}});
+  t.mock.timers.tick(1);battle.update(snapshot,2);assert.equal(battle.rows(user,1).length,10);
   self.seat.GeneralId=9;battle.update(snapshot,2);assert.equal(battle.rows(user,1).length,10);
   f.ctx.getState=()=>({sessionId:2});
   f.connection.emit('SmsgGameSetCharacter',{Protocol:{Infos:[{SeatID:0,CharacterID:9}]}});t.mock.timers.tick(1);

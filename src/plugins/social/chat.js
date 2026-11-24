@@ -2,11 +2,71 @@ import { read } from '../../shared/info-runtime.js';
 
 const USER_LINK = 'ATtextNickname*&.!**.%#';
 export const ROOM_LINK = 'sgs-social-room:';
+export const BINDING_CODE_FILTER = 'filterBindingCodes';
+const BINDING_CODE_TEXT = /互|绑|好友|周年|(?:^|[^A-Z])[AC][A-Z]{4,}/;
+const isPublicChatChannel = channel => channel === 0 || channel === 1; // Native ALL and SYS.
 const escapeAttr = value => String(value).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const decodeHTML = value => String(value).replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 // Laya HTMLDivElement.innerHTML is setter-only in the shipped engine.
 const htmlOf = item => read(() => item.htmlTxt.innerHTML) ?? read(() => item.htmlTxt._innerHTML);
 const USER_TAG = /<(?:a|font)\b[^>]*\bhref\s*=\s*(['"])(.*?)\1[^>]*>/gi;
+
+export function bindingCodeFilterEnabled(ctx) {
+  return ctx.settings?.get(BINDING_CODE_FILTER, true) !== false;
+}
+
+function isBindingCodeMessage(data) {
+  if (typeof data?.chatMsg === 'string' && data.chatMsg) return BINDING_CODE_TEXT.test(data.chatMsg);
+  const html = data?.MessageHtml;
+  return typeof html === 'string' && BINDING_CODE_TEXT.test(decodeHTML(html.replace(/<br\b[^>]*>/gi, '\n').replace(/<[^>]*>/g, '')));
+}
+
+function refreshChat(view) {
+  view.onChatUpdateMsg(view.GetCurrentShowChanel());
+}
+
+function installDecreeFilter(ctx, view, shouldFilter) {
+  let banner, releaseUpdate, filtering = false;
+  const hiddenRows = new Set();
+  function restoreRows() {
+    for (const row of hiddenRows) if (!row.destroyed) row.visible = true;
+    hiddenRows.clear();
+  }
+  function hideMatchingRow(row) {
+    if (row && !row.destroyed && row.visible && isBindingCodeMessage(row.chatData)) {
+      hiddenRows.add(row);
+      row.visible = false;
+    }
+  }
+  function sync() {
+    const current = view.superZhaolingUI, next = current?.destroyed ? null : current;
+    const enabled = shouldFilter();
+    if (next === banner && enabled === filtering) return;
+    if (next !== banner) {
+      releaseUpdate?.();
+      restoreRows();
+      banner = next;
+      releaseUpdate = typeof next?.updateData === 'function' && Array.isArray(next.itemUIs)
+        ? ctx.scope.patch(next, 'updateData', original => function (...args) {
+          const count = this.itemUIs.length;
+          const result = original.apply(this, args);
+          if (filtering && this.itemUIs.length > count) hideMatchingRow(this.itemUIs[count]);
+          return result;
+        }) : null;
+    }
+    filtering = enabled;
+    if (filtering && Array.isArray(banner?.itemUIs)) banner.itemUIs.forEach(hideMatchingRow);
+    else restoreRows();
+  }
+  // Native arrival creates the banner and lays it out before inserting the row.
+  const releaseLayout = ctx.scope.patch(view, 'layoutSuperZhao', original => function (...args) {
+    const result = original.apply(this, args);
+    sync();
+    return result;
+  });
+  return { sync, release() { releaseLayout(); releaseUpdate?.(); restoreRows(); } };
+}
+
 function linkName(raw, html='', offset=0) {
   const href=decodeHTML(raw);if(!href.startsWith(USER_LINK))return '';
   try {
@@ -144,10 +204,12 @@ export function createChatEnhancements(ctx) {
   let stopped = false, who = '', config = null, configRequested = false, pending = null, submitUntil = 0;
   let configAttempts = 0, configRetryAt = 0, robotColor = '', robotIcon = '';
   let robotGeneration = 0;
+  let filterBindingCodes = bindingCodeFilterEnabled(ctx), filteredViews = new WeakSet();
   const views = new Map(), items = new Map(), requested = new Set(), robotAssets = new Set();
   const rankAssets=new Map();let nativeOfficer=null,diagnostics={};
   const now = () => typeof ctx.now === 'function' ? ctx.now() : Date.now();
   const active = () => !stopped && !ctx.scope.signal.aborted;
+  const filterActive = () => active() && filterBindingCodes;
   const self = () => read(() => ctx.game.getSelf());
   const lookup = name => read(() => self().constructor.GetNameInstance(name));
   function rankIcon(level){
@@ -292,7 +354,8 @@ export function createChatEnhancements(ctx) {
     pending = null; requested.clear(); submitUntil = 0;
     for (const item of [...items.keys()]) removeItem(item);
     for(const view of views.keys())relayout(view);
-    for (const release of views.values()) release(); views.clear();
+    for (const view of views.values()) view.release(); views.clear();
+    filteredViews = new WeakSet();
   }
   function enhance(item) {
     if (!item || item.destroyed || !item.htmlTxt || !item.chatData || item.isBigFace) return false;
@@ -362,22 +425,51 @@ export function createChatEnhancements(ctx) {
     const nodes = displayedNodes(ctx.window.Laya?.stage);
     const sceneView = read(() => ctx.game.getScene().chatViewUI); if (sceneView && !nodes.includes(sceneView)) nodes.push(sceneView);
     const liveViews = new Set(), liveItems = new Set(), changedItems = new Set();
+    const enabled = bindingCodeFilterEnabled(ctx), filterChanged = enabled !== filterBindingCodes;
+    filterBindingCodes = enabled;
+    for (const view of nodes) {
+      if (view.destroyed || typeof view.getHtmlBase !== 'function' || !view.msgContainer) continue;
+      liveViews.add(view);
+      // This native chat view skips null rows in both live updates and history rebuilds.
+      const canFilter = typeof view.onChatUpdateMsg === 'function' && typeof view.GetCurrentShowChanel === 'function';
+      const firstSeen = !views.has(view);
+      if (firstSeen) {
+        const releaseRows = ctx.scope.patch(view, 'getHtmlBase', original => function (data, ...args) {
+          if (this === view && canFilter && filterActive() && isPublicChatChannel(view.GetCurrentShowChanel())
+            && isPublicChatChannel(data?.ChannelNum) && isBindingCodeMessage(data)) {
+            filteredViews.add(view);
+            return null;
+          }
+          const result = original.call(this, data, ...args); enhance(result); return result;
+        });
+        // The decree banner stays visible above every native chat tab.
+        const decrees = canFilter && typeof view.layoutSuperZhao === 'function' ? installDecreeFilter(ctx, view, filterActive) : null;
+        views.set(view, { decrees, release() { decrees?.release(); releaseRows(); } });
+      }
+      views.get(view).decrees?.sync();
+      if (canFilter && (firstSeen || filterChanged) && isPublicChatChannel(view.GetCurrentShowChanel())) {
+        const container = view.msgContainer;
+        const needsRefresh = filterBindingCodes
+          ? [container._children, container.contains].some(rows => Array.isArray(rows)
+            && rows.some(row => isPublicChatChannel(row?.chatData?.ChannelNum) && isBindingCodeMessage(row.chatData)))
+          : filteredViews.has(view);
+        if (needsRefresh) {
+          filteredViews.delete(view);
+          refreshChat(view);
+        }
+      }
+    }
     for (const item of nodes) if (item?.chatData && item.htmlTxt && typeof item.linkHandler === 'function') {
       liveItems.add(item); if (enhance(item)) changedItems.add(item);
     }
-    for (const view of nodes) {
-      if (typeof view.getHtmlBase !== 'function' || !view.msgContainer) continue;
-      liveViews.add(view);
-      if (!views.has(view)) views.set(view, ctx.scope.patch(view, 'getHtmlBase', original => function (...args) {
-        const result = original.apply(this, args); enhance(result); return result;
-      }));
+    for (const view of liveViews) {
       let changed = false;
       for (const item of (view.msgContainer._children || []).slice(0, 256)) {
         if (!item?.chatData) continue; liveItems.add(item); changed = enhance(item) || changedItems.has(item) || changed;
       }
       if (changed) relayout(view);
     }
-    for (const view of [...views.keys()]) if (!liveViews.has(view) || view.destroyed) { views.get(view)(); views.delete(view); }
+    for (const view of [...views.keys()]) if (!liveViews.has(view) || view.destroyed) { views.get(view).release(); views.delete(view); }
     for (const item of [...items.keys()]) if (!liveItems.has(item)) removeItem(item);
     const names=new Set([...items.values()].flatMap(entry=>linkedNames(entry.base)));
     diagnostics={rows:liveItems.size,links:names.size,profiles:[...names].filter(name=>Number(lookup(name)?.OfficerLevel)>0).length,
@@ -410,8 +502,13 @@ export function createChatEnhancements(ctx) {
     }
   }
   function dispose() {
-    if (stopped) return; stopped = true; clear(); robotGeneration++; robotIcon = '';
+    if (stopped) return;
+    stopped = true;
+    const restoreViews = who && ctx.native.account().id === who
+      ? [...views.keys()].filter(view => filteredViews.has(view) && !view.destroyed && isPublicChatChannel(view.GetCurrentShowChanel())) : [];
+    clear(); robotGeneration++; robotIcon = '';
     for (const asset of [...robotAssets]) releaseAsset(asset);
+    for (const view of restoreViews) refreshChat(view);
   }
   ctx.scope.add(dispose); ctx.scope.interval(tick, 400); tick();
   return { tick, dispose, requestEnterRoom, getDiagnostics:()=>({...diagnostics}) };

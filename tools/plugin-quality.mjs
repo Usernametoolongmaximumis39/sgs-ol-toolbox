@@ -87,7 +87,8 @@ export const pluginQuality = {
       "tests/backgrounds-ui.test.js"
     ],
     "browser": [
-      "tools/browser-backgrounds-check.mjs"
+      "tools/browser-backgrounds-check.mjs",
+      "tools/browser-background-history-check.mjs"
     ]
   },
   "cards": {
@@ -97,6 +98,7 @@ export const pluginQuality = {
     "tests": [
       "tests/cards-model.test.js",
       "tests/cards-ui.test.js",
+      "tests/card-skill-counts.test.js",
       "tests/cards-skill-pile.test.js",
       "tests/hand-groups.test.js",
       "tests/cards-legacy-core.test.js",
@@ -136,6 +138,7 @@ export const pluginQuality = {
     "tests": [
       "tests/daily-exchange.test.js",
       "tests/daily-rewards.test.js",
+      "tests/daily-free-welfare.test.js",
       "tests/daily-code-sources.test.js",
       "tests/daily-codes.test.js",
       "tests/redeem-direct.test.js"
@@ -143,6 +146,7 @@ export const pluginQuality = {
     "browser": [
       "tools/browser-daily-exchange-check.mjs",
       "tools/browser-reward-issues-check.mjs",
+      "tools/browser-free-gift-check.mjs",
       "tools/browser-reward-clipboard-check.mjs",
       "tools/browser-redeem-direct-check.mjs"
     ]
@@ -205,6 +209,24 @@ export const pluginQuality = {
       "tools/browser-mobile-seat-layout-check.mjs",
       "tools/browser-skin-picker-viewport-check.mjs"
     ]
+  },
+  "poker-lobby": {
+    "docs": [
+      "docs/poker-lobby.md"
+    ],
+    "tests": [
+      "tests/poker-lobby.test.js",
+      "tests/poker-lobby-native.test.js",
+      "tests/poker-lobby-activity.test.js",
+      "tests/poker-lobby-streak.test.js",
+      "tests/poker-replay.test.js",
+      "tests/poker-interactions.test.js",
+      "tests/poker-play-audio.test.js",
+      "tests/poker-live-table.test.js",
+      "tests/poker-live-transport.test.js",
+      "tests/poker-live-skill-actions.test.js"
+    ],
+    "browser": []
   },
   "stargazing": {
     "docs": [

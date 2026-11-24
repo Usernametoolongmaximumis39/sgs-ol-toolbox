@@ -17,11 +17,12 @@ import { createCompatibility } from '../compat/index.js';
 import { createMarketConnection } from './market-connection.js';
 import { attachSessionSnapshots } from './snapshots.js';
 import { createCardDiagnostics } from './diagnostics.js';
+import { createStartupDiagnostics } from './startup-diagnostics.js';
+import { reconcilePokerPackages } from './dev-poker-packages.js';
 import { createShell } from '../ui/shell.js';
 import { createScreenshotController } from './screenshot.js';
 import { gameViewForScene } from './game-view.js';
-import { createPluginNative, readNativeAccount } from './plugin-native.js';
-import { field } from '../shared/info-runtime.js';
+import { readNativeAccount } from './plugin-native.js';
 import { createDevAppearanceSync, createDevLedgerSync, installLocalAppearanceSyncPackage, syncGameAccountKey } from './dev-appearance-sync.js';
 import { createManagedSync } from './managed-sync.js';
 import { canUseSyncTest } from './sync-test-access.js';
@@ -44,8 +45,9 @@ export function boot(win = window, mobileSkinPort) {
   });
 }
 async function initialize(win, api, mobileSkinPort) {
-  if (!MICROCLIENT && installRefreshReentry(win)) return api;
   const scope = api.scope;
+  const startup = DEVELOPMENT ? createStartupDiagnostics(win, scope, CORE_VERSION) : null;
+  if (!MICROCLIENT && installRefreshReentry(win, startup?.trace)) return api;
   if (!MICROCLIENT) installTouchPreview(win, scope);
   if (MICROCLIENT) installMicroCompatibility(win, scope);
   const onlyPlugin = DEVELOPMENT && ['daily-rewards', 'effects', 'skins', 'wish-progress', 'shanhetu', 'themes', 'baisheng', 'appearances', 'seckill', 'gaizhu', 'ledger'].includes(win.__SGS_TOOLBOX_DEMO__?.onlyPlugin)
@@ -74,15 +76,16 @@ async function initialize(win, api, mobileSkinPort) {
   });
   if (preferenceSync) {
     scope.listen(win, 'online', preferenceSync.reconnect);
-    createPluginNative({ game, scope }).observe({
-      ClientLoginRep: packet => {
-        const id = Number(field(packet, 'userID') ?? field(packet, 'UserID'));
-        return Number.isSafeInteger(id) && id > 0 ? String(id) : null;
-      },
-    }, (_, account) => preferenceSync.login(account));
+    // The journal delivers after native dispatch. Avoid looking up the account
+    // and traversing the scene from inside the client's login event listeners.
+    scope.add(journal.subscribe(({ type, payload }) => {
+      if (type !== 'ClientLoginRep') return;
+      const id = Number(payload?.userID);
+      if (Number.isSafeInteger(id) && id > 0) preferenceSync.login(String(id));
+    }));
   }
   const shell = createShell({ window: win, document: win.document, settings, scope, sceneWatch,
-    getFeedbackAccount: getAccount, managedSync, preferenceSync,
+    getFeedbackAccount: getAccount, managedSync, preferenceSync, getStartupDiagnostics: startup?.snapshot,
     canReserveGameViewport: () => MICROCLIENT || Boolean(DEVELOPMENT && win.__SGS_TOOLBOX_DEMO__) || game.canReserveViewport(),
   });
   const themes = new ThemeRegistry(settings, tokens => shell.applyTheme(tokens));
@@ -92,8 +95,18 @@ async function initialize(win, api, mobileSkinPort) {
   shell.setGameView(gameViewForScene(game.getScene()));
   const screenshot = createScreenshotController({ window: win, game, settings, scope, notify: shell.notify });
   const bridge = installMessageBridge(win, journal, scope, message => shell.setStatus(message), {
-    getTargets: game.getMessageTargets, observeType: diagnostics.observeType, sceneWatch,
+    getTargets: game.getMessageTargets, sceneWatch,
+    observeStartupDispatch: startup?.observeDispatch,
+    observeType: startup ? (type, source, observed) => {
+      startup.observeMessage(type, source);
+      diagnostics.observeType(type, source, observed);
+    } : diagnostics.observeType,
   });
+  if (startup) {
+    const stop = scope.add(sceneWatch.watch(() => {
+      if (startup.observeGame(!!win.Laya?.stage, game.getRenderedScene(), bridge.getStatus().targets.includes('ServerProxy'))) stop();
+    }, 500, true));
+  }
   let compat, mounted = false, legacyWarned = false;
   if (!MICROCLIENT) {
   compat = createCompatibility({ window: win, document: win.document, takeover: settings.get('compatPolicy', 'hide'), onStatus: () => { bridge.check(); } });
@@ -117,6 +130,9 @@ async function initialize(win, api, mobileSkinPort) {
       ledger: ['149155e68884c22eb027d41cb5ce46829d3441bd8365567515b9a00d86837542'] }) };
   if (DEVELOPMENT) replacements.appearances = [...replacements.appearances,
     'f58af5e65b29699995e5584d7ccccf6736842e91f16fa808f651a711aaa3c358'];
+  if (DEVELOPMENT) replacements.cards = [...replacements.cards,
+    'ff578a1e34c6a4e6ff66c4bac3832ce6735be769e043676f749e4334921aacd0',
+    '1cb8356638ef3b0463d77b166e34d391de0e99c0da1434320c8bbc42b69e1320'];
   for (const pkg of bundledPackages) if (!onlyPlugin || pkg.manifest.id === onlyPlugin || (onlyPlugin === 'gaizhu' && pkg.manifest.id === 'baisheng')) {
     await manager.registerBundled(pkg, replacements[pkg.manifest.id] || []).catch(() => {});
     if (scope.closed) return null;
@@ -128,7 +144,6 @@ async function initialize(win, api, mobileSkinPort) {
   }, { deferStartupMarket: true });
   shell.setStatusVisible(false);
   scope.add(journal.subscribe(event => {
-    if (event.type === 'ClientLoginRep' && event.payload?.userID) preferenceSync?.login(String(Number(event.payload.userID)));
     if (event.type === 'toolbox:snapshot' && typeof event.payload?.inGame === 'boolean') shell.setStatusVisible(event.payload.inGame);
     else if (event.type === 'MsgGamePlayCardNtf') shell.setStatusVisible(true);
     else if (['MsgGameOver', 'ClientLeavetableRep'].includes(event.type)) shell.setStatusVisible(false);
@@ -147,7 +162,7 @@ async function initialize(win, api, mobileSkinPort) {
       : capture.targets.length ? '消息入口已连接 · 等待收包' : '未接入游戏消息 · 仅原生显示可用') : '等待游戏运行时'));
   }, 500));
   if (!win.__SGS_TOOLBOX_DEMO__ && !win.Laya?.stage) shell.host.style.display = 'none';
-  await manager.init();
+  await manager.init(DEVELOPMENT ? reconcilePokerPackages : undefined);
   if (scope.closed) return null;
   if (LOCAL_APPEARANCE_SYNC && localAppearanceSyncPackage && !manager.storageError) {
     try { await installLocalAppearanceSyncPackage(manager, settings, localAppearanceSyncPackage); }

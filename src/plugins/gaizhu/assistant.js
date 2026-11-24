@@ -1,5 +1,5 @@
 import { createSpecialWindows } from './special-windows.js';
-import { createBattleGuards } from './battle-guards.js';
+import { createBattleGuards, ICE_SWORD } from './battle-guards.js';
 import { read } from '../../shared/info-runtime.js';
 import { shown, usable, selfButtonBar, clickSkill, press } from './native.js';
 
@@ -10,15 +10,59 @@ const active = ui => usable(ui) && (ui.activated ?? ui.Activated ?? ui.Skill?.Ac
 const selectable = ui => usable(ui) && (ui.activated ?? ui.Activated) === true && !selected(ui);
 const enabled = button => usable(button) && (button._enabled ?? button.enabled) === true;
 const figure = seat => Number(seat?.Figure ?? seat?.figure);
+const SHUNQIAN = 4;
+const GUOCHAI = 5;
+const TAOYUAN = 12;
+const ARMOUR = 4;
+const DEF_HORSE = 6;
+const TREASURE = 7;
 const IRON_CHAIN = 85;
 const WOODEN_OX = 700;
+const WINE = 82;
+const WINE_STATE = 6;
+const SLASH_SKILLS = new Set([1, 11111, 11112, 11114]);
 const cardChoices = container => [...new Set([
   ...list(container?.activatedCardtems), ...list(container?.cardUis), ...list(container?.muniuCardUis),
 ])];
 const cardContext = container => container?.selectCardContext ?? container?.SelectContext;
+const seatOf = ui => ui?.seat ?? ui?.Seat;
+const seatIndex = ui => Number(seatOf(ui)?.Index ?? seatOf(ui)?.index ?? NaN);
+const targetContext = self => self.SelectSeatContext ?? self.selectSeatContext;
+const cardSkill = card => Number(card?.FirstSkillId ?? card?.FirstSkill?.ID);
+const wineBoost = self => Number(read(() => seatOf(self).GetStateValue(WINE_STATE)) ?? NaN);
+const handCards = container => cardChoices(container).filter(ui => ui && ui !== container?.activatedSkillEquip);
+const currentCard = (context, cards) => context?.CardSelector?.FirstSelectedCard ?? cards.find(selected)?.Card;
+const playTargets = (frame, card) => {
+  if (targetContext(frame.self)?.Card !== card) return null;
+  return list(frame.scene.seatContainer?.seatUIs).filter(ui => {
+    const seat = seatOf(ui);
+    return seat && seat !== seatOf(frame.self) && seat.IsSelf !== true && seat.IsDead !== true
+      && Number.isInteger(seatIndex(ui)) && usable(ui) && (selectable(ui) || selected(ui));
+  });
+};
 const cardCount = (context, cards) => context?.CardSelector?.SelectedCount
   ?? Math.max(list(context?.SelectedCardIds).length, cards.filter(selected).length);
-const hostileSpells = new Set([1, 4, 5, 8, 15, 83, 84]); // 杀、顺手、过拆、决斗、乐、火攻、兵粮
+const hostileSpells = new Set([1, SHUNQIAN, GUOCHAI, 8, 15, 83, 84]); // 杀、顺手、过拆、决斗、乐、火攻、兵粮
+
+function canPlayCard(seat, card) {
+  if (cardSkill(card) !== TAOYUAN) return true;
+  const hp = Number(seat?.Hp ?? NaN), maxHp = Number(seat?.MaxHp ?? NaN);
+  return Number.isFinite(hp) && Number.isFinite(maxHp) && hp > 0 && hp < maxHp;
+}
+
+function fallbackPopupCard(win, chosen) {
+  const legal = ui => usable(ui) && ui.CanBeSelected && !chosen.includes(ui);
+  const equipment = list(win.equipCardUis).filter(legal);
+  const skill = Number(win.Skill?.ID ?? win.Skill?.SkillId);
+  if (skill === SHUNQIAN || skill === GUOCHAI) {
+    const type = ui => Number(ui.Card?.FirstSkill?.Type ?? ui.Card?.Type);
+    const preferred = equipment.find(ui => type(ui) === DEF_HORSE)
+      ?? equipment.find(ui => type(ui) === ARMOUR || type(ui) === TREASURE);
+    if (preferred) return preferred;
+  }
+  return equipment[0] ?? list(win.handCardUis).find(legal)
+    ?? list(win.judgeCardUis).find(legal) ?? list(win.regionCardUis).find(legal);
+}
 
 function isHostilePlay(self, container, seatContainer, cards) {
   if (self.seat?.InOwnRound !== true) return false;
@@ -37,11 +81,28 @@ function identityAttackTarget(targets, ownFigure) {
   return targets[0];
 }
 
-// Legacy policy: native assistant first, local handling after one second,
-// then one trusteeship request after three seconds of local handling in our turn.
+function ordinaryPlay(self, context, bar) {
+  if (seatOf(self)?.InActiveState !== true || context?.Purpose !== 'deal' || !usable(bar) || usable(self.spellSelector)
+    || Number(context.SpecifySkillId ?? 0) !== 0 || context.Skill || self.selectedSkillItem || context.CardSelector?.TurnCard) return false;
+  return typeof self.PlayCard_Result === 'function' && context.SelectResultCallback === self.PlayCard_Result
+    || String(context.Message ?? context.message ?? '').replace(/<[^>]*>|\s/g, '') === '出牌阶段，请选择一张卡牌';
+}
+
+function selectPlayCard(container, ui, value) {
+  if (!usable(ui) || selected(ui) === value || value && !selectable(ui)) return false;
+  if (typeof container.CardUI_Click === 'function') container.CardUI_Click({ CardUi: ui, Card: ui.Card });
+  else if (typeof ui.CardUI_Click === 'function') ui.CardUI_Click(null);
+  else if (typeof ui.setSelected === 'function') ui.setSelected(value);
+  else return false;
+  return selected(ui) === value;
+}
+
+// Follow the native assistant where possible, then resolve the current prompt locally.
 export function createAssistant(config = {}) {
   const guards = createBattleGuards(config), specialWindows = createSpecialWindows(config);
   let requested = -Infinity;
+  let winePlan = null;
+  const wineAttempted = new WeakSet(), blockedSlashes = new WeakMap();
   const completed = new WeakSet(), confirmedPopupSelections = new WeakSet(), chosenPopupCards = new WeakMap();
   function confirmPopup(win, official = false) {
     const chosen = list(win.selectCardUis);
@@ -70,7 +131,7 @@ export function createAssistant(config = {}) {
     return clickSkill(skill) && (selected(skill) || self.CurStepHelpData !== data
       || cardContext(self.cardContainer) !== context || (self.SelectSeatContext ?? self.selectSeatContext) !== targets);
   }
-  function runOfficial(frame, now) {
+  function runOfficial(frame, now, play, excludedChoice) {
     const self = frame.self, data = read(() => self.CurStepHelpData);
     // Popup windows receive their own assistant response; use only highlighted
     // native choices, never the first available card as a fallback.
@@ -108,11 +169,12 @@ export function createAssistant(config = {}) {
     const buttons = usable(bar) ? list(bar.btns) : [];
     const choices = usable(selector) ? list(selector.btnList) : [];
     const target = data.target;
+    if (excludedChoice && (target === excludedChoice || Number(data.skillId) === ICE_SWORD)) return false;
     if (list(self.skillItems).includes(target) && !selected(target)) return clickHintedSkill(self, data, target);
     if (choices.includes(target) && usable(target) && typeof selector.btnClick === 'function') {
       completed.add(data); selector.btnClick(target); return true;
     }
-    if (buttons.includes(target) && dispatch(bar, target)) { completed.add(data); return true; }
+    if (buttons.includes(target) && dispatch(bar, target, frame)) { completed.add(data); return true; }
     const container = self.cardContainer, equipped = list(container?.equipCardUis);
     // An equipment-skill hint points to the equipped card first. The protocol
     // can already contain the card IDs needed for the next step.
@@ -132,7 +194,16 @@ export function createAssistant(config = {}) {
     if (target !== equipSkill && pool.includes(target) && !cards.includes(target)) cards.push(target);
     if (cards.some(ui => !ui || !usable(ui) || !selected(ui) && !active(ui))) return false;
     const card = cards.find(ui => !selected(ui));
-    if (card) return clickHintedCard(self, data, card);
+    if (card) {
+      if (play && !canPlayCard(seatOf(self), card.Card)) return false;
+      if (play && cardSkill(card.Card) === WINE) {
+        const slash = play.cards.find(ui => selectable(ui) && SLASH_SKILLS.has(cardSkill(ui.Card))
+          && !blockedSlashes.get(play.context)?.has(ui.Card));
+        return Boolean(slash && selectPlayCard(container, slash, true));
+      }
+      if (play && blockedSlashes.get(play.context)?.has(card.Card)) return false;
+      return clickHintedCard(self, data, card);
+    }
     const seatIds = list(data.completeSeatIds).length ? data.completeSeatIds : list(data.seatIds);
     const seats = list(frame.scene.seatContainer?.seatUIs);
     const targets = seatIds.map(id => seats.find(ui => same(ui.seat?.index ?? ui.seat?.Index ?? ui.Seat?.Index, id)));
@@ -147,19 +218,103 @@ export function createAssistant(config = {}) {
     }
     let button = choices.find(ui => same(ui.name, data.buttonName) || same(ui.data?.sendData, data.buttonName));
     if (!button && Number.isInteger(data.optionIndex)) button = choices[data.optionIndex];
-    if (button) { if (!usable(button) || typeof selector.btnClick !== 'function') return false; completed.add(data); selector.btnClick(button); return true; }
+    if (button) { if (button === excludedChoice || !usable(button) || typeof selector.btnClick !== 'function') return false; completed.add(data); selector.btnClick(button); return true; }
     button = buttons.find(ui => same(ui.name, data.buttonName));
     if (!button && !data.buttonName && (cards.length || targets.length)) button = buttons.find(ui => ui.name === 'btnOK');
-    if (!dispatch(bar, button)) return false;
+    if (!dispatch(bar, button, frame)) return false;
     completed.add(data);
     return true;
   }
-  let task = null, mode = 'ai', reason = '', trusteeOwned = false;
-  function dispatch(bar, button) {
+  let task = null, mode = 'ai', reason = '';
+  function dispatch(bar, button, frame) {
     if (!usable(button)) return false;
+    if (frame && button.name === 'btnOK') {
+      const self = frame.self, context = cardContext(self.cardContainer);
+      if (context?.Purpose === 'deal') {
+        const card = currentCard(context, handCards(self.cardContainer));
+        if (!canPlayCard(seatOf(self), context.CardSelector?.TurnCard ?? card)) return false;
+        if (ordinaryPlay(self, context, bar)) {
+          guards.recordPlay(seatIndex(self), cardSkill(card), wineBoost(self),
+            list(read(() => targetContext(self).SelectedTargetSeatIDs)));
+        }
+      }
+    }
     if (typeof bar?.Button_Click === 'function') bar.Button_Click(button);
     else if (!press(button)) return false;
     return true;
+  }
+  function orderWineAndSlash(frame, now, play, identity) {
+    const { self } = frame, container = self.cardContainer;
+    const { context, cards, card, bar } = play;
+    const selectedUI = cards.find(ui => ui.Card === card);
+    const slash = SLASH_SKILLS.has(cardSkill(card)), drink = cardSkill(card) === WINE;
+    const targets = slash ? playTargets(frame, card) : null;
+    const fallback = targets && (identity ? identityAttackTarget(targets, figure(seatOf(self))) : targets[0]);
+    if (winePlan?.phase === 'waiting') {
+      const wineStillHeld = cards.some(ui => same(ui.Card?.CardId, winePlan.wineId));
+      if (drink && same(card.CardId, winePlan.wineId)) return false;
+      // A fresh play selector without either acknowledgement may mean the
+      // drink was rejected. Resume ordinary play without retrying it there.
+      if (wineStillHeld && !(wineBoost(self) > 0)) {
+        if (context === winePlan.submitted || now - winePlan.sentAt < 2000) return false;
+        wineAttempted.add(context);
+        winePlan = null;
+        return null;
+      }
+      winePlan.phase = 'slash';
+      wineAttempted.add(context);
+    }
+    if (!winePlan) {
+      if (drink) return Boolean(selectedUI && selectPlayCard(container, selectedUI, false));
+      if (!slash || !selectedUI || !targets || wineAttempted.has(context) || wineBoost(self) > 0) return null;
+      const wine = cards.find(ui => selectable(ui) && cardSkill(ui.Card) === WINE);
+      if (!wine) return null;
+      const hint = self.CurStepHelpData;
+      const ids = list(hint?.completeSeatIds).length ? hint.completeSeatIds : list(hint?.seatIds);
+      const preferred = targets.filter(ui => selected(ui) || ids.some(id => same(id, seatIndex(ui))) || hint?.target === ui);
+      if (!preferred.length && !fallback) {
+        const blocked = blockedSlashes.get(context) || new Set();
+        blocked.add(card);
+        blockedSlashes.set(context, blocked);
+        return selectPlayCard(container, selectedUI, false);
+      }
+      wineAttempted.add(context);
+      winePlan = { scene: frame.scene, self, slashId: card.CardId, wineId: wine.Card.CardId,
+        targets: (preferred.length ? preferred : [fallback]).map(seatIndex), phase: 'wine' };
+    }
+    const next = cards.find(ui => same(ui.Card?.CardId, winePlan.phase === 'slash' ? winePlan.slashId : winePlan.wineId));
+    if (!next || !selected(next) && !selectable(next)) {
+      winePlan = null;
+      return null;
+    }
+    if (!selected(next)) {
+      const changed = selectedUI ? selectPlayCard(container, selectedUI, false) : selectPlayCard(container, next, true);
+      if (!changed) winePlan = null;
+      return changed;
+    }
+    const confirm = list(bar.btns).find(b => enabled(b) && b.name === 'btnOK');
+    if (winePlan.phase === 'wine') {
+      if (!drink || !confirm) return false;
+      winePlan.phase = 'waiting';
+      winePlan.submitted = context;
+      winePlan.sentAt = now;
+      return dispatch(bar, confirm, frame);
+    }
+    if (!slash || !targets) return false;
+    const available = targets.filter(ui => selectable(ui) && typeof ui.seatClickHandler === 'function');
+    const target = winePlan.targets.map(id => available.find(ui => seatIndex(ui) === id)).find(Boolean)
+      || (!confirm && (identity ? identityAttackTarget(available, figure(seatOf(self))) : available[0]));
+    if (target) { target.seatClickHandler(); return true; }
+    if (confirm && targets.some(selected)) {
+      winePlan = null;
+      // This Slash followed a confirmed drink, even if its buff icon arrived late.
+      return dispatch(bar, confirm);
+    }
+    if (!targets.length) {
+      winePlan = null;
+      return selectPlayCard(container, selectedUI, false);
+    }
+    return false;
   }
   function recastIronChain(self) {
     const bar = selfButtonBar(self);
@@ -170,7 +325,7 @@ export function createAssistant(config = {}) {
       ?? cardChoices(container).find(ui => ui !== container?.activatedSkillEquip && selected(ui))?.Card;
     return Number(card?.FirstSkillId ?? card?.FirstSkill?.ID) === IRON_CHAIN && dispatch(bar, recast);
   }
-  function local(frame, now, identity, preferIronChainRecast) {
+  function local(frame, now, identity, preferIronChainRecast, play, excludedChoice) {
     for (const win of frame.nodes || []) {
       if (!usable(win) || win.closeing || win.isClosing) continue;
       const name = win.name || win.constructor?.name;
@@ -185,8 +340,7 @@ export function createAssistant(config = {}) {
         if (now - task.first < 2500 || confirmedPopupSelections.has(chosen)) return false;
         if (confirmPopup(win)) return true;
         if (chosen.length < Number(win.Skill?.SelectCardCountWhenResponse || 1)) {
-          const card = [...list(win.equipCardUis), ...list(win.handCardUis), ...list(win.judgeCardUis), ...list(win.regionCardUis)]
-            .find(ui => usable(ui) && ui.CanBeSelected && !chosen.includes(ui));
+          const card = fallbackPopupCard(win, chosen);
           if (card && typeof win.onTouchCard === 'function') return choosePopupCard(win, card);
         }
         if (usable(win.cancel_btn) && typeof win.cancelClick === 'function') { win.cancelClick(); return true; }
@@ -198,8 +352,9 @@ export function createAssistant(config = {}) {
     }
     const self = frame.self, bar = selfButtonBar(self), selector = self.spellSelector;
     if (usable(selector) && typeof selector.btnClick === 'function') {
-      const choice = list(selector.btnList).find(b => usable(b) && (b._enabled ?? b.enabled) === true);
+      const choice = list(selector.btnList).find(b => b !== excludedChoice && enabled(b));
       if (choice) { selector.btnClick(choice); return true; }
+      if (excludedChoice) return false;
     }
     const container = self.cardContainer, context = cardContext(container);
     const buttons = usable(bar) ? list(bar.btns) : [];
@@ -230,6 +385,12 @@ export function createAssistant(config = {}) {
     } else {
       const hasSelectedCard = cards.some(selected) || list(context?.SelectedCardIds).length > 0;
       if (!hasSelectedCard) {
+        if (play) {
+          const card = cards.find(ui => selectable(ui) && cardSkill(ui.Card) !== WINE && canPlayCard(seatOf(self), ui.Card)
+            && !blockedSlashes.get(context)?.has(ui.Card));
+          if (card) return selectPlayCard(container, card, true);
+          return dispatch(bar, buttons.find(b => enabled(b) && b.name === 'btnDiscard'));
+        }
         // Legacy card() uses native AllSelectHandCards before its first legal
         // activated card. Do not choose disabled or unavailable cards ourselves.
         if (typeof container?.AllSelectHandCards === 'function') container.AllSelectHandCards();
@@ -240,8 +401,8 @@ export function createAssistant(config = {}) {
       }
       // Card selection can replace the operation bar or auto-select a target.
       if (preferIronChainRecast && recastIronChain(self)) return true;
-      if (hasSelectedCard && ok) return dispatch(bar, ok);
-      if (enabled(buttons[0])) return dispatch(bar, buttons[0]);
+      if (hasSelectedCard && ok) return dispatch(bar, ok, frame);
+      if (enabled(buttons[0])) return dispatch(bar, buttons[0], frame);
     }
     const seatContainer = frame.scene.seatContainer;
     const targets = list(seatContainer?.seatUIs).filter(ui => selectable(ui) && typeof ui.seatClickHandler === 'function');
@@ -251,45 +412,56 @@ export function createAssistant(config = {}) {
       seat.seatClickHandler();
       const currentBar = selfButtonBar(self);
       const confirm = list(currentBar?.btns).find(b => enabled(b) && b.name === 'btnOK');
-      if (confirm) return dispatch(currentBar, confirm);
+      if (confirm) return dispatch(currentBar, confirm, frame);
       return true;
     }
     if (transferringOx) return false;
     if (hostile && targets.length) return dispatch(bar, cancel);
     // Preserve the original bar order (0,1,2,3), including a visible Cancel
     // when optional skills such as Yingyuan have no legal confirmation.
-    return dispatch(bar, buttons.slice(0, 4).find(enabled));
+    return dispatch(bar, buttons.slice(0, 4).find(enabled), frame);
   }
-  function run(frame, now, { allowTrustee = true, identity = false, preferIronChainRecast = false } = {}) {
-    const self = frame.self;
+  function run(frame, now, { identity = false, training = false } = {}) {
+    const self = frame.self, seat = seatOf(self);
     reason = '';
+    if (winePlan && (winePlan.scene !== frame.scene || winePlan.self !== self || seat?.InOwnRound === false)) winePlan = null;
     if (!self) { task = null; return false; }
-    if (trusteeOwned && self.seat?.IsAiControl === true) {
-      if (self.seat?.InOwnRound === false && typeof self.onTrusteeshipClick === 'function') {
-        if (now - (task?.releaseAt ?? -Infinity) >= 3000 && (task?.releaseTries || 0) < 1) {
-          task ||= {}; task.releaseAt = now; task.releaseTries = (task.releaseTries || 0) + 1;
-          self.onTrusteeshipClick(); mode = 'local'; return true;
-        }
-      }
-      mode = 'trustee'; return false;
-    }
-    if (trusteeOwned && self.seat?.IsAiControl === false && self.seat?.InOwnRound === false) trusteeOwned = false;
     if (config.canOperate?.() === false) { mode = 'ai'; reason = '等待游戏允许操作'; return false; }
-    if (identity && (self.seat ?? self.Seat)?.IsAiControl === true) {
+    if (seat?.IsAiControl === true) {
       mode = 'ai'; reason = '等待退出游戏托管'; return false;
     }
-    const protection = guards.run(frame, { official: true, identity });
+    const protection = guards.run(frame, { official: true, identity, training });
     const wuxie = protection?.officialOnly;
-    if (protection && !wuxie) { mode = 'local'; reason = protection.reason; return protection.acted; }
+    const excludedChoice = protection?.excludedChoice;
+    if (protection && !wuxie && !excludedChoice) { mode = 'local'; reason = protection.reason; return protection.acted; }
     const special = !wuxie && specialWindows.run(frame);
     if (special) { mode = 'local'; reason = special.reason; return special.acted; }
     const bar = selfButtonBar(self), context = cardContext(self.cardContainer);
     const selector = usable(self.spellSelector) ? self.spellSelector : null;
     const buttons = usable(bar) ? list(bar.btns) : [];
+    const play = !wuxie && ordinaryPlay(self, context, bar)
+      && !(frame.nodes || []).some(win => usable(win) && !win.closeing && !win.isClosing
+        && ['WuGuFengDengWindow', 'SelectCardWindow'].includes(win.name || win.constructor?.name))
+      ? { context, bar, cards: handCards(self.cardContainer) } : null;
+    const turnCard = context?.Purpose === 'deal' ? context.CardSelector?.TurnCard : null;
+    if (!wuxie && (play || turnCard && seat?.InActiveState === true)) {
+      const cards = play?.cards ?? handCards(self.cardContainer);
+      const card = currentCard(context, cards);
+      if (!canPlayCard(seat, turnCard ?? card)) {
+        const ui = cards.find(ui => ui.Card === card);
+        mode = 'local';
+        return Boolean(ui && selectPlayCard(self.cardContainer, ui, false));
+      }
+      if (play) play.card = card;
+    }
+    if (play) {
+      const ordered = orderWineAndSlash(frame, now, play, identity);
+      if (ordered !== null) { mode = 'local'; return ordered; }
+    }
     const key = [context?.SpecifySkillId ?? context?.Skill?.SkillId ?? '', context?.message ?? '',
       selector?.spell?.SkillId ?? '', buttons.filter(shown).map(b => b.name).join(',')].join('|');
     if (!task || task.scene !== frame.scene || task.self !== self || task.context !== context || task.key !== key || task.selector !== selector) {
-      task = { scene: frame.scene, self, context, key, selector, first: now, localAt: null, lastOfficial: -Infinity, lastLocal: -Infinity, triedTrustee: false };
+      task = { scene: frame.scene, self, context, key, selector, first: now, localAt: null, lastOfficial: -Infinity, lastLocal: -Infinity };
       mode = 'ai';
     }
     const hint = self.CurStepHelpData;
@@ -302,7 +474,7 @@ export function createAssistant(config = {}) {
       || (frame.nodes || []).some(win => usable(win) && ['WuGuFengDengWindow', 'SelectCardWindow'].includes(win.name || win.constructor?.name));
     // A late Wuxie hint can still be used once. An unchanged or unexecutable
     // hint gives the current prompt no extra time before local handling.
-    if ((task.localAt == null || wuxie && hint && task.help !== hint) && runOfficial(frame, now)) {
+    if ((task.localAt == null || wuxie && hint && task.help !== hint) && runOfficial(frame, now, play, excludedChoice)) {
       task.lastOfficial = now; task.help = hint; mode = 'ai'; return true;
     }
     task.help = hint;
@@ -323,16 +495,15 @@ export function createAssistant(config = {}) {
         const fallback = guards.run(frame);
         reason = fallback?.reason || '';
         acted = fallback?.playWuxie ? fallback.playWuxie() : Boolean(fallback?.acted);
-      } else acted = local(frame, now, identity, preferIronChainRecast);
-    }
-    // Native trusteeship can answer a later rescue before the plugin sees it.
-    if (!identity && allowTrustee && now - task.localAt >= 3000 && !task.triedTrustee && self.seat?.InOwnRound === true
-      && self.seat?.IsAiControl !== true && typeof self.onTrusteeshipClick === 'function') {
-      task.triedTrustee = true; trusteeOwned = true; self.onTrusteeshipClick(); mode = 'trustee'; return true;
+      } else acted = local(frame, now, identity, training, play, excludedChoice);
     }
     return acted;
   }
-  return { run, mode: () => mode, reason: () => reason, isTrustee: () => trusteeOwned, observe: guards.observe };
+  function observe(type, data) {
+    if (type === 'GsCGamephaseNtf' || type === 'MsgGameTurnNtf') winePlan = null;
+    guards.observe(type, data);
+  }
+  return { run, mode: () => mode, reason: () => reason, observe };
 
 }
 

@@ -8,6 +8,11 @@ export const CARDS_ICON = /* @__PURE__ */ icon(
   'M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z',
 );
 
+export const POKER_LOBBY_ICON = /* @__PURE__ */ icon(
+  'M10 3h9a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM5 5 3 6a1.5 1.5 0 0 0-.8 1.8L5 20a2 2 0 0 0 2.4 1.5l1.6-.4',
+  'M14.5 7c1.5 2.2 3.5 3 3.5 4.8a1.8 1.8 0 0 1-3.5.6 1.8 1.8 0 0 1-3.5-.6c0-1.8 2-2.6 3.5-4.8ZM14.5 12.5V16M13 16h3',
+);
+
 export const SHANHETU_ICON = /* @__PURE__ */ icon(
   'M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z',
   'M6 12 10 7l4 5 3-3 2 3',
@@ -74,6 +79,7 @@ export const LEDGER_ICON = /* @__PURE__ */ icon(
 
 export const PLUGIN_ICONS = /* @__PURE__ */ Object.freeze({
   cards: CARDS_ICON,
+  'poker-lobby': POKER_LOBBY_ICON,
   shanhetu: SHANHETU_ICON,
   'shanhetu-beta': SHANHETU_BETA_ICON,
   'daily-rewards': DAILY_REWARDS_ICON,

@@ -1,5 +1,5 @@
 import { createFriendManagement } from './friends.js';
-import { createChatEnhancements } from './chat.js';
+import { BINDING_CODE_FILTER, bindingCodeFilterEnabled, createChatEnhancements } from './chat.js';
 import { ResourceScope } from '../../core/resources.js';
 import { downloadJSON } from '../../shared/info-runtime.js';
 import { createLampTracking, createLampBanner } from './lamps.js';
@@ -7,9 +7,10 @@ import { installRoomFilter } from './room-filter.js';
 import { PREFERENCES_RESTORED } from '../../shared/sync-paths.js';
 
 export const manifest = {
-  id: 'social', name: '好友与聊天', version: '0.1.19', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "好友、置顶和将灯记录可随当前账号的云端备份恢复。绑定云同步后，这些记录会发送到所绑定的服务器。", minCoreVersion: '0.6.185',
-  description: '好友置顶、改名与将灯提醒、公屏一键进房、官阶补全与无密码房筛选',
+  id: 'social', name: '好友与聊天', version: '0.1.24', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "新增公开聊天和诏令横幅的绑定码过滤，可在工具里关闭。减少重复查询置顶好友的将灯。", minCoreVersion: '0.6.185',
+  description: '好友置顶、改名与将灯提醒、聊天绑定码过滤、一键进房、官阶补全与无密码房筛选',
+  journalEvents: ['ClientLoginRep'],
   icon: { paths: ['M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 'M2 21v-3a6 6 0 0 1 12 0v3', 'M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1'] },
   priority: 30300, categories: ['tools'],
 };
@@ -23,26 +24,39 @@ export function activate(ctx) {
     if (event.detail.includes('friends')) friends.reload();
     if (event.detail.includes('friendLamps')) lamps.reload();
   });
-  createChatEnhancements(ctx);
+  const chat = createChatEnhancements(ctx);
   installRoomFilter(ctx);
   ctx.ui.registerPanel({ id: 'history', category: 'tools', render(container) {
-    return renderHistory(ctx, container, friends, lamps);
+    return renderHistory(ctx, container, friends, lamps, chat);
   } });
 }
 
-export function renderHistory(ctx, container, friends, lamps) {
+export function renderHistory(ctx, container, friends, lamps, chat) {
   const local = new ResourceScope(), doc = ctx.document;
   const root = doc.createElement('section'); root.className = 'sgs-social';
   const style = doc.createElement('style');
-  style.textContent = `.sgs-social{color:var(--sgs-text);font:12px/1.65 var(--sgs-font,sans-serif);min-width:0}.sgs-social p{margin:0 0 10px;overflow-wrap:anywhere}.sgs-social .social-muted{color:var(--sgs-muted)}.sgs-social button{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:5px 10px;border:1px solid var(--sgs-border);border-radius:7px;background:var(--sgs-raised);color:var(--sgs-text);font:inherit;cursor:pointer}.sgs-social button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}.sgs-social button:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}.sgs-social button:disabled{opacity:.45;cursor:not-allowed}.sgs-social button svg{width:15px;height:15px}.sgs-social ol{list-style:none;padding:0;margin:12px 0;max-height:260px;overflow:auto}.sgs-social li{padding:8px 0;border-top:1px solid var(--sgs-border);overflow-wrap:anywhere}.sgs-social li small{display:block;color:var(--sgs-muted)}.sgs-social li strong{color:var(--sgs-accent);font-weight:500}`;
-  const intro = ctx.ui.helpTip('在游戏好友菜单中置顶或取消置顶。每分钟保存好友昵称；自动查询置顶好友将灯，约11分钟复查，首次建立基准。新增永久拥有的武将在游戏上部提醒，点击叉关闭。将灯不能判断是否付费。好友记录按账号保存，上传云端备份时一并同步。');
+  style.textContent = `.sgs-social{color:var(--sgs-text);font:calc(12px + var(--sgs-font-offset, 0px))/1.65 var(--sgs-font,sans-serif);min-width:0}.sgs-social p{margin:0 0 10px;overflow-wrap:anywhere}.sgs-social .social-muted{color:var(--sgs-muted)}.sgs-social button{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:5px 10px;border:1px solid var(--sgs-border);border-radius:7px;background:var(--sgs-raised);color:var(--sgs-text);font:inherit;cursor:pointer}.sgs-social button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}.sgs-social button:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}.sgs-social button:disabled{opacity:.45;cursor:not-allowed}.sgs-social button svg{width:15px;height:15px}.sgs-social ol{list-style:none;padding:0;margin:12px 0;max-height:260px;overflow:auto}.sgs-social li{padding:8px 0;border-top:1px solid var(--sgs-border);overflow-wrap:anywhere}.sgs-social li small{display:block;color:var(--sgs-muted)}.sgs-social li strong{color:var(--sgs-accent);font-weight:500}
+    .sgs-social .social-filter{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px;cursor:pointer}
+    .sgs-social .social-filter-note{padding-bottom:10px;border-bottom:1px solid var(--sgs-border)}`;
+  const filter = doc.createElement('label'); filter.className = 'social-filter';
+  const filterSwitch = ctx.ui.styleSwitch(doc.createElement('input'));
+  filterSwitch.type = 'checkbox'; filterSwitch.checked = bindingCodeFilterEnabled(ctx);
+  filter.append('过滤绑定码', filterSwitch);
+  const filterNote = doc.createElement('p'); filterNote.className = 'social-filter-note social-muted';
+  filterNote.textContent = '过滤综合、系统消息及各频道的高级诏令。匹配「互、绑、好友、周年」或以 A、C 开头的至少 5 位连续大写英文字母。';
+  local.listen(filterSwitch, 'change', () => {
+    try { ctx.settings.set(BINDING_CODE_FILTER, filterSwitch.checked); }
+    catch (error) { filterSwitch.checked = bindingCodeFilterEnabled(ctx); ctx.reportError?.(error); return; }
+    chat?.tick();
+  });
+  const intro = ctx.ui.helpTip('在游戏好友菜单中置顶或取消置顶。登录后依次查询置顶好友的将灯，同一次登录中每位好友间隔至少 1 小时，首次建立基准。每分钟保存好友昵称。新增永久拥有的武将在游戏上部提醒，点击叉关闭。将灯不能判断是否付费。好友记录按账号保存，上传云端备份时一并同步。');
   const status = doc.createElement('p'); status.dataset.socialStatus = ''; status.setAttribute('role', 'status');
   const button = doc.createElement('button'); button.type = 'button'; button.dataset.socialExport = ''; button.textContent = '导出好友记录';
   button.title = '下载当前账号好友、改名记录及所有已保存的武将名单；取消置顶不删除武将记录';
   const history = doc.createElement('ol'); history.dataset.socialHistory = ''; history.setAttribute('aria-label', '好友变化记录');
   const empty = doc.createElement('p'); empty.className = 'social-muted';
   const error = doc.createElement('p'); error.style.color = 'var(--sgs-danger)'; error.setAttribute('role', 'alert');
-  root.append(style, status, error, button, intro, history, empty); container.append(root);
+  root.append(style, filter, filterNote, status, error, button, intro, history, empty); container.append(root);
   let stamp;
   function render() {
     const data = friends.getRecord(), next = JSON.stringify(data); if (stamp === next) return; stamp = next;

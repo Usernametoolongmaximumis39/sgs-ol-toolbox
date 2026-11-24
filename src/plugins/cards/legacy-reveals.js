@@ -84,7 +84,9 @@ export function legacyReveal(state, data, seq, api) {
       if (groups.hand.length && !seat(target)) return false;
       // All unmasked identities received locally are observations. Record both
       // halves; do not infer ownership from masked zeros or an incomplete list.
-      if (groups.pile.length) pile(groups.pile, 'top');
+      // GuanXu/YaShi/TianHou lay the block out bottom-to-top in the window,
+      // while the pile record is top-first. Jieli keeps the window order.
+      if (groups.pile.length) pile([987, 988, 3903].includes(skill) ? groups.pile.slice().reverse() : groups.pile, 'top');
       if (groups.hand.length) hand(groups.hand, target, true);
       state.pending ||= {};
       state.pending[`legacyExchange:${skill}:${data.SrcSeatID}`] = {

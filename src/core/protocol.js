@@ -13,7 +13,7 @@ const schemas = {
   MsgNtfUseCardType: ['CastSeatID', 'SpellID', 'useType'],
   decodeRogueLikeItemEffectNtf: ['ItemID', 'ItemParams', 'error_id'],
   PubGsCUseSpell: ['SeatID', 'SrcSeatID', 'SpellID', 'CardIDs', 'CardCount', 'EffectIndex', 'DestSeatIDs'],
-  MsgGameTurnNtf: ['SeatID', 'TurnCnt'], GsCGamephaseNtf: ['SeatID', 'Round'], MsgGameRoundNtf: ['isPassed'],
+  MsgGameTurnNtf: ['SeatID', 'TurnCnt', 'IsResume'], GsCGamephaseNtf: ['SeatID', 'Round'], MsgGameRoundNtf: ['isPassed'],
   MsgReconnectGame: [], MsgReconnectGameHand: ['SeatIndex', 'CardIDs', 'Count'],
   decodeClientGetCardInfoResp: ['SeatID', 'CardIDs', 'error_id'],
   decodeGameDealPileTopCardList: ['list_card_id', 'IsResume'],
@@ -29,6 +29,7 @@ const lists = new Set(['CardList', 'CardIDs', 'DestSeatIDs', 'list_card_id', 'In
 export const isObservedMessage = type => typeof type === 'string' && Object.hasOwn(schemas, type);
 const get = (object, key) => { try { return object?.[key]; } catch { return undefined; } };
 const scalar = value => value === null || ['string', 'number', 'boolean'].includes(typeof value) ? (typeof value === 'string' ? value.slice(0, 256) : value) : undefined;
+const loginUserId = packet => get(packet, 'userID') ?? get(packet, 'UserID') ?? get(packet, 'userId');
 function smallList(value, key) {
   const length = get(value, 'length'), cap = key === 'Infos' || key === 'GeneralData' || key === 'DestSeatIDs' ? 32 : 2048;
   if (!Number.isInteger(length) || length < 0 || length > cap) throw new Error(`${key} 长度超限或无效`);
@@ -47,7 +48,8 @@ function smallList(value, key) {
 export function projectMessage(type, payload) {
   if (!isObservedMessage(type)) return null;
   if (type === 'ClientLoginRep') {
-    const userID = scalar(get(payload, 'userID') ?? get(payload, 'UserID') ?? get(payload, 'userId'));
+    // The native dispatcher wraps the reply in an object with a Protocol getter.
+    const userID = scalar(loginUserId(payload) ?? loginUserId(get(payload, 'Protocol')));
     return userID === undefined ? {} : { userID };
   }
   const fields = schemas[type];

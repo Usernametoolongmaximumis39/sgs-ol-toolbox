@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createPluginNative } from '../src/core/plugin-native.js';
 import { ResourceScope } from '../src/core/resources.js';
-import { createChatEnhancements, decorateChatHTML, linkedNames, officerIcon, roomNumbers, roomTableId, ROOM_LINK } from '../src/plugins/social/chat.js';
+import { BINDING_CODE_FILTER, createChatEnhancements, decorateChatHTML, linkedNames, officerIcon, roomNumbers, roomTableId, ROOM_LINK } from '../src/plugins/social/chat.js';
 
 const link = name => `<a href='ATtextNickname*&amp;.!**.%#${encodeURIComponent(name)}'>${name}</a>`;
 const config = { root: { officer: [{ ID: 1, Officerid: 1 }, { ID: 32, Officerid: 9 }, { ID: 38, Officerid: 10 }] } };
@@ -83,6 +83,56 @@ function fixture() {
   ctx.native = createPluginNative(ctx);
   return { ctx, scope, row, view, scene, self, rc, calls, userLinks };
 }
+
+test('binding-code filtering applies only to public messages in the combined and system tabs', t => {
+  const { ctx, scope, view } = fixture();
+  t.after(() => scope.dispose());
+  const texts = ['互换', '请绑一下', '加个好友', '周年活动', '码 ABCDE', '【AXYZBCD】', '见面再聊', 'ABCD', 'AbCDE', 'XABCDE', 'A BCDE'];
+  const history = texts.map(chatMsg => ({ ChannelNum: 0, chatMsg }));
+  const otherChannels = [2, 3, 4, 6, 7, undefined].map(ChannelNum => ({ ChannelNum, chatMsg: '好友 ABCDE' }));
+  history.push({ ChannelNum: 0, chatMsg: '打牌吗', MessageHtml: link('周年好友') + '打牌吗' },
+    { ChannelNum: 1, MessageHtml: '<font>周</font><font>年活动</font>' },
+    { ChannelNum: 1, MessageHtml: '<font href="ABCDE">正常消息</font>' }, ...otherChannels);
+  const settings = new Map();
+  ctx.settings = { get: (key, fallback) => settings.get(key) ?? fallback };
+  let selected = 0;
+  view.GetCurrentShowChanel = () => selected;
+  view.getHtmlBase = data => ({ chatData: data });
+  view.onChatUpdateMsg = channel => {
+    assert.equal(channel, selected);
+    const messages = channel === 0 ? history : history.filter(data => data.ChannelNum === channel);
+    view.msgContainer._children = messages.map(data => view.getHtmlBase(data)).filter(Boolean);
+  };
+  const switchChannel = channel => { selected = channel; view.onChatUpdateMsg(channel); };
+  const rows = () => view.msgContainer._children.map(row => row.chatData);
+  const nativeFactory = view.getHtmlBase;
+  view.onChatUpdateMsg(0);
+  const runtime = createChatEnhancements(ctx);
+  const filtered = [...history.slice(6, 12), history[13], ...otherChannels];
+  assert.deepEqual(rows(), filtered);
+  assert.equal(view.getHtmlBase({ ChannelNum: 0, chatMsg: '新消息 AAAAA' }), null);
+  assert.ok(view.getHtmlBase({ ChannelNum: 0, chatMsg: '新消息 AAAA' }));
+  for (const code of ['CDEFG', 'CDEFGH']) assert.equal(view.getHtmlBase({ ChannelNum: 0, chatMsg: `码 ${code}` }), null);
+  for (const code of ['CDEF', 'CdEFG', 'BCDEFG']) assert.ok(view.getHtmlBase({ ChannelNum: 0, chatMsg: `码 ${code}` }));
+  assert.ok(view.getHtmlBase({ ChannelNum: 2, chatMsg: 'CDEFG' }));
+  switchChannel(1);
+  assert.deepEqual(rows(), [history[13]]);
+  switchChannel(2);
+  assert.deepEqual(rows(), [otherChannels[0]]);
+  assert.ok(view.getHtmlBase({ ChannelNum: 1, chatMsg: '新消息 AAAAA' }));
+
+  settings.set(BINDING_CODE_FILTER, false);
+  runtime.tick();
+  assert.deepEqual(rows(), [otherChannels[0]]);
+  switchChannel(0);
+  assert.deepEqual(rows(), history);
+  settings.set(BINDING_CODE_FILTER, true);
+  runtime.tick();
+  assert.deepEqual(rows(), filtered);
+  scope.dispose();
+  assert.deepEqual(rows(), history);
+  assert.equal(view.getHtmlBase, nativeFactory);
+});
 
 test('forged room clicks on native share parameters cannot join a room', () => {
   const f = fixture();

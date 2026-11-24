@@ -1,6 +1,7 @@
 import { ResourceScope } from './resources.js';
 import { createBackgroundMotion, createSkinBackgroundMotion } from './background-motion.js';
-import { localBackgroundImage, readLocalBackground } from './background-local.js';
+import { backgroundImageBlob, localBackgroundImage, readLocalBackground } from './background-local.js';
+import { BackgroundHistory, backgroundHistoryId } from './background-history.js';
 import { nativeSeat } from './seat.js';
 import { supportsSkinBackgroundAttack } from '../shared/skin-detail.js';
 
@@ -104,6 +105,7 @@ export class BackgroundRegistry {
     this.providers = new Set(); this.listeners = new Set(); this.binding = null;
     this.ready = null; this.loading = null; this.failed = null; this.ticket = 0;
     this.status = '跟随游戏背景';
+    this.history = new BackgroundHistory(window, () => { if (!scope.closed) this.emit(); });
     const refresh = () => this.refresh();
     if (sceneWatch) scope.add(sceneWatch.watch(refresh, 500, true));
     else scope.interval(refresh, 500);
@@ -118,12 +120,15 @@ export class BackgroundRegistry {
     });
   }
   get current() { return this.settings.get('battleBackground', null); }
+  get currentHistoryId() { return backgroundHistoryId(this.current); }
   isActive(owner) { return this.providers.has(owner); }
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   emit() { for (const fn of this.listeners) { try { fn(); } catch { /* subscriber isolation */ } } }
   state(text) { if (this.status !== text) { this.status = text; this.emit(); } }
   register(owner) {
     if (this.providers.has(owner)) throw new Error('背景提供方已注册');
+    const current = this.current;
+    if (current?.owner === owner) this.history.remember(current, null, { seed: true });
     this.providers.add(owner); this.refresh(); this.emit();
     let active = true;
     return () => {
@@ -169,20 +174,39 @@ export class BackgroundRegistry {
     if (!enabled) this.binding?.motion?.stopAttack();
     this.refresh(); this.emit();
   }
-  async selectLocal(owner, file, { skinKey, skinMotion, animated, isCurrent = () => true } = {}) {
+  selectLocal(owner, file, { skinKey, skinMotion, animated, isCurrent = () => true } = {}) {
+    return this.selectPrepared(owner, isCurrent, async () => ({
+      image: await readLocalBackground(this.window, file, Boolean(skinKey)),
+      spec: { name: file.name?.trim().slice(0, 160) || '本地图片', animated: Boolean(skinMotion && animated), dynamic: null,
+        ...(skinKey && { skinKey, skinMotion: Boolean(skinMotion) }) },
+    }));
+  }
+  restoreHistory(owner, historyId, { animated, attackEffects, isCurrent = () => true } = {}) {
+    return this.selectPrepared(owner, isCurrent, async () => {
+      if (owner !== 'backgrounds' || typeof historyId !== 'string') throw new Error('背景记录无效');
+      const { spec, image } = await this.history.restore(historyId);
+      const playback = animated ?? spec.animated;
+      return { image, archived: true, spec: { ...spec, attackEffects: attackEffects ?? spec.attackEffects,
+        animated: image ? spec.skinMotion === true && playback : playback,
+        ...(image && { historyId }) } };
+    });
+  }
+  async selectPrepared(owner, isCurrent, prepare) {
     if (this.scope.closed || !this.providers.has(owner)) throw new Error('背景提供方未启用');
     const pending = this.importing = { owner };
     const canSave = () => this.importing === pending && isCurrent();
     let id;
     try {
-      const image = await readLocalBackground(this.window, file, Boolean(skinKey));
+      const { spec, image, archived } = await prepare();
       if (!canSave()) return false;
+      if (!image) {
+        this.select(owner, spec);
+        return true;
+      }
       // IndexedDB stores the bytes directly for browsers without in-store Blob support.
       id = await localBackgroundImage(this.window, 'readwrite', store => store.add(image));
       if (!canSave()) return false;
-      const name = file.name?.trim().slice(0, 160) || '本地图片';
-      this.saveSelection({ name, localImageId: id, owner, animated: Boolean(skinMotion && animated), dynamic: null,
-        ...(skinKey && { skinKey, skinMotion: Boolean(skinMotion) }) });
+      this.saveSelection({ ...spec, localImageId: id, owner }, image, archived);
       id = undefined;
       return true;
     } catch (error) {
@@ -196,11 +220,15 @@ export class BackgroundRegistry {
   removeLocalImage(id) {
     if (Number.isSafeInteger(id) && id > 0) void localBackgroundImage(this.window, 'readwrite', store => store.delete(id)).catch(() => {});
   }
-  saveSelection(choice) {
+  saveSelection(choice, image, archived) {
     const previousId = this.current?.localImageId;
     this.settings.set('battleBackground', choice);
+    this.history.remember(choice, archived ? null : image, { archived });
     this.selectionChanged();
-    this.removeLocalImage(previousId);
+    if (previousId && previousId !== choice?.localImageId) {
+      // Let the history copy finish before releasing a legacy active image.
+      void this.history.pending.then(() => this.removeLocalImage(previousId));
+    }
   }
   selectionChanged() {
     this.importing = null;
@@ -226,7 +254,7 @@ export class BackgroundRegistry {
       localBackgroundImage(this.window, 'readonly', store => store.get(id)).then(image => {
         if (this.localImage !== asset) return;
         if (!image) throw new Error('本地图片已丢失，请重新选择');
-        const blob = image instanceof this.window.Blob ? image : new this.window.Blob([image.bytes], { type: image.type });
+        const blob = backgroundImageBlob(this.window, image);
         asset.objectUrl = this.window.URL.createObjectURL(blob);
         // The game sends URLs without :// through its resource path formatter.
         // An inert fragment keeps blob:null URLs local in the file-origin client.

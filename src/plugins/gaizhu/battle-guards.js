@@ -5,20 +5,25 @@ const list = v => Array.isArray(v) ? v : [];
 const enabled = v => usable(v) && (v._enabled ?? v.enabled) === true;
 const chosen = v => Boolean(v?.selected || v?.Selected || v?.Card?.Selected);
 const cardId = v => v?.Card?.CardId;
-const skillId = v => Number(v?.Skill?.SkillId ?? v?.Skill?.ID);
+const spellId = spell => Number(spell?.SkillId ?? spell?.ID);
+const skillId = v => spellId(v?.Skill);
 const legal = v => usable(v) && (v.activated ?? v.Activated ?? v.Skill?.Activated) === true;
 const TAO = 3;
+export const ICE_SWORD = 201;
+const DEFENSIVE_ARMOR = new Set([16, 88, 200]); // 八卦阵、藤甲、仁王盾
+const SILVER_LION = 89;
 const RESCUE_PROMPT = /求桃|濒死.{0,50}(?:桃|自救)|桃(?:或者|或)酒.{0,20}(?:回复|恢复).*体力/;
 const seatOf = ui => ui?.seat ?? ui?.Seat;
 const seatIndex = seat => Number(seat?.Index ?? seat?.index ?? NaN);
 const figure = seat => Number(seat?.Figure ?? seat?.figure);
+const buttonData = button => button?.data ?? button?.Data;
+const choiceText = button => label(buttonData(button)) || label(button);
 
-function canRescueInIdentity(frame, getPeachTarget) {
+function canRescue(frame, index, training) {
   const self = seatOf(frame.self);
   if (!self) return false;
   const seats = [...new Set([self, ...list(frame.scene.seatContainer?.seatUIs).map(seatOf)])].filter(Boolean);
   const asking = seats.filter(seat => seat.IsAskingTao === true);
-  const index = Number(getPeachTarget?.() ?? NaN);
   const next = Number.isInteger(index) && index >= 0 && index < 255
     ? seats.find(seat => seatIndex(seat) === index) : null;
   // The seat flag also works when GameContext is private to the native client.
@@ -26,6 +31,7 @@ function canRescueInIdentity(frame, getPeachTarget) {
   const dying = next ?? (asking.length === 1 ? asking[0] : null);
   if (!dying || (asking.length > 0 && !asking.includes(dying))) return false;
   if (dying === self) return true;
+  if (training) return false;
   const mine = figure(self), target = figure(dying);
   return mine === 3 ? target === 3 : [1, 2].includes(mine) && [1, 2].includes(target);
 }
@@ -36,6 +42,7 @@ export function projectBattleGuard(packet) {
   const trigger = field(packet, 'FirstTriggerParam') || field(packet, 'TriggerSpellData')?.[0];
   const targets = list(trigger?.Targets);
   return { trigger: Number(trigger?.SpellId), source: Number(trigger?.SeatId ?? NaN), spell: Number(field(packet, 'SrcSpellID')),
+    caster: Number(field(packet, 'SrcSpellCasterSeat') ?? NaN),
     targets: targets.length <= 16 ? targets.map(target => Number(target ?? NaN)) : [], count: Number(trigger?.Datas?.[0] ?? NaN),
     single: Number(read(() => field(packet, 'SrcSpell').TargetCountMax)) === 1,
     seat: Number(field(packet, 'SeatID')), effect: Number(field(packet, 'EffectIndex')),
@@ -45,11 +52,24 @@ export function projectBattleGuard(packet) {
 }
 
 export function createBattleGuards({ getCardMeta = () => null, getPeachTarget } = {}) {
-  let nullification = null;
+  let nullification = null, iceInquiry = null, peachTarget, lastSlash = null;
   const judgments = new Map(), colorChoices = new Map(), done = new WeakSet(), tries = new WeakMap();
+  function recordPlay(source, spell, boost, targets) {
+    lastSlash = spell === 1 && boost === 0 && targets.length
+      ? { source, targets: targets.map(Number) } : null;
+  }
   function observe(type, data) {
-    if (type === 'GsCTriggerSpellNew') nullification = data.trigger === 13 ? data : null;
-    if (type === 'GsCGamephaseNtf' || type === 'MsgGameTurnNtf') nullification = null;
+    if (type === 'GsCTriggerSpellNew') {
+      nullification = data.trigger === 13 ? data : null;
+      iceInquiry = data.trigger === ICE_SWORD ? data : null;
+      peachTarget = data.trigger === TAO && data.targets.length === 1 ? data.targets[0] : undefined;
+    }
+    if (type === 'GsCGamephaseNtf' || type === 'MsgGameTurnNtf') {
+      nullification = null;
+      iceInquiry = null;
+      peachTarget = undefined;
+      lastSlash = null;
+    }
     if (type === 'PubGsCUseSpell' && data.skill === 3571 && data.effect === 1) { judgments.delete(data.seat); colorChoices.delete(data.seat); }
     if (type === 'PubGsCMoveCard' && data.skill === 3571 && data.from === 3 && data.to === 8 && data.move === 6
       && Number.isInteger(data.owner) && data.owner >= 0 && data.owner < 255 && data.cards.length === data.cardCount) {
@@ -67,11 +87,26 @@ export function createBattleGuards({ getCardMeta = () => null, getPeachTarget } 
     if (!d.single || !Number.isInteger(d.source) || d.source < 0 || d.source >= 255) return false;
     return even ? target === mine && d.source !== mine : d.source === mine;
   }
-  function run(frame, { official = false, identity = false } = {}) {
+  function shouldUseIceSword(frame) {
+    const { self, scene } = frame, mine = seatIndex(seatOf(self)), inquiry = iceInquiry;
+    if (!lastSlash || !inquiry || inquiry.caster !== mine || lastSlash.source !== mine
+      || inquiry.spell !== 1 || inquiry.targets.length !== 1) return false;
+    const index = inquiry.targets[0];
+    if (index === mine || !lastSlash.targets.includes(index)) return false;
+    const target = list(scene.seatContainer?.seatUIs).map(seatOf).find(seat => seatIndex(seat) === index);
+    if (!target || target.IsDead === true || !(Number(target.Hp) >= 3)
+      || Number(target.HandCardCount) + Number(target.EquipCardCount) !== 2) return false;
+    // Removing a key armor and the only other card is worth trading a plain
+    // Slash here. Silver Lion would heal the target when discarded.
+    const equipment = list(target.EquipCards).map(card => Number(card?.FirstSkillId ?? card?.FirstSkill?.ID));
+    return equipment.some(id => DEFENSIVE_ARMOR.has(id)) && !equipment.includes(SILVER_LION);
+  }
+  function run(frame, { official = false, identity = false, training = false } = {}) {
     const self = frame.self, container = self?.cardContainer, context = container?.selectCardContext ?? container?.SelectContext;
     if (!self) return null;
     const bar = selfButtonBar(self), selector = usable(self.spellSelector) ? self.spellSelector : null;
     const buttons = usable(bar) ? list(bar.btns) : [];
+    const choices = list(selector?.btnList);
     const click = b => {
       if (!enabled(b)) return false;
       if (typeof bar?.Button_Click === 'function') bar.Button_Click(b); else if (!press(b)) return false;
@@ -79,23 +114,41 @@ export function createBattleGuards({ getCardMeta = () => null, getPeachTarget } 
     };
     const ok = () => click(buttons.find(b => b.name === 'btnOK'));
     const cancel = () => {
-      const b = list(selector?.btnList).find(b => {
-        const data = b.data ?? b.Data;
-        return enabled(b) && (b.name === 'btnCancel' || Number(data?.sendData) === 255
+      const b = choices.find(b => {
+        const data = buttonData(b);
+        return enabled(b) && (b.name === 'btnCancel' || /^(取消|放弃)$/.test(choiceText(b)) || Number(data?.sendData) === 255
           || Number(data?.sendData) === 0 && !data?.callBack);
       });
       if (b && typeof selector.btnClick === 'function') { selector.btnClick(b); return true; }
       return click(buttons.find(b => b.name === 'btnCancel'));
     };
-    if (identity) {
-      const messages = [selector?.txtOptMsg, bar?.txtOptMsg, { text: context?.message || context?.Message }];
-      if ((Number(context?.SpecifySkillId) === TAO || messages.some(node => RESCUE_PROMPT.test(label(node).replace(/[\s“”「」【】]/g, ''))))
-        && !canRescueInIdentity(frame, getPeachTarget)) {
+    const ids = [Number(context?.SpecifySkillId), skillId(context), spellId(selector?.spell)];
+    const asked = spellId(seatOf(self)?.LastAskSkill);
+    const messages = [selector?.txtOptMsg, bar?.txtOptMsg, { text: context?.Message ?? context?.message }]
+      .map(node => label(node).replace(/[\s“”「」【】]/g, ''));
+    if (identity || training) {
+      if ((ids.includes(TAO) || asked === TAO || messages.some(message => RESCUE_PROMPT.test(message)))
+        && !canRescue(frame, Number(peachTarget ?? getPeachTarget?.() ?? NaN), training)) {
         const acted = cancel();
-        return { acted, reason: acted ? '已跳过非己方或身份未明的求桃' : '求桃：等待可用取消按钮' };
+        const declined = training ? '已跳过单骑非自身求桃' : '已跳过非己方或身份未明的求桃';
+        return { acted, reason: acted ? declined : '求桃：等待可用取消按钮' };
       }
     }
-    const ids = [Number(context?.SpecifySkillId), skillId(context), Number(selector?.spell?.SkillId)];
+    const iceChoice = choices.find(button => Number(buttonData(button)?.callBackParams?.[0]?.FirstTriggerParam?.SpellId) === ICE_SWORD
+      || choiceText(button) === '寒冰剑');
+    if (iceChoice) return shouldUseIceSword(frame) ? null : { excludedChoice: iceChoice };
+    const icePrompt = ids.includes(ICE_SWORD) || asked === ICE_SWORD
+      || messages.some(message => /是否.{0,24}发动寒冰剑/.test(message));
+    const removingCards = (frame.nodes || []).some(win => usable(win) && !win.closeing && !win.isClosing
+      && (win.name || win.constructor?.name) === 'SelectCardWindow' && skillId(win) === ICE_SWORD);
+    if (icePrompt && !removingCards) {
+      const useIce = shouldUseIceSword(frame);
+      const confirm = choices.find(b => enabled(b) && (b.name === 'btnOK' || Number(buttonData(b)?.sendData) === 1));
+      let acted;
+      if (useIce && confirm && typeof selector.btnClick === 'function') { selector.btnClick(confirm); acted = true; }
+      else acted = useIce ? ok() : cancel();
+      return { acted, reason: acted ? (useIce ? '已发动寒冰剑拆除关键防具' : '已保留杀的伤害') : '等待寒冰剑选项' };
+    }
     if (ids.includes(13)) {
       if (official) return { officialOnly: true, reason: '按小杀助手处理无懈询问' };
       if (!allowsNullification(self)) {
@@ -190,5 +243,5 @@ export function createBattleGuards({ getCardMeta = () => null, getPeachTarget } 
     }
     return null;
   }
-  return { run, observe };
+  return { run, observe, recordPlay };
 }

@@ -4,6 +4,8 @@ import { createConfigData } from './config-data.js';
 import { createGameAssetDownloads } from './mobile-skin-download.js';
 import { cardFrameName } from './card-atlas.js';
 import { nativeSeat, nativeSeatId, nativeSeatOccupied, nativeSeatPosition } from './seat.js';
+import { isPokerReplayActive } from '../shared/poker-replay-mode.js';
+import { isNativePokerTable } from '../shared/poker-table-mode.js';
 const GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/;
 const STARTUP_SCENE = /(?:^|\.)(?:LoginScene|CreateUserScene|CreateRoleScene|MainNullScene|LoadingScene)$/;
 const read = fn => { try { return fn(); } catch { return undefined; } };
@@ -63,7 +65,7 @@ function sceneName(scene) {
     || (read(() => scene.constructor.name) !== 'Object' ? read(() => scene.constructor.name) : '') || '');
 }
 function isGameScene(scene) {
-  return alive(scene) && Boolean(read(() => scene.SelfSeatUi) || read(() => scene.selfSeatUI)
+  return alive(scene) && Boolean(isNativePokerTable(scene) || read(() => scene.SelfSeatUi) || read(() => scene.selfSeatUI)
     || read(() => scene.seatContainer.seatUIs) || sceneName(scene) === 'GameScene');
 }
 function isReplayScene(scene) {
@@ -415,7 +417,7 @@ export function createGameAdapter(win, scope, mobileSkinPort, { watchScene = tru
 
   function getRemainingSlash() {
     const scene = getScene();
-    if (!isGameScene(scene)) return null;
+    if (!isGameScene(scene) || isNativePokerTable(scene)) return null;
     const seat = seatData(selfUI(scene));
     if (!seat || read(() => seat.IsDead) === true) return null;
     // Official DATA_CANNOT_USE_SHA (1): [used, limit, ..., ..., unlimited].
@@ -448,6 +450,8 @@ export function createGameAdapter(win, scope, mobileSkinPort, { watchScene = tru
       emptySeatIds: list(read(() => scene.seatContainer.seatUIs) || read(() => scene.seatUIs))
         .filter(ui => alive(ui) && !nativeSeatOccupied(ui)).map(seatId).filter(id => id !== undefined),
       isReplay: isReplayScene(scene),
+      ...(isNativePokerTable(scene) && { pokerTable: true }),
+      ...(isPokerReplayActive(win.document) && { pokerReplay: true }),
       countdownRemaining: remaining === undefined ? null : Math.max(0, remaining),
       seats: seats(scene).map(ui => {
         const seat = seatData(ui), id = seatId(ui);
@@ -470,7 +474,7 @@ export function createGameAdapter(win, scope, mobileSkinPort, { watchScene = tru
   if (watchScene) scope?.interval(() => { getScene(); }, 500);
   scope?.add(() => { listeners.clear(); providers.clear(); definitionTables = new WeakMap(); deckDefinitions = null; dispatcher = dispatcherOwner = current = stage = null; });
   return {
-    getScene, withSceneCycle, getDispatcher, getSelfSeatUI: () => selfUI(getScene()), getSeatUIs: () => seats(getScene()),
+    getScene, getRenderedScene: stageScene, withSceneCycle, getDispatcher, getSelfSeatUI: () => selfUI(getScene()), getSeatUIs: () => seats(getScene()),
     getCardMeta, getCardFaceCatalog, loadCardFaceCatalog, getSnapshot, getClass, getServerProxy, getActivityManager, getMessageTargets, getCountdown, getSelf,
     getRemainingSlash, isInGame: () => isGameScene(getScene()), isReplay: (scene = getScene()) => isReplayScene(scene), canReserveViewport,
     getConfigData: name => configs?.getConfigData(name) || null,

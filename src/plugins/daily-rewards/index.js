@@ -6,11 +6,12 @@ import { rewardExclusions } from './exclusions.js';
 import { createExchangeController } from './exchange.js';
 import { createExchangeAdapter } from './exchange-native.js';
 import { createExchangeUI } from './exchange-ui.js';
+import { DAILY_FREE_GIFT_KEY } from './daily-free-gift.js';
 
 
 export default {
-  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.46', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "兑换码开关独立于自动领取：关闭自动领取后，已开启的兑换码功能仍会运行，请按需关闭兑换码开关。兑换可能消耗欢乐豆。", minCoreVersion: '0.6.38', categories: ['automation'], icon: DAILY_REWARDS_ICON, priority: 20000,
+  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.47', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "领取特惠礼包的免费礼盒后会联网核对限购状态。此前待确认的礼盒仅在确认仍可领取时补领一次。", minCoreVersion: '0.6.38', categories: ['automation'], icon: DAILY_REWARDS_ICON, priority: 20000,
     description: '自动领取签到、任务、邮件与活动奖励，按账号记录' },
   activate(ctx) {
     const native = createNativeAdapter(ctx);
@@ -113,11 +114,14 @@ export default {
         inputs.automatic.querySelector('.reward-name').textContent = state.config.automatic ? '已开启' : '已关闭';
         status.classList.toggle('is-error', !!state.sourceError);
         status.textContent = state.sourceError ? `${state.status}；${state.sourceError}` : state.status; status.title = state.sourceError || state.sourceStatus;
-        const uncertainTasks = state.issues.filter(item => ['pending','unconfirmed','interrupted'].includes(item.status));
+        const uncertainTasks = state.issues.filter(item => item.key === DAILY_FREE_GIFT_KEY || ['pending','unconfirmed','interrupted'].includes(item.status));
         pending.hidden = !uncertainTasks.length;
         pending.replaceChildren(...uncertainTasks.map(item => {
           const id = /^(?:task|quest):(\d+)/.exec(item.key)?.[1];
-          return el('p', `待核对 · ${item.label === item.key ? '未命名领奖项目' : item.label}${id && !item.label.includes(`任务 ${id}`) ? `（任务 ${id}）` : ''}`);
+          const label = item.label === item.key ? '未命名领奖项目' : item.label;
+          const row = el('p', `${item.status === 'rejected' ? '领取失败' : '待核对'} · ${label}${id && !label.includes(`任务 ${id}`) ? `（任务 ${id}）` : ''}`);
+          if (item.key === DAILY_FREE_GIFT_KEY) row.title = item.text;
+          return row;
         }));
       };
       controller.refresh(); render(controller.snapshot());

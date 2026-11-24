@@ -30,13 +30,13 @@ try {
     const LuoYing=new Function('l_s','Xmt','V2t','C1t',`${luoying};return Mgs;`)(Base,Xmt,V2t,C1t);
     const self=new Laya.Sprite();Laya.stage.addChild(self);
     self.seat={Index:0,Hp:3,EquipCardCount:1};self.cardContainer={cardUis:[],selectCardContext:{}};
-    self.skillItems=[414,401].map(id=>({Skill:{SkillId:id,Name:id===414?'破军':'落英'},seat:self.seat}));
+    self.skillItems=[3389,401].map(id=>({Skill:{SkillId:id,Name:id===3389?'破军':'落英'},seat:self.seat}));
     self.Pt={btns:[],Show(){},Update(){}};self.spellSelector={visible:false,Show(){}};
     window.scene={SelfSeatUi:self,seatContainer:{seatUIs:[]}};
     window.runtime=Expansion.createRuntime({window,scope,settings:{get:(k,d)=>d,set(){}},game:{getScene:()=>scene,getSnapshot:()=>({inGame:true}),getClass:()=>null,getServerProxy:()=>proxy,getCardMeta:()=>({name:window.convertedMaterial?'闪':'杀',suit:2,cardClass:window.convertedMaterial?'Shan':'Sha'})},ui:{},reportError:e=>{window.failure=String(e.stack);}},()=>({skillLock:true}));
-    runtime.toggle(414);runtime.toggle(401);
+    runtime.toggle(3389,true);runtime.toggle(401);
     function card(n,type){return {CanBeSelected:true,Selected:false,Card:{CardId:n,FirstSkill:{Type:type}},setSelected(v){this.Selected=v;}};}
-    window.po=new PoJun();po.name='SelectCardWindow';po.Skill={ID:414,SelectCardCountWhenResponse:4,SelectCardCountMinResponse:1};
+    window.po=new PoJun();po.name='SelectCardWindow';po.Skill={ID:3389,SelectCardCountWhenResponse:4,SelectCardCountMinResponse:1};
     po.TargetSeat={Index:1,Hp:4};po.handCardUis=[card(1,0),card(2,0)];
     po.equipCardUis=[card(30,3),card(40,4),card(50,5),card(70,7)];po.confirm_btn={enabled:true};
     po.Close=Base.prototype.Close;po.enterWindow=Base.prototype.enterWindow;po.Skill.SelectCardComplete=new Function('C1t','V2t',`return ({${complete}}).SelectCardComplete;`)(C1t,V2t);po.manager={ClientGsPreSelectMsg(){}};po.autoSelect();Laya.stage.addChild(po);
@@ -51,6 +51,24 @@ try {
   await page.evaluate(()=>{po.enterWindow();po.TargetSeat.Hp=1;po.Skill.SelectCardCountWhenResponse=1;runtime.tick();});
   await page.waitForFunction(()=>sent.length===3);
   assert.deepEqual(await page.evaluate(()=>sent[2][0]),[40],'one HP uses native single-card response');
+  await page.evaluate(async ()=>{
+    const self=scene.SelfSeatUi;
+    self.skillItems[0].Skill={SkillId:414,Name:'破军'};
+    window.scene={...scene};
+    po.Skill.ID=414;po.enterWindow();runtime.tick();
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  });
+  assert.equal(await page.evaluate(()=>po.visible),true,'remembered 界破军 leaves the native 标破军 window open');
+  assert.equal(await page.evaluate(()=>sent.length),3,'remembered 界破军 sends no 标破军 response');
+  await page.evaluate(()=>runtime.toggle(414));
+  await page.waitForFunction(()=>sent.length===4);
+  assert.deepEqual(await page.evaluate(()=>sent[3][0]),[40],'explicitly enabled 标破军 still uses its native window');
+  await page.evaluate(async ()=>{
+    runtime.toggle(414);po.enterWindow();runtime.tick();
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  });
+  assert.equal(await page.evaluate(()=>po.visible),true,'unlocking 标破军 leaves the next window manual');
+  assert.equal(await page.evaluate(()=>sent.length),4);
   await page.evaluate(()=>{
     const self=scene.SelfSeatUi;self.skillItems.push({Skill:{SkillId:3796,Name:'武娘'},seat:self.seat});
     runtime.tick();runtime.toggle(3796);window.wuniangCards=[];
@@ -106,7 +124,7 @@ try {
   await page.waitForFunction(()=>longyinConfirmed===2);
   await page.evaluate(()=>{runtime.tick();runtime.dispose();scope.dispose();});
   assert.deepEqual(errors,[]);
-  await writeFile(resolve(output,'expansion-native-report.json'),JSON.stringify({checks:['shipped Ags autoSelect / addSelectCardNormalUi / confirmClick / PoJun.SelectCardComplete','4 HP priority and exact count','single HP armour priority','shipped Mgs sureBtnHandler 全部获得','window reuse revision','native seatClickHandler -> SELECTE -> onSelectSeat -> self -> draw','native qzt.pbToOldProtocol spellID + no-seat turn -> own red Sha 龙吟 confirm','native hjt.pbToOldProtocol red 闪 conversion + native 龙吟 trigger -> confirm','cleanup'],errors},null,2));
+  await writeFile(resolve(output,'expansion-native-report.json'),JSON.stringify({checks:['shipped Ags autoSelect / addSelectCardNormalUi / confirmClick / PoJun.SelectCardComplete','4 HP priority and exact count','single HP armour priority','remembered 界破军 leaves 标破军 manual in the next match','independent 标破军 lock and unlock on a reused native window','shipped Mgs sureBtnHandler 全部获得','window reuse revision','native seatClickHandler -> SELECTE -> onSelectSeat -> self -> draw','native qzt.pbToOldProtocol spellID + no-seat turn -> own red Sha 龙吟 confirm','native hjt.pbToOldProtocol red 闪 conversion + native 龙吟 trigger -> confirm','cleanup'],errors},null,2));
   console.log('PASS native 破军 and 落英 window replay');
 }finally{await browser.close();}
 

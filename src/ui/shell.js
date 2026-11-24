@@ -25,6 +25,7 @@ const COMPACT_OPACITIES = [60, 80, 100];
 const DEFAULT_COMPACT_OPACITY = 80;
 const scaleFonts = css => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix, size) => `${prefix}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`);
 const style = `
+${DEVELOPMENT ? '.startup-code-fallback{display:block;width:100%;min-width:0;margin-top:8px;padding:7px 9px;resize:vertical;border:1px solid var(--sgs-border);border-radius:7px;background:var(--sgs-bg);color:var(--sgs-text);font:11px/1.5 var(--sgs-font,sans-serif)}.startup-code-fallback[hidden]{display:none}.startup-code-fallback:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:2px}' : ''}
 /* A moving perimeter marker keeps the folded HUD easy to locate without covering controls. */
 .hud-locator{display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible;color:var(--sgs-accent)}
 .hud-locator rect{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;x:1px;y:1px;width:calc(100% - 2px);height:calc(100% - 2px);rx:10px;stroke-dasharray:18 8 3 71;animation:hud-locator-flow 3.6s linear infinite,hud-locator-breathe 2.4s ease-in-out infinite}
@@ -128,7 +129,7 @@ button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%
 ${FEEDBACK_STYLES}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
-export function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount, canReserveGameViewport, sceneWatch, managedSync, preferenceSync }) {
+export function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount, canReserveGameViewport, sceneWatch, managedSync, preferenceSync, getStartupDiagnostics }) {
   let microUpdate = null, microUpdateBusy = false, microUpdateError = '';
   async function runMicroUpdate(action) {
     microUpdateBusy = true; microUpdateError = ''; render();
@@ -398,6 +399,35 @@ export function createShell({ window: win, document: doc, settings, scope, getFe
   }
   function renderSettings(cleanups) {
     const first = content.children.length;
+    if (DEVELOPMENT && getStartupDiagnostics) {
+      const status = el('div', '', 'notice');
+      status.setAttribute('role', 'status');
+      const refresh = () => {
+        const { summary } = getStartupDiagnostics();
+        if (status.textContent !== summary) status.textContent = summary;
+      };
+      refresh();
+      const timer = win.setInterval(refresh, 1000);
+      cleanups.push(() => win.clearInterval(timer));
+      const output = el('textarea', undefined, 'startup-code-fallback');
+      output.setAttribute('aria-label', '启动诊断码');
+      output.readOnly = true;
+      output.rows = 4;
+      output.hidden = true;
+      const actions = el('div', undefined, 'actions');
+      actions.append(button('复制启动诊断码', async () => {
+        const { code } = getStartupDiagnostics();
+        try { await win.navigator.clipboard.writeText(code); notify('启动诊断码已复制'); }
+        catch {
+          output.value = code;
+          output.hidden = false;
+          output.focus();
+          output.select();
+          notify('诊断码已选中，可手动复制');
+        }
+      }));
+      content.append(el('h3', '启动诊断'), status, actions, output);
+    }
     content.append(el('h3', '反馈'), feedbackForm);
     {
       const edgeHeading = el('h3', 'HUD 靠边行为'); content.append(edgeHeading);

@@ -1,43 +1,43 @@
+import { officialEntryPage } from './official-entry-page.js';
+
 // Refreshing the game reuses its single-use entry URL. Return through the
 // official SSO page instead; only that page may issue a fresh entry credential.
 const KEY = 'sgstoolbox:refresh-reentry:v1';
 const MAX_AGE = 60_000;
-// The official portal can return index.php / index_1100.php instead of the
-// micro-client's index_110074.php. A successful re-entry changes the next URL.
-const GAME_PATH = /^\/220\/h5_2\/index(?:_\d+)?\.php$/;
 const INSTALLED = Symbol.for('sgs.ol.toolbox.refresh-reentry');
 
-export function installRefreshReentry(win) {
+export function installRefreshReentry(win, trace) {
   if (win[INSTALLED] !== undefined) return win[INSTALLED];
-  const handled = install(win);
+  const handled = install(win, trace);
   win[INSTALLED] = handled;
   return handled;
 }
 
-function install(win) {
-  if (win.location.hostname !== 'web.sanguosha.com' || win.top !== win.self) return false;
-  const loginPage = win.location.pathname === '/login/index.html';
-  const gamePage = GAME_PATH.test(win.location.pathname);
-  if (!loginPage && !gamePage) return false;
+function install(win, trace) {
+  const page = officialEntryPage(win);
+  if (!page) return false;
+  const record = step => { try { trace?.(step); } catch {} };
   const clear = () => { try { win.sessionStorage.removeItem(KEY); } catch {} };
   let pending;
   try { pending = JSON.parse(win.sessionStorage.getItem(KEY) || 'null'); } catch {}
   const valid = pending?.version === 1 && Number.isFinite(pending.at)
     && Date.now() >= pending.at && Date.now() - pending.at < MAX_AGE;
-  if (loginPage) {
+  if (page === 'portal') {
     // The rest of the toolbox must not start plugins on the login portal.
     if (!valid) { clear(); return true; }
+    record('P10');
     let timer;
+    const cancel = () => { stop(); record('P13'); };
     const stop = () => {
       win.clearInterval(timer); clear();
       win.removeEventListener('pagehide', stop);
-      win.document.removeEventListener('pointerdown', stop, true);
-      win.document.removeEventListener('keydown', stop, true);
+      win.document.removeEventListener('pointerdown', cancel, true);
+      win.document.removeEventListener('keydown', cancel, true);
     };
     const visible = el => el && el.getClientRects().length > 0
       && win.getComputedStyle(el).visibility !== 'hidden';
     const tick = () => {
-      if (Date.now() - pending.at >= MAX_AGE) { stop(); return; }
+      if (Date.now() - pending.at >= MAX_AGE) { stop(); record('P12'); return; }
       const doc = win.document;
       const button = doc.querySelector('#goInGameBtn');
       const item = doc.querySelector('.game-item[gid="1100"]');
@@ -46,15 +46,16 @@ function install(win) {
       if (!button || button.getAttribute('gid') !== '1100' || button.disabled
         || typeof button.onclick !== 'function' || !visible(button) || !visible(item)
         || !['0', '1'].includes(item.getAttribute('status'))
-        || !win.$$sgsPassApp || typeof win.$$sgsPassApp.makeTicket !== 'function') return;
-      if (['#realNameAuth', '.under18', '#accInvalidStr'].some(s => visible(doc.querySelector(s)))) return;
+        || !win.$$sgsPassApp || typeof win.$$sgsPassApp.makeTicket !== 'function') { record('P10'); return; }
+      if (['#realNameAuth', '.under18', '#accInvalidStr'].some(s => visible(doc.querySelector(s)))) { record('P11'); return; }
       stop(); // Consume before clicking, even if the official request fails.
+      record('P20');
       button.click();
     };
     timer = win.setInterval(tick, 250);
     win.addEventListener('pagehide', stop, { once: true });
-    win.document.addEventListener('pointerdown', stop, true);
-    win.document.addEventListener('keydown', stop, true);
+    win.document.addEventListener('pointerdown', cancel, true);
+    win.document.addEventListener('keydown', cancel, true);
     return true;
   }
   if (win.performance?.getEntriesByType?.('navigation')?.[0]?.type !== 'reload') {
@@ -70,7 +71,8 @@ function install(win) {
     // A real new reload is a new user request, even if an earlier attempt left
     // a short-lived marker. Fresh game navigations above already break loops.
     win.sessionStorage.setItem(KEY, JSON.stringify({ version: 1, at: Date.now() }));
+    record('R10');
     win.location.replace('https://web.sanguosha.com/login/index.html');
     return true;
-  } catch { clear(); return false; }
+  } catch { clear(); record('R11'); return false; }
 }

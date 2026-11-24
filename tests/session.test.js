@@ -108,6 +108,21 @@ test('different console and native objects pair by normalized body despite wrapp
   assert.deepEqual(journal.events[0].payload.CardIDs, [10001]);
 });
 
+test('the native login wrapper and the console echo supply the same account observation', async t => {
+  let nativeReply, privateReads = 0;
+  const target = { event(_name, packet) { nativeReply = packet; } };
+  const { win, journal, bridge } = harness(t, [{ name: 'ServerProxy', target }]);
+  const protocol = { get UserID() { return 12345; }, get ticket() { privateReads++; } };
+  const packet = { get Protocol() { return protocol; }, get Data() { privateReads++; } };
+  target.event('ClientLoginRep', packet);
+  win.console.log('recv', { ClassName: 'ClientLoginRep', UserID: 12345 });
+  await bridge.flush();
+  assert.equal(nativeReply, packet);
+  assert.equal(privateReads, 0);
+  assert.equal(journal.events.length, 1);
+  assert.deepEqual(journal.events[0].payload, { userID: 12345 });
+});
+
 test('body pairing across independent wrapper objects preserves repeated same-source deliveries', async t => {
   const target = { event() {} }, { win, journal, bridge } = harness(t, [{ name: 'ServerProxy', target }]);
   const payload = () => ({ CardIDs: [10001], FromZone: 5, ToZone: 2 });

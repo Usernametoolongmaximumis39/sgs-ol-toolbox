@@ -115,7 +115,7 @@ test('training fallback prefers the native Iron Chain recast, even with a target
     const ownSeat = { Seat: { Index: 0, Selected: true }, Activated: true,
       seatClickHandler() { assert.fail('recast needs no change to the selected target'); } };
     const frame = { self, scene: { seatContainer: { seatUIs: [ownSeat] } } };
-    const options = { preferIronChainRecast: prefer };
+    const options = { training: prefer };
     assistant.run(frame, 0, options);
     assistant.run(frame, 1000, options);
     assert.deepEqual(actions, expected);
@@ -180,6 +180,36 @@ test('a card popup waits for the native confirm button, accepts its minimum, and
   win.selectCardUis = [{ Selected: true }];
   assistant.run(frame, 6000); assistant.run(frame, 7000);
   assert.deepEqual(calls, ['confirm', 'confirm']);
+});
+
+test('Snatch and Dismantlement prefer legal defensive mounts, armour or treasure, other equipment, then hand cards', () => {
+  const weapon = { Card: { Type: 3 }, CanBeSelected: true };
+  const attackHorse = { Card: { Type: 5 }, CanBeSelected: true };
+  const armour = { Card: { Type: 4 }, CanBeSelected: true };
+  const treasure = { Card: { Type: 7 }, CanBeSelected: true };
+  const defenseHorse = { Card: { FirstSkill: { Type: 6 } }, CanBeSelected: true };
+  const hand = { CanBeSelected: true }, judge = { CanBeSelected: true };
+  for (const Skill of [{ ID: 4 }, { SkillId: 5 }]) {
+    for (const [equipCardUis, aiEffectCards, expected] of [
+      [[weapon, armour, defenseHorse, treasure, attackHorse], [], defenseHorse],
+      [[attackHorse, treasure, { ...defenseHorse, CanBeSelected: false }, armour], [], treasure],
+      [[attackHorse, armour, { ...defenseHorse, visible: false }], [], armour],
+      [[attackHorse, { ...armour, enabled: false }], [], attackHorse],
+      [[], [], hand],
+      [[defenseHorse], [hand], hand],
+    ]) {
+      const calls = [], assistant = createAssistant();
+      const win = { name: 'SelectCardWindow', Skill, equipCardUis, aiEffectCards,
+        handCardUis: [hand], judgeCardUis: [judge],
+        onTouchCard({ target }) { calls.push(target); this.visible = false; } };
+      const frame = { self: {}, scene: {}, nodes: [win] };
+      for (const now of [0, 1000, 2000]) assistant.run(frame, now);
+      assert.deepEqual(calls, aiEffectCards.length ? [hand] : []);
+      for (const now of [3000, 4000]) assistant.run(frame, now);
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0], expected);
+    }
+  }
 });
 
 
@@ -316,15 +346,219 @@ test('identity plays Peach normally on its own turn and does not hand other prom
   assert.deepEqual(calls, ['peach']);
 });
 
-test('legacy fallback: own-turn trustee starts once after local timeout and respects mulligan guard', () => {
-  const calls = [], assistant = createAssistant();
-  const frame = { self: { seat: { InOwnRound: true, IsAiControl: false },
-    cardContainer: { activatedCardtems: [{ activated: true }] }, onTrusteeshipClick() { calls.push('trustee'); this.seat.IsAiControl = true; } }, scene: {} };
-  assistant.run(frame, 0); assistant.run(frame, 1000); assistant.run(frame, 3999);
-  assert.deepEqual(calls, []);
-  assistant.run(frame, 4000, { allowTrustee: false }); assert.deepEqual(calls, []);
-  assistant.run(frame, 4250); assistant.run(frame, 5000);
-  assert.deepEqual(calls, ['trustee']); assert.equal(assistant.mode(), 'trustee');
+test('training skips enemy and unresolved rescue, and still uses Peach or Wine on itself', () => {
+  for (const { index, asking, spell, expected } of [
+    { index: 1, asking: 1, spell: 3, expected: ['btnCancel'] },
+    { index: undefined, asking: undefined, spell: 3, expected: ['btnCancel'] },
+    { index: 0, asking: 1, spell: 3, expected: ['btnCancel'] },
+    { index: 0, asking: 0, spell: 3, expected: ['救援出牌', 'btnOK'] },
+    { index: undefined, asking: 0, spell: 82, expected: ['救援出牌', 'btnOK'] },
+  ]) {
+    const calls = [], assistant = createAssistant({ getPeachTarget: () => index });
+    const ok = { name: 'btnOK', enabled: false };
+    const card = { Card: { CardId: 4, FirstSkillId: spell }, activated: true, CardUI_Click() {
+      this.selected = true;
+      ok.enabled = true;
+      calls.push('救援出牌');
+    } };
+    const self = {
+      seat: { Index: 0, Figure: 1, InOwnRound: true, IsAskingTao: asking === 0 },
+      cardContainer: { SelectContext: { Skill: { ID: 3 } }, cardUis: [card] },
+      Pt: { btns: [ok, { name: 'btnCancel', enabled: true }], Button_Click(button) {
+        calls.push(button.name);
+        button.enabled = false;
+      } },
+      CurStepHelpData: { target: card, cardIds: [4] },
+    };
+    const scene = { seatContainer: { seatUIs: [{ Seat: { Index: 1, Figure: 1, IsAskingTao: asking === 1 } }] } };
+    for (const now of [0, 250, 1500]) assistant.run({ scene, self }, now, { training: true });
+    assert.deepEqual(calls, expected, `target ${index}, asking ${asking}, card skill ${spell}`);
+  }
+});
+
+function ordinaryTurn({ slashSkill = 1, reachable = true, canSlash = true, boost = 0, wineInOx = false } = {}) {
+  const actions = [];
+  const self = { seat: { Index: 0, Figure: 3, InOwnRound: true, InActiveState: true,
+    GetStateValue(id) { assert.equal(id, 6); return boost; } }, PlayCard_Result() {} };
+  const enemy = { Seat: { Index: 2, Figure: 1 }, Activated: false, seatClickHandler() {
+    assert.ok(this.Activated);
+    this.Seat.Selected = true;
+    ok.enabled = true;
+  } };
+  const card = (id, type, Activated) => ({ Card: { CardId: id, FirstSkillId: type }, Activated, Selected: false,
+    CardUI_Click() { container.CardUI_Click({ CardUi: this }); } });
+  const slash = card(11, slashSkill, canSlash), wine = card(12, 82, true);
+  const ok = { name: 'btnOK', enabled: false }, end = { name: 'btnDiscard', enabled: true };
+  const container = {
+    cardUis: wineInOx ? [slash] : [wine, slash],
+    muniuCardUis: wineInOx ? [wine] : [],
+    CardUI_Click({ CardUi: ui }) {
+      assert.equal(ui.Activated, true);
+      setSelection(ui.Selected ? null : ui);
+    },
+    AllSelectHandCards() { assert.fail('ordinary play should select just one card'); },
+  };
+  function startSelection() {
+    container.SelectContext = { Purpose: 'deal', SelectResultCallback: self.PlayCard_Result, CardSelector: {} };
+    setSelection(null);
+  }
+  function setSelection(ui) {
+    slash.Selected = ui === slash;
+    wine.Selected = ui === wine;
+    container.SelectContext.CardSelector.FirstSelectedCard = ui?.Card;
+    enemy.Seat.Selected = false;
+    enemy.Activated = ui === slash && reachable;
+    self.SelectSeatContext = ui === slash ? { Card: slash.Card, get SelectedTargetSeatIDs() {
+      return enemy.Seat.Selected ? [enemy.Seat.Index] : [];
+    } } : null;
+    ok.enabled = ui === wine;
+  }
+  self.cardContainer = container;
+  self.Pt = { btns: [ok, end], Button_Click(button) {
+    assert.ok(button.enabled);
+    if (button === end) {
+      actions.push('end');
+      button.enabled = false;
+      return;
+    }
+    if (wine.Selected) {
+      actions.push('wine');
+      return; // Simulate an unchanged operation bar until the server reply.
+    }
+    assert.ok(slash.Selected && enemy.Seat.Selected);
+    actions.push('slash');
+    slash.Activated = false;
+    startSelection();
+  } };
+  startSelection();
+  return { actions, self, enemy, slash, wine, frame: { self, scene: { seatContainer: { seatUIs: [enemy] } } },
+    rejectWine: startSelection,
+    acknowledgeWine() {
+      container.cardUis = container.cardUis.filter(ui => ui !== wine);
+      container.muniuCardUis = [];
+      boost = 1;
+      startSelection();
+    } };
+}
+
+test('ordinary play submits Wine before normal or elemental Slash and waits for the native reply', () => {
+  for (const [hint, slashSkill, options] of [
+    ['slash', 1, { identity: true }], ['wine', 11111, { training: true }], [null, 11114, {}],
+  ]) {
+    const f = ordinaryTurn({ slashSkill, wineInOx: hint === 'wine' }), assistant = createAssistant();
+    if (hint) f.self.CurStepHelpData = { cardIds: [f[hint].Card.CardId], seatIds: [2], buttonName: 'btnOK' };
+    for (const now of [0, 1000, 1250, 1500, 1750, 2000, 3500]) assistant.run(f.frame, now, options);
+    assert.deepEqual(f.actions, ['wine']);
+    f.acknowledgeWine();
+    for (const now of [3750, 4000, 4250, 4500]) assistant.run(f.frame, now, options);
+    assert.deepEqual(f.actions, ['wine', 'slash']);
+  }
+});
+
+test('ordinary play saves Wine when Slash has no legal target or cannot be played anymore', () => {
+  for (const canSlash of [false, true]) {
+    const f = ordinaryTurn({ reachable: false, canSlash }), assistant = createAssistant();
+    f.self.CurStepHelpData = { cardIds: [f.wine.Card.CardId], buttonName: 'btnOK' };
+    for (const now of [0, 250, 1000, 2400, 3500, 5000]) assistant.run(f.frame, now);
+    assert.deepEqual(f.actions, ['end']);
+    assert.equal(f.wine.Selected, false);
+  }
+});
+
+test('a fresh native play prompt after a rejected drink can still use Slash without resending Wine', () => {
+  const f = ordinaryTurn(), assistant = createAssistant();
+  f.self.CurStepHelpData = { cardIds: [f.slash.Card.CardId], seatIds: [2], buttonName: 'btnOK' };
+  for (const now of [0, 250, 500, 750]) assistant.run(f.frame, now);
+  assert.deepEqual(f.actions, ['wine']);
+  f.rejectWine();
+  assistant.run(f.frame, 1000);
+  assert.deepEqual(f.actions, ['wine']);
+  for (const now of [2750, 3000, 3250, 5000]) assistant.run(f.frame, now);
+  assert.deepEqual(f.actions, ['wine', 'slash']);
+});
+
+test('confirmed normal Slash is linked to the current Ice Sword inquiry before replacing damage', () => {
+  const f = ordinaryTurn(), assistant = createAssistant();
+  f.self.cardContainer.cardUis = [f.slash];
+  f.self.CurStepHelpData = { cardIds: [f.slash.Card.CardId], seatIds: [2], buttonName: 'btnOK' };
+  for (const now of [0, 250, 500]) assistant.run(f.frame, now);
+  assert.deepEqual(f.actions, ['slash']);
+
+  Object.assign(f.enemy.Seat, { Hp: 4, HandCardCount: 1, EquipCardCount: 1, EquipCards: [{ FirstSkillId: 200 }] });
+  Object.assign(f.self.seat, { InActiveState: false, LastAskSkill: { ID: 201 } });
+  f.self.Pt = { btns: [
+    { name: 'btnOK', enabled: true, onClick() { f.actions.push('ice-sword'); } },
+    { name: 'btnCancel', enabled: true, onClick() { assert.fail('the matched opponent can be disarmed'); } },
+  ] };
+  assistant.observe('GsCTriggerSpellNew', { trigger: 201, caster: 0, spell: 1, targets: [2] });
+  assistant.run(f.frame, 750);
+  assert.deepEqual(f.actions, ['slash', 'ice-sword']);
+});
+
+test('ordinary play keeps the existing Wine boost and preserves normal Peach use in training', () => {
+  const f = ordinaryTurn({ boost: 1 }), assistant = createAssistant();
+  f.self.CurStepHelpData = { cardIds: [f.slash.Card.CardId], seatIds: [2], buttonName: 'btnOK' };
+  for (const now of [0, 250, 500]) assistant.run(f.frame, now, { training: true });
+  assert.deepEqual(f.actions, ['slash']);
+  const peach = { Activated: true, Card: { CardId: 3, FirstSkillId: 3 }, CardUI_Click() {
+    f.actions.push('peach');
+    this.Selected = true;
+  } };
+  f.self.cardContainer.cardUis.push(peach);
+  f.self.Pt.txtOptMsg = { text: '使用桃回复1点体力' };
+  f.self.CurStepHelpData = { cardIds: [3] };
+  assistant.run(f.frame, 750, { training: true });
+  assert.deepEqual(f.actions, ['slash', 'peach']);
+});
+
+test('Taoyuan is skipped at full or unknown HP and remains playable when wounded', () => {
+  for (const { hp, hinted, preselected, transformed, expected } of [
+    { hp: 4, expected: [7] },
+    { hp: 4, hinted: true, expected: [7] },
+    { hp: 4, preselected: true, hinted: true, expected: [7] },
+    { hp: 4, preselected: true, transformed: true, expected: [6] },
+    { hp: undefined, expected: [7] },
+    { hp: 3, expected: [12] },
+    { hp: 3, hinted: true, expected: [12] },
+  ]) {
+    const played = [], assistant = createAssistant();
+    const seat = { InActiveState: true, Hp: hp, MaxHp: 4 };
+    const ok = { name: 'btnOK', enabled: false, onClick() {
+      played.push((selector.TurnCard ?? selector.FirstSelectedCard).FirstSkillId);
+      this.enabled = false;
+    } };
+    const selector = {};
+    const makeCard = id => ({ Activated: true, Card: { CardId: id, FirstSkillId: id },
+      CardUI_Click() { container.CardUI_Click({ CardUi: this }); } });
+    const taoyuan = makeCard(transformed ? 6 : 12), wuzhong = makeCard(7);
+    const container = { SelectContext: { Purpose: 'deal', Message: '出牌阶段，请选择一张卡牌', CardSelector: selector },
+      cardUis: [taoyuan, wuzhong], CardUI_Click({ CardUi: ui }) {
+        ui.Selected = !ui.Selected;
+        selector.FirstSelectedCard = ui.Selected ? ui.Card : null;
+        selector.TurnCard = null;
+        ok.enabled = ui.Selected;
+      } };
+    const self = { seat, cardContainer: container, Pt: { btns: [ok] } };
+    if (preselected) taoyuan.CardUI_Click();
+    if (transformed) selector.TurnCard = { FirstSkillId: 12 };
+    if (hinted) self.CurStepHelpData = preselected ? { buttonName: 'btnOK' } : { cardIds: [12] };
+    const frame = { scene: {}, self };
+    for (const now of [0, 1000, 2000, 3000, 4000]) {
+      assistant.run(frame, now);
+      if (played.length) break;
+    }
+    assert.deepEqual(played, expected);
+  }
+});
+
+test('an unresolved own-turn prompt never hands the next response to native trusteeship', () => {
+  for (const options of [{ identity: true }, { training: true }, {}]) {
+    const assistant = createAssistant();
+    const frame = { self: { seat: { InOwnRound: true, IsAiControl: false },
+      cardContainer: { activatedCardtems: [{ activated: true }] }, onTrusteeshipClick() { assert.fail('trustee'); } }, scene: {} };
+    for (const now of [0, 1000, 3999, 4000, 4250, 8000]) assert.equal(assistant.run(frame, now, options), false);
+    assert.equal(assistant.mode(), 'local');
+  }
 });
 
 test('legacy fallback: off-turn never toggles trustee, unavailable cancel is never clicked', () => {
@@ -332,8 +566,7 @@ test('legacy fallback: off-turn never toggles trustee, unavailable cancel is nev
   const frame = { self: { seat: { InOwnRound: false }, cardContainer: { activatedCardtems: [{ activated: true }] },
     Pt: { btns: [{ name: 'btnCancel', enabled: false, onClick() { throw Error('disabled'); } }] },
     onTrusteeshipClick() { throw Error('off-turn trustee'); } }, scene: {} };
-  for (const now of [0, 1000, 4000, 10000]) assistant.run(frame, now);
-  assert.equal(assistant.isTrustee(), false);
+  for (const now of [0, 1000, 4000, 10000]) assert.equal(assistant.run(frame, now), false);
 });
 
 test('legacy fallback: popup waits for official highlight then uses available card after 2.5 seconds', () => {

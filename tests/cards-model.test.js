@@ -188,6 +188,52 @@ test('a whole known hand transfers deterministically while partial random transf
   assert.deepEqual(cardsInZone(r.state, zoneKey(5, 3), 'possible'), [1, 2]);
 });
 
+test('playing the last hand card rules out that hand for every other candidate', () => {
+  const r = recording();
+  r.send('PubGsCMoveCard', transfer({ CardIDs: [1, 2, 3], CardCount: 3 }));
+  r.send('PubGsCMoveCard', transfer({ FromID: 1, FromZone: 5, ToID: 2, CardIDs: [] }));
+  r.send('PubGsCMoveCard', transfer({ FromID: 1, FromZone: 5, ToID: 3, CardIDs: [] }));
+  assert.deepEqual(cardsInZone(r.state, zoneKey(5, 1), 'possible'), [1, 2, 3]);
+
+  r.send('PubGsCMoveCard', transfer({ FromID: 1, FromZone: 5, ToID: 255, ToZone: 2, MoveType: 2 }));
+  assert.deepEqual(cardsInZone(r.state, zoneKey(5, 1), 'all'), []);
+  assert.deepEqual(r.state.zones[zoneKey(5, 1)].order, []);
+  assert.deepEqual(r.state.cards[1].locations, [zoneKey(2)]);
+  assert.deepEqual(r.state.cards[2].locations, [zoneKey(5, 2), zoneKey(5, 3)]);
+  assert.deepEqual(r.state.cards[3].locations, [zoneKey(5, 2), zoneKey(5, 3)]);
+
+  r.send('PubGsCMoveCard', transfer({ CardIDs: [4] }));
+  assert.deepEqual(cardsInZone(r.state, zoneKey(5, 1), 'all'), [4]);
+});
+
+test('a hidden last-card transfer keeps the destination and other possible hands', () => {
+  const r = recording();
+  r.send('PubGsCMoveCard', transfer({ CardIDs: [1, 2], CardCount: 2 }));
+  r.send('PubGsCMoveCard', transfer({ FromID: 1, FromZone: 5, ToID: 2, CardIDs: [] }));
+  r.send('PubGsCMoveCard', transfer({ FromID: 1, FromZone: 5, ToID: 3, CardIDs: [] }));
+  assert.deepEqual(cardsInZone(r.state, zoneKey(5, 1), 'all'), []);
+  assert.deepEqual(r.state.zones[zoneKey(5, 1)].order, []);
+  assert.deepEqual(cardsInZone(r.state, zoneKey(5, 2), 'possible'), [1, 2]);
+  assert.deepEqual(cardsInZone(r.state, zoneKey(5, 3), 'possible'), [1, 2]);
+});
+
+test('a confirmed empty hand overrides stale reveals, while partial counts do not rule out cards', () => {
+  const r = recording();
+  r.send('toolbox:gap', { reason: 'lost packets' });
+  r.send('decodeClientGetCardInfoResp', { SeatID: 1, CardIDs: [1, 2] });
+  r.send('PubGsCMoveCard', transfer({ FromID: 1, FromZone: 5, ToID: 2, CardIDs: [] }));
+  r.send('PubGsCMoveCard', transfer({ FromID: 1, FromZone: 5, ToID: 255, ToZone: 2 }));
+  r.send('toolbox:snapshot', { seats: [{ seatId: 1 }] });
+  assert.deepEqual(r.state.cards[2].locations, [zoneKey(5, 1), zoneKey(5, 2)]);
+
+  r.send('toolbox:snapshot', { seats: [{ seatId: 1, handCount: 0, knownHandCardIds: [2] }] });
+  assert.deepEqual(cardsInZone(r.state, zoneKey(5, 1), 'all'), []);
+  assert.deepEqual(r.state.cards[2].locations, [zoneKey(5, 2)]);
+  r.send('toolbox:snapshot', { seats: [{ seatId: 2, handCount: 0 }] });
+  assert.deepEqual(r.state.cards[2].locations, ['?']);
+  assert.equal(r.state.cards[2].seen, true);
+});
+
 test('deck top and bottom order support subsequent hidden draws', () => {
   const r = recording();
   r.send('PubGsCMoveCard', transfer({ CardIDs: [1, 2, 3], CardCount: 3 }));

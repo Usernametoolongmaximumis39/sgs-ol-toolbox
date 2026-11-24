@@ -28,6 +28,7 @@ export async function bundleCore({ root, edition, packages, panelSources = editi
       __SGS_TOOLBOX_MICROCLIENT__: String(microclient), __SGS_TOOLBOX_LOCAL_APPEARANCE_SYNC__: String(Boolean(localAppearanceSyncPackage)),
       __SGS_TOOLBOX_UPDATE_MIRROR__: JSON.stringify(edition === 'dev' ? '' : configuredUpdateMirror()) },
     plugins: [{ name: 'bundled-plugin-packages', setup(api) {
+      if (edition !== 'dev') api.onLoad({ filter: /[\\/]core[\\/]startup-diagnostics\.js$/ }, () => ({ contents: 'export function createStartupDiagnostics() { return null; }', loader: 'js' }));
       if (microclient) api.onLoad({ filter: /[\\/]compat[\\/]index\.js$/ }, () => ({ contents: 'export function createCompatibility() { throw new Error("Browser compatibility is unavailable in microclient"); }', loader: 'js' }));
       if (microclient) api.onLoad({ filter: /[\\/]core[\\/]refresh-reentry\.js$/ }, () => ({ contents: 'export function installRefreshReentry() { return false; }', loader: 'js' }));
       api.onLoad({ filter: /[\\/]core[\\/]bundled-plugins\.js$/ }, () => ({

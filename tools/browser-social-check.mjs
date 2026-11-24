@@ -23,8 +23,12 @@ const passwordConfirm=method('vt(){','destroy(){',source.indexOf('class z8i'));
 const nativeOfficerIcon=method('GetOfficerChatIcon(t){','set CurOfficerLv(t)',source.indexOf('class cZt'));
 const nativeDetailRequest=method('static SendUserDetailReq(t,i=!1){','static SendUserTTDateReq(t)',source.indexOf('class NNt'));
 const nativeChatSize=method('Size(t,i){','get Drawed(){',source.indexOf('class aJi'));
+const nativeChatRefresh=method('onChatUpdateMsg(t){','chatInputEvent(t){',source.indexOf('onChatMsg(t,i){let s=!0;if(this.currentShowChanel'));
+const nativeShowDecree=method('showSuperZhaoLing(t){','layoutSuperZhao(){',source.indexOf('onChatMsg(t,i){let s=!0;if(this.currentShowChanel'));
+const nativeLayoutDecree=method('layoutSuperZhao(){','hideSuperZhaoLing(){',source.indexOf(nativeShowDecree));
+const nativeInsertDecree=method('updateData(t){','getHtmlBase(t){',source.lastIndexOf('class ',source.indexOf('i.SetSuperZhaoLing(t),i.SetRescriptMsg(!0),i}')));
  await writeFile(resolve(out,'native-source.js'),['export const nativeVip={'+vip+'};','export const nativeResize={'+resize+'};','export const nativeOffice={'+office+'};','export const nativeOfficerService={'+nativeOfficerIcon+'};','export const nativeDetailRequest={'+nativeDetailRequest.replace('static ','')+'};','export const nativeChatSize={'+nativeChatSize+'};'].join('\n'));
- await writeFile(resolve(out,'source-report.json'),JSON.stringify({source:sourcePath,sha256:createHash('sha256').update(source).digest('hex'),methods:[vip,resize,office,passwordConfirm,nativeOfficerIcon,nativeDetailRequest,nativeChatSize].map(code=>({name:code.slice(0,code.indexOf('{')),offset:source.indexOf(code),end:source.indexOf(code)+code.length,sha256:createHash('sha256').update(code).digest('hex')}))},null,2));
+ await writeFile(resolve(out,'source-report.json'),JSON.stringify({source:sourcePath,sha256:createHash('sha256').update(source).digest('hex'),methods:[vip,resize,office,passwordConfirm,nativeOfficerIcon,nativeDetailRequest,nativeChatSize,nativeChatRefresh,nativeShowDecree,nativeLayoutDecree,nativeInsertDecree].map(code=>({name:code.slice(0,code.indexOf('{')),offset:source.indexOf(code),end:source.indexOf(code)+code.length,sha256:createHash('sha256').update(code).digest('hex')}))},null,2));
 const bundle=await build({stdin:{contents:"export {mountPluginUI} from './src/ui/plugin-ui.js';export {createFriendManagement} from './src/plugins/social/friends.js';export {createChatEnhancements} from './src/plugins/social/chat.js';export {createLampTracking} from './src/plugins/social/lamps.js';export {activate,renderHistory} from './src/plugins/social/index.js';export {ResourceScope} from './src/core/resources.js';export {createPluginNative} from './src/core/plugin-native.js';",resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'SocialCheck'});
 const browser=await chromium.launch({channel:'chrome',headless:true});const errors=[],checks=[];
 const roomFilterBundle=await build({entryPoints:['src/plugins/social/room-filter.js'],bundle:true,write:false,format:'iife',globalName:'RoomFilterCheck'});
@@ -81,7 +85,7 @@ try{
   scene.chatViewUI=chat;
   window.config={root:{officer:[{ID:1,Officerid:1,bigName:'士兵'},{ID:2,Officerid:2,bigName:'伍长'},{ID:3,Officerid:3,bigName:'偏将军'}]}};
   const nativeOfficer={GetOfficerChatIcon:new Function('IF','return ({'+nativeOfficerIcon+'}).GetOfficerChatIcon')({I:()=>({GetlittleOfficerById:id=>config.root.officer.find(v=>v.ID===id)})})};proxy.on('ClientOfficerInfoRep',nativeOfficer,function(){});
-  window.ctx={window,document,scope,storage:{get:(k,d)=>values.has(k)?values.get(k):d,set:(k,v)=>{values.set(k,structuredClone(v));return v}},settings:{get:(k,d)=>d,set(){}},game:{getSelf:()=>({...self,ClientId:account}),getScene:()=>scene,getClass:()=>null,getServerProxy:()=>proxy,getConfigData:()=>config,loadConfigData:async()=>config},ui:{toast:message=>notices.push(message)},notify:message=>notices.push(message)};
+  window.ctx={window,document,scope,storage:{get:(k,d)=>values.has(k)?values.get(k):d,set:(k,v)=>{values.set(k,structuredClone(v));return v}},settings:{get:(k,d)=>values.get(k)??d,set:(k,v)=>values.set(k,v)},game:{getSelf:()=>({...self,ClientId:account}),getScene:()=>scene,getClass:()=>null,getServerProxy:()=>proxy,getConfigData:()=>config,loadConfigData:async()=>config},ui:{toast:message=>notices.push(message)},notify:message=>notices.push(message)};
   ctx.native=SocialCheck.createPluginNative(ctx);
   window.friendRuntime=SocialCheck.createFriendManagement(ctx);window.chatRuntime=SocialCheck.createChatEnhancements(ctx);friendRuntime.tick();chatRuntime.tick();
   // Native SM.htmlStyleLink uses font[href], not an HTML anchor.
@@ -157,10 +161,83 @@ try{
  assert.ok(visible>25,'actual inline robot must paint visible light pixels in its own 18x15 rectangle');checks.push('all icon textures ready and actual inline robot paints visible pixels');
  await page.screenshot({path:resolve(out,'native-chat.png')});
 
- await page.evaluate(()=>{const host=document.createElement('div');host.id='social-panel';host.style.cssText='position:absolute;left:450px;top:450px;box-sizing:border-box;padding:14px;border:1px solid var(--sgs-border);border-radius:10px;background:var(--sgs-bg);width:280px;max-height:310px;overflow:auto';document.body.append(host);Object.assign(ctx.ui,SocialCheck.mountPluginUI(ctx,()=>ctx));ctx.storage.set('lamps:1234567890',{version:1,friends:{'1234567891':{name:'青山旧友',ids:[1,2],names:{1:'谋周瑜',2:'界曹操'},at:123},'1234567899':{name:'已取消置顶的好友',ids:[3],names:{3:'神郭嘉'},at:124}}});window.lampRuntime=SocialCheck.createLampTracking(ctx,friendRuntime);window.panelDispose=SocialCheck.renderHistory(ctx,host,friendRuntime,lampRuntime)});
+ await page.evaluate(({nativeChatRefresh,nativeShowDecree,nativeLayoutDecree,nativeInsertDecree})=>{
+  const host=document.createElement('div');host.id='social-panel';host.style.cssText='position:absolute;left:450px;top:450px;box-sizing:border-box;padding:14px;border:1px solid var(--sgs-border);border-radius:10px;background:var(--sgs-bg);width:280px;max-height:220px;overflow:auto';document.body.append(host);
+  Object.assign(ctx.ui,SocialCheck.mountPluginUI(ctx,()=>ctx));ctx.storage.set('lamps:1234567890',{version:1,friends:{'1234567891':{name:'青山旧友',ids:[1,2],names:{1:'谋周瑜',2:'界曹操'},at:123},'1234567899':{name:'已取消置顶的好友',ids:[3],names:{3:'神郭嘉'},at:124}}});
+  window.lampRuntime=SocialCheck.createLampTracking(ctx,friendRuntime);window.panelDispose=SocialCheck.renderHistory(ctx,host,friendRuntime,lampRuntime,chatRuntime);
+  const chatData=(chatMsg,ChannelNum=0)=>({MsgType:1,ChannelNum,chatMsg,MessageHtml:chatMsg});
+  const history=['来打牌吧','周年活动','ABCDE','CDEFG','BCDEF','ABCD','下局见'].map(text=>chatData(text));
+  history.push(chatData('系统周年公告',1),chatData('系统维护通知',1),chatData('公会好友',2),chatData('私聊 ABCDE',4));
+  const view=window.bindingChat=new Laya.Sprite();view.pos(30,490);Laya.stage.addChild(view);
+  view.msgContainer=view.addChild(new Laya.Sprite());view.msgContainer.size(320,220);view.msgContainer.refresh=()=>{};
+  function createRow(data){
+   const row=new Laya.Sprite();row.chatData=data;
+   row.htmlTxt=row.addChild(new Laya.HTMLDivElement());row.htmlTxt.width=300;row.htmlTxt.innerHTML=data.MessageHtml;
+   row.size(300,row.htmlTxt.contextHeight+8);return row;
+  }
+  view.getHtmlBase=createRow;
+  view.currentShowChanel=0;view.GetCurrentShowChanel=()=>view.currentShowChanel;
+  view.ClearChatItem=()=>{for(const row of [...view.msgContainer._children])row.destroy(true)};
+  view.isCurrentPersonalData=()=>true;view.refreshMsgSize=()=>{};
+  view.onChatUpdateMsg=new Function('G$t','Laya','return ({'+nativeChatRefresh+'}).onChatUpdateMsg')({I:()=>({GetChatMessageDataByChannel:channel=>channel===0?history:history.filter(data=>data.ChannelNum===channel)})},Laya);
+  const insertDecree=new Function('Laya','return ({'+nativeInsertDecree+'}).updateData')(Laya);
+  class DecreeBanner extends Laya.Sprite {
+   constructor(){super();this.height=50;this.itemUIs=[];}
+   getHtmlBase(data){return createRow(data);}
+   updateData(data){return insertDecree.call(this,data);}
+  }
+  view.topButtonBar={y:-55,height:0};view.currentViewSizeType=1;
+  view.layoutSuperZhao=new Function('gQt','return ({'+nativeLayoutDecree+'}).layoutSuperZhao')({S_SMALL_UI:0});
+  view.hideSuperZhaoLing=function(){this.superZhaolingUI.destroy(true);this.superZhaolingUI=null;};
+  const showDecree=new Function('yQt','Laya','VJt','vi','return ({'+nativeShowDecree+'}).showSuperZhaoLing')(DecreeBanner,Laya,{getValById:()=>10000},{SUPERZHAOLING:1});
+  view.onChatUpdateMsg(0);chatRuntime.tick();
+  window.readBindingRows=()=>view.msgContainer._children.map(row=>row.chatData.chatMsg);
+  window.bindingRowsAreContiguous=()=>view.msgContainer._children.every((row,i,rows)=>row.y===(i?rows[i-1].y+rows[i-1].height:0));
+  window.showBindingDecree=text=>showDecree.call(view,chatData(text));
+  window.readBindingDecrees=()=>view.superZhaolingUI.itemUIs.map(row=>row.visible);
+  window.showBindingChannel=channel=>{view.currentShowChanel=channel;view.onChatUpdateMsg(channel);if(view.superZhaolingUI)view.layoutSuperZhao();};
+ },{nativeChatRefresh,nativeShowDecree,nativeLayoutDecree,nativeInsertDecree});
+ const filter=page.getByRole('switch',{name:'过滤绑定码'});
+ const filteredRows=['来打牌吧','BCDEF','ABCD','下局见','系统维护通知','公会好友','私聊 ABCDE'];
+ assert.equal(await filter.isChecked(),true);
+ assert.deepEqual(await page.evaluate(()=>readBindingRows()),filteredRows);
+ assert.equal(await page.evaluate(()=>bindingRowsAreContiguous()),true);
+ const decreeVisibility=await page.evaluate(()=>{
+  showBindingDecree('加好友互帮');showBindingDecree('普通高级诏令');return readBindingDecrees();
+ });
+ assert.deepEqual(decreeVisibility,[false,true],'native decree insertion hides only the matching row synchronously');
+ assert.deepEqual(await page.evaluate(()=>{showBindingChannel(1);return [readBindingRows(),readBindingDecrees()]}),[['系统维护通知'],[false,true]]);
+ assert.deepEqual(await page.evaluate(()=>{showBindingChannel(2);return [readBindingRows(),readBindingDecrees()]}),[['公会好友'],[false,true]]);
+ assert.deepEqual(await page.evaluate(()=>{showBindingChannel(4);return [readBindingRows(),readBindingDecrees()]}),[['私聊 ABCDE'],[false,true]]);
+ assert.deepEqual(await page.evaluate(()=>{
+  bindingChat.hideSuperZhaoLing();
+  showBindingDecree('CDEFG');showBindingDecree('普通高级诏令 CDEF');
+  return readBindingDecrees();
+ }),[false,true],'a new native banner in private chat also hides matching rows immediately');
+ await filter.focus();await page.keyboard.press('Space');
+ assert.equal(await filter.isChecked(),false);
+ assert.deepEqual(await page.evaluate(()=>readBindingRows()),['私聊 ABCDE']);
+ assert.deepEqual(await page.evaluate(()=>readBindingDecrees()),[true,true]);
+ await page.evaluate(()=>showBindingChannel(0));
+ assert.deepEqual(await page.evaluate(()=>readBindingRows()),['来打牌吧','周年活动','ABCDE','CDEFG','BCDEF','ABCD','下局见','系统周年公告','系统维护通知','公会好友','私聊 ABCDE']);
+ await filter.click();
+ assert.deepEqual(await page.evaluate(()=>readBindingRows()),filteredRows);
+ assert.deepEqual(await page.evaluate(()=>readBindingDecrees()),[false,true]);
+ assert.equal(await page.evaluate(()=>bindingRowsAreContiguous()),true);
+ checks.push('binding-code switch defaults on; keyboard and pointer rebuild native Laya history with contiguous rows');
+ checks.push('A- and C-prefixed codes are filtered; matching advanced decrees stay hidden across tabs and on first arrival in private chat');
  for(const width of [248,280,420])for(const light of [false,true]){
   await page.evaluate(({width,light})=>{const host=document.querySelector('#social-panel');host.style.width=width+'px';const t=light?{bg:'#f1eee7',text:'#302b22',muted:'#756e5e',accent:'#896b25',border:'#c6bba3',raised:'#fffdf6'}:{bg:'#23231b',text:'#e8dec7',muted:'#a59a80',accent:'#d4b268',border:'#665b40',raised:'#343125'};for(const[k,v]of Object.entries(t))host.style.setProperty('--sgs-'+k,v)},{width,light});
-  assert.equal(await page.locator('#social-panel').evaluate(e=>e.scrollWidth<=e.clientWidth),true);
+  for(const offset of [-2,-1,0,2]){
+   const layout=await page.locator('#social-panel').evaluate((host,offset)=>{
+    host.style.setProperty('--sgs-font-offset',offset+'px');
+    const label=host.querySelector('.social-filter'), toggle=label.querySelector('input');
+    const range=document.createRange();range.selectNode(label.firstChild);
+    const text=range.getBoundingClientRect(),sw=toggle.getBoundingClientRect();
+    return{width:host.getBoundingClientRect().width,overflow:host.scrollWidth>host.clientWidth,fontSize:parseFloat(getComputedStyle(label).fontSize),switchFits:sw.left>=text.right&&sw.top<text.bottom&&sw.bottom>text.top&&sw.right<=label.getBoundingClientRect().right};
+   },offset);
+   assert.deepEqual(layout,{width,overflow:false,fontSize:12+offset,switchFits:true});
+  }
   await page.locator('#social-panel').screenshot({path:resolve(out,'panel-'+width+'-'+(light?'light':'dark')+'.png')});
  }
  assert.equal(await page.locator('[data-social-history] li').count(),1);
@@ -179,7 +256,7 @@ try{
  });
  assert.deepEqual(restored,{pins:['1234567892'],lamps:{'1234567892':{name:'长江东逝水',pinned:true,queriedAt:125,generals:[{id:3,name:'神郭嘉'}]}}});
  checks.push('restored pins and lamp snapshots replace live account records');
- checks.push('248/280/420px dark/light panel renders without horizontal overflow','keyboard export contains stable IDs and rename history');
+ checks.push('248/280/420px dark/light panel renders at all four font sizes without horizontal overflow or split switch label','keyboard export contains stable IDs and rename history');
  assert.equal(await page.locator('[data-social-chat-export], [data-social-chat-status]').count(),0);
  assert.doesNotMatch(await page.locator('#social-panel').textContent(),/导出聊天诊断|原生官阶服务|图片加载中|已记录/);
  const diagnostics=await page.evaluate(()=>chatRuntime.getDiagnostics());

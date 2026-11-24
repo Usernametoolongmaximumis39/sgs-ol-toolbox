@@ -44,8 +44,11 @@ function fixture(t, options={}) {
   let scene = {SelfSeatUi:self,seatContainer:{seatUIs:[]}};
   const gc = {CanOperationInGame:()=>true,IsViewerOrReplay:()=>false};
   const ctx = {scope,window:{},ui:{},settings:{get:(k,f)=>saved[k]??f,set:(k,v)=>saved[k]=v},game:{getScene:()=>scene,getSnapshot:()=>({inGame:true}),getClass:()=>gc,getServerProxy:()=>proxy,getCardMeta:()=>({suit:3,type:2})},reportError:e=>{throw e;}};
+  const nativeShow = (self.Pt || self.buttonBar).Show;
+  const nativeSkillClick = item._events.click[0].method;
   const runtime = createRuntime(ctx,()=>settings); t.after(()=>{runtime.dispose();scope.dispose();});
-  return {runtime,self,item,settings,saved,gc,proxy,ctx,get calls(){return calls;},get skillCalls(){return skillCalls;},setScene:s=>scene=s};
+  return {runtime,self,item,settings,saved,gc,proxy,ctx,nativeShow,nativeSkillClick,
+    get calls(){return calls;},get skillCalls(){return skillCalls;},setScene:s=>scene=s};
 }
 const flush = () => new Promise(r=>setTimeout(r,15));
 
@@ -62,6 +65,30 @@ test('one snapshot per assist tick and deferred actions recheck a changed scene'
   f.setScene({});
   await flush();
   assert.equal(f.calls, 0);
+});
+
+test('ordinary assist leaves native poker buttons and skill listeners to the table', async t => {
+  const f = fixture(t, { autoConfirm: true, skillLock: true, rapid: true });
+  const ordinary = f.ctx.game.getScene();
+  f.self.cardContainer.selectCardContext = { message: '请选择牌', SelectCountMin: 1, SelectCountMax: 1 };
+  f.self.cardContainer.cardUis = [{ selected: true }];
+  f.runtime.tick();
+  assert.notEqual(f.self.buttonBar.Show, f.nativeShow);
+
+  f.setScene({ ...ordinary, sceneName: 'PokerTableGameScene' });
+  f.runtime.tick();
+  await flush();
+  assert.equal(f.calls, 0);
+  assert.equal(f.runtime.toggle(62), false);
+  assert.equal(f.self.buttonBar.Show, f.nativeShow);
+  assert.equal(f.item._events.click[0].method, f.nativeSkillClick);
+  f.item.event('click');
+  assert.equal(f.skillCalls, 1);
+
+  f.setScene(ordinary);
+  f.runtime.tick();
+  await flush();
+  assert.equal(f.calls, 1);
 });
 
 test('山河图 gives ready skills priority over selecting and confirming ordinary cards', async t => {
@@ -498,6 +525,81 @@ test('烈弓 / 伤逝 / 落英 / 破军 standard and boundary IDs confirm',async
   const f=arm(t,id);f.context('是否发动技能'+id);await flush();assert.equal(f.ok,1,'confirm '+id);f.runtime.dispose();
  }
 });
+
+test('remembered 界破军 leaves 标破军 manual in the next match and their locks remain independent', async t => {
+  const f = fixture(t, { skillLock: true });
+  const boundary = { SkillId: 3389, Name: '破军' };
+  const standard = { SkillId: 414, Name: '破军' };
+  f.item.Skill = boundary;
+  f.runtime.tick();
+  assert.equal(f.runtime.toggle(3389, true), true);
+
+  f.item.Skill = standard;
+  f.setScene({ ...f.ctx.game.getScene() });
+  f.runtime.tick();
+  assert.equal(f.runtime.getSkills()[0].locked, false);
+
+  const ask = async context => {
+    f.self.cardContainer.selectCardContext = { ...context, message: '是否发动<font>破军</font>' };
+    f.self.buttonBar.Show();
+    await flush();
+  };
+  await ask({ Skill: { ID: 414 } });
+  assert.equal(f.calls, 0, 'the explicit standard skill ID overrides the remembered variant');
+  await ask({});
+  assert.equal(f.calls, 0, 'a shared skill name does not restore the other variant');
+
+  assert.equal(f.runtime.toggle(414, true), true);
+  await ask({});
+  assert.equal(f.calls, 1, 'the current variant still works on a text-only prompt');
+  f.item.event('mousedown');
+  f.item.event('mouseup');
+  f.item.event('click');
+  assert.equal(f.runtime.getSkills()[0].locked, false);
+  assert.equal(f.skillCalls, 0, 'the unlock click does not cast the skill');
+  assert.deepEqual(f.saved.rememberedSkillIds, [3389]);
+
+  await ask({ SpecifySkillId: 414 });
+  assert.equal(f.calls, 1, 'the unlocked variant stays manual after a fresh prompt');
+  f.item.Skill = boundary;
+  f.setScene({ ...f.ctx.game.getScene() });
+  f.runtime.tick();
+  assert.equal(f.runtime.getSkills()[0].remembered, true);
+  await ask({ Skill: boundary });
+  assert.equal(f.calls, 2);
+});
+
+test('破军 native confirm prompt identifies the version even with a stale card context', async t => {
+  const f = fixture(t, { skillLock: true });
+  const boundary = { SkillId: 3389, Name: '破军' };
+  const standard = { ID: 414, Name: '破军' };
+  f.item.Skill = boundary;
+  f.self.skillItems.push({ Skill: { ...standard, SkillId: 414 } });
+  f.self.StartSelectSkillItem = () => {};
+  f.self.SpellTouch_ConfirmResult = () => {};
+  f.setScene({ ...f.ctx.game.getScene() });
+  f.runtime.tick();
+  assert.equal(f.runtime.toggle(3389, true), true);
+
+  const bar = f.self.buttonBar;
+  bar.txtOptMsg = { _innerHTML: '是否发动<font>破军</font>' };
+  bar.Show();
+  await flush();
+  assert.equal(f.calls, 0, 'a text-only prompt is ambiguous when both versions are available');
+
+  bar.resultFuncs = [f.self.SpellTouch_ConfirmResult];
+  f.self.cardContainer.selectCardContext = { Skill: boundary, message: '是否发动破军' };
+  f.self.StartSelectSkillItem(null, standard);
+  bar.Show();
+  await flush();
+  assert.equal(f.calls, 0, 'the native ask identifies the unlocked version');
+
+  f.self.StartSelectSkillItem(null, boundary);
+  bar.Show();
+  await flush();
+  assert.equal(f.calls, 1, 'the locked version still confirms in the same scene');
+});
+
 test('武圣 red, 武娘 nonbasic and 谬焰 majority black suit select one without choosing targets',async t=>{
  for(const id of [33,878,3796,3274]){
   const f=arm(t,id);const target=selfTarget(f);

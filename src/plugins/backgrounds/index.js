@@ -1,12 +1,13 @@
 import { findSkinDetail, supportsSkinBackgroundAttack, watchSkinDetail } from '../../shared/skin-detail.js';
 import { scopedStyles } from '../../shared/scoped-styles.js';
 import { isTyping, matchesShortcut, shortcutLabel } from '../../shared/keyboard-shortcut.js';
+import { createNativeWallpaper } from './native-wallpaper.js';
 
 const nativeSkinShortcut = { code: 'KeyK', ctrl: true, alt: true };
 
 export const manifest = {
-  id: 'backgrounds', name: '自定义背景', version: '0.2.12', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "动态皮肤背景可选高、低画质。低画质限制大型图集的分辨率，可减轻显存占用。动态素材仍按需联网加载。", minCoreVersion: '0.6.206', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
+  id: 'backgrounds', name: '自定义背景', version: '0.2.13', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "可在游戏背景设置中选择近期使用过的自定义背景。图片和动态素材仍按需联网加载。", minCoreVersion: '0.6.241', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
   icon: { paths: ['M3 4h18v16H3Z', 'M3 16 9 10l4 4 3-3 5 5', 'M16 7h1'] },
   description: '将本地图片或游戏皮肤用作牌局背景，保留天气与武将技能背景',
 };
@@ -97,6 +98,7 @@ export function activate(ctx) {
     return ctx.settings.get('animated', current?.localImageId ? true : current?.animated !== false) !== false;
   };
   const attackEffects = () => ctx.settings.get('attackEffects', ctx.backgrounds.current?.attackEffects !== false) !== false;
+  if (ctx.backgrounds.listHistory) createNativeWallpaper(ctx, { animated, attackEffects, uploadIcon: manifest.icon });
   const element = (tag, text, cls) => { const node = doc.createElement(tag); if (text) node.textContent = text; if (cls) node.className = cls; return node; };
   const mountStyle = scopedStyles(doc, ctx.scope, STYLES);
   mountStyle(doc);

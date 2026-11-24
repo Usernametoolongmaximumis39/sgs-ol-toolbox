@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.226"
+    "version": "0.6.265"
   },
   "plugins": [
     {
       "id": "social",
       "name": "好友与聊天",
-      "version": "0.1.19",
+      "version": "0.1.24",
       "icon": {
         "paths": [
           "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
@@ -22,15 +22,15 @@
       "contractVersion": 1,
       "minCoreVersion": "0.6.185",
       "apiVersion": 1,
-      "description": "好友置顶、改名与将灯提醒、公屏一键进房、官阶补全与无密码房筛选",
-      "releaseNotes": "好友、置顶和将灯记录可随当前账号的云端备份恢复。绑定云同步后，这些记录会发送到所绑定的服务器。",
-      "packageUrl": "packages/social/0.1.19.json",
-      "sha256": "b617248c6e2067ebad6070a3e1c9b967d3706559a3091aa118e064e035ce56ee"
+      "description": "好友置顶、改名与将灯提醒、聊天绑定码过滤、一键进房、官阶补全与无密码房筛选",
+      "releaseNotes": "新增公开聊天和诏令横幅的绑定码过滤，可在工具里关闭。减少重复查询置顶好友的将灯。",
+      "packageUrl": "packages/social/0.1.24.json",
+      "sha256": "bbcc57ac4addc11105e52c44bb5c411e03205c3fa0a78335aa26a877d0a8be61"
     },
     {
       "id": "player-info",
       "name": "玩家信息",
-      "version": "0.4.27",
+      "version": "0.4.28",
       "icon": {
         "paths": [
           "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
@@ -46,8 +46,8 @@
       "apiVersion": 1,
       "description": "可选玩家资料卡与斗地主将灯检查，支持自定义关注武将、人机提示与自选身份补全",
       "releaseNotes": "改善玩家资料卡切换目标后的加载和刷新，减少重复查询，优化关注武将设置的显示。",
-      "packageUrl": "packages/player-info/0.4.27.json",
-      "sha256": "742c458b983a8888ceb338087e8c147f47546f04c929d88bbc695fd123f01e41"
+      "packageUrl": "packages/player-info/0.4.28.json",
+      "sha256": "0fbb7a1bf9f3447cd2c07ee21a84285c588c58a07fd8bf08b589f6e71b3bba68"
     },
     {
       "id": "native-cards",
@@ -109,7 +109,7 @@
     {
       "id": "backgrounds",
       "name": "自定义背景",
-      "version": "0.2.12",
+      "version": "0.2.13",
       "icon": {
         "paths": [
           "M3 4h18v16H3Z",
@@ -122,15 +122,15 @@
         "appearance"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.206",
+      "minCoreVersion": "0.6.241",
       "apiVersion": 1,
       "dependencies": [
         "skins"
       ],
       "description": "将本地图片或游戏皮肤用作牌局背景，保留天气与武将技能背景",
-      "releaseNotes": "动态皮肤背景可选高、低画质。低画质限制大型图集的分辨率，可减轻显存占用。动态素材仍按需联网加载。",
-      "packageUrl": "packages/backgrounds/0.2.12.json",
-      "sha256": "26662731460bcbd1b8d74b87d286cfa8db09ad8b218e0dc7cf93f031b0b6810f"
+      "releaseNotes": "可在游戏背景设置中选择近期使用过的自定义背景。图片和动态素材仍按需联网加载。",
+      "packageUrl": "packages/backgrounds/0.2.13.json",
+      "sha256": "060d7c246cb327c0088c629c9d00276fa9e445e6781aaf978d10173e5da38e9b"
     },
     {
       "id": "gold-cards",
@@ -197,7 +197,7 @@
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.89",
+      "version": "0.1.95",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -212,14 +212,14 @@
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
-      "releaseNotes": "牌局记录和显示只处理所需的牌局消息，减少长局和登录期间的处理开销。",
-      "packageUrl": "packages/cards/0.1.89.json",
-      "sha256": "6ed614c20efdeccb77dd0d9ac9551bd5509e80d34f836261c701df3191525ebe"
+      "releaseNotes": "修复整手牌转出或手牌清空后仍显示旧推断的问题，减少长局和登录期间的处理开销。",
+      "packageUrl": "packages/cards/0.1.95.json",
+      "sha256": "3dd7066875231cd421bc4b116e3d87d88cafbbbccaabbd0209b5afadd75cb38f"
     },
     {
       "id": "play-assist",
       "name": "出牌辅助",
-      "version": "0.2.21",
+      "version": "0.2.23",
       "icon": {
         "paths": [
           "M4 5h10v14H4zM7 8h4M7 11h3",
@@ -234,14 +234,14 @@
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "长按技能辅助、自动确定与询问跳过。",
-      "releaseNotes": "修复部分正式牌局中长按技能辅助未生效的问题，观战、回放、阵亡及托管时停用辅助。",
-      "packageUrl": "packages/play-assist/0.2.21.json",
-      "sha256": "c32e9bc3c6c567150fd733c9752856cb56ea60e31a32d8a433db6cc8bf86d0c0"
+      "releaseNotes": "改进落英、破军和武娘的长按辅助识别，无法确认技能版本时交给玩家操作。三国斗地主牌桌停用出牌辅助。",
+      "packageUrl": "packages/play-assist/0.2.23.json",
+      "sha256": "84a4905f4de66ec7507e66c64ac8902f642a5a7ab04e0aa636ed37baeffcc70b"
     },
     {
       "id": "daily-rewards",
       "name": "日常领奖",
-      "version": "0.7.46",
+      "version": "0.7.47",
       "icon": {
         "paths": [
           "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -256,9 +256,9 @@
       "minCoreVersion": "0.6.38",
       "apiVersion": 1,
       "description": "自动领取签到、任务、邮件与活动奖励，按账号记录",
-      "releaseNotes": "兑换码开关独立于自动领取：关闭自动领取后，已开启的兑换码功能仍会运行，请按需关闭兑换码开关。兑换可能消耗欢乐豆。",
-      "packageUrl": "packages/daily-rewards/0.7.46.json",
-      "sha256": "2ff324076a40ea6390cd11144c7e5403912eab3a9d52226197e8fca606be8878"
+      "releaseNotes": "领取特惠礼包的免费礼盒后会联网核对限购状态。此前待确认的礼盒仅在确认仍可领取时补领一次。",
+      "packageUrl": "packages/daily-rewards/0.7.47.json",
+      "sha256": "5c2f553fe71e7c891875c1524929e679b94e0282c8413d7ece5eb818cfb6b2e6"
     },
     {
       "id": "seckill",
@@ -285,7 +285,7 @@
     {
       "id": "gaizhu",
       "name": "盖主速刷",
-      "version": "0.2.11",
+      "version": "0.2.14",
       "icon": {
         "paths": [
           "M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0",
@@ -304,9 +304,9 @@
         "baisheng"
       ],
       "description": "双人盖主速刷，以及身份、国战、单骑自动挂机。",
-      "releaseNotes": "同一账号同时使用盖主和百胜时，共用战功查询，避免重复请求。更新插件需要新版工具箱。点将和部分商店操作可能消耗道具或局内货币。",
-      "packageUrl": "packages/gaizhu/0.2.11.json",
-      "sha256": "881d8e2e312ba945ee7f9b7cc5f25a708efff9a5ca52794cdf8ee9638b4f456f"
+      "releaseNotes": "改进盖主房首局的座位检查、补位与同伴恢复。点将和部分商店操作可能消耗游戏道具或局内货币。",
+      "packageUrl": "packages/gaizhu/0.2.14.json",
+      "sha256": "36ffb82c64e8e0b6cf7e051cdb77fed1a7928dda84b43b28c6ef4031c11d5432"
     },
     {
       "id": "effects",
@@ -351,6 +351,28 @@
       "releaseNotes": "改进本地多形态皮肤对转换技阴阳状态切换的识别。素材按需联网加载，外服及导入皮肤仅自己可见或可听。",
       "packageUrl": "packages/skins/0.4.107.json",
       "sha256": "31afb0b9c5f56d99cc0de263fa18f3548ccc245e73457c4fdc80bf22fb081306"
+    },
+    {
+      "id": "poker-lobby",
+      "name": "三国斗地主",
+      "version": "0.3.54",
+      "icon": {
+        "paths": [
+          "M10 3h9a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM5 5 3 6a1.5 1.5 0 0 0-.8 1.8L5 20a2 2 0 0 0 2.4 1.5l1.6-.4",
+          "M14.5 7c1.5 2.2 3.5 3 3.5 4.8a1.8 1.8 0 0 1-3.5.6 1.8 1.8 0 0 1-3.5-.6c0-1.8 2-2.6 3.5-4.8ZM14.5 12.5V16M13 16h3"
+        ]
+      },
+      "priority": 65535,
+      "categories": [
+        "tools"
+      ],
+      "contractVersion": 1,
+      "minCoreVersion": "0.6.228",
+      "apiVersion": 1,
+      "description": "打开三国斗地主大厅、实战牌桌和历史录像。",
+      "releaseNotes": "在经典版活动场打开三国斗地主大厅，在工具栏开始匹配、切换牌桌或复制日志，也可在历史战绩播放录像。匹配须满足游戏开放条件。",
+      "packageUrl": "packages/poker-lobby/0.3.54.json",
+      "sha256": "e30a79496b3b0114fb00fcdf9e13bd86c5d4ae2fdf0ca80cf34dd04740607936"
     },
     {
       "id": "stargazing",

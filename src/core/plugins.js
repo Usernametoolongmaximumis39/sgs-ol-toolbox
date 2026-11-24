@@ -5,6 +5,7 @@ import { compilePackage, verifyPackage, validateManifest } from './packages.js';
 import { createNativeTheme } from '../ui/native-theme.js';
 import { normalizePanel, comparePluginOrder } from './plugin-contract.js';
 import { createPluginNative } from './plugin-native.js';
+import { createPokerTableCards } from './poker-table-cards.js';
 import { compareVersions } from '../market/updates.js';
 
 const replayYield = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -17,6 +18,7 @@ export class PluginManager {
     this.builtins = new Map(); this.slots = new Map(); this.tail = Promise.resolve(); this.errors = []; this.closed = false;
     this.initializing = true; this.storageError = ''; this.loadIssues = new Map(); this.bundledInstallIssues = new Map();
     this.priorityPlayActions = new Set();
+    this.pokerTableCards = createPokerTableCards(settings.namespace('cards'));
     this.eventRoutes = new Map(); this.eventSession = null;
     this.unsubscribe = journal.subscribe(event => this.dispatch(event));
   }
@@ -184,6 +186,15 @@ export class PluginManager {
     const canSelectSkinImage = () => id === 'skins' && skinShortcutEnabled() && context.backgrounds?.isActive?.('backgrounds') === true;
     const ctx = { ...context, ...(id === 'appearances' && devAppearanceSync ? { devAppearanceSync } : {}),
       ...(id === 'ledger' && devLedgerSync ? { devLedgerSync } : {}),
+      ...(id === 'poker-lobby' && { pokerTableCards: {
+        getSetting: (key, fallback) => scope.closed ? fallback : this.pokerTableCards.getSetting(key, fallback),
+        open: scene => {
+          if (scope.closed) return null;
+          const table = this.pokerTableCards.open(scene);
+          return table && { update: table.update, close: scope.add(table.close) };
+        },
+      } }),
+      ...(id === 'cards' && { pokerTableCards: { read: scene => scope.closed ? null : this.pokerTableCards.read(scene) } }),
       scope, settings: this.settings.namespace(id), storage: this.settings.namespace(id), getState: () => slot.state,
       subscribe: fn => {
         if (!slot.listeners.size) this.eventRoutes.clear();
@@ -254,7 +265,18 @@ export class PluginManager {
         setAnimated: enabled => { if (!scope.closed) this.context.backgrounds.setAnimated(id, enabled); },
         setSkinQuality: quality => { if (!scope.closed) this.context.backgrounds.setSkinQuality(id, quality); },
         get skinQualityAvailable() { return !scope.closed && thisContext.backgrounds.skinQualityAvailable === true; },
-        selectLocal: file => { if (!scope.closed) return this.context.backgrounds.selectLocal(id, file); },
+        selectLocal: (file, isCurrent) => {
+          if (!scope.closed) return this.context.backgrounds.selectLocal(id, file, { isCurrent });
+        },
+        listHistory: () => id === 'backgrounds' && !scope.closed ? context.backgrounds.history.list() : Promise.resolve([]),
+        restoreHistory: (key, options) => {
+          if (id === 'backgrounds' && !scope.closed) return context.backgrounds.restoreHistory(id, key, options);
+        },
+        cacheHistoryPreview: (key, image) => {
+          if (id === 'backgrounds' && !scope.closed) return context.backgrounds.history.cachePreview(key, image);
+        },
+        get historyError() { return id === 'backgrounds' && !scope.closed ? context.backgrounds.history.error : ''; },
+        get currentHistoryId() { return id === 'backgrounds' && !scope.closed ? context.backgrounds.currentHistoryId : null; },
         subscribe: fn => scope.closed ? () => {} : scope.add(this.context.backgrounds.subscribe(fn)),
         get current() { return thisContext.backgrounds.current; },
         get status() { return thisContext.backgrounds.status; },
@@ -284,16 +306,16 @@ export class PluginManager {
     catch (e) { scope.dispose(); slot.scope = null; throw e; }
   }
   deactivate(slot) { slot.scope?.dispose(); slot.scope = null; slot.active = false; slot.listeners.clear(); }
-  init() {
+  init(reconcileInstalled) {
     return this.serial(async () => {
-      try { await this.loadInstalled(); }
+      try { await this.loadInstalled(reconcileInstalled); }
       finally {
         this.initializing = false;
         if (!this.closed) this.onChange();
       }
     });
   }
-  async loadInstalled() {
+  async loadInstalled(reconcileInstalled) {
     let stored;
     try { stored = await this.store.list(); }
     catch (error) {
@@ -303,6 +325,11 @@ export class PluginManager {
     }
     if (this.closed) return;
     const records = new Map(stored.map(r => [r.id, r]));
+    if (reconcileInstalled) {
+      try { await reconcileInstalled(records, this.builtins, this.store); }
+      catch (error) { this.errors.push(error.message); }
+      if (this.closed) return;
+    }
     for (const id of new Set([...this.builtins.keys(), ...records.keys()])) {
       let record = records.get(id) || { id, active: null, previous: null, enabled: true, uninstalled: false };
       if (record.uninstalled) continue;

@@ -20,12 +20,13 @@ const trigger = (source, target, count, spell = 8, single = true) => ({ trigger:
 test('guards: a valid official Wuxie hint selects and confirms with or without an existing selection', () => {
   for (const select of [false, true]) {
     const f = fixture(), a = createAssistant(); f.cards[0].selected = select;
+    f.self.onTrusteeshipClick = () => assert.fail('trusteeship during Wuxie');
     f.self.CurStepHelpData = { cardIds: [13], buttonName: 'btnOK' };
     a.run(f.frame, 0);
     if (!select) a.run(f.frame, 250);
     a.run(f.frame, 1500);
     assert.deepEqual(f.calls, select ? ['btnOK'] : [['select', 13, true], 'btnOK']);
-    assert.equal(a.isTrustee(), false);
+    assert.equal(f.self.seat.IsAiControl, false);
   }
 });
 test('guards: all three native nullification skill locations are protected, missing cancel waits', () => {
@@ -87,6 +88,57 @@ test('guards: packet projection copies only bounded relevant fields, then native
   const incomplete = projectBattleGuard({ FirstTriggerParam: { SpellId: 13, SeatId: null, Targets: [null], Datas: [null] } });
   assert.ok([incomplete.source, incomplete.targets[0], incomplete.count].every(Number.isNaN));
 });
+
+test('Ice Sword keeps damage unless a confirmed unboosted normal Slash can strip key armor and the last card', () => {
+  for (const [boost, hp, hand, armor, observed, expected] of [
+    [0, 4, 1, 16, true, 'btnOK'],
+    [1, 4, 1, 16, true, 'btnCancel'],
+    [0, 1, 1, 16, true, 'btnCancel'],
+    [0, 2, 1, 16, true, 'btnCancel'],
+    [0, 4, 0, 16, true, 'btnCancel'],
+    [0, 4, 2, 16, true, 'btnCancel'],
+    [0, 4, 1, 89, true, 'btnCancel'],
+    [0, 4, 1, 16, false, 'btnCancel'],
+  ]) {
+    const f = fixture(0), guards = createBattleGuards();
+    f.self.seat.LastAskSkill = { ID: 201 };
+    f.frame.scene.seatContainer = { seatUIs: [{ Seat: {
+      Index: 2, Hp: hp, HandCardCount: hand, EquipCardCount: 1, EquipCards: [{ FirstSkillId: armor }],
+    } }] };
+    guards.recordPlay(0, 1, boost, [2]);
+    if (observed) guards.observe('GsCTriggerSpellNew', projectBattleGuard({ Protocol: {
+      SrcSpellID: 1, SrcSpellCasterSeat: 0, FirstTriggerParam: { SpellId: 201, SeatId: 0, Targets: [2] },
+    } }));
+    assert.equal(guards.run(f.frame, { official: true }).acted, true);
+    assert.deepEqual(f.calls, [expected]);
+  }
+});
+
+test('Ice Sword declines both the assistant hint and the local default, including a mixed native trigger menu', () => {
+  for (const hinted of [false, true]) {
+    const f = fixture(0);
+    f.self.Pt.txtOptMsg = { _innerHTML: '是否发动<font color="gold">寒冰剑</font>' };
+    if (hinted) f.self.CurStepHelpData = { target: f.self.Pt.btns[0] };
+    const a = createAssistant();
+    a.run(f.frame, 0);
+    a.run(f.frame, 2000);
+    assert.deepEqual(f.calls, ['btnCancel']);
+  }
+
+  const f = fixture(0), a = createAssistant();
+  const ice = { enabled: true, data: { callBackParams: [{ FirstTriggerParam: { SpellId: 201 } }] } };
+  const other = { enabled: true, data: { label: '其他技能' } };
+  f.self.spellSelector = { btnList: [ice, other], btnClick(button) {
+    f.calls.push(button);
+    this.visible = false;
+    f.self.Pt.visible = false;
+  } };
+  f.self.CurStepHelpData = { target: ice };
+  a.run(f.frame, 0);
+  a.run(f.frame, 1000);
+  assert.deepEqual(f.calls, [other]);
+});
+
 test('guards: forced discard selects exact count and preserves Peach/Shan/Wuxie before unlisted cards', () => {
   const f = fixture(0, { message: '需要弃置 2 张卡牌', SelectCountMax: 2 }), g = createBattleGuards();
   f.self.cardContainer.cardUis = [3,2,13,82,1,99,100].map(f.card);
@@ -125,16 +177,17 @@ test('guards: Jinlan uses official option index and exact native handler args on
   f.self.CurStepHelpData={optionIndex:1}; f.frame.nodes=[win];g.run(f.frame);g.run(f.frame);
   assert.deepEqual(picked,[['native-data',opts[1]]]);
 });
-test('guards: fallback-owned trustee releases once on leaving own turn, does not touch manual trustee', () => {
-  const f = fixture(0), a = createAssistant(), calls=[];
-  f.self.Pt.visible=false; f.self.cardContainer.AllSelectHandCards=undefined;
-  f.self.cardContainer.activatedCardtems=[{activated:true}]; f.self.cardContainer.cardUis=[];
-  f.self.onTrusteeshipClick=()=>{calls.push('toggle');};
-  for(const n of [0,1000,4000]) a.run(f.frame,n);
-  f.self.seat.IsAiControl=true; f.self.seat.InOwnRound=false;
-  for(const n of [4250,4500,8000]) a.run(f.frame,n);
-  assert.deepEqual(calls,['toggle','toggle']);
-  const manual=createAssistant();manual.run(f.frame,9000);assert.equal(calls.length,2);
+test('guards: the assistant waits for native trusteeship to turn off before handling a prompt', () => {
+  const f = fixture(13), a = createAssistant();
+  f.self.seat.IsAiControl = true;
+  f.self.onTrusteeshipClick = () => assert.fail('the run controller owns the switch');
+  f.self.CurStepHelpData = { cardIds: [13], buttonName: 'btnOK' };
+  for (const now of [0, 1000, 4000]) assert.equal(a.run(f.frame, now), false);
+  assert.deepEqual(f.calls, []);
+  f.self.seat.IsAiControl = false;
+  a.run(f.frame, 4250);
+  a.run(f.frame, 4500);
+  assert.deepEqual(f.calls, [['select', 13, true], 'btnOK']);
 });
 
 

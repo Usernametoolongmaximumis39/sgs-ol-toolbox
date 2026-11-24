@@ -164,6 +164,25 @@ test('snapshot reads actual card paths, separates seat from layout and excludes 
   assert.equal(game.isReplay(scene), false);
 });
 
+test('native poker is a live table with no ordinary slash count', () => {
+  const seat = { Index: 0, GetSeatState: () => ({ Targets: [0, 1] }) };
+  const self = { Seat: seat, cardContainer: { seat } };
+  const { game, layer } = setup({ sceneName: 'PokerTableGameScene', SelfSeatUi: self });
+  const poker = game.getSnapshot();
+  assert.equal(poker.inGame, true);
+  assert.equal(poker.isReplay, false);
+  assert.equal(poker.pokerTable, true);
+  assert.equal(game.getRemainingSlash(), null);
+
+  layer._children = [{ sceneName: 'PokerTableGameScene' }];
+  assert.equal(game.getSnapshot().inGame, true);
+  assert.equal(game.getSnapshot().pokerTable, true);
+
+  layer._children = [{ SceneName: 'DouDiZhu2023GameScene', SelfSeatUi: self }];
+  assert.equal(game.getSnapshot().pokerTable, undefined);
+  assert.equal(game.getRemainingSlash(), 1);
+});
+
 test('uppercase Card seeds definition provider with correct receiver and scene-scoped cache', () => {
   const definitions = { 1: { CardId: 1, CardName: '杀', FlowerOnSeat: 3, CardNumber: 7, CardType: 1 }, 2: { CardId: 2, Name: '闪', FlowerOnSeat: 2, CardNumber: 2, CardType: 1 } };
   class Card { static GetInstance(id) { assert.equal(this, Card); return definitions[id]; } }

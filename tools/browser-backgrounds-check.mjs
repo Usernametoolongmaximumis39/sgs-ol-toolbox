@@ -138,7 +138,7 @@ try {
       OnWeatherWallPaperChange() { native.effectPath='weather'; },
     };
     const seat = new Laya.EventDispatcher();
-    const registry = new Check.BackgroundRegistry({ window: { document, SystemContext: window.SystemContext, URL, Image, Blob, indexedDB, Laya: { ...Laya, stage: Laya.stage, loader: {
+    const registry = new Check.BackgroundRegistry({ window: { document, SystemContext: window.SystemContext, URL, Image, Blob, indexedDB, IDBKeyRange, Laya: { ...Laya, stage: Laya.stage, loader: {
       load(url, handler, progress, type) {
         if (url.startsWith('blob:')) Laya.loader.load(url, handler, progress, type);
         else handler.runWith(edgeTexture);
@@ -697,6 +697,17 @@ try {
   assert.equal(await page.evaluate(() => fixture.native.getChildByName('sgs-background-motion').getChildByName('fixture-idle').quality), 'low');
   assert.equal(await readSaved(importedCross.localImageId), false);
   await importedDialog.getByRole('button', { name: '关闭' }).click();
+  const history = await page.evaluate(() => fixture.registry.history.list());
+  const recentCross = history.find(entry => entry.source === '一将成名' && entry.name === importedCross.name);
+  const recentMobile = history.find(entry => entry.source === '移动版皮肤' && entry.name.endsWith('#1#2'));
+  assert.ok(recentCross?.preview.startsWith('data:image/'));
+  assert.ok(recentMobile?.preview.startsWith('data:image/'));
+  for (const entry of [recentCross, recentMobile]) {
+    await page.evaluate(id => fixture.registry.restoreHistory('backgrounds', id, { animated: true }), entry.id);
+    await page.waitForFunction(name => fixture.registry.current?.name === name && fixture.registry.status === '动态牌局背景已启用', entry.name);
+  }
+  assert.equal((await page.evaluate(() => fixture.registry.history.list())).length, history.length,
+    'switching to a previously used skin never duplicates history');
   await page.getByRole('button', { name: '静态', exact: true }).click();
 
   const qualityPanel = page.locator('#panel');

@@ -1,5 +1,5 @@
 import { read } from '../../shared/safe-read.js';
-import { configuredDailyFreeGift } from './daily-free-gift.js';
+import { configuredDailyFreeGift, DAILY_FREE_GIFT_ID, DAILY_FREE_GIFT_LABEL, dailyFreeGiftPriceIsZero, readDailyFreeGiftCount } from './daily-free-gift.js';
 import { purchaseSender } from './native-method.js';
 // Free native welfare rights only. Static evidence: docs/rewards-welfare-evidence.md.
 // No windows/managers are constructed and no paid draw count is used.
@@ -12,13 +12,15 @@ export const managerSpecs = {
   BlessManager: { events: ['ClientQifuRankRep', 'ClientUserDataCounterNtf', 21471], guard: value => 'CanFreeBless' in value && 'FreeBlessEndTime' in value },
   NewBlessManager: { events: ['decodeClientQiFuNewInfoResp', 'decodeClientQiFuNewData', 170138, 170144], guard: value => typeof value.CanFreeBless === 'function' && typeof value.sendQifuDrawReq === 'function' && typeof value.GetChangeInfoById === 'function' },
   GameGoodsManager: { events: ['ClientUserDataCounterNtf', 'DbsCcMovegoodsRep'], guard: value => typeof value.SendClientQifuReq === 'function' },
-  GameShopManager: { events: ['CcGoodsPriceRep', 'DbsCBuyShopogoodsRep', 'decodeCcGoodsHaveBuyCountRepV2', 20803], guard: value => typeof value.GetBuyMsg === 'function' && typeof value.CheckGoodsLimit === 'function' },
+  GameShopManager: { events: ['CcGoodsPriceRep', 'DbsCBuyShopogoodsRep', 'decodeCcGoodsHaveBuyCountRepV2', 20803, 100149], guard: value => typeof value.GetBuyMsg === 'function' && typeof value.CheckGoodsLimit === 'function' },
 };
 
 function rows(value, limit = 2048) {
   if (Array.isArray(value)) return value.slice(0, limit);
   return [];
 }
+const itemId = item => Number(read(() => item.goodsinfo.ID));
+const inSellTime = item => read(() => item.IsInSellTime()) === true;
 
 // PAGE_ITEM=4 is the native item page. Target sale views explicitly subscribe
 // GOODS_HAVE_BUY_COUNT and own originList/dataList. Read those exact callers,
@@ -26,12 +28,11 @@ function rows(value, limit = 2048) {
 export function freeShopEntries(adapter) {
   const shop = adapter.manager('GameShopManager');
   if (!shop || shop.destroyed === true) return [];
-  const entries = rows(read(() => shop.GetShopDataByType?.(4)));
+  const entries = rows(read(() => shop.GetShopDataByType?.(4))).filter(item => itemId(item) !== DAILY_FREE_GIFT_ID);
   // Target-sale goods live outside PAGE_ITEM. Read the existing native config
   // singleton, so free gifts remain discoverable before their sale page opens.
   const sales = read(() => adapter.manager('Shop_json'));
   if (sales?.destroyed !== true) entries.push(...rows(read(() => sales?.GetTargetSaleConfigs?.())));
-  entries.push(...configuredDailyFreeGift(adapter, shop));
   const handlers = read(() => shop._events?.GOODS_HAVE_BUY_COUNT);
   for (const handler of (Array.isArray(handlers) ? handlers : [handlers]).slice(0, 32)) {
     const caller = read(() => handler?.caller);
@@ -42,10 +43,13 @@ export function freeShopEntries(adapter) {
       (typeof caller.updateItems !== 'function' && typeof caller.updateList !== 'function')) continue;
     entries.push(...rows(caller.originList));
   }
+  const dailyEntries = entries.filter(item => itemId(item) === DAILY_FREE_GIFT_ID);
+  const dailyGift = dailyEntries.find(inSellTime) || dailyEntries[0] || configuredDailyFreeGift(adapter)[0];
+  if (!dailyEntries.length && dailyGift) entries.push(dailyGift);
   const seen = new Set();
   return entries.filter(item => {
-    const id = Number(read(() => item.goodsinfo.ID));
-    if (!positive(id) || seen.has(id)) return false;
+    const id = itemId(item);
+    if (!positive(id) || seen.has(id) || (id === DAILY_FREE_GIFT_ID && item !== dailyGift)) return false;
     seen.add(id); return true;
   });
 }
@@ -57,14 +61,21 @@ function zeroCost(item) {
   return !['lotteryPrice', 'glory', 'gouyu', 'mentor', 'Bless', 'exchangeCount', 'ConsumeItemCount'].some(key => Number(goods[key]) > 0);
 }
 
+function dailyGiftOnSale(shop, item) {
+  return itemId(item) === DAILY_FREE_GIFT_ID && !item.jumpId && zeroCost(item) &&
+    Number(item.goodsinfo.TypeID) === 43 && Number(item.goodsinfo.pricetype) === 140 &&
+    Number(item.goodsinfo.LimitNums) === 1 && inSellTime(item) && read(() => item.CanBuy) === true && dailyFreeGiftPriceIsZero(shop);
+}
+
 function ready(shop, item) {
   const goods = read(() => item.goodsinfo);
   return shop?.destroyed !== true && shop?.IsDataReady === true && zeroCost(item) &&
     typeof shop.IsTargetSaleCountReady === 'function' && read(() => shop.IsTargetSaleCountReady(goods)) === true &&
     typeof shop.CheckGoodsLimit === 'function' && read(() => shop.CheckGoodsLimit(goods)) === false &&
-    typeof item?.IsInSellTime === 'function' && read(() => item.IsInSellTime()) === true && read(() => item.CanBuy) === true &&
+    inSellTime(item) && read(() => item.CanBuy) === true &&
     (typeof shop.IsTargetSaleGoodsRed !== 'function' || read(() => shop.IsTargetSaleGoodsRed(item)) === true) &&
-    (typeof shop.IsDailyFreeGoodsCanBuy !== 'function' || read(() => shop.IsDailyFreeGoodsCanBuy(goods.ID)) === true);
+    (Number(goods.ID) === DAILY_FREE_GIFT_ID ? dailyGiftOnSale(shop, item) :
+      typeof shop.IsDailyFreeGoodsCanBuy !== 'function' || read(() => shop.IsDailyFreeGoodsCanBuy(goods.ID)) === true);
 }
 
 export function buildFreeShopMessage(shop, id, priceType = 2) {
@@ -81,27 +92,40 @@ export function buildFreeShopMessage(shop, id, priceType = 2) {
   return message;
 }
 
-export async function prepareFreeWelfare(adapter, selected = {}) {
-  if (!selected.welfare || !valid(adapter)) return;
-  const shop = adapter.manager('GameShopManager');
-  if (!shop || shop.IsDataReady !== true) return;
-  // Ordinary activity sale rows are not GetTargetSaleConfigs() entries and
-  // their config singleton is closed over on current clients.
-  await Promise.allSettled(['sys_h5_shop.sgs', 'sys_gs_dbs_fs_goodsbaseinfo.sgs'].map(name => adapter.loadConfig?.(name)));
-  if (!valid(adapter)) return;
-  if (!shop || shop.IsDataReady !== true || typeof shop.SendCcGoodsHaveBuyCountReqV2 !== 'function' || typeof shop.IsTargetSaleCountReady !== 'function' || typeof shop.on !== 'function' || typeof shop.off !== 'function') return;
-  const ids = freeShopEntries(adapter).filter(item => zeroCost(item) && read(() => item.IsInSellTime()) === true &&
-    read(() => shop.IsTargetSaleCountReady(item.goodsinfo)) === false).map(item => Number(item.goodsinfo.ID)).slice(0, 100);
+async function prepareOtherFreeShopCounts(adapter, shop, entries) {
+  if (typeof shop.SendCcGoodsHaveBuyCountReqV2 !== 'function' || typeof shop.IsTargetSaleCountReady !== 'function' ||
+      typeof shop.on !== 'function' || typeof shop.off !== 'function') return;
+  const items = entries.filter(item => itemId(item) !== DAILY_FREE_GIFT_ID && zeroCost(item) && inSellTime(item) &&
+    read(() => shop.IsTargetSaleCountReady(item.goodsinfo)) === false).slice(0, 100);
+  const ids = items.map(itemId);
   if (!ids.length || !valid(adapter)) return;
   await new Promise(resolve => {
     const caller = {}; let timer, ended = false;
     const finish = () => { if (ended) return; ended = true; clearTimeout(timer); read(() => shop.off('GOODS_HAVE_BUY_COUNT', caller, check)); adapter.signal?.removeEventListener('abort', finish); resolve(); };
-    const check = () => { if (!valid(adapter) || ids.every(id => { const entry = freeShopEntries(adapter).find(item => Number(item.goodsinfo.ID) === id); return entry && shop.IsTargetSaleCountReady(entry.goodsinfo) === true; })) finish(); };
+    const check = () => { if (!valid(adapter) || items.every(item => read(() => shop.IsTargetSaleCountReady(item.goodsinfo)) === true)) finish(); };
     shop.on('GOODS_HAVE_BUY_COUNT', caller, check); adapter.signal?.addEventListener('abort', finish, { once: true });
     timer = setTimeout(finish, 1600);
     if (!valid(adapter)) return finish();
     try { shop.SendCcGoodsHaveBuyCountReqV2(ids); } catch { finish(); }
   });
+}
+
+export async function prepareFreeWelfare(adapter, selected = {}) {
+  if (!selected.welfare || !valid(adapter)) return null;
+  const shop = adapter.manager('GameShopManager');
+  if (shop?.IsDataReady !== true) return null;
+  // Ordinary activity sale rows are not GetTargetSaleConfigs() entries and
+  // their config singleton is closed over on current clients.
+  await Promise.allSettled(['sys_h5_shop.sgs', 'sys_gs_dbs_fs_goodsbaseinfo.sgs'].map(name => adapter.loadConfig?.(name)));
+  if (!valid(adapter) || adapter.manager('GameShopManager') !== shop || shop.IsDataReady !== true) return null;
+  const entries = freeShopEntries(adapter);
+  const attempt = selected.dailyFreeGiftAttempt;
+  const checkGift = attempt?.status !== 'confirmed' && (attempt || entries.some(item => dailyGiftOnSale(shop, item)));
+  const [giftCount] = await Promise.all([
+    checkGift ? readDailyFreeGiftCount(adapter, shop) : null,
+    prepareOtherFreeShopCounts(adapter, shop, entries),
+  ]);
+  return giftCount;
 }
 
 export function planFreeWelfare(adapter, selected = {}) {
@@ -143,30 +167,46 @@ export function planFreeWelfare(adapter, selected = {}) {
   if (typeof shop?.GetBuyMsg !== 'function' || !purchaseSender(transport)) return { actions, notes };
   for (const item of freeShopEntries(adapter)) {
     if (!ready(shop, item)) continue;
-    const goods = item.goodsinfo, id = Number(goods.ID), before = Number(read(() => shop.GetLimitGoodsBuyCount(id)));
+    const goods = item.goodsinfo, id = itemId(item), before = Number(read(() => shop.GetLimitGoodsBuyCount(id)));
     if (!Number.isSafeInteger(before) || before < 0) continue;
-    const current = () => freeShopEntries(adapter).find(entry => Number(read(() => entry.goodsinfo.ID)) === id);
-    const eligible = () => valid(adapter) && adapter.manager('GameShopManager') === shop && shop.proxy === transport &&
+    const dailyGift = id === DAILY_FREE_GIFT_ID;
+    const giftCount = selected.dailyFreeGiftCount;
+    if (dailyGift && (before !== 0 || giftCount?.count !== 0 || !giftCount.current())) continue;
+    const current = () => freeShopEntries(adapter).find(entry => itemId(entry) === id);
+    const sameShop = () => valid(adapter) && adapter.manager('GameShopManager') === shop && shop.proxy === transport &&
+      (!dailyGift || giftCount.current());
+    const eligible = () => sameShop() && (!dailyGift || transport.cacheStarted !== true) &&
       ready(shop, current()) && Number(shop.GetLimitGoodsBuyCount(id)) === before;
     const response = event => event?.Protocol;
     const proxy = adapter.proxy?.() || transport;
+    if (dailyGift && !eligible()) continue;
     actions.push({
-      key: `welfare:free-shop:${id}:${before}`, category: 'welfare', label: `免费礼盒 ${goods.name || id}`, manager: shop,
+      key: `welfare:free-shop:${id}:${before}`, category: 'welfare', label: dailyGift ? DAILY_FREE_GIFT_LABEL : `免费礼盒 ${goods.name || id}`, manager: shop,
       workflowGroup: `free-shop:${id}`, rewards: [{ ItemID: id, ItemName: String(goods.name || '免费礼盒') }, ...rows(goods.ReturnGoodsArr)],
-      eligible, done: () => Number(read(() => shop.GetLimitGoodsBuyCount(id))) > before,
-      flowVersion: 2,
+      eligible, done: () => sameShop() && Number(read(() => shop.GetLimitGoodsBuyCount(id))) > before,
+      flowVersion: dailyGift ? 3 : 2,
+      ...(dailyGift ? {
+        skipUnsent: true,
+        unconfirmedText: '未收到领取回执，工具箱会核对今日游戏限购记录。',
+        refreshClaimState: () => { if (sameShop()) shop.SendCcGoodsHaveBuyCountReqV2([id]); },
+      } : {}),
       send: () => {
         if (!eligible()) return false;
         const send = purchaseSender(transport);
         if (!send) return false;
-        const message = buildFreeShopMessage(shop, id, Number(current()?.goodsinfo?.pricetype) === 140 ? 140 : 2);
-        return message && eligible() ? send(message) : false;
+        const message = read(() => buildFreeShopMessage(shop, id, Number(current()?.goodsinfo?.pricetype) === 140 ? 140 : 2));
+        if (!message || !eligible()) return false;
+        const result = send(message);
+        return dailyGift && result === false ? undefined : result;
       },
       confirmations: [
-        { manager: shop, event: 'SHOP_BUY_ITEM', accept: value => Number(Array.isArray(value) ? value[0] : value) === id },
-        { manager: proxy, event: 'DbsCBuyShopogoodsRep', accept: event => Number(response(event)?.GoodsBaseID) === id && response(event)?.Result === 1 },
+        { manager: shop, event: 'SHOP_BUY_ITEM', accept: value => sameShop() && Number(Array.isArray(value) ? value[0] : value) === id },
+        { manager: proxy, event: 'DbsCBuyShopogoodsRep', accept: event => sameShop() && Number(response(event)?.GoodsBaseID) === id && response(event)?.Result === 1 },
       ],
-      rejections: [{ manager: proxy, event: 'DbsCBuyShopogoodsRep', accept: event => Number(response(event)?.GoodsBaseID) === id && Number.isInteger(response(event)?.Result) && response(event).Result > 1 }],
+      rejections: [{ manager: proxy, event: 'DbsCBuyShopogoodsRep',
+        accept: event => sameShop() && Number(response(event)?.GoodsBaseID) === id && Number.isInteger(response(event)?.Result) && response(event).Result > 1,
+        ...(dailyGift ? { text: event => `游戏回复领取失败（错误码 ${response(event).Result}），将核对今日限购记录。` } : {}),
+      }],
     });
   }
   return { actions, notes };

@@ -1,6 +1,6 @@
 import { read } from '../../shared/info-runtime.js';
 import { nativeSeat, nativeSeatId } from '../../core/seat.js';
-import { EXTRA_IDS, EXTRA_NAMES, skillKind, model, selected, available, red, black, skillId, equip, nonBasic, select,
+import { EXTRA_IDS, EXTRA_NAMES, EXTRA_SKILLS, skillKind, model, selected, available, red, black, skillId, equip, nonBasic, select,
   miuyanCard, longyinCard, pojunCards, wuniangCard } from './strategies.js';
 
 const list = value => Array.isArray(value) ? value.slice(0,256) : [];
@@ -61,8 +61,9 @@ export function createExtended(ctx, api) {
   function windows(s) {
     if (!api.hasKind('pojun') && !api.hasKind('luoying') && !api.hasKind('wuniang')) return false;
     for (const win of windowNodes(s)) {
-      const kind = win.name === 'LuoYingSelectCardWindow' ? 'luoying' : skillKind(id(win.Skill));
-      if (!['luoying','pojun','wuniang'].includes(kind) || !api.hasKind(kind)) continue;
+      const skill = win.name === 'LuoYingSelectCardWindow' ? EXTRA_SKILLS.luoying[0] : id(win.Skill);
+      const kind = skillKind(skill);
+      if (!['luoying','pojun','wuniang'].includes(kind) || !api.locked(skill)) continue;
       let entry = revisions.get(win);
       if (!entry) {
         entry = {revision:0,submitted:-1}; revisions.set(win,entry);
@@ -104,12 +105,35 @@ export function createExtended(ctx, api) {
     }
     return false;
   }
+  function namedSkillId(s, kind, ids) {
+    const variants = EXTRA_SKILLS[kind];
+    const confirm = s.self.SpellTouch_ConfirmResult;
+    const callbacks = s.barNode?.resultFuncs;
+    // The native ask bar uses the skill passed to StartSelectSkillItem. The hand context can still refer to a previous prompt.
+    if (!s.self.spellSelector?.visible && s.askedSkillId > 0 && typeof confirm === 'function' &&
+        Array.isArray(callbacks) && callbacks.includes(confirm)) {
+      return variants.includes(s.askedSkillId) ? s.askedSkillId : undefined;
+    }
+    const owned = new Set();
+    for (const item of list(s.self.skillItems)) {
+      const skill = id(item?.Skill);
+      if (!item?.destroyed && skill > 0 && (variants.includes(skill) || item.Skill.Name === EXTRA_NAMES[kind])) owned.add(skill);
+    }
+    const matching = new Set(ids.filter(skill => variants.includes(skill) || owned.has(skill)));
+    const candidates = matching.size ? matching : owned;
+    const [skill] = candidates;
+    if (candidates.size === 1 && variants.includes(skill) && (!owned.size || owned.has(skill))) return skill;
+  }
   function run(s, context, currentMessage, source, currentSeat, gc) {
     if (windows(s)) return true;
     const selector=s.self.spellSelector, targetContext=s.scene.seatContainer?.selectContext;
     const ids=[selector?.visible ? id(selector.spell) : 0,id(context?.Skill),Number(context?.SpecifySkillId),id(targetContext?.Skill)];
-    const active=(api.hasKind('wuniang') && /^是否失去1点体力重置镇南[？?]?$/.test(text(currentMessage)) ? 3796 : 0) || ids.find(n=>EXTRA_IDS.includes(n) && api.locked(n)) ||
-      EXTRA_IDS.find(n=>api.locked(n) && text(currentMessage).startsWith('是否发动'+EXTRA_NAMES[skillKind(n)]));
+    const plain = text(currentMessage);
+    const namedKind = Object.keys(EXTRA_NAMES).find(kind => plain.startsWith('是否发动' + EXTRA_NAMES[kind]));
+    let active;
+    if (namedKind) active = namedSkillId(s, namedKind, ids);
+    else if (/^是否失去1点体力重置镇南[？?]?$/.test(plain) && api.hasKind('wuniang')) active = 3796;
+    else active = ids.find(n=>EXTRA_IDS.includes(n) && api.locked(n));
     if (selector?.visible) {
       const triggerId=d=>Number(d.callBackParams?.[0]?.FirstTriggerParam?.SpellId ?? d.callBackParams?.[0]?.TriggerSpellData?.[0]?.SpellId);
       const forbidden=n=>skillKind(n)==='yingyuan' || skillKind(n)==='longyin' && !redShaOwnTurn(s,source,currentSeat);
@@ -119,8 +143,9 @@ export function createExtended(ctx, api) {
         return true;
       }
     }
-    if (!active) return false;
-    const kind=skillKind(active), plain=text(currentMessage), all=cards(s);
+    // A named ask with an unlocked or ambiguous version must stay manual, including the generic confirm path.
+    if (!api.locked(active)) return Boolean(!selector?.visible && namedKind && api.hasKind(namedKind));
+    const kind=skillKind(active), all=cards(s);
     if (kind==='yingyuan') { decline(s); return true; }
     if (selector?.visible) {
       if (kind==='baichu') api.choice(s,d=>Number(d.sendData)===1 && /摸/.test(text(d.label)));

@@ -388,6 +388,15 @@ test('gaizhu: the replay guard stops before native actions on current and older 
   }
 });
 
+test('gaizhu stops before native actions on the live poker table', t => {
+  const f = fixture(t);
+  f.scene({ ...f.game, name: 'PokerTableGameScene' });
+  f.controller.setOptions({ role: 'host' });
+  assert.equal(f.controller.snapshot().role, 'off');
+  assert.match(f.controller.snapshot().error, /三国斗地主牌局/);
+  assert.deepEqual(f.calls, []);
+});
+
 test('gaizhu: errors retain complete stack and no further actions occur', t => {
   const f = fixture(t); f.mgr.clearFigureState = () => { throw new Error('fixture complete diagnostic ' + 'detail '.repeat(100)); };
   f.controller.setOptions({ role: 'host' }); assert.equal(f.controller.snapshot().role, 'off');
@@ -859,10 +868,14 @@ test('gaizhu: training ignores point modes, selects recommended general, shops a
   assert.match(f.controller.snapshot().error, /离开单骑人机/);
 });
 
-test('training allows own-turn fallback before twenty seconds as soon as the mulligan is closed', t => {
+test('training starts local responses after the mulligan and releases inherited trusteeship', t => {
   const f = fixture(t), getClass = f.ctx.game.getClass;
   f.ctx.game.getClass = name => name === 'GameContext' ? { GetModeVO: () => ({ ModeID: 160, Section: 3 }) } : getClass(name);
   f.game.SelfSeatUi.seat.InOwnRound = true;
+  f.game.SelfSeatUi.buttonBar = { visible: true, btns: [{ name: 'btnCancel', enabled: true, onClick() {
+    f.calls.push('optional-cancel');
+    this.enabled = false;
+  } }] };
   const mulligan = { name: 'ShouQiKaAskWindow', CloseWin() { f.calls.push('decline-mulligan'); } };
   f.game._children = [mulligan];
   f.scene(f.game);
@@ -874,7 +887,12 @@ test('training allows own-turn fallback before twenty seconds as soon as the mul
   f.advance();
   f.advance(1000);
   f.advance(3000);
+  assert.equal(f.calls.filter(call => call === 'optional-cancel').length, 1);
+  assert.ok(!f.calls.includes('trustee'));
+  f.game.SelfSeatUi.seat.IsAiControl = true;
+  f.advance();
   assert.equal(f.calls.filter(call => call === 'trustee').length, 1);
+  assert.equal(f.game.SelfSeatUi.seat.IsAiControl, false);
 });
 
 test('training counts a mounted result without GameOver, then advances through the lobby to a fresh game', async t => {
