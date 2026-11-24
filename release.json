@@ -1,5 +1,5 @@
 {
-  "version": "0.6.265",
+  "version": "0.6.266",
   "editions": {
     "full": {
       "bytes": 2790294,
@@ -97,8 +97,8 @@
     },
     {
       "id": "poker-lobby",
-      "version": "0.3.54",
-      "sha256": "e30a79496b3b0114fb00fcdf9e13bd86c5d4ae2fdf0ca80cf34dd04740607936"
+      "version": "0.3.55",
+      "sha256": "6ce41b02f95a0eb450785af7a1673a7be47538a5308141762d7064cda526e5cc"
     },
     {
       "id": "stargazing",

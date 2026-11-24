@@ -2,6 +2,7 @@ import { ResourceScope } from '../../core/resources.js';
 import { POKER_TABLE_SCENE } from '../../shared/poker-table-mode.js';
 import { read } from '../../shared/safe-read.js';
 import { mountPokerMatch, pokerMatchPlatform } from './native-match.js';
+import { mountPokerForcedMatch } from './forced-match.js';
 import { canSwitchPokerLiveTable, openPokerLiveTable } from './live/native-table.js';
 import { openNativePokerPool } from './native-pool.js';
 import { openPokerRankWindow, openPokerStatsWindow } from './native-windows.js';
@@ -15,7 +16,6 @@ const STOCK_BUTTONS = ['zgs_rank_tex', 'zgs_general_tex', 'zgs_win_info_tex'];
 const STOCK_ONLY = ['pMethodPanel', 'sprBigTab', 'sprJbs', 'enterTips', 'relaxedSprite',
   'joinBtn', 'cancelBtn', 'awardBtn', 'gotoBtn', 'gotoTxt', 'lbOpenTime'];
 const MATCH_UI = ['matchEffect', 'timeUI', 'punishTImeTxt'];
-const REMASTERED_GUIDE = 'GoToU3dWindow';
 const MATCH_SUCCESS_HOLD_MS = 2000;
 const MATCH_LOG_LIMIT = 40;
 const matchSuccessTimes = new WeakMap();
@@ -48,71 +48,28 @@ function afterLayout(scope, scene, Laya, owner, update) {
   }
 }
 
-function setMatchAppearance(scope, button, guide) {
-  const wasGrey = button.keepGray ?? button.Gray;
-  const grey = !guide;
-  button.Gray = grey;
-  scope.add(() => {
-    if (!button.destroyed && (button.keepGray ?? button.Gray) === grey) button.Gray = wasGrey;
-  });
-  const word = button.WordTex;
-  if (guide) {
-    if (word && typeof word === 'object') saveProperty(scope, word, 'visible', false);
-    if ('labelSize' in button) saveProperty(scope, button, 'labelSize', 20);
-    saveProperty(scope, button, 'label', '前往重制版');
-    return;
-  }
-  if (!word || typeof word !== 'object' || !('texture' in word)) {
-    saveProperty(scope, button, 'WordTex', 'start_match_words');
-    return;
-  }
-  const texture = word.texture;
-  button.WordTex = 'start_match_words';
-  const placeholder = word.texture;
-  scope.add(() => {
-    if (button.destroyed || word.destroyed || word.texture !== placeholder) return;
-    word.texture = texture;
-    button.relayoutWordTex?.();
-  });
-}
-
-function mountUnavailableMatch(ctx, scope, scene, Laya, mode, active) {
+// Neither the stock flow nor a direct request can run on this client.
+function mountDisabledMatch(scope, scene) {
   const button = scene.startBtn;
-  const remastered = pokerMatchPlatform(scene.rc, mode) === 'remastered';
-  const dispatcher = remastered ? ctx.game.getDispatcher() : null;
-  const guide = typeof dispatcher?.ShowWindowAfterCloseOther === 'function'
-    && typeof ctx.game.getClass(REMASTERED_GUIDE) === 'function' && 'label' in button;
-  const updateMatch = () => {
+  const wasGrey = button.keepGray ?? button.Gray;
+  const update = () => {
     button.visible = true;
-    button.enabled = button.mouseEnabled = guide;
-    button.Gray = !guide;
-    if (!guide) button.WordTex = 'start_match_words';
+    button.enabled = button.mouseEnabled = false;
+    button.Gray = true;
+    if (!('label' in button)) button.WordTex = 'start_match_words';
   };
   saveProperty(scope, button, 'visible', true);
-  saveProperty(scope, button, 'enabled', guide);
-  saveProperty(scope, button, 'mouseEnabled', guide);
-  setMatchAppearance(scope, button, guide);
-  const match = () => { if (guide && active()) dispatcher.ShowWindowAfterCloseOther(REMASTERED_GUIDE, null); };
-  if (guide) nativeListener(scope, button, Laya.Event.CLICK, scope, match);
+  saveProperty(scope, button, 'enabled', false);
+  saveProperty(scope, button, 'mouseEnabled', false);
+  if ('label' in button) saveProperty(scope, button, 'label', '暂不可用');
+  scope.add(() => { if (!button.destroyed && (button.keepGray ?? button.Gray) === true) button.Gray = wasGrey; });
+  update();
   if (typeof scene.UpdateBtnStatus === 'function') scope.patch(scene, 'UpdateBtnStatus', original => function (...args) {
     const result = Reflect.apply(original, this, args);
-    updateMatch();
+    update();
     return result;
   });
-  const notice = new Laya.Text();
-  notice.name = 'sgs-poker-lobby-match-placeholder';
-  notice.text = remastered ? '经典版未开放' : '暂未开放';
-  notice.fontSize = 16;
-  notice.stroke = 2;
-  notice.align = 'center';
-  notice.mouseEnabled = false;
-  notice.zOrder = button.zOrder;
-  notice.size(button.width, 25);
-  scene.addChild(notice);
-  afterLayout(scope, scene, Laya, notice, () => notice.pos(button.x, button.y + button.height + 2));
-  scope.add(ctx.ui.nativeTheme.bind(notice, { color: 'text', strokeColor: 'shadow' }));
-  scope.add(() => { if (!notice.destroyed) notice.destroy(true); });
-  return { match, enabled: guide, label: guide ? '前往重制版' : '开始匹配', status: notice.text };
+  return { match() {}, enabled: false, assigned: false, label: '开始匹配', status: '当前客户端无法发起三国斗地主匹配。' };
 }
 
 function mountArt(scope, Laya, scene) {
@@ -192,15 +149,19 @@ function mountLobby(ctx, scene, Laya, sameSession, stop, mode, log) {
       });
     }
     const matchBound = mountPokerMatch(ctx, scope, scene, click, mode, active, log);
-    for (const key of matchBound ? STOCK_ONLY : [...STOCK_ONLY, ...MATCH_UI]) {
+    // Only use the test path for a confirmed PC restriction, not for a
+    // missing or incompatible native matcher.
+    const forced = !matchBound && pokerMatchPlatform(scene.rc, mode) === 'remastered'
+      && mountPokerForcedMatch(ctx, scope, scene, click, active, log);
+    for (const key of matchBound || forced ? STOCK_ONLY : [...STOCK_ONLY, ...MATCH_UI]) {
       const node = scene[key];
       if (!node) continue;
       saveProperty(scope, node, 'alpha', 0);
       saveProperty(scope, node, 'visible', false);
       saveProperty(scope, node, 'mouseEnabled', false);
     }
-    const actionsForMatch = matchBound || mountUnavailableMatch(ctx, scope, scene, Laya, mode, active);
-    log(matchBound ? '已进入经典版大厅' : actionsForMatch.status);
+    const actionsForMatch = matchBound || forced || mountDisabledMatch(scope, scene);
+    log(matchBound ? '已进入经典版大厅' : forced ? '经典版未开放，直接请求匹配' : actionsForMatch.status);
 
     const actions = [openPokerRankWindow, openNativePokerPool, openPokerStatsWindow];
     const stockAction = scene.onBtnClick;

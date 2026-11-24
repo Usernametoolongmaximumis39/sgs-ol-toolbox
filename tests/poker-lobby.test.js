@@ -19,7 +19,9 @@ class NativeNode {
   destroy() { this.destroyed = true; }
 }
 
-function fixture({ matching = false, forbidden = false, guide = false } = {}) {
+// `label` models the stock button that can show text; without it the plugin
+// cannot ask for confirmation on the canvas and keeps the button disabled.
+function fixture({ matching = false, forbidden = false, label = false, session = false } = {}) {
   const scope = new ResourceScope();
   const calls = [];
   const stock = {
@@ -34,7 +36,7 @@ function fixture({ matching = false, forbidden = false, guide = false } = {}) {
     UpdateBtnStatus() { Object.assign(this.startBtn, { enabled: true, visible: false, WordTex: 'ordinary_word' }); },
     addChild(node) { this.notice = node; },
   };
-  if (guide) stock.startBtn.label = '';
+  if (label) Object.assign(stock.startBtn, { label: '', labelSize: 17 });
   for (const button of stock.btnList) button.on('click', stock, stock.onBtnClick);
   stock.startBtn.on('click', stock, stock.startMatchHandlerCheck);
   const listeners = new Map();
@@ -52,6 +54,7 @@ function fixture({ matching = false, forbidden = false, guide = false } = {}) {
     stock.rc = Object.assign(new NativeNode(), {
       proxy, TableId: 0, CanSendEnterPage: true, IsGameStart: false,
       IsForbidInPC: () => forbidden,
+      Ft(...args) { requests.push(['ready', ...args]); },
     });
     stock.adManager = {
       proxy, IsMatching: false,
@@ -72,12 +75,14 @@ function fixture({ matching = false, forbidden = false, guide = false } = {}) {
     stock.BackBtnClickHandler = () => false;
   }
   let scene = stock, account = '11', sceneChanged;
+  const window = { Laya: { stage: new NativeNode(), Event: { CLICK: 'click', RESIZE: 'resize' }, Text: NativeNode },
+    ...(session ? { sessionStorage: { value: null, getItem() { return this.value; }, setItem(key, value) { this.value = value; } } } : {}) };
   const ctx = {
-    scope, window: { Laya: { stage: new NativeNode(), Event: { CLICK: 'click', RESIZE: 'resize' }, Text: NativeNode } },
+    scope, window,
     game: {
       getScene: () => scene, isInGame: () => false,
       getServerProxy: () => proxy,
-      getClass: name => name === 'RankWindow' || (guide && name === 'GoToU3dWindow') ? class NativeWindow {} : null,
+      getClass: name => name === 'RankWindow' || name === 'GoToU3dWindow' ? class NativeWindow {} : null,
       getDispatcher: () => ({ ShowWindowAfterCloseOther: (...args) => calls.push(args) }),
       onSceneChange(fn) { sceneChanged = fn; return () => { sceneChanged = null; }; },
     },
@@ -85,7 +90,7 @@ function fixture({ matching = false, forbidden = false, guide = false } = {}) {
     ui: { nativeTheme: { bind: () => () => {} } },
     notify: text => calls.push(['notice', text]),
   };
-  return { calls, scope, stock, lobby: createNativeLobby(ctx), requests, mode, listeners,
+  return { calls, scope, stock, window, lobby: createNativeLobby(ctx), requests, mode, listeners, proxy,
     reply(Id, data) {
       if (Id === 20546) {
         if (data.opType === 1) stock.adManager.IsMatching = data.result === 1;
@@ -106,13 +111,17 @@ test('大厅复用普通斗地主控件，排行走原生分类 51，匹配和�
     assert.equal(stock.topView.nameTxt.text, '三国斗地主');
     assert.equal(stock.currnetModeType, 3);
     assert.equal(stock.pMethodPanel.visible, false);
-    assert.equal(stock.notice.text, '暂未开放');
+    assert.equal(stock.notice, undefined);
+    assert.equal(lobby.actions().status, '当前客户端无法发起三国斗地主匹配。');
+    assert.equal(lobby.actions().enabled, false);
     stock.startBtn.event('click');
+    lobby.actions().match();
     stock.startMatchHandlerCheck();
     stock.UpdateBtnStatus();
     assert.equal(stock.startBtn.enabled, false);
     assert.equal(stock.startBtn.visible, true);
     assert.equal(stock.startBtn.WordTex, 'start_match_words');
+    assert.deepEqual(calls, []);
     rank.event('click');
     assert.deepEqual(calls, [['RankWindow', null, 51]]);
   } finally { scope.dispose(); }
@@ -131,7 +140,7 @@ test('离开场景恢复普通斗地主原生行为，未登录不会改动大�
     ui.leave();
     assert.equal(ui.stock.topView.nameTxt.text, '斗地主');
     assert.equal(ui.stock.pMethodPanel.visible, true);
-    assert.equal(ui.stock.notice.destroyed, true);
+    assert.equal(ui.stock.notice, undefined);
     ui.stock.startBtn.event('click');
     ui.stock.btnList[0].event('click');
     assert.deepEqual(ui.calls.slice(1), [['match'], ['ordinary', 'zgs_rank_tex']]);
@@ -201,34 +210,169 @@ test('三国斗地主等待原生入场回复，并用同一个原生按钮开�
   assert.equal(f.lobby.matchLog(), '');
 });
 
-test('经典版原生场次不开放时，匹配按钮保留禁用提示且无原生请求', t => {
+test('经典版限制入场且按钮无法显示确认时，匹配按钮禁用且无原生请求', t => {
   const f = fixture({ matching: true, forbidden: true });
   t.after(() => f.scope.dispose());
   f.lobby.open(f.mode);
-  assert.equal(f.stock.notice.text, '经典版未开放');
+  assert.equal(f.stock.notice, undefined);
   assert.equal(f.stock.startBtn.enabled, false);
+  assert.equal(f.stock.startBtn.WordTex, 'start_match_words');
+  assert.equal(f.lobby.actions().enabled, false);
+  assert.equal(f.lobby.actions().status, '当前客户端无法发起三国斗地主匹配。');
   f.stock.startBtn.event('click');
+  f.lobby.actions().match();
   assert.deepEqual(f.requests, []);
+  assert.deepEqual(f.calls, []);
   assert.equal(f.listeners.size, 0);
 });
 
-test('经典版限制入场时，原匹配按钮打开官方重制版指引', t => {
-  const f = fixture({ matching: true, forbidden: true, guide: true });
+test('经典版限制入场时，原匹配按钮确认后直接发起匹配，不再打开重制版指引', t => {
+  const f = fixture({ matching: true, forbidden: true, label: true });
   t.after(() => f.scope.dispose());
-  f.lobby.open();
-  assert.equal(f.stock.notice.text, '经典版未开放');
-  assert.equal(f.stock.startBtn.label, '前往重制版');
-  f.stock.UpdateBtnStatus();
-  assert.equal(f.stock.startBtn.enabled, true);
+  const { stock } = f;
+  f.lobby.open(f.mode);
+  assert.equal(stock.notice, undefined);
+  // 空闲和已入场时沿用原生「开始匹配」字样。
+  assert.equal(stock.startBtn.label, '');
+  assert.equal(stock.startBtn.WordTex, 'start_match_words');
+  assert.equal(f.lobby.actions().label, '开始匹配');
+  assert.equal(f.lobby.actions().status, '经典版尚未开放此场次，将直接向服务器请求匹配。');
+  assert.equal(f.lobby.actions().enabled, true);
+  assert.equal(f.lobby.actions().assigned, false);
+
+  // 首次点击只提示并要求在同一个按钮上确认，不发请求。
+  stock.startBtn.event('click');
+  assert.equal(stock.startBtn.label, '确认仅小号测试');
+  assert.equal(f.lobby.actions().label, '确认仅小号测试');
+  assert.deepEqual(f.requests, []);
+  assert.deepEqual(f.calls, [['notice', '此功能在测试中，仅用于小号。']]);
+
+  // 确认即本次点击：入场确认一到就发出匹配，不再等待第二次点击。
+  stock.startBtn.event('click');
+  assert.equal(stock.startBtn.label, '等待入场…');
+  assert.equal(f.lobby.actions().enabled, false);
+  assert.deepEqual(f.requests, [['enter', 2, 175, 2]]);
+  f.reply(20402, { Result: 1, LabelModel: 175, SectionKind: 2 });
+  assert.deepEqual(f.requests, [['enter', 2, 175, 2], ['queue', 1, 175, 0, 2]]);
+  assert.equal(stock.startBtn.label, '');
+  assert.equal(stock.startBtn.WordTex, 'canel_match_words');
+  assert.equal(f.lobby.actions().label, '取消匹配');
+  f.reply(20546, { model: 175, opType: 1, result: 1 });
+  assert.equal(f.lobby.actions().status, '正在匹配，等待分配牌桌…');
+
+  // 同一个按钮取消匹配。
+  stock.startBtn.event('click');
+  f.lobby.actions().match();
+  assert.deepEqual(f.requests.at(-1), ['queue', 2, 175, 0, 2]);
+  assert.equal(f.requests.length, 3);
+  f.reply(20546, { model: 175, opType: 2, result: 1000 });
+  assert.equal(stock.startBtn.WordTex, 'start_match_words');
+  assert.equal(f.lobby.actions().label, '开始匹配');
+  assert.equal(f.lobby.actions().status, '已入场，可以开始匹配。');
+
+  // 入座后发送准备，开局后按钮停用并等待自动进入牌桌。
+  stock.startBtn.event('click');
+  assert.deepEqual(f.requests.at(-1), ['queue', 1, 175, 0, 2]);
+  f.reply(20546, { model: 175, opType: 1, result: 1 });
+  f.reply(20504, { Result: 1, RealModel: 175, GroupID: 2, TableID: 72 });
+  stock.rc.TableId = 72;
+  assert.equal(stock.startBtn.label, '发送准备');
+  assert.equal(f.lobby.actions().assigned, true);
+  stock.startBtn.event('click');
+  assert.equal(stock.startBtn.label, '准备中…');
+  assert.equal(f.lobby.actions().enabled, false);
+  f.lobby.actions().match();
+  assert.deepEqual(f.requests.at(-1), ['ready', true]);
+  assert.equal(f.requests.length, 5);
+  f.reply(21204, { Result: 1 });
+  assert.equal(stock.startBtn.label, '等待开局');
+  f.reply(21208, { IsGameStart: true, Infos: [{ ClientID: 11 }, {}, {}] });
+  assert.equal(stock.startBtn.label, '已开局');
+  assert.equal(stock.startBtn.enabled, false);
+  assert.equal(f.lobby.actions().enabled, false);
+  assert.equal(f.lobby.actions().status, '已开局，正在进入牌桌。');
+  stock.startBtn.event('click');
+  assert.equal(f.requests.length, 5);
+
+  const { events } = JSON.parse(f.lobby.matchLog());
+  assert.deepEqual(events.map(({ event, result }) => [event, result]), [
+    ['经典版未开放，直接请求匹配', undefined], ['进入初级场', undefined], ['入场结果', 1], ['开始匹配', undefined],
+    ['匹配结果', 1], ['取消匹配', undefined], ['取消匹配结果', 1000], ['开始匹配', undefined], ['匹配结果', 1],
+    ['已分配牌桌', undefined], ['发送准备', undefined], ['准备结果', 1], ['已开局', undefined],
+  ]);
+
+  // 重制版指引窗口虽然存在，整个过程都没有被打开。
+  assert.deepEqual(f.calls, [['notice', '此功能在测试中，仅用于小号。']]);
+  f.leave();
+  assert.equal(stock.startBtn.label, '');
+  assert.equal(f.lobby.actions(), null);
+  stock.startBtn.event('click');
+  assert.deepEqual(f.calls.at(-1), ['match']);
+});
+
+test('直接匹配被拒绝时显示原因，确认状态在同一浏览器会话内保留', t => {
+  const f = fixture({ matching: true, forbidden: true, label: true, session: true });
+  t.after(() => f.scope.dispose());
+  const { stock } = f;
+  f.lobby.open(f.mode);
+  stock.startBtn.event('click');
+  stock.startBtn.event('click');
+  assert.equal(f.window.sessionStorage.value, '1');
+  f.reply(20402, { Result: 26, LabelModel: 175, SectionKind: 2, why: 'PRIVATE-FIXTURE' });
+  assert.equal(stock.startBtn.label, '重试匹配');
+  assert.equal(stock.startBtn.enabled, true);
+  assert.equal(f.lobby.actions().status, 'PRIVATE-FIXTURE');
+  assert.ok(!f.lobby.matchLog().includes('PRIVATE-FIXTURE'));
+
+  // 已确认过则不再二次确认；入场被拒不发匹配，放行后才发出。
+  stock.startBtn.event('click');
+  assert.equal(stock.startBtn.label, '等待入场…');
+  f.reply(20402, { Result: 2, LabelModel: 175, SectionKind: 2 });
+  assert.deepEqual(f.requests, [['enter', 2, 175, 2], ['enter', 2, 175, 2], ['queue', 1, 175, 0, 2]]);
+  assert.equal(stock.startBtn.WordTex, 'canel_match_words');
+
+  f.reply(20546, { model: 175, opType: 1, result: 27 });
+  assert.equal(f.lobby.actions().status, '匹配失败：禁止匹配');
+  f.reply(20504, { Result: 1, RealModel: 175, GroupID: 2, TableID: 72 });
+  assert.equal(stock.startBtn.label, '重试匹配');
+  const { events } = JSON.parse(f.lobby.matchLog());
+  assert.deepEqual(events.map(({ event, result }) => [event, result]).slice(-3),
+    [['入场结果', 2], ['开始匹配', undefined], ['匹配结果', 27]]);
+
+  // 超时与服务端原话只进入状态，不进入可复制的日志。
+  stock.startBtn.event('click');
+  f.reply(20402, { Result: 26, LabelModel: 175, SectionKind: 2, why: 'PRIVATE-FIXTURE' });
+  assert.ok(!f.lobby.matchLog().includes('PRIVATE-FIXTURE'));
+  assert.ok(!f.lobby.matchLog().includes('入场失败'));
+});
+
+test('原生匹配能力缺失不等于经典版受限，不应启用直接匹配', t => {
+  const f = fixture({ matching: true, label: true });
+  t.after(() => f.scope.dispose());
+  f.stock.matchEffect = null;
+  f.lobby.open(f.mode);
+  assert.equal(f.stock.startBtn.label, '暂不可用');
+  assert.equal(f.lobby.actions().enabled, false);
   f.stock.startBtn.event('click');
-  assert.deepEqual(f.calls, [['GoToU3dWindow', null]]);
   assert.deepEqual(f.requests, []);
   assert.equal(f.listeners.size, 0);
-
   f.leave();
   assert.equal(f.stock.startBtn.label, '');
+});
+
+test('更换连接后旧入场回复不能触发匹配', t => {
+  const f = fixture({ matching: true, forbidden: true, label: true });
+  t.after(() => f.scope.dispose());
+  f.lobby.open(f.mode);
   f.stock.startBtn.event('click');
-  assert.deepEqual(f.calls, [['GoToU3dWindow', null], ['match']]);
+  f.stock.startBtn.event('click');
+  assert.deepEqual(f.requests, [['enter', 2, 175, 2]]);
+  f.proxy.ConnId++;
+  f.reply(20402, { Result: 1, LabelModel: 175, SectionKind: 2 });
+  f.lobby.actions().match();
+  assert.equal(f.lobby.actions().enabled, false);
+  assert.match(f.lobby.actions().status, /连接不可用/);
+  assert.deepEqual(f.requests, [['enter', 2, 175, 2]]);
 });
 
 test('武将详情按扑克表解读技能编号，拒绝自动回退到普通牌表', () => {

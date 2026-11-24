@@ -404,7 +404,7 @@ test('returns from native playback to the same lobby visit without taking over a
   try {
     lobby.open();
     assert.equal(original.startBtn.enabled, false);
-    assert.deepEqual(original.children.map(child => child.name), ['sgs-poker-lobby-match-placeholder']);
+    assert.deepEqual(original.children, []);
     const visit = lobby.captureOrigin();
     assert.ok(visit);
     change(replay);
@@ -417,7 +417,7 @@ test('returns from native playback to the same lobby visit without taking over a
     change(returned);
     assert.equal(returned.topView.nameTxt.text, '三国斗地主');
     assert.equal(returned.startBtn.enabled, false);
-    assert.deepEqual(returned.children.map(child => child.name), ['sgs-poker-lobby-match-placeholder']);
+    assert.deepEqual(returned.children, []);
 
     const next = lobby.captureOrigin();
     change(replay);

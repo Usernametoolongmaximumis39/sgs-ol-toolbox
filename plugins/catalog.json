@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.265"
+    "version": "0.6.266"
   },
   "plugins": [
     {
@@ -355,7 +355,7 @@
     {
       "id": "poker-lobby",
       "name": "三国斗地主",
-      "version": "0.3.54",
+      "version": "0.3.55",
       "icon": {
         "paths": [
           "M10 3h9a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM5 5 3 6a1.5 1.5 0 0 0-.8 1.8L5 20a2 2 0 0 0 2.4 1.5l1.6-.4",
@@ -370,9 +370,9 @@
       "minCoreVersion": "0.6.228",
       "apiVersion": 1,
       "description": "打开三国斗地主大厅、实战牌桌和历史录像。",
-      "releaseNotes": "在经典版活动场打开三国斗地主大厅，在工具栏开始匹配、切换牌桌或复制日志，也可在历史战绩播放录像。匹配须满足游戏开放条件。",
-      "packageUrl": "packages/poker-lobby/0.3.54.json",
-      "sha256": "e30a79496b3b0114fb00fcdf9e13bd86c5d4ae2fdf0ca80cf34dd04740607936"
+      "releaseNotes": "移除「前往重制版」。经典版未开放时，可在大厅的原生按钮上确认后尝试在线匹配，并用同一个按钮取消或准备。此功能仍在测试，仅用于小号；是否能入场由游戏服务器决定，参与对局可能消耗欢乐豆。",
+      "packageUrl": "packages/poker-lobby/0.3.55.json",
+      "sha256": "6ce41b02f95a0eb450785af7a1673a7be47538a5308141762d7064cda526e5cc"
     },
     {
       "id": "stargazing",
