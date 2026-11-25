@@ -41,16 +41,31 @@ try {
   assert.ok((await support.innerText()).includes('强识'));
   await support.locator('details > summary').press('Enter');
   await support.locator(':scope > summary').press('Enter');
-  assert.equal(await root.getByRole('switch').count(), 8);
-  assert.equal(await root.getByRole('switch', {checked:true}).count(), 1);
+  const generalOptions = [
+    ['quandaoCount', '权道数量'], ['tianshuAssist', '天书辅助'],
+    ['quanyuAssist', '权御辅助'], ['zhuohunAssist', '魔张飞辅助'],
+    ['peixiuAssist', '裴秀辅助'],
+  ];
+  assert.equal(await root.getByRole('switch').count(), 12);
+  assert.equal(await root.getByRole('switch', {checked:true}).count(), 6);
+  assert.deepEqual(await root.getByRole('switch').evaluateAll(switches =>
+    switches.slice(6).map(input => [input.getAttribute('aria-label'), input.checked])),
+  [...generalOptions.map(([,name]) => [name,true]), ['技能连按',false]]);
+  for (const [,name] of generalOptions) {
+    const row = root.getByRole('switch', {name, exact:true}).locator('xpath=..');
+    assert.equal(await row.textContent(),name);
+    assert.equal(await row.getByRole('button').count(),0);
+  }
   await page.locator('main').evaluate(n => { n.style.cssText = 'width:280px;padding:12px;background:#201e1a;--sgs-text:#eee3cc;--sgs-muted:#b7aa8c;--sgs-accent:#dbba70;--sgs-border:#665b42;--sgs-surface:#2c2922;--sgs-font:system-ui'; });
   await root.screenshot({path:resolve(output,'defaults.png')});
   const wuxieHelp = root.getByRole('button', {name:'跳过无懈说明'});
   await wuxieHelp.focus();
   assert.equal(await root.getByRole('tooltip').innerText(), '仅在山河图中跳过自己回合的首轮无懈询问');
   await wuxieHelp.press('Escape');
-  await root.getByRole('switch', {name:'权道数量',exact:true}).focus(); await page.keyboard.press('Space');
-  assert.equal(await page.evaluate(()=>values.get('quandaoCount')),true);
+  for (const [key,name] of generalOptions) {
+    await root.getByRole('switch', {name, exact:true}).press('Space');
+    assert.equal(await page.evaluate(key=>values.get(key),key),false);
+  }
   assert.equal(await root.getByRole('switch', {name:'跨局记忆',exact:true}).count(),0);
   assert.equal(await root.getByRole('switch', {name:'长按技能辅助',exact:true}).isChecked(), true);
   await page.evaluate(()=>{window.assistScene={SelfSeatUi:{seat:{Index:0,Hp:3},skillItems:[{Skill:{SkillId:62,Name:'苦肉'}},{Skill:{SkillId:102,Name:'超长技能名称与完整悬停说明演练'}},{Skill:{SkillId:3750,Name:'迁附'}}],buttonBar:{btns:[]},cardContainer:{cardUis:[]}},seatContainer:{seatUIs:[]}};});
@@ -64,6 +79,20 @@ try {
       const m=document.querySelector('main'); m.style.cssText=`width:${width}px;padding:12px;box-sizing:border-box;border-radius:9px;--sgs-font:system-ui;--sgs-motion:0ms;`+(theme==='dark'?'--sgs-bg:#171b1d;--sgs-surface:#22282b;--sgs-text:#ece7d8;--sgs-muted:#a6a59d;--sgs-accent:#c8ab6a;--sgs-border:#4e4a3e;':'--sgs-bg:#f8f6f0;--sgs-surface:#ebe7dc;--sgs-text:#302b23;--sgs-muted:#746b5b;--sgs-accent:#876722;--sgs-border:#cec4ad;')+'background:var(--sgs-bg)';
     }, {theme,width});
     assert.equal(await root.evaluate(n=>n.scrollWidth<=n.clientWidth),true);
+    for (const fontOffset of [-2, -1, 0, 2]) {
+      await page.locator('main').evaluate((main, offset) => main.style.setProperty('--sgs-font-offset', `${offset}px`), fontOffset);
+      assert.equal(await root.evaluate(node => {
+        const host = node.parentElement.getBoundingClientRect();
+        return node.getBoundingClientRect().right <= host.right &&
+          [...node.querySelectorAll('.pa-option')].every(label => {
+            const help = label.querySelector('button');
+            if (!help) return true;
+            const text = label.firstElementChild.getBoundingClientRect(), tip = help.getBoundingClientRect();
+            const row = label.closest('.pa-row').getBoundingClientRect();
+            return tip.left >= text.right - 1 && Math.abs(tip.top + tip.height/2 - text.top - text.height/2) <= 2 && tip.right <= row.right;
+          });
+      }), true, `${theme} ${width}px font offset ${fontOffset}`);
+    }
     await root.screenshot({path:resolve(output,`${theme}-${width}.png`)});
     await support.locator(':scope > summary').press('Enter');
     assert.equal(await root.evaluate(n=>n.scrollWidth<=n.clientWidth),true);
@@ -76,9 +105,11 @@ try {
   await page.evaluate(()=>{unmount();disposePlugin();scope.dispose();});
   assert.equal(await root.count(),0);
   await page.evaluate(()=>{window.scope=new AssistCheck.ResourceScope();mount();});
-  assert.equal(await root.getByRole('switch',{name:'权道数量',exact:true}).isChecked(),true);
+  for (const [,name] of generalOptions) {
+    assert.equal(await root.getByRole('switch', {name, exact:true}).isChecked(),false);
+  }
   await page.evaluate(()=>{unmount();disposePlugin();scope.dispose();});
   assert.deepEqual(errors,[]);
-  await writeFile(resolve(output,'report.json'),JSON.stringify({checks:['support list collapsed by default / keyboard expand and collapse','skillLock defaults on; other 8 switches off','keyboard','settings survive reactivation','248/280/420 dark/light','no horizontal overflow','low height keyboard scroll','cleanup'],errors},null,2));
+  await writeFile(resolve(output,'report.json'),JSON.stringify({checks:['support list collapsed by default / keyboard expand and collapse','four general options default on without descriptions and keep their order','keyboard','manually disabled options survive reactivation','248/280/420 dark/light and four font sizes','help icons stay aligned','low height keyboard scroll','cleanup'],errors},null,2));
   console.log('PASS play-assist browser UI');
 } finally { await browser.close(); }

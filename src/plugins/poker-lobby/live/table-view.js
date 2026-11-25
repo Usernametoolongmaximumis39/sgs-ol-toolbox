@@ -8,6 +8,7 @@ import { attachPlayAreas } from '../replay/native-plays.js';
 import { attachTransfers } from '../replay/native-transfers.js';
 import { attachSeatPresentation } from '../replay/native-seats.js';
 import { attachNativeSkills, handSkillMarks, markHandCard } from '../replay/native-skills.js';
+import { PUBLIC_GAIN_MARKS } from '../replay/skill-states.js';
 import { attachNativeSkillPile } from '../replay/native-skill-pile.js';
 import { attachPokerTableInfo } from '../replay/native-table-info.js';
 import { playType } from '../replay/model.js';
@@ -306,6 +307,12 @@ export function mountPokerTableView(ctx, scope, scene, names, input) {
     const pitch = size.width + gap;
     const own = state.seats.find(seat => seat.id === state.selfSeat);
     const marked = handSkillMarks(own.skillStates, names.skill);
+    for (const { id, source } of own.visibleHand) {
+      if (!PUBLIC_GAIN_MARKS.has(source)) continue;
+      const labels = marked.get(id) || new Set();
+      labels.add(names.skill(source));
+      marked.set(id, labels);
+    }
     const selected = isChoice ? decision.selected : state.selected;
     const enabled = !state.pending && !state.ended && !state.trustee && !state.trusteePending
       && (isChoice ? decision.max > 0 : !decision);
@@ -380,18 +387,19 @@ export function mountPokerTableView(ctx, scope, scene, names, input) {
       const roleChanged = model.Figure !== (seat.role ?? 0);
       if (roleChanged) model.SetFigure(seat.role ?? 0);
       const generalChanged = model.GeneralId !== (seat.generalId ?? 0);
-      if (generalChanged) {
+      if (generalChanged) withClassicPokerContext(win, scene, () => {
         model.DrawGeneralCard(seat.generalId ?? 0, false, false);
         ui.General_CardChanged(null);
         ui.SetHpVisible(false);
-      }
+      });
       const skin = seat.skin == null && seat.id === state.selfSeat && seat.generalId
         ? skinControls.saved(seat.generalId)
         : { id: seat.skin || 0, dynamic: seat.skinDynamic, type: seat.skinType };
       const previous = appliedSkins.get(seat.id);
       if (seat.generalId && (generalChanged || !previous || previous.id !== skin.id
-          || previous.dynamic !== skin.dynamic || previous.type !== skin.type)) {
-        if (skin.id || previous?.id && !generalChanged) {
+          || previous.dynamic !== skin.dynamic || previous.type !== skin.type
+          || model.SkinID >= 0 && model.SkinID !== skin.id)) {
+        if (skin.id || model.SkinID > 0 || previous?.id && !generalChanged) {
           withClassicPokerContext(win, scene, () => model.SetGeneralSkin?.(seat.generalId, skin.id, skin.dynamic, skin.type));
         }
         appliedSkins.set(seat.id, skin);
@@ -530,5 +538,8 @@ export function mountPokerTableView(ctx, scope, scene, names, input) {
     original.apply(this, args);
     if (state) render(state);
   });
-  return { render, hasSettlementWindow: settlementWindow.isPresent };
+  return {
+    render, hasSettlementWindow: settlementWindow.isPresent,
+    playBattleStartSound: () => sceneAudio.battle(Number(self.Seat?.PlayerInfo?.OfficerLevel), ctx.game.getConfigData?.('h5_officer')),
+  };
 }

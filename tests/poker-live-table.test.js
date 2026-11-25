@@ -5,6 +5,7 @@ import { ResourceScope } from '../src/core/resources.js';
 import { POKER_REPLAY_ATTRIBUTE } from '../src/shared/poker-replay-mode.js';
 import { canSwitchPokerLiveTable, installPokerLiveTable, openPokerLiveTable, isPokerLiveTableOpen } from '../src/plugins/poker-lobby/live/native-table.js';
 import { createPokerTableState } from '../src/plugins/poker-lobby/live/table-state.js';
+import { playPokerBattleStart } from '../src/plugins/poker-lobby/live/native-battle-start.js';
 
 const SCENE = 'PokerTableGameScene';
 const SIT = 'ClientSitdownRep';
@@ -107,7 +108,7 @@ class NativeClassicTable extends Node {
   }
 }
 
-function fixture({ nativePoker = false, hasGameContext = false, withRouter = true } = {}) {
+function fixture({ nativePoker = false, hasGameContext = false, withRouter = true, activate = true, classic = true } = {}) {
   const scope = new ResourceScope();
   const layer = new Node();
   const origin = new Node();
@@ -116,6 +117,7 @@ function fixture({ nativePoker = false, hasGameContext = false, withRouter = tru
   const requests = [];
   const leaves = [];
   const nativeRoutes = [];
+  const nativeWarnings = [], rosterRequests = [];
   const notices = [];
   const stages = new Node();
   stages.size(920, 650);
@@ -125,8 +127,10 @@ function fixture({ nativePoker = false, hasGameContext = false, withRouter = tru
   let section = 2;
   let viewer = false;
   let forbidden = false;
+  let warning = 'PC端未开启该模式，无法进入游戏';
   let account = '200';
   const gameContext = {
+    IsLayaClassic: classic,
     GetModeType: () => mode,
     GetGroupID: () => section,
     get IsViewer() { return viewer; },
@@ -171,6 +175,11 @@ function fixture({ nativePoker = false, hasGameContext = false, withRouter = tru
     SendLeaveTable() { leaves.push(this.TableId); },
     GetTableSeatInfoByUserId(id) { return memberships.get(String(id)); },
     IsForbidInPC: () => forbidden,
+    Ged: { ShowConfirmBtnLabel(_label, message) { nativeWarnings.push([mode, section, message]); } },
+    checkIsForbidInPC() {
+      if (forbidden) this.Ged.ShowConfirmBtnLabel('确定', warning, this, () => {});
+      return forbidden;
+    },
     createPlayerSeat(rows) {
       const Model = mode === 175 ? PokerSeatModel : SeatModel;
       for (const row of rows) {
@@ -182,9 +191,13 @@ function fixture({ nativePoker = false, hasGameContext = false, withRouter = tru
     ServerProxy_ReconnectionInfo({ Protocol }) {
       mode = Protocol.TypeID;
       section = Protocol.GroupID;
+      if (this.checkIsForbidInPC()) return;
       this.TableId = Protocol.TableID;
+      this.IsReconnected = true;
+      rosterRequests.push(this.TableId);
     },
     clientTableInfoRep({ Protocol }) {
+      this.IsReconnected = false;
       if (Protocol.Result !== 1 || !Array.isArray(Protocol.Infos)) return;
       for (const row of Protocol.Infos) {
         for (const [id, old] of memberships) {
@@ -235,14 +248,17 @@ function fixture({ nativePoker = false, hasGameContext = false, withRouter = tru
       isReplay: () => replay,
     },
   };
-  installPokerLiveTable(ctx);
+  if (activate) installPokerLiveTable(ctx);
   return {
     ctx, proxy, room, router, layer, origin, requests, nativeRoutes, nativeEvent, nativeSwitch, notices, leaves, seatModels,
+    nativeWarnings, rosterRequests,
+    activate: () => installPokerLiveTable(ctx),
     setAccount: next => { account = next; }, setReplay: next => {
       replay = next;
       document.documentElement.toggleAttribute(POKER_REPLAY_ATTRIBUTE, next);
     },
     setViewer: next => { viewer = next; }, setForbidden: next => { forbidden = next; },
+    setWarning: next => { warning = next; },
     setMode(model, group = 2) { mode = model; section = group; },
     setSeat(id, seat) { memberships.set(String(id), { ClientId: Number(id), SeatID: seat }); },
     sit(RealModel = 175, GroupID = 2, Result = 1, TableID = 77) {
@@ -572,6 +588,187 @@ test('cached reconnect waits for a successful native roster before draining the 
   await assertRestoredTable(f, oldTable);
 });
 
+test('cold login takes over on the native start without waiting for the lobby or polling', { timeout: 2000 }, async t => {
+  const f = fixture({ hasGameContext: true });
+  t.after(() => f.ctx.scope.dispose());
+  f.origin.SceneName = 'LoginScene';
+  f.setMode(0, 0);
+  const drained = new Promise(resolve => {
+    f.proxy.CacheStarted = true;
+    f.proxy.StopCache = () => {
+      f.proxy.CacheStarted = false;
+      f.signal(SNAPSHOT_ID, reconnectSnapshot());
+      resolve();
+    };
+  });
+  f.reconnect();
+  f.tableInfo();
+  assert.equal(f.node(SCENE), undefined, 'roster alone does not prove that the game started');
+  f.start();
+  assert.ok(f.node(SCENE), f.notices.join('\n'));
+  assert.deepEqual(f.nativeRoutes, []);
+  f.signal(201001, turn);
+  await drained;
+  await tick();
+  assert.ok(f.node('poker-live-card-10900'));
+  f.node('poker-live-card-10900').click();
+  f.node('poker-live-play').click();
+  assert.deepEqual(f.requests, []);
+  assert.equal(f.node('poker-live-play').disabled, true);
+  f.signal(201001, { ...turn, opt_index: resumedOption });
+  await tick();
+  f.node('poker-live-card-10900').click();
+  f.node('poker-live-play').click();
+  assert.deepEqual(f.requests, [{ type: 201002, data: { opt_index: resumedOption,
+    putCards: [{ card_id: 10900, spell_num: 0, spell_suit: 0 }] } }]);
+});
+
+test('cold recovery without another start requires the current reconnect roster and rejects old commands', async t => {
+  const f = fixture({ hasGameContext: true });
+  t.after(() => f.ctx.scope.dispose());
+  f.origin.SceneName = 'LoginScene';
+  f.reconnect();
+  f.room.IsGameStart = true;
+  f.tableInfo({ Type: 1 });
+  f.tableInfo({ roster: ROSTER.slice(1) });
+  f.signal(SNAPSHOT_ID, reconnectSnapshot());
+  assert.equal(f.node(SCENE), undefined, 'old membership cannot fill in a missing own row');
+  f.tableInfo();
+  const table = f.node(SCENE);
+  assert.ok(table);
+  f.signal(SNAPSHOT_ID, reconnectSnapshot({ table_id: 78 }));
+  f.signal(201001, turn);
+  await tick();
+  assert.equal(f.node('poker-live-card-10900'), undefined);
+  assert.equal(f.node('poker-live-play').disabled, true);
+  f.signal(SNAPSHOT_ID, reconnectSnapshot());
+  await tick();
+  assert.ok(f.node('poker-live-card-10900'));
+  assert.equal(f.node(SCENE), table);
+  assert.deepEqual(f.requests, []);
+});
+
+test('the Classic PC-only warning is skipped for verified poker reconnects in either roster/start order', async t => {
+  for (const startFirst of [false, true]) {
+    const f = fixture({ hasGameContext: !startFirst });
+    t.after(() => f.ctx.scope.dispose());
+    f.origin.SceneName = 'LoginScene';
+    f.setMode(0, 0);
+    f.setForbidden(true);
+    const nativeCheck = f.room.checkIsForbidInPC;
+    const show = f.room.Ged.ShowConfirmBtnLabel;
+    f.reconnect();
+    assert.equal(f.room.checkIsForbidInPC, nativeCheck);
+    assert.equal(f.room.Ged.ShowConfirmBtnLabel, show);
+    assert.equal(f.room.IsForbidInPC(), true, 'the mode config does not change');
+    assert.deepEqual(f.nativeWarnings, []);
+    assert.deepEqual(f.rosterRequests, [77], 'the native handler still requests the roster');
+    if (startFirst) f.start();
+    assert.equal(f.node(SCENE), undefined, 'START alone cannot open an unsupported table');
+    f.tableInfo();
+    if (!startFirst) f.start();
+    assert.ok(f.node(SCENE));
+    assert.deepEqual(f.nativeRoutes, []);
+    f.signal(SNAPSHOT_ID, reconnectSnapshot());
+    await tick();
+    assert.ok(f.node('poker-live-card-10900'));
+    assert.equal(f.node('poker-live-play').disabled, true);
+    assert.deepEqual(f.requests, []);
+    assert.equal(f.room.checkIsForbidInPC(), true, 'normal calls keep the stock behavior');
+  }
+});
+
+test('the local warning exception never turns a failed roster or a different seat into a reconnect', async t => {
+  for (const reply of [{ Result: 4 }, { roster: ROSTER.slice(1) }, {
+    roster: [{ SeatID: 0, ClientID: 201 }, { SeatID: 1, ClientID: 200 }, ROSTER[2]],
+  }]) {
+    for (const startFirst of [false, true]) {
+      const f = fixture({ hasGameContext: true });
+      t.after(() => f.ctx.scope.dispose());
+      f.setForbidden(true);
+      f.reconnect();
+      if (startFirst) f.start();
+      f.tableInfo(reply);
+      if (!startFirst) f.start();
+      f.signal(SNAPSHOT_ID, reconnectSnapshot());
+      assert.equal(f.node(SCENE), undefined);
+      assert.deepEqual(f.rosterRequests, [77]);
+      assert.deepEqual(f.requests, []);
+    }
+  }
+});
+
+test('unrelated room, viewer, replay and clients without a usable PC table retain the native warning', t => {
+  const cases = [
+    [{}, f => f.reconnect({ TypeID: 148 })],
+    [{}, f => f.reconnect({ GroupID: 3 })],
+    [{}, f => { f.setViewer(true); f.reconnect(); }],
+    [{}, f => { f.setReplay(true); f.reconnect(); }],
+    [{}, f => { f.setAccount(''); f.reconnect(); }],
+    [{}, f => { f.ctx.window.RES = null; f.reconnect(); }],
+    [{ hasGameContext: false }, f => { f.setWarning('移动端未开启该模式，无法进入游戏'); f.reconnect(); }],
+    [{}, f => { f.setWarning('当前牌桌不可重连'); f.reconnect(); }],
+    [{ classic: false }, f => f.reconnect()],
+    [{ nativePoker: true }, f => f.reconnect()],
+  ];
+  for (const [opts, attempt] of cases) {
+    const f = fixture({ hasGameContext: true, ...opts });
+    t.after(() => f.ctx.scope.dispose());
+    f.setForbidden(true);
+    attempt(f);
+    assert.equal(f.nativeWarnings.length, 1);
+    assert.deepEqual(f.rosterRequests, []);
+    assert.equal(f.node(SCENE), undefined);
+  }
+});
+
+test('leaving a cold-reconnected table returns through the native hall route', async t => {
+  const f = fixture({ hasGameContext: true });
+  t.after(() => f.ctx.scope.dispose());
+  f.origin.SceneName = 'LoginScene';
+  f.router.constructor = { JumpSceneBySmallModeType: () => f.router.SwitchScene('ModeScene') };
+  f.reconnect();
+  f.tableInfo();
+  f.start();
+  f.signal(SNAPSHOT_ID, reconnectSnapshot());
+  f.signal(108023, { gamemodel: 47, label_model: 175, table_id: 77, game_results: [{ figure: 1, param1: 960 }] });
+  await tick();
+  assert.deepEqual(f.nativeRoutes, []);
+  f.node('poker-live-leave').click();
+  assert.deepEqual(f.leaves, [77]);
+  f.leftTable();
+  await tick();
+  assert.equal(f.node(SCENE), undefined);
+  assert.deepEqual(f.nativeRoutes, ['ModeScene']);
+});
+
+test('a plugin enabled while Classic is fetching the reconnect roster still receives the first snapshot', async t => {
+  const f = fixture({ hasGameContext: true, activate: false });
+  t.after(() => f.ctx.scope.dispose());
+  f.reconnect();
+  f.room.IsGameStart = true;
+  f.activate();
+  assert.equal(f.node(SCENE), undefined);
+  f.tableInfo();
+  f.signal(SNAPSHOT_ID, reconnectSnapshot());
+  await tick();
+  assert.ok(f.node('poker-live-card-10900'));
+  assert.deepEqual(f.requests, []);
+});
+
+test('a cold reconnect roster cannot be inherited by a different connection or account', async t => {
+  for (const change of [f => { f.proxy.ConnId++; }, f => f.setAccount('201')]) {
+    const f = fixture({ hasGameContext: true });
+    t.after(() => f.ctx.scope.dispose());
+    f.reconnect();
+    change(f);
+    f.room.IsGameStart = true;
+    f.tableInfo();
+    f.signal(SNAPSHOT_ID, reconnectSnapshot());
+    assert.equal(f.node(SCENE), undefined);
+  }
+});
+
 test('a snapshot cannot reattach a different account, seat, table, mode, viewer, or stopped native game', async t => {
   const cases = [
     ['different account', f => f.setAccount('201')],
@@ -869,6 +1066,79 @@ test('live rank bounds follow public plays, recovery, and confirmed skill piles'
   assert.equal(state.view().rate, 6);
   assert.equal(state.view().score, 300);
   assert.deepEqual(state.view().history.at(-1), { type: 'multiplier', rate: 6, reason: 4 });
+});
+
+test('the native rank animation releases its icon holds on stop or teardown and ignores late loading', async () => {
+  for (const closeDuringLoad of [false, true]) {
+    const scope = new ResourceScope();
+    const seat = { Index: 1, PlayerInfo: { OfficerLevel: 38 } };
+    const ui = { Seat: seat };
+    const images = new Map(), released = [];
+    const GameContext = { mode_type: 148 };
+    const win = { GameContext, RES: {
+      AddRuntimeImageRes() {},
+      GetResByUrlPromise: url => new Promise(resolve => images.set(url, resolve)),
+      ClearRuntimeImageRes: url => released.push(url),
+    } };
+    let stop;
+    const scene = {
+      SelfSeatUi: ui, seatContainer: { seatUIs: [ui] },
+      GetEffectOfficerIconResBySID: (rank, big) => `${rank}/${big}`,
+      onKaiZhanComplete() { assert.fail('the native callback must not clear our icon holds again'); },
+      playKaiZhanOfficerRes(fallback) {
+        assert.equal(fallback, true);
+        assert.equal(GameContext.seats[1], seat);
+        assert.equal(this.kaizhanUrl, '38/true');
+        assert.equal(this.kaizhanUrl2, '38/false');
+        stop = this.onKaiZhanComplete.bind(this);
+      },
+    };
+    playPokerBattleStart(win, scope, scene, () => true);
+    if (closeDuringLoad) scope.dispose();
+    for (const resolve of images.values()) resolve({});
+    await tick();
+    assert.equal(typeof stop, closeDuringLoad ? 'undefined' : 'function');
+    assert.equal(GameContext.mode_type, 148);
+    stop?.();
+    scope.dispose();
+    stop?.();
+    assert.deepEqual(released, ['38/true', '38/false']);
+  }
+});
+
+test('opening roster refreshes preserve confirmed skins, including an intentional original skin', () => {
+  const state = createPokerTableState({ selfSeat: 0, seats: [{ id: 0 }, { id: 1 }, { id: 2 }] });
+  const general = (seat, id, properties = {}) => state.receive('general', { seat, general: id, ...properties });
+  const skin = (seat, id, value, extra = {}) => state.receive('skin', { seat, general: id,
+    skin: value, skinDynamic: Boolean(value), skinType: 2, ...extra });
+  const view = seat => state.view().seats.find(row => row.id === seat);
+  state.receive('start');
+  general(0, 8014, { skin: 0 });
+  assert.equal(view(0).skin, undefined); // local saved skin still applies
+  skin(0, 8014, 0, { lookup: true });
+  assert.equal(view(0).skin, undefined);
+  skin(0, 14, 31209, { realGeneral: 8014 });
+  skin(1, 8017, 502);
+  general(1, 8017, { skin: 0 });
+  general(2, 8003, { skin: 604, skinDynamic: true });
+  state.receive('phase', { phase: 202 });
+  general(0, 8014, { skin: 0 });
+  general(1, 8017, { skin: 414 });
+  general(2, 8003, { skin: 0 });
+  skin(1, 8017, 0, { lookup: true });
+  assert.deepEqual([view(0).skin, view(1).skin, view(2).skin], [31209, 502, 604]);
+  assert.equal(view(0).skinDynamic, true);
+  assert.equal(view(0).skinType, 2);
+  skin(0, 8014, 0, { lookup: true });
+  assert.equal(view(0).skin, 31209);
+  skin(0, 8014, 0, { manual: true });
+  skin(0, 8014, 31209, { lookup: true });
+  general(0, 8014, { skin: 31209 });
+  assert.equal(view(0).skin, 0);
+  skin(1, 8017, 0, { lookup: false });
+  assert.equal(view(1).skin, 0);
+  general(0, 8017);
+  assert.equal(view(0).skin, undefined);
 });
 
 test('live cards marked by 乱察 leave the reveal row on play or transfer', () => {

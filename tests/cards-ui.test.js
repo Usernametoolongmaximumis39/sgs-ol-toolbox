@@ -767,18 +767,20 @@ test('sort controls use the hand area above the left side and follow canvas scal
   } finally { env.close(); }
 });
 
-test('sort controls clamp old offsets to the hand band and visible canvas', () => {
+test('sort controls clamp saved offsets to the visible lower half of the canvas', () => {
   const env = setup();
   try {
     env.settings.set('nativeSortOffset', { x: 1e6, y: -1e6 });
     env.activate();
     const bar = env.container.getChildByName('sgs-toolbox-hand-sort');
     assert.deepEqual(bar._children.filter(child => ['spacing', 'type', 'suit', 'number'].includes(child.name)).map(child => child.name), ['spacing', 'type', 'suit', 'number']); assert.equal(bar.getChildByName('drag'), undefined);
-    assert.equal(bar.x, 347); assert.equal(bar.y, -46);
+    assert.equal(bar.x, 860); assert.equal(bar.y, -126);
     env.window.innerWidth = 340;
+    env.window.innerHeight = 400;
+    env.document.querySelector('canvas').getBoundingClientRect = () => ({ left: 30, top: -100, width: 800, height: 560 });
     env.send('MsgGameTurnNtf', { SeatID: 1 });
-    assert.equal(bar.x, 200); assert.ok(bar.x + bar.width < 340);
-    assert.equal(bar.y, -46);
+    assert.equal(bar.x, 247.5);
+    assert.equal(bar.y, -126, 'use the canvas midpoint even when the top of the canvas is clipped');
   } finally { env.close(); }
 });
 

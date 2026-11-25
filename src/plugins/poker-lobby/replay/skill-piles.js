@@ -1,4 +1,13 @@
 const MAX_PILE_CARDS = 64;
+const QUAN_JI = 47;
+
+export const isQuanJiPileCard = (areaSkill, moveSkill) => (areaSkill || moveSkill) === QUAN_JI;
+
+export function publicSkillPileName(skill) {
+  return skill === 46 ? '破军' : skill === QUAN_JI ? '权计' : '';
+}
+
+export const isFaceUpSkillCard = card => Boolean(card?.id && !card.hidden && card.rank > 0);
 
 export function groupSkillCards(cards, count, skill = 0) {
   const groups = new Map();

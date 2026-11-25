@@ -7,10 +7,18 @@ const achievementsByGame = new WeakMap();
 
 export function readNativeAccount(ctx) {
   const login = manager(ctx, 'LoginManager', 'error', m => 'IsOnLine' in m || 'IsAccountLoggingOut' in m);
-  if (read(() => login.IsAccountLoggingOut) === true || read(() => login.IsOnLine) === false) return { id: '', nickname: '' };
+  const online = read(() => login.IsOnLine);
+  if (read(() => login.IsAccountLoggingOut) === true || online === false) return { id: '', nickname: '' };
   const self = read(() => ctx.game.getSelf());
   const id = read(() => self.ClientId) ?? read(() => self.clientId);
-  return { id: /^(?:[1-9]\d*)$/.test(String(id)) ? String(id) : '', nickname: String(read(() => self.NickName) ?? read(() => self.nickname) ?? '') };
+  const selfId = /^(?:[1-9]\d*)$/.test(String(id)) ? String(id) : '';
+  const nickname = selfId ? String(read(() => self.NickName) || read(() => self.Nickname) || read(() => self.nickname) || '') : '';
+  if (selfId && nickname) return { id: selfId, nickname };
+  // Classic may not expose a user model until after reconnect. Never use a
+  // nickname from a different account or from a connection that has ended.
+  const account = online === true && read(() => ctx.game.getLoginAccount?.());
+  if (account?.id && (!selfId || selfId === account.id)) return { ...account };
+  return { id: selfId, nickname: '' };
 }
 function manager(ctx, name, event, guard) {
   const type = read(() => ctx.game.getClass(name));
@@ -24,7 +32,7 @@ function manager(ctx, name, event, guard) {
 }
 
 // Projection happens before the client can reuse its packet. Work/storage/UI is deferred.
-function observeNative(ctx, project, consume, gap = () => {}, { scope = ctx.scope } = {}) {
+function observeNative(ctx, project, consume, gap = () => {}, { scope = ctx.scope } = {}, onBound) {
   if (ctx.scope.signal.aborted || scope.signal.aborted) return () => {};
   const observation = new ResourceScope();
   const stop = ctx.scope.add(() => observation.dispose());
@@ -41,10 +49,12 @@ function observeNative(ctx, project, consume, gap = () => {}, { scope = ctx.scop
       if (item.account.id && item.account.id === readNativeAccount(ctx).id) { try { consume(item.type, item.data, item.account); } catch (e) { gap({ reason: 'consume', type: item.type, message: String(e?.message || e) }); } }
     }
   };
-  const enqueue = (type, packet) => {
+  const enqueue = (type, packet, proxy) => {
     if (observation.closed) return;
     try {
-      const data = project[type](packet); if (data == null) return;
+      const projectPacket = project[type];
+      const data = onBound ? projectPacket(packet, proxy) : projectPacket(packet);
+      if (data == null) return;
       if (queue.length >= 256) { overflow = true; gapDetail = { reason: 'overflow', type }; queue = []; }
       if (!overflow) queue.push({ type, data, account: readNativeAccount(ctx) });
     } catch (e) { overflow = true; gapDetail = { reason: 'projection', type, message: String(e?.message || e) }; queue = []; }
@@ -54,15 +64,17 @@ function observeNative(ctx, project, consume, gap = () => {}, { scope = ctx.scop
     const proxy = read(() => ctx.game.getServerProxy());
     if (proxy === bound) return;
     for (const release of releases) release(); releases = [];
+    onBound?.(null);
     if (bound) { queue = []; gap({ reason: 'rebind' }); }
     if (observation.closed) return;
     bound = proxy;
     if (typeof read(() => proxy.on) !== 'function' || typeof read(() => proxy.off) !== 'function') return;
     for (const type of Object.keys(project)) {
-      const handler = packet => enqueue(type, packet);
+      const handler = packet => enqueue(type, packet, proxy);
       proxy.on(type, caller, handler);
       releases.push(observation.add(() => proxy.off(type, caller, handler)));
     }
+    onBound?.(proxy);
   }
   observation.add(() => { queue = []; for (const release of releases) release(); releases = []; bound = null; });
   try { bind(); observation.interval(bind, 500); }
@@ -79,7 +91,11 @@ export function createPluginNative(ctx) {
       let service = achievementsByGame.get(ctx.game);
       if (!service) {
         const root = { game: ctx.game, scope: new ResourceScope() };
-        service = createAchievementQueries(createPluginNative(root), ctx.now ?? Date.now);
+        const native = createPluginNative(root);
+        service = createAchievementQueries({ account: native.account, manager: native.manager,
+          getServerProxy: () => root.game.getServerProxy(),
+          observe: (project, consume, gap, onBound) => observeNative(root, project, consume, gap, undefined, onBound),
+        }, ctx.now ?? Date.now);
         achievementsByGame.set(ctx.game, service);
       }
       return {

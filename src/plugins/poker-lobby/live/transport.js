@@ -3,6 +3,8 @@ import { isPokerReplayActive } from '../../../shared/poker-replay-mode.js';
 import { pokerSkill } from '../poker-skills.js';
 import { cardFace, pokerMultiplier } from '../replay/model.js';
 import { POKER_ZONE } from '../replay/remaining.js';
+import { publicSkillPileName } from '../replay/skill-piles.js';
+import { DUAN_LIANG, GU_HUO, PUBLIC_PLAY_RETURNS, TU_XI } from '../replay/skill-states.js';
 import { createPokerSkillActions, GUAN_XING } from './skill-actions.js';
 
 const { BOTTOM, HAND, PLAYED, OUTSIDE, DISCARD } = POKER_ZONE;
@@ -11,7 +13,6 @@ const BID_PHASE = 103;
 const PLAY_PHASE = 202;
 const MOVE_DISCARD = 3;
 const MAX_CARDS = 54;
-const TU_XI = 17;
 const REVEAL_MS = 1700;
 const TRUSTEE_TIMEOUT = 2000;
 const HINT_TIMEOUT = 2500;
@@ -122,7 +123,7 @@ function putCard(card, wildRank) {
     ...(wildRank !== undefined && { wild_num: wildRank }) };
 }
 
-export function createPokerTransport(ctx, scope, match, consume, { acceptsLateResult, knowsHandCard } = {}) {
+export function createPokerTransport(ctx, scope, match, consume, { acceptsLateResult, knowsHandCard, awaitSnapshot = false } = {}) {
   if (!match || typeof consume !== 'function' || scope.closed) return null;
   const { proxy, account, connection, tableId, selfSeat, room } = match;
   if (!proxy || typeof proxy.M !== 'function' || typeof proxy.AddEventListener !== 'function'
@@ -181,7 +182,7 @@ export function createPokerTransport(ctx, scope, match, consume, { acceptsLateRe
 
   function ownSeatStillMatches(allowTrustee = false) {
     return read(() => {
-      if (room.IsGameStart !== true || proxy.CacheStarted === true || proxy.IsOffline === true) return false;
+      if (awaitSnapshot || room.IsGameStart !== true || proxy.CacheStarted === true || proxy.IsOffline === true) return false;
       const game = ctx.game.getClass?.('GameContext');
       const seat = game?.SelfSeat;
       if (game?.CanOperationInGame?.() === false || (!allowTrustee && seat?.IsAiControl === true)) return false;
@@ -251,7 +252,7 @@ export function createPokerTransport(ctx, scope, match, consume, { acceptsLateRe
     const surrenderReply = id === PROTOCOL.surrenderReply || id === PROTOCOL.surrenderLegacyReply;
     const callback = event => {
       const protocol = event?.Protocol;
-      if (protocol?.Id !== id) return;
+      if (protocol?.Id !== id || awaitSnapshot && id !== PROTOCOL.snapshot && !isResult) return;
       if (!sameTable() && !((isResult || surrenderReply && surrendering)
         && room.TableId === 0 && sameConnection() && acceptsLateResult?.())) return;
       const data = protocol.Data?.ProtoObj ?? protocol.ProtoObj;
@@ -467,7 +468,8 @@ export function createPokerTransport(ctx, scope, match, consume, { acceptsLateRe
     for (const skin of values(protocol.GeneralSkinList, 8)) {
       if (!cardId(skin?.GeneralID) || !Number.isSafeInteger(skin.SkinID) || skin.SkinID < 0) continue;
       emit('skin', { seat: player.id, general: skin.GeneralID, skin: skin.SkinID, skinDynamic: skin.IsDynamic === true,
-        skinType: Math.max(1, integer(skin.SkinType)) });
+        skinType: Math.max(1, integer(skin.SkinType)), lookup: [0, 2, 5].includes(protocol.Type),
+        ...(cardId(skin.RealGeneralID) && { realGeneral: skin.RealGeneralID }) });
     }
   });
   receiveWithSkill(PROTOCOL.turn, data => {
@@ -508,20 +510,37 @@ export function createPokerTransport(ctx, scope, match, consume, { acceptsLateRe
     const fromSelf = from?.seat === selfSeat && from.zone === HAND;
     const toSelf = to?.seat === selfSeat && to.zone === HAND;
     const opponentHand = [from, to].some(place => place?.zone === HAND && place.seat !== selfSeat);
-    const cards = cardsFrom(data.card_ids);
+    const skill = integer(data.spell_id);
+    const playReturn = from?.zone === PLAYED && to?.zone === HAND;
+    const publicPlayReturn = playReturn && PUBLIC_PLAY_RETURNS.has(skill);
+    const bluffReturn = playReturn && skill === GU_HUO && from.seat === to.seat;
+    const discardReturn = from?.zone === DISCARD && to?.zone === HAND && skill === DUAN_LIANG;
+    const toVisible = to?.zone === HAND ? visibleHandCards(data.to_visible_hand_cards) : [];
+    const sentCards = cardsFrom(data.card_ids);
+    const cards = publicPlayReturn && toVisible.length && !sentCards.some(card => cardId(card.id)) ? toVisible.slice() : sentCards;
     const count = publicCount(data, cards);
     const known = cards.filter(card => cardId(card.id) && !card.virtual);
     const realCount = to?.zone === PLAYED ? Math.max(0, count - cards.filter(card => card.virtual).length) : count;
+    const played = from?.zone === PLAYED ? visiblePlayed.get(from.seat) : null;
+    const publicGains = publicPlayReturn ? known
+      : bluffReturn ? known.filter(card => played?.unveiledIds?.has(card.id))
+      : discardReturn ? known.filter(card => discarded.has(card.id)) : [];
     let removedPlayedIds;
     if (from?.zone === PLAYED) {
       // Disclose only cards already visible in this perspective, even if the
       // move packet includes private cards entering an opposing hand.
-      const played = visiblePlayed.get(from.seat);
       const visible = played?.remainingIds;
       removedPlayedIds = [...new Set(cards.map(card => card.id).filter(id => visible?.has(id)))];
       for (const id of removedPlayedIds) visible.delete(id);
       if (removedPlayedIds.length < count) visible?.clear();
-      if (played && count > 0) played.complete = false;
+      if (played?.unveiledIds) {
+        for (const card of known) played.unveiledIds.delete(card.id);
+        if (new Set(known.map(card => card.id)).size < count) played.unveiledIds.clear();
+      }
+      if (played && count > 0) {
+        played.complete = false;
+        if (played.hiddenCount) played.hiddenCount = Math.max(0, played.hiddenCount - count);
+      }
     }
     if (fromSelf) {
       if (known.length === realCount) {
@@ -533,14 +552,19 @@ export function createPokerTransport(ctx, scope, match, consume, { acceptsLateRe
       for (const card of known) hand.set(card.id, card);
       if (expectedHandCount !== null) expectedHandCount += count;
     }
-    // Moves onto the public discard pile can carry faces. Between hands the
-    // transport still withholds every identity that involves neither own hand.
     const publicDiscard = from?.zone === HAND && to?.zone === DISCARD && data.move_type === MOVE_DISCARD;
     const publicBottom = from?.zone === BOTTOM && landlord !== null;
     const sweep = from?.zone === PLAYED && to?.zone === DISCARD;
+    // 破军 and 权计 are public even when moving cards to or from a private hand.
+    // Keep the disclosed return IDs so only the outgoing pile cards are removed.
+    const inPublicPile = card => publicSkillPileName(card.areaSkill || skill);
+    const publicPileMove = (from?.zone === OUTSIDE || to?.zone === OUTSIDE) && cards.some(inPublicPile);
     const shown = sweep ? cards.filter(card => removedPlayedIds.includes(card.id))
+      : publicPlayReturn ? publicGains
       : !opponentHand || fromSelf || toSelf || publicDiscard || publicBottom ? cards
-      : from?.zone === DISCARD ? cards.filter(card => discarded.has(card.id)) : [];
+      : bluffReturn ? publicGains
+      : from?.zone === DISCARD ? cards.filter(card => discarded.has(card.id))
+      : publicPileMove ? cards.map(card => inPublicPile(card) ? card : { id: 0, areaSkill: card.areaSkill }) : [];
     if (from?.zone === DISCARD) {
       if (known.length < count) discarded.clear();
       else for (const card of known) discarded.delete(card.id);
@@ -552,7 +576,9 @@ export function createPokerTransport(ctx, scope, match, consume, { acceptsLateRe
       }
     }
     const fromVisible = from?.zone === HAND ? visibleHandCards(data.from_visible_hand_cards) : [];
-    const toVisible = to?.zone === HAND ? visibleHandCards(data.to_visible_hand_cards) : [];
+    // Keep authoritative positions when the same face was also sent explicitly.
+    const explicitIds = new Set(toVisible.map(card => card.id));
+    toVisible.push(...publicGains.filter(card => !explicitIds.has(card.id)));
     const removedVisibleIds = new Set(fromVisible.map(card => card.id));
     let confirmedDepartures = false;
     if (knowsHandCard && from?.zone === HAND && (to?.zone !== HAND || from.seat !== to.seat)) {
@@ -561,18 +587,20 @@ export function createPokerTransport(ctx, scope, match, consume, { acceptsLateRe
       for (const card of known) if (knowsHandCard(from.seat, card.id)) removedVisibleIds.add(card.id);
       confirmedDepartures = new Set(known.map(card => card.id)).size === realCount;
     }
-    emit('move', { from, to, count, cards: shown, realCount, skill: integer(data.spell_id),
+    emit('move', { from, to, count, cards: shown, realCount, skill,
       ...(removedPlayedIds && { removedPlayedIds }),
       ...(removedVisibleIds.size && { removedVisibleIds: [...removedVisibleIds] }),
       ...(confirmedDepartures && { confirmedDepartures }),
-      ...(toVisible.length && { toVisible }) });
+      ...(toVisible.length && { toVisible, ...((publicPlayReturn || bluffReturn || discardReturn) && { visibleSkill: skill }) }) });
   });
   function projectPile(data, snapshot = false) {
     const place = location(data.from_zone_info);
     if (place?.seat === null || place?.zone !== OUTSIDE || data.is_all !== true) return;
     const faces = cardsFrom(data.card_ids);
-    const cards = snapshot && place.seat !== selfSeat ? faces.map(card => ({ id: 0, areaSkill: card.areaSkill })) : faces;
-    emit('skill-pile', { seat: place.seat, skill: integer(data.spell_id), cards, count: publicCount(data, cards) });
+    const skill = integer(data.spell_id);
+    const cards = snapshot && place.seat !== selfSeat ? faces.map(card =>
+      publicSkillPileName(card.areaSkill || skill) ? card : { id: 0, areaSkill: card.areaSkill }) : faces;
+    emit('skill-pile', { seat: place.seat, skill, cards, count: publicCount(data, cards) });
   }
 
   function exposedBottom(data) {
@@ -586,6 +614,16 @@ export function createPokerTransport(ctx, scope, match, consume, { acceptsLateRe
       const cards = exposedBottom(data);
       if (cards.length) emit('bottom', { cards });
       return;
+    }
+    if (place?.zone === PLAYED && data.is_all === true && data.opt_seat_id === 255) {
+      // A challenged 蛊惑 is turned face up with a broadcast of the whole play.
+      // Remember these IDs only for this play, not from private move or prompt data.
+      const play = visiblePlayed.get(place.seat);
+      if (play?.hiddenCount > 0) {
+        const cards = cardsFrom(data.card_ids);
+        const ids = new Set(cards.filter(card => cardId(card.id) && !card.virtual).map(card => card.id));
+        if (ids.size === cards.length && ids.size === play.hiddenCount && publicCount(data, cards) === ids.size) play.unveiledIds = ids;
+      }
     }
     if (place?.zone === OUTSIDE) projectPile(data);
     if (place?.zone !== HAND || place.seat === null) return;
@@ -615,7 +653,7 @@ export function createPokerTransport(ctx, scope, match, consume, { acceptsLateRe
     const count = publicCount(data, cards);
     const complete = shown.length > 0 && shown.length === count && shown.every(card => cardId(card.id) || card.virtual);
     visiblePlayed.set(seat, { publicCards: hidden ? [] : shown, complete, signature: complete ? playSignature(shown) : null,
-      remainingIds: new Set(shown.map(card => card.id).filter(cardId)) });
+      remainingIds: new Set(shown.map(card => card.id).filter(cardId)), ...(hidden && { hiddenCount: count }) });
     emit('played', { seat, cards: shown, count,
       cardType: integer(data.put_typ), score: integer(data.put_score), hidden });
   });
@@ -646,7 +684,9 @@ export function createPokerTransport(ctx, scope, match, consume, { acceptsLateRe
       if (seat === selfSeat && prompt?.kind === 'general') clearPrompt();
       const hasSkin = Object.hasOwn(general, 'skin') && Number.isSafeInteger(general.skin) && general.skin >= 0;
       emit('general', { seat, general: general.id, ...(hasSkin && {
-        skin: general.skin, skinDynamic: general.skin_dynamic === 1 || general.skin_dynamic === true,
+        skin: general.skin, ...(Object.hasOwn(general, 'skin_dynamic') && {
+          skinDynamic: general.skin_dynamic === 1 || general.skin_dynamic === true,
+        }),
       }), skills: values(general.skills, 32).filter(cardId),
         ...(snapshot && { snapshot: true }) });
     }
@@ -722,6 +762,7 @@ export function createPokerTransport(ctx, scope, match, consume, { acceptsLateRe
   receiveWithSkill(PROTOCOL.snapshot, data => {
     const base = data.base_data;
     if (base?.table_id !== tableId || base.model_id !== 175 || base.sec_id !== 2 || ended) return false;
+    awaitSnapshot = false;
     clearPrompt();
     observedTarget = null;
     lastOptions.clear();
@@ -818,6 +859,7 @@ export function createPokerTransport(ctx, scope, match, consume, { acceptsLateRe
   receive(PROTOCOL.settlementPb, settle);
 
   return {
+    isSynchronized: () => !awaitSnapshot,
     canUseTableActions,
     isLandlord,
     canSurrender,

@@ -42,13 +42,22 @@ try {
   const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
   for (const id of ['baisheng', 'appearances']) {
     const baseVersion = (await bundlePlugin(id)).manifest.version;
-    await page.goto(`${server.url}/dev/info.html?plugin=${id}${id === 'appearances' ? '&sync=managed' : ''}`);
+    await page.goto(`${server.url}/dev/info.html?plugin=${id}${id === 'appearances' ? '&sync=managed' : '&reconnect=1'}`);
     await page.waitForFunction(() => window[Symbol.for('sgs.ol.toolbox.core')]?.manager);
     const host = page.locator('[data-sgs-toolbox="core"]'), root = host.locator('.sgs-info');
     await host.locator('[data-category=info]').click(); await root.waitFor();
     assert.deepEqual(await page.evaluate(() => window[Symbol.for('sgs.ol.toolbox.core')].manager.list().map(row => row.id)), [id]);
     if (id === 'baisheng') {
+      await root.getByText('等待角色资料', { exact: true }).waitFor();
+      assert.equal(await root.getByRole('button', { name: '刷新战功', exact: true }).isDisabled(), true);
+      assert.equal(await host.locator('[data-category=manage] .nav-alert.is-error').count(), 0);
+      assert.equal(await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.requests.length), 0);
+      const reconnectShot = fileURLToPath(new URL('baisheng-reconnect-wait.png', output));
+      await host.screenshot({ path: reconnectShot, animations: 'disabled' }); screenshots.push(reconnectShot);
+      await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.finishReconnect());
       await page.waitForFunction(() => window.__SGS_TOOLBOX_DEMO__.requests.length === 1);
+      assert.equal(await root.getByText('等待角色资料', { exact: true }).isVisible(), false);
+      checks.push('baisheng: reconnect waits without a query or runtime error; recovers automatically when the same account and connection are ready');
       await root.getByText('83 / 100', { exact: true }).waitFor();
       await root.getByRole('button', { name: '刷新战功', exact: true }).click();
       await page.waitForFunction(() => window.__SGS_TOOLBOX_DEMO__.requests.length === 2);
@@ -103,6 +112,40 @@ try {
       await root.getByRole('button', { name: '农民', exact: true }).click();
       assert.equal(await root.locator('.stat strong').innerText(), '0.0%');
       await root.getByRole('button', { name: '不限', exact: true }).click();
+    }
+    if (id === 'baisheng') {
+      const refresh = root.getByRole('button', { name: '刷新战功', exact: true });
+      await page.evaluate(() => { window.__SGS_TOOLBOX_DEMO__.scene.proxy.IsOffline = true; });
+      await root.getByText('等待战功接口就绪', { exact: true }).waitFor();
+      assert.equal(await refresh.isDisabled(), true);
+      assert.equal(await root.getByText('83 / 100', { exact: true }).isVisible(), true);
+      for (const width of [248, 280, 420]) for (const offset of [-2, -1, 0, 2]) {
+        await host.evaluate((node, {width, offset}) => {
+          node.style.width = width + 'px'; node.shadowRoot.querySelector('.shell').style.width = width + 'px';
+          node.style.setProperty('--sgs-font-offset', `${offset}px`);
+        }, {width, offset});
+        assert.equal(await root.evaluate(node => {
+          const shell = node.getRootNode().querySelector('.shell'), host = node.getRootNode().host;
+          return node.scrollWidth > node.clientWidth + 1 || shell.getBoundingClientRect().right > host.getBoundingClientRect().right + 1;
+        }), false, `等待战功接口 ${width}px / ${offset}px overflow`);
+        const buttonLines = await refresh.evaluate(button => {
+          const range = document.createRange(); range.selectNodeContents(button.lastChild);
+          return range.getClientRects().length;
+        });
+        assert.equal(buttonLines, 1);
+      }
+      await host.evaluate(node => {
+        node.style.width = '248px'; node.shadowRoot.querySelector('.shell').style.width = '248px';
+      });
+      const cacheShot = fileURLToPath(new URL('baisheng-reconnect-snapshot.png', output));
+      await host.screenshot({ path: cacheShot, animations: 'disabled' }); screenshots.push(cacheShot);
+      await host.evaluate(node => {
+        node.shadowRoot.querySelector('.shell').style.removeProperty('width'); node.style.setProperty('--sgs-font-offset', '0px');
+      });
+      await page.evaluate(() => { window.__SGS_TOOLBOX_DEMO__.scene.proxy.IsOffline = false; });
+      await root.getByText('等待战功接口就绪', { exact: true }).waitFor({ state: 'hidden' });
+      assert.equal(await refresh.isEnabled(), true);
+      assert.equal(await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.requests.length), 2);
     }
     for (const width of [248, 280, 420]) {
       await host.evaluate((node, width) => { node.style.top = '18px'; node.style.left = '28px'; node.style.right = 'auto'; node.style.width = width + 'px'; }, width);
@@ -172,6 +215,7 @@ try {
     else await root.getByText('2 条出框 · 2 条战绩已保存', { exact: true }).waitFor();
     assert.doesNotMatch(await root.innerText(), /账号 41|演练账号甲/);
     await page.reload(); await page.waitForFunction(() => window[Symbol.for('sgs.ol.toolbox.core')]?.manager);
+    if (id === 'baisheng') await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.finishReconnect());
     await page.locator('[data-category=info]').click();
     if (id === 'baisheng') await root.getByText('83 / 100', { exact: true }).waitFor();
     else await root.getByText('2 条出框 · 2 条战绩已保存', { exact: true }).waitFor();

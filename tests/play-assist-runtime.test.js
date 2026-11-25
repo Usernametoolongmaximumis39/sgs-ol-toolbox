@@ -52,6 +52,25 @@ function fixture(t, options={}) {
 }
 const flush = () => new Promise(r=>setTimeout(r,15));
 
+test('Pei Xiu prompts stay manual even with generic auto-confirm enabled', async t => {
+  const f = fixture(t, { autoConfirm: true, peixiuAssist: true });
+  const hand = f.self.cardContainer;
+  hand.cardUis = [{ selected: true }];
+  for (const [message, signal] of [
+    ['是否向北绘制所有地图', { SpecifySkillId: 4022 }],
+    ['请选择采风弃牌', { Skill: { SkillId: 4023 } }],
+  ]) {
+    hand.selectCardContext = { message, SelectCountMin: 1, SelectCountMax: 1, ...signal };
+    f.self.buttonBar.Show();
+    await flush();
+    assert.equal(f.calls, 0);
+  }
+  hand.selectCardContext = { message: '请选择牌', SelectCountMin: 1, SelectCountMax: 1 };
+  f.self.buttonBar.Show();
+  await flush();
+  assert.equal(f.calls, 1);
+});
+
 test('one snapshot per assist tick and deferred actions recheck a changed scene', async t => {
   const f = fixture(t, { autoConfirm: true, quandaoCount: true });
   const getSnapshot = f.ctx.game.getSnapshot, getScene = f.ctx.game.getScene;

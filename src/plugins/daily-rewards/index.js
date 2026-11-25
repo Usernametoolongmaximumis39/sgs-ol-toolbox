@@ -10,8 +10,8 @@ import { DAILY_FREE_GIFT_KEY } from './daily-free-gift.js';
 
 
 export default {
-  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.47', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "领取特惠礼包的免费礼盒后会联网核对限购状态。此前待确认的礼盒仅在确认仍可领取时补领一次。", minCoreVersion: '0.6.38', categories: ['automation'], icon: DAILY_REWARDS_ICON, priority: 20000,
+  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.48', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "修复登录后商店尚未完全加载时可能漏领特惠礼包免费礼盒的问题。仅在联网确认活动有效、未达限购且价格为零时领取，不会代购付费礼包。待确认的旧记录只在核实仍可领取时补领一次。", minCoreVersion: '0.6.38', categories: ['automation'], icon: DAILY_REWARDS_ICON, priority: 20000,
     description: '自动领取签到、任务、邮件与活动奖励，按账号记录' },
   activate(ctx) {
     const native = createNativeAdapter(ctx);

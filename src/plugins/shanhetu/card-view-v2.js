@@ -94,11 +94,11 @@ export function createInfoCardView(ctx, theme) {
       if (probe && !probe.destroyed) probe.destroy(true); probe = null; throw error;
     }
   }
-  function measure(node, lines, width) {
+  function measure(node, lines, width, fixedWidth = false) {
     lines = cardLines(lines);
     // Keep the five values and armor together; report the true minimum width
     // to the placement solver instead of spilling the armor onto its own row.
-    for (const line of lines.filter(line => line.armorInline)) {
+    for (const line of lines.filter(line => line.armorInline && !fixedWidth)) {
       const tokens = cardTokens(line).filter(t => t.icon || t.text?.trim());
       const needed = tokens.reduce((sum, t) => sum + (t.icon ? ICON + 1 : 0) + metrics(t.text || '', 'stats').w, 0) + (tokens.length - 1) * 2;
       width = Math.max(width, needed + 24);
@@ -122,6 +122,7 @@ export function createInfoCardView(ctx, theme) {
       inlineId ? idWidth : width - 24, inlineId ? 'right' : 'left');
     y = inlineId ? y + Math.max(titleHeight, idHeight + 2) : idY + idHeight;
     rules.push({ y: y + 5, accent: true }); y += 11;
+    const bodyY = y, statGap = width < 156 ? 1 : 2;
     let priorKind = '';
     for (const line of lines) {
       if (line.kind === 'reward') { y += 3; rules.push({ y }); y += 6; }
@@ -150,13 +151,13 @@ export function createInfoCardView(ctx, theme) {
           const height = value ? text(value, kind, 12 + x + prefixWidth + iconWidth, y, textWidth) : ICON;
           if (icon) images.push({ name: token.icon, label: token.full || token.fallback || icon.label,
             x: 12 + x + prefixWidth, y: y + Math.max(0, (Math.min(height, 20) - ICON) / 2), w: ICON, h: ICON });
-          rowHeight = Math.max(rowHeight, height, icon ? ICON : 0); x += w + (line.kind === 'stats' ? 2 : GAP);
+          rowHeight = Math.max(rowHeight, height, icon ? ICON : 0); x += w + (line.kind === 'stats' ? statGap : GAP);
         }
         y += rowHeight + 2;
       }
       priorKind = line.kind;
     }
-    return remember(layouts, cacheKey, { id: node.id, name, w: width, h: Math.ceil(y + 8), texts, images, rules,
+    return remember(layouts, cacheKey, { id: node.id, name, w: width, h: Math.ceil(y + 8), bodyY, texts, images, rules,
       accessibleText: [name + ' · ' + location, ...semantics].join('\n') }, 256);
   }
   function paintIcon(target, item, releases) {
@@ -205,34 +206,66 @@ export function createInfoCardView(ctx, theme) {
     if (entry.texture) { draw(entry.texture); return; }
     if (!entry.failed) { entry.listeners.add(draw); releases.push(() => entry.listeners.delete(draw)); }
   }
-  function build(layout) {
+  function paintPart(parent, layout, includes, origin, releases) {
+    const L = Laya(), ink = own(parent, new L.Sprite());
+    ink.mouseEnabled = false;
+    for (const rule of layout.rules.filter(includes)) {
+      const y = rule.y - origin;
+      ink.graphics.drawLine(12, y, layout.w - 12, y, theme.palette.borderSoft, .65);
+      if (rule.accent) ink.graphics.drawLine(12, y, 30, y, theme.palette.accent, 1);
+    }
+    for (const item of layout.texts.filter(includes)) {
+      const label = own(parent, new L.Text());
+      Object.assign(label, { x: item.x, y: item.y - origin, width: item.w, height: item.h, text: item.text,
+        wordWrap: true, font: FONT, fontSize: item.fontSize, bold: item.bold, align: item.align,
+        leading: 4, mouseEnabled: false, _shanheKind: item.kind,
+        color: item.kind === 'warning' ? theme.palette.danger : ['heading', 'impact'].includes(item.kind) ? theme.palette.accent
+          : ['stats', 'hint', 'id'].includes(item.kind) ? theme.palette.muted : theme.palette.text });
+      label.typeset();
+      if (Math.ceil(Number(label.textHeight)) > item.h) throw new Error('卡片文字实测高度发生变化');
+    }
+    for (const item of layout.images.filter(includes)) paintIcon(ink, { ...item, y: item.y - origin }, releases);
+  }
+  function build(layout, detail = null) {
     const L = Laya(), card = new L.Sprite();
     try {
       const releases = [], destroy = card.destroy;
       card.destroy = function (...args) { for (const release of releases.splice(0)) release(); return destroy.apply(this, args); };
-      card.name = 'shanhe-card-' + String(layout.id); card.mouseEnabled = false;
+      card.name = (detail ? 'shanhe-detail-card-' : 'shanhe-card-') + String(layout.id);
+      card.mouseEnabled = false;
       card._shanheAccessibleText = layout.accessibleText;
       card._shanheIconLabels = layout.images.map(image => image.label);
       const background = own(card, new L.Sprite());
       background.name = 'shanhe-card-surface'; background.mouseEnabled = false; background.alpha = .88;
-      const ink = own(card, new L.Sprite()); ink.mouseEnabled = false;
-      for (const rule of layout.rules) {
-        ink.graphics.drawLine(12, rule.y, layout.w - 12, rule.y, theme.palette.borderSoft, .65);
-        if (rule.accent) ink.graphics.drawLine(12, rule.y, 30, rule.y, theme.palette.accent, 1);
+      const h = detail?.h ?? layout.h;
+      if (detail) {
+        const { bodyY, w } = layout, end = h - detail.footer;
+        const bodyHeight = Math.max(0, end - bodyY);
+        const range = Math.max(0, layout.h - bodyY - bodyHeight);
+        const chrome = own(card, new L.Sprite()); chrome.mouseEnabled = false;
+        paintPart(card, layout, item => item.y < bodyY, 0, releases);
+        if (detail.footer) chrome.graphics.drawLine(12, end, w - 12, end, theme.palette.borderSoft, .65);
+        const clip = own(card, new L.Sprite()); clip.mouseEnabled = false;
+        clip.pos(0, bodyY); clip.scrollRect = new L.Rectangle(0, 0, w, bodyHeight);
+        const body = own(clip, new L.Sprite()); body.name = 'shanhe-detail-body'; body.mouseEnabled = false;
+        paintPart(body, layout, item => item.y >= bodyY, bodyY, releases);
+        const thumb = own(card, new L.Sprite()); thumb.name = 'shanhe-detail-scroll-thumb'; thumb.mouseEnabled = false; thumb.alpha = .6;
+        const thumbSize = Math.min(bodyHeight, Math.max(8, bodyHeight * bodyHeight / Math.max(1, bodyHeight + range)));
+        card._shanheDetail = { mode: detail.mode, bodyY, bodyHeight, range, offset: 0 };
+        card.scrollBody = offset => {
+          if (card.destroyed) return;
+          offset = Math.max(0, Math.min(range, offset));
+          card._shanheDetail.offset = offset;
+          body.y = -offset;
+          thumb.graphics.clear();
+          if (range && bodyHeight) thumb.graphics.drawRect(w - 5, bodyY + (bodyHeight - thumbSize) * offset / range, 2, thumbSize, theme.palette.muted);
+        };
+        card.scrollBody(0);
+      } else {
+        paintPart(card, layout, () => true, 0, releases);
       }
-      for (const item of layout.texts) {
-        const label = own(card, new L.Text());
-        Object.assign(label, { x: item.x, y: item.y, width: item.w, height: item.h, text: item.text,
-          wordWrap: true, font: FONT, fontSize: item.fontSize, bold: item.bold, align: item.align,
-          leading: 4, mouseEnabled: false,
-          color: item.kind === 'warning' ? theme.palette.danger : ['heading', 'impact'].includes(item.kind) ? theme.palette.accent
-            : ['stats', 'hint', 'id'].includes(item.kind) ? theme.palette.muted : theme.palette.text });
-        label.typeset();
-        if (Math.ceil(Number(label.textHeight)) > item.h) throw new Error('卡片文字实测高度发生变化');
-      }
-      for (const item of layout.images) paintIcon(ink, item, releases);
-      card.size(layout.w, layout.h); background.size(layout.w, layout.h);
-      theme.surface(background, { width: layout.w, height: layout.h, kind: 'panel' });
+      card.size(layout.w, h); background.size(layout.w, h);
+      theme.surface(background, { width: layout.w, height: h, kind: 'panel' });
       return card;
     } catch (error) { card.destroy(true); throw error; }
   }

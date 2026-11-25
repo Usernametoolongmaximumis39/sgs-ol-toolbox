@@ -24,8 +24,8 @@ function dailyCount(reply) {
 
 export async function readDailyFreeGiftCount(adapter, shop) {
   const proxy = shop.proxy;
-  const current = () => !adapter.signal?.aborted && adapter.valid?.() !== false &&
-    shop.IsDataReady === true && shop.destroyed !== true && adapter.manager('GameShopManager') === shop && shop.proxy === proxy;
+  const current = () => !!proxy && !adapter.signal?.aborted && adapter.valid?.() !== false &&
+    shop.destroyed !== true && adapter.manager('GameShopManager') === shop && shop.proxy === proxy;
   if (!current() || typeof shop.SendCcGoodsHaveBuyCountReqV2 !== 'function' ||
       typeof shop.on !== 'function' || typeof shop.off !== 'function') return null;
   // The native getter defaults to zero even when the server never sent this ID.

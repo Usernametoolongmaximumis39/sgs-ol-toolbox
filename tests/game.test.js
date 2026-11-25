@@ -15,6 +15,21 @@ function setup(scene, classes = {}) {
   return { game, win, layer, poll: () => poll(), constructed: () => constructed, dispose: () => cleanups.forEach(fn => fn()) };
 }
 
+test('Classic can resolve the login account before entering the hall, but not from a replay or viewer', () => {
+  const player = { ClientId: 200 };
+  let observed = false, reads = 0;
+  const context = { IsViewerOrReplay: () => observed, get CurrentPlayer() { reads++; return player; } };
+  const scene = { SceneName: 'LoginScene' };
+  const { game } = setup(scene, { GameContext: context });
+  assert.equal(game.getSelf(), player);
+  observed = true;
+  assert.equal(game.getSelf(), null);
+  observed = false;
+  scene.replayBar = {};
+  assert.equal(game.getSelf(), null);
+  assert.equal(reads, 1);
+});
+
 test('real abbreviated physical slash definitions keep elemental cards out of ordinary slash counts and queries', () => {
   // Four rows retained from the cached official sys_playcard.sgs table.
   const config = JSON.parse(readFileSync(new URL('./fixtures/physical-slash-config.json', import.meta.url), 'utf8'));

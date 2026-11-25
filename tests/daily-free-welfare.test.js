@@ -214,6 +214,24 @@ test('official type-140 daily gift is found with no open view or registered Shop
   assert.equal(shopAction(f), undefined);
 });
 
+test('closed activity gift can be claimed before the general shop finishes loading', async () => {
+  const f = officialGiftFixture();
+  f.shop.IsDataReady = false;
+  f.shop.countReady = false;
+  f.shop.IsTargetSaleGoodsRed = () => false;
+  f.shop.LimitGoodsFilterCanShow = item => !item.PreFix;
+  await prepareGift(f);
+  assert.deepEqual(f.sent, [['counts', [DAILY_FREE_GIFT_ID]]]);
+  const action = shopAction(f);
+  assert.ok(action);
+  f.shop.LimitGoodsFilterCanShow = () => false;
+  assert.equal(action.send(), false);
+  f.shop.LimitGoodsFilterCanShow = () => true;
+  assert.equal((await awaitClaim(action, { valid: () => true, timeout: 20, poll: 1 })).status, 'confirmed');
+  assert.equal(f.shop.IsDataReady, false);
+  assert.deepEqual(f.sent.map(([kind]) => kind), ['counts', 'build', 'buy']);
+});
+
 test('client 2026111702 free gift uses the new native transport, with only one confirmed zero-cost purchase', async () => {
   const f = officialGiftFixture('G');
   f.proxy.L = () => assert.fail('must not use an unrelated minified method');

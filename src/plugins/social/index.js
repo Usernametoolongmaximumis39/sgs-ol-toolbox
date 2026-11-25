@@ -7,8 +7,8 @@ import { installRoomFilter } from './room-filter.js';
 import { PREFERENCES_RESTORED } from '../../shared/sync-paths.js';
 
 export const manifest = {
-  id: 'social', name: '好友与聊天', version: '0.1.24', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "新增公开聊天和诏令横幅的绑定码过滤，可在工具里关闭。减少重复查询置顶好友的将灯。", minCoreVersion: '0.6.185',
+  id: 'social', name: '好友与聊天', version: '0.1.25', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "改进公开聊天的绑定码过滤和官阶补全：优先补全当前可见消息，同一条消息内的多个官阶一起显示。过滤可在「工具」关闭，已过滤的消息不再触发官阶查询。", minCoreVersion: '0.6.185',
   description: '好友置顶、改名与将灯提醒、聊天绑定码过滤、一键进房、官阶补全与无密码房筛选',
   journalEvents: ['ClientLoginRep'],
   icon: { paths: ['M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 'M2 21v-3a6 6 0 0 1 12 0v3', 'M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1'] },

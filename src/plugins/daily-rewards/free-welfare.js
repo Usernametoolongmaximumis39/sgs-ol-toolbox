@@ -68,14 +68,16 @@ function dailyGiftOnSale(shop, item) {
 }
 
 function ready(shop, item) {
-  const goods = read(() => item.goodsinfo);
-  return shop?.destroyed !== true && shop?.IsDataReady === true && zeroCost(item) &&
-    typeof shop.IsTargetSaleCountReady === 'function' && read(() => shop.IsTargetSaleCountReady(goods)) === true &&
-    typeof shop.CheckGoodsLimit === 'function' && read(() => shop.CheckGoodsLimit(goods)) === false &&
-    inSellTime(item) && read(() => item.CanBuy) === true &&
+  const goods = read(() => item.goodsinfo), dailyGift = itemId(item) === DAILY_FREE_GIFT_ID;
+  if (!shop || shop.destroyed === true || (!dailyGift && shop.IsDataReady !== true) || !zeroCost(item) ||
+      read(() => shop.IsTargetSaleCountReady(goods)) !== true || read(() => shop.CheckGoodsLimit(goods)) !== false) return false;
+  // The activity uses its own sale and limit checks. The shop red dot also
+  // waits for the unrelated price list to finish loading at login.
+  if (dailyGift) return dailyGiftOnSale(shop, item) && (typeof shop.LimitGoodsFilterCanShow === 'function'
+    ? read(() => shop.LimitGoodsFilterCanShow(item)) === true : read(() => !item.PreFix && !item.General) === true);
+  return inSellTime(item) && read(() => item.CanBuy) === true &&
     (typeof shop.IsTargetSaleGoodsRed !== 'function' || read(() => shop.IsTargetSaleGoodsRed(item)) === true) &&
-    (Number(goods.ID) === DAILY_FREE_GIFT_ID ? dailyGiftOnSale(shop, item) :
-      typeof shop.IsDailyFreeGoodsCanBuy !== 'function' || read(() => shop.IsDailyFreeGoodsCanBuy(goods.ID)) === true);
+    (typeof shop.IsDailyFreeGoodsCanBuy !== 'function' || read(() => shop.IsDailyFreeGoodsCanBuy(goods.ID)) === true);
 }
 
 export function buildFreeShopMessage(shop, id, priceType = 2) {
@@ -113,17 +115,17 @@ async function prepareOtherFreeShopCounts(adapter, shop, entries) {
 export async function prepareFreeWelfare(adapter, selected = {}) {
   if (!selected.welfare || !valid(adapter)) return null;
   const shop = adapter.manager('GameShopManager');
-  if (shop?.IsDataReady !== true) return null;
+  if (!shop || shop.destroyed === true) return null;
   // Ordinary activity sale rows are not GetTargetSaleConfigs() entries and
   // their config singleton is closed over on current clients.
   await Promise.allSettled(['sys_h5_shop.sgs', 'sys_gs_dbs_fs_goodsbaseinfo.sgs'].map(name => adapter.loadConfig?.(name)));
-  if (!valid(adapter) || adapter.manager('GameShopManager') !== shop || shop.IsDataReady !== true) return null;
+  if (!valid(adapter) || adapter.manager('GameShopManager') !== shop || shop.destroyed === true) return null;
   const entries = freeShopEntries(adapter);
   const attempt = selected.dailyFreeGiftAttempt;
   const checkGift = attempt?.status !== 'confirmed' && (attempt || entries.some(item => dailyGiftOnSale(shop, item)));
   const [giftCount] = await Promise.all([
     checkGift ? readDailyFreeGiftCount(adapter, shop) : null,
-    prepareOtherFreeShopCounts(adapter, shop, entries),
+    shop.IsDataReady === true ? prepareOtherFreeShopCounts(adapter, shop, entries) : null,
   ]);
   return giftCount;
 }

@@ -9,15 +9,20 @@ export const OPTIONS = [
   ['skipTao', '跳过他人求桃', ''],
   ['skipAssist', '跳过应变助战', ''],
   ['quandaoCount', '权道数量', ''],
+  ['tianshuAssist', '天书辅助', ''],
+  ['quanyuAssist', '权御辅助', ''],
+  ['zhuohunAssist', '魔张飞辅助', ''],
+  ['peixiuAssist', '裴秀辅助', ''],
   ['rapid', '技能连按', '取消连按间隔'],
 ];
-export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.23', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "改进落英、破军和武娘的长按辅助识别，无法确认技能版本时交给玩家操作。三国斗地主牌桌停用出牌辅助。", minCoreVersion: '0.6.87', description: '长按技能辅助、自动确定与询问跳过。',
+const DEFAULT_ON = new Set(['skillLock', 'quandaoCount', 'tianshuAssist', 'quanyuAssist', 'zhuohunAssist', 'peixiuAssist']);
+export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.38', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "新增裴秀辅助：在绘图时给出走法提示，采风时可按花色批选、反选和锁定卡牌，保留手动确认。补充天书、权御和魔张飞的辅助提示。三国斗地主牌桌不启用出牌辅助。", minCoreVersion: '0.6.87', description: '长按技能辅助、自动确定、询问跳过与武将专属提示。',
   icon: { paths: ['M4 5h10v14H4zM7 8h4M7 11h3', 'm17 3-3 8h5l-3 10 7-13h-5l2-5'] }, priority: 12000, categories: ['game'] };
 
 export default { manifest, activate(ctx) {
   const listeners = new Set();
-  const settings = () => Object.fromEntries(OPTIONS.map(([key]) => [key, ctx.settings.get(key, key === 'skillLock') === true]));
+  const settings = () => Object.fromEntries(OPTIONS.map(([key]) => [key, ctx.settings.get(key, DEFAULT_ON.has(key)) === true]));
   const emit = () => listeners.forEach(fn => fn());
   const runtime = createRuntime(ctx, settings, emit);
   ctx.ui.registerPanel({ id: 'main', category: 'game', gameView: 'battle', render(container) {
@@ -25,9 +30,10 @@ export default { manifest, activate(ctx) {
     const el = (tag, text, cls) => { const n = doc.createElement(tag); if (text != null) n.textContent = text; if (cls) n.className = cls; return n; };
     const root = el('section'); root.dataset.playAssist = '';
     const style = el('style'); style.textContent = `
-      [data-play-assist]{font:12px/1.5 var(--sgs-font);color:var(--sgs-text);min-width:0}
+      [data-play-assist]{font:calc(12px + var(--sgs-font-offset,0px))/1.5 var(--sgs-font);color:var(--sgs-text);min-width:0}
       [data-play-assist] *{box-sizing:border-box}[data-play-assist] .pa-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent);cursor:pointer}
       [data-play-assist] .pa-copy{min-width:0;flex:1}[data-play-assist] small{display:block;font-size:10px;color:var(--sgs-muted);margin-top:2px;overflow-wrap:anywhere}
+      [data-play-assist] .pa-option{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;max-width:100%}
       [data-play-assist] .pa-support{padding:7px 0 10px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent);font-size:11px;line-height:1.8}
       [data-play-assist] .pa-skill-name{display:inline-block;white-space:nowrap}[data-play-assist] .pa-support p{margin:0 0 5px;overflow-wrap:anywhere}[data-play-assist] .pa-support strong{font-weight:500;color:var(--sgs-accent)}
       [data-play-assist] .pa-support .sgs-fold>summary{padding:3px 0;font-size:10px}[data-play-assist] .pa-support details p{color:var(--sgs-muted);font-size:10px}
@@ -42,7 +48,9 @@ export default { manifest, activate(ctx) {
     `;
     const inputs = new Map();
     for (const [key, name, hint] of OPTIONS) {
-      const row = el('label', null, 'pa-row'), copy = el('span', null, 'pa-copy'); copy.append(el('span', name)); if (hint) copy.append(ctx.ui.helpTip(hint, `${name}说明`));
+      const row = el('label', null, 'pa-row'), copy = el('span', null, 'pa-copy'), option = el('span', null, 'pa-option');
+      option.append(el('span', name)); if (hint) option.append(ctx.ui.helpTip(hint, `${name}说明`));
+      copy.append(option);
       const input = ctx.ui.styleSwitch(el('input')); input.type = 'checkbox'; input.setAttribute('aria-label', name); inputs.set(key, input);
       cleanups.push(ctx.scope.listen(input, 'change', () => { ctx.settings.set(key, input.checked); runtime.tick?.(); emit(); })); row.append(copy, input); root.append(row);
       if (key === 'skillLock') {

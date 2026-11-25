@@ -1,6 +1,7 @@
 import { read } from '../../../shared/safe-read.js';
 import { cardFace, comparePokerCardsByRank, comparePokerHandCards } from '../replay/model.js';
 import { POKER_ZONE } from '../replay/remaining.js';
+import { isQuanJiPileCard } from '../replay/skill-piles.js';
 import { KU_ROU, KU_ROU_CARDS, SEAT_MARKS } from '../replay/skill-states.js';
 
 const USE = 201027;
@@ -515,10 +516,10 @@ export function createPokerSkillActions({ send, publish, getSelfSeat, getLandlor
     const from = data.from_zone_info;
     const to = data.to_zone_info;
     const own = place => place?.zone_type === POKER_ZONE.OUTSIDE && (place.seat_id ?? 0) === getSelfSeat();
-    const cards = faces(data.card_ids);
-    if (own(from) && !snapshot) for (const card of cards) ownPiles.delete(card.id);
-    const place = snapshot ? from : to;
-    if (!own(place) || (data.spell_id ?? data.skill_id) !== 47) return;
+    if (own(from) && !snapshot) for (const card of items(data.card_ids)) ownPiles.delete(card?.card_id);
+    if (!own(snapshot ? from : to) || snapshot && data.is_all !== true) return;
+    const skill = data.spell_id ?? data.skill_id;
+    const cards = faces(items(data.card_ids).filter(card => isQuanJiPileCard(card?.spell_area_id, skill)));
     for (const card of cards) ownPiles.set(card.id, card);
   }
 

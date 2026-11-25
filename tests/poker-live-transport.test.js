@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ResourceScope } from '../src/core/resources.js';
 import { createPokerTransport } from '../src/plugins/poker-lobby/live/transport.js';
+import { createPokerTableState } from '../src/plugins/poker-lobby/live/table-state.js';
 
 const SELF = 1;
 const OWN_CARD = 10301;
@@ -69,23 +70,63 @@ test('native poker trustee waits for an own-seat state update and blocks competi
   f.scope.dispose();
 });
 
-test('an own snapshot restores trustee state and withholds opposing skill pile identities', () => {
+test('a snapshot restores public piles and trustee state without exposing other opposing pile identities', () => {
   const f = fixture([{ id: SELF }, { id: 2 }]);
   f.receive(201035, {
     base_data: { table_id: f.room.TableId, model_id: 175, sec_id: 2, phase: 202 },
     zone_data: [
       { from_zone_info: { seat_id: SELF, zone_type: 203 }, spell_id: 47, is_all: true,
         card_ids: [{ card_id: OWN_CARD }], card_num: 1 },
-      { from_zone_info: { seat_id: 2, zone_type: 203 }, spell_id: 3, is_all: true,
-        card_ids: [{ card_id: OTHER_CARD }], card_num: 1 },
+      { from_zone_info: { seat_id: 2, zone_type: 203 }, is_all: true, card_num: 4, card_ids: [
+        { card_id: OTHER_CARD, spell_area_id: 46 }, { card_id: 21501, spell_area_id: 47 }, { spell_area_id: 47 },
+        { card_id: 21400, spell_area_id: 3 },
+      ] },
     ],
     player_state: { state_list: [{ seat: SELF, is_trust: 1 }] },
   });
-  const piles = f.events.filter(event => event.type === 'skill-pile').map(({ data }) =>
-    [data.seat, data.skill, data.count, data.cards[0].id]);
-  assert.deepEqual(piles, [[SELF, 47, 1, OWN_CARD], [2, 3, 1, 0]]);
+  const state = createPokerTableState({ selfSeat: SELF, seats: [{ id: SELF }, { id: 2 }] });
+  for (const { type, data } of f.events) state.receive(type, data);
+  const piles = state.view().seats.map(seat => seat.skillPiles.map(({ skill, cards }) => [skill, cards.map(card => card?.id)]));
+  assert.deepEqual(piles, [[[47, [OWN_CARD]]], [[46, [OTHER_CARD]], [47, [21501, undefined]], [3, [undefined]]]]);
   assert.equal(f.transport.toggleTrustee(), true);
   assert.deepEqual(f.requests.at(-1), { id: 201036, data: { open_trust: false } });
+  f.scope.dispose();
+});
+
+test('opposing 权计 and 破军 retain public pile faces across moves without disclosing unrelated cards', () => {
+  const seats = [{ id: SELF }, { id: 2 }];
+  const state = createPokerTableState({ selfSeat: SELF, seats });
+  const f = fixture(seats, { knowsHandCard: state.knowsHandCard });
+  const pile = { seat_id: 2, zone_type: 203 };
+  const hand = { seat_id: 2, zone_type: 201 };
+  const move = (from, to, spell_id, card_ids) => {
+    f.receive(201005, { from_zone_info: from, to_zone_info: to, spell_id, card_ids, card_num: card_ids.length });
+    const event = f.events.findLast(({ type }) => type === 'move');
+    state.receive(event.type, event.data);
+    return event.data.cards.map(card => card.id);
+  };
+  const stash = move({ zone_type: 101 }, pile, 47, [{ card_id: 21501 }, { card_id: 41301 }]);
+  const take = move(pile, hand, 47, [{ card_id: 41301 }]);
+  const swap = move(hand, pile, 47, [{ card_id: OTHER_CARD, spell_area_id: 47 }]);
+  const sealed = move(hand, pile, 46, [{ card_id: 21400 }, { card_id: 51300, spell_area_id: 46 }]);
+  const returned = move(pile, hand, 46, [{ card_id: 21400 }]);
+  const privatePile = move(hand, pile, 3, [{ card_id: 10600, spell_area_id: 3 }]);
+  assert.deepEqual([stash, take, swap, sealed, returned, privatePile],
+    [[21501, 41301], [41301], [OTHER_CARD], [21400, 51300], [21400], []]);
+  const view = state.view();
+  const opponent = view.seats[1];
+  assert.deepEqual(opponent.skillPiles.map(({ skill, cards }) => [skill, cards.map(card => card?.id)]),
+    [[47, [21501, OTHER_CARD]], [46, [51300]], [3, [undefined]]]);
+  assert.deepEqual(view.history.filter(action => action.type === 'stash').map(action => action.skill), [47, 47, 46, 3]);
+  const visible = () => state.view().seats[1].visibleHand.map(card => [card.id, card.source]).sort(([a], [b]) => a - b);
+  assert.deepEqual(visible(), [[21400, '破军'], [41301, '权计']]);
+  move(pile, hand, 3, [{ card_id: 10600 }]);
+  move(pile, hand, 47, [{}]);
+  assert.deepEqual(visible(), [[21400, '破军'], [41301, '权计']]);
+  move(hand, pile, 47, [{ card_id: 41301 }]);
+  assert.deepEqual(visible(), [[21400, '破军']]);
+  move(hand, { zone_type: 103 }, 0, [{}]);
+  assert.deepEqual(visible(), []);
   f.scope.dispose();
 });
 
@@ -313,6 +354,45 @@ test('突袭 show-card notice projects only supplied faces and leaves no cancell
   assert.equal(f.timers[0].delay, 1700);
   f.timers[0].callback();
   assert.deepEqual(f.events.at(-1), { type: 'reveal-ended', data: reveals[0].data });
+});
+
+test('突袭 marks shown and gained hand cards until they leave or can no longer be tracked', () => {
+  const seats = [{ id: 0 }, { id: SELF }, { id: 2 }];
+  const state = createPokerTableState({ selfSeat: SELF, seats });
+  const f = fixture(seats, { knowsHandCard: state.knowsHandCard });
+  const send = (id, data) => {
+    f.receive(id, data);
+    for (const event of f.events.splice(0)) state.receive(event.type, event.data);
+  };
+  const shown = 21300, gained = 31300, ownGain = 41300;
+  const hand = seat_id => ({ seat_id, zone_type: 201 });
+  const played = seat_id => ({ seat_id, zone_type: 204 });
+  const marks = id => state.view().seats.find(seat => seat.id === id).visibleHand
+    .map(card => [card.id, card.source]).sort(([a], [b]) => a - b);
+  send(201030, { opt_seat: 2, opt_index: token(11), spell_id: 17, opt_type: 6,
+    data_cards: [{ card_id: shown }, {}, { card_id: 40300, is_virtual: true }] });
+  assert.deepEqual(marks(2), [[shown, 17]]);
+  assert.equal(state.view().reveal.seat, 2);
+  f.timers[0].callback();
+  for (const event of f.events.splice(0)) state.receive(event.type, event.data);
+  assert.equal(state.view().reveal, null);
+  assert.deepEqual(marks(2), [[shown, 17]]);
+
+  send(201005, { from_zone_info: played(0), to_zone_info: hand(2), spell_id: 17,
+    card_num: 1, card_ids: [{ card_id: gained }] });
+  assert.deepEqual(marks(2), [[shown, 17], [gained, 17]]);
+  assert.deepEqual(state.view().history.at(-1).cards.map(card => card.id), [gained]);
+  send(201005, { from_zone_info: played(2), to_zone_info: hand(SELF), spell_id: 17, card_num: 1,
+    to_visible_hand_cards: [{ position_index: 3, card: { card_id: ownGain } }] });
+  assert.deepEqual(marks(SELF), [[ownGain, 17]]);
+  assert.deepEqual(state.view().hand.map(card => card.id), [ownGain]);
+
+  send(201005, { from_zone_info: hand(2), to_zone_info: played(2), card_num: 1, card_ids: [{ card_id: shown }] });
+  assert.deepEqual(marks(2), [[gained, 17]]);
+  send(201005, { from_zone_info: hand(2), to_zone_info: hand(0), card_num: 1 });
+  assert.deepEqual(marks(2), []);
+  assert.deepEqual(marks(0), []);
+  assert.deepEqual(f.requests, []);
 });
 
 test('明牌加倍 requires the confirmed landlord and respects native bean eligibility', () => {
@@ -627,6 +707,78 @@ test('a partial played-card return reveals only the already visible removed IDs'
   f.receive(201005, { ...move, card_ids: [{ card_id: OWN_CARD }], card_num: 1 });
   assert.deepEqual(f.events.at(-1).data.cards, []);
   assert.deepEqual(f.events.at(-1).data.removedPlayedIds, []);
+});
+
+test('反馈、刚烈、遗计、红颜 project public gains from played cards without an explicit visibility list', () => {
+  const f = fixture([{ id: 0 }, { id: SELF }, { id: 2 }]);
+  const move = (skill, source, extra = {}) => {
+    f.receive(201005, { from_zone_info: { seat_id: source, zone_type: 204 }, to_zone_info: { seat_id: 2, zone_type: 201 },
+      spell_id: skill, card_num: 2, card_ids: [{ card_id: 11102 }, { card_id: 41202 }], ...extra });
+    return f.events.findLast(row => row.type === 'move').data;
+  };
+  for (const [skill, source] of [[15, 0], [16, 2], [18, 2], [26, 0]]) {
+    const publicGain = move(skill, source);
+    assert.deepEqual(publicGain.cards.map(card => card.id), [11102, 41202]);
+    assert.deepEqual(publicGain.toVisible.map(card => card.id), [11102, 41202]);
+    assert.equal(publicGain.visibleSkill, skill);
+  }
+  const explicit = move(18, 2, { to_visible_hand_cards: [{ card: { card_id: 41202 }, position_index: 4 }] });
+  assert.deepEqual(explicit.toVisible.map(({ id, position }) => [id, position]), [[41202, 4], [11102, undefined]]);
+  const withoutCards = move(18, 2, { card_ids: [], card_num: 0,
+    to_visible_hand_cards: [{ card: { card_id: 41202 }, position_index: 4 }] });
+  assert.equal(withoutCards.count, 1);
+  assert.deepEqual(withoutCards.cards.map(card => card.id), [41202]);
+  assert.deepEqual(move(18, 2, { card_ids: [{ card_id: 0 }, { card_id: 11102, is_virtual: true }] }).cards, []);
+  assert.deepEqual(move(15, 0, { from_zone_info: { zone_type: 201 } }).cards, []);
+  assert.equal(move(100, 0).toVisible, undefined);
+});
+
+test('断粮 marks only cards known to have been publicly discarded, even for the recipient', () => {
+  const f = fixture([{ id: 0 }, { id: SELF }, { id: 2 }]);
+  const hand = seat_id => ({ seat_id, zone_type: 201 });
+  const discard = { seat_id: 255, zone_type: 103 };
+  const card_ids = [{ card_id: OWN_CARD }, { card_id: OTHER_CARD }];
+  f.receive(201005, { from_zone_info: hand(0), to_zone_info: discard, spell_id: 36,
+    move_type: 3, card_num: 1, card_ids: card_ids.slice(1) });
+  f.receive(201005, { from_zone_info: discard, to_zone_info: hand(SELF), spell_id: 36, card_num: 2, card_ids });
+  const gain = f.events.at(-1).data;
+  assert.deepEqual(gain.cards.map(card => card.id), [OWN_CARD, OTHER_CARD]);
+  assert.deepEqual(gain.toVisible.map(card => card.id), [OTHER_CARD]);
+  assert.equal(gain.visibleSkill, 36);
+  f.receive(201005, { from_zone_info: discard, to_zone_info: hand(2), spell_id: 36, card_num: 1, card_ids: card_ids.slice(1) });
+  assert.deepEqual(f.events.at(-1).data.cards, []);
+  assert.equal(f.events.at(-1).data.toVisible, undefined);
+});
+
+test('only the current public 蛊惑 reveal can mark a card returned to the same hand', () => {
+  const f = fixture([{ id: 0 }, { id: SELF }, { id: 2 }]);
+  const played = { seat_id: 2, zone_type: 204 };
+  const card_ids = [{ card_id: OTHER_CARD }];
+  const conceal = () => f.receive(201004, { seat_id: 2, hide_put: true, card_num: 1, cards: card_ids });
+  const reveal = opt_seat_id => f.receive(201025, { from_zone_info: played, opt_seat_id, is_all: true, card_num: 1, card_ids });
+  const takeBack = (extra = {}) => {
+    f.receive(201005, { from_zone_info: played, to_zone_info: { seat_id: 2, zone_type: 201 }, spell_id: 29,
+      move_type: 2, card_num: 1, card_ids, ...extra });
+    return f.events.at(-1).data;
+  };
+  conceal();
+  reveal(SELF);
+  assert.deepEqual(takeBack().cards, []);
+  assert.equal(f.events.at(-1).data.toVisible, undefined);
+  conceal();
+  reveal(255);
+  const gain = takeBack();
+  assert.deepEqual(gain.cards.map(card => card.id), [OTHER_CARD]);
+  assert.deepEqual(gain.toVisible.map(card => card.id), [OTHER_CARD]);
+  assert.equal(gain.visibleSkill, 29);
+  assert.deepEqual(takeBack().cards, []);
+  conceal();
+  reveal(255);
+  conceal(); // Do not carry a reveal over to the next concealed play.
+  assert.deepEqual(takeBack().cards, []);
+  conceal();
+  reveal(255);
+  assert.deepEqual(takeBack({ card_ids: [{ card_id: OWN_CARD }] }).cards, []);
 });
 
 test('connection, account, replay, seats and scope invalidate actions', () => {

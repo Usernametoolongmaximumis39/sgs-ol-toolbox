@@ -121,12 +121,15 @@ export const pluginQuality = {
       "docs/play-assist.md"
     ],
     "tests": [
-      "tests/play-assist-runtime.test.js"
+      "tests/play-assist-runtime.test.js",
+      "tests/peixiu.test.js"
     ],
     "browser": [
       "tools/browser-play-assist-check.mjs",
       "tools/browser-play-assist-native-check.mjs",
-      "tools/browser-play-assist-expansion-check.mjs"
+      "tools/browser-play-assist-expansion-check.mjs",
+      "tools/browser-play-assist-generals-check.mjs",
+      "tools/browser-peixiu-check.mjs"
     ]
   },
   "daily-rewards": {
@@ -224,7 +227,8 @@ export const pluginQuality = {
       "tests/poker-play-audio.test.js",
       "tests/poker-live-table.test.js",
       "tests/poker-live-transport.test.js",
-      "tests/poker-live-skill-actions.test.js"
+      "tests/poker-live-skill-actions.test.js",
+      "tests/poker-forced-match.test.js"
     ],
     "browser": []
   },

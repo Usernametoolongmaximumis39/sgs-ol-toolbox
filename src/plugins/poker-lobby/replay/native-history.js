@@ -1,6 +1,7 @@
 import { roundStatus } from './board.js';
 import { cardDetail, recordedPlayType } from './model.js';
 import { escapeNativeText } from './native-opening.js';
+import { groupSkillCards, isFaceUpSkillCard, publicSkillPileName } from './skill-piles.js';
 
 const colored = (value, color) => `<span style="color:${color}">${escapeNativeText(value)}</span>`;
 const PLAYER_COLOR = '#ffeb70';
@@ -8,7 +9,7 @@ const RATE_REASON = { 4: '春天', 5: '反春' };
 
 function cardNames(cards) {
   if (!cards?.length) return '';
-  const shown = cards.filter(card => card.id && card.face !== '?').slice(0, 54);
+  const shown = cards.filter(card => card?.id && !card.hidden && card.face !== '?').slice(0, 54);
   return shown.length ? ` ${shown.map(card => colored(cardDetail(card), card.red ? '#ff6056' : '#e7e2d8')).join('、')}` : '';
 }
 
@@ -41,8 +42,16 @@ function recordText(action, state, slots, seats, names) {
       const known = action.seat === slots[0] || action.from === slots[0];
       return `${actor}${origin}${action.count}张牌${known ? cardNames(action.cards) : ''}`;
     }
-    case 'stash':
-      return `${actor}将${action.count}张牌置入技能区${cardNames(action.cards)}`;
+    case 'stash': {
+      const groups = groupSkillCards(action.cards, action.count, action.skill);
+      return groups.map(({ skill, cards }) => {
+        const source = publicSkillPileName(skill);
+        if (!source) return `${actor}将${cards.length}张牌置入技能区${cardNames(cards)}`;
+        const exposed = cards.filter(isFaceUpSkillCard);
+        const label = exposed.length ? `（${exposed.length === cards.length ? '' : `${exposed.length}张`}明牌）` : '';
+        return `${actor}将${cards.length}张牌置入${colored(source, '#fff000')}技能区${label}${cardNames(exposed)}`;
+      }).join('<br>');
+    }
     case 'pass':
       return `${actor}不出`;
     case 'discard':

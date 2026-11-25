@@ -109,13 +109,17 @@ function playTableMusic(win, scope, scene, origin) {
   play();
 }
 
+export function classicPokerTableClass(ctx, room) {
+  const { RES } = ctx.window;
+  const Table = ctx.game.getClass(NATIVE_SCENE);
+  return Table?.prototype?.createSeatUIContainer && RES?.IsGroupLoaded && RES.LoadGroup
+    && typeof room.createPlayerSeat === 'function' ? Table : null;
+}
+
 export function openClassicPokerScene(ctx, scope, origin, match, active, ready, failed, notBefore) {
   const { Laya, RES } = ctx.window;
-  const Table = ctx.game.getClass(NATIVE_SCENE);
-  if (!Table?.prototype?.createSeatUIContainer || !RES?.IsGroupLoaded || !RES.LoadGroup
-    || typeof match.room.createPlayerSeat !== 'function') {
-    throw new Error('当前客户端没有可用的原生斗地主牌桌');
-  }
+  const Table = classicPokerTableClass(ctx, match.room);
+  if (!Table) throw new Error('当前客户端没有可用的原生斗地主牌桌');
   const layer = origin.parent;
   let restoreOrigin;
 

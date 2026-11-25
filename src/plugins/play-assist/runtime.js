@@ -4,6 +4,11 @@ import { isNativePokerTable } from '../../shared/poker-table-mode.js';
 import { SHANHE_BATTLE_SCENE } from '../../shared/shanhe-scenes.js';
 import { EXTRA_IDS, skillKind } from './strategies.js';
 import { createExtended, redShaOwnTurn } from './extended.js';
+import { createTianshuDisplay } from './tianshu.js';
+import { createQuanyuDisplay } from './quanyu.js';
+import { createZhuohunDisplay } from './zhuohun.js';
+import { createPeixiuDisplay } from './peixiu/index.js';
+import { isPeixiuSkill } from './peixiu/native.js';
 
 // Static baseline: 小抄 1.6.75 uO/uE. Conditional judgement skills need 洛神 / 界洛神.
 export const SKILL_IDS = Object.freeze([62,769,726,3295,3310,792,3750,3753,295,250,784,445,49,716,101,3269,273,97,3260,102,891,484,3876,...EXTRA_IDS]);
@@ -28,6 +33,7 @@ const buttonBar = self => read(() => self.getButtonBar()) ||
   .find(bar => Array.isArray(read(() => bar.btns))) || null;
 const enabled = node => visible(node) && node._enabled === true && node.disabled !== true;
 const list = value => Array.isArray(value) ? value.slice(0, 128) : [];
+const seatUIs = (scene, self) => [...new Set([...list(scene.seatContainer?.seatUIs), self].filter(Boolean))];
 // Sprite buttons register business handlers on their private dispatcher. The
 // Sprite's own click handler is onMouse, not HandleSkillClick.
 function nativeClick(node, type = 'click') {
@@ -39,6 +45,8 @@ function nativeClick(node, type = 'click') {
 
 export function createRuntime(ctx, getSettings, onChange = () => {}) {
   const quandao = createQuandaoDisplay();
+  const tianshu = createTianshuDisplay(ctx), quanyu = createQuanyuDisplay(ctx), zhuohun = createZhuohunDisplay(ctx);
+  const peixiu = createPeixiuDisplay(ctx);
   let state = null, disposed = false, proxy = null, proxyCleanup = [], ended = false, currentSeat = null, sourceCard = null, wuxie = null, judgementFlower = null;
   const remembered = new Set(list(ctx.settings.get('rememberedSkillIds', [])).map(Number));
   let locks = new Set(remembered);
@@ -167,6 +175,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
   }
   function clear() {
     quandao.clear();
+    tianshu.clear(); quanyu.clear(); zhuohun.clear(); peixiu.clear();
     if (!state) return;
     for (const b of state.bindings.values()) b.dispose();
     state.barClean?.forEach(fn => fn());
@@ -355,6 +364,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     const barMessage = buttonBar(self)?.txtOptMsg?._innerHTML;
     const message = String(context?.message || context?.Message || barMessage || '').replace(/<[^>]*>/g,'');
     const specify = Number(context?.SpecifySkillId), skill = Number(context?.Skill?.SkillId), selection = self.spellSelector?.visible ? Number(self.spellSelector.spell?.SkillId) : 0;
+    if ([specify, skill, context?.Skill?.ID, selection].some(isPeixiuSkill)) return false;
     // Both native versions share the draw response. Keep target/show-hand
     // selection manual, including when generic auto-confirm is enabled.
     if (opt.skillLock && QIANGZHI_IDS.some(id => locks.has(id))) {
@@ -416,21 +426,29 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     const next = read(() => ctx.game.getServerProxy()); if (next === proxy) return;
     proxyCleanup.forEach(fn => fn()); proxyCleanup = []; proxy = next;
     resetRound();
+    quanyu.clear(); zhuohun.clear();
     if (typeof proxy?.on !== 'function' || typeof proxy?.off !== 'function') return;
     const owner = {}, bind = (event,fn) => { proxy.on(event,owner,fn); const p = proxy; proxyCleanup.push(ctx.scope.add(() => p.off(event,owner,fn))); };
     bind('MsgGameOver',() => { ended = true; resetRound(); clear(); notify(); });
     bind('MsgGameRoundNtf',packet => { if (field(packet,'isPassed')) { ended = true; resetRound(); clear(); } });
     bind('ClientLeavetableRep',() => { ended = true; resetRound(); clear(); notify(); });
     bind('MsgGamePlayCardNtf',() => { if (ended) resetRound(); ended = false; });
+    bind('MsgReconnectGame',() => { quanyu.clear(); zhuohun.clear(); });
     bind('MsgGameTurnNtf',packet => {
       const id = Number(field(packet,'SeatID'));
       currentSeat = Number.isInteger(id) && id >= 0 && id < 255 ? id : null;
+      if (state) zhuohun.startTurn(seatUIs(state.scene, state.self), currentSeat, field(packet, 'TurnCnt'), !!field(packet, 'IsResume'));
       wuxie = null;
     });
     bind('GsCGamephaseNtf',packet => {
       const seat = Number(field(packet,'SeatID'));
       if (Number.isInteger(seat) && seat >= 0 && seat < 255) currentSeat = seat;
+      if (state && field(packet, 'Round') === 0) zhuohun.startTurn(seatUIs(state.scene, state.self), seat);
       wuxie = null;
+    });
+    bind('GsCUpdateRoleDataExNtf', packet => { if (state) quanyu.observe(packet); });
+    bind('GsCUpdateHpNtf', packet => {
+      if (state) zhuohun.observe(packet, state.self, seatUIs(state.scene, state.self));
     });
     bind('GsCTriggerSpellEnq',() => { wuxie = null; });
     bind('PubGsCUseCard',packet => {
@@ -498,8 +516,16 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       if (!currentState) return;
       const { scene, self } = currentState;
       const s = state, live = alive(s, scene);
+      const options = getSettings();
       // Pause/temporary operation restrictions suspend execution, not this round's configuration.
-      quandao.update(self, Boolean(getSettings().quandaoCount) && live);
+      quandao.update(self, Boolean(options.quandaoCount) && live);
+      tianshu.update(scene, self, Boolean(options.tianshuAssist) && live);
+      peixiu.update(scene, !ended && Boolean(options.peixiuAssist));
+      if (live && (options.quanyuAssist || options.zhuohunAssist)) {
+        const seats = seatUIs(scene, self);
+        if (options.quanyuAssist) quanyu.update(scene, seats); else quanyu.hide();
+        zhuohun.update(self, seats, options.zhuohunAssist);
+      } else { quanyu.hide(); zhuohun.hide(); }
       if (!live || state !== s || ended || disposed || ctx.scope.signal.aborted) return;
       const current = list(self.skillItems).filter(item => !item.destroyed && (supported(item) || getSettings().rapid));
       for (const [item,b] of s.bindings) if (!current.includes(item) || Number(item.Skill?.SkillId) !== b.id) { b.dispose(); s.bindings.delete(item); }

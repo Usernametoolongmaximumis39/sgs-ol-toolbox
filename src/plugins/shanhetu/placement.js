@@ -24,6 +24,8 @@ const compareKey = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 const validRect = r => !!r && [r.x, r.y, r.w, r.h, r.x + r.w, r.y + r.h].every(finite)
   && r.w > 0 && r.h > 0;
 const rect = r => ({ x: r.x, y: r.y, w: r.w, h: r.h });
+const cardSize = ({ w, h, carousel, detailFit }) => ({ w, h,
+  ...(carousel ? { carousel: true, detailFit: detailFit || 0 } : {}) });
 const right = r => r.x + r.w;
 const bottom = r => r.y + r.h;
 const centre = r => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
@@ -108,7 +110,7 @@ function prepare(snapshot) {
   const errors = [];
   if (!snapshot || !validRect(snapshot.viewport)) errors.push('invalid-viewport');
   const arrays = {};
-  for (const name of ['nodes', 'cards', 'controls', 'previous']) {
+  for (const name of ['nodes', 'cards', 'controls', 'previous', 'occupied']) {
     const value = snapshot?.[name] ?? [];
     arrays[name] = Array.isArray(value) ? value : [];
     if (!Array.isArray(value)) errors.push(`invalid-${name}`);
@@ -134,7 +136,7 @@ function prepare(snapshot) {
         if (values.some(size => !size || !finite(size.w) || !finite(size.h) || size.w <= 0 || size.h <= 0))
           errors.push(`invalid-card-geometry:${key}`);
         else {
-          const sizes = [...new Map(values.map(size => [`${size.w},${size.h}`, { w: size.w, h: size.h }])).values()];
+          const sizes = [...new Map(values.map(size => [`${size.w},${size.h}`, cardSize(size)])).values()];
           if (sizes.length > MAX_CARD_SIZES) errors.push(`too-many-card-sizes:${key}`);
           cardSizes.set(key, sizes);
         }
@@ -142,6 +144,7 @@ function prepare(snapshot) {
     }
   }
   for (const r of arrays.controls) if (!validRect(r)) errors.push('invalid-control-geometry');
+  for (const p of arrays.occupied) if (!validRect(p) || !validLine(p.line)) errors.push('invalid-occupied-placement');
   if (snapshot?.shop != null && !validRect(snapshot.shop)) errors.push('invalid-shop-geometry');
   if (snapshot?.drawer !== undefined && snapshot.drawer !== null && !validRect(snapshot.drawer))
     errors.push('invalid-drawer-geometry');
@@ -159,8 +162,8 @@ function prepare(snapshot) {
     errors, rawCards: arrays.cards, nodes: orderedNodes,
     nodeMap: new Map(orderedNodes.map(n => [n.key, n])), cards, cardSizes, previous,
     viewport: rect(snapshot.viewport), safe: inflate(snapshot.viewport, -MARGIN), controls, shop,
-    drawer, protectedDrawer: drawer ? inflate(drawer, CARD_GAP) : null,
-    candidateObstacles: [...orderedNodes.flatMap(n => n.regions), ...controls, ...[shop, drawer].filter(Boolean)],
+    drawer, protectedDrawer: drawer ? inflate(drawer, CARD_GAP) : null, occupied: arrays.occupied,
+    candidateObstacles: [...orderedNodes.flatMap(n => n.regions), ...controls, ...arrays.occupied, ...[shop, drawer].filter(Boolean)],
   };
 }
 
@@ -215,6 +218,7 @@ function check(ctx, p, others = []) {
     if (overlap(p, protectedRect)) reasons.push('drawer-overlap');
     if (lineHitsRect(p.line, protectedRect)) reasons.push('line-crosses-drawer');
   }
+  for (const occupied of ctx.occupied) reasons.push(...pairReasons(p, occupied));
   const keys = new Set([key]);
   for (const other of others) {
     const otherKey = idKey(other?.id);
@@ -306,19 +310,27 @@ function preference(ctx, p) {
   // A taller, narrower card can dilute the same UI overlap across a larger
   // area. A small reflow cost prevents that fractional saving from needlessly
   // worsening wrapping, without outranking card count or above/self placement.
-  return { shopOverlapArea, aboveCount: above ? 1 : 0, aboveCost, selfOverlayCount: selfOverlay ? 1 : 0, selfOverlayCost, uiCost, uiOverlapArea,
+  const carouselCount = p.carousel ? 1 : 0;
+  return { shopOverlapArea, carouselCount, carouselArea: carouselCount * p.w * p.h, detailFit: p.detailFit || 0,
+    carouselControlOverlap: carouselCount && uiOverlapArea > EPS ? 1 : 0,
+    aboveCount: above ? 1 : 0, aboveCost, selfOverlayCount: selfOverlay ? 1 : 0, selfOverlayCost, uiCost, uiOverlapArea,
     reflowCost, cost: aboveCost + selfOverlayCost + uiCost + reflowCost + (above || selfOverlay ? 0 : length), length,
     movement: old ? Math.hypot(p.x - old.x, p.y - old.y) : 0,
     resize: p.w === card.w && p.h === card.h ? 0 : 1, widthChange };
 }
 
-const emptyPreference = () => ({ shopOverlapArea: 0, aboveCount: 0, aboveCost: 0, selfOverlayCount: 0, selfOverlayCost: 0, uiCost: 0, uiOverlapArea: 0,
+const emptyPreference = () => ({ shopOverlapArea: 0, carouselCount: 0, carouselArea: 0, carouselControlOverlap: 0, detailFit: 0,
+  aboveCount: 0, aboveCost: 0, selfOverlayCount: 0, selfOverlayCost: 0, uiCost: 0, uiOverlapArea: 0,
   reflowCost: 0, cost: 0, length: 0, movement: 0, resize: 0, widthChange: 0 });
 // Within equally complete layouts, clear the shop before preferring overhead cards.
 const preferenceOrder = (a, b) => a.shopOverlapArea - b.shopOverlapArea
+  || a.carouselControlOverlap - b.carouselControlOverlap || a.carouselCount - b.carouselCount
+  || b.detailFit - a.detailFit || b.carouselArea - a.carouselArea
   || b.aboveCount - a.aboveCount || b.selfOverlayCount - a.selfOverlayCount || a.cost - b.cost
   || a.length - b.length || a.movement - b.movement || a.resize - b.resize || a.widthChange - b.widthChange;
 const addPreference = (a, b) => ({ shopOverlapArea: a.shopOverlapArea + b.shopOverlapArea,
+  carouselCount: a.carouselCount + b.carouselCount, carouselArea: a.carouselArea + b.carouselArea,
+  carouselControlOverlap: a.carouselControlOverlap + b.carouselControlOverlap, detailFit: a.detailFit + b.detailFit,
   aboveCount: a.aboveCount + b.aboveCount, aboveCost: a.aboveCost + b.aboveCost,
   selfOverlayCount: a.selfOverlayCount + b.selfOverlayCount, selfOverlayCost: a.selfOverlayCost + b.selfOverlayCost,
   uiCost: a.uiCost + b.uiCost, uiOverlapArea: a.uiOverlapArea + b.uiOverlapArea, reflowCost: a.reflowCost + b.reflowCost,
@@ -393,12 +405,17 @@ function* makeSizeCandidates(ctx, card, key) {
     seen.add(signature);
     inspected++;
     const p = { id: card.id, x, y, w: card.w, h: card.h };
+    if (card.carousel) { p.carousel = true; p.detailFit = card.detailFit; }
     p.line = connector(owner.anchor, p);
     const rejected = candidateRejections(ctx, p, owner);
     if (rejected) {
       for (let index = 0; index < CANDIDATE_REASONS.length; index++) if (rejected & (1 << index)) {
         const reason = CANDIDATE_REASONS[index]; rejectedReasons[reason] = (rejectedReasons[reason] || 0) + 1;
       }
+      return;
+    }
+    if (ctx.occupied.some(other => pairConflicts(p, other))) {
+      rejectedReasons['occupied-placement'] = (rejectedReasons['occupied-placement'] || 0) + 1;
       return;
     }
     const pc = centre(p);
@@ -442,8 +459,7 @@ function* makeSizeCandidates(ctx, card, key) {
 }
 
 function* makeCandidates(ctx, card, key) {
-  // Every alternative is a complete size measured by the renderer. The solver
-  // selects among those pairs; it never estimates a new height or scales text.
+  // The renderer supplies measured full cards and bounded carousel sizes.
   const sizes = ctx.cardSizes.get(key).slice().sort((a, b) => a.w - b.w || a.h - b.h);
   const candidates = [], sizeCounts = [], rejectedReasons = {};
   let inspected = 0, validCount = 0;
@@ -575,13 +591,14 @@ export function placeCards(snapshot) {
 function copySnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return snapshot;
   const copy = value => value && typeof value === 'object' ? rect(value) : value;
-  const size = value => value && typeof value === 'object' ? { w: value.w, h: value.h } : value;
+  const size = value => value && typeof value === 'object' ? cardSize(value) : value;
   const array = (value, mapper) => Array.isArray(value) ? value.map(mapper) : value;
   return { viewport: copy(snapshot.viewport), controls: array(snapshot.controls, copy), shop: copy(snapshot.shop),
     previous: array(snapshot.previous, value => value && typeof value === 'object' ? { id: value.id, ...rect(value) } : value),
+    occupied: array(snapshot.occupied, value => value && typeof value === 'object' ? { ...rect(value), line: value.line && { ...value.line } } : value),
     drawer: copy(snapshot.drawer),
     cards: array(snapshot.cards, card => card && typeof card === 'object'
-      ? { id: card.id, w: card.w, h: card.h, alternatives: array(card.alternatives, size) } : card),
+      ? { id: card.id, ...cardSize(card), alternatives: array(card.alternatives, size) } : card),
     nodes: array(snapshot.nodes, node => node && typeof node === 'object'
       ? { id: node.id, anchor: copy(node.anchor), regions: array(node.regions, copy) } : node) };
 }

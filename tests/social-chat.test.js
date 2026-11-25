@@ -234,8 +234,10 @@ test('existing native officer service works without config and rank images wait 
  f.ctx.game.getServerProxy=()=>proxy;f.ctx.game.getConfigData=()=>null;
  f.ctx.window.Laya.Handler={create:(_caller,fn)=>fn};f.ctx.window.Laya.loader={getRes:url=>cache.get(url),load:(url,callback)=>loads.set(url,callback)};
  const runtime=createChatEnhancements(f.ctx);assert.doesNotMatch(f.row.htmlTxt.innerHTML,/officer\/1.png/);
+ assert.equal(f.row.visible, false);
  assert.equal(runtime.getDiagnostics().nativeOfficer,true);assert.equal(runtime.getDiagnostics().loading,1);
  cache.set('res/assets/chat/officer/1.png',{getIsReady:()=>true});loads.get('res/assets/chat/officer/1.png')();
+ assert.equal(f.row.visible, true);
  assert.match(f.row.htmlTxt.innerHTML,/officer\/1.png/);assert.equal(runtime.getDiagnostics().inserted,1);
  assert.equal(runtime.getDiagnostics().loading,0);f.scope.dispose();
 });
@@ -276,6 +278,96 @@ test('cached nickname with placeholder rank automatically loads native detail wi
  user.BaseInfoInit=true;user.OfficerLevel=38;runtime.tick();assert.match(f.row.htmlTxt.innerHTML,/officer\/10.png/);
  runtime.dispose();runtime.tick();assert.equal(requests.length,1);f.scope.dispose();
 });
+
+test('a chat row waits for each unresolved officer rank and then shows them together', t => {
+  const f = fixture(), requests = [], profiles = new Map();
+  t.after(() => f.scope.dispose());
+  f.self.constructor.GetNameInstance = name => profiles.get(name);
+  f.self.constructor.SendUserDetailReq = (name, force) => requests.push([name, force]);
+  f.row.chatData = { MsgType: 9 };
+  f.row.htmlTxt.innerHTML = link('甲') + link('乙');
+  const runtime = createChatEnhancements(f.ctx);
+  assert.equal(f.row.visible, false);
+  assert.deepEqual(requests, [['乙', false], ['甲', false]]);
+  profiles.set('甲', { BaseInfoInit: true, OfficerLevel: 38 });
+  runtime.tick();
+  assert.equal(f.row.visible, false);
+  profiles.set('乙', { BaseInfoInit: true, OfficerLevel: 1 });
+  runtime.tick();
+  assert.equal(f.row.visible, true);
+  assert.match(f.row.htmlTxt.innerHTML, /officer\/10\.png.*officer\/1\.png/);
+});
+
+test('a rebuilt message keeps its ten-second deadline and can still gain a late rank', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = fixture(), requests = [];
+  t.after(() => f.scope.dispose());
+  let time = 0, profile;
+  f.ctx.now = () => time;
+  f.self.constructor.GetNameInstance = () => profile;
+  f.self.constructor.SendUserDetailReq = name => requests.push(name);
+  f.view.getHtmlBase = data => ({ ...f.row, chatData: data, htmlTxt: { innerHTML: link('甲') }, visible: true });
+  const runtime = createChatEnhancements(f.ctx);
+  assert.equal(f.row.visible, false);
+  time = 6000;
+  t.mock.timers.tick(6000);
+  const rebuilt = f.view.getHtmlBase(f.row.chatData);
+  f.view.msgContainer._children = [rebuilt];
+  runtime.tick();
+  assert.equal(rebuilt.visible, false);
+  time = 9999;
+  t.mock.timers.tick(3999);
+  assert.equal(rebuilt.visible, false);
+  time = 10000;
+  t.mock.timers.tick(1);
+  assert.equal(rebuilt.visible, true);
+  assert.doesNotMatch(rebuilt.htmlTxt.innerHTML, /officer\//);
+  assert.deepEqual(requests, ['甲']);
+  profile = { BaseInfoInit: true, OfficerLevel: 1 };
+  runtime.tick();
+  assert.match(rebuilt.htmlTxt.innerHTML, /officer\/1\.png/);
+  const next = f.view.getHtmlBase({ ...f.row.chatData, SpokerMan: '乙' });
+  f.self.constructor.GetNameInstance = () => undefined;
+  f.view.msgContainer._children = [next];
+  runtime.tick();
+  assert.equal(next.visible, true, 'an already displayed row does not start waiting on a later cache miss');
+});
+
+test('filtered chat and decrees skip player lookup, requests and rank image loading', t => {
+  const f = fixture(), lookedUp = [], requests = [], loads = [];
+  t.after(() => f.scope.dispose());
+  f.self.constructor.GetNameInstance = name => { lookedUp.push(name); return null; };
+  f.self.constructor.SendUserDetailReq = name => requests.push(name);
+  f.ctx.window.Laya.Handler = { create: (_caller, fn) => fn };
+  f.ctx.window.Laya.loader = { load: url => loads.push(url) };
+  const data = name => ({ ChannelNum: 0, chatMsg: '周年', MessageHtml: link(name), SpokerMan: name, OfficerLv: 38 });
+  const createRow = data => ({ ...f.row, chatData: data, htmlTxt: { innerHTML: data.MessageHtml }, visible: true });
+  f.view.GetCurrentShowChanel = () => 0;
+  f.view.getHtmlBase = createRow;
+  const oldData = data('已有聊天'), oldRow = createRow(oldData);
+  f.view.msgContainer._children = [oldRow];
+  f.view.onChatUpdateMsg = () => {
+    f.view._children = [];
+    f.view.msgContainer._children = [f.view.getHtmlBase(oldData)].filter(Boolean);
+  };
+  const banner = f.view.superZhaolingUI = { itemUIs: [createRow(data('已有诏令'))], updateData(data) {
+    this.itemUIs.push(createRow(data));
+  } };
+  f.view.layoutSuperZhao = () => {};
+  f.view._children = [oldRow];
+  banner._children = banner.itemUIs;
+  f.ctx.window.Laya.stage._children.push(banner);
+  const runtime = createChatEnhancements(f.ctx);
+  assert.deepEqual(f.view.msgContainer._children, []);
+  assert.equal(f.view.getHtmlBase(data('新聊天')), null);
+  banner.updateData(data('新诏令'));
+  runtime.tick();
+  assert.deepEqual(banner.itemUIs.map(row => row.visible), [false, false]);
+  assert.deepEqual(lookedUp, []);
+  assert.deepEqual(requests, []);
+  assert.deepEqual(loads, []);
+});
+
 test('late HTML wrap height updates following message positions without new markup',()=>{
  const f=fixture();f.row.Size=function(w,h){this.height=h+8};
  const second={chatData:{},height:22,y:22};f.view.msgContainer._children.push(second);

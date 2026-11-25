@@ -73,7 +73,7 @@ function isReplayScene(scene) {
   return Boolean(read(() => scene?.IsReplay) || read(() => scene?.isReplay) || alive(read(() => scene?.replayBar)));
 }
 
-export function createGameAdapter(win, scope, mobileSkinPort, { watchScene = true } = {}) {
+export function createGameAdapter(win, scope, mobileSkinPort, { watchScene = true, readLoginAccount } = {}) {
   const configs = scope ? createConfigData(win, scope) : null;
   let selfClass = null, selfSearchAt = -Infinity;
   let current = null, stage = null, dispatcher = null, dispatcherOwner = null;
@@ -191,6 +191,14 @@ export function createGameAdapter(win, scope, mobileSkinPort, { watchScene = tru
     const nativeClass = selfClass || getClass('UserData');
     const stored = nativeClass && read(() => Object.getOwnPropertyDescriptor(nativeClass, 'self'));
     if (stored && 'value' in stored) return object(stored.value);
+    // On reconnect, Classic can enter the game straight from LoginScene, before
+    // a hall or currency UI exposes the self model. In replays this getter is
+    // the viewed player instead, so only use it outside viewer/replay mode.
+    const context = getClass('GameContext');
+    if (read(() => context.IsViewerOrReplay()) === false && !isReplayScene(getScene())) {
+      const self = object(read(() => context.CurrentPlayer));
+      if (number(read(() => self.ClientId))) return self;
+    }
     if (Date.now() - selfSearchAt < 1000) return null;
     selfSearchAt = Date.now();
     // Hall user UI / currency UI store NNt.Self in data or userData. Recover
@@ -476,6 +484,7 @@ export function createGameAdapter(win, scope, mobileSkinPort, { watchScene = tru
   return {
     getScene, getRenderedScene: stageScene, withSceneCycle, getDispatcher, getSelfSeatUI: () => selfUI(getScene()), getSeatUIs: () => seats(getScene()),
     getCardMeta, getCardFaceCatalog, loadCardFaceCatalog, getSnapshot, getClass, getServerProxy, getActivityManager, getMessageTargets, getCountdown, getSelf,
+    getLoginAccount: () => readLoginAccount?.(getServerProxy()),
     getRemainingSlash, isInGame: () => isGameScene(getScene()), isReplay: (scene = getScene()) => isReplayScene(scene), canReserveViewport,
     getConfigData: name => configs?.getConfigData(name) || null,
     loadConfigData: (name, options) => configs ? configs.loadConfigData(name, options) : Promise.reject(new Error('配置读取不可用')),

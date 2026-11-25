@@ -4,6 +4,7 @@ const USER_LINK = 'ATtextNickname*&.!**.%#';
 export const ROOM_LINK = 'sgs-social-room:';
 export const BINDING_CODE_FILTER = 'filterBindingCodes';
 const BINDING_CODE_TEXT = /互|绑|好友|周年|(?:^|[^A-Z])[AC][A-Z]{4,}/;
+const RANK_WAIT_MS = 10000;
 const isPublicChatChannel = channel => channel === 0 || channel === 1; // Native ALL and SYS.
 const escapeAttr = value => String(value).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const decodeHTML = value => String(value).replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
@@ -25,7 +26,7 @@ function refreshChat(view) {
   view.onChatUpdateMsg(view.GetCurrentShowChanel());
 }
 
-function installDecreeFilter(ctx, view, shouldFilter) {
+function installDecreeFilter(ctx, view, shouldFilter, removeEnhancement, enhance) {
   let banner, releaseUpdate, filtering = false;
   const hiddenRows = new Set();
   function restoreRows() {
@@ -33,10 +34,10 @@ function installDecreeFilter(ctx, view, shouldFilter) {
     hiddenRows.clear();
   }
   function hideMatchingRow(row) {
-    if (row && !row.destroyed && row.visible && isBindingCodeMessage(row.chatData)) {
-      hiddenRows.add(row);
-      row.visible = false;
-    }
+    if (!row || row.destroyed || !isBindingCodeMessage(row.chatData)) return false;
+    removeEnhancement(row);
+    if (row.visible) { hiddenRows.add(row); row.visible = false; }
+    return true;
   }
   function sync() {
     const current = view.superZhaolingUI, next = current?.destroyed ? null : current;
@@ -50,7 +51,10 @@ function installDecreeFilter(ctx, view, shouldFilter) {
         ? ctx.scope.patch(next, 'updateData', original => function (...args) {
           const count = this.itemUIs.length;
           const result = original.apply(this, args);
-          if (filtering && this.itemUIs.length > count) hideMatchingRow(this.itemUIs[count]);
+          if (this.itemUIs.length > count) {
+            const row = this.itemUIs[count];
+            if (!filtering || !hideMatchingRow(row)) enhance(row);
+          }
           return result;
         }) : null;
     }
@@ -127,8 +131,10 @@ export function decorateChatHTML(html, data, { lookup, config, robotIcon = '', g
     const user = lookup?.(name);
     const uid = Number(user?.ClientId);
     const robot = Number.isSafeInteger(uid) && uid > 4000000000;
-    const cachedLevel=user?.BaseInfoInit===false&&!user?.IsUseBaseDataFull?undefined:user?.OfficerLevel;
-    const level = Number(cachedLevel)>0?cachedLevel:(name === speaker ? data.OfficerLv : undefined);
+    const profileReady = user?.BaseInfoInit === true || user?.IsUseBaseDataFull;
+    const cachedLevel = user?.BaseInfoInit === false && !profileReady ? undefined : user?.OfficerLevel;
+    const speakerLevel = name === speaker ? data.OfficerLv : undefined;
+    const level = Number(cachedLevel) > 0 ? cachedLevel : Number(speakerLevel) > 0 ? speakerLevel : profileReady ? 0 : undefined;
     const icon = robot ? robotIcon : getOfficerIcon ? getOfficerIcon(level) : officerIcon(level, config);
     if (icon) icons.set(name, icon);
   }
@@ -165,7 +171,7 @@ function displayedNodes(stage) {
   }
   return result;
 }
-function visibleChatItem(item, stage, Laya) {
+function visibleChatItem(item, stage, Laya, held) {
   const point = (node, x, y) => read(() => node.localToGlobal(Laya?.Point ? new Laya.Point(x, y) : { x, y }));
   const rect = (node, x, y, w, h) => {
     const a = point(node, x, y), b = point(node, x+w, y+h);
@@ -176,7 +182,7 @@ function visibleChatItem(item, stage, Laya) {
   const seen = new Set();
   for (let node=item; node && !seen.has(node) && seen.size<64; node=node.parent) {
     seen.add(node);
-    if (node.destroyed || node.visible===false || node._visible===false || node.alpha===0) return false;
+    if (node.destroyed || node.alpha===0 || (!(node === item && held) && (node.visible===false || node._visible===false))) return false;
     const clip = node.scrollRect || node._scrollRect;
     const clipping = clip ? rect(node,clip.x,clip.y,clip.width,clip.height)
       : node===stage && Number(node.width)>0 && Number(node.height)>0 ? rect(node,0,0,node.width,node.height) : null;
@@ -205,16 +211,23 @@ export function createChatEnhancements(ctx) {
   let configAttempts = 0, configRetryAt = 0, robotColor = '', robotIcon = '';
   let robotGeneration = 0;
   let filterBindingCodes = bindingCodeFilterEnabled(ctx), filteredViews = new WeakSet();
+  let rankWaits = new WeakMap(), rankWakeAt = Infinity, clearRankWake;
   const views = new Map(), items = new Map(), requested = new Set(), robotAssets = new Set();
   const rankAssets=new Map();let nativeOfficer=null,diagnostics={};
   const now = () => typeof ctx.now === 'function' ? ctx.now() : Date.now();
   const active = () => !stopped && !ctx.scope.signal.aborted;
   const filterActive = () => active() && filterBindingCodes;
   const self = () => read(() => ctx.game.getSelf());
-  const lookup = name => read(() => self().constructor.GetNameInstance(name));
+  const lookup = name => {
+    const user = self();
+    return name === user?.Nickname || name === user?.NickNameForLocal
+      ? user : read(() => user.constructor.GetNameInstance(name));
+  };
   function rankIcon(level){
+    if (level === undefined) return null;
+    if (level === 0) return '';
     let url=read(()=>nativeOfficer.GetOfficerChatIcon(Number(level)))||officerIcon(level,config);
-    if(!/^res\/assets\/chat\/officer\/(?:\d+)(?:_\d+)?\.png$/.test(url))return '';
+    if(!/^res\/assets\/chat\/officer\/(?:\d+)(?:_\d+)?\.png$/.test(url))return nativeOfficer||config?'':null;
     const loader=ctx.window.Laya?.loader;
     if(typeof loader?.load!=='function'||typeof ctx.window.Laya?.Handler?.create!=='function')return url;
     const texture=read(()=>loader.getRes(url));
@@ -227,7 +240,19 @@ export function createChatEnhancements(ctx) {
         if(!ready)ctx.reportError?.('聊天官阶图片加载失败：'+url);tick();
       }),null,ctx.window.Laya.Loader?.IMAGE||'image');}catch(error){rankAssets.set(url,'failed');ctx.reportError?.(error);}
     }
-    return '';
+    return rankAssets.get(url) === 'failed' ? '' : null;
+  }
+  function wakeForRankDeadline(deadline) {
+    if (deadline >= rankWakeAt) return;
+    clearRankWake?.();
+    rankWakeAt = deadline;
+    const timer = setTimeout(() => {
+      clearRankWake?.();
+      tick();
+    }, Math.max(0, deadline - now()));
+    clearRankWake = ctx.scope.add(() => {
+      clearTimeout(timer); clearRankWake = null; rankWakeAt = Infinity;
+    });
   }
   let joinAttempt=null,passwordJob=null;
   function clearAttempt(){const attempt=joinAttempt;joinAttempt=null;attempt?.release?.();}
@@ -339,8 +364,14 @@ export function createChatEnhancements(ctx) {
     }
     notify('请返回大厅后点击进房'); return false;
   }
+  function revealItem(item, entry) {
+    if (!entry.held) return;
+    entry.held = false;
+    if (!item.destroyed) item.visible = true;
+  }
   function removeItem(item) {
     const entry = items.get(item); if (!entry) return;
+    revealItem(item, entry);
     items.delete(item); entry.release?.();
     if (!item.destroyed && item.chatData === entry.data && htmlOf(item) === entry.applied) {
       item.htmlTxt.innerHTML = entry.base;
@@ -350,6 +381,7 @@ export function createChatEnhancements(ctx) {
   }
   function clear() {
     diagnostics={};nativeOfficer=null;
+    clearRankWake?.(); rankWaits = new WeakMap();
     clearAttempt();passwordJob=null;
     pending = null; requested.clear(); submitUntil = 0;
     for (const item of [...items.keys()]) removeItem(item);
@@ -358,9 +390,12 @@ export function createChatEnhancements(ctx) {
     filteredViews = new WeakSet();
   }
   function enhance(item) {
-    if (!item || item.destroyed || !item.htmlTxt || !item.chatData || item.isBigFace) return false;
-    const html = htmlOf(item); if (typeof html !== 'string') return false;
+    if (!item || item.destroyed) return false;
     let entry = items.get(item);
+    if (entry && entry.data !== item.chatData) { removeItem(item); entry = undefined; }
+    if (!item.htmlTxt || !item.chatData || typeof item.chatData !== 'object' || item.isBigFace
+      || (item.visible === false && !entry?.held)) return false;
+    const html = htmlOf(item); if (typeof html !== 'string') return false;
     if (!entry) {
       entry = { base: html, applied: html, data: item.chatData, release: null }; items.set(item, entry);
       if (typeof item.htmlTxt.event === 'function') entry.release = ctx.scope.patch(item.htmlTxt, 'event', original => function (type, value, ...args) {
@@ -374,8 +409,13 @@ export function createChatEnhancements(ctx) {
         return original.call(this, type, value, ...args);
       });
     }
-    if (entry.data !== item.chatData || html !== entry.applied) { entry.base = html; entry.data = item.chatData; }
-    const applied = decorateChatHTML(entry.base, item.chatData, { lookup, config, robotIcon, getOfficerIcon:rankIcon });
+    if (html !== entry.applied) entry.base = html;
+    let rankPending = false;
+    const applied = decorateChatHTML(entry.base, item.chatData, { lookup, config, robotIcon, getOfficerIcon(level) {
+      const icon = rankIcon(level);
+      if (icon === null) rankPending = true;
+      return icon;
+    } });
     entry.applied = applied;
     const changed=html!==applied;
     if(changed){item.htmlTxt.innerHTML=applied;item.htmlTxt.layout?.();}
@@ -383,7 +423,19 @@ export function createChatEnhancements(ctx) {
     // assume unchanged markup means unchanged height, or the next row overlaps.
     const height=Number(item.contextHeight),resized=Number.isFinite(height)&&entry.height!==height;
     if(changed||resized){item.Size?.(item.width,item.contextHeight);entry.height=height;}
+    const deadline = rankWaits.get(entry.data) ?? now() + RANK_WAIT_MS;
+    if (rankPending && deadline > now()) {
+      if (!entry.held) { entry.held = true; item.visible = false; }
+      rankWaits.set(entry.data, deadline);
+      wakeForRankDeadline(deadline);
+    } else {
+      rankWaits.set(entry.data, 0);
+      revealItem(item, entry);
+    }
     return changed||resized;
+  }
+  function enhanceNewRow(item) {
+    if (active() && ctx.native.account().id === who) enhance(item);
   }
   function relayout(view) {
     const rows = read(() => view.msgContainer._children); if (!Array.isArray(rows)) return;
@@ -425,6 +477,7 @@ export function createChatEnhancements(ctx) {
     const nodes = displayedNodes(ctx.window.Laya?.stage);
     const sceneView = read(() => ctx.game.getScene().chatViewUI); if (sceneView && !nodes.includes(sceneView)) nodes.push(sceneView);
     const liveViews = new Set(), liveItems = new Set(), changedItems = new Set();
+    const filteredRows = new Map();
     const enabled = bindingCodeFilterEnabled(ctx), filterChanged = enabled !== filterBindingCodes;
     filterBindingCodes = enabled;
     for (const view of nodes) {
@@ -440,32 +493,35 @@ export function createChatEnhancements(ctx) {
             filteredViews.add(view);
             return null;
           }
-          const result = original.call(this, data, ...args); enhance(result); return result;
+          const result = original.call(this, data, ...args); enhanceNewRow(result); return result;
         });
         // The decree banner stays visible above every native chat tab.
-        const decrees = canFilter && typeof view.layoutSuperZhao === 'function' ? installDecreeFilter(ctx, view, filterActive) : null;
+        const decrees = canFilter && typeof view.layoutSuperZhao === 'function'
+          ? installDecreeFilter(ctx, view, filterActive, removeItem, enhanceNewRow) : null;
         views.set(view, { decrees, release() { decrees?.release(); releaseRows(); } });
       }
       views.get(view).decrees?.sync();
       if (canFilter && (firstSeen || filterChanged) && isPublicChatChannel(view.GetCurrentShowChanel())) {
         const container = view.msgContainer;
-        const needsRefresh = filterBindingCodes
-          ? [container._children, container.contains].some(rows => Array.isArray(rows)
-            && rows.some(row => isPublicChatChannel(row?.chatData?.ChannelNum) && isBindingCodeMessage(row.chatData)))
-          : filteredViews.has(view);
+        const blocked = filterBindingCodes ? [container._children, container.contains].filter(Array.isArray).flat()
+          .filter(row => isPublicChatChannel(row?.chatData?.ChannelNum) && isBindingCodeMessage(row.chatData)) : [];
+        const needsRefresh = filterBindingCodes ? blocked.length > 0 : filteredViews.has(view);
         if (needsRefresh) {
+          // The stage snapshot may still contain the old rows after native rebuild.
+          for (const row of blocked) { filteredRows.set(row, row.chatData); removeItem(row); }
           filteredViews.delete(view);
           refreshChat(view);
         }
       }
     }
-    for (const item of nodes) if (item?.chatData && item.htmlTxt && typeof item.linkHandler === 'function') {
+    for (const item of nodes) if (item?.chatData && filteredRows.get(item) !== item.chatData && item.htmlTxt && typeof item.linkHandler === 'function') {
       liveItems.add(item); if (enhance(item)) changedItems.add(item);
     }
     for (const view of liveViews) {
       let changed = false;
       for (const item of (view.msgContainer._children || []).slice(0, 256)) {
-        if (!item?.chatData) continue; liveItems.add(item); changed = enhance(item) || changedItems.has(item) || changed;
+        if (!item?.chatData || filteredRows.get(item) === item.chatData) continue;
+        liveItems.add(item); changed = enhance(item) || changedItems.has(item) || changed;
       }
       if (changed) relayout(view);
     }
@@ -484,7 +540,7 @@ export function createChatEnhancements(ctx) {
       const ctor = self()?.constructor;
       if (typeof ctor?.SendUserDetailReq === 'function' || typeof ctor?.SendUserBaseInfo === 'function') {
         const visibleNames = new Set([...liveItems].reverse()
-          .filter(item=>visibleChatItem(item,ctx.window.Laya?.stage,ctx.window.Laya))
+           .filter(item=>visibleChatItem(item,ctx.window.Laya?.stage,ctx.window.Laya,items.get(item)?.held))
           .flatMap(item=>linkedNames(items.get(item)?.base).reverse()));
         // Bound memory without letting old/offscreen history exhaust a lifetime quota.
         if(requested.size>512)for(const name of requested)if(!visibleNames.has(name))requested.delete(name);

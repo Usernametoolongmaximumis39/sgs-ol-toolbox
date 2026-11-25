@@ -6,7 +6,8 @@ import { read } from '../../../shared/safe-read.js';
 import { isPokerTableId, POKER_MODE as MODE, POKER_SECTION as SECTION } from '../poker-room.js';
 import { pokerDisplayNames } from '../poker-presentation.js';
 import { pokerSkill } from '../poker-skills.js';
-import { openClassicPokerScene } from './classic-scene.js';
+import { classicPokerTableClass, openClassicPokerScene } from './classic-scene.js';
+import { playPokerBattleStart } from './native-battle-start.js';
 import { createPokerTableState } from './table-state.js';
 import { mountPokerTableView } from './table-view.js';
 import { createPokerTransport } from './transport.js';
@@ -16,8 +17,11 @@ const START = 'GsCModifyUserseatNtf';
 const RECONNECT = 'CsClientReconnectinfoNtf';
 const TABLE_INFO = 'ClientTableinfoRep';
 const SNAPSHOT = 'decodeMsgGameSnap';
+const RECONNECT_WAIT_MS = 8000;
+const CLASSIC_MODE_WARNING = 'PC端未开启该模式，无法进入游戏';
 const SETTLEMENT_WAIT_MS = 6000;
 const LEAVE_WAIT_MS = 5000;
+const SKIN_REPLY_WAIT_MS = 6000;
 const liveOpeners = new WeakMap();
 const ACTIONS = { play: 'play', pass: 'pass', general: 'selectGeneral', 'general-preview': 'preselectGeneral', bid: 'bid',
   skill: 'activateSkill', 'skill-choice': 'submitSkillChoice' };
@@ -67,6 +71,16 @@ function verifyTable(ctx, room, proxy, ticket, allowRoomId) {
   return { ...session, tableId };
 }
 
+function readReconnectSeats(rows) {
+  if (!Array.isArray(rows)) return null;
+  const seats = rows.filter(row => row && !row.IsViewer && Number(row.ClientId) > 0)
+    .map(row => ({ id: row.SeatID, clientId: Number(row.ClientId) }));
+  if (seats.length !== 3 || seats.some(row => !Number.isSafeInteger(row.clientId)
+    || !Number.isInteger(row.id) || row.id < 0 || row.id > 7)
+    || new Set(seats.map(row => row.id)).size !== 3 || new Set(seats.map(row => row.clientId)).size !== 3) return null;
+  return seats;
+}
+
 function readStart(ctx, ticket, data, proxy) {
   if (data?.Id !== 21208 || data.IsGameStart !== true || !Array.isArray(data.Infos) || data.Infos.length !== 3) return null;
   const room = getRoom(proxy);
@@ -100,7 +114,7 @@ function openTable(ctx, origin, match, onLeave, onFailure, fromSnapshot, notBefo
     const state = createPokerTableState(match, names);
     let scene, transport, view, settlement, renderQueued = false;
     let waitingForResult = false, canLeaveWithoutResult = false, serverEnded = false;
-    let surrendered = false;
+    let surrendered = false, battleReady = false, battlePlayed = false, skinIntent;
     let started = match.room.IsGameStart === true, closedAt;
     const roomLeft = () => match.room.TableId === 0;
     const waitForClosedResult = () => {
@@ -112,7 +126,7 @@ function openTable(ctx, origin, match, onLeave, onFailure, fromSnapshot, notBefo
       && (match.room.TableId === match.tableId || roomLeft() && (settlement || surrendered || waitForClosedResult()));
     const canLeave = () => active() && (settlement || canLeaveWithoutResult)
       && (roomLeft() || typeof match.room.SendLeaveTable === 'function');
-    const canAct = () => active() && !state.leaving;
+    const canAct = () => active() && !state.leaving && (!fromSnapshot || transport?.isSynchronized());
     const canEscape = () => canAct() && !serverEnded && !surrendered && !transport?.isLandlord()
       && match.room.TableId === match.tableId
       && match.room.IsGameStart === true && typeof match.room.SendLeaveTable === 'function'
@@ -120,8 +134,15 @@ function openTable(ctx, origin, match, onLeave, onFailure, fromSnapshot, notBefo
     const render = () => {
       if (active() && view) {
         const snapshot = state.view();
-        try { view.render({ ...snapshot, settlement, playEntrySound: started && !fromSnapshot && !snapshot.ended,
-          canLeave: !snapshot.leaving && canLeave() }); }
+        try {
+          view.render({ ...snapshot, settlement, playEntrySound: started && !fromSnapshot && !snapshot.ended,
+            canLeave: !snapshot.leaving && canLeave() });
+          if (battleReady && !battlePlayed && !snapshot.ended) {
+            battlePlayed = true;
+            read(() => view.playBattleStartSound());
+            playPokerBattleStart(ctx.window, scope, scene, () => active() && !serverEnded && !surrendered);
+          }
+        }
         catch (error) { fail(error); }
       }
     };
@@ -219,7 +240,15 @@ function openTable(ctx, origin, match, onLeave, onFailure, fromSnapshot, notBefo
     }
     transport = createPokerTransport(ctx, scope, match, (type, data) => {
       if (!active()) return;
-      if (type === 'start') started = true;
+      if (type === 'start') { started = true; skinIntent = undefined; }
+      if (type === 'skin' && skinIntent && data.seat === match.selfSeat && data.skin === skinIntent.skin
+          && [data.general, data.realGeneral].includes(skinIntent.general)) {
+        data = { ...data, manual: true };
+        skinIntent = undefined;
+      }
+      // PokerGameStart (2) still precedes 强易. 202 is the first actual
+      // play phase, even when the landlord is another seat.
+      if (!fromSnapshot && type === 'phase' && data.phase === 202 && !serverEnded) battleReady = true;
       if (type === 'surrender' && data.accepted) {
         surrendered = true;
         waitForResult();
@@ -231,8 +260,11 @@ function openTable(ctx, origin, match, onLeave, onFailure, fromSnapshot, notBefo
       }
       state.receive(type, data);
       schedule();
-    }, { acceptsLateResult: waitForClosedResult, knowsHandCard: state.knowsHandCard });
-    if (!transport) state.receive('unavailable');
+    }, { acceptsLateResult: waitForClosedResult, knowsHandCard: state.knowsHandCard, awaitSnapshot: fromSnapshot });
+    if (!transport) {
+      if (fromSnapshot) throw new Error('原生牌桌重连消息暂不可用');
+      state.receive('unavailable');
+    }
     scene = openClassicPokerScene(ctx, scope, origin, match, active, mounted => {
       scene = mounted;
       view = mountPokerTableView(ctx, scope, mounted, names, {
@@ -250,6 +282,11 @@ function openTable(ctx, origin, match, onLeave, onFailure, fromSnapshot, notBefo
         getCountdown: () => transport?.countdown(),
         tableId: match.tableId,
         canSwapGeneral: id => canAct() && transport?.canSwapGeneral(id) === true,
+        expectSkin(general, skin) {
+          if (!canAct() || !Number.isSafeInteger(general) || general <= 0 || !Number.isSafeInteger(skin) || skin < 0) return;
+          const intent = skinIntent = { general, skin };
+          scope.timeout(() => { if (skinIntent === intent) skinIntent = undefined; }, SKIN_REPLY_WAIT_MS);
+        },
         canUseTableActions: () => canAct() && transport?.canUseTableActions() === true,
         canSurrender: () => canAct() && transport?.canSurrender() === true,
         surrender: () => { if (canAct() && transport?.surrender()) render(); },
@@ -261,11 +298,15 @@ function openTable(ctx, origin, match, onLeave, onFailure, fromSnapshot, notBefo
       });
       render();
       read(() => mounted.ged.HideGameStartLoading?.());
+      if (fromSnapshot && origin.SceneName === 'LoginScene') {
+        read(() => mounted.ged.HideWaiting?.('', true));
+        if (origin.HideFullMaskNow) read(() => mounted.ged.event('HIDE_FULL_MASK_LOADING'));
+      }
     }, fail, notBefore);
     if (scope.closed) return null;
-    // The native game scene normally releases incoming game packets on AnimateIn.
-    // Subscribe first and let the native start event finish before draining them.
-    if (!fromSnapshot && match.proxy.CacheStarted === true) scope.timeout(() => {
+    // The stock scene normally releases incoming packets on AnimateIn. On both
+    // start and reconnect subscribe before letting the native proxy drain them.
+    if (transport && match.proxy.CacheStarted === true) scope.timeout(() => {
       if (active() && match.proxy.CacheStarted === true) match.proxy.StopCache?.();
     }, 0);
     return { match, origin, active, visible: () => active() && Boolean(scene?.parent && view),
@@ -326,18 +367,92 @@ export function installPokerLiveTable(ctx, lobby) {
       && (session.proxy !== previousMatch.proxy || session.connection !== previousMatch.connection) ? session : null;
   }
 
-  function readResume() {
-    const session = resumeSession();
-    if (!session) return null;
-    const room = getRoom(proxy);
+  function readReconnect(data, source) {
+    if (data.TypeID !== MODE || data.GroupID !== SECTION || !Number.isSafeInteger(data.TableID) || data.TableID <= 0) return null;
+    const session = getSession(ctx, source);
+    const room = getRoom(source);
+    if (!session || !room) return null;
+    const previous = previousMatch?.tableId === data.TableID && previousMatch.account === session.account ? previousMatch : null;
+    return { ...session, room, tableId: data.TableID, previous, expiresAt: Date.now() + RECONNECT_WAIT_MS };
+  }
+
+  function observeNativeReconnect() {
+    // The room sets this while its reconnect roster request is in flight.
+    // It also covers the plugin binding just after the login notification.
+    const nativeRoom = proxy && getRoom(proxy);
+    if (reconnect || table?.active() || nativeRoom?.IsReconnected !== true) return;
     const current = game.getClass?.('GameContext');
-    if (!room || room.TableId !== previousMatch.tableId || room.IsGameStart !== true
-      || room.IsForbidInPC?.(MODE, SECTION, false) === true
-      || current?.GetModeType?.() !== MODE || current?.GetGroupID?.() !== SECTION
-      || current.IsViewer || current.IsViewerOrReplay?.()) return null;
-    const self = room.GetTableSeatInfoByUserId(session.account);
-    if (String(self?.ClientId) !== session.account || self?.SeatID !== previousMatch.selfSeat || self?.IsViewer) return null;
-    return { ...previousMatch, ...session, room };
+    const TableID = nativeRoom.TableId;
+    const encoded = isPokerTableId(TableID);
+    reconnect = readReconnect({ TableID, TypeID: current?.GetModeType?.() ?? (encoded ? MODE : null),
+      GroupID: current?.GetGroupID?.() ?? (encoded ? SECTION : null) }, proxy);
+    if (reconnect) closeTable();
+  }
+
+  function currentReconnect(attempt = reconnect) {
+    return attempt && Date.now() < attempt.expiresAt && sameSession(ctx, attempt) && getRoom(proxy) === attempt.room;
+  }
+
+  function overridePcReconnectCheck(attempt) {
+    const { room, proxy: source } = attempt;
+    const context = game.getClass?.('GameContext');
+    const dispatcher = room.Ged;
+    if (context?.IsLayaClassic === false || context?.IsViewer || context?.IsViewerOrReplay?.()
+      || !router || !getOrigin() || !classicPokerTableClass(ctx, room)
+      || typeof source.M !== 'function' || typeof source.AddEventListener !== 'function'
+      || typeof source.RemoveEventListener !== 'function'
+      || typeof dispatcher?.ShowConfirmBtnLabel !== 'function' || typeof room.checkIsForbidInPC !== 'function'
+      || !findNativeListenerOwner(source, [RECONNECT], caller => caller === room
+        && typeof caller.ServerProxy_ReconnectionInfo === 'function')) return;
+    return scope.patch(room, 'checkIsForbidInPC', original => function (...args) {
+      if (this !== room || args.length || reconnect !== attempt || attempt.usePluginTable
+        || !read(() => currentReconnect(attempt))) return original.apply(this, args);
+      // GameContext is private on some Classic pages. Identify the local PC
+      // warning by the exact original call, not by a guessed platform flag.
+      let warning = false;
+      const restore = read(() => scope.patch(dispatcher, 'ShowConfirmBtnLabel', show => function (label, message, owner, ...rest) {
+        if (this === dispatcher && owner === room && message === CLASSIC_MODE_WARNING
+          && typeof rest[0] === 'function') { warning = true; return; }
+        return show.call(this, label, message, owner, ...rest);
+      }));
+      let blocked;
+      try { blocked = original.apply(this, args); }
+      finally { restore?.(); }
+      if (blocked !== true || !warning) return blocked;
+      attempt.usePluginTable = true;
+      return false;
+    });
+  }
+
+  function readResume(attempt, base) {
+    // With no reconnect notice, only a snapshot matching the old, locally
+    // attached table can resume it. Cold login requires a fresh native roster.
+    const session = attempt ? currentReconnect(attempt) && attempt : base && resumeSession();
+    const previous = attempt ? attempt.previous : previousMatch;
+    const roster = attempt ? attempt.seats : previous?.seats;
+    if (!session || !roster) return null;
+    const room = attempt?.room ?? getRoom(proxy);
+    const tableId = attempt?.tableId ?? previous?.tableId;
+    const current = game.getClass?.('GameContext');
+    const mode = current?.GetModeType?.(), section = current?.GetGroupID?.();
+    if (!room || room.TableId !== tableId || room.IsGameStart !== true
+      || (!attempt?.usePluginTable && room.IsForbidInPC?.(MODE, SECTION, false) === true)
+      || mode != null && mode !== MODE || section != null && section !== SECTION
+      || (!attempt && (mode == null || section == null) && !isPokerTableId(tableId))
+      || current?.IsViewer || current?.IsViewerOrReplay?.()
+      || base && (base.table_id !== tableId || base.model_id !== MODE || base.sec_id !== SECTION)) return null;
+    const own = roster.find(seat => String(seat.clientId) === session.account);
+    if (!own || previous && own.id !== previous.selfSeat
+      || attempt?.startSeats && !attempt.startSeats.every(seat =>
+        roster.some(row => row.id === seat.id && row.clientId === seat.clientId))) return null;
+    const seats = [];
+    for (const { id, clientId, name } of roster) {
+      const row = room.GetTableSeatInfoByUserId(String(clientId));
+      if (String(row?.ClientId) !== String(clientId) || row.SeatID !== id || row.IsViewer) return null;
+      seats.push({ id, clientId, name: String(row.SeatPlayerInfo?.Nickname || name
+        || (id === own.id && session.nickname) || `${id + 1}号座`).slice(0, 64) });
+    }
+    return { account: session.account, proxy: session.proxy, connection: session.connection, tableId, room, selfSeat: own.id, seats };
   }
 
   function getOrigin() {
@@ -369,17 +484,69 @@ export function installPokerLiveTable(ctx, lobby) {
     return { ...session, room, selfSeat: self.SeatID, seats };
   }
 
+  function recoveryPending() {
+    return reconnect && sameSession(ctx, reconnect) && reconnect.room.TableId === reconnect.tableId
+      ? reconnect : read(() => resumeSession() && getRoom(proxy)?.TableId === previousMatch.tableId && previousMatch);
+  }
+
+  function waitingForReconnect() {
+    return (reconnect && reconnect.room.TableId === reconnect.tableId) || Boolean(recoveryPending());
+  }
+
   function autoAttach(force = false) {
     if (table?.active()) return true;
+    if (read(waitingForReconnect)) {
+      return attach(read(() => readResume(reconnect)), true);
+    }
     if (force) failedMatch = null;
     const match = read(() => buildLiveMatch(!force));
     return match ? attach(match, false, force) : false;
+  }
+
+  function readStarting(data) {
+    const pending = recoveryPending();
+    const proof = pending && pending === reconnect && currentReconnect(pending)
+      ? { ...pending, mode: MODE, section: SECTION } : ticket;
+    const match = readStart(ctx, proof, data, proxy);
+    if (!match) return null;
+    if (!pending) return match;
+    const previous = pending === reconnect ? pending.previous : pending;
+    if (pending.tableId !== match.tableId || pending.account !== match.account) return null;
+    if (pending === reconnect && pending.usePluginTable) {
+      // Compare both native messages regardless of which came first.
+      pending.startSeats = match.seats;
+      return { ...match, pluginReconnect: pending };
+    }
+    const listed = pending === reconnect && pending.seats;
+    if (previous && previous.selfSeat !== match.selfSeat
+      || listed && !match.seats.every(seat => listed.some(row => row.id === seat.id && row.clientId === seat.clientId))
+      || match.room.IsForbidInPC?.(MODE, SECTION, false) === true) return null;
+    return { ...match, awaitSnapshot: true };
+  }
+
+  function finishTable(visit, origin, match) {
+    forgetTable();
+    if (visit) lobby?.restoreAfterTable(visit);
+    else if (origin?.SceneName === 'LoginScene') {
+      // A fresh login has no prior lobby to unhide. Use the native login
+      // return route once the room has actually closed, not on disconnect.
+      const currentRouter = router;
+      scope.timeout(() => read(() => {
+        if (currentRouter && router === currentRouter && router.CurrentScene === origin
+          && !router.NextScene && sameSession(ctx, match) && match.room.TableId === 0) {
+          router.constructor?.JumpSceneBySmallModeType?.();
+        }
+      }), 0);
+    }
   }
 
   function attach(match, fromSnapshot = false, force = false) {
     if (!match || !sameSession(ctx, match) || match.room.TableId !== match.tableId) return false;
     if (failedMatch?.tableId === match.tableId && sameSession(ctx, failedMatch)) return false;
     if (!force && match.room.IsGameStart !== true) return false;
+    if (fromSnapshot && read(() => match.room.IsForbidInPC?.(MODE, SECTION, false)) === true
+      && !read(() => reconnect?.usePluginTable && reconnect.seats && currentReconnect()
+        && match.room === reconnect.room && match.tableId === reconnect.tableId)) return false;
     const origin = getOrigin();
     if (!origin) return false;
     if (table?.match.tableId === match.tableId && table.active()
@@ -388,10 +555,7 @@ export function installPokerLiveTable(ctx, lobby) {
     closeTable();
     const visit = lobby?.captureTableOrigin(origin, match);
     const notBefore = fromSnapshot || force ? 0 : lobby?.matchSuccessDeadline(visit, match.tableId);
-    const left = () => {
-      forgetTable();
-      lobby?.restoreAfterTable(visit);
-    };
+    const left = () => finishTable(visit, origin, match);
     table = openTable(ctx, origin, match, left, (failed, error) => {
       failedMatch = failed;
       if (ctx.core?.distribution === 'dev') ctx.window.console?.warn('三国斗地主原生牌桌', error);
@@ -405,13 +569,17 @@ export function installPokerLiveTable(ctx, lobby) {
   }
 
   function bind() {
-    if (previousMatch && previousMatch.account !== ctx.native.account().id) forgetTable();
+    if (previousMatch) {
+      const account = ctx.native.account().id;
+      if (account && previousMatch.account !== account) {
+        const next = reconnect?.account === account ? reconnect : null;
+        forgetTable();
+        reconnect = next;
+      }
+    }
     if (table && (!table.active() || table.leaveCompleted())) {
-      const left = roomHasClosed();
-      const visit = left && table.lobbyVisit;
-      if (left) forgetTable();
+      if (roomHasClosed()) finishTable(table.lobbyVisit, table.origin, table.match);
       else closeTable();
-      if (visit) lobby.restoreAfterTable(visit);
     }
     const nextProxy = game.getServerProxy?.();
     if (nextProxy !== proxy) {
@@ -432,39 +600,40 @@ export function installPokerLiveTable(ctx, lobby) {
           }
           if (type === START) {
             const previous = starting;
-            starting = read(() => readStart(ctx, ticket, data, proxy));
+            starting = read(() => readStarting(data));
             try { return original.call(this, type, packet, ...rest); }
             finally { starting = previous; }
           }
           if (type === RECONNECT && data?.Id === 21114) {
-            reconnect = data.TypeID === MODE && data.GroupID === SECTION
-              && data.TableID === previousMatch?.tableId ? read(resumeSession) : null;
+            const attempt = reconnect = read(() => readReconnect(data, this));
+            if (attempt) closeTable();
+            const restore = attempt && read(() => overridePcReconnectCheck(attempt));
+            try { return original.call(this, type, packet, ...rest); }
+            finally { restore?.(); }
           }
-          if (type === SNAPSHOT && data?.Id === 201035) read(() => {
+          if (type === SNAPSHOT && data?.Id === 201035 && !table?.active()) read(() => {
             const base = (data.Data?.ProtoObj ?? data.ProtoObj)?.base_data;
-            if (base && previousMatch && base.table_id === previousMatch.tableId && base.model_id === MODE && base.sec_id === SECTION) {
-              // Subscribe before native dispatch so the newly mounted transport receives this snapshot.
-              attach(readResume(), true);
-            }
+            // Subscribe before dispatch so the transport sees the first snapshot.
+            if (base) attach(readResume(reconnect, base), true);
           });
-          const tableInfo = type === TABLE_INFO && data?.Id === 20508 && data.Type === 3 && reconnect;
-          // The native room consumes Infos and retains earlier seats absent from this reply.
-          const tableInfoOk = tableInfo && data.Result === 1 && Array.isArray(data.Infos) && read(() =>
-            data.Infos.some(row => String(row?.ClientId) === tableInfo.account
-              && row.SeatID === previousMatch?.selfSeat && !row.IsViewer));
-          if (tableInfo) reconnect = null;
+          const isReconnectRoster = type === TABLE_INFO && data?.Id === 20508 && data.Type === 3;
+          if (isReconnectRoster) read(observeNativeReconnect);
+          const attempt = isReconnectRoster && reconnect;
+          // Classic consumes Infos and merges the rows with older members. Copy
+          // only identities from this reply, then verify the native roster.
+          const seats = attempt && data.Result === 1 && read(() => readReconnectSeats(data.Infos));
           const result = original.call(this, type, packet, ...rest);
-          // Reconnect room info bypasses the cache. Validate the native roster after the reply
-          // has been processed, then let the native proxy drain its queued snapshot.
-          if (tableInfoOk) scope.timeout(() => read(() => {
-            if (!table?.active() && sameSession(ctx, tableInfo) && readResume() && getOrigin()
-              && proxy.CacheStarted === true) proxy.StopCache?.();
-          }), 0);
+          if (attempt === reconnect && attempt) read(() => {
+            if (!currentReconnect(attempt)) return;
+            attempt.seats = seats;
+            attach(readResume(attempt), true);
+          });
           return result;
         });
       }
     }
 
+    read(observeNativeReconnect);
     const nextRoom = proxy && read(() => getRoom(proxy));
     if (nextRoom !== room) {
       roomRelease?.();
@@ -509,14 +678,26 @@ export function installPokerLiveTable(ctx, lobby) {
         }
         return result;
       }
-      if (!attach(starting)) return original.call(this, name, ...args);
+      if (starting?.pluginReconnect) {
+        const attempt = starting.pluginReconnect;
+        if (reconnect === attempt && read(() => currentReconnect(attempt))) {
+          // In this path START may precede the roster. Do not open the stock
+          // scene or mount ours until the server confirms our current seat.
+          const match = read(() => readResume(attempt));
+          if (!match || attach({ ...match, seatModels: starting.seatModels }, true)) return;
+        }
+        return original.call(this, name, ...args);
+      }
+      const reenteringFromLogin = starting && router.CurrentScene?.SceneName === 'LoginScene'
+        && read(() => game.getClass?.('GameContext')?.IsReconnect) === true;
+      if (!attach(starting, starting?.awaitSnapshot || reenteringFromLogin)) return original.call(this, name, ...args);
     });
   }
 
   scope.add(forgetTable);
   const liveApi = {
     open: autoAttach,
-    canSwitch: () => !table?.active() && Boolean(read(() => getOrigin() && buildLiveMatch(false))),
+    canSwitch: () => !table?.active() && Boolean(read(() => !waitingForReconnect() && getOrigin() && buildLiveMatch(false))),
     isOpen: () => table?.visible() === true,
   };
   liveOpeners.set(ctx, liveApi);

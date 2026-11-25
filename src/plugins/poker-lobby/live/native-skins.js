@@ -11,8 +11,25 @@ export function attachPokerSkins(ctx, scope, scene, input) {
   const getSkins = () => ctx.native.manager?.('GeneralSkinManager', 'ClientGeneralSkinRep',
     candidate => typeof candidate?.GetSelfUsingSkinID === 'function');
   const event = win.Laya.Event.CLICK;
+  const savedInTable = new Map();
   let button, general, available, panel, windowScope;
   const context = run => withClassicPokerContext(win, scene, run);
+
+  for (const ui of scene.seatContainer.seatUIs) {
+    const avatar = ui.seatAvatar;
+    if (typeof avatar?.SetGeneralCard !== 'function') continue;
+    scope.patch(avatar, 'SetGeneralCard', stock => function (card, skin, ...args) {
+      const seat = ui.Seat;
+      if (skin || !card || card !== seat?.General || !(seat.SkinID > 0)) return stock.call(this, card, skin, ...args);
+      // A native general redraw can omit the second argument and repaint the
+      // original portrait without changing the selected skin on the seat.
+      return context(() => {
+        const result = stock.call(this, card, seat.SkinID, ...args);
+        if (card.IsDynamic) ui.General_SkinChanged?.(null);
+        return result;
+      });
+    });
+  }
 
   function release() {
     windowScope?.dispose();
@@ -34,13 +51,24 @@ export function attachPokerSkins(ctx, scope, scene, input) {
     windowScope.timeout(() => { if (!popup.parent) close(); }, 6000);
     windowScope.patch(popup, 'enterWindow', original => function (...args) {
       if (!available || !input.canUseTableActions()) { close(); return; }
-      context(() => original.apply(this, args));
       const view = this.selectView;
-      if (panel === this && typeof view?.closeSelectSure === 'function') {
-        windowScope.patch(view, 'closeSelectSure', stock => function (...args) {
-          if (input.canUseTableActions()) context(() => stock.apply(this, args));
+      if (typeof view?.initUsingSKinID === 'function') {
+        windowScope.patch(view, 'initUsingSKinID', stock => function (general) {
+          stock.call(this, general);
+          const seat = scene.SelfSeatUi.Seat;
+          if (seat?.GeneralId === general && seat.SkinID >= 0) this.usingSkinID = seat.SkinID;
         });
       }
+      if (typeof view?.closeSelectSure === 'function') {
+        windowScope.patch(view, 'closeSelectSure', stock => function (...args) {
+          if (!input.canUseTableActions()) return;
+          // The stock view calls this while destroying the popup after a click.
+          // Track the actual selection before the native request, not a skin lookup.
+          if (this.clickCheck) input.expectSkin?.(id, this.closeSelectSkinId);
+          return context(() => stock.apply(this, args));
+        });
+      }
+      return context(() => original.apply(this, args));
     });
     context(() => scene.ged.A(SKINS, id));
   }
@@ -58,10 +86,15 @@ export function attachPokerSkins(ctx, scope, scene, input) {
     open,
     hasSkin: id => getSkins()?.HasCanUseGeneralSkin?.(id),
     saved(id) {
+      // The running classic room owns the saved-default cache. A late lookup
+      // can change it while the borrowed table is still displaying this round.
+      if (savedInTable.has(id)) return savedInTable.get(id);
       const skins = getSkins();
       const skin = skins?.GetSelfUsingSkinID(id) || 0;
       const dynamic = skin > 0 && skins.GetSkinListBySkinID?.(skin)?.some(item => item.IsUpgrade > 0 && item.IsUseStatic <= 0);
-      return { id: skin, dynamic: Boolean(dynamic), type: 1 };
+      const saved = { id: skin, dynamic: Boolean(dynamic), type: 1 };
+      if (skin > 0) savedInTable.set(id, saved);
+      return saved;
     },
     draw(state) {
       const allowed = !state.decision || state.decision.kind === 'bid' || state.decision.kind === 'general';

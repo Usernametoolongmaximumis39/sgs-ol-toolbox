@@ -40,8 +40,13 @@ export function attachPokerSceneAudio(win, scope, settings) {
     channel = Laya.SoundManager?.playSound?.(url, 1);
     if (channel) channel.volume = volume;
   }
-  // The classic scene plays jinchang on entry and shares jieshu for both results.
-  return { enter: () => play('jinchang'), finish: () => play('jieshu') };
+  // Classic selects the officer variant only for tiers flagged by h5_officer.
+  function battle(level, config) {
+    const rows = config?.root?.officer || config?.officer;
+    const row = Array.isArray(rows) && rows.find(item => Number(item?.id ?? item?.ID) === level);
+    play(row?.kaizhaneffect ? 'officer/kaizhan' : 'kaizhan');
+  }
+  return { enter: () => play('jinchang'), finish: () => play('jieshu'), battle };
 }
 
 function playVoiceKey(action) {

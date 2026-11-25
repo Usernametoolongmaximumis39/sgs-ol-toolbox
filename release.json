@@ -1,14 +1,14 @@
 {
-  "version": "0.6.266",
+  "version": "0.6.294",
   "editions": {
     "full": {
-      "bytes": 2790294,
+      "bytes": 2868837,
       "plugins": 22,
       "updatesTo": "full",
       "toolboxUpdatesTo": "lite"
     },
     "lite": {
-      "bytes": 632961,
+      "bytes": 637313,
       "plugins": 0,
       "updatesTo": "lite",
       "toolboxUpdatesTo": "lite"
@@ -17,8 +17,8 @@
   "plugins": [
     {
       "id": "social",
-      "version": "0.1.24",
-      "sha256": "bbcc57ac4addc11105e52c44bb5c411e03205c3fa0a78335aa26a877d0a8be61"
+      "version": "0.1.25",
+      "sha256": "2aab2646a93903fe301aa474a5d00fe8f452638852dc18d0659cf47a64f88dc5"
     },
     {
       "id": "player-info",
@@ -52,8 +52,8 @@
     },
     {
       "id": "shanhetu",
-      "version": "0.2.45",
-      "sha256": "54a8da77c89f5c6ba3d6128261c33db069f32052ff9db5736d134f24586f975e"
+      "version": "0.2.52",
+      "sha256": "082236c181b0482dd6bcbcbd7c7e2c9adbe3fbf00a01c4575c14e22aa53a6cad"
     },
     {
       "id": "shanhetu-beta",
@@ -62,18 +62,18 @@
     },
     {
       "id": "cards",
-      "version": "0.1.95",
-      "sha256": "3dd7066875231cd421bc4b116e3d87d88cafbbbccaabbd0209b5afadd75cb38f"
+      "version": "0.1.98",
+      "sha256": "574d7737e990b98bf61969cd808b69a170fd33db75c582993245b168d5d2ef41"
     },
     {
       "id": "play-assist",
-      "version": "0.2.23",
-      "sha256": "84a4905f4de66ec7507e66c64ac8902f642a5a7ab04e0aa636ed37baeffcc70b"
+      "version": "0.2.38",
+      "sha256": "578d5ab8283511d8c95ac6a7cd990a487f4f6919a6f6bd350fc8f08b91db9177"
     },
     {
       "id": "daily-rewards",
-      "version": "0.7.47",
-      "sha256": "5c2f553fe71e7c891875c1524929e679b94e0282c8413d7ece5eb818cfb6b2e6"
+      "version": "0.7.48",
+      "sha256": "7d38bc8fc0cab23427e44d08cb988c6e4b3bfa980e03b018121c0dd1b7d05e7e"
     },
     {
       "id": "seckill",
@@ -97,8 +97,8 @@
     },
     {
       "id": "poker-lobby",
-      "version": "0.3.55",
-      "sha256": "6ce41b02f95a0eb450785af7a1673a7be47538a5308141762d7064cda526e5cc"
+      "version": "0.3.67",
+      "sha256": "7cd077d577420d5f1e8ba57d47eca1870fe638d6a8fb322fc64b95999596b946"
     },
     {
       "id": "stargazing",
@@ -117,8 +117,8 @@
     },
     {
       "id": "baisheng",
-      "version": "0.1.11",
-      "sha256": "d44c259a0be3b41bc20a04237b000897b5282ab4de87e35b88d5a47b81760226"
+      "version": "0.1.12",
+      "sha256": "9cdfddfee79d02f2d9c68645a1a2192b4180d1942c440b9e04532a8a4de5a897"
     },
     {
       "id": "appearances",

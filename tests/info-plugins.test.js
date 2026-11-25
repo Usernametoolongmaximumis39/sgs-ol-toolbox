@@ -31,21 +31,22 @@ function fixture(t, id) {
   const handlers = new Map(), proxy = { _events: {}, on(type, caller, fn) { const a = handlers.get(type) || []; a.push({ caller, fn }); handlers.set(type, a); },
     off(type, caller, fn) { handlers.set(type, (handlers.get(type) || []).filter(row => row.caller !== caller || row.fn !== fn)); },
     event(type, packet) { for (const h of [...(handlers.get(type) || [])]) h.fn.call(h.caller, packet); } };
-  let self = { ClientId: 41, NickName: '甲' }, mode = 148, group = 3, selfSeat = 0, replay = false;
+  let self = { ClientId: 41, NickName: '甲' }, mode = 148, group = 3, selfSeat = 0, replay = false, activeProxy = proxy;
   const requests = [], settings = new Settings(dom.window.localStorage).namespace(id), classes = {
     AchievementManager: { sendGetAchInfo(nick, type) { requests.push([nick, type]); } },
     GameGeneralManager: { HasGeneral: id => id === 1 },
     GameContext: { GetSeat: () => ({FixedViewId:1,Figure:1}), GetModeType: () => mode, GetGroupID: () => group, GetModeVO: () => ({ Model: mode }), IsViewerOrReplay: () => replay },
   };
   const ctx = { scope, storage: settings, settings, window: dom.window, document: dom.window.document, game: {
-    getSelf: () => self, getServerProxy: () => proxy, getClass: name => classes[name], getSnapshot: () => ({ selfSeatId: selfSeat }),
+    getSelf: () => self, getServerProxy: () => activeProxy, getClass: name => classes[name], getSnapshot: () => ({ selfSeatId: selfSeat }),
     getScene: () => ({ SceneName: 'GameScene' }), getConfigData: name => name === 'character' ? chars : ach,
     loadConfigData: async name => name === 'character' ? chars : ach,
   } };
   ctx.native = createPluginNative(ctx);
   t.after(() => { scope.dispose(); dom.window.close(); });
-  return { ctx, scope, proxy, handlers, requests, account: id => { self = { ClientId: id, NickName: id === 41 ? '甲' : '乙' }; },
-    mode: value => { mode = value; }, group: value => { group = value; }, seat: value => { selfSeat = value; }, replay: value => { replay = value; } };
+  return { ctx, scope, proxy, handlers, requests, account: (id, nickname = id === 41 ? '甲' : '乙') => { self = { ClientId: id, NickName: nickname }; },
+    proxyTo: next => { activeProxy = next; }, classes, mode: value => { mode = value; }, group: value => { group = value; },
+    seat: value => { selfSeat = value; }, replay: value => { replay = value; } };
 }
 for (const id of ['baisheng', 'appearances']) test(`${id}: automatic initialization waits for login, retries, switches accounts and ignores disposed work`, async t => {
   const f = fixture(t, id), ticks = [], loads = [];
@@ -117,6 +118,130 @@ test('百胜与盖主的同账号战功查询共用请求和回包', async t => 
   await flush();
   assert.equal(received.at(-1)[0].progress[100], 0);
   assert.equal(strict.length, 1);
+});
+
+test('百胜：重连时等待昵称和战功接口，就绪后自行查询且不覆盖上一份快照', async t => {
+  const f = fixture(t, 'baisheng'), ticks = [], reports = [];
+  f.scope.interval = fn => { ticks.push(fn); };
+  f.ctx.reportError = message => reports.push(message);
+  f.account(41, '');
+  const saved = { nickname: '甲', at: 1, finish: {}, progress: { 100: 23 } };
+  f.ctx.storage.set('account:41:snapshot-v1', { schema: 1, snapshot: saved });
+  const c = achievements(f.ctx), tick = () => ticks.forEach(fn => fn());
+  await c.refresh();
+  assert.equal(c.view().ready, false);
+  assert.equal(c.view().snapshot, null, 'do not display a cached nickname before it is confirmed');
+  assert.equal(c.view().error, '');
+  assert.equal(f.requests.length, 0);
+  f.account(41);
+  f.proxy.IsOffline = true;
+  tick(); await c.refresh();
+  assert.equal(c.view().ready, false);
+  assert.deepEqual(c.view().snapshot, saved);
+  assert.equal(f.requests.length, 0);
+  f.proxy.IsOffline = false;
+  const manager = f.classes.AchievementManager;
+  f.classes.AchievementManager = null;
+  tick(); await c.refresh();
+  assert.equal(c.view().ready, false);
+  assert.deepEqual(c.view().snapshot, saved);
+  f.classes.AchievementManager = manager;
+  tick(); await flush();
+  assert.deepEqual(f.requests, [['甲', 0]]);
+  f.proxy.event('ClientDbsGetuserachinfoRep', { Protocol: { requestType: 0, NickName: '甲', Achs: [{ id: 100, type: 2, detailInfo: 26 }] } });
+  await flush();
+  assert.equal(c.view().snapshot.progress[100], 26);
+  assert.equal(c.view().loading, false);
+  assert.equal(reports.filter(Boolean).length, 0);
+});
+
+test('百胜：加载公共配置期间暂时失去连接，不计为失败或消耗自动重试', async t => {
+  const f = fixture(t, 'baisheng'), ticks = [], reports = [];
+  f.scope.interval = fn => { ticks.push(fn); };
+  f.ctx.reportError = message => reports.push(message);
+  const c = achievements(f.ctx), tick = () => ticks.forEach(fn => fn());
+  for (let i = 0; i < 4; i++) {
+    const loaders = [];
+    f.ctx.game.loadConfigData = name => new Promise(resolve => loaders.push(() => resolve(name === 'character' ? chars : ach)));
+    const first = c.refresh();
+    assert.equal(loaders.length, 2);
+    f.proxy.ConnId = i + 1;
+    f.proxy.ConnectedSucess1 = false;
+    loaders.forEach(done => done());
+    await first;
+    assert.equal(c.view().error, '');
+    assert.equal(c.view().loading, false);
+    f.proxy.ConnectedSucess1 = true;
+  }
+  f.ctx.game.loadConfigData = async name => name === 'character' ? chars : ach;
+  tick(); await flush();
+  assert.deepEqual(f.requests, [['甲', 0]]);
+  assert.equal(reports.filter(Boolean).length, 0);
+});
+
+test('百胜：接口在配置加载后返回未就绪，仍不触发运行错误', async t => {
+  const f = fixture(t, 'baisheng'), reports = [];
+  f.ctx.reportError = message => reports.push(message);
+  const native = f.ctx.native;
+  f.ctx.native = { ...native, achievements: { ...native.achievements, query: () => null } };
+  const c = achievements(f.ctx);
+  await c.refresh();
+  assert.equal(c.view().error, '');
+  assert.equal(c.view().loading, false);
+  assert.equal(reports.filter(Boolean).length, 0);
+});
+
+test('百胜：已发送的查询在正常连接超时仍显示提示，掉线则保留快照等待', async t => {
+  const f = fixture(t, 'baisheng');
+  f.scope.timeout = () => {};
+  f.scope.interval = () => {};
+  const timers = new Map();
+  f.ctx.window = { setTimeout: (fn, ms) => { timers.set(ms, fn); return ms; }, clearTimeout: id => timers.delete(id) };
+  const saved = { nickname: '甲', at: 1, finish: {}, progress: { 100: 23 } };
+  f.ctx.storage.set('account:41:snapshot-v1', { schema: 1, snapshot: saved });
+  const c = achievements(f.ctx);
+  await c.refresh();
+  timers.get(12000)();
+  assert.match(c.view().error, /战功查询超时/);
+  assert.deepEqual(c.view().snapshot, saved);
+  f.proxy.ConnId = 1;
+  await c.refresh();
+  assert.deepEqual(f.requests, [['甲', 0], ['甲', 0]]);
+  f.proxy.IsOffline = true;
+  timers.get(12000)();
+  assert.equal(c.view().error, '');
+  assert.deepEqual(c.view().snapshot, saved);
+  assert.equal(c.view().loading, false);
+  assert.equal(timers.size, 0);
+});
+
+test('百胜与盖主不会跨连接复用请求，也不会接受排队中的旧连接回复', async t => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const f = fixture(t, 'baisheng'), other = fixture(t, 'gaizhu');
+  f.proxy.ConnId = 1;
+  const queries = f.ctx.native.achievements, received = [], gaps = [];
+  queries.subscribe((snapshot, id) => received.push([snapshot.progress[100], id]), gap => gaps.push(gap.reason));
+  const reply = detailInfo => ({ requestType: 0, NickName: '甲', Achs: [{ id: 100, type: 2, detailInfo }] });
+  const old = queries.query();
+  f.proxy.event('ClientDbsGetuserachinfoRep', reply(11));
+  f.proxy.ConnId++;
+  assert.notEqual(queries.query(), old);
+  await flush();
+  assert.deepEqual(received, []);
+  f.proxyTo(other.proxy);
+  assert.equal(queries.ready(), false, 'wait for observation to bind to the replacement proxy');
+  assert.equal(queries.query(), null);
+  f.proxy.event('ClientDbsGetuserachinfoRep', reply(22));
+  await flush();
+  assert.deepEqual(received, []);
+  t.mock.timers.tick(500);
+  assert.deepEqual(gaps, ['rebind']);
+  assert.equal(queries.ready(), true);
+  const latest = queries.query();
+  other.proxy.event('ClientDbsGetuserachinfoRep', reply(33));
+  await flush();
+  assert.deepEqual(received, [[33, latest]]);
+  assert.deepEqual(f.requests, [['甲', 0], ['甲', 0], ['甲', 0]]);
 });
 
 test('official achievement projection: request/nickname, flags, multiple criteria and completion time', () => {

@@ -1,7 +1,8 @@
 import { cardFace, comparePokerHandCards, isWildCard } from '../replay/model.js';
 import { originalRank, POKER_ZONE, RANKS, trackRemainingCards } from '../replay/remaining.js';
-import { groupSkillCards, recoverSkillCards, stashSkillCards } from '../replay/skill-piles.js';
+import { groupSkillCards, isFaceUpSkillCard, publicSkillPileName, recoverSkillCards, stashSkillCards } from '../replay/skill-piles.js';
 import { bidLabels } from '../replay/native-decisions.js';
+import { TU_XI } from '../replay/skill-states.js';
 
 function displayCard(card) {
   return cardFace(card.id, card.dynamicSuit || card.suit, card.dynamicNumber || card.number || card.rank,
@@ -31,6 +32,7 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
   const wildRanks = new Map();
   const skills = new Map();
   const openingSkins = new Map();
+  const confirmedSkins = new Map();
   let turn, pending, notice, landlord, activeSeat = null, completeHand = false, ended = false, unavailable = false;
   let settled = false, leaving = false, leaveError = false;
   let decision;
@@ -167,7 +169,7 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
   }
 
   function move({ from, to, cards = [], count, realCount = count, removedPlayedIds, removedVisibleIds,
-    confirmedDepartures, toVisible, skill = 0 }) {
+    confirmedDepartures, toVisible, visibleSkill, skill = 0 }) {
     const amount = Number.isSafeInteger(count) && count > 0 ? count : cards.length;
     if (!amount) return;
     const source = players.get(from?.seat), target = players.get(to?.seat);
@@ -184,10 +186,18 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
       if (zone === BOTTOM && target.id === landlord) {
         const awarded = amount === 3 && bottom.length === 3 ? bottom : changed;
         if (awarded.length) revealHand({ seat: target.id, cards: awarded, source: '底牌', remembered: true });
+      } else if (zone === OUTSIDE && target.id !== selfSeat) {
+        // A known public pile card is still identifiable when it returns to hand.
+        // Treat it as observed, not a persistent reveal after a concealed departure.
+        for (const pile of groupSkillCards(changed, changed.length, skill)) {
+          const origin = publicSkillPileName(pile.skill);
+          if (origin) revealHand({ seat: target.id, cards: pile.cards.filter(isFaceUpSkillCard), source: origin, remembered: true });
+        }
       } else if (target.id !== selfSeat && (zone === HAND && source?.id === selfSeat || zone === DISCARD) && changed.length) {
         revealHand({ seat: target.id, cards: changed, source: skill || (zone === DISCARD ? '弃牌' : '转移'), remembered: true });
       }
-      if (toVisible) revealHand({ seat: target.id, cards: toVisible, skill: skill === LUAN_CHAO ? skill : 0 });
+      if (toVisible) revealHand({ seat: target.id, cards: toVisible,
+        skill: visibleSkill ?? (skill === LUAN_CHAO ? skill : 0), remembered: visibleSkill != null });
     }
     const tracked = new Map(changed.map(card => [card.id, card]));
     for (const card of played.get(from?.seat)?.cards || []) {
@@ -199,7 +209,7 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
     if (destination === OUTSIDE && target) {
       target.skillPiles = stashSkillCards(target.skillPiles, groupSkillCards(cards, amount, skill));
       const origin = zone === HAND ? 'hand' : zone === PLAYED ? 'played' : !zone || zone === DECK ? 'deck' : null;
-      append({ type: 'stash', origin, from: source?.id, seat: target.id, cards, count: amount });
+      append({ type: 'stash', origin, from: source?.id, seat: target.id, cards, count: amount, skill });
     }
     if (destination === HAND && target) {
       const created = !zone && skill && cards.length === amount && cards.every(card => card.id && !originalRank(card.id));
@@ -278,6 +288,7 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
         setDecision(null);
         skills.clear();
         openingSkins.clear();
+        confirmedSkins.clear();
         hand.clear();
         clearPlayed();
         remaining = trackRemainingCards();
@@ -499,26 +510,45 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
           }
           seat.general = generalName(data.general);
           seat.generalId = data.general;
-          const preferred = seat.id === selfSeat && openingSkins.get(data.general);
-          if (preferred) openingSkins.delete(data.general);
-          if (changed || preferred || data.skin != null) {
-            const skin = preferred || data;
-            seat.skin = skin.skin;
-            seat.skinDynamic = skin.skinDynamic === true;
-            seat.skinType = skin.skinType || 1;
+          const key = `${data.seat}/${data.general}`;
+          if (changed) confirmedSkins.delete(seat.id);
+          const preferred = openingSkins.get(key);
+          if (preferred) {
+            openingSkins.delete(key);
+            confirmedSkins.set(seat.id, preferred);
+          }
+          // The start-of-play roster can repeat the general with an empty/default
+          // skin. Only the native skin update can explicitly restore the original.
+          const skin = confirmedSkins.get(seat.id) || (data.skin > 0 ? data : null);
+          if (changed || skin) {
+            const sameSkin = !changed && seat.skin === skin?.skin;
+            seat.skin = skin?.skin;
+            seat.skinDynamic = skin?.skinDynamic ?? (sameSkin && seat.skinDynamic);
+            seat.skinType = skin?.skinType || (sameSkin && seat.skinType) || 1;
           }
         }
         if (data.seat === selfSeat && decision?.kind === 'general') setDecision(null);
         break;
       case 'skin': {
         const seat = players.get(data.seat);
-        if (seat?.generalId !== data.general) {
-          if (data.seat === selfSeat && phase < 201) {
+        if (!seat) break;
+        const own = seat.id === selfSeat;
+        // Zero in a background skin sync means no reported skin, not an
+        // instruction to discard our saved/confirmed selection. Only an
+        // acknowledged choice from our native picker can reset it to zero.
+        if (data.skin === 0 && !data.manual && (own || data.lookup)) break;
+        const general = seat.generalId && [data.general, data.realGeneral].includes(seat.generalId)
+          ? seat.generalId : data.realGeneral || data.general;
+        const key = `${seat.id}/${general}`;
+        if (seat.generalId !== general) {
+          if (phase < 201 && !(own && data.lookup && !data.manual && openingSkins.get(key)?.manual)) {
             if (openingSkins.size >= 16) openingSkins.delete(openingSkins.keys().next().value);
-            openingSkins.set(data.general, data);
+            openingSkins.set(key, data);
           }
           break;
         }
+        if (own && data.lookup && !data.manual && confirmedSkins.get(seat.id)?.manual) break;
+        confirmedSkins.set(seat.id, data);
         seat.skin = data.skin;
         seat.skinDynamic = data.skinDynamic;
         seat.skinType = data.skinType;
@@ -580,7 +610,11 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
         notice = '等待下一步牌局操作';
         break;
       case 'reveal':
-        if (!ended && players.has(data.seat)) reveal = data;
+        if (!ended && players.has(data.seat)) {
+          reveal = data;
+          // 突袭展示的是发动者仍持有的手牌，桌面展示消失后依然可记牌。
+          revealHand({ seat: data.seat, cards: data.cards, skill: TU_XI, remembered: true });
+        }
         break;
       case 'reveal-ended':
         if (reveal === data) reveal = null;

@@ -11,13 +11,16 @@ import { chromium } from 'playwright';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const performanceOnly = process.argv.includes('--performance-only'), baselinePerformance = process.argv.includes('--perf-baseline');
-const output = path.join(root, performanceOnly ? 'test-results/shanhetu-placement-v2-performance' : process.argv.includes('--measure-card-widths-only') ? 'test-results/shanhetu-placement-v2-widths' : 'test-results/shanhetu-placement-v2');
+const nodeDetailsOnly = process.argv.includes('--node-details-only');
+const output = path.join(root, nodeDetailsOnly ? 'test-results/shanhetu-node-details' : performanceOnly ? 'test-results/shanhetu-placement-v2-performance' : process.argv.includes('--measure-card-widths-only') ? 'test-results/shanhetu-placement-v2-widths' : 'test-results/shanhetu-placement-v2');
 const layaPath = process.env.SGS_LAYA_CORE || path.resolve(root, '../小抄屏蔽服务器/公告语料整理/临时/laya.core.min.js');
 const clientPath = process.env.SGS_CLIENT_SOURCE || 'C:/Users/Admin/AppData/Local/Temp/sgs-client/game/sgsGame_a.sgs';
 const officialAssetDirectory = path.join(root, 'test-results/shanhetu-placement-v2/official-assets');
-const officialAssets = JSON.parse(await readFile(path.join(officialAssetDirectory, 'city-assets.json'), 'utf8'));
-const officialControlPngs = JSON.parse(await readFile(path.join(officialAssetDirectory, 'control-png-evidence.json'), 'utf8'));
-const officialControlAtlas = JSON.parse(await readFile(path.join(officialAssetDirectory, 'control-atlas-evidence.json'), 'utf8')).find(asset => asset.name === 'roguelikesmallmap');
+const assetManifest = async name => nodeDetailsOnly ? null : JSON.parse(await readFile(path.join(officialAssetDirectory, name), 'utf8'));
+const [officialAssets, officialControlPngs, officialControlAtlasList] = await Promise.all([
+  assetManifest('city-assets.json'), assetManifest('control-png-evidence.json'), assetManifest('control-atlas-evidence.json'),
+]);
+const officialControlAtlas = officialControlAtlasList?.find(asset => asset.name === 'roguelikesmallmap');
 await mkdir(output, { recursive: true });
 const [bundle, laya, nativeClient] = await Promise.all([
   build({ entryPoints: [path.join(root, 'dev/shanhetu-placement-v2-fixture.js')], bundle: true, write: false, format: 'iife', platform: 'browser', logLevel: 'silent' }),
@@ -66,16 +69,18 @@ const assets = new Map([
   ['/native-flat.js', { type: 'application/javascript', body: flatClasses }],
   ['/fixture.js', { type: 'application/javascript', body: fixtureBytes }],
 ]);
-await Promise.all(officialAssets.assets.map(async asset => {
-  const bytes = await readFile(path.join(officialAssetDirectory, asset.name));
-  assert.equal(createHash('sha256').update(bytes).digest('hex'), asset.sha256, `original official PNG ${asset.name}`);
-  assets.set(`/official-city/${asset.name}`, { type: 'image/png', body: bytes });
-}));
-await Promise.all([...officialControlPngs, { ...officialControlAtlas, name: 'roguelikesmallmap.atlas' }].map(async asset => {
-  const bytes = await readFile(path.join(officialAssetDirectory, asset.name));
-  assert.equal(createHash('sha256').update(bytes).digest('hex'), asset.sha256, `original official control ${asset.name}`);
-  assets.set(`/official-city/${asset.name}`, { type: asset.name.endsWith('.png') ? 'image/png' : 'application/json', body: bytes });
-}));
+if (!nodeDetailsOnly) {
+  await Promise.all(officialAssets.assets.map(async asset => {
+    const bytes = await readFile(path.join(officialAssetDirectory, asset.name));
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), asset.sha256, `original official PNG ${asset.name}`);
+    assets.set(`/official-city/${asset.name}`, { type: 'image/png', body: bytes });
+  }));
+  await Promise.all([...officialControlPngs, { ...officialControlAtlas, name: 'roguelikesmallmap.atlas' }].map(async asset => {
+    const bytes = await readFile(path.join(officialAssetDirectory, asset.name));
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), asset.sha256, `original official control ${asset.name}`);
+    assets.set(`/official-city/${asset.name}`, { type: asset.name.endsWith('.png') ? 'image/png' : 'application/json', body: bytes });
+  }));
+}
 const server = createServer((request, response) => {
   const asset = assets.get(new URL(request.url, 'http://127.0.0.1').pathname);
   response.writeHead(asset ? 200 : 404, { 'content-type': asset?.type || 'text/plain', 'cache-control': 'no-store' }); response.end(asset?.body || 'not found');
@@ -157,7 +162,7 @@ async function runPerformanceChecks() {
       const state = await bench.evaluate(() => window.fixture.inspect());
       verify(state, `performance ${rate}x trial ${trial} ${action}`);
       assert.equal(state.cards.length, 3, 'performance comparison must retain all three complete cards');
-      assert.equal(state.drawer.ids.length, 0, 'performance comparison must retain the same map-visible content');
+      assert.equal(state.localDetails?.length || state.drawer?.ids.length || 0, 0, 'performance comparison must retain the same map-visible content');
     }
     const clickStart = await bench.evaluate(() => performance.now());
     for (let i = 0; i < 15; i++) await bench.mouse.click(160, 475);
@@ -281,13 +286,36 @@ function verify(state, name) {
   }
   for (let i = 0; i < cards.length; i++) for (let j = i + 1; j < cards.length; j++) assert(!overlap(cards[i], cards[j]), `${name}: cards overlap`);
   assert(state.fixture.overlays <= 1, `${name}: duplicate overlays`);
-  const drawer = rectangle(state.drawer?.rect);
-  if (drawer && viewport) {
-    assert(inside(drawer, viewport), `${name}: drawer outside viewport`);
-    for (const card of cards) assert(!overlap(card, drawer), `${name}: interactive drawer/header remains a hard obstacle`);
+  const localDetails = state.localDetails || [];
+  for (const detail of localDetails) {
+    const owner = state.geometry.nodes.find(node => node.id === detail.id);
+    assert(owner, `${name}: local detail must have an actual map owner`);
+    const visible = intersection(owner.anchor, viewport);
+    assert(visible.w > 0 && visible.h > 0, `${name}: local details require a visible anchor`);
   }
-  if (viewport) assert.deepEqual([...cards.map(card => card.id), ...(state.drawer?.ids || [])].sort((a, b) => a - b), [...state.fixture.sourceIds].sort((a, b) => a - b), `${name}: every complete card retains its exact owner id`);
-  return { name, viewport, cards, drawer: state.drawer, geometry: state.geometry, layout: state.lastLayout, uiOcclusions: uiOcclusions(state), fixture: state.fixture };
+  const carousels = state.lastLayout?.carousels || [];
+  for (const [index, card] of carousels.entries()) {
+    assert(carousels.slice(index + 1).every(other => !overlap(card, other)), `${name}: carousel cards must not overlap`);
+    assert(inside(card, viewport), `${name}: carousel outside the map`);
+    const owner = state.geometry.nodes.find(node => node.id === card.id);
+    assert(state.geometry.nodes.filter(node => node !== owner).every(node =>
+      distance(card, owner.anchor) < distance(card, node.anchor) && node.regions.every(region => !overlap(card, region))),
+    `${name}: carousel remains associated with its own city`);
+    assert(cards.every(whole => !overlap(card, whole)), `${name}: carousel cannot displace or cover a full card`);
+  }
+  if (viewport) {
+    const visible = [...cards, ...localDetails].map(card => card.id);
+    const unavailable = (state.lastLayout?.overflow || []).map(row => row.id);
+    assert.deepEqual([...visible, ...unavailable].sort((a, b) => a - b), [...state.fixture.sourceIds].sort((a, b) => a - b),
+      `${name}: every node is accounted for once`);
+    for (const id of unavailable) {
+      const owner = state.geometry.nodes.find(node => node.id === id);
+      const intersectionWithViewport = owner && intersection(owner.anchor, viewport);
+      assert(!owner || intersectionWithViewport.w <= 0 || intersectionWithViewport.h <= 0,
+        `${name}: a visible node must always have its own card or local details`);
+    }
+  }
+  return { name, viewport, cards, localDetails, geometry: state.geometry, layout: state.lastLayout, uiOcclusions: uiOcclusions(state), fixture: state.fixture };
 }
 try {
   const executablePath = process.env.SGS_BROWSER || [
@@ -310,6 +338,197 @@ try {
     await page.setViewportSize({ width: config.screenWidth || config.width || 1200, height: config.screenHeight || config.height || 800 });
     const state = await page.evaluate(options => window.fixture.configure(options), config); report.scenarios.push(verify(state, name)); await screenshot(name); return state;
   }
+  async function localDetailScenarios() {
+    const localLayer = page.locator('[data-sgs-shanhe-node-details]');
+    const oldDrawer = page.locator('.sgs-shanhetu-drawer-v2');
+    const roomy = await scenario('roomy-large-node-card', { width: 1080, height: 520, count: 2, long: true, longOptionCount: 11 });
+    assert.equal(roomy.localDetails.length, 1, 'only the long event needs a carousel');
+    const largeCard = localLayer.locator('[data-node-id="2"][data-role="carousel"]');
+    const largeBox = await largeCard.boundingBox();
+    assert(largeBox.width >= 251 && largeBox.height >= 187, 'use the larger card when the map has space');
+    assert.equal(await largeCard.locator('.nav span').textContent(), '1 / 2');
+    const fightConfig = { width: 980, height: 390, count: 1, long: true, longGeneralCount: 11, positions: [{ x: 830, y: 310 }] };
+    const tall = await scenario('right-edge-fight-fits-two-pages', fightConfig);
+    assert.equal(tall.lastLayout.carousels.length, 1);
+    assert(tall.lastLayout.carousels[0].h > 188, 'a fight near the edge uses enough height for the whole page');
+    const fightCard = localLayer.locator('[data-role="carousel"][data-node-id="1"]');
+    const readNativeCard = locator => locator.evaluate(element => {
+      return window.fixture.inspect().fixture.detailCards.find(card => card.id === Number(element.dataset.nodeId) && card.mode === element.dataset.role);
+    });
+    async function readPage() {
+      const native = await readNativeCard(fightCard);
+      return { names: native.text.filter(row => row.kind === 'name').length, scrollable: native.range > 0 };
+    }
+    assert.equal(await fightCard.evaluate(element => getComputedStyle(element).backgroundColor), 'rgba(0, 0, 0, 0)',
+      'DOM hit targets have no independent card background');
+    const pageStyle = await readNativeCard(fightCard);
+    assert(pageStyle.surfaceTexture && pageStyle.surfaceAlpha === .88, 'paginated card uses the native translucent surface');
+    const firstStat = pageStyle.text.find(row => row.kind === 'stats'), fightBox = await fightCard.boundingBox();
+    const sx = fightBox.width / pageStyle.w, sy = fightBox.height / pageStyle.h;
+    await page.mouse.move(fightBox.x + (firstStat.x - 8) * sx, fightBox.y + (firstStat.y + 6) * sy);
+    assert.match(await page.locator('.sgs-shanhetu-icon-tooltip').textContent(), /体力/, 'paged native icons expose the same hover hints');
+    assert.equal(await fightCard.locator('.nav span').textContent(), '1 / 2');
+    assert.deepEqual(await readPage(), { names: 6, scrollable: false });
+    await fightCard.getByRole('button', { name: '下一页' }).click();
+    assert.equal(await fightCard.locator('.nav span').textContent(), '2 / 2');
+    assert.deepEqual(await readPage(), { names: 5, scrollable: false });
+    await screenshot('right-edge-fight-second-page');
+    const wholeFight = await scenario('right-edge-fight-fits-whole', { ...fightConfig, height: 480, positions: [{ x: 830, y: 350 }] });
+    assert.equal(wholeFight.localDetails.length, 0, 'with more map space show the entire fight without pagination');
+    assert.equal(wholeFight.cards.length, 1);
+    assert.equal(wholeFight.fixture.nativeTexts.filter(text => /^武将(?:[6-9]|1[01]) · 2阶段$/.test(text.text)).length, 6,
+      'the full native card includes every later-stage opponent');
+    const typography = ({ text, kind, font, fontSize, leading, color, bold, align }) => ({ text, kind, font, fontSize, leading, color, bold, align });
+    assert.deepEqual(pageStyle.text.filter(row => ['heading', 'id', 'name'].includes(row.kind)).slice(0, 3).map(typography),
+      wholeFight.fixture.nativeTexts.filter(row => ['heading', 'id', 'name'].includes(row.kind)).slice(0, 3).map(typography),
+      'the same native title, location and first opponent have identical typography and color in both modes');
+
+    let state = await scenario('dense-local-details', { width: 900, height: 520, count: 8, long: true, longOptionCount: 11 });
+    assert.equal(await oldDrawer.count(), 0, 'dense content never creates a shared drawer');
+    assert(state.localDetails.some(detail => detail.mode === 'carousel'), 'dense content should use available space for an in-place carousel');
+    assert(state.localDetails.some(detail => detail.mode === 'marker'), 'nodes with no card space still get their own entry');
+    const carousel = localLayer.locator('[data-role="carousel"]').first();
+    assert((await localLayer.locator('[data-role="carousel"] .nav span').allTextContents()).every(text => text === '1 / 2'),
+      'all multi-page node cards are capped at two pages');
+    const firstPage = await carousel.locator('.body').textContent(), initialPosition = await carousel.boundingBox();
+    await carousel.getByRole('button', { name: '下一页' }).click();
+    const frozen = await page.evaluate(() => {
+      window.fixture.invalidateContent();
+      return window.fixture.repeat(5);
+    });
+    assert(frozen.frozen && !frozen.pending, 'detail clicks freeze the whole map while leaving pagination active');
+    assert.equal(frozen.revision, state.revision);
+    assert.deepEqual(frozen.localDetails, state.localDetails);
+    assert.equal(await carousel.locator('.nav span').textContent(), '2 / 2');
+    assert.notEqual(await carousel.locator('.body').textContent(), firstPage, 'next shows a different page on the same node');
+    assert.deepEqual(await carousel.boundingBox(), initialPosition, 'turning pages keeps the card beside its node');
+    await carousel.getByRole('button', { name: '上一页' }).press('Enter');
+    assert.equal(await carousel.locator('.body').textContent(), firstPage, 'previous restores the original page');
+    await carousel.getByRole('button', { name: '上一页' }).press('ArrowLeft');
+    assert.notEqual(await carousel.locator('.body').textContent(), firstPage, 'left from the first page wraps to the last');
+    await carousel.getByRole('button', { name: '下一页' }).press('ArrowRight');
+    assert.equal(await carousel.locator('.body').textContent(), firstPage, 'right from the last page wraps to the first');
+    async function verifyFirstStats(card) {
+      const native = await readNativeCard(card);
+      const stats = native.text.filter(row => row.kind === 'stats').slice(0, 5);
+      assert.equal(stats.length, 5);
+      assert(stats.every(row => row.y === stats[0].y && row.y + row.height <= native.bodyY + native.bodyHeight && row.x + row.width <= native.w),
+        'the first set of native statistics fits on one visible row');
+    }
+    await verifyFirstStats(localLayer.locator('[data-role="carousel"]').filter({ hasText: '曹操' }).first());
+    await screenshot('dense-local-details-carousel');
+    for (const [width, height] of [[248, 135], [280, 170], [420, 184]]) {
+      const name = `local-details-${width}x${height}`;
+      state = await scenario(name, { width, height, count: 2, long: true, longOptionCount: 11, theme: width === 280 ? 'dark' : 'light',
+        positions: [{ x: 72, y: height / 2 }, { x: width - 66, y: height / 2 }] });
+      assert.equal(await oldDrawer.count(), 0, `${name}: no side drawer`);
+      const marker = localLayer.locator('button[data-action="open"][data-node-id="2"]');
+      assert.equal(await marker.count(), 1, `${name}: long event keeps its own entry`);
+      const markerRect = await marker.boundingBox();
+      assert(markerRect && inside({ ...markerRect, w: markerRect.width, h: markerRect.height }, { x: 0, y: 0, w: width, h: height }),
+        `${name}: marker stays on the visible map`);
+      const before = state.fixture.nativeClicks;
+      await marker.press('Enter');
+      const popup = localLayer.locator('[data-role="popup"][data-node-id="2"]'), body = popup.locator('.body');
+      assert.equal(await marker.getAttribute('aria-expanded'), 'true', `${name}: Enter opens details for the same node`);
+      const box = await popup.boundingBox();
+      assert(box && inside({ ...box, w: box.width, h: box.height }, { x: 0, y: 0, w: width, h: height }), `${name}: popup remains on-map`);
+      const optionNumbers = async () => Array.from((await body.textContent()).matchAll(/选项(\d+)完整说明/g), match => Number(match[1]));
+      assert.equal(await popup.locator('.nav span').textContent(), '1 / 2');
+      assert.deepEqual(await optionNumbers(), [1, 2, 3, 4, 5, 6], `${name}: first page keeps its options in order`);
+      assert((await body.textContent()).includes('完整说明应保留换行，并在有限高度下允许滚动查看。'), `${name}: long event retains its full wording`);
+      if (width === 248) {
+        const scrollBox = await body.boundingBox();
+        await page.mouse.move(scrollBox.x + 30, scrollBox.y + 20); await page.mouse.wheel(0, 600);
+        await page.waitForFunction(() => window.fixture.inspect().fixture.detailCards.some(card => card.mode === 'popup' && card.offset > 0));
+      }
+      await popup.getByRole('button', { name: '下一页' }).click();
+      assert.equal(await popup.locator('.nav span').textContent(), '2 / 2', `${name}: pointer turns the page locally`);
+      assert.deepEqual(await optionNumbers(), [7, 8, 9, 10, 11], `${name}: second page keeps all remaining options`);
+      assert.equal((await readNativeCard(popup)).offset, 0, `${name}: the new native page starts at the top`);
+      assert.equal((await page.evaluate(() => window.fixture.inspect())).fixture.nativeClicks, before, `${name}: local controls do not click the game`);
+      await screenshot(`${name}-page-2`);
+      await popup.getByRole('button', { name: '关闭节点详情' }).press('Escape');
+      assert.equal(await popup.count(), 0, `${name}: Escape closes just the active details`);
+      assert(!(await page.evaluate(() => window.fixture.inspect())).fixture.detailCards.some(card => card.mode === 'popup'),
+        `${name}: closing also destroys the native card`);
+      assert(await marker.evaluate(element => element.getRootNode().activeElement === element), `${name}: focus returns to the map marker`);
+      await marker.click();
+      await popup.getByRole('button', { name: '关闭节点详情' }).click();
+      assert.equal(await popup.count(), 0, `${name}: opening and closing with a pointer also works`);
+    }
+    const reflowed = await scenario('reflow-keeps-neighbour-visible', { width: 777, height: 554, count: 7, long: true, longOptionCount: 11,
+      positions: [{ x: 62, y: 101 }, { x: 364.5, y: 127 }, { x: 687, y: 117 },
+        { x: 154, y: 287 }, { x: 396.5, y: 261 }, { x: 689, y: 247 }, { x: 92, y: 477 }] });
+    const reserved = reflowed.lastLayout.attempts.find(attempt => attempt.phase === 'node-carousel');
+    assert.deepEqual(reserved.overflow.map(card => card.id), [6, 7], 'fixed full cards would hide two nodes');
+    assert(reflowed.lastLayout.carousels.some(card => card.id === 6), 'moving or paging existing cards keeps node 6 visible');
+    const reflow = reflowed.lastLayout.attempts.find(attempt => attempt.phase === 'joint-node-cards');
+    assert.deepEqual(reflow.overflow.map(card => card.id), [7], 'reflow keeps one extra node open before the compact retry');
+    assert.equal(reflowed.localDetails.filter(detail => detail.mode === 'marker').length, 0,
+      'the compact retry keeps every node open when a tighter layout fits');
+    const readableCard = localLayer.locator('[data-role="carousel"][data-node-id="1"]');
+    assert.equal(await readableCard.getByRole('button', { name: '下一页' }).count(), 0, 'hide pagination when the full body fits after reflow');
+    assert.equal((await readNativeCard(readableCard)).text.filter(row => row.kind === 'name').length, 5,
+      'the complete native body includes all five opponents');
+    assert(await readableCard.locator('.body').evaluate(body => body.scrollHeight === body.clientHeight));
+
+    const short = await scenario('low-height-light', { width: 780, height: 360, count: 6, long: true, theme: 'light' });
+    assert.equal(short.localDetails.filter(detail => detail.mode === 'marker').length, 0, 'all six nodes can stay expanded in the short map');
+    assert.equal(short.cards.length + short.lastLayout.carousels.length, 6);
+    await verifyFirstStats(localLayer.locator('[data-role="carousel"][data-node-id="1"]'));
+    await page.evaluate(() => window.fixture.enabled(false));
+    assert.equal(await localLayer.count(), 0, 'disable clears the details and their event targets');
+    const enabled = await page.evaluate(() => window.fixture.enabled(true));
+    verify(enabled, 'local-details-reenabled');
+    assert.equal(await localLayer.count(), 1, 're-enable restores a single local details layer');
+  }
+  async function frozenPlacementScenario() {
+    const name = 'click-freezes-card-layout-until-battle';
+    const options = { width: 900, height: 600, count: 4 };
+    const initial = await scenario(name, options);
+    const { x, y, w, h } = initial.cards[0];
+    const canvas = page.locator('canvas').first();
+    const bounds = await canvas.boundingBox();
+    const viewport = initial.geometry.viewport;
+    const cardX = bounds.x + (x + w / 2 - viewport.x) * bounds.width / viewport.w;
+    const cardY = bounds.y + (y + h / 2 - viewport.y) * bounds.height / viewport.h;
+    await page.evaluate(() => window.fixture.invalidateContent());
+    await page.waitForFunction(() => window.fixture.inspect().status.state === 'placing');
+    const pending = await page.evaluate(() => window.fixture.inspect());
+    assert.deepEqual(pending.cards, initial.cards, 'the committed cards stay visible during a same-geometry refresh');
+    await page.mouse.click(cardX, cardY);
+    let state = await page.evaluate(() => window.fixture.repeat(8));
+    assert(state.frozen && !state.pending, 'click on a transparent native card cancels pending layout');
+    assert.deepEqual(state.cards, initial.cards);
+    assert.equal(state.revision, initial.revision);
+    assert.equal(state.performance.cancelledJobs, pending.performance.cancelledJobs + 1);
+    await screenshot('map-cards-frozen-after-click');
+
+    state = await page.evaluate(() => window.fixture.enterBattle());
+    assert(!state.frozen && !state.pending && state.fixture.overlays === 0, 'battle entry clears the freeze and overlay');
+    state = await page.evaluate(() => window.fixture.enabled(true));
+    assert(!state.frozen && state.revision > initial.revision, 'returning to the map builds a fresh layout');
+
+    const priorClicks = state.fixture.cityClicks.length;
+    await page.mouse.click(210, 189);
+    state = await page.evaluate(() => window.fixture.inspect());
+    assert.deepEqual(state.fixture.cityClicks.slice(priorClicks), [1], 'native city receives its original click exactly once');
+    assert(state.frozen && !state.pending, 'native city click also freezes the map');
+  }
+  if (nodeDetailsOnly) {
+    const ordinary = await scenario('ordinary-complete-cards', { width: 1200, height: 800, count: 4 });
+    assert.equal(ordinary.cards.length, 4, 'all full cards remain visible when they fit');
+    assert.equal(ordinary.localDetails.length, 0, 'fitting cards do not need pagination');
+    await page.mouse.click(46, 106);
+    assert.equal((await page.evaluate(() => window.fixture.inspect())).fixture.buttonCounts.shopBtn, 1,
+      'native shop still receives clicks');
+    assert(!(await page.evaluate(() => window.fixture.inspect())).frozen, 'ordinary native controls leave layout active');
+    await frozenPlacementScenario();
+    await localDetailScenarios();
+    const disposed = await page.evaluate(() => window.fixture.dispose());
+    assert.deepEqual(disposed, { overlays: 0, detailLayers: 0, themeListeners: 0 });
+  } else {
   async function cancellationScenarios() {
     const main = { width: 1299, height: 739, screenshotContent: true, screenshotDistribution: true,
       officialTextures: true, screenshotNativeControls: true };
@@ -410,7 +629,7 @@ try {
         while (armed && performance.now() - failureStart < 3000) await new Promise(requestAnimationFrame);
         const failed = window.fixture.inspect();
         const afterFailure = {
-          injected: !armed, overlays: failed.fixture.overlays, drawers: document.querySelectorAll('.sgs-shanhetu-drawer-v2').length,
+          injected: !armed, overlays: failed.fixture.overlays, detailLayers: document.querySelectorAll('[data-sgs-shanhe-node-details]').length,
           created: created.length, trackedAtFault: ownedAtFault.size,
           allCreatedDestroyed: created.every(sprite => sprite.destroyed),
           allFaultOwnedDestroyed: [...ownedAtFault].every(sprite => sprite.destroyed),
@@ -434,7 +653,7 @@ try {
     assert(observed.afterFailure.injected, `${name}: failure must actually be injected`);
     assert(observed.afterFailure.trackedAtFault > 0 && (kind === 'measure-probe-typeset' || observed.afterFailure.created > 0), `${name}: fault must own native resources`);
     assert.equal(observed.afterFailure.overlays, 0, `${name}: failed overlay is removed`);
-    assert.equal(observed.afterFailure.drawers, 0, `${name}: failed drawer is removed`);
+    assert.equal(observed.afterFailure.detailLayers, 0, `${name}: failed detail layer is removed`);
     assert(observed.afterFailure.allCreatedDestroyed && observed.afterFailure.allFaultOwnedDestroyed,
       `${name}: every half-built sprite and text must be destroyed before retry`);
     assert(observed.afterFailure.nativeCities.length >= 3 && observed.afterFailure.nativeCities.every(city => !city.destroyed), `${name}: native city nodes survive renderer failure`);
@@ -447,7 +666,7 @@ try {
     assert.equal(observed.recovered.fixture.overlays, 1, `${name}: recovery creates exactly one overlay`);
     assert.equal(observed.recovered.cards.length, 3, `${name}: all complete cards recover`);
     assert.deepEqual(observed.orphansAfterRecovery, [], `${name}: retry must not leave native orphans`);
-    assert.deepEqual(observed.disposed, { overlays: 0, drawers: 0, themeListeners: 0 }, `${name}: dispose releases all owned resources`);
+    assert.deepEqual(observed.disposed, { overlays: 0, detailLayers: 0, themeListeners: 0 }, `${name}: dispose releases all owned resources`);
     assert(observed.allTrackedDestroyedAfterDispose, `${name}: all created native sprites are destroyed after dispose`);
     const cleanRecovery = { ...observed.recovered, fixture: { ...observed.recovered.fixture, reportedErrors: [] } };
     report.scenarios.push({ ...verify(cleanRecovery, name), injectedFailure: observed.afterFailure,
@@ -552,9 +771,9 @@ try {
   assert.equal(reproduction.geometry.ready, true, 'screenshot distribution uses resolved native geometry');
   assert.equal(reproduction.geometry.nodes.length, 8, 'all five visible passive cities remain protected');
   assert.equal(reproduction.cards.length, 3, 'original official city assets must keep all three complete cards on the map');
-  assert.deepEqual(reproduction.drawer.ids, [], 'the former all-or-one drawer regression must be solved without discarding content');
+  assert.deepEqual(reproduction.localDetails, [], 'the former all-or-one drawer regression must be solved without discarding content');
   report.screenshotReproduction.result = { geometryReason: reproduction.geometry.reason, status: reproduction.status,
-    cards: reproduction.cards, drawer: reproduction.drawer };
+    cards: reproduction.cards, localDetails: reproduction.localDetails };
   const bossFinished = await page.evaluate(() => window.fixture.finishBossAppearance());
   report.scenarios.push(verify(bossFinished, 'official-content-empty-boss-after-appearance')); await screenshot('official-content-empty-boss-after-appearance');
   const boss = bossFinished.fixture.nativeCityStates.find(item => item.id === 5028);
@@ -596,7 +815,7 @@ try {
     const caseState = await scenario(name, { screenshotContent: true, screenshotDistribution: true, ...options });
     assert.equal(caseState.geometry.ready, true, `${name}: native geometry ready`);
     assert.equal(caseState.cards.length, 3, `${name}: all three complete cards remain on the map`);
-    assert.deepEqual(caseState.drawer.ids, [], `${name}: no unnecessary drawer`);
+    assert.deepEqual(caseState.localDetails, [], `${name}: no unnecessary drawer`);
     if (options.screenshotNativeControls) {
       const d = options.width / 1220, boss = caseState.geometry.nodes.find(node => node.id === 5028).anchor;
       const raidX = -264 * d | 0, raidY = 102 * d | 0;
@@ -634,12 +853,12 @@ try {
     screenshotContent: true, screenshotApproximation: true, canvasCss: { scaleX: 1.5, scaleY: 1.5 } });
   assert.equal(sparseApproximation.geometry.ready, true);
   assert.equal(sparseApproximation.cards.length, 3, 'known feasible sparse screen approximation must retain all three complete floating cards');
-  assert.deepEqual(sparseApproximation.drawer.ids, []);
+  assert.deepEqual(sparseApproximation.localDetails, []);
   const sparseFinished = await page.evaluate(() => window.fixture.finishBossAppearance());
   report.scenarios.push(verify(sparseFinished, 'full-content-sparse-empty-boss-after-appearance')); await screenshot('full-content-sparse-empty-boss-after-appearance');
   assert.equal(sparseFinished.geometry.ready, true); assert.deepEqual(sparseFinished.cards, sparseApproximation.cards);
   report.screenshotReproduction.sparseScreenApproximation = { provenance: 'Independent estimated screen rectangles from the supplied screenshot divided by assumed 1.5 scale; not an official runtime geometry capture.',
-    cards: sparseFinished.cards, drawer: sparseFinished.drawer };
+    cards: sparseFinished.cards, localDetails: sparseFinished.localDetails };
   console.log('截图内容测量：' + JSON.stringify({ cards: screenshotMeasurements.map(({ id, w, h }) => ({ id, w, h })),
     officialCoordinateModel: report.screenshotReproduction.result, sparseScreenModel: report.screenshotReproduction.sparseScreenApproximation.cards }));
   if (!process.argv.includes('--screenshot-repro-only')) {
@@ -659,7 +878,7 @@ try {
   await page.mouse.click(1150, 766); assert.equal((await page.evaluate(() => window.fixture.inspect())).fixture.buttonCounts.btnRefine, 1, 'native bottom click must work');
   await page.mouse.click(1150, 666); assert.equal((await page.evaluate(() => window.fixture.inspect())).fixture.buttonCounts.changeIcon, 1, 'native change-general click must work');
   state = await page.evaluate(() => window.fixture.theme('light')); verify(state, 'live-theme-light'); await screenshot('normal-live-light');
-  state = await page.evaluate(() => window.fixture.enabled(false)); assert.equal(state.fixture.overlays, 0, 'disable removes native overlay'); assert.equal(await page.locator('.sgs-shanhetu-drawer-v2').count(), 0, 'disable removes drawer');
+  state = await page.evaluate(() => window.fixture.enabled(false)); assert.equal(state.fixture.overlays, 0, 'disable removes native overlay'); assert.equal(await page.locator('[data-sgs-shanhe-node-details]').count(), 0, 'disable removes local details');
   state = await page.evaluate(() => window.fixture.enabled(true)); verify(state, 'reenabled'); assert.equal(state.fixture.overlays, 1, 're-enable creates one native overlay');
   for (const [name, options] of [
     ['official-dom-css-scale-offset', { width: 1050, height: 700, count: 4, canvasCss: { scaleX: .82, scaleY: .86, left: -76, top: 39 } }],
@@ -677,7 +896,7 @@ try {
   await scenario('adjacent-owner-regression', { width: 700, height: 400, count: 3, positions: [{ x: 413, y: 223 }, { x: 142, y: 197 }, { x: 276, y: 234 }] });
   state = await scenario('long-name-warning-passive-city', { width: 1200, height: 800, count: 3, longNames: true, passiveNode: true });
   assert(state.geometry.nodes.some(node => node.id === 99), 'visible HasEvent=false city must be protected');
-  const allText = state.fixture.nativeTexts.map(text => text.text).join('\n') + state.fixture.mountedCards.map(card => card.accessibleText).join('\n') + await page.locator('.sgs-shanhetu-drawer-v2').allTextContents();
+  const allText = state.fixture.nativeTexts.map(text => text.text).join('\n') + state.fixture.mountedCards.map(card => card.accessibleText).join('\n');
   assert(allText.includes('临淄东郊古城完整长标题验证地点'), 'full long city title retained');
   assert(allText.includes('谋略无双·夏侯元让完整长武将名称'), 'full long general name retained');
   assert(allText.includes('注意 · 贞烈'), 'priority warning fully retained');
@@ -688,48 +907,13 @@ try {
   assert(!state.geometry.nodes.some(node => node.id === 2) && state.geometry.nodes.some(node => node.id === 9), 'native node dictionary change reflected');
   state = await scenario('image-pending', { count: 3, late: true });
   state = await page.evaluate(() => window.fixture.lateImageReady()); report.scenarios.push(verify(state, 'image-ready')); await screenshot('image-ready');
-  for (const drawerWidth of [248, 280, 420]) {
-    state = await scenario(`dense-long-${drawerWidth}`, { width: 900, height: 520, count: 8, long: true, drawerWidth });
-    const drawer = page.locator('.sgs-shanhetu-drawer-v2'), toggle = drawer.locator('[data-action="toggle"]'), body = drawer.locator('[data-role="body"]');
-    assert.equal(await drawer.count(), 1, 'dense content must provide drawer');
-    if (!state.drawer?.open) { await toggle.focus(); await toggle.press('Enter'); }
-    state = await page.evaluate(() => window.fixture.waitForLayout()); verify(state, `drawer-open-${drawerWidth}`);
-    assert(state.drawer.open, 'Enter opens drawer');
-    const before = state.fixture.nativeClicks; const scrollBox = await body.boundingBox(); assert(scrollBox, 'drawer body visible');
-    await page.mouse.move(scrollBox.x + Math.min(100, scrollBox.width / 2), scrollBox.y + Math.min(100, scrollBox.height / 2)); await page.mouse.wheel(0, 800); await page.waitForTimeout(100);
-    assert(await body.evaluate(element => element.scrollHeight > element.clientHeight && element.scrollTop > 0), 'full long content must scroll');
-    await body.click({ position: { x: 30, y: 40 } }); assert.equal((await page.evaluate(() => window.fixture.inspect())).fixture.nativeClicks, before, 'drawer clicks must not reach native canvas');
-    assert(await drawer.locator('article[data-node-id]').count() > 0, 'drawer retains node identities');
-    assert((await drawer.textContent()).includes('完整说明应保留换行，并在有限高度下允许滚动查看。'), 'complete event descriptions retained');
-    await screenshot(`drawer-${drawerWidth}-scrolled`);
-    await toggle.focus(); await toggle.press('Space'); assert.equal((await page.evaluate(() => window.fixture.waitForLayout())).drawer.open, false, 'Space closes drawer');
-  }
-  await scenario('low-height-light', { width: 780, height: 360, count: 6, long: true, theme: 'light', drawerWidth: 280 });
-  for (const [width, height] of [[248, 180], [420, 140]]) {
-    const name = `tiny-canvas-${width}x${height}`;
-    state = await scenario(name, { width, height, count: 2, long: true });
-    const header = await page.locator('.sgs-shanhetu-drawer-v2').evaluate(element => {
-      const toggle = element.querySelector('[data-action="toggle"]'), body = element.querySelector('[data-role="body"]');
-      const r = element.getBoundingClientRect(), t = toggle.getBoundingClientRect();
-      const spans = [...toggle.children].map(span => { const s = span.getBoundingClientRect(); return { top: s.top, bottom: s.bottom, height: s.height }; });
-      return { drawer: { top: r.top, bottom: r.bottom }, toggle: { top: t.top, bottom: t.bottom, height: t.height }, spans,
-        expanded: toggle.getAttribute('aria-expanded') === 'true', disabled: toggle.disabled, title: toggle.title,
-        label: toggle.getAttribute('aria-label'), bodyHidden: body.hidden, bodyHeight: body.clientHeight };
-    });
-    assert(header.toggle.height >= 31 && header.toggle.height <= 33, `${name}: header remains one full 32px row`);
-    assert(header.toggle.top >= header.drawer.top && header.toggle.bottom <= header.drawer.bottom + .1, `${name}: header must not be vertically clipped`);
-    for (const span of header.spans) assert(span.height > 0 && span.top >= header.toggle.top && span.bottom <= header.toggle.bottom, `${name}: header text remains visible`);
-    assert(header.label?.includes('完整详情'), `${name}: full accessible header label retained`);
-    if (header.expanded) assert(!header.disabled && !header.bodyHidden && header.bodyHeight >= 24, `${name}: expanded body must have at least 24 visible pixels`);
-    else assert(header.disabled && header.bodyHidden && header.title.includes('工具箱'), `${name}: unavailable body requires disabled explanatory fallback`);
-    report.scenarios[report.scenarios.length - 1].tinyHeader = header;
-  }
+  await localDetailScenarios();
   await scenario('pending-before-replacement', { width: 1200, height: 800, count: 3, late: true });
   const replacement = await page.evaluate(() => window.fixture.configure({ width: 1200, height: 800, count: 3, reuseRenderer: true }));
   report.scenarios.push(verify(replacement, 'replacement-scene')); await screenshot('replacement-scene');
   state = await page.evaluate(() => window.fixture.emitRetiredComplete()); assert.deepEqual(state.cards, replacement.cards, 'late old-scene COMPLETE must not change current cards');
   assert.equal(state.revision, replacement.revision, 'late old-scene COMPLETE must not re-render current scene'); assert.equal(state.fixture.overlays, 1, 'late old-scene COMPLETE cannot reattach an overlay');
-  const disposed = await page.evaluate(() => window.fixture.dispose()); assert.deepEqual(disposed, { overlays: 0, drawers: 0, themeListeners: 0 }, 'dispose releases overlays, DOM, theme subscriptions');
+  const disposed = await page.evaluate(() => window.fixture.dispose()); assert.deepEqual(disposed, { overlays: 0, detailLayers: 0, themeListeners: 0 }, 'dispose releases overlays, DOM, theme subscriptions');
   await page.setViewportSize({ width: 1200, height: 800 });
   await page.evaluate(() => window.fixture.configure({ width: 1200, height: 800, count: 4,
     domClip: { left: 0, top: 0, width: 900, height: 0 } }));
@@ -782,7 +966,7 @@ try {
     failureStatus: engineRecovery.failed.status, failureErrors: engineRecovery.failed.fixture.reportedErrors,
     errorHistory: engineRecovery.recovered.fixture.errorHistory });
   await screenshot('engine-diagnostic-recovered');
-  assert.deepEqual(await page.evaluate(() => window.fixture.dispose()), { overlays: 0, drawers: 0, themeListeners: 0 }, 'engine recovery dispose releases all owned resources');
+  assert.deepEqual(await page.evaluate(() => window.fixture.dispose()), { overlays: 0, detailLayers: 0, themeListeners: 0 }, 'engine recovery dispose releases all owned resources');
   for (const kind of ['typeset', 'text-width-setter', 'drawLine', 'scene.addChild', 'measure-probe-typeset']) await exceptionScenario(kind);
   const resources = await page.evaluate(async () => {
     const OriginalSprite = Laya.Sprite, created = [];
@@ -805,6 +989,7 @@ try {
   assert.equal(resources.beforeDispose.destroyed, 0, 'no discarded alternate display tree is constructed');
   assert(resources.allCardsDestroyed, 'dispose destroys the selected variants too');
   report.scenarios.push({ ...verify(resources.state, 'official-variant-resource-cleanup'), resources: resources.beforeDispose, allCardsDestroyed: resources.allCardsDestroyed });
+  }
   }
   }
   }

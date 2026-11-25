@@ -1,5 +1,10 @@
 export const KU_ROU = 10;
 export const KU_ROU_CARDS = 100010;
+export const TU_XI = 17;
+export const GU_HUO = 29;
+export const DUAN_LIANG = 36;
+export const PUBLIC_PLAY_RETURNS = new Set([15, 16, TU_XI, 18, 26]); // 反馈、刚烈、突袭、遗计、红颜
+export const PUBLIC_GAIN_MARKS = new Set([...PUBLIC_PLAY_RETURNS, GU_HUO, DUAN_LIANG]);
 export const HAND_MARKS = new Map([[41, 41], [KU_ROU_CARDS, KU_ROU], [100018, 18], [100022, 22]]);
 
 export const SEAT_MARKS = new Map([

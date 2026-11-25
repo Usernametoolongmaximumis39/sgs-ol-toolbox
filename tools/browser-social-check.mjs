@@ -93,8 +93,10 @@ try{
   window.messages=[{ChannelNum:1,MsgType:1,SpokerMan:'青山旧友',OfficerLv:1,chatMsg:'房间 12345 等你来',MessageHtml:user('青山旧友')+'：房间 12345 等你来'},{ChannelNum:2,MsgType:1,SpokerMan:'长江东逝水',OfficerLv:3,MessageHtml:user('长江东逝水')+'：综合频道也显示官阶'},{ChannelNum:3,MsgType:1,SpokerMan:'青山旧友',OfficerLv:1,chatMsg:'工会频道 54321',MessageHtml:user('青山旧友')+'：工会频道 54321'},{ChannelNum:4,MsgType:9,MessageHtml:'恭喜 '+user('神军大在')+' 在活动中获得稀有武将！'},{ChannelNum:4,MsgType:9,MessageHtml:'恭喜 '+user('青山旧友')+' 升官阶！'}];
   window.chatRows=messages.map((m,i)=>{const row=chat.getHtmlBase(m);row.pos(0,i*55);return row});chatRuntime.tick();
   window.initialProfileBatch=detailRequests.slice();
+  window.initialChatVisibility=chatRows.map(row=>row.visible);
  },{vip,resize,office,passwordConfirm,nativeOfficerIcon,nativeDetailRequest,nativeChatSize});
  assert.deepEqual(await page.evaluate(()=>initialProfileBatch),['青山旧友','神军大在','长江东逝水'],'whole visible viewport enqueues newest-first in the same tick');
+ assert.deepEqual(await page.evaluate(()=>initialChatVisibility),[false,false,false,true,false],'native chat hides rows whose rank is still loading');
  checks.push('all distinct visible player names queued in the first tick newest-first, with native non-forced cooldown');
  assert.deepEqual(await page.evaluate(()=>friendRuntime.getRecord().pins),[]);
  assert.deepEqual(await page.evaluate(()=>list.goodFriendsList.map(r=>r.data.FriendNickname)),['长江东逝水','青山旧友']);
@@ -140,6 +142,8 @@ try{
  checks.push('ID-pinned friend remains pinned across rename','rename observed once despite repeated ticks');
 
  await page.waitForFunction(()=>chatRows.every(row=>row.htmlTxt._innerHTML.includes('<img')));
+ assert.equal(await page.evaluate(()=>chatRows.every(row=>row.visible)),true,'rank-ready rows are revealed in the native chat list');
+ checks.push('chat rows with pending officer ranks are hidden until their native icons are ready');
  assert.equal(await page.evaluate(()=>detailRequests.includes('青山旧友')),true,'detail must be fetched without clicking nickname');
  await page.waitForFunction(()=>chatRows[4].htmlTxt._innerHTML.includes('officer/3.png'));
  assert.equal(await page.evaluate(()=>chatRuntime.getDiagnostics().nativeOfficer),true);

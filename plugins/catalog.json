@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.266"
+    "version": "0.6.294"
   },
   "plugins": [
     {
       "id": "social",
       "name": "好友与聊天",
-      "version": "0.1.24",
+      "version": "0.1.25",
       "icon": {
         "paths": [
           "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
@@ -23,9 +23,9 @@
       "minCoreVersion": "0.6.185",
       "apiVersion": 1,
       "description": "好友置顶、改名与将灯提醒、聊天绑定码过滤、一键进房、官阶补全与无密码房筛选",
-      "releaseNotes": "新增公开聊天和诏令横幅的绑定码过滤，可在工具里关闭。减少重复查询置顶好友的将灯。",
-      "packageUrl": "packages/social/0.1.24.json",
-      "sha256": "bbcc57ac4addc11105e52c44bb5c411e03205c3fa0a78335aa26a877d0a8be61"
+      "releaseNotes": "改进公开聊天的绑定码过滤和官阶补全：优先补全当前可见消息，同一条消息内的多个官阶一起显示。过滤可在「工具」关闭，已过滤的消息不再触发官阶查询。",
+      "packageUrl": "packages/social/0.1.25.json",
+      "sha256": "2aab2646a93903fe301aa474a5d00fe8f452638852dc18d0659cf47a64f88dc5"
     },
     {
       "id": "player-info",
@@ -149,7 +149,7 @@
     {
       "id": "shanhetu",
       "name": "山河图",
-      "version": "0.2.45",
+      "version": "0.2.52",
       "icon": {
         "paths": [
           "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
@@ -165,9 +165,9 @@
       "minCoreVersion": "0.6.121",
       "apiVersion": 1,
       "description": "敌军、奇遇与商店预览，换将卡预判、战法计数与流派进度",
-      "releaseNotes": "减少牌局中与战法计数无关的处理，整理地图标注的坐标计算。地图和战法计数的用法保持不变。",
-      "packageUrl": "packages/shanhetu/0.2.45.json",
-      "sha256": "54a8da77c89f5c6ba3d6128261c33db069f32052ff9db5736d134f24586f975e"
+      "releaseNotes": "地图节点详情在空间不足时支持翻页和滚动，密集处可从节点旁的入口展开。调整地图标注和节点详情的布局，减少对游戏按钮及邻近节点的遮挡。",
+      "packageUrl": "packages/shanhetu/0.2.52.json",
+      "sha256": "082236c181b0482dd6bcbcbd7c7e2c9adbe3fbf00a01c4575c14e22aa53a6cad"
     },
     {
       "id": "shanhetu-beta",
@@ -197,7 +197,7 @@
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.95",
+      "version": "0.1.98",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -212,14 +212,14 @@
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数",
-      "releaseNotes": "修复整手牌转出或手牌清空后仍显示旧推断的问题，减少长局和登录期间的处理开销。",
-      "packageUrl": "packages/cards/0.1.95.json",
-      "sha256": "3dd7066875231cd421bc4b116e3d87d88cafbbbccaabbd0209b5afadd75cb38f"
+      "releaseNotes": "手牌排序条支持拖动，松手后记住位置；调整提示位置，防止靠近屏幕边缘时被截断。排序方式和已有配置保持不变。",
+      "packageUrl": "packages/cards/0.1.98.json",
+      "sha256": "574d7737e990b98bf61969cd808b69a170fd33db75c582993245b168d5d2ef41"
     },
     {
       "id": "play-assist",
       "name": "出牌辅助",
-      "version": "0.2.23",
+      "version": "0.2.38",
       "icon": {
         "paths": [
           "M4 5h10v14H4zM7 8h4M7 11h3",
@@ -233,15 +233,15 @@
       "contractVersion": 1,
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
-      "description": "长按技能辅助、自动确定与询问跳过。",
-      "releaseNotes": "改进落英、破军和武娘的长按辅助识别，无法确认技能版本时交给玩家操作。三国斗地主牌桌停用出牌辅助。",
-      "packageUrl": "packages/play-assist/0.2.23.json",
-      "sha256": "84a4905f4de66ec7507e66c64ac8902f642a5a7ab04e0aa636ed37baeffcc70b"
+      "description": "长按技能辅助、自动确定、询问跳过与武将专属提示。",
+      "releaseNotes": "新增裴秀辅助：在绘图时给出走法提示，采风时可按花色批选、反选和锁定卡牌，保留手动确认。补充天书、权御和魔张飞的辅助提示。三国斗地主牌桌不启用出牌辅助。",
+      "packageUrl": "packages/play-assist/0.2.38.json",
+      "sha256": "578d5ab8283511d8c95ac6a7cd990a487f4f6919a6f6bd350fc8f08b91db9177"
     },
     {
       "id": "daily-rewards",
       "name": "日常领奖",
-      "version": "0.7.47",
+      "version": "0.7.48",
       "icon": {
         "paths": [
           "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -256,9 +256,9 @@
       "minCoreVersion": "0.6.38",
       "apiVersion": 1,
       "description": "自动领取签到、任务、邮件与活动奖励，按账号记录",
-      "releaseNotes": "领取特惠礼包的免费礼盒后会联网核对限购状态。此前待确认的礼盒仅在确认仍可领取时补领一次。",
-      "packageUrl": "packages/daily-rewards/0.7.47.json",
-      "sha256": "5c2f553fe71e7c891875c1524929e679b94e0282c8413d7ece5eb818cfb6b2e6"
+      "releaseNotes": "修复登录后商店尚未完全加载时可能漏领特惠礼包免费礼盒的问题。仅在联网确认活动有效、未达限购且价格为零时领取，不会代购付费礼包。待确认的旧记录只在核实仍可领取时补领一次。",
+      "packageUrl": "packages/daily-rewards/0.7.48.json",
+      "sha256": "7d38bc8fc0cab23427e44d08cb988c6e4b3bfa980e03b018121c0dd1b7d05e7e"
     },
     {
       "id": "seckill",
@@ -355,7 +355,7 @@
     {
       "id": "poker-lobby",
       "name": "三国斗地主",
-      "version": "0.3.56",
+      "version": "0.3.67",
       "icon": {
         "paths": [
           "M10 3h9a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM5 5 3 6a1.5 1.5 0 0 0-.8 1.8L5 20a2 2 0 0 0 2.4 1.5l1.6-.4",
@@ -367,12 +367,12 @@
         "tools"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.228",
+      "minCoreVersion": "0.6.272",
       "apiVersion": 1,
       "description": "打开三国斗地主大厅、实战牌桌和历史录像。",
-      "releaseNotes": "大厅按钮只显示开始或取消匹配，首次由工具箱询问「确认发起匹配」。排队确认后，灰色取消按钮变为蓝绿色；匹配成功会收起大厅按钮，可在工具箱准备或切换牌桌。钟会权计上排为权计牌、下排为手牌，两排和技能区的破军、权计牌均按点数从大到小排列。在线匹配由游戏服务器决定是否放行，参与对局可能消耗欢乐豆。",
-      "packageUrl": "packages/poker-lobby/0.3.56.json",
-      "sha256": "3bb664bb5e7619248cb81f950f376ec2b678ba7a2c41f74fb8556a94150e2ea3"
+      "releaseNotes": "改善经典版断线重连后的牌桌恢复、头像换肤、开战动画和音效。调整突袭等技能的公开牌标记，明牌区不再随读条移动。经典版能否在线匹配仍由游戏服务器决定，参与对局可能消耗欢乐豆。部分技能移牌的明暗显示尚未完成验证。",
+      "packageUrl": "packages/poker-lobby/0.3.67.json",
+      "sha256": "7cd077d577420d5f1e8ba57d47eca1870fe638d6a8fb322fc64b95999596b946"
     },
     {
       "id": "stargazing",
@@ -440,7 +440,7 @@
     {
       "id": "baisheng",
       "name": "百胜战功",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "icon": {
         "paths": [
           "M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4",
@@ -455,9 +455,9 @@
       "minCoreVersion": "0.6.222",
       "apiVersion": 1,
       "description": "查看当前账号百胜进度、完成日期与技能战功，仅保存在本机",
-      "releaseNotes": "同一账号同时使用百胜和盖主时，共用战功查询。保留原有百胜进度和导出方式，更新插件需要新版工具箱。",
-      "packageUrl": "packages/baisheng/0.1.11.json",
-      "sha256": "d44c259a0be3b41bc20a04237b000897b5282ab4de87e35b88d5a47b81760226"
+      "releaseNotes": "修复断线或重新登录时刷新战功可能报错的问题。连接恢复前仍可查看和导出当前账号已保存的进度，连接就绪后自动恢复查询。",
+      "packageUrl": "packages/baisheng/0.1.12.json",
+      "sha256": "9cdfddfee79d02f2d9c68645a1a2192b4180d1942c440b9e04532a8a4de5a897"
     },
     {
       "id": "appearances",

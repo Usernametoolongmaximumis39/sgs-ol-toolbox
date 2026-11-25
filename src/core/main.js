@@ -19,6 +19,7 @@ import { attachSessionSnapshots } from './snapshots.js';
 import { createCardDiagnostics } from './diagnostics.js';
 import { createStartupDiagnostics } from './startup-diagnostics.js';
 import { reconcilePokerPackages } from './dev-poker-packages.js';
+import { reconcilePeixiuPackage } from './dev-peixiu-package.js';
 import { createShell } from '../ui/shell.js';
 import { createScreenshotController } from './screenshot.js';
 import { gameViewForScene } from './game-view.js';
@@ -55,7 +56,9 @@ async function initialize(win, api, mobileSkinPort) {
   const settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : 'sgstoolbox:'), journal = new SessionJournal();
   const diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
   Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
-  const game = createGameAdapter(win, scope, mobileSkinPort, { watchScene: false });
+  let bridge;
+  const game = createGameAdapter(win, scope, mobileSkinPort, { watchScene: false,
+    readLoginAccount: proxy => bridge?.getLoginAccount(proxy) });
   const sceneWatch = createSceneWatch({ game, scope });
   const getAccount = () => readNativeAccount({ game });
   const syncKey = id => syncGameAccountKey(win, id);
@@ -94,7 +97,7 @@ async function initialize(win, api, mobileSkinPort) {
   scope.add(game.onSceneChange(scene => shell.setGameView(gameViewForScene(scene))));
   shell.setGameView(gameViewForScene(game.getScene()));
   const screenshot = createScreenshotController({ window: win, game, settings, scope, notify: shell.notify });
-  const bridge = installMessageBridge(win, journal, scope, message => shell.setStatus(message), {
+  bridge = installMessageBridge(win, journal, scope, message => shell.setStatus(message), {
     getTargets: game.getMessageTargets, sceneWatch,
     observeStartupDispatch: startup?.observeDispatch,
     observeType: startup ? (type, source, observed) => {
@@ -162,7 +165,14 @@ async function initialize(win, api, mobileSkinPort) {
       : capture.targets.length ? '消息入口已连接 · 等待收包' : '未接入游戏消息 · 仅原生显示可用') : '等待游戏运行时'));
   }, 500));
   if (!win.__SGS_TOOLBOX_DEMO__ && !win.Laya?.stage) shell.host.style.display = 'none';
-  await manager.init(DEVELOPMENT ? reconcilePokerPackages : undefined);
+  await manager.init(DEVELOPMENT ? async (records, builtins, store) => {
+    const results = await Promise.allSettled([
+      reconcilePokerPackages(records, builtins, store),
+      reconcilePeixiuPackage(records, builtins, store, settings.namespace('play-assist')),
+    ]);
+    const errors = results.filter(result => result.status === 'rejected').map(result => result.reason?.message || String(result.reason));
+    if (errors.length) throw new Error(errors.join('；'));
+  } : undefined);
   if (scope.closed) return null;
   if (LOCAL_APPEARANCE_SYNC && localAppearanceSyncPackage && !manager.storageError) {
     try { await installLocalAppearanceSyncPackage(manager, settings, localAppearanceSyncPackage); }

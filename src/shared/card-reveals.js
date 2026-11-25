@@ -188,9 +188,7 @@ export function createSeatReveals({ window, document, game, settings }, overlay)
         const scale = Math.max(1, available) / rowWidth;
         const visibleColumns = Math.min(columns, hand.count);
         const revealWidth = (visibleColumns * 42 - 2) * scale;
-        const timer = pokerScene && ui.otherTopManager?.countdownTimer;
-        const countdownBottom = timer?.parent && timer.countTween && nativeAnchor(window, timer, 0, timer.height, bounds)?.y;
-        const revealTop = Math.max(anchor.y, countdownBottom > 0 ? countdownBottom + 4 : 0);
+        // Keep the portrait anchor stable; the HTML overlay already paints above the native timer.
         revealWrites.push(() => {
           const key = String(seatId);
           let box = revealBoxes.get(key);
@@ -214,9 +212,9 @@ export function createSeatReveals({ window, document, game, settings }, overlay)
           const layout = {
             width: revealWidth,
             left: Math.max(0, Math.min(revealRight - revealWidth - 4, left)),
-            top: Math.max(0, Math.min(innerHeight - 24, revealTop)),
+            top: Math.max(0, Math.min(innerHeight - 24, anchor.y)),
             // Two full rows plus half of the third hint at the scrollable content.
-            maxHeight: Math.max(0, Math.min(139 * scale, (handTop || innerHeight) - revealTop - 4)),
+            maxHeight: Math.max(0, Math.min(139 * scale, (handTop || innerHeight) - anchor.y - 4)),
           };
           for (const [property, pixels] of Object.entries(layout)) {
             const value = pixels + 'px';

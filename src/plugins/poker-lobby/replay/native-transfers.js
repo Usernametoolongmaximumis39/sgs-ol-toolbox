@@ -1,6 +1,7 @@
 import { label } from './board.js';
 import { POKER_CARD_NODE, pokerCardSprite } from './native-card-motion.js';
 import { drawPokerBack } from './poker-assets.js';
+import { isFaceUpSkillCard, publicSkillPileName } from './skill-piles.js';
 
 function back(Laya, parent, width, height) {
   const sprite = new Laya.Sprite();
@@ -112,8 +113,10 @@ export function attachTransfers(Laya, scope, scene, seats, handLayer, bottomLaye
       }
       const card = action.type === 'gain' && action.seat === slots[0] && id > 0 ? cardById(handLayer, id) : null;
       const end = card ? at(card) : nativePoint(target);
-      const sprite = live && (action.origin === 'discard' || action.origin === 'bottom') && id
-        ? layer.addChild(pokerCardSprite(Laya, action.cards[i], size, palette))
+      const face = action.cards[i];
+      const publicStash = action.type === 'stash' && publicSkillPileName(face?.areaSkill || action.skill) && isFaceUpSkillCard(face);
+      const sprite = publicStash || (live && (action.origin === 'discard' || action.origin === 'bottom') && id)
+        ? layer.addChild(pokerCardSprite(Laya, face, size, palette))
         : back(Laya, layer, size.width, size.height);
       sprite.transferOrigin = action.origin;
       sprite.transferFrom = action.from;

@@ -131,6 +131,17 @@ test('权计 sends exactly one hand card followed by one card from the confirmed
   assert.deepEqual(f.sent[0].body.cards, [10401, 21101]);
 });
 
+test('权计 exchange choices are restored from a mixed skill pile snapshot', () => {
+  const f = fixture();
+  f.assign(47);
+  f.accept(201035, { zone_data: [{ from_zone_info: { zone_type: 203 }, is_all: true,
+    card_ids: [{ card_id: 11001, spell_area_id: 46 }, { card_id: 41301, spell_area_id: 47 }] }] });
+  f.offer('play', firstIndex);
+  assert.equal(f.activateSkill(47), true);
+  const rights = f.last('skill-options').cards.filter(card => card.choiceGroup === '权');
+  assert.deepEqual(rights.map(card => card.id), [41301]);
+});
+
 test('奇谋 follows a supported predecessor shape and accepts the recorded weaker triple-with-single', () => {
   const f = fixture();
   const combination = [40500, 10900, 30900, 40900];

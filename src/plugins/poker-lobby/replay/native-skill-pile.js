@@ -1,10 +1,9 @@
 import { pokerCardSprite } from './native-card-motion.js';
 import { escapeNativeText, replayPopupManager } from './native-opening.js';
 import { comparePokerCardsByRank } from './model.js';
+import { isFaceUpSkillCard, publicSkillPileName } from './skill-piles.js';
 
 const WINDOW = 'SkillBuQuWindow';
-const SORTED_PILES = new Set([46, 47]); // 破军、权计
-const isFaceUp = card => card && !card.hidden && card.rank > 0;
 
 export function attachNativeSkillPile(win, scope, scene, seats, size, names) {
   const manager = replayPopupManager(scene);
@@ -30,19 +29,22 @@ export function attachNativeSkillPile(win, scope, scene, seats, size, names) {
     const pile = seat?.skillPiles.find(candidate => candidate.skill === skill);
     // The display is sorted without mutating the tracked pile; unknown cards stay face down at the end.
     if (!pile?.cards.length) return null;
-    const cards = SORTED_PILES.has(skill) ? pile.cards.slice().sort((a, b) => {
-      if (!isFaceUp(a)) return isFaceUp(b) ? 1 : 0;
-      return isFaceUp(b) ? comparePokerCardsByRank(a, b) : -1;
+    const cards = publicSkillPileName(skill) ? pile.cards.slice().sort((a, b) => {
+      if (!isFaceUpSkillCard(a)) return isFaceUpSkillCard(b) ? 1 : 0;
+      return isFaceUpSkillCard(b) ? comparePokerCardsByRank(a, b) : -1;
     }) : pile.cards;
     return { seat, cards };
   }
 
   function render({ seat, cards }, opening) {
-    const skillName = active.skill ? names.skill(active.skill) : '技能区';
+    const publicName = publicSkillPileName(active.skill);
+    const skillName = publicName || (active.skill ? names.skill(active.skill) : '技能区');
     const nativeSeat = seats[slots.indexOf(seat.id)]?.Seat;
     const general = nativeSeat?.General?.CardName || names.general(seat.general);
-    const title = escapeNativeText(`${general} · ${skillName}（${cards.length}张）`);
-    const next = JSON.stringify([title, ...cards.map(card => card && [card.id, card.rank, card.suit, card.wild, card.wildSkill, card.virtual])]);
+    const exposed = publicName && cards.filter(isFaceUpSkillCard).length;
+    const label = !exposed ? '' : exposed === cards.length ? '明牌' : `，${exposed}张明牌`;
+    const title = escapeNativeText(`${general} · ${skillName}（${cards.length}张${label}）`);
+    const next = JSON.stringify([title, ...cards.map(card => card && [card.id, card.rank, card.suit, card.wild, card.wildSkill, card.virtual, card.hidden])]);
     if (next === signature) return;
     signature = next;
     const target = panel;

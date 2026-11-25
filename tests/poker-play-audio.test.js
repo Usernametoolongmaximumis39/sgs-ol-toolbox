@@ -1,7 +1,30 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ResourceScope } from '../src/core/resources.js';
-import { attachNativePlayAudio } from '../src/plugins/poker-lobby/replay/native-play-audio.js';
+import { attachNativePlayAudio, attachPokerSceneAudio } from '../src/plugins/poker-lobby/replay/native-play-audio.js';
+
+test('battle audio uses native assets and respects effect volume and teardown', () => {
+  const scope = new ResourceScope();
+  const settings = { MainVol: 70, OtherVol: 40 };
+  const played = [];
+  const win = { Laya: { SoundManager: { playSound(url, loops) {
+    const item = { url, loops, stop() { this.stopped = true; } };
+    played.push(item);
+    return item;
+  } } } };
+  const audio = attachPokerSceneAudio(win, scope, settings);
+  const config = { root: { officer: [{ id: 38, kaizhaneffect: 'officer-effect' }, { id: 20, kaizhaneffect: 0 }] } };
+  audio.battle(38, config);
+  audio.battle(20, config);
+  settings.OtherClose = true;
+  audio.battle(38, config);
+  assert.deepEqual(played.map(item => [item.url, item.loops, item.volume]), [
+    ['res/runtime/pc/voice/officer/kaizhan.mp3', 1, .4], ['res/runtime/pc/voice/kaizhan.mp3', 1, .4],
+  ]);
+  assert.equal(played[0].stopped, true);
+  scope.dispose();
+  assert.equal(played[1].stopped, true);
+});
 
 function setup(t) {
   const scope = new ResourceScope(), audios = [];

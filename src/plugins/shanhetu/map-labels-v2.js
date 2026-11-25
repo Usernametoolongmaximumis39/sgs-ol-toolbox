@@ -1,10 +1,10 @@
+import { isNativeNodeMounted } from '../../shared/native-tree.js';
 import { labelLines } from './presentation.js';
-import { createPlacementTask, findDrawerRect, validatePlacement, comparePlacementResults } from './placement.js';
+import { createPlacementTask, validatePlacement, comparePlacementResults } from './placement.js';
 import { capturePlacementGeometry, placementRectToClient } from './placement-geometry.js';
 import { createPlacementOverlay, placementOverlaySignature } from './overlay-host.js';
 import { createInfoCardView } from './card-view-v2.js';
-import { infoIcon } from './info-icons.js';
-import { infoLineTokens } from './info-content.js';
+import { createNodeDetails, intersects } from './node-details-v2.js';
 
 // This renderer consumes only the existing content contract. Geometry and
 // placement are collected/computed independently of the retired label system.
@@ -13,43 +13,24 @@ const CARD_WIDTHS = Object.freeze([160, 170, 190, CARD_WIDTH, 250, 280, 320]);
 const copyMeasurement = card => ({ ...card, ...(card.alternatives ? { alternatives: card.alternatives.map(size => ({ ...size })) } : {}) });
 const key = id => String(id);
 const heading = node => `${node.name || '节点'} · ${node.city || '地点待同步'}`;
-const content = (node, forCard = false) => labelLines(node, false).flatMap(line => [line,
-  ...(!forCard && line.warnings?.length ? [{ kind: 'warning', text: '注意 · ' + line.warnings.join('、') }] : [])]);
-const css = `
-.sgs-shanhetu-drawer-v2{position:fixed;z-index:2147483600;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--sh-border);border-radius:10px;background:var(--sh-bg);color:var(--sh-text);box-shadow:0 5px 18px #0003;font:14px/1.6 "Microsoft YaHei",sans-serif;transform-origin:top left;pointer-events:auto}
-.sgs-shanhetu-drawer-v2 *{box-sizing:border-box}
-.sgs-shanhetu-drawer-v2 button{appearance:none;border:0;border-bottom:1px solid var(--sh-border);border-radius:0;background:var(--sh-raised);color:var(--sh-text);font:13px/20px "Microsoft YaHei",sans-serif;text-align:left;height:32px;min-height:32px;max-height:32px;white-space:nowrap;width:100%;padding:5px 10px;display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;flex:none}
-.sgs-shanhetu-drawer-v2 button span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.sgs-shanhetu-drawer-v2 button span:last-child{flex:none}
-.sgs-shanhetu-drawer-v2 button:disabled{cursor:default;color:var(--sh-muted)}
-.sgs-shanhetu-drawer-v2 button:hover{color:var(--sh-accent)}
-.sgs-shanhetu-drawer-v2 :focus-visible{outline:2px solid var(--sh-accent);outline-offset:-3px}
-.sgs-shanhetu-drawer-v2 [data-role=body]{overflow:auto;min-height:0;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--sh-border) transparent;padding:0 12px 10px}
-.sgs-shanhetu-drawer-v2 article{padding:12px 0;border-bottom:1px solid var(--sh-border);overflow-wrap:anywhere;white-space:pre-wrap}
-.sgs-shanhetu-drawer-v2 article:last-child{border-bottom:0}
-.sgs-shanhetu-drawer-v2 h3{font-size:14px;line-height:1.5;margin:0 0 7px;color:var(--sh-accent);font-weight:600}
-.sgs-shanhetu-drawer-v2 p{margin:3px 0}
-.sgs-shanhetu-drawer-v2 [data-kind=stats],.sgs-shanhetu-drawer-v2 [data-kind=hint]{color:var(--sh-muted)}
-.sgs-shanhetu-drawer-v2 [data-kind=warning]{color:var(--sh-danger);font-weight:700}
-.sgs-shanhetu-drawer-v2 [data-kind=name]{font-weight:600}
-.sgs-shanhetu-drawer-v2 .sh-info-token{display:inline-flex;align-items:center;gap:4px;max-width:100%;margin-right:6px;vertical-align:middle}
-.sgs-shanhetu-drawer-v2 .sh-info-token img{width:17px;height:17px;object-fit:contain;flex:none}
-.sgs-shanhetu-drawer-v2 .sh-info-token span{min-width:0;overflow-wrap:anywhere}
-`;
+const contains = (rect, { x, y }) => x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h;
+const COMPACT_DETAIL_SIZES = [
+  { w: 252, h: 188 }, { w: 220, h: 162 }, { w: 188, h: 148 },
+  { w: 188, h: 126 }, { w: 156, h: 112 }, { w: 144, h: 104 },
+].map(size => ({ ...size, carousel: true }));
 
 export function createMapLabels(ctx) {
   const theme = ctx.ui.nativeTheme, doc = ctx.document;
-  const cardView = createInfoCardView(ctx, theme);
+  const cardView = createInfoCardView(ctx, theme), nodeDetails = createNodeDetails(ctx, theme, cardView);
   const now = () => ctx.window.performance?.now?.() ?? Date.now();
   let work = null, workFrame = null, sourceRows = [], lastPerformance = null, cancelledJobs = 0;
   let scene = null, host = null, source = [], enabled = false, disposed = false;
-  let layer = null, drawerElement = null, drawerBody = null, drawerToggle = null, style = null;
+  let layer = null, frozen = false, committedPosition = '';
   let iconHints = [], tooltip = null, accessibleMap = null;
   let lastSignature = '', contentSignature = '', previous = [], revision = 0, scheduled = false;
-  let geometry = null, lastLayout = null, drawerRect = null, overflowIds = [], measuredCards = [];
+  let geometry = null, lastLayout = null, localDetails = [], measuredCards = [];
   let status = { state: 'inactive', sourceCount: 0, reason: null }, failureSince = null, reportedFailure = '';
-  let drawerOpen = ctx.settings?.get('placementDrawerOpen', true) !== false;
-  let sceneCleanup = [], pendingCleanup = [], domCleanup = [], frame = null;
+  let sceneCleanup = [], pendingCleanup = [], frame = null;
   const engine = () => ctx.window.Laya || ctx.window.laya;
   const canvas = () => {
     const L = engine(), nativeCanvas = L?.Render?.canvas;
@@ -73,28 +54,34 @@ export function createMapLabels(ctx) {
     }
   }
   const release = list => { for (const off of list.splice(0)) off(); };
-  function destroyLayer() {
-    if (layer) { layer.destroy(true); layer = null; }
+  function clearIconHints() {
     iconHints = []; tooltip?.remove(); accessibleMap?.remove(); tooltip = accessibleMap = null;
   }
+  function destroyLayer() {
+    if (layer) { layer.destroy(true); layer = null; }
+    committedPosition = '';
+    clearIconHints();
+  }
   function showIconHints(entries) {
+    clearIconHints();
     if (!doc?.body) return;
     accessibleMap = doc.createElement('section'); accessibleMap.setAttribute('aria-label', '山河图地图节点信息');
     Object.assign(accessibleMap.style, { position: 'fixed', width: '1px', height: '1px', overflow: 'hidden',
       clipPath: 'inset(50%)', whiteSpace: 'pre-wrap', pointerEvents: 'none' });
-    for (const { placement, spec } of entries) {
+    for (const { placement, spec, sprite } of entries) {
       const item = doc.createElement('p'); item.textContent = spec.accessibleText; accessibleMap.append(item);
       for (const icon of spec.images) {
         const rect = placementRectToClient({ x: placement.x + icon.x, y: placement.y + icon.y, w: icon.w, h: icon.h }, mapping());
-        if (rect) iconHints.push({ rect, label: icon.label });
+        if (rect) iconHints.push({ rect, label: icon.label, sprite });
       }
     }
     doc.body.append(accessibleMap);
   }
   if (ctx.window.addEventListener) ctx.scope.listen(ctx.window, 'pointermove', event => {
-    const item = iconHints.find(({ rect: r }) => event.clientX >= r.x && event.clientX <= r.x + r.w
-      && event.clientY >= r.y && event.clientY <= r.y + r.h);
-    if (!item) { if (tooltip) tooltip.hidden = true; return; }
+    const detailLabel = nodeDetails.iconAt(event.clientX, event.clientY);
+    const label = detailLabel === undefined ? iconHints.find(({ rect: r, sprite }) => !sprite.destroyed && sprite.visible !== false
+      && event.clientX >= r.x && event.clientX <= r.x + r.w && event.clientY >= r.y && event.clientY <= r.y + r.h)?.label : detailLabel;
+    if (!label) { if (tooltip) tooltip.hidden = true; return; }
     if (!tooltip) {
       tooltip = doc.createElement('div'); tooltip.className = 'sgs-shanhetu-icon-tooltip'; tooltip.setAttribute('role', 'tooltip');
       Object.assign(tooltip.style, { position: 'fixed', zIndex: '2147483601', pointerEvents: 'none', padding: '5px 8px',
@@ -102,21 +89,41 @@ export function createMapLabels(ctx) {
         color: theme.palette.text, font: '12px/1.6 "Microsoft YaHei",sans-serif', maxWidth: '260px', overflowWrap: 'anywhere' });
       doc.body.append(tooltip);
     }
-    tooltip.textContent = item.label; tooltip.hidden = false;
+    tooltip.textContent = label; tooltip.hidden = false;
     const bounds = tooltip.getBoundingClientRect();
     tooltip.style.left = Math.max(8, Math.min(event.clientX + 12, ctx.window.innerWidth - bounds.width - 8)) + 'px';
     tooltip.style.top = Math.max(8, Math.min(event.clientY + 16, ctx.window.innerHeight - bounds.height - 8)) + 'px';
   }, { passive: true });
-  function removeDrawer() {
-    release(domCleanup); drawerElement?.remove(); style?.remove();
-    drawerElement = drawerBody = drawerToggle = style = null;
+  if (ctx.window.addEventListener) ctx.scope.listen(ctx.window, 'click', event => {
+    if (enabled && !frozen && nodeDetails.ownsClick(event)) freezeLayout();
+  }, { capture: true, passive: true });
+  function freezeLayout() {
+    frozen = true;
+    cancelScheduled();
+    cancelWork();
+    release(pendingCleanup);
+    displayStatus('frozen');
+  }
+  function onMapClick(event) {
+    if (!enabled || frozen || !geometry?.viewport) return;
+    // Native dialogs can cover the same screen coordinates as map cards.
+    if (event.target !== engine()?.stage && !isNativeNodeMounted(event.target, scene)) return;
+    const point = host.globalToLocal({ x: event.stageX, y: event.stageY }, true);
+    if (!contains(geometry.viewport, point)) return;
+    const onCard = layer && lastLayout && (lastLayout.placements.some(rect => contains(rect, point))
+      || lastLayout.carousels.some(rect => contains(rect, point)));
+    if (onCard || geometry.nodes.some(node => node.regions.some(rect => contains(rect, point)))) freezeLayout();
   }
   function resetVisuals() {
-    release(pendingCleanup); destroyLayer(); removeDrawer();
-    geometry = lastLayout = drawerRect = null; overflowIds = []; previous = []; measuredCards = []; lastSignature = '';
+    release(pendingCleanup); destroyLayer(); nodeDetails.reset();
+    geometry = lastLayout = null; localDetails = []; previous = []; measuredCards = []; lastSignature = '';
+  }
+  function cancelScheduled() {
+    if (frame != null) ctx.window.cancelAnimationFrame?.(frame);
+    frame = null; scheduled = false;
   }
   function schedule() {
-    if (!alive() || scheduled) return;
+    if (!alive() || !enabled || frozen || scheduled) return;
     scheduled = true;
     const run = () => { scheduled = false; frame = null; if (alive()) refresh(); };
     if (ctx.window.requestAnimationFrame) frame = ctx.window.requestAnimationFrame(run);
@@ -124,6 +131,12 @@ export function createMapLabels(ctx) {
   }
   function bindScene() {
     release(sceneCleanup);
+    const L = engine(), stage = L?.stage, click = L?.Event?.CLICK;
+    if (click && stage?.on && stage.off) {
+      const caller = {};
+      stage.on(click, caller, onMapClick);
+      sceneCleanup.push(ctx.scope.add(() => stage.off(click, caller, onMapClick)));
+    }
     for (const [target, method] of [[scene, 'OnStageResize'], [scene, 'UpdateChapterData'], [host, 'UpdateCity'], [host, 'InitMap']]) {
       if (typeof target?.[method] !== 'function') continue;
       sceneCleanup.push(ctx.scope.patch(target, method, original => function (...args) {
@@ -145,80 +158,19 @@ export function createMapLabels(ctx) {
       pendingCleanup.push(ctx.scope.add(() => target.off('complete', owner, schedule)));
     }
   }
-  function ensureDrawer() {
-    if (drawerElement || !doc?.body) return;
-    style = doc.createElement('style'); style.textContent = css; doc.head.append(style);
-    drawerElement = doc.createElement('section'); drawerElement.className = 'sgs-shanhetu-drawer-v2';
-    drawerElement.setAttribute('aria-label', '山河图完整节点详情');
-    drawerToggle = doc.createElement('button'); drawerToggle.type = 'button'; drawerToggle.dataset.action = 'toggle';
-    drawerBody = doc.createElement('div'); drawerBody.dataset.role = 'body'; drawerBody.tabIndex = 0;
-    drawerBody.setAttribute('aria-label', '完整节点详情列表');
-    drawerElement.append(drawerToggle, drawerBody); doc.body.append(drawerElement);
-    domCleanup.push(ctx.scope.listen(drawerToggle, 'click', () => {
-      drawerOpen = !drawerOpen; ctx.settings?.set('placementDrawerOpen', drawerOpen); lastSignature = ''; refresh();
-    }));
-    for (const event of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'wheel', 'touchstart', 'touchmove', 'keydown', 'keyup']) {
-      domCleanup.push(ctx.scope.listen(drawerElement, event, e => e.stopPropagation(), { passive: true }));
-    }
-  }
-  function paintDrawer(nodes, rect) {
-    if (!rect || !nodes.length) { removeDrawer(); return; }
-    const client = placementRectToClient(rect, mapping());
-    if (!client || ![client.x, client.y, client.w, client.h].every(Number.isFinite) || client.w <= 0 || client.h <= 0) { removeDrawer(); return; }
-    ensureDrawer(); if (!drawerElement) return;
-    const palette = theme.palette;
-    for (const [name, value] of Object.entries({ bg: palette.surface, raised: palette.raised, text: palette.text,
-      muted: palette.muted, accent: palette.accent, border: palette.border, danger: palette.danger })) drawerElement.style.setProperty('--sh-' + name, value);
-    Object.assign(drawerElement.style, { left: `${client.x}px`, top: `${client.y}px`, width: `${rect.w}px`, height: `${rect.h}px`,
-      transform: `scale(${client.w / rect.w},${client.h / rect.h})` });
-    drawerToggle.replaceChildren();
-    const shownOpen = drawerOpen && rect.h >= 58;
-    const title = doc.createElement('span'); title.textContent = `${rect.w < 180 ? '详情' : '节点详情'} · ${nodes.length}`;
-    const action = doc.createElement('span'); action.textContent = rect.w < 180 ? shownOpen ? '▴' : '▾' : shownOpen ? '收起 ▴' : '展开 ▾';
-    drawerToggle.append(title, action); drawerToggle.setAttribute('aria-expanded', String(shownOpen));
-    drawerToggle.setAttribute('aria-label', `${shownOpen ? '收起' : '展开'} ${nodes.length} 个节点的完整详情`);
-    drawerToggle.disabled = drawerOpen && !shownOpen;
-    drawerToggle.title = drawerToggle.disabled ? '可见画布过小，请放大窗口或在工具箱的山河图面板查看完整详情' : '';
-    if (drawerToggle.disabled) {
-      action.textContent = rect.w < 180 ? '—' : '窗口过小';
-      drawerToggle.setAttribute('aria-label', drawerToggle.title);
-    }
-    drawerBody.hidden = !shownOpen;
-    const savedScroll = drawerBody.scrollTop, focusBody = doc.activeElement === drawerBody;
-    drawerBody.replaceChildren();
-    for (const node of nodes) {
-      const article = doc.createElement('article'); article.dataset.nodeId = key(node.id);
-      const titleNode = doc.createElement('h3'); titleNode.textContent = heading(node); article.append(titleNode);
-      for (const line of content(node)) {
-        const p = doc.createElement('p'); p.dataset.kind = line.kind || 'text'; p.setAttribute('aria-label', line.text);
-        for (const token of infoLineTokens(line)) {
-          if (token.breakBefore) p.append(doc.createElement('br'));
-          const icon = infoIcon(token.icon);
-          if (!icon) { p.append(doc.createTextNode(token.fallback ?? token.text)); continue; }
-          const group = doc.createElement('span'), img = doc.createElement('img'), value = doc.createElement('span');
-          group.className = 'sh-info-token'; group.title = token.full || token.fallback || icon.label;
-          group.setAttribute('role', 'img'); group.setAttribute('aria-label', group.title);
-          img.src = icon.data; img.alt = icon.label; value.textContent = token.text;
-          group.append(img, value); p.append(group);
-        }
-        article.append(p);
-      }
-      drawerBody.append(article);
-    }
-    drawerBody.scrollTop = savedScroll; if (focusBody) drawerBody.focus({ preventScroll: true });
-  }
-  function snapshotSignature(next) {
+  function positionSignature(next) {
     const client = next.viewport && placementRectToClient(next.viewport, mapping());
-    return JSON.stringify([contentSignature, next.signature, next.ready, next.reason, client,
-      next.viewport ? placementOverlaySignature({ host, scene, viewport: next.viewport }) : null, drawerOpen, theme.palette]);
+    return JSON.stringify([next.signature, client,
+      next.viewport ? placementOverlaySignature({ host, scene, viewport: next.viewport }) : null]);
   }
+  const snapshotSignature = position => JSON.stringify([contentSignature, position, theme.palette]);
   function cancelWork() {
     workFrame?.();
     workFrame = null;
     if (work) { const old = work; work = null; cancelledJobs++; old.task?.cancel(); old.iterator.return(); }
   }
   function fail(error) {
-    destroyLayer(); removeDrawer(); previous = []; measuredCards = []; lastLayout = null; lastSignature = '';
+    destroyLayer(); nodeDetails.clear(); localDetails = []; previous = []; measuredCards = []; lastLayout = null; lastSignature = '';
     displayStatus('render-error', error?.message || String(error));
     const message = String(error?.stack || error);
     if (message !== reportedFailure) { reportedFailure = message; ctx.reportError?.(error); }
@@ -230,7 +182,7 @@ export function createMapLabels(ctx) {
       if (work !== scheduledJob) return;
       workFrame = null;
       const job = work;
-      if (!job || !alive() || !enabled) return;
+      if (!job || !alive() || !enabled || frozen) return;
       const started = now();
       try {
         let progress;
@@ -264,7 +216,7 @@ export function createMapLabels(ctx) {
     }
   }
   function* renderLayout(job) {
-    const { next, signature, ownerScene, ownerHost, rows } = job;
+    const { next, position, signature, ownerScene, ownerHost, rows } = job;
     const transient = [];
     const timed = (name, fn) => {
       const start = now(); try { return fn(); } finally { job.performance[name] += now() - start; }
@@ -328,75 +280,139 @@ export function createMapLabels(ctx) {
           if (comparePlacementResults(wholeGroup, result) < 0) result = wholeGroup;
         }
       }
-      const overflow = new Set(result.overflow.map(row => key(row.id)));
-      for (const card of cards) if (!knownIds.has(key(card.id))) overflow.add(key(card.id));
-      let nextDrawer = null;
-      if (overflow.size) {
-        nextDrawer = findDrawerRect(next.viewport, next.controls, { width: Number(ctx.settings?.get('placementDrawerWidth', 280)) || 280, collapsed: !drawerOpen });
-        if (!nextDrawer && drawerOpen) nextDrawer = findDrawerRect(next.viewport, next.controls,
-          { width: Number(ctx.settings?.get('placementDrawerWidth', 280)) || 280, collapsed: true });
-        if (nextDrawer && next.ready) {
-          for (let pass = 0; pass <= cards.length; pass++) {
-            result = yield* solve({ ...snapshot, cards: knownCards.filter(card => !overflow.has(key(card.id))), drawer: nextDrawer });
-            attempts.push({ phase: 'drawer', overflow: result.overflow.map(row => ({ ...row })), diagnostics: result.diagnostics });
-            const count = overflow.size;
-            for (const row of result.overflow) overflow.add(key(row.id));
-            if (overflow.size === count) break;
-          }
-        }
-      }
-      const accepted = [];
+      let final = [];
       for (const placement of result.placements) {
-        if (overflow.has(key(placement.id))) continue;
-        if (validatePlacement({ ...snapshot, drawer: nextDrawer }, placement, accepted).valid) accepted.push(placement);
-        else overflow.add(key(placement.id));
+        if (validatePlacement(snapshot, placement, final).valid) final.push(placement);
         yield;
       }
-      if (overflow.size && !nextDrawer) nextDrawer = findDrawerRect(next.viewport, next.controls,
-        { width: Number(ctx.settings?.get('placementDrawerWidth', 280)) || 280, collapsed: !drawerOpen });
-      const final = [];
-      for (const placement of accepted) {
-        if (validatePlacement({ ...snapshot, drawer: nextDrawer }, placement, final).valid) final.push(placement);
-        else overflow.add(key(placement.id));
+      const anchors = new Map(next.nodes.filter(({ anchor }) => intersects(anchor, next.viewport)).map(node => [key(node.id), node.anchor]));
+      const wholeById = new Map(final.map(card => [key(card.id), card]));
+      const missing = knownCards.filter(card => anchors.has(key(card.id)) && !wholeById.has(key(card.id)));
+      const sizes = COMPACT_DETAIL_SIZES.filter(size => size.w <= next.viewport.w - 16 && size.h <= next.viewport.h - 16);
+      let carousels = [];
+      if (next.ready && missing.length && sizes.length) {
+        const visibleCards = knownCards.filter(card => anchors.has(key(card.id)) || wholeById.has(key(card.id)));
+        const tryLayout = function* (phase, cards, occupied) {
+          const layout = yield* solve({ ...snapshot, cards, occupied });
+          attempts.push({ phase, overflow: layout.overflow, diagnostics: layout.diagnostics });
+          return layout;
+        };
+        const acceptLayout = layout => {
+          if (layout.placements.length <= final.length + carousels.length) return;
+          final = layout.placements.filter(card => !card.carousel);
+          carousels = layout.placements.filter(card => card.carousel);
+        };
+        const compact = yield* tryLayout('node-carousel',
+          missing.map(({ id }) => ({ id, ...sizes[0], alternatives: sizes.slice(1) })), final);
+        carousels = compact.placements;
+        let reflow = compact;
+        // A full card can occupy the only legal space for a nearby node.
+        if (compact.overflow.length && final.length) {
+          const mixedCards = visibleCards.map(card => {
+            const { w, h } = wholeById.get(key(card.id)) || card;
+            return { id: card.id, w, h, alternatives: sizes.filter(size => size.w !== w || size.h !== h) };
+          });
+          reflow = yield* tryLayout('joint-node-cards', mixedCards);
+          acceptLayout(reflow);
+        }
+        // Larger partial layouts can crowd smaller solutions out of the
+        // bounded search. Give compact cards a pass before creating markers.
+        if (sizes.length > 1 && reflow.overflow.some(({ reason }) => reason === 'no-compatible-placement')) {
+          acceptLayout(yield* tryLayout('compact-node-cards', visibleCards.map(({ id }) => ({ id, ...sizes.at(-1) }))));
+        }
       }
+      // Expand only after a legal arrangement has been found. Every existing
+      // card remains a candidate, and an expansion may not hide a node.
+      if (carousels.length && doc?.body) {
+        const maxW = Math.floor(next.viewport.w - 16), maxH = Math.floor(next.viewport.h - 16);
+        const expanded = [];
+        for (const card of carousels) {
+          const row = byId.get(key(card.id));
+          const widths = [...new Set([card.w, Math.min(maxW, 252), Math.min(maxW, 320)])];
+          const available = timed('measureMs', () => widths.map(w => {
+            const { full, pagedHeight } = nodeDetails.measure(row, w);
+            return { w, full: full.h, paged: pagedHeight };
+          }));
+          const choices = new Map();
+          const add = ({ w, full, paged }, h) => {
+            if (h <= 0 || h > maxH) return;
+            choices.set(`${w},${h}`, { w, h, carousel: true, detailFit: h >= full ? 2 : h >= paged ? 1 : 0 });
+          };
+          if (!available.length) continue;
+          add(available[0], card.h);
+          for (const measured of available) {
+            add(measured, Math.min(maxH, measured.paged));
+            add(measured, measured.full);
+          }
+          const current = available[0];
+          if (choices.size < 7 && current.paged > card.h) {
+            add(current, Math.floor((card.h + Math.min(maxH, current.paged)) / 2));
+          }
+          const [base, ...alternatives] = choices.values();
+          expanded.push({ id: card.id, ...base, alternatives }); yield;
+        }
+        if (expanded.length === carousels.length && expanded.some(card => card.alternatives.length)) {
+          const layout = yield* solve({ ...snapshot, occupied: final, cards: expanded, previous: carousels });
+          attempts.push({ phase: 'expand-node-cards', overflow: layout.overflow, diagnostics: layout.diagnostics });
+          if (!layout.overflow.length) carousels = layout.placements;
+        }
+      }
+      const placed = new Set(final.map(({ id }) => key(id)));
+      const detailRows = rows.filter(({ node }) => !placed.has(key(node.id)) && anchors.has(key(node.id)));
+      const carouselById = new Map(carousels.map(card => [key(card.id), card]));
+      const client = rect => placementRectToClient(rect, mapping());
+      const clientViewport = client(next.viewport);
+      const details = detailRows.flatMap(row => {
+        const id = key(row.node.id), mapAnchor = anchors.get(id);
+        const anchor = client(mapAnchor), placement = carouselById.get(id), rect = placement && client(placement);
+        return anchor && clientViewport && intersects(anchor, clientViewport) ? [{ ...row, anchor, mapAnchor, placement, rect }] : [];
+      });
+      const drawLine = ({ line: { fromX, fromY, toX, toY } }) => {
+        if (fromX !== toX || fromY !== toY) drawing.graphics.drawLine(fromX, fromY, toX, toY, theme.palette.accent, 1);
+      };
       const { root: fresh, content: drawing } = createPlacementOverlay(engine(),
         { host: ownerHost, scene: ownerScene, viewport: next.viewport });
       transient.push(fresh); fresh.zOrder = 990;
+      const fullViews = [];
       for (const placement of final) {
         const spec = byId.get(key(placement.id))?.specs.get(placement.w);
         if (!spec || spec.h !== placement.h) throw new Error('完整卡片实测尺寸与布局结果不一致');
         const sprite = timed('renderMs', () => cardView.build(spec)); transient.push(sprite);
-        const { fromX, fromY, toX, toY } = placement.line;
-        if (fromX !== toX || fromY !== toY) drawing.graphics.drawLine(fromX, fromY, toX, toY, theme.palette.accent, 1);
-        sprite.pos(placement.x, placement.y); drawing.addChild(sprite); yield;
+        drawLine(placement);
+        sprite.pos(placement.x, placement.y); drawing.addChild(sprite);
+        fullViews.push({ placement, spec, sprite }); yield;
       }
+      for (const detail of details) if (detail.rect) drawLine(detail.placement);
       // No obsolete computation is ever committed after resize, content change,
       // battle return, disable or a native scene replacement.
-      if (work !== job || !alive() || !enabled || scene !== ownerScene || host !== ownerHost
-        || snapshotSignature(capturePlacementGeometry(mapping())) !== signature) { schedule(); return; }
+      if (work !== job || !alive() || !enabled || frozen || scene !== ownerScene || host !== ownerHost
+        || snapshotSignature(positionSignature(capturePlacementGeometry(mapping()))) !== signature) { schedule(); return; }
       const priorLayer = layer; ownerScene.addChild(fresh); layer = fresh; priorLayer?.destroy(true);
-      showIconHints(final.map(placement => ({ placement, spec: byId.get(key(placement.id)).specs.get(placement.w) })));
-      measuredCards = cards.map(copyMeasurement); drawerRect = nextDrawer;
-      overflowIds = rows.filter(row => overflow.has(key(row.node.id))).map(row => row.node.id);
-      lastLayout = { placements: final, overflow: overflowIds.map(id => ({ id, reason: next.ready ? '未找到合法位置' : '节点几何待就绪' })),
+      showIconHints(fullViews);
+      measuredCards = cards.map(copyMeasurement);
+      localDetails = timed('renderMs', () => nodeDetails.paint(details, next.viewport, clientViewport,
+        [...final, ...carousels, ...next.controls].map(client).filter(Boolean), drawing, client));
+      const visible = new Set([...final, ...localDetails].map(({ id }) => key(id)));
+      lastLayout = { placements: final, carousels, overflow: rows.filter(({ node }) => !visible.has(key(node.id)))
+        .map(({ node }) => ({ id: node.id, reason: anchors.has(key(node.id)) ? '节点详情暂不可用' : '节点不在可见地图或几何待就绪' })),
         diagnostics: result.diagnostics || null, attempts };
       previous = final.map(({ id, x, y, w, h }) => ({ id, x, y, w, h }));
-      paintDrawer(rows.filter(row => overflow.has(key(row.node.id))).map(row => row.node), drawerRect);
-      if (rows.length && !final.length && !drawerElement) displayStatus('no-display-space', '未找到合法卡片位置及可读详情区域');
+      if (detailRows.length && !final.length && !localDetails.length) displayStatus('no-display-space', '未找到节点详情位置');
       else displayStatus(rows.length ? next.ready ? 'ready' : 'geometry-pending' : 'no-content', next.reason || null);
-      lastSignature = signature; revision++;
+      committedPosition = position; lastSignature = signature; revision++;
     } finally {
       job.task?.cancel(); job.task = null;
       for (const sprite of transient) if (!sprite.destroyed && !sprite.parent) sprite.destroy(true);
     }
   }
   function refresh() {
-    if (!alive() || !enabled) return;
+    if (!alive() || !enabled || frozen) return;
     if (!host || host.destroyed || !scene || scene.destroyed) { clear(); return; }
     const L = engine();
     if (!L?.Sprite || !L?.Text) { cancelWork(); lastSignature = ''; displayStatus('engine-unavailable', 'Laya Sprite/Text 尚未就绪'); return; }
     try {
-      const started = now(), next = capturePlacementGeometry(mapping()), signature = snapshotSignature(next);
+      const started = now(), next = capturePlacementGeometry(mapping()), position = positionSignature(next);
+      const signature = snapshotSignature(position);
       if (signature === lastSignature || signature === work?.signature) {
         if (['no-display-space', 'viewport-unavailable'].includes(status.state)) displayStatus(status.state, status.reason);
         return;
@@ -404,30 +420,33 @@ export function createMapLabels(ctx) {
       cancelWork(); waitForImages(next.pending);
       geometry = { ready: next.ready, controlsComplete: next.controlsComplete, viewport: next.viewport, nodes: next.nodes,
         controls: next.controls, shop: next.shop, signature: next.signature, reason: next.reason || null, diagnostics: next.diagnostics || null };
-      lastSignature = ''; destroyLayer(); removeDrawer();
+      lastSignature = '';
+      // Keep the latest committed cards available during content refreshes.
+      // Changes to map geometry can invalidate the old positions immediately.
+      if (position !== committedPosition) { destroyLayer(); nodeDetails.clear(); localDetails = []; }
       if (!next.viewport) {
-        lastLayout = null; previous = []; drawerRect = null; overflowIds = []; measuredCards = [];
+        lastLayout = null; previous = []; measuredCards = [];
         lastSignature = signature; displayStatus('viewport-unavailable', next.reason || '可见画布边界不可用'); return;
       }
-      const job = { next, signature, ownerScene: scene, ownerHost: host, rows: sourceRows.slice(), started,
+      const job = { next, position, signature, ownerScene: scene, ownerHost: host, rows: sourceRows.slice(), started,
         performance: { geometryMs: now() - started, measureMs: 0, solveMs: 0, renderMs: 0, workMs: 0,
           elapsedMs: 0, slices: 0, maxSliceMs: 0 }, task: null, iterator: null };
       job.iterator = renderLayout(job); work = job; displayStatus('placing'); queueWork();
     } catch (error) { cancelWork(); fail(error); }
   }
   function clear() {
-    if (frame != null) ctx.window.cancelAnimationFrame?.(frame);
-    frame = null; scheduled = false;
-    enabled = false; cancelWork(); release(sceneCleanup); resetVisuals(); scene = host = null; source = []; sourceRows = []; contentSignature = '';
+    cancelScheduled();
+    enabled = frozen = false; cancelWork(); release(sceneCleanup); resetVisuals(); scene = host = null; source = []; sourceRows = []; contentSignature = '';
     displayStatus('inactive');
   }
   function update(nextScene, nodes, nextEnabled) {
     if (!alive()) return;
     const nextHost = nextScene?.cityView;
-    if (!nextEnabled || !nextHost || nextHost.destroyed) { clear(); return; }
+    if (!nextEnabled || !nextHost || nextHost.destroyed || nextScene.destroyed) { clear(); return; }
     if (scene !== nextScene || host !== nextHost) { clear(); scene = nextScene; host = nextHost; bindScene(); }
+    if (frozen) return;
     const rows = (nodes || []).filter(node => node && node.type !== 'camp' && node.id != null)
-      .map(node => ({ node, lines: content(node, true) })).filter(row => row.lines.length);
+      .map(node => ({ node, lines: labelLines(node, false) })).filter(row => row.lines.length);
     const nextSignature = JSON.stringify(rows.map(row => [row.node.id, heading(row.node), row.lines]));
     if (nextSignature !== contentSignature) cancelWork();
     sourceRows = rows; source = rows.map(row => row.node); enabled = true; contentSignature = nextSignature;
@@ -437,7 +456,6 @@ export function createMapLabels(ctx) {
   ctx.scope.interval(schedule, 250);
   ctx.scope.add(() => {
     disposed = true; clear(); offTheme();
-    if (frame != null) ctx.window.cancelAnimationFrame?.(frame); scheduled = false;
   });
-  return { update, clear, inspect: () => ({ geometry, lastLayout, status: { ...status }, measuredCards: measuredCards.map(copyMeasurement), drawer: { open: drawerOpen, rect: drawerRect, ids: [...overflowIds] }, cards: layer ? previous.map(row => ({ ...row })) : [], revision, pending: !!work || scheduled, performance: { last: lastPerformance, cancelledJobs }, caches: cardView.inspect() }) };
+  return { update, clear, inspect: () => ({ geometry, lastLayout, status: { ...status }, measuredCards: measuredCards.map(copyMeasurement), localDetails: localDetails.map(item => ({ ...item, rect: { ...item.rect } })), cards: layer ? previous.map(row => ({ ...row })) : [], revision, frozen, pending: !!work || scheduled, performance: { last: lastPerformance, cancelledJobs }, caches: cardView.inspect() }) };
 }

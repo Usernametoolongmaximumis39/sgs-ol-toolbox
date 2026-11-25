@@ -32,12 +32,14 @@ try {
       { ID: id, name: '免费礼盒', TypeID: 43, pricetype: 140, yuanbao: 0, maxBuyCount: '1;1', expirytime: '20261231T235959' },
     ] } } };
     const shop = Object.assign(Object.create(Object.getPrototypeOf(demo.mail)), {
-      _events: {}, proxy, IsDataReady: true, countReady: false, count: 0,
+      _events: {}, proxy, IsDataReady: false, countReady: false, count: 0,
       GetShopDataByType: () => [],
       IsDailyFreeGoodsCanBuy: () => false,
       IsTargetSaleCountReady() { return this.countReady; },
       GetLimitGoodsBuyCount() { return this.count; },
       CheckGoodsLimit() { return this.count >= 1; },
+      LimitGoodsFilterCanShow: item => !item.PreFix,
+      IsTargetSaleGoodsRed() { return this.IsDataReady; },
       GetItemPrice: (_, type) => [type, 0],
       GetBuyMsg(itemId, amount, discount, priceType, price) {
         return { GoodsCount: 1, BuyType: 1, IsSelfBuy: true, UsingType: 0, GoodsList: [
@@ -73,6 +75,7 @@ try {
       await api.manager.reload('daily-rewards');
     };
     gift.attempt = () => settings.get('account:41:attempts', {}).items?.[key];
+    gift.shopReady = () => shop.IsDataReady;
     gift.reload = () => api.manager.reload('daily-rewards');
     timer.ServerDate = new Date(2026, 10, 23, 12);
     settings.set(optionsKey, { schemaVersion: 2, automatic: true, sign: false, mail: false, tasks: false, welfare: true, activities: false, codes: false });
@@ -86,7 +89,7 @@ try {
   const waitConfirmed = count => status.filter({ hasText: `本轮完成，已确认领取 ${count} 项` }).waitFor();
   const readGift = () => page.evaluate(() => {
     const gift = window.__SGS_TOOLBOX_DEMO__.freeGift;
-    return { attempt: gift.attempt(), requests: gift.requests, serverCount: gift.serverCount };
+    return { attempt: gift.attempt(), requests: gift.requests, serverCount: gift.serverCount, shopReady: gift.shopReady() };
   });
   const zeroCost = { ItemID: id, ItemNum: 1, Discount: 100, PriceYuanBao: 0, PriceTongQian: 0, pricetype: 140 };
   const freshClaim = [['count', [id]], ['claim', zeroCost], ['count', [id]]];
@@ -94,6 +97,7 @@ try {
   await waitConfirmed(1);
   const first = await readGift();
   assert.equal(first.attempt.status, 'confirmed');
+  assert.equal(first.shopReady, false);
   assert.equal(first.serverCount, 1);
   assert.deepEqual(first.requests, freshClaim);
   await page.evaluate(() => window.__SGS_TOOLBOX_DEMO__.freeGift.reload());
@@ -128,7 +132,7 @@ try {
   await host.screenshot({ path: `${out}/reconciled.png` });
   assert.deepEqual(errors, []);
   await writeFile(`${out}/browser.json`, JSON.stringify({ version: pkg.manifest.version, sha256: pkg.sha256, first, restored, recovered }, null, 2));
-  console.log('PASS: closed special offer, missing purchase ID, current count, legacy pending, bounded recovery, reload, and rollover.');
+  console.log('PASS: closed special offer during shop startup, missing purchase ID, current count, legacy pending, bounded recovery, reload, and rollover.');
 } finally {
   await browser.close();
   await market.close();

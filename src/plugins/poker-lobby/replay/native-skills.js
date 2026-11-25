@@ -1,3 +1,4 @@
+import { withClassicPokerContext } from '../live/classic-context.js';
 import { label } from './board.js';
 import { playType } from './model.js';
 import { escapeNativeText } from './native-opening.js';
@@ -31,23 +32,28 @@ export function markHandCard(Laya, card, size, effects) {
   tip.name = 'poker-forced-card';
 }
 
-function attachGeneralTip(scope, seatUi, nativeSkill, live) {
+function attachGeneralTip(win, scope, scene, seatUi, nativeSkill, live) {
   const manager = seatUi.otherTopManager;
   const mask = manager?.overMask;
   if (typeof mask?.toolTip !== 'function' || typeof manager.getTipGeneral !== 'function') return () => {};
   let key;
   let skillIds = [];
   let hasGeneral;
-  scope.patch(mask, 'toolTip', original => function (...args) {
+  const patchTip = original => function (...args) {
     const skills = skillIds.map(nativeSkill).filter(Boolean);
     if (!skills.length && !(live && hasGeneral)) return Reflect.apply(original, this, args);
-    // Supply the poker skills while the native portrait tooltip reads its card.
+    // Supply poker data during native rendering. Otherwise the classic seat's
+    // ordinary skills (including derived skills with the same IDs) can leak in.
     const restore = scope.patch(manager, 'getTipGeneral', getGeneral => function (...args) {
       const general = Reflect.apply(getGeneral, this, args);
       return general && Object.create(general, { Skills: { value: skills } });
     });
+    const seat = seatUi.Seat;
+    const restoreDerived = live && typeof seat?.GetAllDerviceSkill === 'function'
+      ? scope.patch(seat, 'GetAllDerviceSkill', () => () => []) : null;
     try {
-      const tip = Reflect.apply(original, this, args);
+      const render = () => Reflect.apply(original, this, args);
+      const tip = live ? withClassicPokerContext(win, scene, render) : render();
       for (const row of tip?.skillItems || []) {
         if (!skills.includes(row.Skill)) continue;
         // The ordinary replay seat has no poker skill list for the native extra-skill badge.
@@ -55,8 +61,14 @@ function attachGeneralTip(scope, seatUi, nativeSkill, live) {
         if (row.exSpell) row.exSpell.visible = false;
       }
       return tip;
-    } finally { restore(); }
-  });
+    } finally { restoreDerived?.(); restore(); }
+  };
+  if (live && typeof manager.showGeneralTipHandler === 'function') {
+    // Native interaction controls can rebind ToolTip to the portrait handler.
+    // Patch the handler too, so leaving target selection doesn't undo poker tips.
+    scope.patch(manager, 'showGeneralTipHandler', patchTip);
+    scope.patch(mask, 'toolTip', () => (...args) => manager.showGeneralTipHandler(...args));
+  } else scope.patch(mask, 'toolTip', patchTip);
   scope.add(() => mask.ClearToolTip?.());
   return seat => {
     const next = `${seat.id}/${seat.general}/${seat.skin}/${seat.skills.join(',')}`;
@@ -101,7 +113,7 @@ export function attachNativeSkills(win, scope, scene, seats, names, soundSetting
   const self = scene.SelfSeatUi;
   const slots = new Map();
   let previousSkillVisibility;
-  const portraitTips = seats.map(seat => attachGeneralTip(scope, seat, nativeSkill, live));
+  const portraitTips = seats.map(seat => attachGeneralTip(win, scope, scene, seat, nativeSkill, live));
   const badgeFactory = seats.find(seat => !seat.Seat.IsSelf && typeof seat.updateSeatState === 'function'
     && typeof seat.seatStateDict?.get === 'function' && typeof seat.seatStateDict?.del === 'function');
   let keyboardButtons;

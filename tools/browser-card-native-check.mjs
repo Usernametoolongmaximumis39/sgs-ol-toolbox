@@ -23,7 +23,7 @@ const bundle = await build({ stdin: { contents: `export { mountPluginUI } from '
   export { createNativeTheme } from './src/ui/native-theme.js';`, resolveDir: process.cwd() }, bundle: true, write: false, format: 'iife', globalName: 'NativeCardCheck' });
 const output = path.resolve('test-results'); await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
-const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+const page = await browser.newPage({ viewport: { width: 1100, height: 800 }, hasTouch: true });
 const errors = []; page.on('pageerror', error => errors.push(error.message));
 try {
   await page.setContent('<html><body style="margin:0;background:#172a24"><main></main></body></html>');
@@ -54,7 +54,8 @@ try {
     hand.HandCardRect = { x: 163 }; hand.NORMAL_Y = 32;
     hand.cardUis = [9, 3, 7].map((number, i) => ({ Card: { CardId: i + 1, CardNumber: number, FlowerOnSeat: i + 1, CardType: 1 }, selected: i === 1 }));
     hand.seat = { HandCards: hand.cardUis.map(ui => ui.Card) };
-    hand.invalidateLayoutHandCard = () => {};
+    let handLayouts = 0;
+    hand.invalidateLayoutHandCard = () => handLayouts++;
     hand.SortNormalCards = () => hand.cardUis.reverse();
     self.cardContainer = hand; self.sortCardBtn = { enabled: true, alpha: 1, mouseEnabled: true };
     const staleTimer=new Laya.Sprite();staleTimer.size(91,11);staleTimer.RemainValue=11;staleTimer.countTween={};
@@ -116,7 +117,8 @@ try {
     countdown.graphics.drawRect(0,0,230,12,'#70251c'); modal.addChild(countdown); modal.countdownTimer=countdown;
     modal.on('click', modal, () => clicks++);
     window.nativeCheck = { themes, themeListeners, state, scene, gameLayer, windowLayer, hand, self, avatar, staleTimer, settings, scope, enhancement, modal, renChe,
-      send, restoreGameState() { gameState = state; onStateChange?.(gameState); }, get clicks() { return clicks; }, get handPresses() { return handPresses; } };
+      send, restoreGameState() { gameState = state; onStateChange?.(gameState); }, get clicks() { return clicks; },
+      get handPresses() { return handPresses; }, get handLayouts() { return handLayouts; } };
   });
   await page.waitForFunction(() => !!nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort'));
   const counts = () => page.evaluate(() => nativeCheck.self._children.filter(n => n.name === 'sgs-toolbox-skill-count').map(n => n.text));
@@ -205,6 +207,7 @@ try {
     assert.equal(await page.evaluate(() => nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort').numChildren), 5);
     assert.equal(bounds.fontSize, 12); assert.ok(Math.abs(bounds.height - 24 * scale) < .1);
     assert.ok(Math.abs(bounds.width - 136 * scale) < .1);
+    assert.ok(Math.abs(bounds.x - 233 * scale) < .1, 'the default horizontal anchor follows the hand');
     assert.ok(Math.abs(bounds.y - 278 * scale) < .1, 'toolbar sits one quarter-height above its previous anchor');
     await page.waitForTimeout(350);
     await page.mouse.click(bounds.cx, bounds.cy);
@@ -355,33 +358,88 @@ try {
   await page.waitForTimeout(350);
   await page.mouse.dblclick(bounds.cx, bounds.cy);
   assert.equal(await page.evaluate(() => nativeCheck.settings.get('lockedSort')), null, 'toolbar must work again when the modal closes');
-  await page.mouse.move(bounds.x + 16, bounds.y + 24); await page.mouse.down();
-  await page.waitForTimeout(400);
-  await page.mouse.move(bounds.x + 48, bounds.y + 40, { steps: 4 }); await page.mouse.up();
-  const offset = await page.evaluate(() => nativeCheck.settings.get('nativeSortOffset'));
-  assert.ok(Math.abs(offset.x - 20) < .1 && Math.abs(offset.y - 10) < .1, `drag offset must be stored in native units: ${JSON.stringify(offset)}`);
-  for (const [targetX, targetY] of [[1095, 795], [5, 5]]) {
+  const beforeDrag = await page.evaluate(() => nativeCheck.handLayouts);
+  await page.mouse.move(bounds.cx - 8, bounds.cy);
+  await page.mouse.down();
+  await page.mouse.move(bounds.cx + 8, bounds.cy);
+  await page.mouse.up();
+  await page.waitForTimeout(80);
+  assert.equal(await page.evaluate(() => nativeCheck.handLayouts), beforeDrag, 'a fast drag within one sort button must not sort cards');
+  const moved = await measure();
+  assert.ok(Math.abs(moved.x - bounds.x - 16) < .1, 'the bar follows a quick mouse movement');
+  assert.equal(await page.evaluate(() => nativeCheck.settings.get('lockedSort')), null, 'the drag cannot lock a sorting basis');
+  await page.mouse.down();
+  await page.mouse.move(moved.cx - 6, moved.cy);
+  await page.mouse.up();
+  await page.waitForFunction(expected => nativeCheck.handLayouts >= expected, beforeDrag + 1);
+  assert.equal(await page.evaluate(() => nativeCheck.handLayouts), beforeDrag + 1, 'an immediate click with slight jitter sorts once');
+  assert.equal(await page.evaluate(() => nativeCheck.settings.get('lockedSort')), null, 'the first click after dragging cannot complete a double click');
+
+  await page.mouse.move(moved.cx, moved.cy);
+  await page.mouse.down();
+  await page.mouse.move(moved.cx + 18, moved.cy);
+  await page.waitForFunction(x => {
+    const bar = nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort');
+    return Math.abs(bar.localToGlobal(new Laya.Point(0, 0), true).x - x) < .1;
+  }, moved.x + 18);
+  await page.mouse.move(moved.cx, moved.cy);
+  await page.mouse.up();
+  await page.waitForTimeout(80);
+  assert.equal(await page.evaluate(() => nativeCheck.handLayouts), beforeDrag + 1, 'returning to the press point still counts as a drag');
+  await page.mouse.down();
+  await page.waitForTimeout(330);
+  await page.mouse.up();
+  await page.waitForTimeout(80);
+  assert.equal(await page.evaluate(() => nativeCheck.handLayouts), beforeDrag + 1, 'holding and releasing without movement does not sort');
+
+  const dragSort = async (targetX, targetY) => {
     const current = await measure();
-    await page.mouse.move(current.x + 20, current.y + 12); await page.mouse.down();
-    await page.waitForTimeout(400);
-    await page.mouse.move(targetX, targetY, { steps: 6 }); await page.mouse.up();
+    await page.mouse.move(current.x + 20, current.y + 12);
+    await page.mouse.down();
+    await page.mouse.move(targetX, targetY, { steps: 6 });
+    await page.mouse.up();
     await page.waitForTimeout(80);
-    const limited = await page.evaluate(() => {
-      const root = nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort');
-      return { x: root.x, y: root.y, width: root.width, height: root.height };
+    return measure();
+  };
+  const screenshotDrag = async ({ cx, cy }, file) => {
+    await page.mouse.move(cx, cy);
+    await page.waitForFunction(() => {
+      const toolbar = nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort');
+      const hint = toolbar._children.find(child => child instanceof Laya.Text && child.visible);
+      if (!hint) return false;
+      const start = hint.localToGlobal(new Laya.Point(0, 0), true);
+      const end = hint.localToGlobal(new Laya.Point(hint.width, hint.height), true);
+      return start.x >= 0 && start.y >= 400 && end.x <= 1100 && end.y <= 800;
     });
-    assert.ok(limited.x >= 163 && limited.x + limited.width <= 700);
-    assert.ok(limited.y >= -46 && limited.y + limited.height <= 18, 'drag must remain in the raised band above hand cards');
-    const drawn = await measure();
-    assert.ok(drawn.x >= 0 && drawn.y >= 0 && drawn.x + drawn.width <= 1100 && drawn.y + drawn.height <= 800);
-  }
+    await page.screenshot({ path: path.join(output, file) });
+  };
+  const beforeNudge = await page.evaluate(() => nativeCheck.settings.get('nativeSortOffset'));
+  await dragSort(moved.x + 52, moved.y + 28);
+  const offset = await page.evaluate(() => nativeCheck.settings.get('nativeSortOffset'));
+  assert.ok(Math.abs(offset.x - beforeNudge.x - 20) < .1 && Math.abs(offset.y - beforeNudge.y - 10) < .1,
+    `drag offset must be stored in native units: ${JSON.stringify(offset)}`);
+  const bottomRight = await dragSort(1095, 795);
+  assert.ok(bottomRight.x + bottomRight.width >= 1090 && bottomRight.x + bottomRight.width <= 1100,
+    'the bar reaches the right edge of the canvas');
+  assert.ok(bottomRight.y + bottomRight.height >= 790 && bottomRight.y + bottomRight.height <= 800,
+    'the bar can move below the hand row and stay inside the canvas');
+  await screenshotDrag(bottomRight, 'toolbox-hand-sort-drag-bottom.png');
   await page.setViewportSize({ width: 560, height: 600 });
   await page.waitForFunction(() => {
     const root = nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort');
     const point = root.localToGlobal(new Laya.Point(root.width, root.height), true);
     return root.visible && point.x <= 560 && point.y <= 600;
   });
+  const clipped = await measure();
+  const nudged = await dragSort(clipped.x - 10, clipped.y - 18);
+  assert.ok(Math.abs(nudged.x - clipped.x + 30) < .1 && Math.abs(nudged.y - clipped.y + 30) < .1,
+    'drag starts from the visible position after the viewport clips the saved position');
   await page.setViewportSize({ width: 1100, height: 800 });
+  const topLeft = await dragSort(5, 5);
+  assert.ok(topLeft.x >= 0 && topLeft.x <= 10, 'the bar reaches the left edge of the canvas');
+  assert.ok(topLeft.y >= 400 && topLeft.y <= 410, 'the whole bar stays below the canvas midpoint');
+  await screenshotDrag(topLeft, 'toolbox-hand-sort-drag-midline.png');
+  await dragSort(280, 458);
   assert.equal(await page.evaluate(() => nativeCheck.handPresses), 0, 'toolbar presses must not leak into hand-card gestures');
   await page.evaluate(() => {
     const { scene, self, hand, state } = nativeCheck;
@@ -445,7 +503,6 @@ try {
   };
   await waitAutoIcon(autoOff);
   assert.equal(await page.getByRole('heading', { name: '自动打牌判定', exact: true }).count(), 0);
-  await page.waitForTimeout(220); // Let the previous drag's click suppression expire.
   await clickAuto();
   await waitAutoIcon(autoOn);
   await page.waitForTimeout(300);
@@ -545,14 +602,42 @@ try {
   await waitAutoIcon(autoOn);
   await page.evaluate(() => { nativeCheck.state.deckStartSeq++; });
   await waitAutoIcon(autoOff);
+
+  // Run touch checks after mouse checks because Laya filters the first mouse press after touch input.
+  const beforeTouch = await page.evaluate(() => nativeCheck.handLayouts);
+  const touchStart = await measure();
+  const touchSession = await page.context().newCDPSession(page);
+  const touch = (type, points = []) => touchSession.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+  await touch('touchStart', [{ x: touchStart.cx, y: touchStart.cy, id: 1 }]);
+  await touch('touchMove', [{ x: touchStart.cx + 16, y: touchStart.cy, id: 1 }]);
+  await touch('touchEnd');
+  await page.waitForTimeout(80);
+  const touchMoved = await measure();
+  assert.ok(Math.abs(touchMoved.x - touchStart.x - 16) < .1, 'touch moves the bar without a long press');
+  assert.equal(await page.evaluate(() => nativeCheck.handLayouts), beforeTouch, 'touch dragging does not sort cards');
+  await touch('touchStart', [{ x: touchMoved.cx, y: touchMoved.cy, id: 2 }]);
+  await touch('touchEnd');
+  await page.waitForFunction(expected => nativeCheck.handLayouts >= expected, beforeTouch + 1);
+  assert.equal(await page.evaluate(() => nativeCheck.handLayouts), beforeTouch + 1, 'a touch tap still sorts once');
+  await touch('touchStart', [{ x: touchMoved.cx, y: touchMoved.cy, id: 3 }]);
+  await touch('touchCancel');
+  await touchSession.detach();
+  await page.waitForTimeout(80);
+  assert.equal(await page.evaluate(() => nativeCheck.handLayouts), beforeTouch + 1, 'cancelling touch input does not sort');
+  assert.equal(await page.evaluate(() => nativeCheck.settings.get('lockedSort')), null);
+  assert.equal(await page.evaluate(() => nativeCheck.handPresses), 0, 'touch gestures stay within the native toolbar');
+
   await page.evaluate(() => { nativeCheck.enhancement.dispose(); nativeCheck.scope.dispose(); });
   assert.deepEqual(await counts(), []);
   assert.equal(await page.evaluate(() => nativeCheck.themeListeners.size), 0);
   assert.deepEqual(await page.evaluate(() => ({ toolbar: !!nativeCheck.hand.getChildByName('sgs-toolbox-hand-sort'), alpha: nativeCheck.self.sortCardBtn.alpha, enabled: nativeCheck.self.sortCardBtn.mouseEnabled })), { toolbar: false, alpha: 1, enabled: true });
   assert.deepEqual(errors, []);
-  const result = { scope: '官方缓存Laya引擎2.12.2 + 独立牌局节点演练，非真实账号牌局', packageVersion: CARDS_VERSION, checks: ['12原生字号，理牌栏和拖动范围上移6原生像素，随1/1.6缩放', '排序及选中状态保留', '双击锁定/解锁', '真实引擎窗口层遮挡及点击归属', '选牌弹窗原生数字读秒8→4，停止/移除后清理', '旁观未挂载及停止计时器不生成数字', '双将scrollRect.x=36，明牌在1/1.6缩放下对齐可见头像左下', '弹窗关闭后恢复', '整排长按拖动；手牌上方限位及画布/视口限制；不触发手牌手势', '山河图自动打牌图标的三档状态、单行提示、出牌顺序及右键按账号记住', '通过新客户端 getButtonBar 出南蛮入侵，兼容旧操作栏，技能询问不触发自动出牌', '卸载移除并恢复原生按钮'], pageErrors: errors };
+  const result = { scope: '官方缓存Laya引擎2.12.2 + 独立牌局节点演练，非真实账号牌局', packageVersion: CARDS_VERSION, checks: ['理牌栏默认位置及 12 原生字号随 1／1.6 缩放', '排序及选中状态保留', '双击锁定/解锁', '真实引擎窗口层遮挡及点击归属', '选牌弹窗原生数字读秒8→4，停止/移除后清理', '旁观未挂载及停止计时器不生成数字', '双将scrollRect.x=36，明牌在1/1.6缩放下对齐可见头像左下', '弹窗关闭后恢复', '整排直接拖动，边界为画布下半部和可见视口，缩小视口后可从显示位置接着拖，不触发手牌手势', '山河图自动打牌图标的三档状态、单行提示、出牌顺序及右键按账号记住', '通过新客户端 getButtonBar 出南蛮入侵，兼容旧操作栏，技能询问不触发自动出牌', '卸载移除并恢复原生按钮'], pageErrors: errors };
   result.checks.push('明牌每行 4／5／6／7／8 张，默认 7 张，卡片随档位缩放并保留滚轮和触控滚动');
   result.checks.push('驭势跨玩家回合累计，同轮通知不补次数，新一轮恢复，重连缺记录时显示问号');
+  result.checks.push('理牌栏拖到中线或右下角后，悬停提示仍完整显示在画布下半部');
+  result.checks.push('鼠标及触屏直接拖动无需长按，短拖和拖回按下点不会触发排序或锁定，松手后仍可立即点按');
+  result.checks.push('长按后原地松手、触屏取消均不触发排序');
   await writeFile(path.join(output, 'browser-card-native-report.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally { await browser.close(); }

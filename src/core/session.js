@@ -90,6 +90,7 @@ export function installMessageBridge(win, journal, scope, onStatus = () => {}, {
   getTargets = () => [], observeType = () => {}, observeStartupDispatch, sceneWatch,
 } = {}) {
   let activeWrapper, restoreCurrent, depth = 0, consoleError = '', nativeErrors = [];
+  let loginIdentity, loginEpoch = 0;
   const native = new Map(), restores = [], stats = { received: 0, console: 0, native: 0, lastType: '', lastAt: null };
   const duplicates = new Map(); let expiryTimer;
   const pending = [], waiters = []; let drainTimer, draining = false;
@@ -166,6 +167,25 @@ export function installMessageBridge(win, journal, scope, onStatus = () => {}, {
       restoreCurrent = () => { if (win.console.log === wrapper) { if (descriptor) Object.defineProperty(win.console, 'log', descriptor); else delete win.console.log; } };
     } catch (error) { consoleError = `日志接入失败：${error.message}`; try { onStatus(consoleError); } catch {} }
   };
+  function readLoginReply(proxy, packet) {
+    try {
+      const data = packet?.Protocol;
+      if (data?.Id !== 20202 || data.FromSocket2) return;
+      const id = data.UserID, connection = proxy.ConnId;
+      if ((data.Result !== 1 && data.Result !== 2) || !Number.isSafeInteger(id) || id <= 0
+        || !Number.isSafeInteger(connection)) return null;
+      const name = data.Nickname;
+      const nickname = typeof name === 'string' && name.length <= 128 && name.trim() ? name : '';
+      return { proxy, connection, account: Object.freeze({ id: String(id), nickname }) };
+    } catch { /* A malformed reply cannot identify the current account. */ }
+  }
+  function loginConnectionMatches(identity, proxy) {
+    try {
+      return !scope.closed && identity && identity.proxy === proxy && proxy.ConnectedSucess1 === true
+        && proxy.ConnId === identity.connection;
+    } catch { return false; }
+  }
+  const getLoginAccount = proxy => loginConnectionMatches(loginIdentity, proxy) ? loginIdentity.account : null;
   function installNative() {
     if (scope.closed) return;
     nativeErrors = [];
@@ -188,16 +208,24 @@ export function installMessageBridge(win, journal, scope, onStatus = () => {}, {
             const type = isObservedMessage(eventName) || /^(?:Msg|PubGs|Smsg|GsC|CGs|decode|Client)/.test(eventName) ? eventName : packet?.ClassName || packet?.className;
             receive(type, packet, `native:${name}`);
           } catch { /* Observing cannot interrupt native dispatch. */ }
-          if (!observeStartupDispatch || name !== 'ServerProxy' || (eventName !== 'ClientLoginRep' && eventName !== 'ClientUserbaseinfoRep')) {
-            return Reflect.apply(original, this, args);
+          if (name !== 'ServerProxy') return Reflect.apply(original, this, args);
+          const login = this === target && eventName === 'ClientLoginRep' ? readLoginReply(target, packet) : undefined;
+          if (this === target && (login !== undefined || eventName === 'ClientLogoutRep' || eventName === 'close')) {
+            loginEpoch++;
+            loginIdentity = undefined;
           }
+          const epoch = loginEpoch;
+          const startup = observeStartupDispatch && (eventName === 'ClientLoginRep' || eventName === 'ClientUserbaseinfoRep');
+          if (!login && !startup) return Reflect.apply(original, this, args);
           let result;
           try { result = Reflect.apply(original, this, args); }
           catch (error) {
-            try { observeStartupDispatch(eventName, 'threw', error); } catch {}
+            if (startup) try { observeStartupDispatch(eventName, 'threw', error); } catch {}
             throw error;
           }
-          try { observeStartupDispatch(eventName, 'returned', packet); } catch {}
+          // Keep only the acknowledged identity, never the login packet or credentials.
+          if (login && epoch === loginEpoch && loginConnectionMatches(login, target)) loginIdentity = login;
+          if (startup) try { observeStartupDispatch(eventName, 'returned', packet); } catch {}
           return result;
         };
         if (!descriptor || descriptor.configurable) Object.defineProperty(target, 'event', { value: wrapper, writable: true, configurable: true, enumerable: descriptor?.enumerable ?? true });
@@ -217,8 +245,8 @@ export function installMessageBridge(win, journal, scope, onStatus = () => {}, {
   check();
   if (sceneWatch) scope.add(sceneWatch.watch(check, 500, true));
   else scope.interval(check, 500);
-  scope.add(() => { clearTimeout(expiryTimer); clearTimeout(drainTimer); pending.length = 0; for (const resolve of waiters.splice(0)) resolve(); duplicates.clear(); for (const release of restores.reverse()) release(); restoreCurrent?.(); native.clear(); });
-  return { check, get error() { return native.size ? '' : [consoleError, ...nativeErrors].filter(Boolean).join('；'); },
+  scope.add(() => { clearTimeout(expiryTimer); clearTimeout(drainTimer); loginIdentity = undefined; pending.length = 0; for (const resolve of waiters.splice(0)) resolve(); duplicates.clear(); for (const release of restores.reverse()) release(); restoreCurrent?.(); native.clear(); });
+  return { check, getLoginAccount, get error() { return native.size ? '' : [consoleError, ...nativeErrors].filter(Boolean).join('；'); },
     flush: () => scope.closed || (!pending.length && !draining) ? Promise.resolve() : new Promise(resolve => { waiters.push(resolve); schedule(); }),
     getStatus: () => ({ ...stats, pending: pending.length, targets: [...native.values()].map(entry => entry.name), errors: [consoleError, ...nativeErrors].filter(Boolean) }) };
 }

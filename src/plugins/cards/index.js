@@ -725,8 +725,8 @@ export function activate(ctx) {
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.95', apiVersion: 1, contractVersion: 1, journalEvents: CARD_JOURNAL_EVENTS,
-    releaseNotes: "修复整手牌转出或手牌清空后仍显示旧推断的问题，减少长局和登录期间的处理开销。", minCoreVersion: '0.6.87', categories: ['game'], icon: CARDS_ICON, priority: 10000,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.98', apiVersion: 1, contractVersion: 1, journalEvents: CARD_JOURNAL_EVENTS,
+    releaseNotes: "手牌排序条支持拖动，松手后记住位置；调整提示位置，防止靠近屏幕边缘时被截断。排序方式和已有配置保持不变。", minCoreVersion: '0.6.87', categories: ['game'], icon: CARDS_ICON, priority: 10000,
     description: '记牌、明牌与牌堆查询，辅助理牌、读秒和显示技能剩余次数' },
   initialState, reduce, activate,
 };

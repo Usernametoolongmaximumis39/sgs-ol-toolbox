@@ -86,7 +86,9 @@ export function activate(ctx) {
     impactLabels.update(showOptionImpact && active && !blockedAccount && onMap ? snapshot.seasonData?.seasonId : null);
     const next = JSON.stringify([active, blockedAccount, snapshot, !!config, error, !!pending, [...followedGoods]]);
     if (force || next !== signature) { signature = next; emit(); }
-    labels.update(scene, view?.nodes.filter(node => node.type === 'fight' ? setting('enemies') : setting('events')) || [], active && !blockedAccount && setting('labels'));
+    const labelsEnabled = onMap && active && !blockedAccount && setting('labels');
+    const nodes = labelsEnabled ? view?.nodes.filter(node => node.type === 'fight' ? setting('enemies') : setting('events')) : null;
+    labels.update(scene, nodes || [], labelsEnabled);
   }
   async function loadConfig(force = false) {
     if (configJob || config || (configAttempt && !force) || !active) return;
@@ -390,8 +392,8 @@ export function activate(ctx) {
   ctx.scope.add(() => { offManager?.(); offScene?.(); cancelPending(); listeners.clear(); });
   return () => { offPanel(); labels.clear(); };
 }
-export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.45', apiVersion: 1, contractVersion: 1, journalEvents: TACTIC_JOURNAL_EVENTS,
-    releaseNotes: "减少牌局中与战法计数无关的处理，整理地图标注的坐标计算。地图和战法计数的用法保持不变。", minCoreVersion: '0.6.121', categories: ['game'], icon: SHANHETU_ICON, priority: 11000,
+export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.52', apiVersion: 1, contractVersion: 1, journalEvents: TACTIC_JOURNAL_EVENTS,
+    releaseNotes: "地图节点详情在空间不足时支持翻页和滚动，密集处可从节点旁的入口展开。调整地图标注和节点详情的布局，减少对游戏按钮及邻近节点的遮挡。", minCoreVersion: '0.6.121', categories: ['game'], icon: SHANHETU_ICON, priority: 11000,
     description: '敌军、奇遇与商店预览，换将卡预判、战法计数与流派进度' }, initialState, reduce, activate };
 
 

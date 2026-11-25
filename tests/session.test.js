@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SessionJournal, installMessageBridge } from '../src/core/session.js';
 import { ResourceScope } from '../src/core/resources.js';
+import { readNativeAccount } from '../src/core/plugin-native.js';
 
 // Contract fixtures reconstructed from the observed userscript event adapter.
 // These are synthetic packets, not captures of an authenticated game session.
@@ -121,6 +122,68 @@ test('the native login wrapper and the console echo supply the same account obse
   assert.equal(privateReads, 0);
   assert.equal(journal.events.length, 1);
   assert.deepEqual(journal.events[0].payload, { userID: 12345 });
+});
+
+test('the hidden native login identity is synchronous, connection-bound and used only while online', t => {
+  const manager = { IsOnLine: false, IsAccountLoggingOut: false };
+  const target = { ConnectedSucess1: true, ConnId: 10, _events: { error: { caller: manager } }, event(type) {
+    if (type === 'ClientLoginRep') {
+      assert.equal(bridge.getLoginAccount(target), null, 'publish the identity only after the native callback');
+      manager.IsOnLine = true;
+    }
+  } };
+  const { bridge, scope } = harness(t, [{ name: 'ServerProxy', target }]);
+  const ctx = { game: { getClass: () => null, getServerProxy: () => target, getSelf: () => null,
+    getLoginAccount: () => bridge.getLoginAccount(target) } };
+  const account = () => readNativeAccount(ctx).id;
+  const login = { Id: 20202, Result: 2, UserID: 12345, Nickname: '甲', get token() { assert.fail('must not read credentials'); } };
+  assert.equal(account(), '');
+  target.event('ClientLoginRep', [{ Protocol: login }]);
+  assert.deepEqual(readNativeAccount(ctx), { id: '12345', nickname: '甲' });
+  ctx.game.getSelf = () => ({ ClientId: 12345 });
+  assert.deepEqual(readNativeAccount(ctx), { id: '12345', nickname: '甲' });
+  ctx.game.getSelf = () => ({ ClientId: 23456 });
+  assert.deepEqual(readNativeAccount(ctx), { id: '23456', nickname: '' }, 'never fill another player’s nickname');
+  ctx.game.getSelf = () => null;
+  assert.equal(bridge.getLoginAccount({ ...target }), null);
+  manager.IsOnLine = false;
+  assert.equal(account(), '');
+  manager.IsOnLine = true;
+  manager.IsAccountLoggingOut = true;
+  assert.equal(account(), '');
+  manager.IsAccountLoggingOut = false;
+  target.ConnId++;
+  assert.equal(account(), '');
+  target.event('ClientLoginRep', { Protocol: { Id: 20202, Result: 1, UserID: 23456 } });
+  assert.equal(account(), '23456');
+  target.event('close');
+  assert.equal(account(), '');
+  target.event('ClientLoginRep', { Protocol: { Id: 20202, Result: 1, UserID: 34567 } });
+  scope.dispose();
+  assert.equal(account(), '');
+});
+
+test('unacknowledged, secondary socket, and console replies cannot become the active account', t => {
+  let action;
+  const target = { ConnId: 10, ConnectedSucess1: true, event: type => { if (type === 'ClientLoginRep') action?.(); } };
+  const { win, bridge } = harness(t, [{ name: 'ServerProxy', target }]);
+  const replay = (Result, extra) => target.event('ClientLoginRep', { Protocol: { Id: 20202, Result, UserID: 200, ...extra } });
+  const id = () => bridge.getLoginAccount(target)?.id || '';
+  win.console.log('recv', { ClassName: 'ClientLoginRep', UserID: 200, Result: 1 });
+  replay(1, { FromSocket2: true });
+  assert.equal(id(), '');
+  action = () => { throw new Error('native failed'); };
+  assert.throws(() => replay(1), /native failed/);
+  assert.equal(id(), '');
+  action = () => { target.event('ClientLogoutRep'); };
+  replay(1);
+  assert.equal(id(), '', 'native logout during dispatch cannot resurrect the reply');
+  action = null;
+  replay(1);
+  replay(1, { FromSocket2: true, UserID: 300 });
+  assert.equal(id(), '200');
+  replay(8);
+  assert.equal(id(), '');
 });
 
 test('body pairing across independent wrapper objects preserves repeated same-source deliveries', async t => {
