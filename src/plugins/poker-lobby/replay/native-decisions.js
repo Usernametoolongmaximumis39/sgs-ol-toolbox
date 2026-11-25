@@ -184,10 +184,30 @@ export function attachNativeCardChoice(win, scope, scene, names, live) {
     panel.useTimer = false;
     popupScope.add(() => { if (!panel.destroyed) panel.useTimer = useTimer; });
     const candidates = choice.cards;
+    // SelectCardWindow already supports separate card areas with native row sizing.
+    const exchange = choice.skill === 47 && choice.requiredGroups?.includes('权');
+    const topRow = exchange ? candidates.filter(card => card.choiceGroup === '权') : candidates;
+    const bottomRow = exchange ? candidates.filter(card => card.choiceGroup === '手牌') : null;
     const selected = new Set(choice.selected.map(card => card.id));
     const description = choice.copyCard ? '请选择一张牌复制'
       : choice.min === choice.max ? `请选择 ${choice.min} 张牌` : `请选择 ${choice.min} 至 ${choice.max} 张牌`;
-    const title = escapeNativeText(`${names.skill(choice.skill)} · ${description}`);
+    const title = escapeNativeText(exchange ? choice.title : `${names.skill(choice.skill)} · ${description}`);
+    if (exchange && typeof panel.UpdateTxtView === 'function') {
+      const renamed = new Set();
+      popupScope.patch(panel, 'UpdateTxtView', original => function (...args) {
+        const result = Reflect.apply(original, this, args);
+        for (const [label, text] of [[panel.handCardTxt, '权计牌'], [panel.equipCardTxt, '手牌']]) {
+          if (typeof label?.SetTitle !== 'function' || !label.titleText) continue;
+          if (!renamed.has(label)) {
+            const previous = label.titleText.text;
+            renamed.add(label);
+            popupScope.add(() => { if (!label.destroyed && label.titleText?.text === text) label.SetTitle(previous); });
+          }
+          label.SetTitle(text);
+        }
+        return result;
+      });
+    }
     popupScope.patch(panel, 'getSkillDesc', () => () => '');
     popupScope.patch(panel, 'autoSelect', () => () => {});
     popupScope.patch(panel, 'updateCardTag', () => () => {});
@@ -203,7 +223,7 @@ export function attachNativeCardChoice(win, scope, scene, names, live) {
       });
     }
     popupScope.patch(panel, 'createCardUis', original => function (cards, nodes, ...options) {
-      if (cards !== candidates) return Reflect.apply(original, this, [cards, nodes, ...options]);
+      if (cards !== topRow && cards !== bottomRow) return Reflect.apply(original, this, [cards, nodes, ...options]);
       for (const card of cards) {
         // The native window lays out the original poker faces recorded in the prompt.
         const node = pokerCardSprite(Laya, card, { width: 93, height: 130 }, palette);
@@ -243,7 +263,8 @@ export function attachNativeCardChoice(win, scope, scene, names, live) {
     scene.ged.A(WINDOW, {
       TargetSeat: scene.SelfSeatUi.Seat,
       CardType: 0,
-      customCards: candidates,
+      customCards: topRow,
+      ...(bottomRow && { customEquipCards: bottomRow }),
       Skill: {
         ID: choice.skill,
         SelectCardWindowServer: true,

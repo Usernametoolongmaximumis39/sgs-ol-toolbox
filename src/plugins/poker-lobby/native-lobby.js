@@ -3,6 +3,7 @@ import { POKER_TABLE_SCENE } from '../../shared/poker-table-mode.js';
 import { read } from '../../shared/safe-read.js';
 import { mountPokerMatch, pokerMatchPlatform } from './native-match.js';
 import { mountPokerForcedMatch } from './forced-match.js';
+import { bindMatchButton } from './match-button.js';
 import { canSwitchPokerLiveTable, openPokerLiveTable } from './live/native-table.js';
 import { openNativePokerPool } from './native-pool.js';
 import { openPokerRankWindow, openPokerStatsWindow } from './native-windows.js';
@@ -50,19 +51,8 @@ function afterLayout(scope, scene, Laya, owner, update) {
 
 // Neither the stock flow nor a direct request can run on this client.
 function mountDisabledMatch(scope, scene) {
-  const button = scene.startBtn;
-  const wasGrey = button.keepGray ?? button.Gray;
-  const update = () => {
-    button.visible = true;
-    button.enabled = button.mouseEnabled = false;
-    button.Gray = true;
-    if (!('label' in button)) button.WordTex = 'start_match_words';
-  };
-  saveProperty(scope, button, 'visible', true);
-  saveProperty(scope, button, 'enabled', false);
-  saveProperty(scope, button, 'mouseEnabled', false);
-  if ('label' in button) saveProperty(scope, button, 'label', '暂不可用');
-  scope.add(() => { if (!button.destroyed && (button.keepGray ?? button.Gray) === true) button.Gray = wasGrey; });
+  const paintButton = bindMatchButton(scope, scene);
+  const update = () => paintButton();
   update();
   if (typeof scene.UpdateBtnStatus === 'function') scope.patch(scene, 'UpdateBtnStatus', original => function (...args) {
     const result = Reflect.apply(original, this, args);

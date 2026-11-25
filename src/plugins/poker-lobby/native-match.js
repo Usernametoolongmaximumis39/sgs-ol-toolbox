@@ -1,4 +1,5 @@
 import { read } from '../../shared/safe-read.js';
+import { bindMatchButton, confirmPokerMatch, createMatchCancelDelay } from './match-button.js';
 
 const MODE = 175;
 const SECTION = 2;
@@ -77,6 +78,9 @@ export function mountPokerMatch(ctx, scope, scene, click, mode, active, log = ()
       || typeof proxy.AddEventListener !== 'function' || typeof proxy.RemoveEventListener !== 'function') return false;
 
   const showMatchTime = mountNativeMatchTime(ctx, scope, scene);
+  const paintButton = bindMatchButton(scope, scene);
+  const cancelDelay = createMatchCancelDelay(scope, refresh);
+  const canCancel = () => phase === 'matching' && !cancelDelay.locked && waitable() && !scene.matchSuccess;
   const sendMatch = manager.Bt.bind(manager);
   let phase = 'idle';
   let connection;
@@ -111,8 +115,8 @@ export function mountPokerMatch(ctx, scope, scene, click, mode, active, log = ()
     refresh();
   }
 
-  const previous = { enabled: button.enabled, mouseEnabled: button.mouseEnabled };
-  let ownedEnabled;
+  const canStart = () => phase === 'idle' && !manager.IsMatching && ready() && !scene.matchSuccess;
+  const cancelLabel = () => ['entering', 'starting', 'matching', 'cancelling'].includes(phase);
   scope.patch(scene, 'UpdateBtnStatus', original => function (...args) {
     if (this !== scene || !active()) return Reflect.apply(original, this, args);
     const waiting = phase === 'matching' || phase === 'cancelling';
@@ -120,16 +124,8 @@ export function mountPokerMatch(ctx, scope, scene, click, mode, active, log = ()
     // reaches the lobby. Only animate the phase verified for this request.
     const result = phase === 'joining' || manager.IsMatching === waiting
       ? Reflect.apply(original, this, args) : undefined;
-    const enabled = phase === 'idle' && !manager.IsMatching && ready()
-      || phase === 'matching' && waitable();
-    ownedEnabled = Boolean(enabled && !scene.matchSuccess);
-    button.enabled = button.mouseEnabled = ownedEnabled;
+    paintButton({ cancel: cancelLabel(), enabled: canStart() || canCancel(), visible: phase !== 'joining' && !scene.matchSuccess });
     return result;
-  });
-  scope.add(() => {
-    if (button.destroyed) return;
-    if (button.enabled === ownedEnabled) button.enabled = previous.enabled;
-    if (button.mouseEnabled === ownedEnabled) button.mouseEnabled = previous.mouseEnabled;
   });
   if (typeof scene.BackBtnClickHandler === 'function') {
     scope.patch(scene, 'BackBtnClickHandler', original => function (...args) {
@@ -150,11 +146,11 @@ export function mountPokerMatch(ctx, scope, scene, click, mode, active, log = ()
   }
 
   function act() {
-    if (phase === 'matching' && waitable()) {
+    if (canCancel()) {
       send(CANCEL_MATCH);
       return;
     }
-    if (phase !== 'idle' || !ready() || manager.IsMatching || scene.matchSuccess) return;
+    if (!canStart()) return;
     if (mode.GetOpenState() !== 0 || mode.IsOpenTime !== true) {
       ctx.notify('三国斗地主当前未开放匹配。');
       return;
@@ -163,7 +159,9 @@ export function mountPokerMatch(ctx, scope, scene, click, mode, active, log = ()
       ctx.notify('欢乐豆不足。');
       return;
     }
+    if (!confirmPokerMatch(ctx) || !canStart()) return;
     connection = proxy.ConnId;
+    cancelDelay.start();
     setPhase('entering');
     log('进入初级场');
     try { manager.SendEnterPage(ENTER_PAGE, MODE, SECTION); }
@@ -259,14 +257,15 @@ export function mountPokerMatch(ctx, scope, scene, click, mode, active, log = ()
   scope.add(() => { if (!button.destroyed) button.off(click, caller, act); });
   scope.interval(() => {
     if (phase !== 'idle' && (phase !== 'joining' || !table) && !waitable()) setPhase('idle');
-    else if (phase === 'idle' && active() && button.enabled !== (ready() && !manager.IsMatching && !scene.matchSuccess)) refresh();
+    else if (phase === 'idle' && active() && button.enabled !== canStart()) refresh();
   }, 500);
   refresh();
   return {
     match: act,
     get enabled() { return active() && button.enabled === true; },
+    get showAction() { return phase !== 'joining' && !scene.matchSuccess; },
     get assigned() { return waitable() && phase === 'joining' && table > 0 && table === room.TableId; },
-    get label() { return phase === 'matching' || phase === 'cancelling' ? '取消匹配' : '开始匹配'; },
+    get label() { return cancelLabel() ? '取消匹配' : '开始匹配'; },
     get status() {
       if (phase !== 'idle') return MATCH_STATUS[phase];
       if (!ready() || manager.IsMatching || scene.matchSuccess) return '当前无法开始匹配。';

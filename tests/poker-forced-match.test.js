@@ -122,7 +122,7 @@ test('入座后可发送准备并跟随开局通知', t => {
   f.reply(21208, { IsGameStart: true, Infos: [{}, {}, {}] });
   assert.equal(f.match.state.step, 'started');
   assert.equal(f.match.ready(), false);
-  assert.equal(forcedMatchLabel(f.match.state), '已开局');
+  assert.equal(forcedMatchLabel(f.match.state), '开始匹配');
   assert.equal(forcedMatchStatus(f.match.state), '已开局，正在进入牌桌。');
   assert.deepEqual(f.logs.slice(-3), [['发送准备'], ['准备结果', 1], ['已开局']]);
 });
@@ -170,17 +170,15 @@ test('跳过旧场次桌号，并跟随本方随原生开局确认的新桌', t 
   assert.deepEqual(f.calls, [['enter', 2, 175, 2], ['queue', 1, 175, 0, 2]]);
 });
 
-test('按钮文字随阶段变化，等待确认与开局后的状态如实区分', () => {
-  const label = (step, extra = {}, armed = false) => forcedMatchLabel({ step, prepared: false, ...extra }, armed);
+test('工具箱只在入座后提供准备，开局与错误详情由状态文字说明', () => {
+  const label = (step, extra = {}) => forcedMatchLabel({ step, prepared: false, ...extra });
   assert.deepEqual(['idle', 'entering', 'entered', 'matching', 'queued', 'cancelling', 'seated', 'started', 'failed']
     .map(step => [step, label(step)]), [
-    ['idle', '开始匹配'], ['entering', '等待入场…'], ['entered', '开始匹配'], ['matching', '取消匹配'],
-    ['queued', '取消匹配'], ['cancelling', '取消匹配'], ['seated', '发送准备'], ['started', '已开局'], ['failed', '重试匹配'],
+    ['idle', '开始匹配'], ['entering', '取消匹配'], ['entered', '开始匹配'], ['matching', '取消匹配'],
+    ['queued', '取消匹配'], ['cancelling', '取消匹配'], ['seated', '发送准备'], ['started', '开始匹配'], ['failed', '开始匹配'],
   ]);
-  assert.equal(label('idle', {}, true), '确认仅小号测试');
   assert.equal(label('seated', { prepared: true }), '等待开局');
   assert.equal(forcedMatchStatus({ step: 'idle' }), '经典版尚未开放此场次，将直接向服务器请求匹配。');
-  assert.equal(forcedMatchStatus({ step: 'idle' }, true), '再次点击确认后开始匹配。');
   assert.equal(forcedMatchStatus({ step: 'seated', prepared: true }), '已准备，等待开局。');
   assert.equal(forcedMatchStatus({ step: 'cancelling' }), '正在取消匹配…');
   assert.equal(forcedMatchStatus({ step: 'failed', error: '匹配失败：禁止匹配' }), '匹配失败：禁止匹配');

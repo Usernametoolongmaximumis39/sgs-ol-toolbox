@@ -41,6 +41,7 @@ export function registerPokerToolsPanel(ctx, lobby) {
         const label = state?.label || '开始匹配';
         if (status.textContent !== message) status.textContent = message;
         if (match.textContent !== label) match.textContent = label;
+        match.hidden = state?.showAction === false;
         match.disabled = !state?.enabled;
         table.disabled = !lobby.canSwitchTable();
         copy.disabled = !lobby.hasMatchLog();

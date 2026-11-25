@@ -19,9 +19,7 @@ class NativeNode {
   destroy() { this.destroyed = true; }
 }
 
-// `label` models the stock button that can show text; without it the plugin
-// cannot ask for confirmation on the canvas and keeps the button disabled.
-function fixture({ matching = false, forbidden = false, label = false, session = false } = {}) {
+function fixture({ matching = false, forbidden = false, label = false, allowMatch = true } = {}) {
   const scope = new ResourceScope();
   const calls = [];
   const stock = {
@@ -36,6 +34,7 @@ function fixture({ matching = false, forbidden = false, label = false, session =
     UpdateBtnStatus() { Object.assign(this.startBtn, { enabled: true, visible: false, WordTex: 'ordinary_word' }); },
     addChild(node) { this.notice = node; },
   };
+  Object.assign(stock.startBtn, { WordTex: 'start_match_words', skins: ['redbtn_normal'], InitSkin(...skins) { this.skins = skins; } });
   if (label) Object.assign(stock.startBtn, { label: '', labelSize: 17 });
   for (const button of stock.btnList) button.on('click', stock, stock.onBtnClick);
   stock.startBtn.on('click', stock, stock.startMatchHandlerCheck);
@@ -75,10 +74,11 @@ function fixture({ matching = false, forbidden = false, label = false, session =
     stock.BackBtnClickHandler = () => false;
   }
   let scene = stock, account = '11', sceneChanged;
+  const settings = new Map();
   const window = { Laya: { stage: new NativeNode(), Event: { CLICK: 'click', RESIZE: 'resize' }, Text: NativeNode },
-    ...(session ? { sessionStorage: { value: null, getItem() { return this.value; }, setItem(key, value) { this.value = value; } } } : {}) };
+    confirm(text) { calls.push(['confirm', text]); return allowMatch; } };
   const ctx = {
-    scope, window,
+    scope, window, settings,
     game: {
       getScene: () => scene, isInGame: () => false,
       getServerProxy: () => proxy,
@@ -148,6 +148,7 @@ test('离开场景恢复普通斗地主原生行为，未登录不会改动大�
 });
 
 test('三国斗地主等待原生入场回复，并用同一个原生按钮开始和取消匹配', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const f = fixture({ matching: true });
   t.after(() => f.scope.dispose());
   const { stock, requests } = f;
@@ -181,6 +182,12 @@ test('三国斗地主等待原生入场回复，并用同一个原生按钮开�
   assert.equal(stock.MatchTime.visible, true);
   assert.equal(stock.startBtn.WordTex, 'canel_match_words');
   assert.equal(f.lobby.actions().label, '取消匹配');
+  assert.equal(stock.startBtn.Gray, true);
+  assert.equal(stock.startBtn.skins[0], 'greenbtn_normal');
+  f.lobby.actions().match();
+  assert.equal(requests.length, 3);
+  t.mock.timers.tick(2000);
+  assert.equal(stock.startBtn.Gray, false);
   f.lobby.actions().match();
   stock.startBtn.event('click');
   assert.deepEqual(requests.at(-1), ['queue', 2, 175, 0, 2]);
@@ -192,8 +199,10 @@ test('三国斗地主等待原生入场回复，并用同一个原生按钮开�
   stock.startBtn.event('click');
   f.reply(20402, { Result: 1, LabelModel: 175, SectionKind: 2 });
   f.reply(20546, { model: 175, opType: 1, result: 1 });
+  t.mock.timers.tick(2000);
   stock.startBtn.event('click');
   f.reply(20546, { model: 175, opType: 2, result: 1001 });
+  assert.equal(stock.startBtn.visible, false);
   stock.startBtn.event('click');
   assert.equal(requests.length, 7);
   f.reply(20504, { Result: 1, RealModel: 175, GroupID: 2, TableID: 72 });
@@ -210,23 +219,21 @@ test('三国斗地主等待原生入场回复，并用同一个原生按钮开�
   assert.equal(f.lobby.matchLog(), '');
 });
 
-test('经典版限制入场且按钮无法显示确认时，匹配按钮禁用且无原生请求', t => {
-  const f = fixture({ matching: true, forbidden: true });
+test('经典版限制入场时，不确认就不发请求，原生贴图无需显示确认文字', t => {
+  const f = fixture({ matching: true, forbidden: true, allowMatch: false });
   t.after(() => f.scope.dispose());
   f.lobby.open(f.mode);
   assert.equal(f.stock.notice, undefined);
-  assert.equal(f.stock.startBtn.enabled, false);
-  assert.equal(f.stock.startBtn.WordTex, 'start_match_words');
-  assert.equal(f.lobby.actions().enabled, false);
-  assert.equal(f.lobby.actions().status, '当前客户端无法发起三国斗地主匹配。');
+  assert.equal(f.stock.startBtn.enabled, true);
   f.stock.startBtn.event('click');
-  f.lobby.actions().match();
+  assert.equal(f.stock.startBtn.WordTex, 'start_match_words');
+  assert.equal(f.lobby.actions().enabled, true);
   assert.deepEqual(f.requests, []);
-  assert.deepEqual(f.calls, []);
-  assert.equal(f.listeners.size, 0);
+  assert.deepEqual(f.calls, [['confirm', '确认发起匹配']]);
 });
 
-test('经典版限制入场时，原匹配按钮确认后直接发起匹配，不再打开重制版指引', t => {
+test('经典版限制入场时，工具箱确认后发起匹配；取消解锁后可用，入座后原生按钮隐藏', t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const f = fixture({ matching: true, forbidden: true, label: true });
   t.after(() => f.scope.dispose());
   const { stock } = f;
@@ -240,16 +247,12 @@ test('经典版限制入场时，原匹配按钮确认后直接发起匹配，�
   assert.equal(f.lobby.actions().enabled, true);
   assert.equal(f.lobby.actions().assigned, false);
 
-  // 首次点击只提示并要求在同一个按钮上确认，不发请求。
+  // 工具箱提示确认；确认即开始，按钮不显示非原生文字。
   stock.startBtn.event('click');
-  assert.equal(stock.startBtn.label, '确认仅小号测试');
-  assert.equal(f.lobby.actions().label, '确认仅小号测试');
-  assert.deepEqual(f.requests, []);
-  assert.deepEqual(f.calls, [['notice', '此功能在测试中，仅用于小号。']]);
-
-  // 确认即本次点击：入场确认一到就发出匹配，不再等待第二次点击。
-  stock.startBtn.event('click');
-  assert.equal(stock.startBtn.label, '等待入场…');
+  assert.deepEqual(f.calls, [['confirm', '确认发起匹配']]);
+  assert.equal(stock.startBtn.label, '');
+  assert.equal(stock.startBtn.WordTex, 'canel_match_words');
+  assert.equal(stock.startBtn.Gray, true);
   assert.equal(f.lobby.actions().enabled, false);
   assert.deepEqual(f.requests, [['enter', 2, 175, 2]]);
   f.reply(20402, { Result: 1, LabelModel: 175, SectionKind: 2 });
@@ -260,7 +263,11 @@ test('经典版限制入场时，原匹配按钮确认后直接发起匹配，�
   f.reply(20546, { model: 175, opType: 1, result: 1 });
   assert.equal(f.lobby.actions().status, '正在匹配，等待分配牌桌…');
 
-  // 同一个按钮取消匹配。
+  // 同一个按钮在排队确认且灰置期结束后才允许取消。
+  stock.startBtn.event('click');
+  assert.equal(f.requests.length, 2);
+  t.mock.timers.tick(2000);
+  assert.equal(stock.startBtn.Gray, false);
   stock.startBtn.event('click');
   f.lobby.actions().match();
   assert.deepEqual(f.requests.at(-1), ['queue', 2, 175, 0, 2]);
@@ -276,18 +283,21 @@ test('经典版限制入场时，原匹配按钮确认后直接发起匹配，�
   f.reply(20546, { model: 175, opType: 1, result: 1 });
   f.reply(20504, { Result: 1, RealModel: 175, GroupID: 2, TableID: 72 });
   stock.rc.TableId = 72;
-  assert.equal(stock.startBtn.label, '发送准备');
+  assert.equal(stock.startBtn.visible, false);
+  assert.equal(f.lobby.actions().label, '发送准备');
   assert.equal(f.lobby.actions().assigned, true);
   stock.startBtn.event('click');
-  assert.equal(stock.startBtn.label, '准备中…');
-  assert.equal(f.lobby.actions().enabled, false);
+  assert.equal(f.requests.length, 4);
   f.lobby.actions().match();
+  assert.equal(f.lobby.actions().label, '准备中…');
+  assert.equal(f.lobby.actions().enabled, false);
   assert.deepEqual(f.requests.at(-1), ['ready', true]);
   assert.equal(f.requests.length, 5);
   f.reply(21204, { Result: 1 });
-  assert.equal(stock.startBtn.label, '等待开局');
+  assert.equal(f.lobby.actions().label, '等待开局');
   f.reply(21208, { IsGameStart: true, Infos: [{ ClientID: 11 }, {}, {}] });
-  assert.equal(stock.startBtn.label, '已开局');
+  assert.equal(stock.startBtn.visible, false);
+  assert.equal(f.lobby.actions().showAction, false);
   assert.equal(stock.startBtn.enabled, false);
   assert.equal(f.lobby.actions().enabled, false);
   assert.equal(f.lobby.actions().status, '已开局，正在进入牌桌。');
@@ -301,8 +311,8 @@ test('经典版限制入场时，原匹配按钮确认后直接发起匹配，�
     ['已分配牌桌', undefined], ['发送准备', undefined], ['准备结果', 1], ['已开局', undefined],
   ]);
 
-  // 重制版指引窗口虽然存在，整个过程都没有被打开。
-  assert.deepEqual(f.calls, [['notice', '此功能在测试中，仅用于小号。']]);
+  // 重制版指引窗口虽然存在，整个过程都没有被打开，也没有再次确认。
+  assert.deepEqual(f.calls, [['confirm', '确认发起匹配']]);
   f.leave();
   assert.equal(stock.startBtn.label, '');
   assert.equal(f.lobby.actions(), null);
@@ -310,23 +320,23 @@ test('经典版限制入场时，原匹配按钮确认后直接发起匹配，�
   assert.deepEqual(f.calls.at(-1), ['match']);
 });
 
-test('直接匹配被拒绝时显示原因，确认状态在同一浏览器会话内保留', t => {
-  const f = fixture({ matching: true, forbidden: true, label: true, session: true });
+test('直接匹配被拒绝时显示原因，确认保存在插件设置中', t => {
+  const f = fixture({ matching: true, forbidden: true, label: true });
   t.after(() => f.scope.dispose());
   const { stock } = f;
   f.lobby.open(f.mode);
   stock.startBtn.event('click');
-  stock.startBtn.event('click');
-  assert.equal(f.window.sessionStorage.value, '1');
+  assert.deepEqual(f.calls, [['confirm', '确认发起匹配']]);
   f.reply(20402, { Result: 26, LabelModel: 175, SectionKind: 2, why: 'PRIVATE-FIXTURE' });
-  assert.equal(stock.startBtn.label, '重试匹配');
+  assert.equal(stock.startBtn.WordTex, 'start_match_words');
   assert.equal(stock.startBtn.enabled, true);
   assert.equal(f.lobby.actions().status, 'PRIVATE-FIXTURE');
   assert.ok(!f.lobby.matchLog().includes('PRIVATE-FIXTURE'));
 
   // 已确认过则不再二次确认；入场被拒不发匹配，放行后才发出。
   stock.startBtn.event('click');
-  assert.equal(stock.startBtn.label, '等待入场…');
+  assert.equal(stock.startBtn.WordTex, 'canel_match_words');
+  assert.deepEqual(f.calls, [['confirm', '确认发起匹配']]);
   f.reply(20402, { Result: 2, LabelModel: 175, SectionKind: 2 });
   assert.deepEqual(f.requests, [['enter', 2, 175, 2], ['enter', 2, 175, 2], ['queue', 1, 175, 0, 2]]);
   assert.equal(stock.startBtn.WordTex, 'canel_match_words');
@@ -334,7 +344,7 @@ test('直接匹配被拒绝时显示原因，确认状态在同一浏览器会�
   f.reply(20546, { model: 175, opType: 1, result: 27 });
   assert.equal(f.lobby.actions().status, '匹配失败：禁止匹配');
   f.reply(20504, { Result: 1, RealModel: 175, GroupID: 2, TableID: 72 });
-  assert.equal(stock.startBtn.label, '重试匹配');
+  assert.equal(stock.startBtn.WordTex, 'start_match_words');
   const { events } = JSON.parse(f.lobby.matchLog());
   assert.deepEqual(events.map(({ event, result }) => [event, result]).slice(-3),
     [['入场结果', 2], ['开始匹配', undefined], ['匹配结果', 27]]);
@@ -351,7 +361,7 @@ test('原生匹配能力缺失不等于经典版受限，不应启用直接匹�
   t.after(() => f.scope.dispose());
   f.stock.matchEffect = null;
   f.lobby.open(f.mode);
-  assert.equal(f.stock.startBtn.label, '暂不可用');
+  assert.equal(f.stock.startBtn.WordTex, 'start_match_words');
   assert.equal(f.lobby.actions().enabled, false);
   f.stock.startBtn.event('click');
   assert.deepEqual(f.requests, []);

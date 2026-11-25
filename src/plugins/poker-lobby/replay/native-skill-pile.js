@@ -1,7 +1,10 @@
 import { pokerCardSprite } from './native-card-motion.js';
 import { escapeNativeText, replayPopupManager } from './native-opening.js';
+import { comparePokerCardsByRank } from './model.js';
 
 const WINDOW = 'SkillBuQuWindow';
+const SORTED_PILES = new Set([46, 47]); // 破军、权计
+const isFaceUp = card => card && !card.hidden && card.rank > 0;
 
 export function attachNativeSkillPile(win, scope, scene, seats, size, names) {
   const manager = replayPopupManager(scene);
@@ -25,7 +28,13 @@ export function attachNativeSkillPile(win, scope, scene, seats, size, names) {
   function getPile(owner, skill) {
     const seat = state?.seats.find(candidate => candidate.id === owner);
     const pile = seat?.skillPiles.find(candidate => candidate.skill === skill);
-    return pile?.cards.length ? { seat, cards: pile.cards } : null;
+    // The display is sorted without mutating the tracked pile; unknown cards stay face down at the end.
+    if (!pile?.cards.length) return null;
+    const cards = SORTED_PILES.has(skill) ? pile.cards.slice().sort((a, b) => {
+      if (!isFaceUp(a)) return isFaceUp(b) ? 1 : 0;
+      return isFaceUp(b) ? comparePokerCardsByRank(a, b) : -1;
+    }) : pile.cards;
+    return { seat, cards };
   }
 
   function render({ seat, cards }, opening) {

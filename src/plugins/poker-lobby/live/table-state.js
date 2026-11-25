@@ -668,7 +668,7 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
         cards: decision.cards?.length ? decision.cards : undefined,
         selected: new Set(choiceCards), selectedOptions: new Set(choiceOptions),
         targetChoices: decision.targetChoices, copyCard: decision.copyCard, fromHand: decision.fromHand,
-        giveFromHand: decision.giveFromHand,
+        giveFromHand: decision.giveFromHand, requiredGroups: decision.requiredGroups,
         offersCancel: decision.canCancel === true,
         min: decision.min, max: decision.max,
         canConfirm: decision.kind === 'general' || decision.kind === 'skill-choice'

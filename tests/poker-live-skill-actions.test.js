@@ -120,7 +120,11 @@ test('权计 sends exactly one hand card followed by one card from the confirmed
   });
   const optionKey = f.offer('play', firstIndex);
   assert.equal(f.activateSkill(47), true);
-  assert.deepEqual(f.last('skill-options').cards.map(card => card.choiceGroup), ['手牌', '手牌', '手牌', '手牌', '权', '权']);
+  const { cards, requiredGroups } = f.last('skill-options');
+  assert.deepEqual(requiredGroups, ['权', '手牌']);
+  assert.deepEqual(cards.map(card => card.choiceGroup), ['权', '权', '手牌', '手牌', '手牌', '手牌']);
+  assert.deepEqual(cards.slice(0, 2).map(card => card.id), [41301, 21101]);
+  assert.deepEqual(cards.slice(2).map(card => card.rank), f.hand.map(card => card.rank).sort((a, b) => b - a));
   assert.equal(f.submitSkillChoice({ optionKey, cardIds: [10401, 21101, 41301] }), false);
   assert.equal(f.submitSkillChoice({ optionKey, cardIds: [21101, 41301] }), false);
   assert.equal(f.submitSkillChoice({ optionKey, cardIds: [21101, 10401] }), true);

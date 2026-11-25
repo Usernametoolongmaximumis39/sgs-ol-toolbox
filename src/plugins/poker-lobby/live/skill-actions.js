@@ -1,5 +1,5 @@
 import { read } from '../../../shared/safe-read.js';
-import { cardFace, comparePokerHandCards } from '../replay/model.js';
+import { cardFace, comparePokerCardsByRank, comparePokerHandCards } from '../replay/model.js';
 import { POKER_ZONE } from '../replay/remaining.js';
 import { KU_ROU, KU_ROU_CARDS, SEAT_MARKS } from '../replay/skill-states.js';
 
@@ -191,9 +191,11 @@ export function createPokerSkillActions({ send, publish, getSelfSeat, getLandlor
     const available = profile.position || id === 1 ? hand.slice().sort(comparePokerHandCards) : hand;
     let cards = [];
     if (profile.exchange) {
-      cards = [...hand.map(card => ({ ...card, choiceGroup: '手牌' })),
-        ...[...ownPiles.values()].map(card => ({ ...card, choiceGroup: '权' }))]
-        .filter((card, index, all) => all.findIndex(candidate => candidate.id === card.id) === index);
+      const ownIds = new Set(hand.map(card => card.id));
+      const pile = [...ownPiles.values()].filter(card => !ownIds.has(card.id)).sort(comparePokerCardsByRank);
+      if (!pile.length || !hand.length) return null;
+      cards = [...pile.map(card => ({ ...card, choiceGroup: '权' })),
+        ...hand.slice().sort(comparePokerCardsByRank).map(card => ({ ...card, choiceGroup: '手牌' }))];
     }
     else if (profile.position && available.length) {
       const usedPositions = effectState(seat, id);
@@ -323,7 +325,7 @@ export function createPokerSkillActions({ send, publish, getSelfSeat, getLandlor
       ...(plan.min > 0 && !plan.profile.exchange && { fromHand: true }),
       ...(plan.profile.position && { copyCard: true, prompt: '请选择一张手牌复制' }),
       ...(id === GUAN_XING && { prompt: read(() => native.ActiveTip) }),
-      ...(plan.profile.exchange && { title: '权计 · 各选一张手牌和权', requiredGroups: ['手牌', '权'] }),
+      ...(plan.profile.exchange && { title: '权计 · 各选一张权计牌和手牌', requiredGroups: ['权', '手牌'] }),
       submit: choice => {
         const current = regularPlan(id, native);
         return Boolean(current && regularSubmit(id, current, choice));

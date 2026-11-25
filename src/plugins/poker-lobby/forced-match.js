@@ -1,6 +1,7 @@
 import { read } from '../../shared/safe-read.js';
 import { POKER_TABLE_SCENE } from '../../shared/poker-table-mode.js';
 import { CANCEL_MATCH, mountNativeMatchTime, START_MATCH } from './native-match.js';
+import { bindMatchButton, confirmPokerMatch, createMatchCancelDelay } from './match-button.js';
 import { isPokerTableId, POKER_MODE as MODE, POKER_SECTION as SECTION } from './poker-room.js';
 
 const ENTER_PAGE = 2;
@@ -13,11 +14,7 @@ const ENTER_TIMEOUT = 10000;
 const MATCH_TIMEOUT = 12000;
 const CANCEL_TIMEOUT = 10000;
 const READY_TIMEOUT = 8000;
-const SESSION_KEY = 'sgs-poker-probe-approved';
-const TEST_NOTICE_KEY = 'matchTestNoticeShown';
 const DEV_KEY = '__SGS_POKER_MATCH__';
-const TEST_NOTICE = '此功能在测试中，仅用于小号。';
-const CONFIRM_LABEL = '确认仅小号测试';
 const STATUS = {
   entering: '正在进入初级场…', entered: '已入场，可以开始匹配。', matching: '正在提交匹配…',
   queued: '正在匹配，等待分配牌桌…', cancelling: '正在取消匹配…',
@@ -183,120 +180,78 @@ export function createPokerForcedMatchSession({ scope, proxy, manager, room, acc
   return { get state() { return state(); }, enter, start, cancel, ready, sync };
 }
 
-// The stock button is the only match control: one click starts, the same click cancels.
-export function forcedMatchLabel({ step, prepared, preparing }, armed) {
-  if (step === 'entering') return '等待入场…';
-  if (step === 'entered') return '开始匹配';
-  if (step === 'matching' || step === 'queued' || step === 'cancelling') return '取消匹配';
-  if (step === 'seated') return prepared ? '等待开局' : preparing ? '准备中…' : '发送准备';
-  // The table opens by itself once the game starts; no manual jump remains.
-  if (step === 'started') return '已开局';
-  if (armed) return CONFIRM_LABEL;
-  if (step === 'failed') return '重试匹配';
+const cancelLabel = ({ step }) => ['entering', 'matching', 'queued', 'cancelling'].includes(step);
+const matchVisible = ({ step }) => step !== 'seated' && step !== 'started';
+
+// The toolbox can still offer preparation after the stock match button disappears.
+export function forcedMatchLabel(state) {
+  if (cancelLabel(state)) return '取消匹配';
+  if (state.step === 'seated') return state.prepared ? '等待开局' : state.preparing ? '准备中…' : '发送准备';
   return '开始匹配';
 }
 
-const forcedMatchEnabled = ({ step, prepared, preparing }) => !['entering', 'cancelling', 'started'].includes(step)
-  && !(step === 'seated' && (prepared || preparing));
-
-export function forcedMatchStatus(state, armed) {
+export function forcedMatchStatus(state) {
   if (state.step === 'failed') return state.error;
   if (STATUS[state.step]) return STATUS[state.step];
   if (state.step === 'seated') return state.error || (state.prepared ? '已准备，等待开局。'
     : state.preparing ? '正在等待准备确认…' : '已入座牌桌，可以发送准备。');
   if (state.step === 'started') return '已开局，正在进入牌桌。';
-  if (armed) return '再次点击确认后开始匹配。';
   return '经典版尚未开放此场次，将直接向服务器请求匹配。';
 }
 
-function nativeWord(state, armed) {
-  if (armed) return null;
-  if (state.step === 'idle' || state.step === 'entered') return 'start_match_words';
-  if (state.step === 'matching' || state.step === 'queued' || state.step === 'cancelling') return 'canel_match_words';
-  return null;
-}
-
-// Binds the stock match button to the direct request. The first use in a
-// browser session asks for confirmation on the button itself.
+// Keep the stock button for starting/cancelling; the toolbox handles first-use confirmation.
 export function mountPokerForcedMatch(ctx, scope, scene, click, active, log = () => {}) {
   const proxy = ctx.game.getServerProxy?.();
   const manager = scene.adManager;
   const room = scene.rc;
   const stock = scene.startBtn;
   const account = String(ctx.native?.account?.().id || '');
-  // The confirmation has to be readable on the stock button itself.
   if (!account || !manager || manager.proxy !== proxy || typeof manager.SendEnterPage !== 'function'
       || typeof manager.Bt !== 'function' || typeof proxy?.AddEventListener !== 'function'
       || typeof proxy.RemoveEventListener !== 'function' || room?.proxy !== proxy || typeof stock?.on !== 'function'
-      || typeof stock.off !== 'function' || !('label' in stock)) return false;
+      || typeof stock.off !== 'function') return false;
 
   const connection = proxy.ConnId;
   const isCurrent = () => active() && proxy.ConnId === connection && proxy.ConnectedSucess1 === true
     && proxy.IsOffline !== true;
   const caller = {};
-  const word = stock.WordTex;
-  const previousStock = {
-    visible: stock.visible, enabled: stock.enabled, mouseEnabled: stock.mouseEnabled,
-    label: stock.label, labelSize: stock.labelSize, gray: stock.keepGray ?? stock.Gray,
-    wordVisible: word && typeof word === 'object' ? word.visible : undefined,
-    wordTexture: word && typeof word === 'object' ? word.texture : undefined,
-  };
+  const paintButton = bindMatchButton(scope, scene);
   const showMatchTime = mountNativeMatchTime(ctx, scope, scene);
-  let armed = false, armTimer, approved = false, testNoticeShown = false;
+  const cancelDelay = createMatchCancelDelay(scope, () => { if (active()) applyNative(session.state); });
+  const enabled = ({ step, prepared, preparing, table }) => isCurrent() && (
+    !scene.matchSuccess && ['idle', 'failed', 'entered'].includes(step)
+      || step === 'queued' && !cancelDelay.locked && !scene.matchSuccess
+      || step === 'seated' && room.TableId === table && !prepared && !preparing
+  );
   let connected = isCurrent();
-  try { approved = ctx.window.sessionStorage?.getItem(SESSION_KEY) === '1'; } catch { approved = false; }
 
   const session = createPokerForcedMatchSession({
     scope, proxy, manager, room, account, isCurrent,
     onChange(state) {
       if (!isCurrent()) return;
-      if (state.step !== 'idle' && state.step !== 'failed') clearArmed();
       applyNative(state);
     },
     log,
   });
 
-  function clearArmed() {
-    if (armTimer) { clearTimeout(armTimer); armTimer = undefined; }
-    armed = false;
+  function act() {
+    const state = session.state;
+    if (!enabled(state)) return;
+    if (state.step === 'idle' || state.step === 'failed' || state.step === 'entered') {
+      if (!confirmPokerMatch(ctx) || !enabled(session.state) || session.state.step !== state.step) return;
+      cancelDelay.start();
+      if (state.step === 'entered') session.start();
+      else session.enter({ autoStart: true });
+    } else if (state.step === 'queued') session.cancel();
+    else if (state.step === 'seated') session.ready();
   }
 
-  function act(event) {
+  function stockClick(event) {
     event?.stopPropagation?.();
-    const state = session.state;
-    if (!isCurrent() || !forcedMatchEnabled(state)) return;
-    if (state.step === 'idle' || state.step === 'failed') {
-      if (!testNoticeShown && read(() => ctx.settings.get(TEST_NOTICE_KEY, false)) !== true) {
-        testNoticeShown = true;
-        ctx.notify(TEST_NOTICE);
-        read(() => ctx.settings.set(TEST_NOTICE_KEY, true));
-      }
-      if (!approved) {
-        if (!armed) {
-          armed = true;
-          armTimer = scope.timeout(() => {
-            clearArmed();
-            if (active()) applyNative(session.state);
-          }, 8000);
-          applyNative(session.state);
-          return;
-        }
-        approved = true;
-        try { ctx.window.sessionStorage?.setItem(SESSION_KEY, '1'); } catch { /* Ignore. */ }
-      }
-      clearArmed();
-      // Accepting the notice is already the click that starts this match.
-      session.enter({ autoStart: true });
-      return;
-    }
-    if (state.step === 'entered') { session.start(); return; }
-    if (state.step === 'matching' || state.step === 'queued') session.cancel();
-    else if (state.step === 'seated' && room.TableId === state.table) session.ready();
+    if (matchVisible(session.state)) act();
   }
 
   function applyNative(state) {
-    const enabled = isCurrent() && forcedMatchEnabled(state);
-    const wordTexture = nativeWord(state, armed);
     const queued = isCurrent() && (state.step === 'queued' || state.step === 'cancelling');
     showMatchTime(queued);
     const effect = scene.matchEffect;
@@ -306,16 +261,11 @@ export function mountPokerForcedMatch(ctx, scope, scene, click, active, log = ()
       effect.Stop?.();
       effect.visible = false;
     }
-    stock.visible = true;
-    stock.Gray = !enabled;
-    stock.enabled = stock.mouseEnabled = enabled;
-    if ('labelSize' in stock) stock.labelSize = 20;
-    stock.label = wordTexture ? '' : forcedMatchLabel(state, armed);
-    if (wordTexture) stock.WordTex = wordTexture;
-    if (word && typeof word === 'object' && !word.destroyed) word.visible = Boolean(wordTexture);
+    const visible = matchVisible(state) && !scene.matchSuccess;
+    paintButton({ cancel: cancelLabel(state), visible, enabled: visible && enabled(state) });
   }
 
-  stock.on(click, caller, act);
+  stock.on(click, caller, stockClick);
   for (const key of ['UpdateBtnStatus', 'tableInfoRep']) {
     if (typeof scene[key] !== 'function') continue;
     scope.patch(scene, key, original => function (...args) {
@@ -329,7 +279,6 @@ export function mountPokerForcedMatch(ctx, scope, scene, click, active, log = ()
     const next = isCurrent();
     if (next !== connected) {
       connected = next;
-      clearArmed();
       applyNative(session.state);
     }
     if (!next) return;
@@ -338,33 +287,14 @@ export function mountPokerForcedMatch(ctx, scope, scene, click, active, log = ()
       session.sync({ tableId: room.TableId, gameStart: room.IsGameStart === true });
     }
   }, 500);
-  scope.add(() => {
-    if (!stock.destroyed) stock.off(click, caller, act);
-    if (!stock.destroyed) {
-      stock.visible = previousStock.visible;
-      stock.enabled = previousStock.enabled;
-      stock.mouseEnabled = previousStock.mouseEnabled;
-      stock.label = previousStock.label;
-      if ('labelSize' in stock) stock.labelSize = previousStock.labelSize;
-      if ('Gray' in stock) stock.Gray = previousStock.gray;
-      if (typeof word === 'string') stock.WordTex = word;
-      if (word && typeof word === 'object' && !word.destroyed) {
-        word.visible = previousStock.wordVisible;
-        if (previousStock.wordTexture !== undefined && word.texture !== previousStock.wordTexture) {
-          word.texture = previousStock.wordTexture;
-        }
-      }
-    }
-  });
+  scope.add(() => { if (!stock.destroyed) stock.off(click, caller, stockClick); });
 
   if (ctx.core?.distribution === 'dev') {
     const handle = {
       account,
       get state() { return session.state; },
-      get action() { return forcedMatchLabel(session.state, armed); },
-      get enabled() { return isCurrent() && forcedMatchEnabled(session.state); },
-      get approved() { return approved; },
-      get armed() { return armed; },
+      get action() { return forcedMatchLabel(session.state); },
+      get enabled() { return enabled(session.state); },
       diagnose: () => {
         const gameContext = ctx.game.getClass?.('GameContext');
         const current = ctx.game.getScene?.();
@@ -386,13 +316,14 @@ export function mountPokerForcedMatch(ctx, scope, scene, click, active, log = ()
 
   applyNative(session.state);
   return {
-    match: () => act(),
-    get enabled() { return isCurrent() && forcedMatchEnabled(session.state); },
+    match: act,
+    get enabled() { return enabled(session.state); },
+    get showAction() { return session.state.step !== 'started'; },
     get assigned() {
       const { step, table } = session.state;
       return isCurrent() && ['seated', 'started'].includes(step) && table > 0 && table === room.TableId;
     },
-    get label() { return forcedMatchLabel(session.state, armed); },
-    get status() { return isCurrent() ? forcedMatchStatus(session.state, armed) : '连接不可用，请重新进入大厅。'; },
+    get label() { return forcedMatchLabel(session.state); },
+    get status() { return isCurrent() ? forcedMatchStatus(session.state) : '连接不可用，请重新进入大厅。'; },
   };
 }
