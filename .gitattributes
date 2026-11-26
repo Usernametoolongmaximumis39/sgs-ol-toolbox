@@ -1,1 +1,2 @@
 microclient/*.bat text eol=crlf
+tools/download-server/* text eol=lf

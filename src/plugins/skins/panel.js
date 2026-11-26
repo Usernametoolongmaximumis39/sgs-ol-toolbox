@@ -24,7 +24,7 @@ const styles = `
 [data-sgs-skin-settings] button{min-height:30px;white-space:nowrap;font-size:inherit}
 [data-sgs-skin-settings] .skin-use{color:var(--sgs-accent);border-color:var(--sgs-accent)}
 [data-sgs-skin-settings] .skin-catalogues{display:flex;gap:.45em;min-width:0;margin-top:.3em}
-[data-sgs-skin-settings] .skin-catalogues button{min-width:0;max-width:100%;padding-inline:.55em}
+[data-sgs-skin-settings] .skin-catalogues button{min-width:0;max-width:100%;padding-left:.55em;padding-right:.55em}
 `;
 
 export function renderSkinPanel(ctx, local, reconfigure, container, openYjcm, openForms, openMobile) {

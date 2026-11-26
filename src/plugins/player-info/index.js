@@ -1,3 +1,6 @@
+import { PLAYER_INFO_ICON } from '../../ui/plugin-icons.js';
+import { ResourceScope } from '../../core/resources.js';
+import { createGeneralPoolControls } from './general-pools/index.js';
 import { nativeSeat } from '../../core/seat.js';
 import { BLACK_GOLD } from '../../core/themes.js';
 import { createIdentityHints } from './identity.js';
@@ -9,10 +12,10 @@ import { cachedNativeWindow, watchNativeWindowEvents } from '../../shared/window
 const BATTLE_EVENTS = new Set(['toolbox:gap', 'MsgGamePlayCardNtf', 'MsgReconnectGame',
   'MsgReconnectGameHand', 'SmsgGameSetCharacter', 'GsCGuoZhanSetCharacter', 'ClientLeavetableRep', 'ClientLoginRep']);
 export const manifest = {
-  id: 'player-info', name: '玩家信息', version: '0.4.28', apiVersion: 1, contractVersion: 1,
+  id: 'player-info', name: '资料与将池', version: '0.4.30', apiVersion: 1, contractVersion: 1,
   journalEvents: ['toolbox:snapshot', ...BATTLE_EVENTS],
-  releaseNotes: "改善玩家资料卡切换目标后的加载和刷新，减少重复查询，优化关注武将设置的显示。", minCoreVersion: '0.6.185', description: '可选玩家资料卡与斗地主将灯检查，支持自定义关注武将、人机提示与自选身份补全',
-  icon: { paths: ['M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0', 'M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3'] },
+  releaseNotes: "将池并入玩家资料，可在同一插件管理将池方案、查看和搜索武将。改善切换玩家后的资料加载，减少重复查询。将池信息以游戏查询结果为准。", minCoreVersion: '0.6.297', description: '玩家资料、将灯人机提示与将池方案',
+  icon: PLAYER_INFO_ICON,
   priority: 30200, categories: ['game'],
 };
 const read = fn => { try { return fn(); } catch { return undefined; } };
@@ -64,7 +67,23 @@ export function activate(ctx) {
   const settings = createPlayerSettings(ctx, queueBattle);
   const lamps = createBattleLamps(ctx, settings.get, queueBattle);
   const stats = createPlayerStats(ctx, lamps, queueBattle);
-  ctx.ui?.registerPanel({ id: 'settings', category: 'game', render: container => renderPlayerSettings(ctx, container, settings, lamps) });
+  let poolsScope;
+  const poolsEnabled = () => ctx.settings?.get('generalPools', true) !== false;
+  function updateGeneralPools() {
+    if (!ctx.generalPoolStorage || !poolsEnabled()) {
+      poolsScope?.dispose(); poolsScope = undefined;
+    } else if (!poolsScope) {
+      poolsScope = new ResourceScope();
+      createGeneralPoolControls({ ...ctx, scope: poolsScope, storage: ctx.generalPoolStorage });
+    }
+  }
+  scope.add(() => poolsScope?.dispose());
+  updateGeneralPools();
+  const pools = ctx.generalPoolStorage && {
+    enabled: poolsEnabled,
+    set(enabled) { ctx.settings.set('generalPools', enabled); updateGeneralPools(); },
+  };
+  ctx.ui?.registerPanel({ id: 'settings', category: 'game', render: container => renderPlayerSettings(ctx, container, settings, lamps, pools) });
   let banner = null, account, battle = null, announced = false, profiles = new Map();
   let battleQueued = false, profileQueued = false, pendingSnapshot;
   const bindWindows = watchNativeWindowEvents(scope, PROFILE_WINDOWS, queueProfiles);

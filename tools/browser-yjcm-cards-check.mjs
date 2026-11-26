@@ -8,7 +8,7 @@ const methods=native.slice(native.indexOf('SetCardFace(t){'),native.indexOf('Upd
 const faceStart=source.indexOf('class fO extends'),faceSetterStart=source.indexOf('set texture(t){',faceStart);
 const faceSetter=source.slice(faceSetterStart,source.indexOf('SetNativeSize(',faceSetterStart));
 assert(methods.includes('updateNewCardFace(t=null)'));
-const bundle=await build({stdin:{contents:`export { CardStyleRegistry } from './src/core/card-styles.js'; export { ResourceScope } from './src/core/resources.js'; export { Settings } from './src/core/storage.js'; export { createShell } from './src/ui/shell.js'; export { ThemeRegistry, BLACK_GOLD } from './src/core/themes.js'; export { default as plugin } from './src/plugins/yjcm-cards/index.js';`,resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'YjcmCheck'});
+const bundle=await build({stdin:{contents:`export { CardStyleRegistry } from './src/core/card-styles.js'; export { ResourceScope } from './src/core/resources.js'; export { Settings } from './src/core/storage.js'; export { createShell } from './src/ui/shell.js'; export { ThemeRegistry, BLACK_GOLD } from './src/core/themes.js'; export { registerYjcmCardStyles } from './src/plugins/card-styles-extra/yjcm/index.js';`,resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'YjcmCheck'});
 const browser=await chromium.launch({channel:'chrome',headless:true}),page=await browser.newPage({viewport:{width:1120,height:860}}),errors=[],requests=[];
 page.on('pageerror',e=>errors.push(e.message));
 let corrupt=false, delayed=false;
@@ -44,7 +44,7 @@ try {
     const hand={cardUis:cards,virtualCardUis:[],createNormalCardUi(card){return add(card.ResName,35,380);},
       StartSelectCard(){const ui=this.createNormalCardUi({ResName:'HuoGong'});ui.theCard.IsVirtualCard=true;cards.splice(cards.indexOf(ui),1);this.virtualCardUis.push(ui);}},self={cardContainer:hand};
     const registry=new CardStyleRegistry({window,document,game:{getSelfSeatUI:()=>self},settings,scope});
-    let releases=[];const enable=()=>YjcmCheck.plugin.activate({cardStyles:{register:s=>releases.push(registry.register(s,'yjcm-cards'))}});
+    let releases=[];const enable=()=>YjcmCheck.registerYjcmCardStyles({cardStyles:{register:s=>releases.push(registry.register(s,'card-styles-extra'))}});
     enable();const disable=()=>{for(const release of releases)release();releases=[];};
     const shell=createShell({window,document,scope,settings});const themes=new ThemeRegistry(settings,t=>shell.applyTheme(t));
     shell.setHandlers({cardStyles:registry,themes,manager:{list:()=>[]},market:()=>null});
@@ -53,13 +53,13 @@ try {
   const host=page.locator('[data-sgs-toolbox="core"]');
   await host.locator('[data-category="manage"]').click();await host.getByRole('button',{name:'外观',exact:true}).click();await host.locator('.card-style-workshop .plugin-toggle').click();
   assert.equal(requests.length,0,'install/open must not download');
-  await page.waitForFunction(()=>[...check.shell.host.shadowRoot.querySelectorAll('[data-card-style^="yjcm-cards."] img')].filter(img=>img.complete&&img.naturalWidth===135&&img.naturalHeight===190).length===2);
+  await page.waitForFunction(()=>[...check.shell.host.shadowRoot.querySelectorAll(':is([data-card-style="card-styles-extra.miao"],[data-card-style="card-styles-extra.zhuzhuxia"]) img')].filter(img=>img.complete&&img.naturalWidth===135&&img.naturalHeight===190).length===2);
   assert.equal(requests.length,0,'both previews must be available before any atlas download');
-  await host.locator('[data-card-style="yjcm-cards.miao"]').scrollIntoViewIfNeeded();
+  await host.locator('[data-card-style="card-styles-extra.miao"]').scrollIntoViewIfNeeded();
   await page.screenshot({path:'test-results/yjcm-before-download.png'});
-  assert.equal(await host.locator('[data-card-side="back"][data-card-style^="yjcm-cards."]').count(),0);
-  await host.locator('[data-card-style="yjcm-cards.miao"]').focus();await page.keyboard.press('Enter');
-  await page.waitForFunction(()=>check.registry.atlases.get('yjcm-cards.miao')?.data);
+  assert.equal(await host.locator('[data-card-side="back"]:is([data-card-style="card-styles-extra.miao"],[data-card-style="card-styles-extra.zhuzhuxia"])').count(),0);
+  await host.locator('[data-card-style="card-styles-extra.miao"]').focus();await page.keyboard.press('Enter');
+  await page.waitForFunction(()=>check.registry.atlases.get('card-styles-extra.miao')?.data);
   assert(!await host.locator('.card-style-workshop').textContent().then(text=>text.includes('小抄')));
   await page.evaluate(()=>{
     const {cards,registry:r,original}=check;
@@ -115,26 +115,26 @@ try {
   await host.locator('.card-style-workshop').getByRole('status').scrollIntoViewIfNeeded();
   await page.screenshot({path:'test-results/yjcm-self-hand-status.png'});
   for(const width of [248,280,420])for(const light of [false,true]){
-    await page.evaluate(({width,light})=>{check.shell.host.style.width=width+'px';check.shell.applyTheme({...YjcmCheck.BLACK_GOLD.tokens,...(light?{bg:'#f6f0e4',surface:'#fffaf0',raised:'#ebe2cf',text:'#312a20',muted:'#746957',accent:'#826121',border:'#c7b89b',scheme:'light'}:{})});const s=check.shell.host.shadowRoot;s.querySelector('[data-card-style="yjcm-cards.miao"]').scrollIntoView({block:'center'});},{width,light});
+    await page.evaluate(({width,light})=>{check.shell.host.style.width=width+'px';check.shell.applyTheme({...YjcmCheck.BLACK_GOLD.tokens,...(light?{bg:'#f6f0e4',surface:'#fffaf0',raised:'#ebe2cf',text:'#312a20',muted:'#746957',accent:'#826121',border:'#c7b89b',scheme:'light'}:{})});const s=check.shell.host.shadowRoot;s.querySelector('[data-card-style="card-styles-extra.miao"]').scrollIntoView({block:'center'});},{width,light});
     await page.waitForTimeout(220);
     await page.screenshot({path:`test-results/yjcm-${width}-${light?'light':'dark'}.png`});
     assert.equal(await page.evaluate(()=>{const c=check.shell.host.shadowRoot.querySelector('.content');return c.scrollWidth>c.clientWidth;}),false);
   }
-  await host.locator('[data-card-style="yjcm-cards.zhuzhuxia"]').click();await page.waitForFunction(()=>check.registry.atlases.get('yjcm-cards.zhuzhuxia')?.data);
+  await host.locator('[data-card-style="card-styles-extra.zhuzhuxia"]').click();await page.waitForFunction(()=>check.registry.atlases.get('card-styles-extra.zhuzhuxia')?.data);
   assert(requests.includes('cardZhuZhuXia1.png'),'second sheet must load');
   await page.screenshot({path:'test-results/yjcm-zhuzhuxia.png'});
   await page.evaluate(()=>{check.disable();if(check.cards[0].bmpFace.texture!==check.original)throw Error('disable restore');check.enable();});
-  await page.waitForFunction(()=>check.registry.atlases.get('yjcm-cards.zhuzhuxia')?.data);
+  await page.waitForFunction(()=>check.registry.atlases.get('card-styles-extra.zhuzhuxia')?.data);
   corrupt=true;
-  await host.locator('[data-card-style="yjcm-cards.miao"]').click();await page.waitForFunction(()=>check.registry.atlases.get('yjcm-cards.miao')?.error);
+  await host.locator('[data-card-style="card-styles-extra.miao"]').click();await page.waitForFunction(()=>check.registry.atlases.get('card-styles-extra.miao')?.error);
   await page.evaluate(()=>{if(check.cards[0].bmpFace.texture!==check.original)throw Error('integrity error did not restore original');});
   await host.locator('.card-style-workshop').getByRole('status').scrollIntoViewIfNeeded();
   assert.equal(await page.evaluate(()=>{const c=check.shell.host.shadowRoot.querySelector('.content');return c.scrollWidth>c.clientWidth;}),false,'error detail overflow');
   await page.screenshot({path:'test-results/yjcm-load-error.png'});
   await host.getByRole('button',{name:'重新加载卡面'}).waitFor();corrupt=false;
-  await host.getByRole('button',{name:'重新加载卡面'}).click();await page.waitForFunction(()=>check.registry.atlases.get('yjcm-cards.miao')?.data);
+  await host.getByRole('button',{name:'重新加载卡面'}).click();await page.waitForFunction(()=>check.registry.atlases.get('card-styles-extra.miao')?.data);
   delayed=true;
-  await page.evaluate(()=>{check.registry.selectSide('face','yjcm-cards.zhuzhuxia');check.registry.selectSide('face','');});
+  await page.evaluate(()=>{check.registry.selectSide('face','card-styles-extra.zhuzhuxia');check.registry.selectSide('face','');});
   await page.waitForTimeout(400);
   await page.evaluate(()=>{if(check.cards[0].bmpFace.texture!==check.original||check.registry.atlases.size)throw Error('late download revived selection');check.scope.dispose();});
   assert.deepEqual(errors,[]);

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 import { createMarketServer } from './market-server.mjs';
 import { PACKAGE_FORMAT, packageDigest } from '../src/core/packages.js';
-import { THEMES } from '../src/plugins/themes/palettes.js';
+import { THEMES } from '../src/core/theme-palettes.js';
 
 const output = path.resolve('test-results'); await mkdir(output, { recursive: true });
 const market = await createMarketServer({ port: 0 });

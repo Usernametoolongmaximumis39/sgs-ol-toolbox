@@ -67,7 +67,8 @@ export class BackgroundHistory {
     const entries = await localBackgroundImage(this.window, 'readonly', store => store.getAll(keys));
     return entries.sort((a, b) => b.usedAt - a.usedAt).map(({ id, spec, preview }) => ({
       id, name: spec.name, url: spec.url, preview,
-      source: id.startsWith('native:') ? '本服皮肤' : id.startsWith('skin:["mobile",') ? '移动版皮肤' : id.startsWith('skin:') ? '一将成名' : '本地图片',
+      source: spec.officialWallpaper ? '官方背景' : id.startsWith('native:') ? '本服皮肤'
+        : id.startsWith('skin:["mobile",') ? '移动版皮肤' : id.startsWith('skin:') ? '一将成名' : '本地图片',
     }));
   }
 

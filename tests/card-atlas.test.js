@@ -7,8 +7,9 @@ import { SessionJournal } from '../src/core/session.js';
 import { CardStyleRegistry } from '../src/core/card-styles.js';
 import { ResourceScope } from '../src/core/resources.js';
 import { cardFrameName, parseCardFrames, validateCardAtlas, loadCardAtlas } from '../src/core/card-atlas.js';
-import plugin from '../src/plugins/yjcm-cards/index.js';
-import { resources } from '../src/plugins/yjcm-cards/resources.js';
+import { registerYjcmCardStyles } from '../src/plugins/card-styles-extra/yjcm/index.js';
+import { manifest } from '../src/plugins/card-styles-extra/index.js';
+import { resources } from '../src/plugins/card-styles-extra/yjcm/resources.js';
 import { bundlePlugin, makePluginPackage } from '../tools/plugin-packages.mjs';
 import { verifyPackage } from '../src/core/packages.js';
 
@@ -151,8 +152,8 @@ test('full art: exact special cards, missing/virtual/native overrides, pooled re
   t.after(()=>scope.dispose());
   registry.ensureAtlas = () => ({});
   registry.atlasCanvas = (style,name) => ['Sha','GuoZhanSha'].includes(name) ? {} : null;
-  plugin.activate({cardStyles:{register:s=>registry.register(s,'yjcm-cards')}});
-  registry.selectSide('face','yjcm-cards.miao');
+  registerYjcmCardStyles({cardStyles:{register:s=>registry.register(s,'card-styles-extra')}});
+  registry.selectSide('face','card-styles-extra.miao');
   const themed=cards[0].bmpFace.texture;
   assert.notEqual(themed,original); assert.equal(cards[0].bmpFace2.visible,false);
   assert.equal(cards[0].bmpNumber.texture,number); assert.equal(cards[0].bmpFlower.texture,flower);
@@ -168,18 +169,18 @@ test('full art: exact special cards, missing/virtual/native overrides, pooled re
   cards[0].theCard={ResName:'Sha',IsEmpty:false,IsVirtualCard:true};cards[0].SetCardFace();assert.equal(cards[0].bmpFace.texture,themed,'virtual display cards use their exact native resource name');
   cards[0].theCard={ResName:'Sha',IsEmpty:false};cards[0].IsYiCard=true;cards[0].isSkillChangeStatus=true;cards[0].SetCardFace();assert.equal(cards[0].bmpFace.texture,themed,'new-card Yi/skill labels must not block exact illustration');
   cards[0].theCard={ResName:'Sha',IsEmpty:false,IsVirtualCard:true,IsVirtualRealCard:true};cards[0].SetCardFace();assert.equal(cards[0].bmpFace.texture,themed,'virtual real cards preserve their exact physical art');registry.selectSide('face','');assert.equal(cards[0].bmpFace.texture,original);assert.equal(cards[0].bmpFace2.visible,true);
-  registry.selectSide('face','yjcm-cards.miao');cards[0].isNewCardUI=false;cards[0].IsYiCard=false;cards[0].SetCardFace();assert.equal(cards[0].bmpFace.texture,themed,'self-hand legacy full-image renderer accepts exact atlas art');
+  registry.selectSide('face','card-styles-extra.miao');cards[0].isNewCardUI=false;cards[0].IsYiCard=false;cards[0].SetCardFace();assert.equal(cards[0].bmpFace.texture,themed,'self-hand legacy full-image renderer accepts exact atlas art');
   cards[0].IsYiCard=true;cards[0].SetCardFace();assert.equal(cards[0].bmpFace.texture,original,'legacy Yi special image remains native');
-  assert.throws(()=>registry.selectSide('back','yjcm-cards.miao'), /仅提供卡面/);
+  assert.throws(()=>registry.selectSide('back','card-styles-extra.miao'), /仅提供卡面/);
 });
 
 test('yjcm package is standalone and declares two sourced, pinned face-only styles', async () => {
-  const styles=[];plugin.activate({cardStyles:{register:s=>styles.push(s)}});
+  const styles=[];registerYjcmCardStyles({cardStyles:{register:s=>styles.push(s)}});
   assert.equal(styles.length,2);assert(styles.every(s=>s.atlas.source.includes('官方资源')&&!s.back));
-  assert.equal(plugin.manifest.minCoreVersion, '0.6.185');
+  assert.equal(manifest.minCoreVersion, '0.6.185');
   assert(styles.every(s=>s.atlas.previewImage.startsWith('data:image/webp;base64,')&&!s.atlas.source.includes('小抄')));
-  const bundle=await bundlePlugin('yjcm-cards');assert(bundle.inputs.every(p=>p.startsWith('src/plugins/yjcm-cards/')));
-  const packet=await makePluginPackage(bundle);await verifyPackage(packet);assert(packet.code.length<200000,'only two small previews are embedded, not full sheets');
+  const bundle=await bundlePlugin('card-styles-extra');assert(bundle.inputs.every(p=>p.startsWith('src/plugins/card-styles-extra/')));
+  const packet=await makePluginPackage(bundle);await verifyPackage(packet);assert(packet.code.length<256000,'only small previews and the card back are embedded, not full sheets');
 });
 
 test('yjcm real plugin manager install/disable/enable/reload/update/rollback/uninstall', async t => {
@@ -187,12 +188,12 @@ test('yjcm real plugin manager install/disable/enable/reload/update/rollback/uni
   const registry=new CardStyleRegistry({window:dom.window,document:dom.window.document,game:{},settings,scope});
   const manager=new PluginManager({journal:new SessionJournal(),settings,store:{async list(){return [...rows.values()];},async put(r){rows.set(r.id,structuredClone(r));}},context:{window:dom.window,document:dom.window.document,cardStyles:registry,ui:{}}});
   t.after(()=>{manager.dispose();scope.dispose();dom.window.close();});
-  await manager.init();const packet=await makePluginPackage(await bundlePlugin('yjcm-cards'));await manager.install(packet);
-  assert.equal(registry.list().length,2);assert.equal(registry.atlases.size,0,'installation is offline');
-  await manager.disable('yjcm-cards');assert.equal(registry.list().length,0);
-  await manager.enable('yjcm-cards');await manager.reload('yjcm-cards');assert.equal(registry.list().length,2);
-  await manager.install(packet);assert.equal(registry.list().length,2);await manager.rollback('yjcm-cards');assert.equal(registry.list().length,2);
-  await manager.uninstall('yjcm-cards');assert.equal(registry.list().length,0);assert.equal(registry.atlases.size,0);
+  await manager.init();const packet=await makePluginPackage(await bundlePlugin('card-styles-extra'));await manager.install(packet);
+  assert.equal(registry.list().length,6);assert.equal(registry.atlases.size,0,'installation is offline');
+  await manager.disable('card-styles-extra');assert.equal(registry.list().length,0);
+  await manager.enable('card-styles-extra');await manager.reload('card-styles-extra');assert.equal(registry.list().length,6);
+  await manager.install(packet);assert.equal(registry.list().length,6);await manager.rollback('card-styles-extra');assert.equal(registry.list().length,6);
+  await manager.uninstall('card-styles-extra');assert.equal(registry.list().length,0);assert.equal(registry.atlases.size,0);
 });
 
 test('skill refresh preserves native auto-sized face dimensions and isolates different UI sizes', t => {
@@ -210,7 +211,7 @@ test('skill refresh preserves native auto-sized face dimensions and isolates dif
   const registry=new CardStyleRegistry({window:{Laya:{Texture2D:class{loadImageSource(){}},Texture:class{destroy(){}}}},document:{},
     game:{getSelfSeatUI:()=>({cardContainer:{cardUis:cards}})},settings:{get:(k,d)=>data.has(k)?data.get(k):d,set:(k,v)=>data.set(k,v)},scope});
   t.after(()=>scope.dispose());registry.ensureAtlas=()=>({});registry.atlasCanvas=()=>({});
-  plugin.activate({cardStyles:{register:s=>registry.register(s,'yjcm-cards')}});registry.selectSide('face','yjcm-cards.miao');
+  registerYjcmCardStyles({cardStyles:{register:s=>registry.register(s,'card-styles-extra')}});registry.selectSide('face','card-styles-extra.miao');
   const before=hand.bmpFace.texture;
   assert.deepEqual([hand.bmpFace.width,hand.bmpFace.height],[133,184]);
   assert.deepEqual([popup.bmpFace.width,popup.bmpFace.height],[126,174]);assert.notEqual(before,popup.bmpFace.texture);
@@ -234,7 +235,7 @@ test('virtual skill lists and standalone shop cards bind before insertion return
     StartSelectCard(){this.virtualCardUis.push(this.createNormalCardUi({ResName:'Sha',IsEmpty:false,IsVirtualCard:true}));}};
   const registry=new CardStyleRegistry({window:{Laya:{stage,Texture2D:class{loadImageSource(){}},Texture:class{destroy(){}}}},document:{},game:{getScene:()=>stage,getSelfSeatUI:()=>({cardContainer:hand})},settings:{get:(k,d)=>data.has(k)?data.get(k):d,set:(k,v)=>data.set(k,v)},scope});
   t.after(()=>scope.dispose());registry.ensureAtlas=()=>({});registry.atlasCanvas=()=>({});
-  plugin.activate({cardStyles:{register:s=>registry.register(s,'yjcm-cards')}});registry.selectSide('face','yjcm-cards.miao');
+  registerYjcmCardStyles({cardStyles:{register:s=>registry.register(s,'card-styles-extra')}});registry.selectSide('face','card-styles-extra.miao');
   hand.StartSelectCard();const virtual=hand.virtualCardUis[0];assert.notEqual(virtual.bmpFace.texture,original,'skill card is styled in same call');
   const shop={cardUi:make('Shan')};stage.addChild(shop);assert.notEqual(shop.cardUi.bmpFace.texture,original,'shop single card styled before addChild returns');
   for(let i=0;i<3;i++){registry.refreshNative();assert(registry.bindings.has(virtual));assert(registry.bindings.has(shop.cardUi));}

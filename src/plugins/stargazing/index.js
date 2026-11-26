@@ -1,3 +1,4 @@
+import { STARGAZING_ICON } from '../../ui/plugin-icons.js';
 import { STARGAZING_SITE } from '../../shared/stargazing-source.js';
 import { findEntries, normalizeReport } from './report.js';
 import { STYLES } from './styles.js';
@@ -5,13 +6,13 @@ import { STYLES } from './styles.js';
 export const manifest = {
   id: 'stargazing',
   name: '自助观星',
-  version: '0.1.1',
+  version: '0.1.2',
   apiVersion: 1,
   contractVersion: 1,
   minCoreVersion: '0.6.180',
-  description: '在游戏内按栏目查看和搜索第三方观星报告。',
+  description: '按栏目查看与搜索第三方观星报告',
   releaseNotes: "更新观星窗口和入口样式。绑定支持接管观星的同步服务器后，核心可使用现有绑定授权通过该服务器读取报告，其他情况下直接匿名读取来源站。",
-  icon: { paths: ['M12 2l2.6 6.6L22 12l-7.4 3.4L12 22l-2.6-6.6L2 12l7.4-3.4L12 2Z', 'M19 3v4m-2-2h4'] },
+  icon: STARGAZING_ICON,
   priority: 32768,
   categories: ['tools'],
 };

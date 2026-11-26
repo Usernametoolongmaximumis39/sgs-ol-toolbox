@@ -23,6 +23,7 @@ ALLOWED.add('gn_dbs_coupon_cfg');
 ALLOWED.add('hd_fight_lord_config');
 ALLOWED.add('sys_ss_gamelabel_config');
 ALLOWED.add('sys_h5_music');
+ALLOWED.add('gn_WallPaper');
 const YJCM_SKINS = 'yjcm-skins';
 ALLOWED.add(YJCM_SKINS);
 const ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024;

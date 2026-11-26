@@ -8,14 +8,7 @@ export const pluginReleases = [
     "compact": true
   },
   {
-    "id": "native-cards"
-  },
-  {
-    "id": "yjcm-cards",
-    "compact": true
-  },
-  {
-    "id": "dafeiyu-cards",
+    "id": "card-styles-extra",
     "compact": true
   },
   {
@@ -23,16 +16,8 @@ export const pluginReleases = [
     "compact": true
   },
   {
-    "id": "gold-cards"
-  },
-  {
     "id": "shanhetu",
     "compact": true
-  },
-  {
-    "id": "shanhetu-beta",
-    "compact": true,
-    "excludeFromFull": true
   },
   {
     "id": "cards",
@@ -68,15 +53,12 @@ export const pluginReleases = [
     "excludeFromFull": true
   },
   {
+    "id": "themes-flow",
+    "compact": true,
+    "excludeFromFull": true
+  },
+  {
     "id": "stargazing",
-    "compact": true
-  },
-  {
-    "id": "wish-progress",
-    "compact": true
-  },
-  {
-    "id": "themes",
     "compact": true
   },
   {

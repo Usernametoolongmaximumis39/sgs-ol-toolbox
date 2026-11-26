@@ -1,18 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import themesPlugin, { THEMES } from '../src/plugins/themes/index.js';
+import { THEMES } from '../src/core/theme-palettes.js';
+import { reconcileConsolidatedPlugins } from '../src/core/consolidated-plugins.js';
 import { ThemeRegistry, BLACK_GOLD } from '../src/core/themes.js';
 import { Settings } from '../src/core/storage.js';
 import { ResourceScope } from '../src/core/resources.js';
 import { PluginManager } from '../src/core/plugins.js';
 import { SessionJournal } from '../src/core/session.js';
-import { bundlePlugin, makePluginPackage } from '../tools/plugin-packages.mjs';
+import { bundleCore } from '../tools/distribution-build.mjs';
 import { mountThemeWorkshop } from '../src/ui/theme-workshop.js';
 import { createShell } from '../src/ui/shell.js';
 import { REPLACED_THEME_PACKAGES } from '../src/core/version.js';
 import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { verifyPackage } from '../src/core/packages.js';
+
+const themesPlugin = {
+  manifest: { id: 'themes', name: '测试主题包', version: '0.1.6', apiVersion: 1, contractVersion: 1,
+    minCoreVersion: '0.5.15', categories: [], icon: 'palette', priority: 50000, description: '测试外部主题的生命周期' },
+  activate(ctx) { for (const theme of THEMES) ctx.themes.register(theme); },
+};
 
 function setup(t) {
   const dom = new JSDOM('<main></main>', { url: 'https://example.test/' });
@@ -114,11 +122,11 @@ test('themes: text, secondary text, accents and errors retain readable contrast 
   }
 });
 
-test('themes: release bundle is self-contained and verifiable', async () => {
-  const bundle = await bundlePlugin('themes'), pkg = await makePluginPackage(bundle);
-  assert.ok(bundle.inputs.every(path => !path.startsWith('src/plugins/') || path.startsWith('src/plugins/themes/')));
-  assert.doesNotMatch(pkg.code, /sgs\.ol\.toolbox\.core|Uc1cryZVg|VIiR0YfvE4s/);
-  await verifyPackage(pkg);
+test('themes: a fresh Lite build includes all eight palettes in its core', async () => {
+  const { inputs, code } = await bundleCore({ root: fileURLToPath(new URL('..', import.meta.url)), edition: 'lite', packages: [] });
+  assert.ok(inputs.includes('src/core/theme-palettes.js'));
+  assert.ok(inputs.every(path => !path.startsWith('src/plugins/')));
+  for (const theme of THEMES) assert.ok(code.includes(theme.id));
 });
 
 test('themes: real manager exposes current/list/select/subscribe and rejects unknown or disposed selections', async t => {
@@ -211,24 +219,30 @@ test('themes: settings owns the workshop independently of plugins and cleans it 
   scope.dispose(); assert.equal(h.registry.listeners.size, 0);
 });
 
-test('themes: verified former workshop package migrates once with selection, disable and rollback preserved', async t => {
+test('themes: archive a verified workshop package once and preserve its palette choice in core', async t => {
   const pkg = JSON.parse(await readFile(new URL('./fixtures/themes-0.1.1.json', import.meta.url), 'utf8'));
   await verifyPackage(pkg); assert.ok(REPLACED_THEME_PACKAGES.includes(pkg.sha256));
-  const h = setup(t), records = new Map(); h.settings.set('theme', 'themes.blue');
-  const module = { ...themesPlugin, replacesPackageDigests: REPLACED_THEME_PACKAGES };
-  const create = () => { const manager = new PluginManager({ journal: new SessionJournal(), settings: h.settings,
-    store: { async list() { return [...records.values()]; }, async put(row) { records.set(row.id, structuredClone(row)); } },
-    context: { document: h.dom.window.document, window: h.dom.window, themes: h.registry, ui: { registerPanel() { return () => {}; } }, notify() {} },
-  }); manager.registerBuiltin(module); return manager; };
+  const h = setup(t), records = new Map();
+  h.settings.set('theme', 'themes.blue');
+  const registry = new ThemeRegistry(h.settings, undefined, THEMES);
+  const store = { async list() { return [...records.values()]; }, async putMany(changes) {
+    for (const row of changes) records.set(row.id, structuredClone(row));
+  } };
+  const manager = new PluginManager({ journal: new SessionJournal(), settings: h.settings, store,
+    context: { document: h.dom.window.document, window: h.dom.window, themes: registry } });
+  t.after(() => manager.dispose());
   records.set('themes', { id: 'themes', active: pkg, previous: null, enabled: false, uninstalled: false });
-  let manager = create(); t.after(() => manager.dispose()); await manager.init();
-  assert.equal(manager.list()[0].version, themesPlugin.manifest.version);
-  assert.equal(manager.list()[0].enabled, false); assert.equal(h.registry.list().length, 1);
-  assert.equal(h.settings.get('theme'), 'themes.blue');
-  await manager.enable('themes'); assert.equal(h.registry.current.id, 'themes.blue');
-  await manager.rollback('themes'); assert.equal(manager.list()[0].version, '0.1.1');
-  manager.dispose(); manager = create(); await manager.init();
-  assert.equal(manager.list()[0].version, '0.1.1', 'explicit rollback must not be migrated again');
+  const reconcile = (rows, builtins) => reconcileConsolidatedPlugins(rows, builtins, store, h.settings, {});
+  await manager.init(reconcile);
+  assert.deepEqual(manager.list(), []);
+  assert.equal(registry.list().length, 9);
+  assert.equal(registry.current.id, 'themes.blue');
+  const archived = records.get('themes');
+  assert.equal(archived.mergedInto, 'core');
+  assert.equal(archived.enabled, false);
+  assert.equal(archived.active.sha256, pkg.sha256);
+  await reconcile(records, new Map());
+  assert.equal(records.get('themes'), archived, 'subsequent starts do not rewrite the archive');
 });
 
 

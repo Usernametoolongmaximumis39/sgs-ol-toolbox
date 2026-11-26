@@ -128,13 +128,14 @@ export function createNativeAdapter(ctx) {
       const preparation = { ...adapter, signal: context.signal || adapter.signal, valid: context.valid || (() => !adapter.signal?.aborted) };
       const results = await Promise.allSettled([
         prepareFreeWelfare(preparation, selected),
+        prepareWelfare(preparation, selected),
         rewardExclusions.some(([key]) => selected[key]) ? adapter.loadConfig('sys_gs_dbs_fs_goodsbaseinfo') : null,
         selected.mail && rewardExclusions.some(([key]) => selected[key]) && [...rows(manager('MailManager')?.systemMailList), ...rows(manager('MailManager')?.friendMailList)].some(mail => Number(mail?.AttachmentType) === 1) ? adapter.loadConfig('gn_dbs_giftbag') : null,
         selected.tasks && rewardExclusions.some(([key]) => selected[key]) && manager('TianTiManager') ? adapter.loadConfig('mod_new_ttrank_config') : null,
         selected.sign && !signRows().length ? adapter.loadConfig('gn_zonghe') : null,
-        prepareWelfare(preparation, selected), prepareActivities(preparation, selected), prepareActivityQuests(preparation, selected),
+        prepareActivities(preparation, selected), prepareActivityQuests(preparation, selected),
       ]);
-      return { dailyFreeGiftCount: results[0].value, incomplete: results.some(result => result.status === 'rejected') };
+      return { dailyFreeGiftCount: results[0].value, treePrerequisiteMet: results[1].value, incomplete: results.some(result => result.status === 'rejected') };
     },
   };
   return adapter;

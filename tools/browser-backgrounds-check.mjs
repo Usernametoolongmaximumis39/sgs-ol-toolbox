@@ -68,7 +68,7 @@ try {
       posInteger(x,y) { this.pos(x,y); }
     };
     window.ti = { backgroundLayer: 0 }; window.hi = { Lv1: 1 };
-    window.cAt = { gameWidth: 1200, gameHeight: 850, gameScale: 1 };
+    window.cAt = { gameWidth: 1200, gameHeight: 850, gameScale: 1, GetBackAniScale: () => 1 };
     if (!currentClient) window.SystemContext = window.cAt;
     window.V2t = { IsInGame: false }; window.dqt = { CARDUI_CONTAINER_HEIGHT: 100 };
     window.ue = { I: () => ({ event() {} }) };
@@ -181,6 +181,26 @@ try {
       skin: fixture.native.bg?.skin,
     })), { legacyMethod: 'undefined', globalGeometry: 'undefined', viewport: [1200, 850], skin: 'res/saved-skin.png' });
     await page.getByRole('button', { name: '恢复游戏背景' }).click();
+  }
+  if (!currentClientPath) {
+    await page.evaluate(() => fixture.registry.select('backgrounds', { name: '官方动态演练',
+      url: 'res/wallpaper/small/live.png', officialWallpaper: true,
+      wallpaperMotion: { kind: 'spine', url: 'res/wallpaper/ani/live.json' } }));
+    await page.waitForFunction(() => fixture.registry.status === '动态牌局背景已启用');
+    assert.deepEqual(await page.evaluate(() => {
+      const { native, registry } = fixture;
+      const root = native.getChildByName('sgs-background-motion'), effect = root.getChildAt(0);
+      return [root.visible, effect.url, effect.animation, effect.loop, effect.running, native.bg.visible,
+        Boolean(native.bgLiveEffect), registry.current.officialWallpaper];
+    }), [true, 'res/wallpaper/ani/live.json', 0, true, true, false, false, true]);
+    await page.evaluate(() => fixture.scene.OnWeatherWallPaperChange());
+    assert.equal(await page.evaluate(() => fixture.native.getChildByName('sgs-background-motion').visible), false);
+    await page.evaluate(() => fixture.scene.OnNormalWallPaperChange());
+    assert.equal(await page.evaluate(() => fixture.native.getChildByName('sgs-background-motion').visible), true);
+    await page.evaluate(() => fixture.registry.setAnimated('backgrounds', false));
+    assert.equal(await page.evaluate(() => fixture.native.getChildByName('sgs-background-motion')), null);
+    assert.equal(await page.evaluate(() => fixture.native.bg.visible), true);
+    await page.evaluate(() => fixture.registry.select('backgrounds', null));
   }
   const button = page.getByRole('button', { name: '作为牌局背景', exact: true });
   await page.evaluate(()=>{fixture.detail.skinData.skinBaseVo.SkinBigUrl=()=>{throw Error('skin config pending');};});

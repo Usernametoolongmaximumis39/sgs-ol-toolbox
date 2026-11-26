@@ -45,11 +45,14 @@ export function paintCard(Laya, layer, card, x, y, width, height, palette) {
   const wild = isWildCard(card);
   const fill = known ? '#fbf5e9' : palette.raised;
   const border = wild ? palette.accent : known ? '#ad9f84' : palette.border;
-  layer.graphics.drawRect(x + 1, y + 3, width, height, palette.shadow);
   if (!known && drawPokerBack(Laya, layer.graphics, x, y, width, height)) return;
   const artwork = known && drawPokerArtwork(Laya, layer.graphics, card, x, y, width, height);
-  if (!artwork) layer.graphics.drawRect(x, y, width, height, fill, border, 1);
-  else if (wild) layer.graphics.drawRect(x, y, width, height, null, border, 1);
+  if (!artwork) {
+    layer.graphics.drawRect(x + 1, y + 3, width, height, '#00000055');
+    layer.graphics.drawRect(x, y, width, height, fill, border, 1);
+  } else if (wild) {
+    layer.graphics.drawRect(x, y, width, height, null, border, 1);
+  }
   if (known && (wild || card.virtual || card.suit !== card.baseSuit || card.rank !== card.baseRank)) {
     const size = Math.max(12, Math.min(18, Math.floor(width * .38)));
     const mx = x + 4, my = y + Math.round(height * .66);

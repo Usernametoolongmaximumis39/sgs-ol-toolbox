@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { planWelfare, prepareWelfare, managerSpecs } from '../src/plugins/daily-rewards/welfare.js';
 import { awaitClaim, createRewardsController } from '../src/plugins/daily-rewards/controller.js';
+import { createNativeAdapter } from '../src/plugins/daily-rewards/native.js';
 import { ResourceScope } from '../src/core/resources.js';
 import { Settings } from '../src/core/storage.js';
 
@@ -157,6 +158,22 @@ test('stop removes tree listeners and prevents later info request', async () => 
   assert.equal((await claim(action(f, 'tree:claim'), { signal: aborter.signal })).status, 'interrupted');
   f.welfare.emit('KANSHU_GET_AWARD'); assert.equal(f.calls.length, 0); assert.equal(f.welfare.listenerCount, 0);
 });
+test('tree claim refreshes the native state when the award event is missing', async () => {
+  const f = createWelfareFixture();
+  f.welfare.JbpUserData.Status = 1;
+  f.managers.GameGoodsManager.count = 1;
+  f.welfare.ReqJbpAwd = id => {
+    f.calls.push(['tree-claim', id]);
+    f.managers.GameGoodsManager.count--;
+  };
+  const refresh = f.welfare.ReqJbpInfo;
+  f.welfare.ReqJbpInfo = function () {
+    this.JbpUserData.Status = 2;
+    refresh.call(this);
+  };
+  assert.equal((await claim(action(f, 'tree:claim'), { timeout: 80 })).status, 'confirmed');
+  assert.deepEqual(f.calls, [['tree-claim', 12130101], 'tree-info']);
+});
 test('free drum requires native CanDrum and remaining times; no paid method', async () => {
   const f = createWelfareFixture();
   assert.equal((await claim(action(f, 'drum:8:1'))).status, 'confirmed');
@@ -290,6 +307,41 @@ test('tree skips locked or sub-200 accounts before cutting; pickup continues aft
   f.managers.BlessManager.FreeBlessItemEnough = true;
   f.welfare.JbpUserData.Status = 1; f.managers.GameGoodsManager.count = 1; balance = 0;
   assert.ok(plan().actions.find(x => x.key === 'welfare:tree:claim'));
+});
+
+test('fresh native tree status resumes an interrupted cut or tool purchase after plugin reload', async t => {
+  for (const step of ['start', 'item', 'claim']) {
+    const f = createWelfareFixture('G');
+    const scope = new ResourceScope(); t.after(() => scope.dispose());
+    const date = new Date(2026, 10, 13, 12);
+    const adapter = createNativeAdapter({ window: {}, scope, game: {
+      getClass: name => name === 'TimerManager' ? { ServerDate: date } : f.managers[name],
+      getServerProxy: () => f.proxy,
+      getSelf: () => ({ ClientId: 41, TotalYuanBao: 200 }),
+      getConfigData: name => f.configs[`${name}.sgs`],
+      loadConfigData: async name => f.configs[`${name}.sgs`],
+    } });
+    f.welfare.JbpUserData.Status = 0;
+    const refresh = f.welfare.ReqJbpInfo;
+    f.welfare.ReqJbpInfo = function () {
+      if (this.JbpUserData.Status === 0) {
+        this.JbpUserData.Status = 1;
+        f.managers.GameGoodsManager.count = step === 'start' ? 0 : 1;
+      }
+      refresh.call(this);
+    };
+    const ledgerKey = 'account:41:attempts', key = `welfare:tree:${step}`;
+    const map = new Map([[ledgerKey, { day: '2026-11-13', items: { [key]: { status: 'unconfirmed' } } }]]);
+    const settings = { get: (k, d) => map.get(k) ?? d, set: (k, v) => map.set(k, structuredClone(v)) };
+    const controller = createRewardsController({ adapter, settings, scope, timeout: 100, poll: 2 });
+    controller.options({ automatic: true, sign: false, tasks: false, mail: false, activities: false, codes: false, welfare: true, excludeRecruit: false, excludeCoupon: false, excludeTrial: false });
+    await controller.run();
+    await controller.run();
+    const operations = f.calls.filter(call => call === 'tree-start' || ['tree-buy', 'tree-claim'].includes(call[0]))
+      .map(call => Array.isArray(call) ? call[0] : call);
+    assert.deepEqual(operations, step === 'start' ? ['tree-buy', 'tree-claim'] : step === 'item' ? ['tree-claim'] : []);
+    assert.equal(map.get(ledgerKey).items[key].status, step === 'claim' ? 'unconfirmed' : 'confirmed');
+  }
 });
 
 test('explicit tree failures stop after three and stay stopped after reload; unknown result sends once', async t => {

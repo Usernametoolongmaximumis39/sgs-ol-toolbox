@@ -4,8 +4,8 @@ import { createController } from './controller.js';
 import { ITEMS, normalize, rowLabel } from './model.js';
 
 export default {
-  manifest: { id: 'seckill', name: '自动秒杀', version: '0.1.5', apiVersion: 1, contractVersion: 1, releaseNotes: "调整自动购买界面的标题和图标。自动购买默认关闭，启用后可能消耗游戏货币。", minCoreVersion: '0.6.37',
-    description: '按所选物品与关键词自动抢购秒杀商品，支持跨场次排队与购买确认', icon: SECKILL_ICON, priority: 21000, categories: ['automation'] },
+  manifest: { id: 'seckill', name: '自动秒杀', version: '0.1.6', apiVersion: 1, contractVersion: 1, releaseNotes: "调整自动购买界面的标题和图标。自动购买默认关闭，启用后可能消耗游戏货币。", minCoreVersion: '0.6.37',
+    description: '按物品与关键词自动排队抢购秒杀', icon: SECKILL_ICON, priority: 21000, categories: ['automation'] },
   activate(ctx) {
     const controller = createController({ adapter: createNativeAdapter(ctx), settings: ctx.settings, scope: ctx.scope, reportError: e => ctx.reportError?.(e), notify: ctx.notify });
     ctx.ui.registerPanel({ id: 'main', category: 'automation', render(container) {
@@ -20,10 +20,10 @@ export default {
         [data-seckill] h3{font-size:13px;margin:0;display:flex;gap:6px;align-items:center}[data-seckill] .sk-power{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--sgs-muted)}
         [data-seckill] .sk-note{color:var(--sgs-muted);font-size:10px;margin:8px 0;overflow-wrap:anywhere}
         [data-seckill] .sk-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
-        [data-seckill] .sk-option{position:relative;text-align:left;min-width:0;padding:6px 8px 6px 10px;border:0;border-radius:6px;color:var(--sgs-muted);background:color-mix(in srgb,var(--sgs-surface) 55%,transparent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 3%,transparent)}
+        [data-seckill] .sk-option{position:relative;text-align:left;min-width:0;padding:5px 8px 5px 10px;line-height:1.45;border:0;border-radius:6px;color:var(--sgs-muted);background:color-mix(in srgb,var(--sgs-surface) 55%,transparent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 3%,transparent)}
         [data-seckill] .sk-option:before{content:'';position:absolute;left:0;top:9px;bottom:9px;width:2px;background:var(--sgs-border);border-radius:2px}
         [data-seckill] .sk-option[aria-pressed=true]{color:var(--sgs-text);background:linear-gradient(110deg,color-mix(in srgb,var(--sgs-accent) 13%,transparent),color-mix(in srgb,var(--sgs-surface) 50%,transparent))}
-        [data-seckill] .sk-option[aria-pressed=true]:before{background:var(--sgs-accent)}[data-seckill] .sk-option span{display:block;font-size:9px;color:var(--sgs-muted)}[data-seckill] .sk-option[aria-pressed=true] span{color:var(--sgs-accent)}
+        [data-seckill] .sk-option[aria-pressed=true]:before{background:var(--sgs-accent)}[data-seckill] .sk-option span{display:block;font-size:10px;color:var(--sgs-muted)}[data-seckill] .sk-option[aria-pressed=true] span{color:var(--sgs-accent)}
         [data-seckill] .sk-custom{display:flex;gap:5px;margin-top:9px}[data-seckill] .sk-custom input{flex:1;width:0}[data-seckill] .sk-icon{display:inline-flex;align-items:center;justify-content:center;flex:none;width:30px;min-height:30px;padding:5px;border:0;border-radius:6px;background:transparent;color:var(--sgs-muted)}[data-seckill] .sk-icon:hover{color:var(--sgs-accent);background:var(--sgs-surface)}
         [data-seckill] .sk-tags{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}[data-seckill] .sk-tag{display:flex;align-items:center;gap:3px;max-width:100%;border-radius:6px;background:var(--sgs-surface);padding-left:7px}[data-seckill] .sk-tag>span{overflow-wrap:anywhere;min-width:0}[data-seckill] .sk-tag button{width:26px;min-height:28px}
         [data-seckill] .sk-status{display:flex;align-items:flex-start;gap:5px;margin-top:8px;padding-left:8px;border-left:2px solid var(--sgs-border);color:var(--sgs-muted);font-size:11px;overflow-wrap:anywhere}[data-seckill] .sk-status p{flex:1;min-width:0;margin:3px 0}[data-seckill] .sk-status.is-error{color:var(--sgs-danger);border-color:var(--sgs-danger)}

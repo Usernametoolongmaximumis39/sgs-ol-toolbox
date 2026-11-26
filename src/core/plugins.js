@@ -196,6 +196,8 @@ export class PluginManager {
       } }),
       ...(id === 'cards' && { pokerTableCards: { read: scene => scope.closed ? null : this.pokerTableCards.read(scene) } }),
       scope, settings: this.settings.namespace(id), storage: this.settings.namespace(id), getState: () => slot.state,
+      // Keep the account scheme data on the same key used by preference sync.
+      ...(id === 'player-info' && { generalPoolStorage: this.settings.namespace('general-pools') }),
       subscribe: fn => {
         if (!slot.listeners.size) this.eventRoutes.clear();
         slot.listeners.add(fn);

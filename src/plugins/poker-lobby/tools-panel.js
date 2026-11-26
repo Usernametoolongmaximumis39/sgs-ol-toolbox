@@ -2,8 +2,8 @@ import { ResourceScope } from '../../core/resources.js';
 
 const STYLES = `
   .poker-tools-status{margin:0 0 8px;color:var(--sgs-muted);overflow-wrap:anywhere}
-  .poker-tools-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-  .poker-tools-actions button{white-space:nowrap;min-height:30px}
+  .sgs-info .poker-tools-actions{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+  .sgs-info .poker-tools-actions button{white-space:nowrap;min-height:30px;padding:4px 6px;font-size:calc(11px + var(--sgs-font-offset,0px))}
   .poker-tools-actions .poker-tools-primary{font-weight:600;border-color:var(--sgs-accent)}
   .poker-tools-actions .poker-tools-copy{background:transparent;border-color:transparent}
 `;

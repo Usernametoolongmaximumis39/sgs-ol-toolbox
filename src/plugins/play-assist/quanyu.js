@@ -2,10 +2,13 @@ import { nativeSeat, nativeSeatId } from '../../core/seat.js';
 import { field, read } from '../../shared/info-runtime.js';
 
 const QUANYU = 3793;
+const QIANGANG = 3795;
 const HISTORY_BUTTON = 37937;
 const ALL_EFFECTS = 126;
 const ICON_SIZE = 22;
+const MIN_ICON_SIZE = 14;
 const ICON_GAP = 2;
+const ROW_NAME = 'sgs-play-assist-quanyu';
 const EFFECTS = [
   null,
   { tip: '白虹 · 伤害+1', lines: [[3,18,7,14,5,12,13,4,15,6,8,13,10,15,5,20,3,18]], text: '+1' },
@@ -24,42 +27,65 @@ function recordEffect(history, current, mask) {
   return validEffect(current) ? [current, ...ordered.filter(id => id !== current)] : ordered;
 }
 
-function buttonLayout(L, avatar, button, count) {
-  const { parent, x, y, width, height } = button;
-  const size = Math.floor(Math.min(ICON_SIZE, width, height));
-  if (!(size >= 14) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
-  const offsets = [[0, 0]];
-  if (count === 1) return { size, offsets };
-  const step = size + ICON_GAP;
-  const columns = Math.floor((width + ICON_GAP) / step);
-  const clip = avatar?.scrollRect;
-  const portraitY = localY => parent.globalToLocal(
-    avatar.localToGlobal(new L.Point(clip?.x ?? 0, localY), true), true).y;
-  const top = read(() => portraitY(clip?.y ?? 0)) ?? 0;
-  const bottom = read(() => portraitY((clip?.y ?? 0) + (clip?.height ?? avatar.height))) ?? parent.height;
-  const down = Math.max(0, Math.min(12, Math.floor((bottom - y - size) / step))) || 0;
-  const up = Math.max(0, Math.min(12, Math.floor((y - top) / step))) || 0;
-  const preferDown = down >= Math.ceil(count / columns) - 1 || down >= up;
-  const rowOffsets = [0, ...Array.from({ length: preferDown ? down : up }, (_, index) => (index + 1) * (preferDown ? 1 : -1)),
-    ...Array.from({ length: preferDown ? up : down }, (_, index) => (index + 1) * (preferDown ? -1 : 1))];
-  const siblings = (parent._children || []).filter(node => node && node !== button
-    && node.visible && !node.destroyed && node.alpha !== 0 && node.SeatState);
-  for (const row of rowOffsets) for (let col = row === 0 ? 1 : 0; col < columns; col++) {
-    const dx = col * step, dy = row * step;
-    // Place history around other native markers without changing their slots.
-    if (siblings.some(node => x + dx < node.x + node.width && x + dx + size > node.x
-      && y + dy < node.y + node.height && y + dy + size > node.y)) continue;
-    offsets.push([dx, dy]);
-    if (offsets.length === count) return { size, offsets };
-  }
-  return { size, offsets };
+function boundsIn(L, node, parent) {
+  if (!node?.localToGlobal) return null;
+  const rect = node.scrollRect ?? (node.width > 0 && node.height > 0
+    ? { x: 0, y: 0, width: node.width, height: node.height } : node.getSelfBounds?.());
+  if (!(rect?.width > 0 && rect.height > 0)) return null;
+  const corners = [rect.x, rect.x + rect.width].flatMap(x => [rect.y, rect.y + rect.height].map(y =>
+    parent.globalToLocal(node.localToGlobal(new L.Point(x, y), true), true)));
+  const xs = corners.map(point => point.x), ys = corners.map(point => point.y);
+  const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
+  return [left, right, top, bottom].every(Number.isFinite) && right > left && bottom > top
+    ? { left, right, top, bottom } : null;
 }
 
-function createRow(ctx, L, button, dispatcher) {
-  const parent = button.parent;
+function buttonLayout(L, avatar, parent, anchor, count, markers) {
+  const portrait = boundsIn(L, avatar, parent) ?? boundsIn(L, parent, parent);
+  if (!portrait || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) return null;
+  const { left, right } = portrait;
+  const gap = ICON_GAP, top = portrait.top + gap, bottom = portrait.bottom - gap;
+  const obstacles = markers.map(node => boundsIn(L, node, parent)).filter(rect => rect
+    && rect.left < right + gap && rect.right > left - gap && rect.top < bottom + gap && rect.bottom > top - gap);
+  const maxSize = Math.floor(Math.min(ICON_SIZE, anchor.height, bottom - top, (right - left - (count - 1) * gap) / count));
+  for (let size = maxSize; size >= MIN_ICON_SIZE; size--) {
+    const width = count * size + (count - 1) * gap;
+    const startX = Math.max(left, Math.min(anchor.x, right - width));
+    const startY = Math.max(top, Math.min(anchor.y, bottom - size));
+    let nearest = null, distance = Infinity;
+    const lanes = [startY, ...obstacles.flatMap(rect => [rect.top - size - gap, rect.bottom + gap])];
+    for (const y of lanes) {
+      if (y < top || y + size > bottom || Math.abs(y - startY) >= distance) continue;
+      const inLane = obstacles.filter(rect => y < rect.bottom + gap && y + size > rect.top - gap);
+      const starts = [startX, ...inLane.flatMap(rect => [rect.left - width - gap, rect.right + gap])];
+      for (const x of starts) {
+        if (x < left || x + width > right || inLane.some(rect => x < rect.right + gap && x + width > rect.left - gap)) continue;
+        const offset = Math.abs(x - startX) + Math.abs(y - startY);
+        if (offset < distance) { distance = offset; nearest = { x, y, size }; }
+      }
+    }
+    if (nearest) return nearest;
+  }
+  return null;
+}
+
+function isChoosingQuanyu(self) {
+  const selector = self?.spellSelector;
+  if (!selector?.visible || selector.destroyed) return false;
+  const matches = skill => skill?.ID === QUANYU || skill?.ID === QIANGANG;
+  return matches(selector.spell) || selector.btnList?.some(button => matches(button.Data?.thisObject));
+}
+
+function createRow(ctx, L, parent, seat, dispatcher) {
   const theme = ctx.ui.nativeTheme, root = new L.Sprite();
-  root.name = 'sgs-play-assist-quanyu'; root.zOrder = 999; root.mouseThrough = true;
+  root.name = ROW_NAME; root.zOrder = 999; root.mouseThrough = true;
   parent.addChild(root);
+  let button, alpha, mouseEnabled;
+  const restoreButton = () => {
+    if (!button || button.destroyed) return;
+    if (button.alpha === 0) button.alpha = alpha;
+    if (button.mouseEnabled === false) button.mouseEnabled = mouseEnabled;
+  };
   let hit;
   const hideTip = () => {
     if (hit) dispatcher?.event?.('TIPS_OUT_EVENT', { target: hit });
@@ -84,9 +110,10 @@ function createRow(ctx, L, button, dispatcher) {
     Object.assign(text, { bold: true, align: 'center', valign: 'middle', mouseEnabled: false });
     return { icon, text };
   });
-  let layout = [], size = ICON_SIZE, offsets = [], active = 0, signature = '';
+  let layout = [], size = ICON_SIZE, active = 0, signature = '';
   for (const { icon } of icons) icon.on('click', root, event => {
-    if (!button?.parent || typeof button.SeatState?.ClickCallback !== 'function') return;
+    if (!root.mouseEnabled || !button?.visible || button.parent !== parent || button.destroyed
+      || typeof button.SeatState?.ClickCallback !== 'function') return;
     event?.stopPropagation?.();
     hideTip();
     button.SeatState.ClickCallback();
@@ -96,11 +123,11 @@ function createRow(ctx, L, button, dispatcher) {
     const unit = size / 22;
     for (let i = 0; i < icons.length; i++) {
       const id = i + 1, effect = EFFECTS[id], { icon, text } = icons[i], index = layout.indexOf(id);
-      icon.visible = index >= 0 && index < offsets.length;
+      icon.visible = index >= 0;
       if (!icon.visible) continue;
       icon.name = `sgs-quanyu-${id}`;
       icon.size(size, size);
-      icon.pos(...offsets[index]);
+      icon.pos(index * (size + ICON_GAP), 0);
       const current = id === active, ink = current ? p.text : p.muted;
       icon.graphics.clear();
       icon.graphics.drawRect(0.5, 0.5, size - 1, size - 1, current ? p.raised : p.surface, ink, current ? 1.6 : 0.8);
@@ -116,28 +143,38 @@ function createRow(ctx, L, button, dispatcher) {
     }
   }
   const releaseTheme = theme?.watch(paint, { target: root });
-  let alpha = button.alpha, mouseEnabled = button.mouseEnabled;
   return {
-    button, parent,
-    update(ordered, current, placement) {
-      const next = `${current}:${ordered}:${placement.size}:${placement.offsets}`;
+    parent, seat, anchor: null, mask: 0,
+    update(ordered, current, placement, nextButton, interactive) {
+      // Native selection can briefly detach and reuse the history button.
+      if (!nextButton && button && !button.parent && !button.destroyed) nextButton = button;
+      if (button !== nextButton) {
+        restoreButton();
+        button = nextButton;
+        alpha = button?.alpha; mouseEnabled = button?.mouseEnabled;
+      }
+      if (button) {
+        if (button.alpha !== 0) alpha = button.alpha;
+        if (button.mouseEnabled !== false) mouseEnabled = button.mouseEnabled;
+        button.alpha = 0; button.mouseEnabled = false;
+      }
+      root.visible = Boolean(placement);
+      root.mouseEnabled = Boolean(placement && interactive && button?.visible);
+      if (!root.mouseEnabled) hideTip();
+      if (!placement) return;
+      if (root.x !== placement.x || root.y !== placement.y) hideTip();
+      root.pos(placement.x, placement.y);
+      const next = `${current}:${ordered}:${placement.size}`;
       if (signature !== next) {
         hideTip();
-        signature = next; size = placement.size; offsets = placement.offsets;
+        signature = next; size = placement.size;
         active = current; layout = ordered;
         paint();
       }
-      root.pos(button.x, button.y);
-      if (button.alpha !== 0) alpha = button.alpha;
-      if (button.mouseEnabled !== false) mouseEnabled = button.mouseEnabled;
-      button.alpha = 0; button.mouseEnabled = false;
     },
     dispose() {
       hideTip(); releaseTheme?.();
-      if (!button.destroyed) {
-        if (button.alpha === 0) button.alpha = alpha;
-        if (button.mouseEnabled === false) button.mouseEnabled = mouseEnabled;
-      }
+      restoreButton();
       if (!root.destroyed) root.destroy(true);
     },
   };
@@ -157,32 +194,45 @@ export function createQuanyuDisplay(ctx) {
         history.set(seatId, recordEffect(history.get(seatId) || [], data[2], data[3]));
       }
     },
-    update(scene, seats) {
+    update(scene, seats, canOperate) {
       const L = ctx.window.Laya;
-      if (!L?.Sprite || !L?.Text || !ctx.ui.nativeTheme?.palette) { hide(); return; }
+      if (!L?.Sprite || !L?.Text || !L?.Point || !ctx.ui.nativeTheme?.palette) { hide(); return; }
+      const choosing = isChoosingQuanyu(scene.SelfSeatUi);
+      let markers;
       const displayed = new Set();
       for (const ui of seats) {
-        const seat = nativeSeat(ui), seatId = nativeSeatId(ui);
-        const mask = read(() => seat.GetSkillBuffInfo(QUANYU)[0]);
-        if (!effectMask(mask) || !mask || seatId === undefined || ui.destroyed) continue;
-        const markers = ui.stateContainer?._children || [];
+        const seat = nativeSeat(ui), seatId = nativeSeatId(ui), parent = ui.stateContainer;
+        if (seatId === undefined || ui.destroyed || !parent?.visible || parent.destroyed) continue;
+        let row = rows.get(ui);
+        if (row && (row.seat !== seat || row.parent !== parent)) {
+          row.dispose(); rows.delete(ui); row = null;
+        }
+        const previous = history.get(seatId);
+        const mask = read(() => seat.GetSkillBuffInfo(QUANYU)[0]) ?? (choosing && previous ? row?.mask : undefined);
+        if (!effectMask(mask) || !mask) continue;
         // 37937 is the on-card button. 3793 is the distinct round side mark.
-        const button = markers.find(node => node?.visible && !node.destroyed && node.SeatState?.ID === HISTORY_BUTTON);
-        if (!button?.parent || button.parent.destroyed || button.parent.visible === false) continue;
-        const current = read(() => seat.GetSeatState(QUANYU).Value);
+        const button = parent._children?.find(node => node && !node.destroyed && node.SeatState?.ID === HISTORY_BUTTON
+          && (node.visible || choosing));
+        const anchor = button ? { x: button.x, y: button.y, height: button.height } : choosing ? row?.anchor : null;
+        if (!anchor) continue;
+        let current = read(() => seat.GetSeatState(QUANYU).Value);
+        if (choosing && (!validEffect(current) || !(mask & (1 << current)))) current = previous?.[0];
         if (!validEffect(current) || !(mask & (1 << current))) continue;
-        const ordered = recordEffect(history.get(seatId) || [], current, mask);
+        const ordered = recordEffect(previous || [], current, mask);
         history.set(seatId, ordered);
         const avatar = ui.seatAvatar ?? ui.SeatAvatar;
-        const placement = buttonLayout(L, avatar, button, ordered.length);
-        if (!placement) continue;
-        let row = rows.get(ui);
-        if (row?.button !== button || row.parent !== button.parent) {
-          row?.dispose();
-          row = createRow(ctx, L, button, scene.ged || read(() => ctx.game.getDispatcher()));
+        markers ??= seats.flatMap(other => {
+          const container = other.stateContainer;
+          return container?.visible && !container.destroyed ? container._children || [] : [];
+        }).filter(node => node?.visible && !node.destroyed && node.alpha !== 0 && node.name !== ROW_NAME);
+        const placement = buttonLayout(L, avatar, parent, anchor, ordered.length, markers.filter(node => node !== button));
+        if (!placement && !choosing) continue;
+        if (!row) {
+          row = createRow(ctx, L, parent, seat, scene.ged || read(() => ctx.game.getDispatcher()));
           rows.set(ui, row);
         }
-        row.update(ordered, current, placement);
+        row.anchor = anchor; row.mask = mask;
+        row.update(ordered, current, placement, button, canOperate && !choosing);
         displayed.add(ui);
       }
       for (const [ui, row] of rows) if (!displayed.has(ui)) { row.dispose(); rows.delete(ui); }

@@ -9,7 +9,7 @@ export const FEEDBACK_STYLES = `
 .feedback-form textarea::placeholder{color:var(--sgs-muted)}
 .feedback-form textarea:focus{outline:1px solid var(--sgs-accent);outline-offset:1px;border-color:var(--sgs-accent)}
 .feedback-form .actions{align-items:center;margin-top:0}
-.feedback-form .actions button{padding-inline:10px;white-space:nowrap}
+.feedback-form .actions button{padding-left:10px;padding-right:10px;white-space:nowrap}
 .feedback-form .actions button:enabled{color:var(--sgs-accent);border-color:var(--sgs-accent)}
 .feedback-form .actions button:disabled{opacity:.55}
 .feedback-status:empty{display:none}

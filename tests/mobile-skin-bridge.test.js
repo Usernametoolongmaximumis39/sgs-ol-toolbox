@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
-import { buildMicroclientHost } from '../tools/build-microclient.mjs';
+import { buildMicroclientRuntimeHost } from '../tools/build-microclient.mjs';
 import { createGameAssetDownloads, createMobileSkinDownload, mobileSkinRequest } from '../src/core/mobile-skin-download.js';
 import { STARGAZING_REPORT } from '../src/shared/stargazing-source.js';
 
@@ -73,7 +73,7 @@ test('page fetch rejects invalid installer ranges and checks body bytes', async 
 
 test('packaged microclient transfers official mobile skin bytes and cancels main-process requests', async () => {
   const root = resolve(import.meta.dirname, '..');
-  const [host, preload] = await Promise.all([buildMicroclientHost(root), readFile(resolve(root, 'microclient/preload.cjs'), 'utf8')]);
+  const [host, preload] = await Promise.all([buildMicroclientRuntimeHost(root), readFile(resolve(root, 'microclient/preload.cjs'), 'utf8')]);
   const handlers = new Map();
   const requests = [];
   const syncRequests = [];
@@ -104,6 +104,7 @@ test('packaged microclient transfers official mobile skin bytes and cancels main
     if (id === 'fs') return { readFileSync: () => 'void 0;' };
     if (id === 'path') return { resolve, join: (...parts) => parts.join('/') };
     if (id === 'url') return { fileURLToPath };
+    if (id === 'vm') return vm;
     if (id === 'child_process') return { spawn: () => assert.fail('Unexpected subprocess in skin bridge test') };
     if (id === 'crypto') return {};
     if (id === 'https') return https;

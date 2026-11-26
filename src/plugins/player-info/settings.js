@@ -17,7 +17,7 @@ export function createPlayerSettings(ctx, changed) {
     catch (error) { ctx.reportError?.(error); }
   } };
 }
-export function renderPlayerSettings(ctx, container, options, lamps) {
+export function renderPlayerSettings(ctx, container, options, lamps, pools) {
   const { root, el, listen, segments, input, dispose } = ctx.ui.panel(container);
   root.dataset.playerSettings = '';
   const style = el('style', '', `
@@ -42,6 +42,14 @@ export function renderPlayerSettings(ctx, container, options, lamps) {
     input.id = 'pi-setting-' + (input === cards ? 'cards' : 'lamps'); title.htmlFor = input.id;
     heading.append(title); group.append(heading, input); root.append(group);
     if (input === check) heading.append(ctx.ui.helpTip('将灯检查需开启玩家资料卡。仅斗地主生效：进场自动查询，地主确认后自动显示，无需输入用户 ID。将向游戏服务器查询在场玩家的将灯，并加载官方原画；未开通仍可能使用体验卡或限免。', '将灯检查说明'));
+  }
+  if (pools) {
+    const group = el('label', 'pi-toggle'), toggle = ctx.ui.styleSwitch(el('input'));
+    toggle.type = 'checkbox';
+    toggle.checked = pools.enabled();
+    group.append(el('span', 'pi-toggle-title', '拓展将池'), toggle);
+    listen(toggle, 'change', () => pools.set(toggle.checked));
+    root.append(group);
   }
   const schemes = segments([['default', '默认方案'], ['custom', '自定义方案']], options.get().scheme, scheme => {
     options.set({ scheme }); target = null; paint();

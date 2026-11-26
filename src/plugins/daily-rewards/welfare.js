@@ -22,23 +22,30 @@ export const managerSpecs = {
 
 // Read-only refreshes are bounded and remove listeners on completion/abort.
 function refresh(adapter, manager, method, event) {
-  if (!manager || typeof manager[method] !== 'function' || !valid(adapter)) return Promise.resolve();
+  if (!manager || typeof manager[method] !== 'function' || !valid(adapter)) return Promise.resolve(false);
   return new Promise(resolve => {
     const caller = {}; let timer, finished = false;
-    const finish = () => {
+    const finish = updated => {
       if (finished) return;
       finished = true; clearTimeout(timer);
-      read(() => manager.off(event, caller, finish));
-      adapter.signal?.removeEventListener('abort', finish); resolve();
+      read(() => manager.off(event, caller, onUpdate));
+      adapter.signal?.removeEventListener('abort', onTimeout); resolve(updated);
     };
-    if (typeof manager.on !== 'function' || typeof manager.off !== 'function') return resolve();
-    manager.on(event, caller, finish);
-    adapter.signal?.addEventListener('abort', finish, { once: true });
-    timer = setTimeout(finish, 1600);
-    if (!valid(adapter)) return finish();
-    try { manager[method](); } catch { finish(); }
+    const onUpdate = () => finish(valid(adapter));
+    const onTimeout = () => finish(false);
+    if (typeof manager.on !== 'function' || typeof manager.off !== 'function') return resolve(false);
+    manager.on(event, caller, onUpdate);
+    adapter.signal?.addEventListener('abort', onTimeout, { once: true });
+    timer = setTimeout(onTimeout, 1600);
+    if (!valid(adapter)) return onTimeout();
+    try { manager[method](); } catch { onTimeout(); }
   });
 }
+
+function treeAward(adapter, level) {
+  return list(read(() => adapter.config('ff_jubaopen.sgs').root.award)).find(row => Number(row.grade) === level);
+}
+
 export async function prepareWelfare(adapter, selected) {
   if (!selected.welfare || !valid(adapter)) return;
   const welfare = adapter.manager('WelfareManger'), cards = adapter.manager('NewPrivilegeCardManager');
@@ -47,12 +54,24 @@ export async function prepareWelfare(adapter, selected) {
   if (welfare || cards) files.push('ff_dbs_pay_gift.sgs');
   await Promise.allSettled(files.map(file => valid(adapter) ? adapter.loadConfig?.(file) : null));
   if (!valid(adapter)) return;
-  await Promise.allSettled([
+  const [treeRefresh] = await Promise.allSettled([
     refresh(adapter, welfare, 'ReqJbpInfo', 'UPDATE_JBP_USER_INFO'),
     refresh(adapter, welfare, 'SendClientPrivilegeDataReq', 'UPDATE_PRIVILEGE_CARD_DATA'),
     refresh(adapter, welfare, 'PrivilegeCardDaliyRewardInfoReq', 'PRIVILEGE_DAILY_REWARD_UPDATE'),
     refresh(adapter, cards, 'SendNewPrivilegeCardDataReq', 'UPDATE_NEW_PRIVILEGE_CARD_DATA'),
   ]);
+  if (treeRefresh.value !== true || !valid(adapter)) return;
+  // A fresh tree reply and current inventory can settle prerequisites left
+  // pending by another activation. They do not prove a previous claim's result.
+  return actionKey => {
+    if (!valid(adapter) || adapter.manager('WelfareManger') !== welfare) return false;
+    const tree = welfare.JbpUserData;
+    if (tree?.Status !== 1) return false;
+    if (actionKey === 'welfare:tree:start') return true;
+    if (actionKey !== 'welfare:tree:item') return false;
+    const itemId = Number(treeAward(adapter, Number(tree.Level))?.buyItem);
+    return positive(itemId) && positive(read(() => adapter.manager('GameGoodsManager').GetGoodsNumByBaseID(itemId)));
+  };
 }
 
 function rawGoods(adapter, id) {
@@ -108,11 +127,13 @@ export function planWelfare(adapter, selected) {
   if (welfare) {
     const tree = () => welfare.JbpUserData;
     const current = read(tree), count = Number(current?.Count), level = Number(current?.Level);
-    const treeRows = list(read(() => adapter.config('ff_jubaopen.sgs').root.award));
-    const itemId = Number(treeRows.find(row => Number(row.grade) === level)?.buyItem);
+    const award = treeAward(adapter, level), itemId = Number(award?.buyItem);
     const goods = adapter.manager('GameGoodsManager'), bless = adapter.manager('BlessManager'), shop = adapter.manager('GameShopManager');
     const itemCount = () => Number(read(() => goods.GetGoodsNumByBaseID(itemId)));
     const sameTree = status => tree()?.Status === status && Number(tree()?.Count) === count && Number(tree()?.Level) === level;
+    const refreshTree = () => {
+      if (valid(adapter) && adapter.manager('WelfareManger') === welfare) welfare.ReqJbpInfo();
+    };
     const balanceReady = () => zeroPrice(adapter, itemId) || Number(read(() => adapter.self?.().TotalYuanBao)) >= 200;
     const enabledTree = () => bless?.FreeBlessItemEnough === true &&
       ((tree()?.Status === 1 && itemCount() >= 1) || balanceReady());
@@ -125,7 +146,7 @@ export function planWelfare(adapter, selected) {
         const goods = rawGoods(adapter, itemId);
         if (bless?.FreeBlessItemEnough !== true || !goods || Number(goods.tongqian) !== 0 || goods.tongqian === undefined) return null;
         if (zeroPrice(adapter, itemId)) return 0;
-        const value = Number(goods.yuanbao), configured = Number(treeRows.find(row => Number(row.grade) === level)?.needMoney);
+        const value = Number(goods.yuanbao), configured = Number(treeAward(adapter, level)?.needMoney);
         return Number.isSafeInteger(value) && value > 0 && value <= 200 && value === configured &&
           balanceReady() ? value : null;
     };
@@ -135,16 +156,18 @@ export function planWelfare(adapter, selected) {
       else if (current.Status === 0 && typeof welfare.ReqJbpTreeUsing === 'function') {
         add('tree:start', '砍发财树', welfare, () => sameTree(0) && enabledTree(),
           () => tree()?.Status === 1 || tree()?.Status === 2 || Number(tree()?.Count) > count,
-          () => welfare.ReqJbpTreeUsing(), [], { rewards: [], maxRejectedAttempts: 3, rejections: reject('decodeClientChopTreeUsingRep', 'err') });
+          () => welfare.ReqJbpTreeUsing(), [], { rewards: [], refreshClaimState: refreshTree, maxRejectedAttempts: 3, rejections: reject('decodeClientChopTreeUsingRep', 'err') });
       } else if (current.Status === 1 && positive(itemId)) {
         if (tree()?.HasTriggerEvent === true) notes.push('发财树触发事件，请在游戏内处理事件后领取');
         else if (itemCount() >= 1 && typeof welfare.ReqJbpAwd === 'function') {
           const before = itemCount();
-          let refreshed = false;
+          let awardReplySeen = false;
           let redUpdated = false;
           add('tree:claim', '捡起发财树元宝', welfare, () => sameTree(1) && enabledTree() && tree()?.HasTriggerEvent !== true && itemCount() >= 1,
             () => {
-              const completed = itemCount() < before && (tree()?.Status !== 1 || Number(tree()?.Count) > count);
+              const remaining = itemCount(), status = tree()?.Status;
+              const completed = Number.isSafeInteger(remaining) && remaining >= 0 && remaining < before &&
+                (status === 0 || status === 2 || (status === 1 && Number(tree()?.Count) > count));
               if (completed && !redUpdated && valid(adapter)) {
                 redUpdated = true;
                 // Match the native window's daily-visit bookkeeping, then let
@@ -155,9 +178,9 @@ export function planWelfare(adapter, selected) {
               return completed;
             },
             () => welfare.ReqJbpAwd(itemId), [{ event: 'KANSHU_GET_AWARD', accept: () => {
-              if (!refreshed && valid(adapter)) { refreshed = true; welfare.ReqJbpInfo(); }
+              if (!awardReplySeen) { awardReplySeen = true; refreshTree(); }
               return false; // Anonymous success cannot identify the requested item.
-            } }], { maxRejectedAttempts: 3, rejections: reject('decodeClientChopTreeRewardRep', 'error'), rewards: () => Array.isArray(tree()?.PeachList) ? list(tree().PeachList).flatMap(peach => list(peach?.info)).map(item => ({ ItemID: item.goodId, ItemNum: item.goodCnt })) : null });
+            } }], { refreshClaimState: () => { if (!awardReplySeen) refreshTree(); }, maxRejectedAttempts: 3, rejections: reject('decodeClientChopTreeRewardRep', 'error'), rewards: () => Array.isArray(tree()?.PeachList) ? list(tree().PeachList).flatMap(peach => list(peach?.info)).map(item => ({ ItemID: item.goodId, ItemNum: item.goodCnt })) : null });
         } else {
           const cost = price(), transport = shop?.proxy;
           if (cost !== null && typeof shop?.GetBuyMsg === 'function' && purchaseSender(transport)) {
@@ -169,7 +192,7 @@ export function planWelfare(adapter, selected) {
                 const msg = treeBuyMessage(shop, itemId, cost);
                 const send = msg && eligible() && purchaseSender(transport);
                 return send ? send(msg) : false;
-              }, [], { rewards: [] });
+              }, [], { rewards: [], skipUnsent: true });
           } else notes.push('发财树道具、领取资格或费用未就绪，今日暂缓');
         }
       } else if (current.Status === 1) notes.push('砍树等级对应的道具配置未就绪');

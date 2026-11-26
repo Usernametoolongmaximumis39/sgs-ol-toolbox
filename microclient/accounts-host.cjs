@@ -125,4 +125,4 @@ function register({ app, ipcMain, channelState, shellFile }) {
   return { handle, notify };
 }
 
-module.exports = { register };
+module.exports = { register, loginChannel };

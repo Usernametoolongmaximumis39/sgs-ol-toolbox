@@ -2,14 +2,16 @@ import { installRefreshReentry } from './refresh-reentry.js';
 import { installTouchPreview } from './touch-preview.js';
 import { DEVELOPMENT, EDITION, MICROCLIENT, LOCAL_APPEARANCE_SYNC } from './distribution.js';
 import { installMicroCompatibility } from './micro-compatibility.js';
-import { bundledPackages, fullPluginPanels, localAppearanceSyncPackage } from './bundled-plugins.js';
+import { bundledPackages, fullPluginPanels, localAppearanceSyncPackage, consolidationDigests } from './bundled-plugins.js';
 import { startOwnedRuntime } from './runtime-owner.js';
 import { Settings, PackageStore } from './storage.js';
 import { SessionJournal, installMessageBridge } from './session.js';
 import { CardStyleRegistry } from './card-styles.js';
-import { REPLACED_BACKGROUND_PACKAGES, REPLACED_SHANHETU_BETA_PACKAGES } from './version.js';
+import { REPLACED_BACKGROUND_PACKAGES } from './version.js';
 import { BackgroundRegistry } from './backgrounds.js';
 import { ThemeRegistry } from './themes.js';
+import { THEMES } from './theme-palettes.js';
+import { reconcileConsolidatedPlugins } from './consolidated-plugins.js';
 import { PluginManager } from './plugins.js';
 import { createGameAdapter } from './game.js';
 import { createSceneWatch } from './scene-watch.js';
@@ -31,7 +33,7 @@ import { createPreferenceSync } from './sync-preferences.js';
 import { openSyncBackupCache } from './sync-backup-cache.js';
 import { createPrivateHttpTransport } from './private-sync-http.js';
 import { BACKUP_RESTORED, PREFERENCES_RESTORED, SYNC_HISTORY_UPDATED } from '../shared/sync-paths.js';
-import { CORE_VERSION, REPLACED_CARD_PACKAGES, REPLACED_REWARD_PACKAGES, REPLACED_EFFECT_PACKAGES, REPLACED_SKIN_PACKAGES, REPLACED_SHANHETU_PACKAGES, REPLACED_THEME_PACKAGES, REPLACED_BAISHENG_PACKAGES, REPLACED_APPEARANCE_PACKAGES } from './version.js';
+import { CORE_VERSION, REPLACED_CARD_PACKAGES, REPLACED_REWARD_PACKAGES, REPLACED_EFFECT_PACKAGES, REPLACED_SKIN_PACKAGES, REPLACED_SHANHETU_PACKAGES, REPLACED_BAISHENG_PACKAGES, REPLACED_APPEARANCE_PACKAGES } from './version.js';
 
 export function boot(win = window, mobileSkinPort) {
   let ownsPort = false;
@@ -51,7 +53,7 @@ async function initialize(win, api, mobileSkinPort) {
   if (!MICROCLIENT && installRefreshReentry(win, startup?.trace)) return api;
   if (!MICROCLIENT) installTouchPreview(win, scope);
   if (MICROCLIENT) installMicroCompatibility(win, scope);
-  const onlyPlugin = DEVELOPMENT && ['daily-rewards', 'effects', 'skins', 'wish-progress', 'shanhetu', 'themes', 'baisheng', 'appearances', 'seckill', 'gaizhu', 'ledger'].includes(win.__SGS_TOOLBOX_DEMO__?.onlyPlugin)
+  const onlyPlugin = DEVELOPMENT && ['daily-rewards', 'effects', 'skins', 'shanhetu', 'themes', 'baisheng', 'appearances', 'seckill', 'gaizhu', 'ledger'].includes(win.__SGS_TOOLBOX_DEMO__?.onlyPlugin)
     && win.location?.hostname === '127.0.0.1' ? win.__SGS_TOOLBOX_DEMO__.onlyPlugin : null;
   const settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : 'sgstoolbox:'), journal = new SessionJournal();
   const diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
@@ -91,7 +93,7 @@ async function initialize(win, api, mobileSkinPort) {
     getFeedbackAccount: getAccount, managedSync, preferenceSync, getStartupDiagnostics: startup?.snapshot,
     canReserveGameViewport: () => MICROCLIENT || Boolean(DEVELOPMENT && win.__SGS_TOOLBOX_DEMO__) || game.canReserveViewport(),
   });
-  const themes = new ThemeRegistry(settings, tokens => shell.applyTheme(tokens));
+  const themes = new ThemeRegistry(settings, tokens => shell.applyTheme(tokens), THEMES);
   const cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope, sceneWatch });
   const backgrounds = new BackgroundRegistry({ window: win, game, settings, scope, sceneWatch });
   scope.add(game.onSceneChange(scene => shell.setGameView(gameViewForScene(scene))));
@@ -127,7 +129,7 @@ async function initialize(win, api, mobileSkinPort) {
   scope.add(() => manager.dispose());
   const replacements = { cards: REPLACED_CARD_PACKAGES, backgrounds: REPLACED_BACKGROUND_PACKAGES,
     'daily-rewards': REPLACED_REWARD_PACKAGES, effects: REPLACED_EFFECT_PACKAGES, skins: REPLACED_SKIN_PACKAGES,
-    shanhetu: REPLACED_SHANHETU_PACKAGES, 'shanhetu-beta': REPLACED_SHANHETU_BETA_PACKAGES, themes: REPLACED_THEME_PACKAGES,
+    shanhetu: REPLACED_SHANHETU_PACKAGES,
     baisheng: REPLACED_BAISHENG_PACKAGES, appearances: REPLACED_APPEARANCE_PACKAGES,
     ...(DEVELOPMENT && { social: ['eedafdde424b6459a73f1ace3733ea2be8113980ece70b3b402dc37dcb2335da'],
       ledger: ['149155e68884c22eb027d41cb5ce46829d3441bd8365567515b9a00d86837542'] }) };
@@ -165,14 +167,16 @@ async function initialize(win, api, mobileSkinPort) {
       : capture.targets.length ? '消息入口已连接 · 等待收包' : '未接入游戏消息 · 仅原生显示可用') : '等待游戏运行时'));
   }, 500));
   if (!win.__SGS_TOOLBOX_DEMO__ && !win.Laya?.stage) shell.host.style.display = 'none';
-  await manager.init(DEVELOPMENT ? async (records, builtins, store) => {
-    const results = await Promise.allSettled([
+  await manager.init(async (records, builtins, store) => {
+    const migrations = [reconcileConsolidatedPlugins(records, builtins, store, settings, consolidationDigests)];
+    if (DEVELOPMENT) migrations.push(
       reconcilePokerPackages(records, builtins, store),
       reconcilePeixiuPackage(records, builtins, store, settings.namespace('play-assist')),
-    ]);
+    );
+    const results = await Promise.allSettled(migrations);
     const errors = results.filter(result => result.status === 'rejected').map(result => result.reason?.message || String(result.reason));
     if (errors.length) throw new Error(errors.join('；'));
-  } : undefined);
+  });
   if (scope.closed) return null;
   if (LOCAL_APPEARANCE_SYNC && localAppearanceSyncPackage && !manager.storageError) {
     try { await installLocalAppearanceSyncPackage(manager, settings, localAppearanceSyncPackage); }

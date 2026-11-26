@@ -3,9 +3,9 @@ import { access, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
-import { resource as publicResource } from '../src/plugins/dafeiyu-cards/resources.js';
-import { localCards, localResource } from '../src/plugins/dafeiyu-cards/local-resources.js';
-import { cards as publishedCards } from '../src/plugins/dafeiyu-cards/coverage.js';
+import { resource as publicResource } from '../src/plugins/card-styles-extra/dafeiyu/resources.js';
+import { localCards, localResource } from '../src/plugins/card-styles-extra/dafeiyu/local-resources.js';
+import { cards as publishedCards } from '../src/plugins/card-styles-extra/dafeiyu/coverage.js';
 import { parseCardFrames, validateCardAtlas } from '../src/core/card-atlas.js';
 
 const shanheLocal = process.argv.includes('--shanhetu-local');
@@ -63,7 +63,7 @@ const bundle = await build({ stdin: { contents: `
   export { Settings } from './src/core/storage.js';
   export { createShell } from './src/ui/shell.js';
   export { ThemeRegistry, BLACK_GOLD } from './src/core/themes.js';
-  export { default as plugin } from './src/plugins/dafeiyu-cards/index.js';`, resolveDir: process.cwd() },
+  export { registerDafeiyuCardStyles } from './src/plugins/card-styles-extra/dafeiyu/index.js';`, resolveDir: process.cwd() },
   bundle: true, write: false, format: 'iife', globalName: 'DafeiyuCheck',
   define: { __SGS_TOOLBOX_DEVELOPMENT__: String(shanheLocal), __SGS_TOOLBOX_EDITION__: JSON.stringify(shanheLocal ? 'dev' : 'lite') } });
 await mkdir('test-results', { recursive: true });
@@ -129,9 +129,9 @@ try {
       getClass: name => ({ CardsBookWindow, CardBookDetailWindow })[name],
     }, settings, scope });
     let releases = [];
-    const enable = () => DafeiyuCheck.plugin.activate({
+    const enable = () => DafeiyuCheck.registerDafeiyuCardStyles({
       core: { distribution: shanheLocal ? 'dev' : 'lite' },
-      cardStyles: { register: style => releases.push(registry.register(style, 'dafeiyu-cards')) },
+      cardStyles: { register: style => releases.push(registry.register(style, 'card-styles-extra')) },
     });
     const disable = () => { for (const release of releases) release(); releases = []; };
     enable();
@@ -168,11 +168,11 @@ try {
   await host.locator('.card-style-workshop').waitFor();
   await host.locator('.card-style-workshop .plugin-toggle').click();
   assert.equal(requests.length, 0, 'installing and opening settings do not download images');
-  const option = host.locator('[data-card-side="face"][data-card-style="dafeiyu-cards.beta"]');
+  const option = host.locator('[data-card-side="face"][data-card-style="card-styles-extra.dafeiyu"]');
   assert.equal(await option.getAttribute('aria-pressed'), 'false');
   assert(!(await option.textContent()).includes('选用后加载预览'));
   await option.locator('img').evaluate(async image => { await image.decode(); if (!image.naturalWidth) throw Error('preview missing'); });
-  assert.equal(await host.locator('[data-card-side="back"][data-card-style="dafeiyu-cards.beta"]').count(), 1);
+  assert.equal(await host.locator('[data-card-side="back"][data-card-style="card-styles-extra.dafeiyu"]').count(), 1);
   await option.scrollIntoViewIfNeeded(); await page.screenshot({ path: 'test-results/dafeiyu-before-download.png' });
   const catalog = host.locator('.card-face-catalog');
   await catalog.locator('summary').focus();
@@ -194,15 +194,23 @@ try {
   assert.deepEqual(await preview.evaluate(canvas => [canvas.width, canvas.height]), [405, 570]);
   await preview.scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'test-results/dafeiyu-card-catalog.png' });
+  const setFontSize = async size => {
+    const fontToggle = host.locator('[aria-controls="core-font-settings"]');
+    if ((await fontToggle.getAttribute('aria-expanded')) === 'false') await fontToggle.click();
+    await host.locator(`[data-font-size="${size}"]`).click();
+    const workshopToggle = host.locator('.card-style-workshop .plugin-toggle');
+    if ((await workshopToggle.getAttribute('aria-expanded')) === 'false') await workshopToggle.click();
+    if ((await catalog.getAttribute('open')) === null) await catalog.locator('summary').click();
+    await catalog.getByRole('searchbox').waitFor();
+  };
   for (const width of [248, 280, 420]) {
     for (const size of ['tiny', 'small', 'standard', 'large']) {
-      const button = host.locator(`[data-font-size="${size}"]`);
-      await button.click();
+      await setFontSize(size);
       await page.evaluate(value => { check.shell.host.style.width = value + 'px'; }, width);
-      assert(await catalog.evaluate(node => node.scrollWidth <= node.clientWidth), 'card catalog fits the current panel and font size');
+      assert(await catalog.evaluate(node => node.clientWidth > 0 && node.scrollWidth <= node.clientWidth), 'card catalog fits the current panel and font size');
     }
   }
-  await host.locator('[data-font-size="standard"]').click();
+  await setFontSize('standard');
   await catalog.getByRole('searchbox').fill('没有这张牌');
   await catalog.getByRole('status').getByText('没有匹配的卡牌。').waitFor();
   assert.equal(await catalog.locator('canvas').count(), 0);
@@ -213,7 +221,7 @@ try {
   await option.focus(); await page.keyboard.press('Enter');
   await page.waitForFunction(() => check.registry.status.includes('正在加载完整卡面'));
   await page.evaluate(() => { if (check.cards.some(ui => ui.bmpFace.texture !== check.original)) throw Error('unverified art applied before download'); });
-  await page.waitForFunction(() => check.registry.atlases.get('dafeiyu-cards.beta')?.data);
+  await page.waitForFunction(() => check.registry.atlases.get('card-styles-extra.dafeiyu')?.data);
   delayed = false;
   assert(!(await host.locator('.card-style-workshop').textContent()).includes('查看官方图集来源'), 'custom art must not be described as official');
   await page.evaluate(count => {
@@ -261,7 +269,7 @@ try {
     await page.evaluate(({ width, light }) => {
       check.shell.host.style.width = width + 'px';
       check.shell.applyTheme({ ...DafeiyuCheck.BLACK_GOLD.tokens, ...(light ? { bg: '#f6f0e4', surface: '#fffaf0', raised: '#ebe2cf', text: '#312a20', muted: '#746957', accent: '#826121', border: '#c7b89b', scheme: 'light' } : {}) });
-      check.shell.host.shadowRoot.querySelector('[data-card-style="dafeiyu-cards.beta"]').scrollIntoView({ block: 'center' });
+      check.shell.host.shadowRoot.querySelector('[data-card-style="card-styles-extra.dafeiyu"]').scrollIntoView({ block: 'center' });
     }, { width, light });
     await page.waitForTimeout(220);
     await page.screenshot({ path: `test-results/dafeiyu-${width}-${light ? 'light' : 'dark'}.png` });
@@ -276,17 +284,17 @@ try {
   await page.screenshot({ path: 'test-results/dafeiyu-low-height.png' });
   await page.setViewportSize({ width: 1460, height: 1280 });
   await page.evaluate(() => { check.disable(); if (check.cards[0].bmpFace.texture !== check.original) throw Error('disable did not restore native art'); check.enable(); });
-  await page.waitForFunction(() => check.registry.atlases.get('dafeiyu-cards.beta')?.data);
+  await page.waitForFunction(() => check.registry.atlases.get('card-styles-extra.dafeiyu')?.data);
   await page.evaluate(() => {
-    check.registry.selectSide('back', 'dafeiyu-cards.beta');
+    check.registry.selectSide('back', 'card-styles-extra.dafeiyu');
     check.cards[0].theCard.IsEmpty = true; check.cards[0].SetCardFace();
   });
-  await page.waitForFunction(() => check.registry.images.get('dafeiyu-cards.beta')?.complete && check.cards[0].bmpFace.texture !== check.original);
+  await page.waitForFunction(() => check.registry.images.get('card-styles-extra.dafeiyu')?.complete && check.cards[0].bmpFace.texture !== check.original);
   await page.evaluate(() => {
     const texture = check.cards[0].bmpFace.texture;
     if (texture.bitmap.width !== 405 || texture.bitmap.height !== 570) throw Error('back HD pixels lost');
   });
-  assert.equal(await host.locator('[data-card-side="back"][data-card-style="dafeiyu-cards.beta"]').innerText(), '大肥鱼卡背 · 鲸浪藏锋');
+  assert.equal(await host.locator('[data-card-side="back"][data-card-style="card-styles-extra.dafeiyu"]').innerText(), '大肥鱼卡背 · 鲸浪藏锋');
   assert.equal(await option.innerText(), '大肥鱼卡面');
   await page.screenshot({path:'test-results/dafeiyu-back.png'});
   await page.evaluate(() => {
@@ -295,17 +303,17 @@ try {
     check.cards[0].theCard.IsEmpty = false; check.cards[0].SetCardFace();
   });
   corrupt = true;
-  await page.evaluate(() => { check.registry.selectSide('face', ''); check.registry.selectSide('face', 'dafeiyu-cards.beta'); });
-  await page.waitForFunction(() => check.registry.atlases.get('dafeiyu-cards.beta')?.error);
+  await page.evaluate(() => { check.registry.selectSide('face', ''); check.registry.selectSide('face', 'card-styles-extra.dafeiyu'); });
+  await page.waitForFunction(() => check.registry.atlases.get('card-styles-extra.dafeiyu')?.error);
   await page.evaluate(() => { if (check.cards.some(ui => ui.bmpFace.texture !== check.original)) throw Error('integrity failure did not restore native art'); });
   await host.locator('.card-style-workshop .plugin-body > [role="status"]').scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'test-results/dafeiyu-load-error.png' });
   assert.equal(await page.evaluate(() => { const content = check.shell.host.shadowRoot.querySelector('.content'); return content.scrollWidth > content.clientWidth; }), false, 'complete error detail must wrap');
   corrupt = false;
   await host.getByRole('button', { name: '重新加载卡面' }).click();
-  await page.waitForFunction(() => check.registry.atlases.get('dafeiyu-cards.beta')?.data);
+  await page.waitForFunction(() => check.registry.atlases.get('card-styles-extra.dafeiyu')?.data);
   delayed = true;
-  await page.evaluate(() => { check.registry.selectSide('face', ''); check.registry.selectSide('face', 'dafeiyu-cards.beta'); check.registry.selectSide('face', ''); });
+  await page.evaluate(() => { check.registry.selectSide('face', ''); check.registry.selectSide('face', 'card-styles-extra.dafeiyu'); check.registry.selectSide('face', ''); });
   await page.waitForTimeout(500);
   await page.evaluate(() => {
     if (check.cards.some(ui => ui.bmpFace.texture !== check.original) || check.registry.atlases.size) throw Error('late download revived unselected style');

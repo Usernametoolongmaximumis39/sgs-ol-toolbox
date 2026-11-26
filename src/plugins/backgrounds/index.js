@@ -1,15 +1,17 @@
+import { BACKGROUNDS_ICON } from '../../ui/plugin-icons.js';
 import { findSkinDetail, supportsSkinBackgroundAttack, watchSkinDetail } from '../../shared/skin-detail.js';
 import { scopedStyles } from '../../shared/scoped-styles.js';
 import { isTyping, matchesShortcut, shortcutLabel } from '../../shared/keyboard-shortcut.js';
 import { createNativeWallpaper } from './native-wallpaper.js';
+import { createWallpaperPreview } from './wallpaper-preview.js';
 
 const nativeSkinShortcut = { code: 'KeyK', ctrl: true, alt: true };
 
 export const manifest = {
-  id: 'backgrounds', name: '自定义背景', version: '0.2.13', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "可在游戏背景设置中选择近期使用过的自定义背景。图片和动态素材仍按需联网加载。", minCoreVersion: '0.6.241', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
-  icon: { paths: ['M3 4h18v16H3Z', 'M3 16 9 10l4 4 3-3 5 5', 'M16 7h1'] },
-  description: '将本地图片或游戏皮肤用作牌局背景，保留天气与武将技能背景',
+  id: 'backgrounds', name: '自定义背景', version: '0.2.16', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "游戏背景设置支持选用最近用过的背景，并在个性化界面预览官方壁纸。导入的本地图片只保存在本机；官方图片和动态素材按需联网加载。", minCoreVersion: '0.6.298', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
+  icon: BACKGROUNDS_ICON,
+  description: '本地图片、皮肤或官图换牌局背景',
 };
 const STYLES = `
 [data-sgs-backgrounds]{color:var(--sgs-text);font:12px/1.6 "Microsoft YaHei",sans-serif}
@@ -25,8 +27,8 @@ const STYLES = `
 [data-sgs-backgrounds] .bg-mode-label{display:inline-flex;align-items:center;gap:6px;min-inline-size:calc(4em + 30px);color:var(--sgs-muted);white-space:nowrap}
 [data-sgs-backgrounds] .bg-attack{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;min-height:30px;color:var(--sgs-muted);font-size:calc(12px + var(--sgs-font-offset,0px));cursor:pointer}
 [data-sgs-backgrounds] [hidden]{display:none}
-[data-sgs-backgrounds] .bg-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-[data-sgs-backgrounds] .bg-actions button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;padding:5px 8px;white-space:nowrap}
+[data-sgs-backgrounds] .bg-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center;gap:6px}
+[data-sgs-backgrounds] .bg-actions button{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:0;min-height:32px;padding:5px 6px;white-space:nowrap;font-size:calc(11px + var(--sgs-font-offset,0px))}
 [data-sgs-backgrounds] .bg-actions .bg-picker{color:var(--sgs-accent);border-color:var(--sgs-accent)}
 [data-sgs-backgrounds] .bg-skin-links{display:grid;gap:6px;margin-bottom:10px;min-width:0}
 [data-sgs-backgrounds] .bg-skin-sources{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
@@ -99,6 +101,7 @@ export function activate(ctx) {
   };
   const attackEffects = () => ctx.settings.get('attackEffects', ctx.backgrounds.current?.attackEffects !== false) !== false;
   if (ctx.backgrounds.listHistory) createNativeWallpaper(ctx, { animated, attackEffects, uploadIcon: manifest.icon });
+  createWallpaperPreview(ctx, animated);
   const element = (tag, text, cls) => { const node = doc.createElement(tag); if (text) node.textContent = text; if (cls) node.className = cls; return node; };
   const mountStyle = scopedStyles(doc, ctx.scope, STYLES);
   mountStyle(doc);
@@ -222,14 +225,15 @@ export function activate(ctx) {
       status.textContent = ctx.backgrounds.status; reset.disabled = !current || importing;
       picker.disabled = importing; pickerLabel.textContent = importing ? '正在读取图片…' : '选择本地图片';
       error.textContent = importError; error.hidden = !importError;
-      mode.hidden = capability.hidden = local && !skinMotion;
+      mode.hidden = (local && !skinMotion) || (current?.officialWallpaper && !current.wallpaperMotion);
+      capability.hidden = local && !skinMotion;
       qualityRow.hidden = !skinMotion || ctx.backgrounds.skinQualityAvailable !== true;
       const lowQuality = ctx.settings.get('skinQuality') === 'low';
       high.setAttribute('aria-pressed', String(!lowQuality)); low.setAttribute('aria-pressed', String(lowQuality));
       dynamic.setAttribute('aria-pressed', String(animated())); still.setAttribute('aria-pressed', String(!animated()));
       attackRow.hidden = local || !supportsSkinBackgroundAttack(current?.dynamic);
       attack.disabled = !animated(); attack.checked = attackEffects();
-      capability.textContent = !current ? '也可在皮肤详情中选择「作为牌局背景」。' : skinMotion ? '动态背景循环播放待机动画。' : current.dynamic ? '此皮肤支持动态背景。' : current.dynamic === null ? '此皮肤没有动态，使用静态原画。' : '尚未识别此背景的动态；请在皮肤详情重新选择。';
+      capability.textContent = !current ? '也可在皮肤详情中选择「作为牌局背景」。' : current.officialWallpaper ? '官方背景仅在本地使用。' : skinMotion ? '动态背景循环播放待机动画。' : current.dynamic ? '此皮肤支持动态背景。' : current.dynamic === null ? '此皮肤没有动态，使用静态原画。' : '尚未识别此背景的动态；请在皮肤详情重新选择。';
     };
     const change = value => {
       ctx.settings.set('animated', value);

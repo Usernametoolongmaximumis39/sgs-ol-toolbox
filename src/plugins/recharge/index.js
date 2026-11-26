@@ -1,9 +1,10 @@
+import { RECHARGE_ICON } from '../../ui/plugin-icons.js';
 import { CARDS, queryCards, validateCard } from './legacy-cards.js';
 export const manifest = {
-  id: 'recharge', name: '旧周月卡', version: '0.1.17', apiVersion: 1, contractVersion: 1,
+  id: 'recharge', name: '旧周月卡', version: '0.1.18', apiVersion: 1, contractVersion: 1,
   minCoreVersion: '0.6.72', categories: ['tools'], priority: 45000,
-  icon: { paths: ['M3 6h18v14H3Z', 'M3 10h18', 'M15 15h3', 'M6 3h12'] },
-  description: '查询旧周卡与旧月卡状态、设置到期提醒并打开游戏直购',
+  icon: RECHARGE_ICON,
+  description: '旧周月卡状态查询、到期提醒与直购',
   releaseNotes: "统一直购页面的提醒开关和状态显示。实际购买仍由用户在游戏中确认。",
 };
 export function activate(ctx) {
@@ -47,7 +48,7 @@ export function activate(ctx) {
     const style = el('style', '', `
       [data-sgs-recharge]{overflow-wrap:anywhere}
       [data-sgs-recharge] p{margin:6px 0 10px}
-      [data-sgs-recharge] label{display:flex;align-items:center;gap:6px;margin:8px 0;color:var(--sgs-muted)}
+      [data-sgs-recharge] label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;color:var(--sgs-muted)}
       [data-sgs-recharge] label input{flex-shrink:0}
       [data-sgs-recharge] .pay-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
       [data-sgs-recharge] .pay-row button{flex:1}
@@ -104,8 +105,9 @@ export function activate(ctx) {
     });
     const reminderLabels = {};
     for (const type of [2,3]) {
-      const label = add('label', ''), input = ctx.ui.styleSwitch(el('input')); input.type = 'checkbox'; input.checked = reminders[type]; input.setAttribute('aria-label', CARDS[type].name + '到期提醒'); label.append(input);
+      const label = add('label', ''), input = ctx.ui.styleSwitch(el('input')); input.type = 'checkbox'; input.checked = reminders[type]; input.setAttribute('aria-label', CARDS[type].name + '到期提醒');
       reminderLabels[type] = add('span', CARDS[type].name + '到期提醒 · 状态未知', label);
+      label.append(input);
       listen(input, 'change', () => { reminders[type] = input.checked; ctx.settings?.set(type === 2 ? 'remindWeek' : 'remindMonth', input.checked); requested = false; if (input.checked) notified.delete(snapshot() + ':' + type); observe(); });
     }
     const confirmation = add('div', '', root, 'pay-confirm'); confirmation.hidden = true;

@@ -5,7 +5,7 @@ import { build } from 'esbuild';
 import { chromium } from 'playwright';
 import cards from '../src/plugins/cards/index.js';
 const CARDS_VERSION = cards.manifest.version;
-import { THEMES } from '../src/plugins/themes/palettes.js';
+import { THEMES } from '../src/core/theme-palettes.js';
 
 // Use the cached official engine, without loading the game or logging in.
 const engine = process.env.SGS_LAYA_CORE || path.join(process.env.TEMP, 'sgsres/game/laya.core.min.js');

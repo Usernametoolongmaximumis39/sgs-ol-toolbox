@@ -3,17 +3,25 @@ import { ResourceScope } from '../../core/resources.js';
 const CONFIG = 'sys_ss_gamelabel_config';
 const POKER = 175;
 const RIDER = 160;
+const CARD_DESC = '技能加持，扑克对决';
+const DEFAULT_OPEN_DESC = '超级加倍，好玩不累';
 const PAGE_CHANGED = 'VIEW_STACK_SELECTED_PAGE_CHANGED';
 const MODE_SCENES = new Set(['ModeScene', 'MatchServerScene', 'ActivityModeScene']);
 
-export async function getPokerModeConfig(ctx, signal = ctx.scope.signal) {
-  const config = ctx.game.getConfigData?.(CONFIG) || await ctx.game.loadConfigData?.(CONFIG, { signal });
+const nonEmpty = value => typeof value === 'string' && value.trim() ? value : '';
+
+function findPokerModeConfig(config) {
   const modes = config?.Root?.modes;
   for (const rows of [modes?.content, modes?.content__2]) {
     const row = Array.isArray(rows) && rows.find(item => Number(item?.Model) === POKER && Number(item.Section) === 2);
     if (row) return row;
   }
   return null;
+}
+
+export async function getPokerModeConfig(ctx, signal = ctx.scope.signal) {
+  const config = ctx.game.getConfigData?.(CONFIG) || await ctx.game.loadConfigData?.(CONFIG, { signal });
+  return findPokerModeConfig(config);
 }
 
 const modeId = row => Number(row?.ModeVo?.ModeID);
@@ -49,12 +57,15 @@ export function installPokerActivityEntry(ctx, open) {
   const nativePoker = () => ctx.game.getClass('PokerDdzScene') || ctx.game.getClass('PokerTableGameScene');
   if (nativePoker()) return;
   let config;
+  let stockMode = null;
   let releaseScene;
+  const readConfig = () => (config ||= findPokerModeConfig(ctx.game.getConfigData?.(CONFIG)));
   const mode = {
     ModeID: POKER, Section: 2, ModeKey: '175_2',
     ResourceModeId: POKER, ResourceSectionId: 0,
-    ModeTips2: '', OpenDesc: '超级加倍，好玩不累',
-    get ModeTips() { return config?.ModelBelongDesc || ''; },
+    ModeTips2: CARD_DESC,
+    get OpenDesc() { return nonEmpty(stockMode?.OpenDesc) || nonEmpty(readConfig()?.openDesc) || DEFAULT_OPEN_DESC; },
+    get ModeTips() { return nonEmpty(readConfig()?.ModelBelongDesc) || nonEmpty(stockMode?.ModeTips); },
     GetOpenState: () => 0,
   };
   const entry = { ModeVo: mode };
@@ -80,6 +91,10 @@ export function installPokerActivityEntry(ctx, open) {
       // Preserve the stock art and click area. The old overlay explicitly links to the remake.
       card.isLock = false;
       if (card.modeBg) card.modeBg.isGray = false;
+      if (card.descTxt) {
+        card.descTxt.text = mode.ModeTips2;
+        card.descTxt.visible = true;
+      }
       if (card.timeTxt) card.timeTxt.text = mode.OpenDesc;
       for (const node of [card.lockImg, card.maskImg, card.item1, card.item2, card.gotoU3dBtn]) {
         if (node) node.visible = false;
@@ -109,6 +124,7 @@ export function installPokerActivityEntry(ctx, open) {
   function restoreRow(state) {
     if (!state) return false;
     restoreCards(state);
+    if (stockMode && stockMode === state.stock?.ModeVo) stockMode = null;
     const index = state.rows.indexOf(entry);
     if (index < 0) return false;
     state.rows.splice(index, 1);
@@ -131,6 +147,7 @@ export function installPokerActivityEntry(ctx, open) {
         restoreRow(state);
         const stockIndex = rows.findIndex(row => modeId(row) === POKER);
         const stock = stockIndex >= 0 ? rows.splice(stockIndex, 1)[0] : null;
+        stockMode = stock?.ModeVo || null;
         rows.splice(rows.findIndex(row => modeId(row) === RIDER) + 1, 0, entry);
         state = { rows, stock, stockIndex, cards: new Map() };
       }

@@ -4,7 +4,7 @@ export const CARD_MINIATURE_STYLES = `
 .sgs-card-chip.sgs-card-mini{position:relative;display:inline-grid;grid-template-rows:1fr 1fr;align-items:stretch;gap:0;flex:0 0 auto;width:40px;height:58px;padding:0;border:1px solid #988568;border-radius:4px;background:linear-gradient(135deg,#fff9e9,#e4d5b9);color:#252018;box-shadow:0 1px 3px #0005;line-height:1.1;white-space:nowrap;overflow:hidden;vertical-align:middle}
 .sgs-card-mini .sgs-card-suit{display:flex;align-items:center;justify-content:center;min-width:0;border-bottom:1px solid #aa906845;font:700 16px/1 Georgia,"Microsoft YaHei",serif;color:#252018;letter-spacing:0}
 .sgs-card-mini .sgs-card-name{display:flex;align-items:center;justify-content:center;min-width:0;max-width:none;writing-mode:horizontal-tb;font:700 16px/1 "Microsoft YaHei",sans-serif;letter-spacing:0;overflow:hidden;text-overflow:clip}
-.sgs-card-mini.is-possible{border-style:dashed;background:#d1d3d5;color:#555b63;filter:grayscale(1)}.sgs-card-certainty{font-size:9px;line-height:10px;color:inherit}.sgs-card-mini.is-red .sgs-card-suit{color:#b72a24}
+.sgs-card-mini.is-possible{border-style:dashed;background:#d1d3d5;color:#555b63;filter:grayscale(1);grid-template-rows:minmax(0,1fr) minmax(0,1fr) auto}.sgs-card-mini.is-possible .sgs-card-suit,.sgs-card-mini.is-possible .sgs-card-name{font-size:14px}.sgs-card-certainty{display:block;text-align:center;font-size:10px;line-height:11px;padding-bottom:1px;color:inherit}.sgs-card-mini.is-red .sgs-card-suit{color:#b72a24}
 `;
 
 export const CARD_SUITS = { 1: '♥', 2: '♦', 3: '♠', 4: '♣' };

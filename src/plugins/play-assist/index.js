@@ -1,3 +1,4 @@
+import { PLAY_ASSIST_ICON } from '../../ui/plugin-icons.js';
 import { EXTRA_SKILLS } from './strategies.js';
 import { createRuntime } from './runtime.js';
 
@@ -16,9 +17,9 @@ export const OPTIONS = [
   ['rapid', '技能连按', '取消连按间隔'],
 ];
 const DEFAULT_ON = new Set(['skillLock', 'quandaoCount', 'tianshuAssist', 'quanyuAssist', 'zhuohunAssist', 'peixiuAssist']);
-export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.38', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "新增裴秀辅助：在绘图时给出走法提示，采风时可按花色批选、反选和锁定卡牌，保留手动确认。补充天书、权御和魔张飞的辅助提示。三国斗地主牌桌不启用出牌辅助。", minCoreVersion: '0.6.87', description: '长按技能辅助、自动确定、询问跳过与武将专属提示。',
-  icon: { paths: ['M4 5h10v14H4zM7 8h4M7 11h3', 'm17 3-3 8h5l-3 10 7-13h-5l2-5'] }, priority: 12000, categories: ['game'] };
+export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.41', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "改进权御记录的显示，等待本人操作时也可查看；修正狂骨在 1 点体力时的自动选择。自动选择仍只按已开启的设置运行。", minCoreVersion: '0.6.87', description: '长按技能、自动确定与武将专属提示',
+  icon: PLAY_ASSIST_ICON, priority: 12000, categories: ['game'] };
 
 export default { manifest, activate(ctx) {
   const listeners = new Set();

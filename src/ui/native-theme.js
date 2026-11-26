@@ -39,6 +39,8 @@ export function mixNativeColors(a, b, amount = .5) {
 export function resolveNativePalette(tokens = {}, document) {
   const p = {};
   for (const key of colorKeys) p[key] = color(tokens[key] ?? BLACK_GOLD.tokens[key], BLACK_GOLD.tokens[key], document, p.bg);
+  p.bg2 = color(tokens.bg2 ?? p.bg, p.bg, document, p.bg);
+  p.accent2 = color(tokens.accent2 ?? p.accent, p.accent, document, p.bg);
   return Object.freeze({ ...p, borderSoft: mixNativeColors(p.bg, p.border, .65),
     highlight: mixNativeColors(p.accent, p.text, .36), shadow: mixNativeColors(p.bg, '#000000', tokens.scheme === 'light' ? .04 : .35),
     selected: mixNativeColors(p.surface, p.accent, .23), hover: mixNativeColors(p.surface, p.accent, .11),
@@ -85,16 +87,19 @@ function prune(cache, laya) {
 function surfaceSVG(p, width, height, { kind, selected, hover, disabled }) {
   const panel = kind === 'panel', option = kind === 'option', tab = kind === 'tab' || kind === 'segment';
   const active = selected && !disabled, over = hover && !disabled;
-  const radius = panel ? 6 : option ? 3 : 5, accent = disabled ? p.muted : p.accent;
+  const radius = panel ? 6 : option ? 3 : 5, accent = disabled ? p.muted : p.accent, accent2 = disabled ? p.muted : (p.accent2 || p.accent);
+  const dualTone = p.bg2 && p.bg2 !== p.bg || accent2 !== accent;
   let body;
   if (option || tab) {
-    body = `<defs><linearGradient id="wash"><stop stop-color="${accent}" stop-opacity="${active ? '.23' : '.09'}"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></linearGradient></defs>`
+    body = `<defs><linearGradient id="wash"><stop stop-color="${accent}" stop-opacity="${active ? '.23' : '.09'}"/><stop offset="1" stop-color="${accent2}" stop-opacity="0"/></linearGradient></defs>`
       + (active || over ? `<rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="${radius}" fill="url(#wash)"/>` : '')
       + (active ? `<rect x="1" y="${option ? 7 : height - 2}" width="${option ? 2 : width - 2}" height="${option ? Math.max(1, height - 14) : 1}" rx="1" fill="${accent}"/>` : '');
   } else {
-    body = `<defs><linearGradient id="base" x2="0" y2="1"><stop stop-color="${active ? p.selected : over ? p.hover : p.raised}"/><stop offset=".46" stop-color="${active ? mixNativeColors(p.surface, p.accent, .16) : p.surface}"/><stop offset="1" stop-color="${panel ? p.shadow : p.bg}"/></linearGradient><linearGradient id="rim" x2="0" y2="1"><stop stop-color="${active ? accent : p.border}"/><stop offset=".5" stop-color="${p.borderSoft}"/><stop offset="1" stop-color="${p.shadow}"/></linearGradient></defs>`
+    const endBg = panel ? p.shadow : (dualTone ? p.bg2 : p.bg);
+    const baseAttrs = dualTone ? 'x1="0" y1="0" x2="1" y2="1"' : 'x2="0" y2="1"';
+    body = `<defs><linearGradient id="base" ${baseAttrs}><stop stop-color="${active ? p.selected : over ? p.hover : p.raised}"/><stop offset=".46" stop-color="${active ? mixNativeColors(p.surface, p.accent, .16) : p.surface}"/><stop offset="1" stop-color="${endBg}"/></linearGradient><linearGradient id="rim" ${dualTone ? 'x1="0" y1="0" x2="1" y2="1"' : 'x2="0" y2="1"'}><stop stop-color="${active ? accent : p.border}"/><stop offset=".5" stop-color="${dualTone && active ? accent2 : p.borderSoft}"/><stop offset="1" stop-color="${p.shadow}"/></linearGradient></defs>`
       + `<rect x="1" y="2" width="${width - 2}" height="${height - 3}" rx="${radius}" fill="#000" fill-opacity=".3"/><rect x=".5" y=".5" width="${width - 1}" height="${height - 2}" rx="${radius}" fill="url(#base)" stroke="url(#rim)"/><path d="M${radius + 1} 2H${width - radius - 1}" stroke="${p.highlight}" stroke-opacity="${panel ? '.16' : '.21'}"/>`
-      + (active ? `<path d="M8 ${height - 3}H${width - 8}" stroke="${accent}" stroke-opacity=".6"/>` : '');
+      + (active ? `<path d="M8 ${height - 3}H${width - 8}" stroke="${accent2}" stroke-opacity=".6"/>` : '');
   }
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${body}</svg>`);
 }
@@ -103,7 +108,7 @@ function surfaceSVG(p, width, height, { kind, selected, hover, disabled }) {
 export function createNativeTheme({ themes, scope, window = {}, document = window.document } = {}) {
   const states = new WeakMap(); let lastSignature, palette = DEFAULT_NATIVE_PALETTE;
   function current() {
-    const tokens = themes?.current?.tokens || {}, signature = JSON.stringify([...colorKeys, 'scheme'].map(key => tokens[key]));
+    const tokens = themes?.current?.tokens || {}, signature = JSON.stringify([...colorKeys, 'bg2', 'accent2', 'scheme'].map(key => tokens[key]));
     if (lastSignature !== signature) { lastSignature = signature; palette = resolveNativePalette(tokens, document); }
     return palette;
   }

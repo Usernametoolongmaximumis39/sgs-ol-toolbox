@@ -16,7 +16,7 @@ const bundle = await build({
     import { mountPluginUI } from './src/ui/plugin-ui.js';
     import { createPluginNative } from './src/core/plugin-native.js';
     import { ThemeRegistry } from './src/core/themes.js';
-    import { THEMES } from './src/plugins/themes/palettes.js';
+    import { THEMES } from './src/core/theme-palettes.js';
     export function open(kind, offset, shortList, light) {
       document.body.innerHTML = '<button data-sgs-toolbox="core">打开皮肤</button><div class="game-fixture"></div>';
       const trigger = document.body.firstElementChild;

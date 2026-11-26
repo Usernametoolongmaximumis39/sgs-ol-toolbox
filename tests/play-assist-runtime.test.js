@@ -169,22 +169,22 @@ test('山河图 gives ready skills priority over selecting and confirming ordina
   assert.equal(f.calls, 1, 'disabling the plugin releases priority immediately');
 });
 
-test('狂骨 chooses recovery below two HP, including dying, and reevaluates every prompt', async t => {
+test('狂骨 draws at one HP or above and recovers below one HP', async t => {
   const f = fixture(t,{skillLock:true});
   f.item.Skill = {SkillId:295}; f.runtime.tick(); f.runtime.toggle(295);
   const chosen = [];
   Object.assign(f.self.spellSelector,{visible:true,spell:{SkillId:295},
     btnList:[1,2].map(sendData => ({_enabled:true,data:{sendData}})),
     btnClick(btn){chosen.push(btn.data.sendData);}});
-  for (const hp of [-2,0,1,2,3,'1','2',undefined,null,'',NaN]) {
+  for (const [hp, expected] of [[-2,1],[0,1],[1,2],[2,2],[3,2],['1',2],['2',2],[undefined],[null],[''],[NaN]]) {
     f.self.seat.Hp = hp;
     const before = chosen.length;
     f.self.spellSelector.Show(); f.runtime.tick(); await flush();
-    const known = hp != null && hp !== '' && Number.isFinite(Number(hp));
-    assert.equal(chosen.length,before + Number(known),`HP ${hp}`);
-    if (known) assert.equal(chosen.at(-1),Number(hp)<2?1:2);
+    const expectedCount = before + Number(expected !== undefined);
+    assert.equal(chosen.length,expectedCount,`HP ${hp}`);
+    if (expected !== undefined) assert.equal(chosen.at(-1),expected,`HP ${hp}`);
     f.runtime.tick(); await flush();
-    assert.equal(chosen.length,before + Number(known),'same prompt submits once');
+    assert.equal(chosen.length,expectedCount,'same prompt submits once');
   }
 });
 test('baseline whitelist and conditional judgement support',()=>{

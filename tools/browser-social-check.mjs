@@ -27,6 +27,28 @@ const nativeChatRefresh=method('onChatUpdateMsg(t){','chatInputEvent(t){',source
 const nativeShowDecree=method('showSuperZhaoLing(t){','layoutSuperZhao(){',source.indexOf('onChatMsg(t,i){let s=!0;if(this.currentShowChanel'));
 const nativeLayoutDecree=method('layoutSuperZhao(){','hideSuperZhaoLing(){',source.indexOf(nativeShowDecree));
 const nativeInsertDecree=method('updateData(t){','getHtmlBase(t){',source.lastIndexOf('class ',source.indexOf('i.SetSuperZhaoLing(t),i.SetRescriptMsg(!0),i}')));
+const remasteredSourcePath=resolve(process.env.SGS_SOCIAL_REMASTERED_SOURCE||'.tmp/poker-client-inspect/remastered/main.sgs');
+const remasteredSource=await readFile(remasteredSourcePath,'utf8');
+const emojiClients=[
+ {client:'classic',path:sourcePath,source,entry:/\.(?:_|A)\("SgxWindow",\w+\.EMO_SET,\w+\)/},
+ {client:'remastered',path:remasteredSourcePath,source:remasteredSource,entry:/\.A\("SgxWindow",1,\w+\)/},
+].map(({client,path,source,entry})=>{
+ assert.ok(entry.test(source),`${client} must link to the native emoji page`);
+ if(client==='classic') assert.ok(/\[\w+\.EMO_SET=1\]="EMO_SET"/.test(source));
+ const start=source.indexOf('ShowWindowAfterCloseOther(t,i'),end=source.indexOf('ShowGiftWindow(',start);
+ assert.ok(start>=0&&end>start,`${client} dispatcher not found`);
+ const drawCall=source.indexOf('this.bigFaceView.PlaySoundOnLoop=');
+ assert.ok(drawCall>0,`${client} emoji renderer not found`);
+ const draw=source.slice(source.lastIndexOf('ShowBigFace(t',drawCall),source.indexOf('posBigFaceView(){',drawCall));
+ const globals={
+  animation:draw.match(/new ([\w$]+)\(!1,this\.seat\.Index/)?.[1],
+  context:draw.match(/this\.seat\.Index==([\w$]+)\.SelfSeatIndex/)?.[1],
+  layer:draw.match(/zOrder=([\w$]+)\.Lv10/)?.[1],
+  catalog:draw.match(/([\w$]+)\.I\(\)\.GetBigFaceListById/)?.[1],
+ };
+ assert.ok(globals.animation&&globals.context&&globals.layer&&globals.catalog);
+ return {client,path,code:source.slice(start,end),draw,globals,sourceHash:createHash('sha256').update(source).digest('hex')};
+});
  await writeFile(resolve(out,'native-source.js'),['export const nativeVip={'+vip+'};','export const nativeResize={'+resize+'};','export const nativeOffice={'+office+'};','export const nativeOfficerService={'+nativeOfficerIcon+'};','export const nativeDetailRequest={'+nativeDetailRequest.replace('static ','')+'};','export const nativeChatSize={'+nativeChatSize+'};'].join('\n'));
  await writeFile(resolve(out,'source-report.json'),JSON.stringify({source:sourcePath,sha256:createHash('sha256').update(source).digest('hex'),methods:[vip,resize,office,passwordConfirm,nativeOfficerIcon,nativeDetailRequest,nativeChatSize,nativeChatRefresh,nativeShowDecree,nativeLayoutDecree,nativeInsertDecree].map(code=>({name:code.slice(0,code.indexOf('{')),offset:source.indexOf(code),end:source.indexOf(code)+code.length,sha256:createHash('sha256').update(code).digest('hex')}))},null,2));
 const bundle=await build({stdin:{contents:"export {mountPluginUI} from './src/ui/plugin-ui.js';export {createFriendManagement} from './src/plugins/social/friends.js';export {createChatEnhancements} from './src/plugins/social/chat.js';export {createLampTracking} from './src/plugins/social/lamps.js';export {activate,renderHistory} from './src/plugins/social/index.js';export {ResourceScope} from './src/core/resources.js';export {createPluginNative} from './src/core/plugin-native.js';",resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'SocialCheck'});
@@ -38,6 +60,19 @@ try{
  for(const file of ['laya.core.min.js','laya.ui.min.js','laya.html.min.js']) await page.addScriptTag({path:resolve(process.env.SGS_LAYA_DIR||'C:/Users/Admin/AppData/Local/Temp/sgsres/game',file)});
  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=24;c.height=24;const g=c.getContext('2d');g.fillStyle='#b39044';g.beginPath();g.moveTo(12,1);g.lineTo(22,8);g.lineTo(19,20);g.lineTo(12,23);g.lineTo(5,20);g.lineTo(2,8);g.closePath();g.fill();g.strokeStyle='#e6d48b';g.lineWidth=2;g.beginPath();g.moveTo(7,9);g.lineTo(12,16);g.lineTo(18,7);g.stroke();return c.toDataURL().split(',')[1]});
  await page.route('http://social.fixture/**',async route=>{await new Promise(r=>setTimeout(r,100));await route.fulfill({contentType:'image/png',body:Buffer.from(png,'base64')})});
+ const emojiIcons=await page.evaluate(()=>['#cf795c','#5d9c79','#7a74b5'].map((color,index)=>{
+  const canvas=document.createElement('canvas');canvas.width=canvas.height=40;
+  const context=canvas.getContext('2d');context.fillStyle=color;context.beginPath();
+  if(index===0) context.arc(20,20,17,0,2*Math.PI);
+  else if(index===1) context.roundRect(4,4,32,32,8);
+  else {context.moveTo(20,2);context.lineTo(38,20);context.lineTo(20,38);context.lineTo(2,20);context.closePath();}
+  context.fill();return canvas.toDataURL().split(',')[1];
+ }));
+ await page.route('http://social.fixture/emoji/**',route=>{
+  const match=route.request().url().match(/\/(?:classic|remastered)-([1-3])\.png$/);
+  if(!match) return route.fulfill({status:404});
+  return route.fulfill({contentType:'image/png',body:Buffer.from(emojiIcons[Number(match[1])-1],'base64')});
+ });
  await page.addScriptTag({content:bundle.outputFiles[0].text});
  await page.evaluate(({vip,resize,office,passwordConfirm,nativeOfficerIcon,nativeDetailRequest,nativeChatSize})=>{
   Laya.init(1150,780);Laya.URL.basePath='http://social.fixture/';Laya.stage.bgColor='#161813';
@@ -238,12 +273,116 @@ try{
     const label=host.querySelector('.social-filter'), toggle=label.querySelector('input');
     const range=document.createRange();range.selectNode(label.firstChild);
     const text=range.getBoundingClientRect(),sw=toggle.getBoundingClientRect();
-    return{width:host.getBoundingClientRect().width,overflow:host.scrollWidth>host.clientWidth,fontSize:parseFloat(getComputedStyle(label).fontSize),switchFits:sw.left>=text.right&&sw.top<text.bottom&&sw.bottom>text.top&&sw.right<=label.getBoundingClientRect().right};
+    const emojiActions=host.querySelector('.social-emoji-actions');
+    const pane=emojiActions.closest('.sgs-social').getBoundingClientRect();
+    const emojiFits=[...emojiActions.querySelectorAll('button')].every(button=>{
+     const text=document.createRange();
+     text.selectNodeContents(button);
+     return text.getClientRects().length===1&&button.getBoundingClientRect().right<=pane.right;
+    });
+    return{width:host.getBoundingClientRect().width,overflow:host.scrollWidth>host.clientWidth,fontSize:parseFloat(getComputedStyle(label).fontSize),switchFits:sw.left>=text.right&&sw.top<text.bottom&&sw.bottom>text.top&&sw.right<=label.getBoundingClientRect().right,
+      emojiFits:emojiFits&&pane.right<=host.getBoundingClientRect().right};
    },offset);
-   assert.deepEqual(layout,{width,overflow:false,fontSize:12+offset,switchFits:true});
+   assert.deepEqual(layout,{width,overflow:false,fontSize:12+offset,switchFits:true,emojiFits:true});
   }
   await page.locator('#social-panel').screenshot({path:resolve(out,'panel-'+width+'-'+(light?'light':'dark')+'.png')});
  }
+ const emojiButton=page.getByRole('button',{name:'表情预览与解锁'});
+ const localEmojiButton=page.getByRole('button',{name:'加入本地',exact:true});
+ const playFirst=page.getByRole('button',{name:'播放「闭嘴」'});
+ const playSecond=page.getByRole('button',{name:'播放「夯」'});
+ const playThird=page.getByRole('button',{name:'播放「拉」'});
+ for(const clientMethods of emojiClients){
+  await page.evaluate(({client,code,draw,globals})=>{
+   window.emojiWindows=[];
+   window.localEmojiPlayed=[];
+   const faces=[
+    { EmojiID:37050890, Tp:'闭嘴', Data:'zhouyu_bizui' },
+    { EmojiID:37050889, Tp:'夯', Data:'zhouyu_hang' },
+    { EmojiID:37050888, Tp:'拉', Data:'zhouyu_la' },
+   ].map((face,i)=>({...face,FaceName:'限时',CanShow:true,FaceWidth:128,FaceScale:1,
+    FaceUrl:`http://social.fixture/emoji/classic-${i+1}.png`,
+    U3dFaceStaticUrl:`http://social.fixture/emoji/remastered-${i+1}.png`}));
+   class EmojiView extends Laya.Sprite {}
+   const wardrobe=new Laya.Sprite();
+   const view=wardrobe.addChild(new EmojiView());
+   wardrobe.viewStack={selectedChild:view};
+   if(client==='remastered') view.faceDataList=faces;
+   window.chooseFixtureEmoji=index=>{
+    if(client==='classic') view.crtEmojiData=faces[index];
+    else view.currectSelId=faces[index].EmojiID;
+   };
+   chooseFixtureEmoji(0);
+   const mount=(...args)=>{emojiWindows.push(args);Laya.stage.addChild(wardrobe);};
+   const cache={WindowInstanceDict:{getStringKey:name=>name==='SgxWindow'?wardrobe:null}};
+   const dispatcher={A:mount,_:mount,_events:{OPEN_WINDOW:{caller:cache}}};
+   const method=(code,name,values={})=>new Function(...Object.keys(values),'return ({'+code+'}).'+name)(...Object.values(values));
+   dispatcher.ShowWindowAfterCloseOther=method(code,'ShowWindowAfterCloseOther');
+   const effectLayer=Laya.stage.addChild(new Laya.Sprite());
+   class Animation extends Laya.Sprite {
+    RemoveAnimationWithClearTimer() {}
+    UpdateFaceInfo(face,loops) {
+     localEmojiPlayed.push({id:face.EmojiID,loops,parent:this.parent===effectLayer});
+     this.graphics.drawCircle(37,36,28,'#be994d');
+    }
+   }
+   const top={seat:{Index:1,IsSelf:true},textSprite:effectLayer,
+    addBigChatBuble(){if(!this.bigFaceView.parent)effectLayer.addChild(this.bigFaceView)},
+    posBigFaceView(){this.bigFaceView.pos(390,48)}};
+   top.ShowBigFace=method(draw,'ShowBigFace',{
+    [globals.animation]:Animation,[globals.context]:{SelfSeatIndex:1},[globals.layer]:{Lv10:10},
+    [globals.catalog]:{I:()=>({GetBigFaceListById:id=>faces.find(face=>face.EmojiID===id)})},
+   });
+   const seatUI={Seat:top.seat,SpeechBubbleLocation:0,otherTopManager:top};
+   ctx.game.getDispatcher=()=>dispatcher;
+   ctx.game.getClass=name=>name==='SgxWindow'?Laya.Sprite:name==='EmojiSetView'?EmojiView:null;
+   ctx.game.getSelfSeatUI=()=>seatUI;
+   window.closeEmojiGallery=()=>wardrobe.removeSelf();
+   window.disposeEmojiFixture=()=>{wardrobe.destroy(true);effectLayer.destroy(true);delete ctx.game.getSelfSeatUI};
+  },clientMethods);
+  if(clientMethods.client==='classic') await emojiButton.click();
+  else {await emojiButton.focus();await page.keyboard.press('Enter');}
+  assert.deepEqual(await page.evaluate(()=>emojiWindows),[['SgxWindow',1]]);
+  await localEmojiButton.click();
+  await localEmojiButton.click();
+  assert.equal(await playFirst.count(),1);
+  for(const index of [1,2]){
+   await page.evaluate(index=>chooseFixtureEmoji(index),index);
+   await localEmojiButton.click();
+  }
+  assert.match(await page.locator('.social-emoji-status').textContent(),/3 个本地表情/);
+  assert.ok(await playFirst.isVisible()&&await playSecond.isVisible()&&await playThird.isVisible());
+  const list=page.locator('.social-emoji-list');
+  await page.waitForFunction(()=>document.querySelectorAll('.social-emoji-list img:not([hidden])').length===3);
+  assert.deepEqual(await list.locator('img').evaluateAll(images=>images.map(img=>[new URL(img.src).pathname,img.naturalWidth])),
+   [1,2,3].map(index=>[`/emoji/${clientMethods.client}-${index}.png`,40]));
+  assert.deepEqual(await page.evaluate(()=>localEmojiPlayed),[]);
+  await page.evaluate(()=>closeEmojiGallery());
+  await playSecond.focus();
+  await page.keyboard.press('Enter');
+  await playFirst.click();
+  assert.deepEqual(await page.evaluate(()=>localEmojiPlayed),[{id:37050889,loops:1,parent:true},{id:37050890,loops:1,parent:true}]);
+  const panel=page.locator('#social-panel');
+  await panel.evaluate(host=>{host.style.width='248px';host.scrollTop=0;});
+  assert.ok(await panel.evaluate(host=>{
+   const list=host.querySelector('.social-emoji-list'), bounds=list.getBoundingClientRect();
+   return host.scrollWidth<=host.clientWidth&&list.scrollWidth<=list.clientWidth
+    &&[...list.children].every(item=>item.getBoundingClientRect().right<=bounds.right);
+  }));
+  await panel.screenshot({path:resolve(out,`emoji-local-${clientMethods.client}.png`)});
+  await panel.evaluate(host=>{host.style.width='420px';});
+  await page.getByRole('button',{name:'移除「闭嘴」'}).focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await playFirst.count(),0);
+  assert.ok(await playSecond.isVisible()&&await playThird.isVisible());
+  await page.getByRole('button',{name:'移除「夯」'}).click();
+  await page.getByRole('button',{name:'移除「拉」'}).click();
+  assert.equal(await list.isVisible(),false);
+  await page.evaluate(()=>disposeEmojiFixture());
+ }
+ await page.evaluate(()=>{delete ctx.game.getDispatcher;ctx.game.getClass=()=>null});
+ await writeFile(resolve(out,'emoji-source-report.json'),JSON.stringify(emojiClients,null,2));
+ checks.push('three emoji catalog rows in the same timed group keep their own native titles and loaded thumbnails, playback and removal in Classic and Remastered');
  assert.equal(await page.locator('[data-social-history] li').count(),1);
  const downloadPromise=page.waitForEvent('download');await page.locator('[data-social-export]').focus();await page.keyboard.press('Enter');const download=await downloadPromise;
  assert.equal(download.suggestedFilename(),'好友-1234567890.json');const exported=JSON.parse(await readFile(await download.path(),'utf8'));assert.equal(exported.friends['1234567891'].name,'青山新名');assert.deepEqual(exported.pins,['1234567891']);

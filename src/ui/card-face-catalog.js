@@ -8,7 +8,7 @@ export function mountCardFaceCatalog(container, doc, cardStyles) {
     return node;
   };
   const details = doc.createElement('details');
-  details.className = 'card-face-catalog';
+  details.className = 'card-face-catalog sgs-fold';
   const title = doc.createElement('summary');
   title.textContent = '卡牌图鉴';
   const suites = doc.createElement('select');

@@ -8,6 +8,7 @@ import { nativeWallpaperFixture } from './native-wallpaper-fixture.mjs';
 const out = resolve('test-results/background-history');
 await mkdir(out, { recursive: true });
 const { nativeClass, nativeMethod } = await nativeWallpaperFixture(resolve('test-results/reference/client-static/sgsGame_a.js'));
+const currentClient = await nativeWallpaperFixture();
 const source = await build({ stdin: { contents: `
   export { default as backgroundsPlugin } from './src/plugins/backgrounds/index.js';
   export { BackgroundRegistry } from './src/core/backgrounds.js';
@@ -109,28 +110,61 @@ try {
       window.Cg = { I: () => ({}) };
       window.y8t = { I: () => ({ WallSkinPaperRed: false }) };
       window.POt = { wallPaperBtn1: '主题背景', wallPaperBtn2: '静态皮肤', wallPaperBtn3: '动态皮肤', checkMore: '查看更多' };
-      const data = { Group: 1, IsOutside: true, ID: 1 };
       const ids = Array.from({ length: 12 }, (_, i) => i + 1);
-      window._g = { LiveIdBase: 1000, I: () => ({ LiveBgConfs: [data], NowModeConfs: ids, NowCommonModeConfs: ids,
-        UsedId: 1, GetDataById: () => data, GetWallSkinVoById: () => data, WallSkinVoListInculedTryUse: [data], WallSort0Normal: () => 0 }) };
+      const data = ids.map(ID => ({ Group: 1, IsOutside: true, ID, Name: '游戏背景 ' + ID,
+        Source: `full${ID}.png`, Vip: ID === 3 ? 3 : 0, GoodsID: ID === 2 ? 200 : 0, PowerId: 0 }));
+      const live = { ID: 1001, Name: '未解锁动态背景', IsCanUse: false, SmallImgUrl: 'res/wallpaper/small/live.png',
+        ActiveAniURL: 'res/wallpaper/ani/live.json' };
+      const skin = { ID: 101, Name: '已有皮肤', canUsed: true };
+      const nativeSelections = [];
+      const wallpaper = { LiveBgConfs: [live], NowModeConfs: ids, NowCommonModeConfs: ids, UsedId: 1,
+        GetDataById: id => data[id - 1], GetWallSkinVoById: () => skin,
+        WallSkinVoListInculedTryUse: [skin], WallSort0Normal: () => 0, GetModeForceBgId: () => 0,
+        IsBgCanUse: id => id !== live.ID, SetGameWallPaper: id => nativeSelections.push(id) };
+      window._g = { LiveIdBase: 1000, I: () => wallpaper };
+      window.qOt = { Self: { VipLevelIncludeTrial: 1 } };
+      window.F9t = { I: () => ({ GetGoodsByFourID: () => false }) };
+      window.L8t = { getFourId: id => id };
+      window.z1i = { ShowTextPrompt: () => nativeSelections.push('locked') };
+      window.wallpaperData = { config: { WallPapers: { WallPaper: data } }, nativeSelections };
       window.Kii = class extends j_ {
-        constructor(id) { super(); this.Id = id; this.size(97, 65); this.initUI(); }
+        constructor(id) { super(); this.Id = this.id = id; this.size(97, 65); this.initUI();
+          this.bindSelection(Laya.Event.MOUSE_DOWN); }
+        bindSelection(event) {
+          this.selectedBtn = this.addChild(new j_());
+          this.selectedBtn.size(97, 45); this.selectedBtn.hitArea = new Laya.Rectangle(0, 0, 97, 45);
+          this.selectedBtn.addClick();
+          this.selectedBtn.on(event, this, this.onSelectedClicked);
+          this.selectedBtn.on(Laya.Event.CLICK, this, event => event.stopPropagation());
+        }
         initUI() {
           this.graphics.clear();
           this.graphics.drawRect(0, 0, 96, 41, ['#6c6243', '#71665c', '#415b60'][this.Id % 3], '#9d987c', 1);
           if (!this.label) { this.label = txt(this, '游戏背景 ' + this.Id, 96, 19, '#ddcc9f', 12); this.label.y = 42; }
+          this.bg = { skin: `res/wallpaper/small/thumb${this.Id}.png` };
+          this.tagLock = { visible: this.Id === 2 };
+          this.vipImg = { visible: this.Id === 3 };
+          if (!this.lock && (this.tagLock.visible || this.vipImg.visible)) {
+            this.lock = txt(this, this.tagLock.visible ? '未解锁' : 'VIP 3', 96, 41, '#ffedbf', 13);
+            this.lock.mouseEnabled = false;
+          }
         }
         clear() {}
       };
       window.Xii = window.Yii = class extends Kii {
-        UpdateData(data) { this.ID = data.ID; }
+        constructor() { super(); this.selectedBtn.destroy(); this.selectedBtn = null; }
+        init() { this.bindSelection(Laya.Event.CLICK); }
+        UpdateData(data) { this.data = data; this.ID = data.ID; this.label.text = data.Name; this.init(); }
         UpdateSelectedUI() {}
       };
+      window.Yii = class extends Xii {};
       window.JM = class extends j_ { UpdateDrawContent() {} };
     });
     await page.addScriptTag({ content: `
       window.lk = (${nativeClass('lk')});
       window.ak = (${nativeClass('ak')});
+      Object.assign(Kii.prototype, { ${nativeMethod('Kii', 'onSelectedClicked')}, ${nativeMethod('Kii', 'useWall')} });
+      Object.assign(Yii.prototype, { ${nativeMethod('Yii', 'onSelectedClicked')}, ${nativeMethod('Yii', 'useWall')} });
       window.toolbarMethods = { ${nativeMethod('hk', 'onClickSkin')}, ${nativeMethod('hk', 'stageclickHandler')} };
     ` });
     await page.evaluate(async () => {
@@ -164,7 +198,12 @@ try {
         settings.set('battleBackground', { owner: 'backgrounds', name: '升级前本地背景', localImageId, animated: false, dynamic: null });
         settings.set('seeded', true);
       }
-      const game = { getScene: () => null, isInGame: () => false };
+      const game = { getScene: () => null, isInGame: () => false, getSelf: () => qOt.Self,
+        getConfigData: () => null, async loadConfigData(name) {
+          if (name !== 'gn_WallPaper') throw new Error(name);
+          await wallpaperData.wait;
+          return wallpaperData.config;
+        } };
       const registry = new Check.BackgroundRegistry({ window, game, settings, scope });
       const themes = new Check.ThemeRegistry(settings);
       const opens = [], notifications = [];
@@ -183,7 +222,9 @@ try {
   };
 
   const point = (control, value) => page.evaluate(({ control, value }) => {
-    const target = control === 'toolbar' ? fixture.entry : fixture.toolbar.wallPaperUI.tabGroup.GetButtonByValue(value);
+    const owner = fixture.toolbar.wallPaperUI;
+    const target = control === 'toolbar' ? fixture.entry : control === 'theme' ? owner.wallPaperItems[value - 1].selectedBtn
+      : control === 'live' ? owner.wallPaperLiveItems[0].selectedBtn : owner.tabGroup.GetButtonByValue(value);
     const center = target.localToGlobal(new Laya.Point(target.width / 2, target.height / 2));
     const canvas = document.getElementById('layaCanvas').getBoundingClientRect();
     return { x: canvas.left + center.x * canvas.width / Laya.stage.width, y: canvas.top + center.y * canvas.height / Laya.stage.height };
@@ -204,6 +245,105 @@ try {
   const region = page.getByRole('region', { name: '自定义背景' });
   const card = name => region.getByRole('button', { name: new RegExp(name) });
 
+  async function mountWardrobe() {
+    await page.evaluate(() => {
+      window.gO = j_;
+      window.vm = class {};
+      window.Pm = class {};
+      const theme = (ID, Name, args) => Object.assign(new vm(), { ID, Name, Source: `wardrobe-${ID}.png`,
+        BgURL: `res/wallpaper/bg/wardrobe-${ID}.png`, ...args });
+      const themes = [theme(1, '已选原生背景', { IsCanUse: true }), theme(201, '未解锁官方主题', { Vip: 9, IsCanUse: false }),
+        theme(25, '已解锁背景', { IsCanUse: true })];
+      const skin = Object.assign(new Pm(), { ID: 111, Name: '未解锁静态皮肤', SkinID: 103, canUsed: false, BgURL: 'res/wallpaper/bg/wardrobe-skin.png' });
+      const live = theme(100002, '未解锁动态皮肤', { IsLiveBg: true, IsCanUse: false, SmallImgUrl: 'res/wallpaper/small/wardrobe-live.png',
+        ActiveAniURL: 'res/wallpaper/ani/wardrobe-live.json' });
+      const actions = [];
+      const nativeWallpaper = { UsedId: 1, BattleBgPreviewConfs: themes, SkinBgPreviewConfs: [skin], LiveBgConfs: [live],
+        IsLiveBgId: id => id === live.ID, GetDataById: id => [...themes, live].find(data => data.ID === id),
+        GetWallSkinVoById: id => id === skin.ID ? skin : null, IsBgCanUse: id => [...themes, live].find(data => data.ID === id)?.IsCanUse ?? skin.canUsed,
+        SetGameWallPaper(id) { actions.push(['use', id]); this.UsedId = id; fixture.wardrobe.preview.updateUI(); } };
+      window.Mm = { I: () => nativeWallpaper };
+      window.NNt = { Self: { VipLevelIncludeTrial: 2 } };
+      window.VJt = { VIPItemID: 9 };
+      window.xNt = { I: () => ({ Buy: id => actions.push(['buy', id]) }) };
+      window.B$t = { I: () => ({ NavigationGotoFunc: (...args) => actions.push(['go', ...args]) }) };
+      window.gNt = { SKILL_USE: '使用', BUY_EMOJI_VIP: '开通 VIP X', GENERAL_BREAK_TIP3: '获取方式' };
+      window.le = { F: (text, value) => text.replace('X', value) };
+      window.yQ = { BG_PREVIEW_COMMON_ID: 'preview', Personalization: 'wardrobe', PERSONAL_BG_GETWAY: 'obtain' };
+      window.c1t = { I: () => ({ ClickEventUpLoad: payload => actions.push(['log', ...payload]) }) };
+      window.JJt = { I: () => ({ ReqSkinGetWays: () => {} }) };
+      const dispatcher = new Laya.EventDispatcher();
+      fixture.wardrobe = { dispatcher, actions, nativeWallpaper, rows: [themes, [skin], [live]] };
+    });
+    await page.addScriptTag({ content: `
+      window.Tji = class Tji extends j_ {
+        static BTN_ST_INVISIBLE = 0;
+        static BTN_ST_USE = 1;
+        static BTN_ST_GET_WAYS = 2;
+        ${['getBtnSt', 'clickBotBtn', 'updateSkinBtn', 'getDataList', 'updateUI', 'clickItem'].map(name => currentClient.nativeMethod('Tji', name)).join('\n')}
+        get crtSkinId() { return this.crtData?.SkinID || 0; }
+      };
+      window.openWardrobeItem = (${currentClient.nativeMethod('n4t', 'clickItem').replace(/^clickItem/, 'function clickItem')});
+    ` });
+    await page.evaluate(() => {
+      const wardrobe = fixture.wardrobe;
+      const addButton = (parent, name, width, x, y, click) => {
+        const button = new rei();
+        button.init(); button.size(width, 36); button.label = name; button.paint(); button.pos(x, y);
+        button.labelText.fontSize = 16;
+        button.on(Laya.Event.CLICK, parent, click);
+        parent.addChild(button);
+        return button;
+      };
+      const preview = wardrobe.preview = new Tji();
+      preview.size(640, 470); preview.pos(192, 70);
+      preview.graphics.drawRect(0, 0, 640, 470, '#211e1b', '#a18352', 1);
+      const heading = new Laya.Text();
+      Object.assign(heading, { width: 600, height: 40, fontSize: 20, color: '#e8d5a7', align: 'center', valign: 'middle' });
+      preview.addChild(heading); heading.pos(20, 18);
+      Object.assign(preview, { imgInUse: { visible: false }, arrL: {}, arrR: {}, btnCoin: {}, btnCoinLb: {},
+        skinGetWayDataDic: { getNumberKey: () => undefined }, updateBg() { heading.text = `背景预览 · ${this.crtData.Name}`; },
+        bgItems: Array.from({ length: 3 }, (_, index) => {
+          const item = { UpdateData(data, callback) { this.Data = data; this.click = callback; }, Draw() { this.button.label = this.Data.Name; } };
+          item.button = addButton(preview, '', 165, 55 + index * 181, 322, () => item.click(item));
+          return item;
+        }) });
+      preview.botBtn = addButton(preview, '', 126, 257, 405, preview.clickBotBtn);
+      preview.visible = false;
+      Laya.stage.addChild(preview);
+      const cache = { WindowInstanceDict: { getStringKey: name => name === 'BgPreviewWin' ? preview : null } };
+      wardrobe.dispatcher.on('OPEN_WINDOW', cache, ({ id }) => {
+        preview.visible = true;
+        preview.crtBgId = id;
+        preview.getDataList(); preview.updateUI();
+      });
+      fixture.manager.context.game.getDispatcher = () => wardrobe.dispatcher;
+      const list = new j_();
+      list.size(862, 544); list.pos(81, 40); Laya.stage.addChildAt(list, Laya.stage.getChildIndex(preview));
+      list.ged = { _(name, id) { wardrobe.dispatcher.event('OPEN_WINDOW', { WindowName: name, id }); } };
+      wardrobe.rows.flat().forEach((data, index) => {
+        const button = addButton(list, data.Name, 170, 70 + 186 * (index % 4), 95 + 135 * Math.floor(index / 4), () => {
+          if (!preview.visible) openWardrobeItem.call(list, { Data: data });
+        });
+        if (data.ID === 201) wardrobe.lockedTheme = button;
+        if (data.IsLiveBg) wardrobe.lockedLive = button;
+        if (data.SkinID) wardrobe.lockedSkin = button;
+      });
+      fixture.registry.select('backgrounds', null);
+    });
+  }
+
+  async function clickWardrobe(key) {
+    const { x, y } = await page.evaluate(key => {
+      const { wardrobe } = fixture;
+      const button = key === 'use' ? wardrobe.preview.botBtn : wardrobe[key];
+      const center = button.localToGlobal(new Laya.Point(button.width / 2, button.height / 2));
+      const canvas = document.getElementById('layaCanvas').getBoundingClientRect();
+      return { x: canvas.left + center.x * canvas.width / Laya.stage.width, y: canvas.top + center.y * canvas.height / Laya.stage.height };
+    }, key);
+    await page.mouse.click(x, y);
+  }
+
   await mount();
   await openMenu();
   assert.deepEqual(await page.evaluate(() => {
@@ -223,6 +363,9 @@ try {
   const second = await makeImage('湖畔清晨.png', '#3f7f83');
   const official = await makeImage('本服立绘.png', '#535480');
   await page.route('https://background-history.fixture/res/official.png', route => route.fulfill({
+    body: official.buffer, contentType: official.mimeType,
+  }));
+  await page.route('https://background-history.fixture/res/wallpaper/**', route => route.fulfill({
     body: official.buffer, contentType: official.mimeType,
   }));
   const chooser = page.waitForEvent('filechooser');
@@ -302,13 +445,100 @@ try {
   await card('升级前本地背景').click();
   await page.waitForFunction(() => fixture.registry.current?.name === '升级前本地背景');
   assert.equal(await region.locator('.history-card').count(), 4);
+  await mount();
+  await openMenu();
+  await clickCanvas('theme', 2);
+  await page.waitForFunction(() => fixture.registry.current?.officialWallpaper).catch(async cause => {
+    const state = await page.evaluate(() => {
+      const owner = fixture.toolbar.wallPaperUI, tile = owner.wallPaperItems[1];
+      return { tab: owner.tabGroup.SelectedValue, visible: tile.visible, current: fixture.registry.current,
+        method: tile.selectedBtn._events?.mousedown?.method?.name,
+        native: wallpaperData.nativeSelections, notifications: fixture.notifications };
+    });
+    throw new Error(JSON.stringify({ ...state, errors }), { cause });
+  });
+  assert.equal(await page.evaluate(() => fixture.registry.current.url), 'res/wallpaper/bg/full2.png');
+  assert.deepEqual(await page.evaluate(() => wallpaperData.nativeSelections), []);
+  await page.screenshot({ path: resolve(out, 'native-locked-themes.png') });
+  await clickCanvas('theme', 3);
+  await page.waitForFunction(() => fixture.registry.current?.url === 'res/wallpaper/bg/full3.png');
+  await clickCanvas('tab', 2);
+  await clickCanvas('live');
+  await page.waitForFunction(() => fixture.registry.current?.wallpaperMotion?.url === 'res/wallpaper/ani/live.json');
+  assert.deepEqual(await page.evaluate(() => wallpaperData.nativeSelections), []);
+  await clickCanvas('tab', 3);
+  await card('未解锁动态背景').waitFor();
+  assert.match(await card('未解锁动态背景').textContent(), /官方背景/);
+  await card('未解锁动态背景').locator('img').evaluate(image => image.decode());
+  await page.screenshot({ path: resolve(out, 'official-wallpaper-history.png') });
+  await clickCanvas('tab', 0);
+  await page.evaluate(() => { wallpaperData.wait = new Promise(resolve => { wallpaperData.finish = resolve; }); });
+  await clickCanvas('theme', 2);
+  await clickCanvas('theme', 1);
+  await page.evaluate(() => wallpaperData.finish());
+  assert.equal(await page.evaluate(() => fixture.registry.current), null);
+  assert.deepEqual(await page.evaluate(() => wallpaperData.nativeSelections), [1]);
+  await clickCanvas('tab', 3);
+  await card('未解锁动态背景').click();
+  await page.waitForFunction(() => fixture.registry.current?.wallpaperMotion?.url === 'res/wallpaper/ani/live.json');
   await page.evaluate(() => fixture.backgrounds.scope.dispose());
   assert.equal(await page.locator('[data-sgs-background-history]').count(), 0);
   assert.deepEqual(await page.evaluate(() => {
     const ui = fixture.toolbar.wallPaperUI;
     return [ui.tabGroup.BtnList.length, ui.tabGroup.btnWidth, ui.allmodeSelectBox.visible, ui.tabGroup.SelectedValue];
   }), [3, 102, true, 0]);
-  assert.deepEqual(await page.evaluate(() => fixture.notifications), []);
+  await clickCanvas('theme', 2);
+  assert.deepEqual(await page.evaluate(() => fixture.notifications), [
+    '已在本地使用「游戏背景 2」', '已在本地使用「游戏背景 3」', '已在本地使用「未解锁动态背景」']);
+
+  await mount();
+  await mountWardrobe();
+  const waitForLabel = label => page.waitForFunction(label => {
+    const button = fixture.wardrobe.preview.botBtn;
+    return button.visible && button.label === label;
+  }, label);
+  await clickWardrobe('lockedTheme');
+  await waitForLabel('仅本地使用');
+  assert.equal(await page.evaluate(() => fixture.registry.current), null, 'preview alone does not apply anything');
+  await clickWardrobe('use');
+  await waitForLabel('取消本地使用');
+  assert.equal(await page.evaluate(() => fixture.registry.current?.url), 'res/wallpaper/bg/wardrobe-201.png');
+  assert.deepEqual(await page.evaluate(() => fixture.wardrobe.actions), []);
+  assert.ok(await page.evaluate(() => {
+    const button = fixture.wardrobe.preview.botBtn;
+    return button.labelText.textWidth <= button.width - 8;
+  }), 'local-use label fits the native button');
+  await page.screenshot({ path: resolve(out, 'wardrobe-preview-local.png') });
+  await clickWardrobe('use');
+  await waitForLabel('仅本地使用');
+  assert.equal(await page.evaluate(() => fixture.registry.current), null);
+
+  for (const [key, url] of [['lockedSkin', 'res/wallpaper/bg/wardrobe-skin.png'], ['lockedLive', 'res/wallpaper/small/wardrobe-live.png']]) {
+    await page.evaluate(() => { fixture.wardrobe.preview.visible = false; });
+    await clickWardrobe(key);
+    await waitForLabel('仅本地使用');
+    await clickWardrobe('use');
+    await waitForLabel('取消本地使用');
+    assert.equal(await page.evaluate(() => fixture.registry.current?.url), url);
+  }
+  assert.equal(await page.evaluate(() => fixture.registry.current?.wallpaperMotion?.url), 'res/wallpaper/ani/wardrobe-live.json');
+  assert.deepEqual(await page.evaluate(() => fixture.wardrobe.actions), []);
+  await page.evaluate(() => fixture.wardrobe.dispatcher.event('OPEN_WINDOW', { WindowName: 'BgPreviewWin', id: 1 }));
+  await waitForLabel('恢复此背景');
+  await clickWardrobe('use');
+  assert.equal(await page.evaluate(() => fixture.registry.current), null);
+  assert.deepEqual(await page.evaluate(() => fixture.wardrobe.actions), []);
+  await page.evaluate(() => fixture.wardrobe.dispatcher.event('OPEN_WINDOW', { WindowName: 'BgPreviewWin', id: 25 }));
+  await waitForLabel('使用');
+  await clickWardrobe('use');
+  assert.deepEqual(await page.evaluate(() => fixture.wardrobe.actions), [['use', 25], ['log', 'preview', 25]]);
+  await page.evaluate(() => fixture.wardrobe.dispatcher.event('OPEN_WINDOW', { WindowName: 'BgPreviewWin', id: 201 }));
+  await waitForLabel('仅本地使用');
+  assert.deepEqual(await page.evaluate(() => {
+    fixture.backgrounds.scope.dispose();
+    const { preview } = fixture.wardrobe;
+    return [preview.botBtn.label, preview.botBtn._events[Laya.Event.CLICK].method === preview.clickBotBtn];
+  }), ['开通 VIP 9', true]);
   assert.deepEqual(errors, []);
-  console.log('原生背景第四标签演练通过：三类皮肤入口、本地上传、历史缩略图、刷新后恢复、布局和停用清理。');
+  console.log('原生背景界面演练通过：换肤菜单与个人装扮预览本地设用、取消、原生切换、历史恢复和停用清理。');
 } finally { await browser.close(); }

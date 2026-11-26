@@ -1,4 +1,4 @@
-// 三国杀OL工具箱 · 微端 LITE · 0.6.226
+// 三国杀OL工具箱 · 微端 LITE · 0.6.304
 (() => {
   var __create = Object.create, __defProp = Object.defineProperty, __getOwnPropDesc = Object.getOwnPropertyDescriptor, __getOwnPropNames = Object.getOwnPropertyNames, __getProtoOf = Object.getPrototypeOf, __hasOwnProp = Object.prototype.hasOwnProperty, __commonJS = (cb, mod) => function() {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
@@ -124,7 +124,7 @@
       unbind(), cancel();
     });
   }
-  var EDITION = "lite", GITHUB_MARKET_URL = "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/plugins", OSS_MARKET_URL = "https://tools.3gs.xyz/sgs-toolbox/market", HANGZHOU_MARKET_URL = "https://chk-sgstools-hangzhou.oss-cn-hangzhou.aliyuncs.com/sgs-toolbox/market";
+  var EDITION = "lite", GITHUB_UPDATE_URL = "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main", DOWNLOAD_UPDATE_URL = "https://dl.3gs.xyz", GITHUB_MARKET_URL = GITHUB_UPDATE_URL + "/plugins", DOWNLOAD_MARKET_URL = DOWNLOAD_UPDATE_URL + "/plugins", OSS_MARKET_URL = "https://tools.3gs.xyz/sgs-toolbox/market", HANGZHOU_MARKET_URL = "https://chk-sgstools-hangzhou.oss-cn-hangzhou.aliyuncs.com/sgs-toolbox/market";
   function installMicroAPIs(win) {
     for (let proto of [win.Element.prototype, win.DocumentFragment.prototype, win.Document.prototype]) proto.replaceChildren || Object.defineProperty(proto, "replaceChildren", { configurable: !0, writable: !0, value(...nodes) {
       for (; this.firstChild; ) this.removeChild(this.firstChild);
@@ -187,7 +187,13 @@
         return { rgba: color2(match ? text3.slice(0, match.index) : text3), weight: match ? Number(match[1]) / 100 : null };
       }, x2 = parse2(a), y = parse2(b), p = x2.weight ?? (y.weight === null ? 0.5 : 1 - y.weight), q = y.weight ?? 1 - p, alpha = x2.rgba[3] / 255 * p + y.rgba[3] / 255 * q;
       return `rgba(${[0, 1, 2].map((i2) => alpha ? Math.round((x2.rgba[i2] * x2.rgba[3] / 255 * p + y.rgba[i2] * y.rgba[3] / 255 * q) / alpha) : 0).join(",")},${alpha})`;
-    }), css.replace(/:focus-visible/g, ":focus").replace(/overflow:\s*clip/g, "overflow:hidden").replace(/\binset:\s*([^;}]+)/g, (_, value) => {
+    }), css.replace(/:focus-visible/g, ":focus").replace(/overflow:\s*clip/g, "overflow:hidden").replace(/\b(padding|margin)-inline:\s*([^;}]+)/g, (_, prop, value) => {
+      let v = value.trim().split(/\s+/);
+      return `${prop}-left:${v[0]};${prop}-right:${v[1] || v[0]}`;
+    }).replace(/\b(padding|margin)-block:\s*([^;}]+)/g, (_, prop, value) => {
+      let v = value.trim().split(/\s+/);
+      return `${prop}-top:${v[0]};${prop}-bottom:${v[1] || v[0]}`;
+    }).replace(/\bborder-block:\s*([^;}]+)/g, (_, value) => `border-top:${value.trim()};border-bottom:${value.trim()}`).replace(/\bborder-inline:\s*([^;}]+)/g, (_, value) => `border-left:${value.trim()};border-right:${value.trim()}`).replace(/\binset:\s*([^;}]+)/g, (_, value) => {
       let v = value.trim().split(/\s+/);
       return `top:${v[0]};right:${v[1] || v[0]};bottom:${v[2] || v[0]};left:${v[3] || v[1] || v[0]}`;
     });
@@ -260,7 +266,7 @@
       for (let [host, record] of watched) unwatch(host, record);
     });
   }
-  var bundledPackages = [], fullPluginPanels = [{ id: "social:market-placeholder", category: "tools", pluginId: "social", pluginName: "\u597D\u53CB\u4E0E\u804A\u5929", pluginIcon: { paths: ["M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8", "M2 21v-3a6 6 0 0 1 12 0v3", "M16 4a4 4 0 0 1 0 8M17 15a5 5 0 0 1 5 5v1"] }, pluginPriority: 30300 }, { id: "player-info:market-placeholder", category: "game", pluginId: "player-info", pluginName: "\u73A9\u5BB6\u4FE1\u606F", pluginIcon: { paths: ["M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "M4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"] }, pluginPriority: 30200 }, { id: "backgrounds:market-placeholder", category: "appearance", pluginId: "backgrounds", pluginName: "\u81EA\u5B9A\u4E49\u80CC\u666F", pluginIcon: { paths: ["M3 4h18v16H3Z", "M3 16 9 10l4 4 3-3 5 5", "M16 7h1"] }, pluginPriority: 31e3 }, { id: "shanhetu:market-placeholder", category: "game", pluginId: "shanhetu", pluginName: "\u5C71\u6CB3\u56FE", pluginIcon: { paths: ["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z", "M6 12 10 7l4 5 3-3 2 3", "M6 16c3-3 7 3 12-1"] }, pluginPriority: 11e3 }, { id: "cards:market-placeholder", category: "game", pluginId: "cards", pluginName: "\u5361\u724C", pluginIcon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, pluginPriority: 1e4 }, { id: "play-assist:market-placeholder", category: "game", pluginId: "play-assist", pluginName: "\u51FA\u724C\u8F85\u52A9", pluginIcon: { paths: ["M4 5h10v14H4zM7 8h4M7 11h3", "m17 3-3 8h5l-3 10 7-13h-5l2-5"] }, pluginPriority: 12e3, gameView: "battle" }, { id: "daily-rewards:market-placeholder", category: "automation", pluginId: "daily-rewards", pluginName: "\u65E5\u5E38\u9886\u5956", pluginIcon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, pluginPriority: 2e4 }, { id: "seckill:market-placeholder", category: "automation", pluginId: "seckill", pluginName: "\u81EA\u52A8\u79D2\u6740", pluginIcon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, pluginPriority: 21e3 }, { id: "gaizhu:market-placeholder", category: "automation", pluginId: "gaizhu", pluginName: "\u76D6\u4E3B\u901F\u5237", pluginIcon: { paths: ["M5 21V3M5 4c5-4 9 4 14 0v10c-5 4-9-4-14 0", "M9 9a3 3 0 0 1 5-2l1 2M15 6v3h-3", "M2 21h6"] }, pluginPriority: 21e3 }, { id: "effects:market-placeholder", category: "tools", pluginId: "effects", pluginName: "\u7279\u6548\u5C4F\u853D", pluginIcon: { paths: ["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2", "M3 3 21 21M19 3v4M17 5h4"] }, pluginPriority: 2e4 }, { id: "skins:market-placeholder", category: "tools", pluginId: "skins", pluginName: "\u76AE\u80A4\u7BA1\u7406", pluginIcon: { paths: ["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z", "M8 3l8 9M16 3l-6 7M8 16h8"] }, pluginPriority: 3e4 }, { id: "stargazing:market-placeholder", category: "tools", pluginId: "stargazing", pluginName: "\u81EA\u52A9\u89C2\u661F", pluginIcon: { paths: ["M12 2l2.6 6.6L22 12l-7.4 3.4L12 22l-2.6-6.6L2 12l7.4-3.4L12 2Z", "M19 3v4m-2-2h4"] }, pluginPriority: 32768 }, { id: "baisheng:market-placeholder", category: "info", pluginId: "baisheng", pluginName: "\u767E\u80DC\u6218\u529F", pluginIcon: { paths: ["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4", "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"] }, pluginPriority: 31e3 }, { id: "appearances:market-placeholder", category: "info", pluginId: "appearances", pluginName: "\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1", pluginIcon: { paths: ["M9 21H3V3h18v9", "M9 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM5.5 16v-1a3.5 3.5 0 0 1 7-1", "M12 21 16 17l3 2 3-5M19 14h3v3"] }, pluginPriority: 32e3 }, { id: "ledger:market-placeholder", category: "info", pluginId: "ledger", pluginName: "\u8D26\u672C", pluginIcon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, pluginPriority: 3e4 }, { id: "recharge:market-placeholder", category: "tools", pluginId: "recharge", pluginName: "\u65E7\u5468\u6708\u5361", pluginIcon: { paths: ["M3 6h18v14H3Z", "M3 10h18", "M15 15h3", "M6 3h12"] }, pluginPriority: 45e3 }], localAppearanceSyncPackage = null, ResourceScope = class {
+  var bundledPackages = [], fullPluginPanels = [{ id: "social:market-placeholder", category: "tools", pluginId: "social", pluginName: "\u597D\u53CB\u4E0E\u804A\u5929", pluginIcon: { paths: ["M4 4h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-3.5 3v-3H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z", "M16 9h4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-.5v3L16 18h-5a2 2 0 0 1-2-2v-2", "M6 8.2h6M6 11h4"] }, pluginPriority: 30300 }, { id: "player-info:market-placeholder", category: "game", pluginId: "player-info", pluginName: "\u8D44\u6599\u4E0E\u5C06\u6C60", pluginIcon: { paths: ["M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z", "M8.5 11.2a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8ZM5.5 16a3.1 3.1 0 0 1 6 0", "M14.5 9.5h4.5M14.5 12.8h4.5M14.5 16h3"] }, pluginPriority: 30200 }, { id: "backgrounds:market-placeholder", category: "appearance", pluginId: "backgrounds", pluginName: "\u81EA\u5B9A\u4E49\u80CC\u666F", pluginIcon: { paths: ["M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z", "M2.5 16.5 8 11l4 4 3.2-3.2L21.5 17.5", "M15.5 8.5a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0"] }, pluginPriority: 31e3 }, { id: "shanhetu:market-placeholder", category: "game", pluginId: "shanhetu", pluginName: "\u5C71\u6CB3\u56FE", pluginIcon: { paths: ["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z", "M6 12 10 7l4 5 3-3 2 3", "M6 16c3-3 7 3 12-1"] }, pluginPriority: 11e3, gameView: "shanhe" }, { id: "cards:market-placeholder", category: "game", pluginId: "cards", pluginName: "\u5361\u724C", pluginIcon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, pluginPriority: 1e4 }, { id: "play-assist:market-placeholder", category: "game", pluginId: "play-assist", pluginName: "\u51FA\u724C\u8F85\u52A9", pluginIcon: { paths: ["M6.8 9.4a4.8 4.8 0 1 1 8.2 0", "M9.5 15V6.8a1.4 1.4 0 0 1 2.8 0V12", "M12.3 11.4a1.4 1.4 0 0 1 2.8 0V13m0-.8a1.4 1.4 0 0 1 2.8 0V15a5.8 5.8 0 0 1-5.8 5.8h-1.6a5.4 5.4 0 0 1-4.6-2.6l-1.9-3.2a1.4 1.4 0 0 1 2.3-1.6L9.5 15"] }, pluginPriority: 12e3, gameView: "battle" }, { id: "daily-rewards:market-placeholder", category: "automation", pluginId: "daily-rewards", pluginName: "\u65E5\u5E38\u9886\u5956", pluginIcon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, pluginPriority: 2e4 }, { id: "seckill:market-placeholder", category: "automation", pluginId: "seckill", pluginName: "\u81EA\u52A8\u79D2\u6740", pluginIcon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, pluginPriority: 21e3 }, { id: "gaizhu:market-placeholder", category: "automation", pluginId: "gaizhu", pluginName: "\u76D6\u4E3B\u901F\u5237", pluginIcon: { paths: ["M4.5 11.5a7.5 7.5 0 0 1 13-5.1L19.5 8.5M19.5 4.2v4.3h-4.3", "M19.5 12.5a7.5 7.5 0 0 1-13 5.1L4.5 15.5M4.5 19.8v-4.3h4.3", "M10.4 9.6 14.8 12l-4.4 2.4Z"] }, pluginPriority: 21e3 }, { id: "effects:market-placeholder", category: "tools", pluginId: "effects", pluginName: "\u7279\u6548\u5C4F\u853D", pluginIcon: { paths: ["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2", "M3 3 21 21M19 3v4M17 5h4"] }, pluginPriority: 2e4 }, { id: "skins:market-placeholder", category: "tools", pluginId: "skins", pluginName: "\u76AE\u80A4\u7BA1\u7406", pluginIcon: { paths: ["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z", "M8 3l8 9M16 3l-6 7M8 16h8"] }, pluginPriority: 3e4 }, { id: "stargazing:market-placeholder", category: "tools", pluginId: "stargazing", pluginName: "\u81EA\u52A9\u89C2\u661F", pluginIcon: { paths: ["M3.5 13.5 15.2 6l3 4.8-13 5.2Z", "M12 8.1l2.7 4.4", "M10.5 14 6.8 21M10.5 14 14.8 21M10.5 14v7", "M19.8 3v3M18.3 4.5h3"] }, pluginPriority: 32768 }, { id: "baisheng:market-placeholder", category: "info", pluginId: "baisheng", pluginName: "\u767E\u80DC\u6218\u529F", pluginIcon: { paths: ["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4", "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"] }, pluginPriority: 31e3 }, { id: "appearances:market-placeholder", category: "info", pluginId: "appearances", pluginName: "\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1", pluginIcon: { paths: ["M3 20h18", "M5 20v-4.5h3V20M10.5 20v-7.5h3V20M16 20v-10.5h3V20", "M5 10.5 10.5 6.5l3 2 5-4.5M15.5 4h3v3"] }, pluginPriority: 32e3 }, { id: "ledger:market-placeholder", category: "info", pluginId: "ledger", pluginName: "\u8D26\u672C", pluginIcon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, pluginPriority: 3e4 }, { id: "recharge:market-placeholder", category: "tools", pluginId: "recharge", pluginName: "\u65E7\u5468\u6708\u5361", pluginIcon: { paths: ["M4 5h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z", "M8 3v4M16 3v4M2 10h20", "M7 14h2.5M14.5 14h2.5M7 17.5h2.5M14.5 17.5h2.5"] }, pluginPriority: 45e3 }], localAppearanceSyncPackage = null, consolidationDigests = { "player-info": "f32ab05227d46447017ee7ba214812edc0d00ae7114ef0ac9cac1843d216a599", "card-styles-extra": "25b3592d5c69230031813394696c9f6c9c8668d32d9d6244aeac47497bcd7734", shanhetu: "2b48ec3b1fe0bc092318b4c0bcdc2665bf5c9ff6ca8c4c1361f766e2d9ed72df", ledger: "0ee82d5e59a24cd188969bdc37f294655cd9cd456fe661b8d38a87e8f03d136d" }, ResourceScope = class {
     constructor() {
       this.controller = new AbortController(), this.signal = this.controller.signal, this.cleanups = [], this.closed = !1;
     }
@@ -381,11 +387,19 @@
         req.onsuccess = () => resolve(req.result), req.onerror = () => reject(req.error);
       });
     }
-    async put(record) {
+    put(record) {
+      return this.putMany([record]);
+    }
+    async putMany(records) {
       let db = await this.open();
       return new Promise((resolve, reject) => {
-        let tx = db.transaction("plugins", "readwrite");
-        tx.objectStore("plugins").put(record), tx.oncomplete = () => resolve(), tx.onerror = () => reject(tx.error), tx.onabort = () => reject(tx.error || new Error("\u63D2\u4EF6\u5B58\u50A8\u4E8B\u52A1\u5DF2\u4E2D\u6B62"));
+        let tx = db.transaction("plugins", "readwrite"), store = tx.objectStore("plugins");
+        tx.oncomplete = () => resolve(), tx.onerror = () => reject(tx.error), tx.onabort = () => reject(tx.error || new Error("\u63D2\u4EF6\u5B58\u50A8\u4E8B\u52A1\u5DF2\u4E2D\u6B62"));
+        try {
+          for (let record of records) store.put(record);
+        } catch (error) {
+          tx.abort(), reject(error);
+        }
       });
     }
     async delete(id) {
@@ -442,7 +456,7 @@
     MsgNtfUseCardType: ["CastSeatID", "SpellID", "useType"],
     decodeRogueLikeItemEffectNtf: ["ItemID", "ItemParams", "error_id"],
     PubGsCUseSpell: ["SeatID", "SrcSeatID", "SpellID", "CardIDs", "CardCount", "EffectIndex", "DestSeatIDs"],
-    MsgGameTurnNtf: ["SeatID", "TurnCnt"],
+    MsgGameTurnNtf: ["SeatID", "TurnCnt", "IsResume"],
     GsCGamephaseNtf: ["SeatID", "Round"],
     MsgGameRoundNtf: ["isPassed"],
     MsgReconnectGame: [],
@@ -466,7 +480,7 @@
     } catch {
       return;
     }
-  }, scalar = (value) => value === null || ["string", "number", "boolean"].includes(typeof value) ? typeof value == "string" ? value.slice(0, 256) : value : void 0;
+  }, scalar = (value) => value === null || ["string", "number", "boolean"].includes(typeof value) ? typeof value == "string" ? value.slice(0, 256) : value : void 0, loginUserId = (packet2) => get(packet2, "userID") ?? get(packet2, "UserID") ?? get(packet2, "userId");
   function smallList(value, key) {
     let length = get(value, "length"), cap = key === "Infos" || key === "GeneralData" || key === "DestSeatIDs" ? 32 : 2048;
     if (!Number.isInteger(length) || length < 0 || length > cap) throw new Error(`${key} \u957F\u5EA6\u8D85\u9650\u6216\u65E0\u6548`);
@@ -487,7 +501,7 @@
   function projectMessage(type, payload) {
     if (!isObservedMessage(type)) return null;
     if (type === "ClientLoginRep") {
-      let userID = scalar(get(payload, "userID") ?? get(payload, "UserID") ?? get(payload, "userId"));
+      let userID = scalar(loginUserId(payload) ?? loginUserId(get(payload, "Protocol")));
       return userID === void 0 ? {} : { userID };
     }
     let fields2 = schemas[type];
@@ -601,9 +615,14 @@
     }
   };
   function installMessageBridge(win, journal, scope, onStatus = () => {
-  }, { getTargets = () => [], observeType = () => {
-  }, sceneWatch } = {}) {
-    let activeWrapper, restoreCurrent, depth = 0, consoleError = "", nativeErrors = [], native = /* @__PURE__ */ new Map(), restores = [], stats = { received: 0, console: 0, native: 0, lastType: "", lastAt: null }, duplicates = /* @__PURE__ */ new Map(), expiryTimer, pending = [], waiters = [], drainTimer, draining = !1;
+  }, {
+    getTargets = () => [],
+    observeType = () => {
+    },
+    observeStartupDispatch,
+    sceneWatch
+  } = {}) {
+    let activeWrapper, restoreCurrent, depth = 0, consoleError = "", nativeErrors = [], loginIdentity, loginEpoch = 0, native = /* @__PURE__ */ new Map(), restores = [], stats = { received: 0, console: 0, native: 0, lastType: "", lastAt: null }, duplicates = /* @__PURE__ */ new Map(), expiryTimer, pending = [], waiters = [], drainTimer, draining = !1;
     stats.dropped = 0, stats.rejected = 0;
     function schedule() {
       !drainTimer && !scope.closed && (drainTimer = setTimeout(drain, 0));
@@ -687,6 +706,25 @@
         }
       }
     };
+    function readLoginReply(proxy, packet2) {
+      try {
+        let data = packet2 == null ? void 0 : packet2.Protocol;
+        if ((data == null ? void 0 : data.Id) !== 20202 || data.FromSocket2) return;
+        let id = data.UserID, connection = proxy.ConnId;
+        if (data.Result !== 1 && data.Result !== 2 || !Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(connection)) return null;
+        let name = data.Nickname, nickname = typeof name == "string" && name.length <= 128 && name.trim() ? name : "";
+        return { proxy, connection, account: Object.freeze({ id: String(id), nickname }) };
+      } catch {
+      }
+    }
+    function loginConnectionMatches(identity, proxy) {
+      try {
+        return !scope.closed && identity && identity.proxy === proxy && proxy.ConnectedSucess1 === !0 && proxy.ConnId === identity.connection;
+      } catch {
+        return !1;
+      }
+    }
+    let getLoginAccount = (proxy) => loginConnectionMatches(loginIdentity, proxy) ? loginIdentity.account : null;
     function installNative() {
       var _a2, _b2;
       if (scope.closed) return;
@@ -702,12 +740,34 @@
         if (!(!target || typeof target.event != "function" || live.has(target)) && (live.add(target), ((_a2 = native.get(target)) == null ? void 0 : _a2.wrapper) !== target.event))
           try {
             let descriptor = Object.getOwnPropertyDescriptor(target, "event"), original = target.event, entry = { name, wrapper: null, active: !0 }, wrapper = function(...args) {
-              if (!scope.closed && entry.active) try {
-                let [eventName, data] = args, packet2 = Array.isArray(data) && data.length === 1 && typeof data[0] == "object" ? data[0] : data, type = isObservedMessage(eventName) || /^(?:Msg|PubGs|Smsg|GsC|CGs|decode|Client)/.test(eventName) ? eventName : (packet2 == null ? void 0 : packet2.ClassName) || (packet2 == null ? void 0 : packet2.className);
+              if (scope.closed || !entry.active) return Reflect.apply(original, this, args);
+              let [eventName, data] = args, packet2;
+              try {
+                packet2 = Array.isArray(data) && data.length === 1 && typeof data[0] == "object" ? data[0] : data;
+                let type = isObservedMessage(eventName) || /^(?:Msg|PubGs|Smsg|GsC|CGs|decode|Client)/.test(eventName) ? eventName : (packet2 == null ? void 0 : packet2.ClassName) || (packet2 == null ? void 0 : packet2.className);
                 receive(type, packet2, `native:${name}`);
               } catch {
               }
-              return Reflect.apply(original, this, args);
+              if (name !== "ServerProxy") return Reflect.apply(original, this, args);
+              let login = this === target && eventName === "ClientLoginRep" ? readLoginReply(target, packet2) : void 0;
+              this === target && (login !== void 0 || eventName === "ClientLogoutRep" || eventName === "close") && (loginEpoch++, loginIdentity = void 0);
+              let epoch = loginEpoch, startup = observeStartupDispatch && (eventName === "ClientLoginRep" || eventName === "ClientUserbaseinfoRep");
+              if (!login && !startup) return Reflect.apply(original, this, args);
+              let result;
+              try {
+                result = Reflect.apply(original, this, args);
+              } catch (error) {
+                if (startup) try {
+                  observeStartupDispatch(eventName, "threw", error);
+                } catch {
+                }
+                throw error;
+              }
+              if (login && epoch === loginEpoch && loginConnectionMatches(login, target) && (loginIdentity = login), startup) try {
+                observeStartupDispatch(eventName, "returned", packet2);
+              } catch {
+              }
+              return result;
             };
             if (!descriptor || descriptor.configurable ? Object.defineProperty(target, "event", { value: wrapper, writable: !0, configurable: !0, enumerable: (descriptor == null ? void 0 : descriptor.enumerable) ?? !0 }) : "value" in descriptor && descriptor.writable && (target.event = wrapper), target.event !== wrapper) throw new Error("\u4E8B\u4EF6\u5165\u53E3\u4E0D\u53EF\u5199");
             entry.wrapper = wrapper, (_b2 = native.get(target)) == null || _b2.release();
@@ -724,13 +784,14 @@
       installConsole(), installNative();
     };
     return check(), sceneWatch ? scope.add(sceneWatch.watch(check, 500, !0)) : scope.interval(check, 500), scope.add(() => {
-      clearTimeout(expiryTimer), clearTimeout(drainTimer), pending.length = 0;
+      clearTimeout(expiryTimer), clearTimeout(drainTimer), loginIdentity = void 0, pending.length = 0;
       for (let resolve of waiters.splice(0)) resolve();
       duplicates.clear();
       for (let release of restores.reverse()) release();
       restoreCurrent == null || restoreCurrent(), native.clear();
     }), {
       check,
+      getLoginAccount,
       get error() {
         return native.size ? "" : [consoleError, ...nativeErrors].filter(Boolean).join("\uFF1B");
       },
@@ -740,7 +801,14 @@
       getStatus: () => ({ ...stats, pending: pending.length, targets: [...native.values()].map((entry) => entry.name), errors: [consoleError, ...nativeErrors].filter(Boolean) })
     };
   }
-  var HASH = /^[a-f0-9]{64}$/, INLINE_IMAGE = /^data:image\/(?:png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+  var LEGACY_CARD_STYLES = /* @__PURE__ */ new Map([
+    ["native-cards.classic", "card-styles-extra.native-classic"],
+    ["native-cards.general", "card-styles-extra.native-general"],
+    ["gold-cards.classic", "card-styles-extra.gold"],
+    ["yjcm-cards.miao", "card-styles-extra.miao"],
+    ["yjcm-cards.zhuzhuxia", "card-styles-extra.zhuzhuxia"],
+    ["dafeiyu-cards.beta", "card-styles-extra.dafeiyu"]
+  ]), HASH = /^[a-f0-9]{64}$/, INLINE_IMAGE = /^data:image\/(?:png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
   function validInlineImage(value, limit2) {
     return typeof value == "string" && value.length <= limit2 && INLINE_IMAGE.test(value);
   }
@@ -1145,14 +1213,24 @@
       for (let texture of previous) texture.destroy(!0);
       this.emit();
     }
+    resolveStyleId(id) {
+      let mergedId = LEGACY_CARD_STYLES.get(id);
+      if (!mergedId || this.styles.has(id) || !this.styles.has(mergedId)) return id;
+      let inactive = this.settings.get("inactiveLegacyCardPacks", []);
+      return Array.isArray(inactive) && inactive.includes(id.split(".")[0]) ? id : mergedId;
+    }
     get current() {
-      return this.settings.get("cardStyle", "");
+      return this.resolveStyleId(this.settings.get("cardStyle", ""));
     }
     get selection() {
-      return { face: this.settings.get("cardFaceStyle", this.current), back: this.settings.get("cardBackStyle", this.current), scope: this.settings.get("cardStyleScope", "all") };
+      return {
+        face: this.resolveStyleId(this.settings.get("cardFaceStyle", this.current)),
+        back: this.resolveStyleId(this.settings.get("cardBackStyle", this.current)),
+        scope: this.settings.get("cardStyleScope", "all")
+      };
     }
     styleFor(side, id = this.selection[side]) {
-      return side === "face" && id === LOCAL_FACE_STYLE.id ? LOCAL_FACE_STYLE : side === "face" && id === LOCAL_FACE_BACKGROUND_STYLE.id ? LOCAL_FACE_BACKGROUND_STYLE : (side === "back" ? this.localBacks.get(id) : null) || this.styles.get(id);
+      return side === "face" && id === LOCAL_FACE_STYLE.id ? LOCAL_FACE_STYLE : side === "face" && id === LOCAL_FACE_BACKGROUND_STYLE.id ? LOCAL_FACE_BACKGROUND_STYLE : (side === "back" ? this.localBacks.get(id) : null) || this.styles.get(this.resolveStyleId(id));
     }
     selectSide(side, id) {
       if (!["face", "back"].includes(side)) throw new Error("\u65E0\u6548\u5361\u724C\u9762");
@@ -1181,7 +1259,7 @@
     }
     select(id) {
       var _a2;
-      if (id && !this.styles.has(id)) throw new Error("\u5361\u724C\u6837\u5F0F\u5C1A\u672A\u542F\u7528");
+      if (id = this.resolveStyleId(id), id && !this.styles.has(id)) throw new Error("\u5361\u724C\u6837\u5F0F\u5C1A\u672A\u542F\u7528");
       this.settings.set("cardStyle", id), this.settings.set("cardFaceStyle", id), (!((_a2 = this.styles.get(id)) != null && _a2.atlas) || this.styles.get(id).atlas.backImage) && this.settings.set("cardBackStyle", id), this.restore(), this.refreshNative(), this.emit();
     }
     subscribe(fn) {
@@ -1645,7 +1723,7 @@
         this.restore(), this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
       }
     }
-  }, CORE_VERSION = "0.6.226", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
+  }, CORE_VERSION = "0.6.304", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
     "43a4cbff657c319e8b7b1bf2ec7689e0a557fc9bb17a9090d24a2163d1857dda",
@@ -1710,7 +1788,9 @@
     "5f99dc882131e076134e4890fc536dfba0825e09dda844b76fe33e26c84266dd",
     "26604ac76a2ca04bbac4ffd27ebfc674f94bcb9d5e1d0af7ecf9faac9927f194",
     "994ca7d5088cc57d17e9a54114ec459a1cd2c8188a4460a678c121d0ffe49b17"
-  ]), REPLACED_SHANHETU_PACKAGES = Object.freeze(["4f23523f68fb5e27f319a4312a728ffdf648b0049955dfeffead1651ec07e984", "e8f263b989b6cc8361d35240ac6f23dda39ab4d05ee209bdd1f41aff877e82c2", "6975e211a97b612ff61f8456eabe869547921f79c6c83e8885e398cd6be4460c", "03d3564fde594df3feb199cd5d7e323c3730dc1494546ad26cd375427a8accc2", "95c06e8921132548973e9c55b20c16ba06043218bbb090eaedd840191cbb08ff", "27d9af46ff339493cbb5bcc0b9e49e648661d9ed7becaf5704a75d0a3b83beae", "437a1ffb64a930e87264e69bcf91a856a1e82c066d732408c884182b4ce6e450", "523473559db6aa12043bb0bd0b22e0a232045d9defede4a2a6a9f3d562ad2133", "5577c02f3922100a434db7c45af19dc3db115866a1a841fc7218083f396b0acf", "ea751303a3e7ecd030d2c5a12a13dd125612f6b64ab41c641116fb763579b421", "55340baa7b51c8d97bdfbedc17209be719c2f05105501390b4028c47554cceeb", "980c908196ff62ac529ab2bfbdade42bef76930f43f534b1b075ead306c10fe2", "9017d32206a5b0e4e2eeede12e390767620579836ed7037e1e223f7ab0c52483", "dfc56a7a02dc4ab17e2f34e3e76862f615f5bf344c534921e8424498fd27b11b", "4d8aaf1df389a0420dfc65c4d5762757c2fe454cc0fbb127fe269b88c5a19af5", "e9f7b5ee0383a29799057f19f16e68e34d57fb7310066dc5d3af45456c7f0445", "997bcf58c5567e0e99829798b855c411d5e51ccad7b5f80e81c9ae84add2656d", "f304bd28030950096503a45d96013c3d7a9e2297ca6143b639b83dcb2d3e197a", "f2739ea490ecf8bee75b1dd6ae0050cc0ad0bc558515c30dbb3c6260e80eaa2f", "332272cc92d11796d8dd7d304560129277acd353726feed7cd1e5a5b6578937a", "bf4207ca6d84501c75f6ec24d094aca952224ce60367196482d6bd6815ca3423", "23d6e6f7bae844ee58a9239bb739fb0ab8d2e64b7766629bca492421bd07f400", "f226d8a8d247ce48c0664ba057ad9f961e7c953291ab7f805714979b7ea35825", "56d82efb93d6eaa0b24c0d5deb8693030f49a0b2fb5af0da49ef6f008943ee65", "674efd3ed6e5719ef9cdabea702b4d6d4394560b18aa5f1ad189486f7467910e", "8de4a53accd1548f58266d9854642462b4fdb089a9a0afcc0561ca725930966d", "95c5bf19558e19c3ef192f2f2022aff19908350e882885cf7855cfe9051801c0", "71fc7d79a3b8014d5f80edda50ea7f7dbba80589ec9c7a8f77bd080056d45175", "151c6e9a3651f5a2c6b7b52321a09c294220400a40385e248d47cb6bb46976c2", "6907320aa5d5e23403c5324926cabf8f48ad23df23afd9925ff5b63e96e87cc6", "4f23cce4d4372a13895716d47d9141acd4c9f13c2be199afff5599148e8349ae", "67362c2dee033a700472210cafc14cc1df351e9a5413273d04e3ff2ce566ce66", "fa6474a1c5170c9ba285f9487031e4b205245d527c97b5ba5f26d68f9bf889ff", "a1f400ad8c8d60f2e4c0b0f981acc8c2be2ab61d1fd6a45ef10b7a3621b05918", "a7595aeaee8cd16ad03b5871310fd7375ea73be7b3d6a1466e8770f9d052fc24", "b6be2108829186604d4a11fb00d63d08e081a1f13f950a715441146c07d26a47", "23077a7742fabceb968d15a85b20c292c37e7a4d6099cf5b9f40a43e59c5fb8a", "2f7654ffde27bed353412a69eb9c5f449270a5e94ff492531e61189825ec560d", "e58c1543240d60a88d2fa92a58ff06ffd30bb4f0d2e75a4a18ba5efad4316d20", "742b76de181ca851dfd0df036a282a3bdee634c61012e687574b7e50216e62e6", "16d2e6a72fbb2258cb1dd69359c34b6753eca73c061b1610d7764ec00068c571", "a78a544feab74eb6d9ddbe6af6662d012a43cd85b698698f4cbadec9dada824d", "d5ad4b8005751bfdfe8301c060e8ab460a2ebd3eb2196112c534e8c44647ba6f", "31ad175296a119402b4a4e90bec5a16cad8a85e9eca2f79e3ee3edf745f27fba", "15366eddcf79bd76dd0f11fa2fb1f393faec512502f0ca01bb9ab13d54238490", "438b0292399649be12f2c42723242d73915a381f8a9c42713b25815c29e57e8b", "44ba81e10e40db62f039946b7e0e18ae162d98e95a350b6ed7eedc2cf8df37ba", "2ff778bd021f4d83971551126ea532ea215ad30e9b0b3dfc0450a88a0de9781c", "6ebf9ca6499f5fbf9b46f4e918990924369359c1191fb62b9026519724ac88cc", "20dac8ad2d3873f7779e2add9d89eb19927b5db6c553563edb69a72afe593624", "cbff0d7705f6f847b39473baeae6c126a34850685d95956ca07bf09e0ea6ce40"]), REPLACED_THEME_PACKAGES = Object.freeze(["fabfb9cfc1c6f4c9eeeb69fcc4c9bc319f17d5c964624a616bd15b863c18c5aa", "db376fc6d5b9b878a2dd9bb6642f5d7a24dd5b226c658801aeead6249bc98094", "3589cd781d192c53790071a1775924d4a8ccab648272961a991e6e3bf6034abd"]), REPLACED_BACKGROUND_PACKAGES = Object.freeze(["488b63b7fb2c1d88ddee7bc4a858a09f1a5a7f1271be6f012d612936431cbebc", "7aa96fde03bf1a9d1f5d287c63d86f1c11365bf5fb980bfd9d812b76f9543dd5", "1ebfbcaa2a4e5a2b3112f37aa0d48ce66b355d4a0934b1ff5310916427555b60", "f52fec744b48f472e3db4aa9cbf9e03864d996ba299aed70925d721477fdb2aa"]), REPLACED_SHANHETU_BETA_PACKAGES = Object.freeze([
+  ]), REPLACED_SHANHETU_PACKAGES = Object.freeze(["4f23523f68fb5e27f319a4312a728ffdf648b0049955dfeffead1651ec07e984", "e8f263b989b6cc8361d35240ac6f23dda39ab4d05ee209bdd1f41aff877e82c2", "6975e211a97b612ff61f8456eabe869547921f79c6c83e8885e398cd6be4460c", "03d3564fde594df3feb199cd5d7e323c3730dc1494546ad26cd375427a8accc2", "95c06e8921132548973e9c55b20c16ba06043218bbb090eaedd840191cbb08ff", "27d9af46ff339493cbb5bcc0b9e49e648661d9ed7becaf5704a75d0a3b83beae", "437a1ffb64a930e87264e69bcf91a856a1e82c066d732408c884182b4ce6e450", "523473559db6aa12043bb0bd0b22e0a232045d9defede4a2a6a9f3d562ad2133", "5577c02f3922100a434db7c45af19dc3db115866a1a841fc7218083f396b0acf", "ea751303a3e7ecd030d2c5a12a13dd125612f6b64ab41c641116fb763579b421", "55340baa7b51c8d97bdfbedc17209be719c2f05105501390b4028c47554cceeb", "980c908196ff62ac529ab2bfbdade42bef76930f43f534b1b075ead306c10fe2", "9017d32206a5b0e4e2eeede12e390767620579836ed7037e1e223f7ab0c52483", "dfc56a7a02dc4ab17e2f34e3e76862f615f5bf344c534921e8424498fd27b11b", "4d8aaf1df389a0420dfc65c4d5762757c2fe454cc0fbb127fe269b88c5a19af5", "e9f7b5ee0383a29799057f19f16e68e34d57fb7310066dc5d3af45456c7f0445", "997bcf58c5567e0e99829798b855c411d5e51ccad7b5f80e81c9ae84add2656d", "f304bd28030950096503a45d96013c3d7a9e2297ca6143b639b83dcb2d3e197a", "f2739ea490ecf8bee75b1dd6ae0050cc0ad0bc558515c30dbb3c6260e80eaa2f", "332272cc92d11796d8dd7d304560129277acd353726feed7cd1e5a5b6578937a", "bf4207ca6d84501c75f6ec24d094aca952224ce60367196482d6bd6815ca3423", "23d6e6f7bae844ee58a9239bb739fb0ab8d2e64b7766629bca492421bd07f400", "f226d8a8d247ce48c0664ba057ad9f961e7c953291ab7f805714979b7ea35825", "56d82efb93d6eaa0b24c0d5deb8693030f49a0b2fb5af0da49ef6f008943ee65", "674efd3ed6e5719ef9cdabea702b4d6d4394560b18aa5f1ad189486f7467910e", "8de4a53accd1548f58266d9854642462b4fdb089a9a0afcc0561ca725930966d", "95c5bf19558e19c3ef192f2f2022aff19908350e882885cf7855cfe9051801c0", "71fc7d79a3b8014d5f80edda50ea7f7dbba80589ec9c7a8f77bd080056d45175", "151c6e9a3651f5a2c6b7b52321a09c294220400a40385e248d47cb6bb46976c2", "6907320aa5d5e23403c5324926cabf8f48ad23df23afd9925ff5b63e96e87cc6", "4f23cce4d4372a13895716d47d9141acd4c9f13c2be199afff5599148e8349ae", "67362c2dee033a700472210cafc14cc1df351e9a5413273d04e3ff2ce566ce66", "fa6474a1c5170c9ba285f9487031e4b205245d527c97b5ba5f26d68f9bf889ff", "a1f400ad8c8d60f2e4c0b0f981acc8c2be2ab61d1fd6a45ef10b7a3621b05918", "a7595aeaee8cd16ad03b5871310fd7375ea73be7b3d6a1466e8770f9d052fc24", "b6be2108829186604d4a11fb00d63d08e081a1f13f950a715441146c07d26a47", "23077a7742fabceb968d15a85b20c292c37e7a4d6099cf5b9f40a43e59c5fb8a", "2f7654ffde27bed353412a69eb9c5f449270a5e94ff492531e61189825ec560d", "e58c1543240d60a88d2fa92a58ff06ffd30bb4f0d2e75a4a18ba5efad4316d20", "742b76de181ca851dfd0df036a282a3bdee634c61012e687574b7e50216e62e6", "16d2e6a72fbb2258cb1dd69359c34b6753eca73c061b1610d7764ec00068c571", "a78a544feab74eb6d9ddbe6af6662d012a43cd85b698698f4cbadec9dada824d", "d5ad4b8005751bfdfe8301c060e8ab460a2ebd3eb2196112c534e8c44647ba6f", "31ad175296a119402b4a4e90bec5a16cad8a85e9eca2f79e3ee3edf745f27fba", "15366eddcf79bd76dd0f11fa2fb1f393faec512502f0ca01bb9ab13d54238490", "438b0292399649be12f2c42723242d73915a381f8a9c42713b25815c29e57e8b", "44ba81e10e40db62f039946b7e0e18ae162d98e95a350b6ed7eedc2cf8df37ba", "2ff778bd021f4d83971551126ea532ea215ad30e9b0b3dfc0450a88a0de9781c", "6ebf9ca6499f5fbf9b46f4e918990924369359c1191fb62b9026519724ac88cc", "20dac8ad2d3873f7779e2add9d89eb19927b5db6c553563edb69a72afe593624", "cbff0d7705f6f847b39473baeae6c126a34850685d95956ca07bf09e0ea6ce40"]), REPLACED_THEME_PACKAGES = Object.freeze(["fabfb9cfc1c6f4c9eeeb69fcc4c9bc319f17d5c964624a616bd15b863c18c5aa", "db376fc6d5b9b878a2dd9bb6642f5d7a24dd5b226c658801aeead6249bc98094", "3589cd781d192c53790071a1775924d4a8ccab648272961a991e6e3bf6034abd"]), REPLACED_BACKGROUND_PACKAGES = Object.freeze(["488b63b7fb2c1d88ddee7bc4a858a09f1a5a7f1271be6f012d612936431cbebc", "7aa96fde03bf1a9d1f5d287c63d86f1c11365bf5fb980bfd9d812b76f9543dd5", "1ebfbcaa2a4e5a2b3112f37aa0d48ce66b355d4a0934b1ff5310916427555b60", "f52fec744b48f472e3db4aa9cbf9e03864d996ba299aed70925d721477fdb2aa"]), MERGED_SHANHETU_PACKAGES = Object.freeze([
+    "39d706d0992ceb1094b2919d4aed0e45d8de6f399ddae918a70d51347fa48bfd"
+  ]), REPLACED_SHANHETU_BETA_PACKAGES = Object.freeze([
     "d386dd79b9e8035c78ad5485594dec1c1cba8bef0cc64187e377c2993198ab47",
     "7773e829307fb13763ff32f8c492d7f9c85a8dea8ac150faef994f375f5ff6b0",
     "b89e0c4f7155749e1ec287815e7a7c7ce4d743fef76ed5fedfff3dffc2f30429",
@@ -1815,6 +1895,26 @@
       effect && (effect.InitEffect = init, effect.playEffect = play, (_a2 = effect.off) == null || _a2.call(effect, "start", host, spine ? host.beforeLiveStart : host.beforeStart));
     }
     return effect;
+  }
+  function createWallpaperMotion({ window: window2, layer, spec, scope, ready, fail: fail2 }) {
+    var _a2, _b2;
+    let spine = spec.kind === "spine", effect = nativeEffect(layer, spine);
+    if (!effect) throw new Error("\u6E38\u620F\u52A8\u753B\u52A0\u8F7D\u5668\u5C1A\u672A\u5C31\u7EEA");
+    scope.add(() => effect.destroy());
+    let layoutMethod = spine ? layer.layoutBgLiveEffect : layer.layoutBgEffect, host = { [spine ? "bgLiveEffect" : "bgEffect"]: effect }, layout = () => Reflect.apply(layoutMethod, host, []), root = new window2.Laya.Sprite(), loaded = !1, visible = !1;
+    return root.name = "sgs-background-motion", root.visible = root.mouseEnabled = root.mouseChildren = !1, root.zOrder = layer.bgSprite.zOrder || 0, scope.add(() => root.destroy(!1)), layer.addChildAt(root, layer.getChildIndex(layer.bgSprite) + 1), root.addChild(effect), effect.AutoReleaseRes = !0, layout(), effect.once(((_a2 = window2.Laya.Event) == null ? void 0 : _a2.START) || "start", effect, () => {
+      scope.closed || (loaded = !0, root.visible = visible, visible || effect.stop(), ready());
+    }), effect.once(((_b2 = window2.Laya.Event) == null ? void 0 : _b2.ERROR) || "error", effect, (error) => fail2((error == null ? void 0 : error.message) || "\u5B98\u65B9\u52A8\u6001\u8D44\u6E90\u52A0\u8F7D\u5931\u8D25")), scope.timeout(() => {
+      loaded || fail2("\u5B98\u65B9\u52A8\u6001\u80CC\u666F\u52A0\u8F7D\u8D85\u65F6");
+    }, 2e4), effect.InitEffect(spec.url, spine ? 0 : "play", !0, !1), effect.playEffect(), {
+      get loaded() {
+        return loaded;
+      },
+      layout,
+      show(value) {
+        visible !== value && (visible = value, root.visible = loaded && value, loaded && (value ? effect.playEffect() : effect.stop()));
+      }
+    };
   }
   function stableBackgroundClip(animations) {
     let names = (animations == null ? void 0 : animations.map((animation) => animation.name).filter(Boolean)) ?? [], idle = names.find((name) => name.toLowerCase() === "daiji") ?? names.find((name) => name.toLowerCase() === "play");
@@ -1946,25 +2046,116 @@
     return result;
   }
   var MAX_TEXTURE_EDGE = 4096;
+  function backgroundThumbnail(win, image) {
+    let { naturalWidth, naturalHeight } = image;
+    if (!(naturalWidth > 0 && naturalHeight > 0)) return "";
+    let canvas = win.document.createElement("canvas");
+    canvas.width = 288, canvas.height = 162;
+    let scale = Math.max(canvas.width / naturalWidth, canvas.height / naturalHeight), width = naturalWidth * scale, height = naturalHeight * scale;
+    return canvas.getContext("2d").drawImage(image, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height), canvas.toDataURL("image/webp", 0.82);
+  }
+  function backgroundImageBlob(win, image) {
+    return image instanceof win.Blob ? image : new win.Blob([image.bytes], { type: image.type });
+  }
+  async function storedBackgroundThumbnail(win, asset) {
+    let url = win.URL.createObjectURL(backgroundImageBlob(win, asset));
+    try {
+      let image = new win.Image();
+      return image.src = url, await image.decode(), backgroundThumbnail(win, image);
+    } finally {
+      win.URL.revokeObjectURL(url);
+    }
+  }
   function readLocalBackground(win, file, landscape = !1) {
     return withLocalImage(win, file, async (image, original) => {
       let { naturalWidth: width, naturalHeight: height } = image;
       if (landscape && width <= height) throw new Error("\u53EA\u6709\u6A2A\u7248\u76AE\u80A4\u53EF\u4EE5\u8BBE\u4E3A\u724C\u5C40\u80CC\u666F");
-      let scale = MAX_TEXTURE_EDGE / Math.max(width, height);
-      if (scale >= 1) return original;
+      let preview = backgroundThumbnail(win, image), scale = MAX_TEXTURE_EDGE / Math.max(width, height);
+      if (scale >= 1) return { ...original, preview };
       let canvas = win.document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(width * scale)), canvas.height = Math.max(1, Math.round(height * scale)), canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
       let resized = await new Promise((resolve, reject) => canvas.toBlob(
         (resized2) => resized2 ? resolve(resized2) : reject(new Error("\u65E0\u6CD5\u7F29\u5C0F\u8FD9\u5F20\u56FE\u7247")),
         original.type === "image/jpeg" ? "image/jpeg" : "image/png"
       ));
-      return { bytes: await resized.arrayBuffer(), type: resized.type };
+      return { bytes: await resized.arrayBuffer(), type: resized.type, preview };
     });
   }
   function localBackgroundImage(win, mode, operation) {
     return localImageTransaction(win, "sgs-toolbox-backgrounds", mode, operation);
   }
-  var read2 = (fn) => {
+  var provider = "backgrounds", entryKey = (id) => "history:" + id, imageKey = (id) => "archive:" + id;
+  function backgroundHistoryId(choice) {
+    return (choice == null ? void 0 : choice.owner) !== provider ? null : choice.skinKey ? `skin:${choice.skinKey}` : choice.localImageId ? choice.historyId || `local:${choice.localImageId}` : choice.url ? `native:${choice.url}` : null;
+  }
+  var BackgroundHistory = class {
+    pending = Promise.resolve();
+    error = "";
+    lastUsed = 0;
+    constructor(window2, changed) {
+      this.window = window2, this.changed = changed;
+    }
+    remember(choice, image, { seed = !1, archived = !1 } = {}) {
+      let id = backgroundHistoryId(choice);
+      if (!id) return;
+      let { localImageId, historyId, owner, ...spec } = choice, usedAt = this.lastUsed = Math.max(Date.now(), this.lastUsed + 1), win = this.window;
+      this.pending = this.pending.then(async () => {
+        if (localImageId && !image && !archived) {
+          if (await this.read(entryKey(id))) return;
+          if (image = await this.read(localImageId), !image) throw new Error("\u6B64\u524D\u4FDD\u5B58\u7684\u80CC\u666F\u56FE\u7247\u5DF2\u4E22\u5931");
+        }
+        let preview = image == null ? void 0 : image.preview;
+        image && !preview && (preview = await storedBackgroundThumbnail(win, image).catch(() => "")), await localBackgroundImage(win, "readwrite", (store) => {
+          let request = store.get(entryKey(id));
+          return request.addEventListener("success", () => {
+            let previous = request.result;
+            previous && (seed || previous.usedAt > usedAt) || (image && store.put(image, imageKey(id)), store.put({ id, spec, local: !!localImageId, usedAt, preview: preview || (previous == null ? void 0 : previous.preview) || "" }, entryKey(id)));
+          }), request;
+        });
+      }).then(() => {
+        this.error = "", this.changed();
+      }, (error) => {
+        this.error = `\u4FDD\u5B58\u80CC\u666F\u5386\u53F2\u5931\u8D25\uFF1A${(error == null ? void 0 : error.message) || error}`, this.changed();
+      });
+    }
+    read(key) {
+      return localBackgroundImage(this.window, "readonly", (store) => store.get(key));
+    }
+    async list() {
+      var _a2;
+      await this.pending;
+      let keys = (_a2 = this.window.IDBKeyRange) == null ? void 0 : _a2.bound("history:", "history;", !1, !0);
+      if (!keys) throw new Error("\u5F53\u524D\u73AF\u5883\u65E0\u6CD5\u8BFB\u53D6\u80CC\u666F\u5386\u53F2");
+      return (await localBackgroundImage(this.window, "readonly", (store) => store.getAll(keys))).sort((a, b) => b.usedAt - a.usedAt).map(({ id, spec, preview }) => ({
+        id,
+        name: spec.name,
+        url: spec.url,
+        preview,
+        source: spec.officialWallpaper ? "\u5B98\u65B9\u80CC\u666F" : id.startsWith("native:") ? "\u672C\u670D\u76AE\u80A4" : id.startsWith('skin:["mobile",') ? "\u79FB\u52A8\u7248\u76AE\u80A4" : id.startsWith("skin:") ? "\u4E00\u5C06\u6210\u540D" : "\u672C\u5730\u56FE\u7247"
+      }));
+    }
+    async restore(id) {
+      await this.pending;
+      let entry = await this.read(entryKey(id));
+      if (!entry) throw new Error("\u627E\u4E0D\u5230\u8FD9\u6761\u80CC\u666F\u8BB0\u5F55");
+      let image = entry.local ? await this.read(imageKey(id)) : null;
+      if (entry.local && !image) throw new Error("\u8FD9\u6761\u8BB0\u5F55\u7684\u56FE\u7247\u5DF2\u4E22\u5931\uFF0C\u8BF7\u91CD\u65B0\u9009\u62E9");
+      return { spec: entry.spec, image };
+    }
+    async cachePreview(id, image) {
+      try {
+        let preview = backgroundThumbnail(this.window, image);
+        if (!preview) return;
+        await localBackgroundImage(this.window, "readwrite", (store) => {
+          let request = store.get(entryKey(id));
+          return request.addEventListener("success", () => {
+            request.result && !request.result.preview && store.put({ ...request.result, preview }, entryKey(id));
+          }), request;
+        });
+      } catch {
+      }
+    }
+  }, read2 = (fn) => {
     try {
       return fn();
     } catch {
@@ -2035,6 +2226,11 @@
       if (parsed.username || parsed.password) throw new Error("\u80CC\u666F\u5730\u5740\u4E0D\u80FD\u5305\u542B\u51ED\u636E");
     }
     let result = { name: value.name.trim(), url };
+    if (value.officialWallpaper === !0 && (result.officialWallpaper = !0, value.wallpaperMotion)) {
+      let { kind, url: url2 } = value.wallpaperMotion;
+      if (kind !== "spine" && kind !== "bone") throw new Error("\u5B98\u65B9\u52A8\u6001\u80CC\u666F\u7C7B\u578B\u65E0\u6548");
+      result.wallpaperMotion = Object.freeze({ kind, url: backgroundSpec({ name: "\u52A8\u6001\u8D44\u6E90", url: url2 }).url });
+    }
     if (value.dynamic === null && (result.dynamic = null), value.dynamic != null) {
       let d = value.dynamic;
       if (!["bone", "spine", "video"].includes(d.kind)) throw new Error("\u52A8\u6001\u80CC\u666F\u7C7B\u578B\u65E0\u6548");
@@ -2091,7 +2287,9 @@
   }
   var BackgroundRegistry = class {
     constructor({ window: window2, game, settings, scope, sceneWatch }) {
-      Object.assign(this, { window: window2, game, settings, scope }), this.providers = /* @__PURE__ */ new Set(), this.listeners = /* @__PURE__ */ new Set(), this.binding = null, this.ready = null, this.loading = null, this.failed = null, this.ticket = 0, this.status = "\u8DDF\u968F\u6E38\u620F\u80CC\u666F";
+      Object.assign(this, { window: window2, game, settings, scope }), this.providers = /* @__PURE__ */ new Set(), this.listeners = /* @__PURE__ */ new Set(), this.binding = null, this.ready = null, this.loading = null, this.failed = null, this.ticket = 0, this.status = "\u8DDF\u968F\u6E38\u620F\u80CC\u666F", this.history = new BackgroundHistory(window2, () => {
+        scope.closed || this.emit();
+      });
       let refresh = () => this.refresh();
       sceneWatch ? scope.add(sceneWatch.watch(refresh, 500, !0)) : scope.interval(refresh, 500), scope.add(() => {
         this.importing = null, this.ticket++, this.listeners.clear();
@@ -2106,6 +2304,9 @@
     }
     get current() {
       return this.settings.get("battleBackground", null);
+    }
+    get currentHistoryId() {
+      return backgroundHistoryId(this.current);
     }
     isActive(owner) {
       return this.providers.has(owner);
@@ -2125,7 +2326,8 @@
     }
     register(owner) {
       if (this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u5DF2\u6CE8\u518C");
-      this.providers.add(owner), this.refresh(), this.emit();
+      let current = this.current;
+      (current == null ? void 0 : current.owner) === owner && this.history.remember(current, null, { seed: !0 }), this.providers.add(owner), this.refresh(), this.emit();
       let active = !0;
       return () => {
         var _a2;
@@ -2159,22 +2361,38 @@
       let choice = this.current;
       (choice == null ? void 0 : choice.owner) !== owner || !this.providers.has(owner) || !supportsSkinBackgroundAttack(choice.dynamic) || (this.settings.set("battleBackground", { ...choice, attackEffects: enabled === !0 }), enabled || (_b2 = (_a2 = this.binding) == null ? void 0 : _a2.motion) == null || _b2.stopAttack(), this.refresh(), this.emit());
     }
-    async selectLocal(owner, file, { skinKey, skinMotion, animated, isCurrent = () => !0 } = {}) {
-      var _a2;
+    selectLocal(owner, file, { skinKey, skinMotion, animated, isCurrent = () => !0 } = {}) {
+      return this.selectPrepared(owner, isCurrent, async () => {
+        var _a2;
+        return {
+          image: await readLocalBackground(this.window, file, !!skinKey),
+          spec: {
+            name: ((_a2 = file.name) == null ? void 0 : _a2.trim().slice(0, 160)) || "\u672C\u5730\u56FE\u7247",
+            animated: !!(skinMotion && animated),
+            dynamic: null,
+            ...skinKey && { skinKey, skinMotion: !!skinMotion }
+          }
+        };
+      });
+    }
+    restoreHistory(owner, historyId, { animated, attackEffects, isCurrent = () => !0 } = {}) {
+      return this.selectPrepared(owner, isCurrent, async () => {
+        if (owner !== "backgrounds" || typeof historyId != "string") throw new Error("\u80CC\u666F\u8BB0\u5F55\u65E0\u6548");
+        let { spec, image } = await this.history.restore(historyId), playback = animated ?? spec.animated;
+        return { image, archived: !0, spec: {
+          ...spec,
+          attackEffects: attackEffects ?? spec.attackEffects,
+          animated: image ? spec.skinMotion === !0 && playback : playback,
+          ...image && { historyId }
+        } };
+      });
+    }
+    async selectPrepared(owner, isCurrent, prepare) {
       if (this.scope.closed || !this.providers.has(owner)) throw new Error("\u80CC\u666F\u63D0\u4F9B\u65B9\u672A\u542F\u7528");
       let pending = this.importing = { owner }, canSave = () => this.importing === pending && isCurrent(), id;
       try {
-        let image = await readLocalBackground(this.window, file, !!skinKey);
-        if (!canSave() || (id = await localBackgroundImage(this.window, "readwrite", (store) => store.add(image)), !canSave())) return !1;
-        let name = ((_a2 = file.name) == null ? void 0 : _a2.trim().slice(0, 160)) || "\u672C\u5730\u56FE\u7247";
-        return this.saveSelection({
-          name,
-          localImageId: id,
-          owner,
-          animated: !!(skinMotion && animated),
-          dynamic: null,
-          ...skinKey && { skinKey, skinMotion: !!skinMotion }
-        }), id = void 0, !0;
+        let { spec, image, archived } = await prepare();
+        return canSave() ? image ? (id = await localBackgroundImage(this.window, "readwrite", (store) => store.add(image)), canSave() ? (this.saveSelection({ ...spec, localImageId: id, owner }, image, archived), id = void 0, !0) : !1) : (this.select(owner, spec), !0) : !1;
       } catch (error) {
         if (canSave()) throw error;
         return !1;
@@ -2186,10 +2404,10 @@
       Number.isSafeInteger(id) && id > 0 && localBackgroundImage(this.window, "readwrite", (store) => store.delete(id)).catch(() => {
       });
     }
-    saveSelection(choice) {
+    saveSelection(choice, image, archived) {
       var _a2;
       let previousId = (_a2 = this.current) == null ? void 0 : _a2.localImageId;
-      this.settings.set("battleBackground", choice), this.selectionChanged(), this.removeLocalImage(previousId);
+      this.settings.set("battleBackground", choice), this.history.remember(choice, archived ? null : image, { archived }), this.selectionChanged(), previousId && previousId !== (choice == null ? void 0 : choice.localImageId) && this.history.pending.then(() => this.removeLocalImage(previousId));
     }
     selectionChanged() {
       var _a2;
@@ -2221,7 +2439,7 @@
         localBackgroundImage(this.window, "readonly", (store) => store.get(id)).then((image) => {
           if (this.localImage !== asset) return;
           if (!image) throw new Error("\u672C\u5730\u56FE\u7247\u5DF2\u4E22\u5931\uFF0C\u8BF7\u91CD\u65B0\u9009\u62E9");
-          let blob = image instanceof this.window.Blob ? image : new this.window.Blob([image.bytes], { type: image.type });
+          let blob = backgroundImageBlob(this.window, image);
           asset.objectUrl = this.window.URL.createObjectURL(blob), asset.url = asset.objectUrl.includes("://") ? asset.objectUrl : asset.objectUrl + "#://", this.refresh();
         }).catch((error) => {
           this.localImage === asset && (asset.error = (error == null ? void 0 : error.message) || String(error), this.refresh());
@@ -2250,7 +2468,7 @@
       this.ticket++, this.loading = null, this.failed = url, this.loadAttempts = (this.loadAttempts || 0) + 1, this.retryAt = Date.now() + Math.min(3e4, 2e3 * 2 ** (this.loadAttempts - 1)), this.state(message + "\uFF1B\u7A0D\u540E\u81EA\u52A8\u91CD\u8BD5");
     }
     refreshReady() {
-      var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r;
+      var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t;
       let choice = this.current;
       if (!choice || !this.providers.has(choice.owner)) {
         this.ticket++, this.ready = this.loading = null;
@@ -2338,21 +2556,22 @@
         local.add(() => coverStill());
         let showMotion = (visible) => {
           var _a3, _b3;
-          (_a3 = b2.motion) == null || _a3.show(visible), coverStill(visible && choice.skinMotion && (_b3 = b2.motion) != null && _b3.loaded ? layer.bg : void 0);
+          (_a3 = b2.motion) == null || _a3.show(visible), coverStill(visible && (choice.skinMotion || choice.wallpaperMotion) && (_b3 = b2.motion) != null && _b3.loaded ? layer.bg : void 0);
         };
-        if (b2.syncMotion = () => {
-          var _a3;
-          return showMotion(eligible() && ((_a3 = layer.bg) == null ? void 0 : _a3.skin) === choice.url);
-        }, layer) {
+        if (layer) {
           let fill = new laya.Sprite();
           local.add(() => fill.destroy(!0)), fill.name = "sgs-background-edge-fill", fill.mouseEnabled = !1, fill.mouseChildren = !1, fill.zOrder = (layer.bgSprite.zOrder || 0) - 1, layer.addChildAt(fill, Math.max(0, layer.getChildIndex(layer.bgSprite)));
           let soften = new laya.Sprite();
-          soften.mouseEnabled = !1, fill.addChild(soften), laya.BlurFilter && !choice.skinKey && (soften.filters = [new laya.BlurFilter(18)]), b2.hideFill = () => {
+          soften.mouseEnabled = !1, fill.addChild(soften), laya.BlurFilter && !choice.skinKey && (soften.filters = [new laya.BlurFilter(18)]), b2.syncMotion = () => {
+            var _a3, _b3;
+            let visible = eligible() && ((_a3 = layer.bg) == null ? void 0 : _a3.skin) === choice.url;
+            showMotion(visible), choice.wallpaperMotion && (fill.visible = visible && !((_b3 = b2.motion) != null && _b3.loaded));
+          }, b2.hideFill = () => {
             fill.visible = !1, showMotion(!1);
           };
           let fillKey = "";
           local.patch(layer, "updateBgSize", (original) => function(...args) {
-            var _a3, _b3;
+            var _a3, _b3, _c2;
             let result = Reflect.apply(original, this, args), customBackground = eligible() && ((_a3 = this.bg) == null ? void 0 : _a3.skin) === choice.url;
             if (fill.visible = customBackground && !choice.skinKey, !customBackground)
               return b2.syncMotion(), result;
@@ -2365,7 +2584,7 @@
               let scale = Math.max(w / fit.width, h / fit.height), dw = fit.width * scale, dh = fit.height * scale;
               fill.size(w, h), fill.scrollRect = new laya.Rectangle(0, 0, w, h), soften.graphics.clear(), soften.graphics.drawTexture(registry.imageTexture, (w - dw) / 2, (h - dh) / 2, dw, dh), soften.graphics.drawRect(0, 0, w, h, "rgba(0,0,0,0.28)");
             }
-            return this.bg.size(fit.width, fit.height), typeof this.bg.scale == "function" ? this.bg.scale(fit.scale, fit.scale) : this.bg.scale = fit.scale, this.bg.posInteger(fit.x, fit.y), choice.skinMotion ? (_b3 = b2.motion) == null || _b3.layout(w, h) : b2.motion && b2.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h)), b2.syncMotion(), result;
+            return this.bg.size(fit.width, fit.height), typeof this.bg.scale == "function" ? this.bg.scale(fit.scale, fit.scale) : this.bg.scale = fit.scale, this.bg.posInteger(fit.x, fit.y), choice.wallpaperMotion ? (_b3 = b2.motion) == null || _b3.layout() : choice.skinMotion ? (_c2 = b2.motion) == null || _c2.layout(w, h) : b2.motion && b2.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h)), b2.syncMotion(), result;
           });
         }
         typeof scene.OnWeatherWallPaperChange == "function" && local.patch(scene, "OnWeatherWallPaperChange", (original) => function(...args) {
@@ -2412,8 +2631,8 @@
             });
           }
         b2.yielded || scene.onWallPaperChange();
-        let playSkinMotion = choice.skinMotion && !((_m = (_l = this.window).matchMedia) != null && _m.call(_l, "(prefers-reduced-motion: reduce)").matches);
-        if ((choice.dynamic || playSkinMotion) && choice.animated !== !1) {
+        let playSkinMotion = choice.skinMotion && !((_m = (_l = this.window).matchMedia) != null && _m.call(_l, "(prefers-reduced-motion: reduce)").matches), playWallpaperMotion = choice.wallpaperMotion && !((_o = (_n = this.window).matchMedia) != null && _o.call(_n, "(prefers-reduced-motion: reduce)").matches);
+        if ((choice.dynamic || playSkinMotion || playWallpaperMotion) && choice.animated !== !1) {
           let motionScope = new ResourceScope();
           local.add(() => motionScope.dispose());
           let fail2 = (message) => {
@@ -2429,13 +2648,13 @@
               },
               fail: fail2
             };
-            b2.motion = choice.skinMotion ? createSkinBackgroundMotion({
+            b2.motion = playWallpaperMotion ? createWallpaperMotion({ ...options, spec: choice.wallpaperMotion }) : choice.skinMotion ? createSkinBackgroundMotion({
               ...options,
               load: (signal) => {
                 var _a3, _b3;
                 return (_b3 = this.skinMotion) == null ? void 0 : _b3.call(this, choice.skinKey, signal, { imageUrl: (_a3 = this.localImage) == null ? void 0 : _a3.objectUrl, quality: skinQuality });
               },
-              imageUrl: (_n = this.localImage) == null ? void 0 : _n.objectUrl
+              imageUrl: (_p = this.localImage) == null ? void 0 : _p.objectUrl
             }) : createBackgroundMotion({ ...options, spec: choice.dynamic, size: choice.dynamic }), motionScope.closed && (b2.motion = null), b2.motion && supportsSkinBackgroundAttack(choice.dynamic) && (b2.syncAttackSeat = watchBackgroundAttack(this.game, scene, motionScope, () => {
               var _a3, _b3, _c2;
               eligible() && ((_a3 = layer.bg) == null ? void 0 : _a3.skin) === choice.url && ((_c2 = (_b3 = b2.motion) == null ? void 0 : _b3.playAttack) == null || _c2.call(_b3));
@@ -2445,20 +2664,40 @@
           }
         }
       }
-      scene.currentWeatherWallPaper || this.binding.yielded ? (_p = (_o = this.binding).hideFill) == null || _p.call(_o) : this.binding.syncMotion();
+      scene.currentWeatherWallPaper || this.binding.yielded ? (_r = (_q = this.binding).hideFill) == null || _r.call(_q) : this.binding.syncMotion();
       let b = this.binding;
-      b.motion && ((_q = b.syncAttackSeat) == null || _q.call(b, choice.attackEffects !== !1)), this.state(scene.currentWeatherWallPaper || b.yielded ? "\u6280\u80FD\u80CC\u666F\u4F18\u5148" : b.motionError ? "\u52A8\u6001\u80CC\u666F\u5931\u8D25\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B\uFF1A" + b.motionError : (_r = b.motion) != null && _r.unsuitableSize ? "\u5F53\u524D\u7A97\u53E3\u6BD4\u4F8B\u4E0D\u9002\u5408\u52A8\u6001\u6784\u56FE\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B" : b.motion ? b.motion.loaded ? "\u52A8\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528" : "\u6B63\u5728\u52A0\u8F7D\u52A8\u6001\u80CC\u666F\uFF0C\u6682\u663E\u9759\u6001\u539F\u753B" : "\u9759\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528");
+      b.motion && ((_s = b.syncAttackSeat) == null || _s.call(b, choice.attackEffects !== !1)), this.state(scene.currentWeatherWallPaper || b.yielded ? "\u6280\u80FD\u80CC\u666F\u4F18\u5148" : b.motionError ? "\u52A8\u6001\u80CC\u666F\u5931\u8D25\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B\uFF1A" + b.motionError : (_t = b.motion) != null && _t.unsuitableSize ? "\u5F53\u524D\u7A97\u53E3\u6BD4\u4F8B\u4E0D\u9002\u5408\u52A8\u6001\u6784\u56FE\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B" : b.motion ? b.motion.loaded ? "\u52A8\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528" : "\u6B63\u5728\u52A0\u8F7D\u52A8\u6001\u80CC\u666F\uFF0C\u6682\u663E\u9759\u6001\u539F\u753B" : "\u9759\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528");
     }
-  }, BLACK_GOLD = { id: "core.black-gold", name: "\u7384\u91D1", tokens: { bg: "#201e1a", surface: "#2c2922", raised: "#383327", text: "#eee3cc", muted: "#b7aa8c", accent: "#dbba70", border: "#665b42", danger: "#f3988c", radius: "10px", font: '"Microsoft YaHei", system-ui, sans-serif', motion: "240ms", scheme: "dark" } }, allowed = Object.keys(BLACK_GOLD.tokens);
+  }, BLACK_GOLD = { id: "core.black-gold", name: "\u7384\u91D1", tokens: { bg: "#201e1a", surface: "#2c2922", raised: "#383327", text: "#eee3cc", muted: "#b7aa8c", accent: "#dbba70", border: "#665b42", danger: "#f3988c", radius: "10px", font: '"Microsoft YaHei", system-ui, sans-serif', motion: "240ms", scheme: "dark" } }, DECORATIVE_COLOR_TOKENS = Object.freeze(["bg2", "accent2"]), GRADIENT_TOKENS = Object.freeze(["backdrop", "card", "compact"]), OPTIONAL_THEME_TOKENS = Object.freeze([...DECORATIVE_COLOR_TOKENS, ...GRADIENT_TOKENS]), allowed = Object.keys(BLACK_GOLD.tokens), safeScalar = (value) => typeof value == "string" && value.length > 0 && value.length < 180 && !/[;{}]|url\s*\(/i.test(value), gradientHead = /^(?:repeating-)?(?:linear|radial|conic)-gradient\(/i;
+  function isSafeGradient(value) {
+    if (typeof value != "string") return !1;
+    let trimmed = value.trim();
+    if (!trimmed || trimmed.length > 1200) return !1;
+    if (trimmed === "none") return !0;
+    if (/[;{}<>\\]|\/\*|\*\/|url\s*\(|image-set\s*\(|expression\s*\(|@import/i.test(trimmed)) return !1;
+    let layers = [], depth = 0, start = 0;
+    for (let i2 = 0; i2 < trimmed.length; i2++) {
+      let ch = trimmed[i2];
+      if (ch === "(") depth++;
+      else if (ch === ")") {
+        if (--depth < 0) return !1;
+      } else ch === "," && depth === 0 && (layers.push(trimmed.slice(start, i2).trim()), start = i2 + 1);
+    }
+    return depth !== 0 ? !1 : (layers.push(trimmed.slice(start).trim()), layers.length > 0 && layers.length <= 8 && layers.every((layer) => gradientHead.test(layer) && layer.endsWith(")")));
+  }
   function clean(tokens) {
     let result = {};
-    for (let k of allowed) typeof (tokens == null ? void 0 : tokens[k]) == "string" && tokens[k].length < 180 && !/[;{}]|url\s*\(/i.test(tokens[k]) && (k !== "scheme" || ["light", "dark"].includes(tokens[k])) && (result[k] = tokens[k]);
+    for (let k of allowed) safeScalar(tokens == null ? void 0 : tokens[k]) && (k !== "scheme" || ["light", "dark"].includes(tokens[k])) && (result[k] = tokens[k]);
+    for (let k of DECORATIVE_COLOR_TOKENS) safeScalar(tokens == null ? void 0 : tokens[k]) && (result[k] = tokens[k]);
+    for (let k of GRADIENT_TOKENS) isSafeGradient(tokens == null ? void 0 : tokens[k]) && (result[k] = tokens[k].trim());
     return result;
   }
   var ThemeRegistry = class {
     constructor(settings, apply = () => {
-    }) {
-      this.settings = settings, this.apply = apply, this.themes = /* @__PURE__ */ new Map([[BLACK_GOLD.id, BLACK_GOLD]]), this.layers = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set(), this.refresh();
+    }, palettes = []) {
+      this.settings = settings, this.apply = apply, this.themes = /* @__PURE__ */ new Map([[BLACK_GOLD.id, BLACK_GOLD]]);
+      for (let palette of palettes) this.themes.set(palette.id, { ...palette, tokens: clean(palette.tokens) });
+      this.layers = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set(), this.refresh();
     }
     register(theme, owner = "core") {
       if (!(theme != null && theme.id) || !theme.id.startsWith(owner + ".")) throw new Error("\u4E3B\u9898 ID \u5FC5\u987B\u4EE5\u63D2\u4EF6 ID \u4E3A\u524D\u7F00\u3002");
@@ -2486,6 +2725,7 @@
     refresh() {
       let selected = this.settings.get("theme", BLACK_GOLD.id), theme = this.themes.get(selected) || BLACK_GOLD, tokens = { ...BLACK_GOLD.tokens, ...theme.tokens };
       for (let layer of [...this.layers.values()].sort((a, b) => a.priority - b.priority || a.owner.localeCompare(b.owner))) Object.assign(tokens, layer.tokens);
+      for (let k of GRADIENT_TOKENS) tokens[k] === "none" && delete tokens[k];
       this.current = { id: theme.id, tokens }, this.apply(tokens);
       for (let fn of [...this.listeners])
         try {
@@ -2494,7 +2734,91 @@
           console.warn("[\u5DE5\u5177\u7BB1\u4E3B\u9898\u8BA2\u9605]", error);
         }
     }
-  }, icon = (...paths) => Object.freeze({ paths: Object.freeze(paths) }), CARDS_ICON = /* @__PURE__ */ icon(
+  }, THEMES = [
+    { id: "themes.jade", name: "\u9752\u74F7", description: "\u58A8\u7EFF\u5E95\u8272\uFF0C\u6E29\u6DA6\u9752\u7389", tokens: {
+      bg: "#15211f",
+      surface: "#1d2d28",
+      raised: "#2c4037",
+      text: "#e1ede6",
+      muted: "#a7bfb1",
+      accent: "#a2cbaa",
+      border: "#486556",
+      danger: "#f0a29a"
+    } },
+    { id: "themes.blue", name: "\u9701\u84DD", description: "\u6DF1\u6D77\u9759\u591C\uFF0C\u6E05\u900F\u5929\u9752", tokens: {
+      bg: "#161f2c",
+      surface: "#202d3f",
+      raised: "#2d3d52",
+      text: "#e1eaf4",
+      muted: "#a7bbd3",
+      accent: "#91bcee",
+      border: "#4b6382",
+      danger: "#efaaa6"
+    } },
+    { id: "themes.violet", name: "\u7D2B\u5BB8", description: "\u70DF\u7D2B\u5C42\u6B21\uFF0C\u6DE1\u85E4\u5FAE\u5149", tokens: {
+      bg: "#221d2a",
+      surface: "#302737",
+      raised: "#403348",
+      text: "#eee6f2",
+      muted: "#c1aecb",
+      accent: "#c9a6df",
+      border: "#6d577c",
+      danger: "#f0a29a"
+    } },
+    { id: "themes.cinnabar", name: "\u6731\u7802", description: "\u6697\u7EA2\u6F06\u8272\uFF0C\u67D4\u548C\u7EEF\u971E", tokens: {
+      bg: "#281b1c",
+      surface: "#372527",
+      raised: "#493236",
+      text: "#f3e3de",
+      muted: "#cfb0a7",
+      accent: "#e9a590",
+      border: "#79554f",
+      danger: "#ff9caa"
+    } },
+    { id: "themes.silver", name: "\u971C\u94F6", description: "\u51B7\u7070\u7559\u767D\uFF0C\u7D20\u51C0\u94F6\u8F89", tokens: {
+      bg: "#1c2229",
+      surface: "#272f39",
+      raised: "#36404d",
+      text: "#e8edf2",
+      muted: "#b3bfcc",
+      accent: "#c5d3e3",
+      border: "#5b6a7d",
+      danger: "#f0a29a"
+    } },
+    { id: "themes.ricepaper", name: "\u5BA3\u7EB8", description: "\u6696\u767D\u7EB8\u8272\uFF0C\u58A8\u5B57\u8336\u91D1", tokens: {
+      bg: "#faf7ef",
+      surface: "#f3eee2",
+      raised: "#e9e1d1",
+      text: "#342e25",
+      muted: "#62594b",
+      accent: "#77521d",
+      border: "#b7a78c",
+      danger: "#a12c35",
+      scheme: "light"
+    } },
+    { id: "themes.daybreak", name: "\u6674\u5C9A", description: "\u6E05\u6D45\u5929\u5149\uFF0C\u8FDC\u5C71\u9752\u84DD", tokens: {
+      bg: "#f4f8fb",
+      surface: "#eaf1f6",
+      raised: "#dce7ef",
+      text: "#243849",
+      muted: "#4b6071",
+      accent: "#23597c",
+      border: "#9cb3c4",
+      danger: "#a12c40",
+      scheme: "light"
+    } },
+    { id: "themes.blossom", name: "\u6843\u592D", description: "\u67D4\u767D\u80ED\u8102\uFF0C\u6DE1\u96C5\u6625\u6843", tokens: {
+      bg: "#fcf6f5",
+      surface: "#f6ebe9",
+      raised: "#edddda",
+      text: "#442e32",
+      muted: "#6e545a",
+      accent: "#853b50",
+      border: "#c3a2a6",
+      danger: "#a12b36",
+      scheme: "light"
+    } }
+  ], icon = (...paths) => Object.freeze({ paths: Object.freeze(paths) }), CARDS_ICON = /* @__PURE__ */ icon(
     "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
     "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"
   ), SHANHETU_ICON = /* @__PURE__ */ icon(
@@ -2566,132 +2890,6 @@
       path.setAttribute("d", d), icon2.append(path);
     }
     return icon2;
-  }
-  var CONTROL_STYLES = `
-/* Keep both states visible before the microclient's theme compatibility pass. */
-input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid var(--sgs-border,#665b42);border-radius:12px;background-color:var(--sgs-bg,#201e1a);background-image:linear-gradient(transparent,var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0004;vertical-align:middle;cursor:pointer;transition:background-color .16s,border-color .16s}
-input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background-color:var(--sgs-muted,#b7aa8c);background-image:linear-gradient(#fff2,transparent);box-shadow:0 1px 2px #0005;transition:transform .16s,background-color .16s}
-input.sgs-switch[type=checkbox]:checked{background-color:var(--sgs-accent,#dbba70);background-image:linear-gradient(#fff1,var(--sgs-accent,#dbba70));border-color:var(--sgs-accent,#dbba70)}
-input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background-color:var(--sgs-bg,#201e1a)}
-input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
-select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
-select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
-select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
-select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
-.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
-.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;box-shadow:inset 0 1px 3px #0003}.sgs-segments>button{flex:1;min-width:0;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
-.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
-@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
-`;
-  function controlIcon(doc, name) {
-    return createIcon(doc, name);
-  }
-  function styleSwitch(input) {
-    return input.classList.add("sgs-switch"), input.setAttribute("role", "switch"), input;
-  }
-  function helpTip(doc, text3, label = "\u8BF4\u660E") {
-    let wrap = doc.createElement("span"), button = doc.createElement("button"), tip = doc.createElement("span");
-    wrap.className = "sgs-help-tip", wrap.style.cssText = "display:inline-flex;align-items:center;flex:0 0 auto;vertical-align:middle;margin:0;line-height:1", button.dataset.helpTip = "", button.type = "button", button.setAttribute("aria-label", label), button.title = text3, button.style.cssText = "box-sizing:border-box;display:inline-grid;place-items:center;flex:none;width:24px;height:24px;min-width:24px;min-height:24px;margin:0;padding:3px;border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);cursor:help;border-radius:50%";
-    let icon2 = controlIcon(doc, "info");
-    icon2.style.margin = "0", button.append(icon2), tip.textContent = text3, tip.setAttribute("popover", "manual"), tip.setAttribute("role", "tooltip"), tip.style.cssText = "position:fixed;inset:auto;margin:0;padding:10px 12px;max-width:min(300px,calc(100vw - 24px));width:max-content;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--sgs-font,sans-serif);color:var(--sgs-text);background:var(--sgs-raised);border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 6px 24px #0004";
-    let hide = () => {
-      tip.matches(":popover-open") && tip.hidePopover();
-    }, show = () => {
-      if (!tip.showPopover) return;
-      tip.showPopover();
-      let box = button.getBoundingClientRect(), bounds = tip.getBoundingClientRect(), win = doc.defaultView;
-      tip.style.left = Math.max(12, Math.min(box.left, win.innerWidth - bounds.width - 12)) + "px", tip.style.top = Math.max(12, box.bottom + bounds.height + 8 < win.innerHeight ? box.bottom + 6 : box.top - bounds.height - 6) + "px";
-    };
-    return button.addEventListener("mouseenter", show), wrap.addEventListener("mouseleave", hide), button.addEventListener("focus", show), button.addEventListener("blur", hide), button.addEventListener("click", show), button.addEventListener("keydown", (event) => {
-      event.key === "Escape" && (hide(), event.stopPropagation());
-    }), wrap.append(button, tip), wrap;
-  }
-  var INFO_STYLES = `
-.sgs-info{min-width:0;color:var(--sgs-text);font:12px/1.65 var(--sgs-font,sans-serif)}
-.sgs-info *{box-sizing:border-box}.sgs-info [hidden]{display:none!important}
-.sgs-info p{margin:0 0 10px;overflow-wrap:anywhere}.sgs-info .muted{color:var(--sgs-muted);font-size:11px}
-.sgs-info .bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:9px 0}.sgs-info .bar>*{min-width:0}
-.sgs-info button{min-height:30px;border:1px solid color-mix(in srgb,var(--sgs-border) 65%,transparent);border-radius:7px;background:linear-gradient(var(--sgs-raised),var(--sgs-surface));color:var(--sgs-text);padding:4px 9px;font:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px}
-.sgs-info button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}.sgs-info button:focus-visible,.sgs-info summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
-.sgs-info button:disabled{opacity:.45;cursor:not-allowed}.sgs-info .primary{color:var(--sgs-accent)}.sgs-info .danger{color:var(--sgs-danger)}
-.sgs-info .sgs-segments{margin:8px 0}.sgs-info .sgs-segments>button{border:0;background:transparent;padding:4px;font-size:11px}.sgs-info .sgs-segments>button[aria-pressed=true]{background:color-mix(in srgb,var(--sgs-accent) 12%,transparent)}
-.sgs-info input.sgs-input{width:100%}.sgs-info .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sgs-info .filters label{color:var(--sgs-muted);font-size:11px;min-width:0}
-.sgs-info .filters label:has(input[type=datetime-local]){grid-column:1/-1}
-.sgs-info .stat{display:flex;align-items:baseline;gap:6px;margin:10px 0;font-variant-numeric:tabular-nums}.sgs-info .stat strong{font-size:25px;font-weight:600;color:var(--sgs-accent)}
-.sgs-info .list{max-height:430px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}.sgs-info .row{padding:10px 0;border-top:1px solid color-mix(in srgb,var(--sgs-border) 60%,transparent)}
-.sgs-info .row-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px}.sgs-info .name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sgs-info .number{font-variant-numeric:tabular-nums;flex:none;font-size:11px}
-.sgs-info progress.progress{appearance:none;display:block;width:100%;height:3px;border:0;border-radius:2px;background:var(--sgs-raised);margin:7px 0;overflow:hidden}.sgs-info progress::-webkit-progress-bar{background:var(--sgs-raised)}.sgs-info progress::-webkit-progress-value{background:var(--sgs-accent)}.sgs-info progress::-moz-progress-bar{background:var(--sgs-accent)}
-.sgs-info details{font-size:11px;color:var(--sgs-muted)}.sgs-info summary{cursor:pointer}.sgs-info details p{white-space:pre-wrap;margin:6px 0;overflow-wrap:anywhere}
-.sgs-info .error{color:var(--sgs-danger);white-space:pre-wrap;overflow-wrap:anywhere}.sgs-info .empty{padding:20px 4px;text-align:center;color:var(--sgs-muted)}
-.sgs-info .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin-top:6px;color:var(--sgs-muted);font-size:10px}.sgs-info .metrics b{display:block;font-size:14px;color:var(--sgs-text);font-variant-numeric:tabular-nums;font-weight:500}
-`;
-  function panelUI(ctx, container) {
-    var _a2, _b2;
-    let doc = ctx.document, cleanups = [], root = doc.createElement("section");
-    root.className = "sgs-info";
-    let el = (tag, cls, text3) => {
-      let n = doc.createElement(tag);
-      return cls && (n.className = cls), text3 !== void 0 && (n.textContent = text3), n;
-    };
-    container.append(root);
-    let scheme = (current) => {
-      var _a3;
-      let hex2 = ((_a3 = current == null ? void 0 : current.tokens) == null ? void 0 : _a3.bg) || "", match = /^#([\da-f]{6})$/i.exec(hex2);
-      if (match) {
-        let rgb = [0, 2, 4].map((i2) => parseInt(match[1].slice(i2, i2 + 2), 16));
-        root.style.colorScheme = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 140 ? "light" : "dark";
-      }
-    };
-    scheme((_a2 = ctx.themes) == null ? void 0 : _a2.current), (_b2 = ctx.themes) != null && _b2.subscribe && cleanups.push(ctx.themes.subscribe(scheme));
-    let listen = (node, type, fn) => {
-      cleanups.push(ctx.scope.listen(node, type, fn));
-    }, button = (text3, icon2, fn) => {
-      let n = el("button", "", text3);
-      return n.type = "button", icon2 && n.prepend(controlIcon(doc, icon2)), listen(n, "click", fn), n;
-    };
-    return { root, el, listen, button, segments: (items, selected, change) => {
-      let group = el("div", "sgs-segments");
-      for (let [value, label] of items) {
-        let n = button(label, null, () => {
-          for (let b of group.children) b.setAttribute("aria-pressed", String(b === n));
-          change(value);
-        });
-        n.setAttribute("aria-pressed", String(value === selected)), group.append(n);
-      }
-      return group;
-    }, input: (label, type = "search") => {
-      let n = el("input", "sgs-input");
-      return n.type = type, n.setAttribute("aria-label", label), n.placeholder = label, n;
-    }, dispose: ctx.scope.add(() => {
-      for (let off of cleanups) off();
-      root.remove();
-    }) };
-  }
-  var sheets = /* @__PURE__ */ new WeakMap();
-  function acquirePluginStyles(root, doc) {
-    let entry = sheets.get(root);
-    if (!entry) {
-      let style2 = doc.createElement("style");
-      style2.dataset.sgsPluginControls = "", style2.textContent = CONTROL_STYLES + INFO_STYLES, root.append(style2), sheets.set(root, entry = { style: style2, users: 0 });
-    }
-    entry.users++;
-    let released = !1;
-    return () => {
-      released || (released = !0, --entry.users === 0 && (entry.style.remove(), sheets.delete(root)));
-    };
-  }
-  function mountPluginUI(context2, getContext) {
-    let { document: doc, scope } = context2;
-    return doc != null && doc.createElement && scope.add(acquirePluginStyles(doc.head || doc.documentElement, doc)), {
-      icon: (spec) => createIcon(doc, spec),
-      styleSwitch,
-      helpTip: (text3, label) => helpTip(doc, text3, label),
-      panel: (container) => panelUI(getContext(), container),
-      mountStyles: (root) => scope.add(acquirePluginStyles(root, doc))
-    };
-  }
-  function advancedSkinOption(settings, key) {
-    return settings.get("advanced", !0) === !0 && settings.get(key, !0) === !0;
   }
   var validReleaseNotes = (value) => value === void 0 || typeof value == "string" && value.trim().length > 0 && value.length <= 2e3 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value), DEFAULT_PLUGIN_PRIORITY = 32768, PANEL_CATEGORIES = Object.freeze(["game", "automation", "tools", "manage", "info", "appearance"]), localId = /^[a-z][a-z0-9.-]{0,63}$/, stableVersion = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/, validPriority = (value) => Number.isInteger(value) && value >= 0 && value <= 65535;
   function requirePriority(value) {
@@ -2786,6 +2984,260 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     if (!module || canonical(module.manifest) !== canonical(pkg.manifest) || typeof module.activate != "function") throw new Error("\u63D2\u4EF6\u4EE3\u7801\u4E0E\u6E05\u5355\u4E0D\u5339\u914D\u3002");
     return module;
   }
+  var CONSOLIDATED_PACKAGE_DIGESTS = {
+    shanhetu: [
+      "082236c181b0482dd6bcbcbd7c7e2c9adbe3fbf00a01c4575c14e22aa53a6cad",
+      "164df50f777eee9c554ee324ce99da8e569bbe4ad21aa10ed99a672690d9397d",
+      "ca03e331f1dd6f1bb0f9a952d4ef4edf2630d8c9dae2e1d0af1e7b935a5cc4ab",
+      "57a4cfd8c4c49dfd5353456041be215dfbbe2ed6ea09d790c626edb2ccf3d663",
+      "d21d5f6ba506a50f0d9e466e49e5b8cc2f21f0821d2ba65898b6bfba1dadf58e",
+      "fbad88e6ad917a085d2833231db6f7fed8467b0d71d32e9bb330fcf56bc70069",
+      "54a8da77c89f5c6ba3d6128261c33db069f32052ff9db5736d134f24586f975e"
+    ],
+    "player-info": [
+      "0fbb7a1bf9f3447cd2c07ee21a84285c588c58a07fd8bf08b589f6e71b3bba68",
+      "58f268e5b1e60da4b1177cf84c7b02f76331c99669e0dc74b614a22e4f8c80f9",
+      "43a162e8d94e64e2d82472c1e6a9470d14e9523b043218cbcbc857de9681d4d3",
+      "49a4f41653aabb6f1a7fe8e50d15c6fe6140d0eb5357b500ee946e134d58d9c9",
+      "137de51e07acf360074aba07283559f9c8e91b6a7559daa95a74a6e62217ec5c",
+      "bf8c5cb8458948f3f7b6858a046b34feba9bae5cd0351b7399ae68df4ae90e9d",
+      "fb45a55aacc3c8c924bafb7e33ca84286b7eaf8fec07c868fa89d0c5db4f31ca",
+      "780cd1f804a0f9df57e02cbfad8f1f453d34349b29b79136e8ece6430f06e9e5",
+      "742c458b983a8888ceb338087e8c147f47546f04c929d88bbc695fd123f01e41"
+    ],
+    ledger: [
+      "2fec527eb8eb0662749aa1610371715c7b24d5e4c21f7be968b885dbd9b61312",
+      "463721eeed62ae69025bb0b0b53fb95fd15225d2423da5e74ff14307cb7c6edc",
+      "f1b3bea02d69b4bf14b1a253a46351067c60cd9af05cc2e0d5a163ee37ff8cc4",
+      "07f3f27091cf54c8c7227faf56bb8604c9ab72d3e543c00fdf00aefd4e89abb6",
+      "43ea981f26eb499464401fb79aacf98f66fdb93ebd86b99ab247e0dff670e48c",
+      "f05df4a84dfc8c991e389b7d0be26ca229453bea1be7fd511ac8d2c558783e1a",
+      "91b2b39bbedebf1ff5939ca5fd31d5d4f5d7debf5c67a67aaf07105d66f210de",
+      "10c7edaf11b31208d51f9148dc4662510c93eb67914fdc1b92996b8f02b54a25",
+      "4150b1bad5420ab0cc4d17603676aa0501d02ba9670e2105cf8c81c3b48cd5ac"
+    ],
+    "shanhetu-beta": [
+      "d9aa77f6bb90d372a29fe1d98c20ceda3c46de311bbce805ead175f10c239715",
+      "8f2665cb90c7bf757617dfa605bafa463275bca7f7d074d1ccee0a9becd64b5b"
+    ],
+    "general-pools": [
+      "e73a800ca0330d6c583455449e54a2241a1693d9f47467cdca4169130dbdaaea"
+    ],
+    "wish-progress": [
+      "704171a5ca3c1c2d3f51373af8efdb56af17586619978e030a1010870cc9b0b3",
+      "bd7b8ea40bce5789378875f648fca9d0a40ba7977517f2f4879f70a7cab4522e",
+      "9f74c88707a3887f9ec62bc4ff7bfc808bd7fb69a8f6005323cc8ad114ca2fe4"
+    ],
+    "native-cards": [
+      "22950fcd5b71918f6f7c35166726c51aaa016581bff5047e29f0b19454732592"
+    ],
+    "gold-cards": [
+      "223cb665ae968062d24d4cf2f4757f8508e47f20c7e162da08eabf9e3dc5ecba"
+    ],
+    "yjcm-cards": [
+      "91fc886373bd9991a8582ac805dc20548b1c2d549f4e969016d551469cd63382",
+      "63ec4317e93a6b215790b9865bd8d8b887676a5c00d118eff2ff7d4f79765ac4"
+    ],
+    "dafeiyu-cards": [
+      "8ad857e49ca44304963b9e8918f60e9c0569b1793da05e90073d360b22a1ab9f",
+      "54eac14b53d86450fcf8901dab2a391e3492a5c1b20d2d8b55c8151172be5629",
+      "c3ee772bf9bf1e17754145f93999eed01ca4cc042a25a846605b50164e0e7752",
+      "3792c5fd8f9aac3abd4351db6a77ca95ae22ee9510f293a78a853b8e269ee6e8",
+      "00cef6e26828ae31ffdf5f12d3bc3843d1a55441cb692486363f8c28c44fab0b",
+      "93745de01d1020b1cb7f6e412dab86c6b0d05129d70f36ceb0b2091445ddcae2"
+    ],
+    themes: [
+      "554a80c4d9b62ed718941613867d51da524dcb191b823a7a79ea2ec72b39e666",
+      "eae835ca2fca5e48d607b4186e011992bb4eab88456b6543d1768d8891b0d8d2",
+      "ed1049987473a1ba477470f143d9bada0b2223cfa78227d29a6e67e0d53f0615"
+    ]
+  }, CARD_STYLES = "card-styles-extra", groups = [
+    { target: "shanhetu", sources: ["shanhetu-beta"], preference: "showExtra", mergedDigests: MERGED_SHANHETU_PACKAGES },
+    { target: "player-info", sources: ["general-pools"], preference: "generalPools" },
+    { target: "ledger", sources: ["wish-progress"] },
+    { target: CARD_STYLES, sources: ["native-cards", "gold-cards", "yjcm-cards", "dafeiyu-cards"] },
+    { target: "core", sources: ["themes"] }
+  ], knownDigests = {
+    ...CONSOLIDATED_PACKAGE_DIGESTS,
+    shanhetu: [...CONSOLIDATED_PACKAGE_DIGESTS.shanhetu, ...REPLACED_SHANHETU_PACKAGES],
+    "shanhetu-beta": [...CONSOLIDATED_PACKAGE_DIGESTS["shanhetu-beta"], ...REPLACED_SHANHETU_BETA_PACKAGES],
+    themes: [...CONSOLIDATED_PACKAGE_DIGESTS.themes, ...REPLACED_THEME_PACKAGES]
+  };
+  function savedPackage(record) {
+    var _a2;
+    return (record == null ? void 0 : record.active) || ((_a2 = record == null ? void 0 : record.previous) != null && _a2.builtin ? null : record == null ? void 0 : record.previous);
+  }
+  async function verifiedPackage(id, pkg, digests) {
+    var _a2;
+    return ((_a2 = pkg == null ? void 0 : pkg.manifest) == null ? void 0 : _a2.id) !== id || !digests.includes(pkg.sha256) ? !1 : !!await verifyPackage(pkg).catch(() => null);
+  }
+  async function reconcileConsolidatedPlugins(records, builtins, store, settings, targetDigests) {
+    var _a2;
+    let changes = [];
+    for (let { target, sources, preference, mergedDigests = [] } of groups) {
+      let bundled = (_a2 = builtins.get(target)) == null ? void 0 : _a2.bundledPackage, installed = records.get(target), active = savedPackage(installed), applied = (installed == null ? void 0 : installed.appliedBuiltinMigrations) || [], knownPrevious = active && await verifiedPackage(target, active, knownDigests[target] || []), previousMerged = active && await verifiedPackage(target, active, mergedDigests), mergedInstalled = previousMerged || active && await verifiedPackage(target, active, [targetDigests[target]]), legacy = [];
+      for (let id of sources) {
+        let row = records.get(id);
+        await verifiedPackage(id, savedPackage(row), knownDigests[id]) && legacy.push(row);
+      }
+      let upgrade = bundled && (knownPrevious || previousMerged) && active.sha256 !== bundled.sha256 && !installed.uninstalled && !applied.includes(active.sha256);
+      if (!(target === "core" || mergedInstalled || upgrade || bundled && !active)) {
+        if (knownPrevious && !installed.uninstalled) for (let row of legacy) {
+          if (row.mergedInto !== target) continue;
+          let restored = { ...row, uninstalled: !1 };
+          delete restored.mergedInto, changes.push(restored);
+        }
+        continue;
+      }
+      upgrade && changes.push({
+        ...installed,
+        active: bundled,
+        previous: active,
+        appliedBuiltinMigrations: [...applied, active.sha256]
+      });
+      let retiring = legacy.filter((row) => !row.uninstalled), explicitlyOff = sources.map((id) => records.get(id)).filter((row) => row && (row.uninstalled ? !row.mergedInto : retiring.includes(row) && row.enabled === !1));
+      if (preference && explicitlyOff.length) {
+        let options = settings.namespace(target);
+        options.get(preference) === void 0 && options.set(preference, !1);
+      }
+      if (target === CARD_STYLES && explicitlyOff.length) {
+        let value = settings.get("inactiveLegacyCardPacks", []), inactive = new Set(Array.isArray(value) ? value : []);
+        for (let row of explicitlyOff) inactive.add(row.id);
+        (!Array.isArray(value) || inactive.size !== value.length) && settings.set("inactiveLegacyCardPacks", [...inactive]), !installed && bundled && !legacy.some((row) => !row.uninstalled && row.enabled !== !1) && changes.push({ id: target, enabled: !1, uninstalled: !1, active: bundled, previous: null });
+      }
+      for (let row of retiring) changes.push({ ...row, uninstalled: !0, mergedInto: target });
+    }
+    if (changes.length) {
+      await store.putMany(changes);
+      for (let row of changes) records.set(row.id, row);
+    }
+  }
+  var CONTROL_STYLES = `
+/* Keep both states visible before the microclient's theme compatibility pass. */
+input.sgs-switch[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;flex:0 0 30px;width:30px;height:18px;min-width:30px;margin:0;padding:0;border:1px solid var(--sgs-border,#665b42);border-radius:12px;background-color:var(--sgs-bg,#201e1a);background-image:linear-gradient(transparent,var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0004;vertical-align:middle;cursor:pointer;transition:background-color .16s,border-color .16s}
+input.sgs-switch[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background-color:var(--sgs-muted,#b7aa8c);background-image:linear-gradient(#fff2,transparent);box-shadow:0 1px 2px #0005;transition:transform .16s,background-color .16s}
+input.sgs-switch[type=checkbox]:checked{background-color:var(--sgs-accent,#dbba70);background-image:linear-gradient(#fff1,var(--sgs-accent,#dbba70));border-color:var(--sgs-accent,#dbba70)}
+input.sgs-switch[type=checkbox]:checked::before{transform:translateX(12px);background-color:var(--sgs-bg,#201e1a)}
+input.sgs-switch[type=checkbox]:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}input.sgs-switch:disabled{opacity:.4;cursor:not-allowed}
+select.sgs-select,input.sgs-input{box-sizing:border-box;min-width:0;max-width:100%;height:32px;border:1px solid color-mix(in srgb,var(--sgs-border,#665b42) 65%,transparent);border-radius:7px;background-color:var(--sgs-bg,#201e1a);box-shadow:inset 0 1px 3px #0003;color:var(--sgs-text,#eee3cc);font:12px/1.4 var(--sgs-font,sans-serif)}
+select.sgs-select{appearance:none;-webkit-appearance:none;padding:5px 27px 5px 9px;background-image:linear-gradient(45deg,transparent 50%,var(--sgs-muted,#b7aa8c) 50%),linear-gradient(135deg,var(--sgs-muted,#b7aa8c) 50%,transparent 50%);background-repeat:no-repeat;background-size:4px 4px;background-position:right 13px center,right 9px center;cursor:pointer;text-overflow:ellipsis}
+select.sgs-select option{background:var(--sgs-bg,#201e1a);color:var(--sgs-text,#eee3cc)}input.sgs-input{padding:5px 9px}
+select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:1px;border-color:var(--sgs-accent,#dbba70)}
+.sgs-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;user-select:none;padding:10px 0;color:var(--sgs-muted,#b7aa8c);font-size:12px}.sgs-fold>summary::-webkit-details-marker{display:none}.sgs-fold>summary::after{content:'';width:5px;height:5px;margin-left:auto;margin-right:3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform .16s}.sgs-fold[open]>summary{color:var(--sgs-accent,#dbba70)}.sgs-fold[open]>summary::after{transform:rotate(225deg)}.sgs-fold>summary:focus-visible{outline:1px solid var(--sgs-accent,#dbba70);outline-offset:2px}
+.sgs-segments{display:flex;gap:2px;padding:3px;border-radius:8px;background:#0002;background:color-mix(in srgb,var(--sgs-border,#665b42) 16%,var(--sgs-surface,#2c2922));box-shadow:inset 0 1px 3px #0002}.sgs-segments>button{flex:1;min-width:0;min-height:26px;border:0;border-radius:5px;background:transparent;box-shadow:none;color:var(--sgs-muted,#b7aa8c);padding:4px 6px;font-size:11px;line-height:1.35}.sgs-segments>button.is-active,.sgs-segments>button[aria-pressed=true]{color:var(--sgs-accent,#dbba70);background:linear-gradient(color-mix(in srgb,var(--sgs-accent,#dbba70) 18%,transparent),color-mix(in srgb,var(--sgs-accent,#dbba70) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent,#dbba70) 14%,transparent),0 1px 3px #0003}
+.sgs-line-icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+@media(prefers-reduced-motion:reduce){input.sgs-switch[type=checkbox],input.sgs-switch[type=checkbox]::before,.sgs-fold>summary::after{transition:none}}
+`;
+  function controlIcon(doc, name) {
+    return createIcon(doc, name);
+  }
+  function styleSwitch(input) {
+    return input.classList.add("sgs-switch"), input.setAttribute("role", "switch"), input;
+  }
+  function helpTip(doc, text3, label = "\u8BF4\u660E") {
+    let wrap = doc.createElement("span"), button = doc.createElement("button"), tip = doc.createElement("span");
+    wrap.className = "sgs-help-tip", wrap.style.cssText = "display:inline-flex;align-items:center;flex:0 0 auto;vertical-align:middle;margin:0;line-height:1", button.dataset.helpTip = "", button.type = "button", button.setAttribute("aria-label", label), button.title = text3, button.style.cssText = "box-sizing:border-box;display:inline-grid;place-items:center;flex:none;width:24px;height:24px;min-width:24px;min-height:24px;margin:0;padding:3px;border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);cursor:help;border-radius:50%";
+    let icon2 = controlIcon(doc, "info");
+    icon2.style.margin = "0", button.append(icon2), tip.textContent = text3, tip.setAttribute("popover", "manual"), tip.setAttribute("role", "tooltip"), tip.style.cssText = "position:fixed;inset:auto;margin:0;padding:10px 12px;max-width:min(300px,calc(100vw - 24px));width:max-content;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 var(--sgs-font,sans-serif);color:var(--sgs-text);background:var(--sgs-raised);border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 6px 24px #0004";
+    let hide = () => {
+      tip.matches(":popover-open") && tip.hidePopover();
+    }, show = () => {
+      if (!tip.showPopover) return;
+      tip.showPopover();
+      let box = button.getBoundingClientRect(), bounds = tip.getBoundingClientRect(), win = doc.defaultView;
+      tip.style.left = Math.max(12, Math.min(box.left, win.innerWidth - bounds.width - 12)) + "px", tip.style.top = Math.max(12, box.bottom + bounds.height + 8 < win.innerHeight ? box.bottom + 6 : box.top - bounds.height - 6) + "px";
+    };
+    return button.addEventListener("mouseenter", show), wrap.addEventListener("mouseleave", hide), button.addEventListener("focus", show), button.addEventListener("blur", hide), button.addEventListener("click", show), button.addEventListener("keydown", (event) => {
+      event.key === "Escape" && (hide(), event.stopPropagation());
+    }), wrap.append(button, tip), wrap;
+  }
+  var INFO_STYLES = `
+.sgs-info{min-width:0;color:var(--sgs-text);font:12px/1.65 var(--sgs-font,sans-serif)}
+.sgs-info *{box-sizing:border-box}.sgs-info [hidden]{display:none!important}
+.sgs-info p{margin:0 0 10px;overflow-wrap:anywhere}.sgs-info .muted{color:var(--sgs-muted);font-size:11px}
+.sgs-info .bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:9px 0}.sgs-info .bar>*{min-width:0}
+.sgs-info button{min-height:30px;border:1px solid color-mix(in srgb,var(--sgs-border) 65%,transparent);border-radius:7px;background:linear-gradient(var(--sgs-raised),var(--sgs-surface));color:var(--sgs-text);padding:4px 9px;font:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.sgs-info button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}.sgs-info button:focus-visible,.sgs-info summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
+.sgs-info button:disabled{opacity:.45;cursor:not-allowed}.sgs-info .primary{color:var(--sgs-accent)}.sgs-info .danger{color:var(--sgs-danger)}
+.sgs-info .sgs-segments{margin:8px 0}.sgs-info .sgs-segments>button{border:0;background:transparent;padding:4px;font-size:11px}.sgs-info .sgs-segments>button[aria-pressed=true]{background:color-mix(in srgb,var(--sgs-accent) 12%,transparent)}
+.sgs-info input.sgs-input{width:100%}.sgs-info input[type=number]{appearance:textfield;-moz-appearance:textfield}.sgs-info input[type=number]::-webkit-inner-spin-button,.sgs-info input[type=number]::-webkit-outer-spin-button{appearance:none;margin:0}.sgs-info .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sgs-info .filters label{color:var(--sgs-muted);font-size:11px;min-width:0}
+.sgs-info .filters label.filter-full{grid-column:1/-1}.sgs-info .filters label:has(input[type=datetime-local]){grid-column:1/-1}
+.sgs-info .stat{display:flex;align-items:baseline;gap:6px;margin:10px 0;font-variant-numeric:tabular-nums}.sgs-info .stat strong{font-size:25px;font-weight:600;color:var(--sgs-accent)}
+.sgs-info .list{max-height:430px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}.sgs-info .row{padding:10px 0;border-top:1px solid color-mix(in srgb,var(--sgs-border) 60%,transparent)}
+.sgs-info .row-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px}.sgs-info .name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sgs-info .number{font-variant-numeric:tabular-nums;flex:none;font-size:11px}
+.sgs-info progress.progress{appearance:none;display:block;width:100%;height:3px;border:0;border-radius:2px;background:var(--sgs-raised);margin:7px 0;overflow:hidden}.sgs-info progress::-webkit-progress-bar{background:var(--sgs-raised)}.sgs-info progress::-webkit-progress-value{background:var(--sgs-accent)}.sgs-info progress::-moz-progress-bar{background:var(--sgs-accent)}
+.sgs-info details{font-size:11px;color:var(--sgs-muted)}.sgs-info summary{cursor:pointer}.sgs-info details p{white-space:pre-wrap;margin:6px 0;overflow-wrap:anywhere}
+.sgs-info .error{color:var(--sgs-danger);white-space:pre-wrap;overflow-wrap:anywhere}.sgs-info .empty{padding:20px 4px;text-align:center;color:var(--sgs-muted)}
+.sgs-info .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin-top:6px;color:var(--sgs-muted);font-size:10px}.sgs-info .metrics b{display:block;font-size:14px;color:var(--sgs-text);font-variant-numeric:tabular-nums;font-weight:500}
+`;
+  function panelUI(ctx, container) {
+    var _a2, _b2;
+    let doc = ctx.document, cleanups = [], root = doc.createElement("section");
+    root.className = "sgs-info";
+    let el = (tag, cls, text3) => {
+      let n = doc.createElement(tag);
+      return cls && (n.className = cls), text3 !== void 0 && (n.textContent = text3), n;
+    };
+    container.append(root);
+    let scheme = (current) => {
+      var _a3;
+      let hex2 = ((_a3 = current == null ? void 0 : current.tokens) == null ? void 0 : _a3.bg) || "", match = /^#([\da-f]{6})$/i.exec(hex2);
+      if (match) {
+        let rgb = [0, 2, 4].map((i2) => parseInt(match[1].slice(i2, i2 + 2), 16));
+        root.style.colorScheme = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 140 ? "light" : "dark";
+      }
+    };
+    scheme((_a2 = ctx.themes) == null ? void 0 : _a2.current), (_b2 = ctx.themes) != null && _b2.subscribe && cleanups.push(ctx.themes.subscribe(scheme));
+    let listen = (node, type, fn) => {
+      cleanups.push(ctx.scope.listen(node, type, fn));
+    }, button = (text3, icon2, fn) => {
+      let n = el("button", "", text3);
+      return n.type = "button", icon2 && n.prepend(controlIcon(doc, icon2)), listen(n, "click", fn), n;
+    };
+    return { root, el, listen, button, segments: (items, selected, change) => {
+      let group = el("div", "sgs-segments");
+      for (let [value, label] of items) {
+        let n = button(label, null, () => {
+          for (let b of group.children) b.setAttribute("aria-pressed", String(b === n));
+          change(value);
+        });
+        n.setAttribute("aria-pressed", String(value === selected)), group.append(n);
+      }
+      return group;
+    }, input: (label, type = "search") => {
+      let n = el("input", "sgs-input");
+      return n.type = type, n.setAttribute("aria-label", label), n.placeholder = label, n;
+    }, dispose: ctx.scope.add(() => {
+      for (let off of cleanups) off();
+      root.remove();
+    }) };
+  }
+  var sheets = /* @__PURE__ */ new WeakMap();
+  function acquirePluginStyles(root, doc) {
+    let entry = sheets.get(root);
+    if (!entry) {
+      let style2 = doc.createElement("style");
+      style2.dataset.sgsPluginControls = "", style2.textContent = CONTROL_STYLES + INFO_STYLES, root.append(style2), sheets.set(root, entry = { style: style2, users: 0 });
+    }
+    entry.users++;
+    let released = !1;
+    return () => {
+      released || (released = !0, --entry.users === 0 && (entry.style.remove(), sheets.delete(root)));
+    };
+  }
+  function mountPluginUI(context2, getContext) {
+    let { document: doc, scope } = context2;
+    return doc != null && doc.createElement && scope.add(acquirePluginStyles(doc.head || doc.documentElement, doc)), {
+      icon: (spec) => createIcon(doc, spec),
+      styleSwitch,
+      helpTip: (text3, label) => helpTip(doc, text3, label),
+      panel: (container) => panelUI(getContext(), container),
+      mountStyles: (root) => scope.add(acquirePluginStyles(root, doc))
+    };
+  }
+  function advancedSkinOption(settings, key) {
+    return settings.get("advanced", !0) === !0 && settings.get(key, !0) === !0;
+  }
   var colorKeys = ["bg", "surface", "raised", "text", "muted", "accent", "border", "danger"], contexts = /* @__PURE__ */ new WeakMap(), textureCaches = /* @__PURE__ */ new WeakMap(), destruction = /* @__PURE__ */ new WeakMap(), channel = (n) => Math.max(0, Math.min(255, Math.round(n))), hex = (values) => "#" + values.map((n) => channel(n).toString(16).padStart(2, "0")).join("");
   function parseHex(value) {
     if (!/^#[\da-f]{3}(?:[\da-f]|[\da-f]{3}|[\da-f]{5})?$/i.test(value)) return null;
@@ -2825,7 +3277,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function resolveNativePalette(tokens = {}, document2) {
     let p = {};
     for (let key of colorKeys) p[key] = color(tokens[key] ?? BLACK_GOLD.tokens[key], BLACK_GOLD.tokens[key], document2, p.bg);
-    return Object.freeze({
+    return p.bg2 = color(tokens.bg2 ?? p.bg, p.bg, document2, p.bg), p.accent2 = color(tokens.accent2 ?? p.accent, p.accent, document2, p.bg), Object.freeze({
       ...p,
       borderSoft: mixNativeColors(p.bg, p.border, 0.65),
       highlight: mixNativeColors(p.accent, p.text, 0.36),
@@ -2875,14 +3327,20 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
   }
   function surfaceSVG(p, width, height, { kind, selected, hover, disabled }) {
-    let panel = kind === "panel", option = kind === "option", tab = kind === "tab" || kind === "segment", active = selected && !disabled, over = hover && !disabled, radius = panel ? 6 : option ? 3 : 5, accent = disabled ? p.muted : p.accent, body;
-    return option || tab ? body = `<defs><linearGradient id="wash"><stop stop-color="${accent}" stop-opacity="${active ? ".23" : ".09"}"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></linearGradient></defs>` + (active || over ? `<rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="${radius}" fill="url(#wash)"/>` : "") + (active ? `<rect x="1" y="${option ? 7 : height - 2}" width="${option ? 2 : width - 2}" height="${option ? Math.max(1, height - 14) : 1}" rx="1" fill="${accent}"/>` : "") : body = `<defs><linearGradient id="base" x2="0" y2="1"><stop stop-color="${active ? p.selected : over ? p.hover : p.raised}"/><stop offset=".46" stop-color="${active ? mixNativeColors(p.surface, p.accent, 0.16) : p.surface}"/><stop offset="1" stop-color="${panel ? p.shadow : p.bg}"/></linearGradient><linearGradient id="rim" x2="0" y2="1"><stop stop-color="${active ? accent : p.border}"/><stop offset=".5" stop-color="${p.borderSoft}"/><stop offset="1" stop-color="${p.shadow}"/></linearGradient></defs><rect x="1" y="2" width="${width - 2}" height="${height - 3}" rx="${radius}" fill="#000" fill-opacity=".3"/><rect x=".5" y=".5" width="${width - 1}" height="${height - 2}" rx="${radius}" fill="url(#base)" stroke="url(#rim)"/><path d="M${radius + 1} 2H${width - radius - 1}" stroke="${p.highlight}" stroke-opacity="${panel ? ".16" : ".21"}"/>` + (active ? `<path d="M8 ${height - 3}H${width - 8}" stroke="${accent}" stroke-opacity=".6"/>` : ""), "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${body}</svg>`);
+    let panel = kind === "panel", option = kind === "option", tab = kind === "tab" || kind === "segment", active = selected && !disabled, over = hover && !disabled, radius = panel ? 6 : option ? 3 : 5, accent = disabled ? p.muted : p.accent, accent2 = disabled ? p.muted : p.accent2 || p.accent, dualTone = p.bg2 && p.bg2 !== p.bg || accent2 !== accent, body;
+    if (option || tab)
+      body = `<defs><linearGradient id="wash"><stop stop-color="${accent}" stop-opacity="${active ? ".23" : ".09"}"/><stop offset="1" stop-color="${accent2}" stop-opacity="0"/></linearGradient></defs>` + (active || over ? `<rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="${radius}" fill="url(#wash)"/>` : "") + (active ? `<rect x="1" y="${option ? 7 : height - 2}" width="${option ? 2 : width - 2}" height="${option ? Math.max(1, height - 14) : 1}" rx="1" fill="${accent}"/>` : "");
+    else {
+      let endBg = panel ? p.shadow : dualTone ? p.bg2 : p.bg;
+      body = `<defs><linearGradient id="base" ${dualTone ? 'x1="0" y1="0" x2="1" y2="1"' : 'x2="0" y2="1"'}><stop stop-color="${active ? p.selected : over ? p.hover : p.raised}"/><stop offset=".46" stop-color="${active ? mixNativeColors(p.surface, p.accent, 0.16) : p.surface}"/><stop offset="1" stop-color="${endBg}"/></linearGradient><linearGradient id="rim" ${dualTone ? 'x1="0" y1="0" x2="1" y2="1"' : 'x2="0" y2="1"'}><stop stop-color="${active ? accent : p.border}"/><stop offset=".5" stop-color="${dualTone && active ? accent2 : p.borderSoft}"/><stop offset="1" stop-color="${p.shadow}"/></linearGradient></defs><rect x="1" y="2" width="${width - 2}" height="${height - 3}" rx="${radius}" fill="#000" fill-opacity=".3"/><rect x=".5" y=".5" width="${width - 1}" height="${height - 2}" rx="${radius}" fill="url(#base)" stroke="url(#rim)"/><path d="M${radius + 1} 2H${width - radius - 1}" stroke="${p.highlight}" stroke-opacity="${panel ? ".16" : ".21"}"/>` + (active ? `<path d="M8 ${height - 3}H${width - 8}" stroke="${accent2}" stroke-opacity=".6"/>` : "");
+    }
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${body}</svg>`);
   }
   function createNativeTheme({ themes, scope, window: window2 = {}, document: document2 = window2.document } = {}) {
     let states = /* @__PURE__ */ new WeakMap(), lastSignature, palette = DEFAULT_NATIVE_PALETTE;
     function current() {
       var _a2;
-      let tokens = ((_a2 = themes == null ? void 0 : themes.current) == null ? void 0 : _a2.tokens) || {}, signature = JSON.stringify([...colorKeys, "scheme"].map((key) => tokens[key]));
+      let tokens = ((_a2 = themes == null ? void 0 : themes.current) == null ? void 0 : _a2.tokens) || {}, signature = JSON.stringify([...colorKeys, "bg2", "accent2", "scheme"].map((key) => tokens[key]));
       return lastSignature !== signature && (lastSignature = signature, palette = resolveNativePalette(tokens, document2)), palette;
     }
     function watch(fn, { target } = {}) {
@@ -3054,7 +3512,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       automationError
     };
   }
-  var sameAccount = (a, b) => (a == null ? void 0 : a.id) === b.id && a.nickname === b.nickname, queryLifetime = 8e3;
+  var sameAccount = (a, b) => (a == null ? void 0 : a.id) === b.id && a.nickname === b.nickname, sameConnection = (a, b) => !!(a && b && a.proxy === b.proxy && a.id === b.id), queryLifetime = 8e3;
   function reportGap(gap, detail) {
     try {
       gap(detail);
@@ -3062,18 +3520,25 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
   }
   function createAchievementQueries(native, now) {
-    let subscribers = /* @__PURE__ */ new Set(), pending = null, serial = 0, stop, manager2 = () => native.manager("AchievementManager", reply, (m) => typeof m.sendGetAchInfo == "function");
+    let subscribers = /* @__PURE__ */ new Set(), pending = null, serial = 0, stop, bound = null, manager2 = () => native.manager("AchievementManager", reply, (m) => typeof m.sendGetAchInfo == "function"), connection = (proxy = read3(native.getServerProxy)) => read3(() => proxy && proxy === bound && proxy.ConnectedSucess1 !== !1 && { proxy, id: proxy.ConnId }), queryConnection = () => {
+      let link = connection();
+      return link && read3(() => link.proxy.IsOffline !== !0) ? link : null;
+    };
     function observe() {
-      return native.observe({ [reply]: (packet2) => {
+      let linkOf = (_packet, proxy) => connection(proxy);
+      return native.observe({ [reply]: (packet2, proxy) => {
+        let link = connection(proxy);
+        if (!link) return null;
         let projected = projectAchievementReply(packet2);
         if (!projected) return null;
         let account = native.account();
-        return { ...projected, request: pending && sameAccount(pending.account, account) && projected.snapshot.nickname === account.nickname ? pending.id : null };
-      }, close: () => !0, error: () => !0 }, (type, data, sender) => {
+        return { ...projected, link, request: pending && sameConnection(pending.link, link) && sameAccount(pending.account, account) && projected.snapshot.nickname === account.nickname ? pending.id : null };
+      }, close: linkOf, error: linkOf }, (type, data, sender) => {
         if (type !== reply) {
-          pending = null;
+          sameConnection(pending == null ? void 0 : pending.link, data) && (pending = null);
           return;
         }
+        if (!sameConnection(data.link, connection())) return;
         let account = native.account();
         if (!(!sameAccount(sender, account) || data.snapshot.nickname !== account.nickname)) {
           pending && pending.id === data.request && (pending = null);
@@ -3088,18 +3553,20 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }, (detail) => {
         pending = null;
         for (let { gap } of [...subscribers]) reportGap(gap, detail);
+      }, (proxy) => {
+        bound = proxy;
       });
     }
     return {
-      ready: () => !!manager2(),
+      ready: () => !!(queryConnection() && manager2()),
       query() {
-        let account = native.account();
-        if (!subscribers.size || !account.id || !account.nickname) return null;
+        let account = native.account(), link = queryConnection();
+        if (!subscribers.size || !account.id || !account.nickname || !link) return null;
         let at = now();
-        if (pending && sameAccount(pending.account, account) && at - pending.at < queryLifetime) return pending.id;
+        if (pending && sameConnection(pending.link, link) && sameAccount(pending.account, account) && at - pending.at < queryLifetime) return pending.id;
         let target = manager2();
         if (!target) return null;
-        let request = { id: ++serial, account, at };
+        let request = { id: ++serial, account, at, link };
         pending = request;
         try {
           target.sendGetAchInfo(account.nickname, 0);
@@ -3113,17 +3580,22 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         };
         let listener = { receive, gap, strict };
         return subscribers.size || (stop = observe()), subscribers.add(listener), scope.add(() => {
-          subscribers.delete(listener), !subscribers.size && (stop(), stop = null, pending = null);
+          subscribers.delete(listener), !subscribers.size && (stop(), stop = bound = pending = null);
         });
       }
     };
   }
   var achievementsByGame = /* @__PURE__ */ new WeakMap();
   function readNativeAccount(ctx) {
-    let login = manager(ctx, "LoginManager", "error", (m) => "IsOnLine" in m || "IsAccountLoggingOut" in m);
-    if (read3(() => login.IsAccountLoggingOut) === !0 || read3(() => login.IsOnLine) === !1) return { id: "", nickname: "" };
-    let self = read3(() => ctx.game.getSelf()), id = read3(() => self.ClientId) ?? read3(() => self.clientId);
-    return { id: /^(?:[1-9]\d*)$/.test(String(id)) ? String(id) : "", nickname: String(read3(() => self.NickName) ?? read3(() => self.nickname) ?? "") };
+    let login = manager(ctx, "LoginManager", "error", (m) => "IsOnLine" in m || "IsAccountLoggingOut" in m), online = read3(() => login.IsOnLine);
+    if (read3(() => login.IsAccountLoggingOut) === !0 || online === !1) return { id: "", nickname: "" };
+    let self = read3(() => ctx.game.getSelf()), id = read3(() => self.ClientId) ?? read3(() => self.clientId), selfId = /^(?:[1-9]\d*)$/.test(String(id)) ? String(id) : "", nickname = selfId ? String(read3(() => self.NickName) || read3(() => self.Nickname) || read3(() => self.nickname) || "") : "";
+    if (selfId && nickname) return { id: selfId, nickname };
+    let account = online === !0 && read3(() => {
+      var _a2, _b2;
+      return (_b2 = (_a2 = ctx.game).getLoginAccount) == null ? void 0 : _b2.call(_a2);
+    });
+    return account != null && account.id && (!selfId || selfId === account.id) ? { ...account } : { id: selfId, nickname: "" };
   }
   function manager(ctx, name, event, guard) {
     let type = read3(() => ctx.game.getClass(name)), valid = (value) => value && read3(() => value.destroyed) !== !0 && read3(() => guard(value));
@@ -3135,7 +3607,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return findNativeListenerOwner(read3(() => ctx.game.getServerProxy()), [event], valid);
   }
   function observeNative(ctx, project, consume, gap = () => {
-  }, { scope = ctx.scope } = {}) {
+  }, { scope = ctx.scope } = {}, onBound) {
     if (ctx.scope.signal.aborted || scope.signal.aborted) return () => {
     };
     let observation = new ResourceScope(), stop = ctx.scope.add(() => observation.dispose());
@@ -3158,10 +3630,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
             gap({ reason: "consume", type: item.type, message: String((e == null ? void 0 : e.message) || e) });
           }
       }
-    }, enqueue = (type, packet2) => {
+    }, enqueue = (type, packet2, proxy) => {
       if (!observation.closed) {
         try {
-          let data = project[type](packet2);
+          let projectPacket = project[type], data = onBound ? projectPacket(packet2, proxy) : projectPacket(packet2);
           if (data == null) return;
           queue.length >= 256 && (overflow = !0, gapDetail = { reason: "overflow", type }, queue = []), overflow || queue.push({ type, data, account: readNativeAccount(ctx) });
         } catch (e) {
@@ -3174,11 +3646,13 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       let proxy = read3(() => ctx.game.getServerProxy());
       if (proxy !== bound) {
         for (let release of releases) release();
-        if (releases = [], bound && (queue = [], gap({ reason: "rebind" })), !observation.closed && (bound = proxy, !(typeof read3(() => proxy.on) != "function" || typeof read3(() => proxy.off) != "function")))
+        if (releases = [], onBound == null || onBound(null), bound && (queue = [], gap({ reason: "rebind" })), !observation.closed && (bound = proxy, !(typeof read3(() => proxy.on) != "function" || typeof read3(() => proxy.off) != "function"))) {
           for (let type of Object.keys(project)) {
-            let handler = (packet2) => enqueue(type, packet2);
+            let handler = (packet2) => enqueue(type, packet2, proxy);
             proxy.on(type, caller, handler), releases.push(observation.add(() => proxy.off(type, caller, handler)));
           }
+          onBound == null || onBound(proxy);
+        }
       }
     }
     observation.add(() => {
@@ -3201,8 +3675,13 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       get achievements() {
         let service = achievementsByGame.get(ctx.game);
         if (!service) {
-          let root = { game: ctx.game, scope: new ResourceScope() };
-          service = createAchievementQueries(createPluginNative(root), ctx.now ?? Date.now), achievementsByGame.set(ctx.game, service);
+          let root = { game: ctx.game, scope: new ResourceScope() }, native = createPluginNative(root);
+          service = createAchievementQueries({
+            account: native.account,
+            manager: native.manager,
+            getServerProxy: () => root.game.getServerProxy(),
+            observe: (project, consume, gap, onBound) => observeNative(root, project, consume, gap, void 0, onBound)
+          }, ctx.now ?? Date.now), achievementsByGame.set(ctx.game, service);
         }
         return {
           ready: service.ready,
@@ -3210,6 +3689,38 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           subscribe: (receive, gap = () => {
           }, { strict = !1 } = {}) => service.subscribe(ctx.scope, receive, gap, strict)
         };
+      }
+    };
+  }
+  var POKER_TABLE_SCENE = "PokerTableGameScene";
+  function isNativePokerTable(scene) {
+    return !!(scene && !scene.destroyed && (scene.SceneName || scene.sceneName || scene.name) === POKER_TABLE_SCENE);
+  }
+  var TABLE_CARD_SETTINGS = /* @__PURE__ */ new Set(["reveals", "countdown", "fourColors", "labels", "revealColumns", "revealOpacity"]);
+  function createPokerTableCards(settings) {
+    let tables = /* @__PURE__ */ new WeakMap();
+    return {
+      getSetting(key, fallback) {
+        return TABLE_CARD_SETTINGS.has(key) ? settings.get(key, fallback) : fallback;
+      },
+      open(scene) {
+        if (!isNativePokerTable(scene)) return null;
+        let table = { hands: Object.freeze([]) };
+        return tables.set(scene, table), {
+          update(hands) {
+            tables.get(scene) === table && (table.hands = Object.freeze(hands.map(({ seat, cards }) => Object.freeze({
+              seat,
+              cards: Object.freeze(cards.map(({ id, suit, face, source }) => Object.freeze({ id, suit, face, source })))
+            }))));
+          },
+          close() {
+            tables.get(scene) === table && tables.delete(scene);
+          }
+        };
+      },
+      read(scene) {
+        var _a2;
+        return isNativePokerTable(scene) ? ((_a2 = tables.get(scene)) == null ? void 0 : _a2.hands) ?? null : null;
       }
     };
   }
@@ -3252,7 +3763,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     constructor({ journal, store, settings, context: context2, onChange = () => {
     }, onReplayGap = () => {
     } }) {
-      Object.assign(this, { journal, store, settings, context: context2, onChange, onReplayGap }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.initializing = !0, this.storageError = "", this.loadIssues = /* @__PURE__ */ new Map(), this.bundledInstallIssues = /* @__PURE__ */ new Map(), this.priorityPlayActions = /* @__PURE__ */ new Set(), this.eventRoutes = /* @__PURE__ */ new Map(), this.eventSession = null, this.unsubscribe = journal.subscribe((event) => this.dispatch(event));
+      Object.assign(this, { journal, store, settings, context: context2, onChange, onReplayGap }), this.builtins = /* @__PURE__ */ new Map(), this.slots = /* @__PURE__ */ new Map(), this.tail = Promise.resolve(), this.errors = [], this.closed = !1, this.initializing = !0, this.storageError = "", this.loadIssues = /* @__PURE__ */ new Map(), this.bundledInstallIssues = /* @__PURE__ */ new Map(), this.priorityPlayActions = /* @__PURE__ */ new Set(), this.pokerTableCards = createPokerTableCards(settings.namespace("cards")), this.eventRoutes = /* @__PURE__ */ new Map(), this.eventSession = null, this.unsubscribe = journal.subscribe((event) => this.dispatch(event));
     }
     serial(fn) {
       let work = this.tail.catch(() => {
@@ -3427,10 +3938,21 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         ...context2,
         ...id === "appearances" && devAppearanceSync ? { devAppearanceSync } : {},
         ...id === "ledger" && devLedgerSync ? { devLedgerSync } : {},
+        ...id === "poker-lobby" && { pokerTableCards: {
+          getSetting: (key, fallback) => scope.closed ? fallback : this.pokerTableCards.getSetting(key, fallback),
+          open: (scene) => {
+            if (scope.closed) return null;
+            let table = this.pokerTableCards.open(scene);
+            return table && { update: table.update, close: scope.add(table.close) };
+          }
+        } },
+        ...id === "cards" && { pokerTableCards: { read: (scene) => scope.closed ? null : this.pokerTableCards.read(scene) } },
         scope,
         settings: this.settings.namespace(id),
         storage: this.settings.namespace(id),
         getState: () => slot.state,
+        // Keep the account scheme data on the same key used by preference sync.
+        ...id === "player-info" && { generalPoolStorage: this.settings.namespace("general-pools") },
         subscribe: (fn) => {
           slot.listeners.size || this.eventRoutes.clear(), slot.listeners.add(fn);
           let off = () => {
@@ -3546,8 +4068,21 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           get skinQualityAvailable() {
             return !scope.closed && thisContext.backgrounds.skinQualityAvailable === !0;
           },
-          selectLocal: (file) => {
-            if (!scope.closed) return this.context.backgrounds.selectLocal(id, file);
+          selectLocal: (file, isCurrent) => {
+            if (!scope.closed) return this.context.backgrounds.selectLocal(id, file, { isCurrent });
+          },
+          listHistory: () => id === "backgrounds" && !scope.closed ? context2.backgrounds.history.list() : Promise.resolve([]),
+          restoreHistory: (key, options) => {
+            if (id === "backgrounds" && !scope.closed) return context2.backgrounds.restoreHistory(id, key, options);
+          },
+          cacheHistoryPreview: (key, image) => {
+            if (id === "backgrounds" && !scope.closed) return context2.backgrounds.history.cachePreview(key, image);
+          },
+          get historyError() {
+            return id === "backgrounds" && !scope.closed ? context2.backgrounds.history.error : "";
+          },
+          get currentHistoryId() {
+            return id === "backgrounds" && !scope.closed ? context2.backgrounds.currentHistoryId : null;
           },
           subscribe: (fn) => scope.closed ? () => {
           } : scope.add(this.context.backgrounds.subscribe(fn)),
@@ -3609,16 +4144,16 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       var _a2;
       (_a2 = slot.scope) == null || _a2.dispose(), slot.scope = null, slot.active = !1, slot.listeners.clear();
     }
-    init() {
+    init(reconcileInstalled) {
       return this.serial(async () => {
         try {
-          await this.loadInstalled();
+          await this.loadInstalled(reconcileInstalled);
         } finally {
           this.initializing = !1, this.closed || this.onChange();
         }
       });
     }
-    async loadInstalled() {
+    async loadInstalled(reconcileInstalled) {
       var _a2, _b2, _c, _d, _e, _f, _g;
       let stored;
       try {
@@ -3629,6 +4164,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
       if (this.closed) return;
       let records = new Map(stored.map((r) => [r.id, r]));
+      if (reconcileInstalled) {
+        try {
+          await reconcileInstalled(records, this.builtins, this.store);
+        } catch (error) {
+          this.errors.push(error.message);
+        }
+        if (this.closed) return;
+      }
       for (let id of /* @__PURE__ */ new Set([...this.builtins.keys(), ...records.keys()])) {
         let record = records.get(id) || { id, active: null, previous: null, enabled: !0, uninstalled: !1 };
         if (record.uninstalled) continue;
@@ -4161,7 +4704,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE. */
   var ALLOWED = /* @__PURE__ */ new Set(["gn_zonghe", "cha_gs_dbs_fs_skininfo", "ff_jubaopen", "ff_dbs_pay_gift", "sys_gs_dbs_fs_goodsbaseinfo", "cha_dbs_general_series", "ff_task_daily", "mod_new_ttrank_config", "ff_general_chest_info_config", "gn_dbs_giftbag", "hd_roguelike", "cha_spell", "sys_playcard", "character", "gn_gs_ahievement", "ff_qifu_new", "ff_tiangong", "h5_officer"]);
-  ALLOWED.add("sys_h5_shop"), ALLOWED.add("gn_dbs_coupon_cfg"), ALLOWED.add("hd_fight_lord_config"), ALLOWED.add("sys_ss_gamelabel_config");
+  ALLOWED.add("sys_h5_shop"), ALLOWED.add("gn_dbs_coupon_cfg"), ALLOWED.add("hd_fight_lord_config"), ALLOWED.add("sys_ss_gamelabel_config"), ALLOWED.add("sys_h5_music"), ALLOWED.add("gn_WallPaper");
   var YJCM_SKINS = "yjcm-skins";
   ALLOWED.add(YJCM_SKINS);
   var ARCHIVE_LIMIT = 64 * 1024 * 1024, ENTRY_LIMIT = 16 * 1024 * 1024, read4 = (fn) => {
@@ -4287,6 +4830,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return name;
     }
     function getConfigData(name) {
+      var _a2;
       name = validate(name);
       for (let container of [
         read4(() => win.CtrUtil.AllDatas),
@@ -4294,7 +4838,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         read4(() => win.__SGS_TOOLBOX_DEMO__.configs)
       ]) {
         let data = read4(() => container[`${name}.sgs`]) || read4(() => container[name]);
-        if (data && typeof data == "object") return data;
+        if (!(!data || typeof data != "object") && !(name === "sys_h5_music" && !((_a2 = (data.root ?? data).heromusic) != null && _a2.length)))
+          return data;
       }
       return cache2.get(name) || null;
     }
@@ -4499,7 +5044,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       let accept = pending.get(data == null ? void 0 : data.id);
       accept && accept(data);
     });
-    async function download(request, signal) {
+    async function download2(request, signal) {
       var _a2;
       let label = request.label || "\u79FB\u52A8\u7248\u76AE\u80A4\u8D44\u6E90", cancelError = () => new Error(`${label}\u4E0B\u8F7D\u5DF2\u53D6\u6D88`), timeoutError = () => new Error(`${label}\u4E0B\u8F7D\u8D85\u65F6`), validate = (bytes2) => mobileSkinResponseBytes(bytes2, request.limit, void 0, label), owner = scope == null ? void 0 : scope.signal;
       if (signal != null && signal.aborted || owner != null && owner.aborted) throw cancelError();
@@ -4551,10 +5096,10 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     return {
       async downloadMobileSkinAsset(value, { signal, limit: limit2, range } = {}) {
-        return download(mobileSkinRequest(value, limit2, range), signal);
+        return download2(mobileSkinRequest(value, limit2, range), signal);
       },
       async readStargazingReport({ signal } = {}) {
-        let bytes2 = await download(stargazingRequest, signal);
+        let bytes2 = await download2(stargazingRequest, signal);
         try {
           return JSON.parse(new TextDecoder("utf-8", { fatal: !0 }).decode(bytes2));
         } catch {
@@ -4562,6 +5107,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         }
       }
     };
+  }
+  var POKER_REPLAY_ATTRIBUTE = "data-sgs-poker-replay-active";
+  function isPokerReplayActive(document2) {
+    var _a2;
+    return !!((_a2 = document2 == null ? void 0 : document2.documentElement) != null && _a2.hasAttribute(POKER_REPLAY_ATTRIBUTE));
   }
   var GAME_SCENE = /(?:^|\.)(?:GameScene|TableScene|HallScene)$/, STARTUP_SCENE = /(?:^|\.)(?:LoginScene|CreateUserScene|CreateRoleScene|MainNullScene|LoadingScene)$/, read5 = (fn) => {
     try {
@@ -4610,12 +5160,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     return String(read5(() => scene.SceneName) || read5(() => scene.sceneName) || read5(() => scene.name) || (read5(() => scene.constructor.name) !== "Object" ? read5(() => scene.constructor.name) : "") || "");
   }
   function isGameScene(scene) {
-    return alive(scene) && !!(read5(() => scene.SelfSeatUi) || read5(() => scene.selfSeatUI) || read5(() => scene.seatContainer.seatUIs) || sceneName(scene) === "GameScene");
+    return alive(scene) && !!(isNativePokerTable(scene) || read5(() => scene.SelfSeatUi) || read5(() => scene.selfSeatUI) || read5(() => scene.seatContainer.seatUIs) || sceneName(scene) === "GameScene");
   }
   function isReplayScene(scene) {
     return !!(read5(() => scene == null ? void 0 : scene.IsReplay) || read5(() => scene == null ? void 0 : scene.isReplay) || alive(read5(() => scene == null ? void 0 : scene.replayBar)));
   }
-  function createGameAdapter(win, scope, mobileSkinPort, { watchScene = !0 } = {}) {
+  function createGameAdapter(win, scope, mobileSkinPort, { watchScene = !0, readLoginAccount } = {}) {
     let configs = scope ? createConfigData(win, scope) : null, selfClass = null, selfSearchAt = -1 / 0, current = null, stage = null, dispatcher = null, dispatcherOwner = null, providers = /* @__PURE__ */ new Set(), definitionTables = /* @__PURE__ */ new WeakMap(), deckDefinitions = null, sceneCycle = null, listeners = /* @__PURE__ */ new Set();
     function walk(predicate, root = read5(() => win.Laya.stage)) {
       let queue = root ? [root] : [], seen = /* @__PURE__ */ new Set();
@@ -4687,6 +5237,11 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       if (demo) return demo;
       let nativeClass = selfClass || getClass("UserData"), stored = nativeClass && read5(() => Object.getOwnPropertyDescriptor(nativeClass, "self"));
       if (stored && "value" in stored) return object(stored.value);
+      let context2 = getClass("GameContext");
+      if (read5(() => context2.IsViewerOrReplay()) === !1 && !isReplayScene(getScene())) {
+        let self = object(read5(() => context2.CurrentPlayer));
+        if (number2(read5(() => self.ClientId))) return self;
+      }
       if (Date.now() - selfSearchAt < 1e3) return null;
       selfSearchAt = Date.now();
       let inspectUserNode = (node) => {
@@ -4799,8 +5354,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }
     }
     function getProviderCard(id) {
-      for (let provider of providers) {
-        let candidate = read5(() => provider.GetInstance(id));
+      for (let provider2 of providers) {
+        let candidate = read5(() => provider2.GetInstance(id));
         if (!object(candidate)) continue;
         let candidateId = cardId(candidate);
         if (candidateId === void 0 || candidateId === id) return candidate;
@@ -4893,7 +5448,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     function getRemainingSlash() {
       let scene = getScene();
-      if (!isGameScene(scene)) return null;
+      if (!isGameScene(scene) || isNativePokerTable(scene)) return null;
       let seat = seatData(selfUI(scene));
       if (!seat || read5(() => seat.IsDead) === !0) return null;
       let targets = read5(() => seat.GetSeatState(1).Targets), info = read5(() => seat.shaInfo);
@@ -4916,6 +5471,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
         handCardIds,
         emptySeatIds: list(read5(() => scene.seatContainer.seatUIs) || read5(() => scene.seatUIs)).filter((ui) => alive(ui) && !nativeSeatOccupied(ui)).map(seatId).filter((id) => id !== void 0),
         isReplay: isReplayScene(scene),
+        ...isNativePokerTable(scene) && { pokerTable: !0 },
+        ...isPokerReplayActive(win.document) && { pokerReplay: !0 },
         countdownRemaining: remaining === void 0 ? null : Math.max(0, remaining),
         seats: seats(scene).map((ui) => {
           let seat = seatData(ui), id = seatId(ui), result = {
@@ -4937,6 +5494,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       listeners.clear(), providers.clear(), definitionTables = /* @__PURE__ */ new WeakMap(), deckDefinitions = null, dispatcher = dispatcherOwner = current = stage = null;
     }), {
       getScene,
+      getRenderedScene: stageScene,
       withSceneCycle,
       getDispatcher,
       getSelfSeatUI: () => selfUI(getScene()),
@@ -4951,6 +5509,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       getMessageTargets,
       getCountdown,
       getSelf,
+      getLoginAccount: () => readLoginAccount == null ? void 0 : readLoginAccount(getServerProxy()),
       getRemainingSlash,
       isInGame: () => isGameScene(getScene()),
       isReplay: (scene = getScene()) => isReplayScene(scene),
@@ -5025,8 +5584,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   function createCompatibility() {
     throw new Error("Browser compatibility is unavailable in microclient");
   }
-  var servers = [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL];
+  var servers = [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL], download = new URL(DOWNLOAD_MARKET_URL).hostname;
   function marketServerLabel(baseUrl) {
+    if (String(baseUrl).replace(/\/+$/, "") === DOWNLOAD_MARKET_URL) return "\u4E0B\u8F7D\u670D\u52A1\u5668";
     let index = servers.indexOf(String(baseUrl).replace(/\/+$/, ""));
     return index < 0 ? "\u81EA\u5B9A\u4E49\u670D\u52A1\u5668" : `\u670D\u52A1\u5668 ${index + 1}`;
   }
@@ -5034,7 +5594,9 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let message = String((error == null ? void 0 : error.message) ?? error ?? "\u64CD\u4F5C\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5\u3002");
     message = message.replace(/(?:https?|wss?):\/\/[^\s<>"'，。；）)]+/gi, (value) => {
       try {
-        let index = servers.findIndex((url) => new URL(url).hostname === new URL(value).hostname);
+        let host = new URL(value).hostname;
+        if (host === download) return "\u4E0B\u8F7D\u670D\u52A1\u5668";
+        let index = servers.findIndex((url) => new URL(url).hostname === host);
         return index < 0 ? "\u7F51\u7EDC\u5730\u5740" : `\u670D\u52A1\u5668 ${index + 1}`;
       } catch {
         return "\u7F51\u7EDC\u5730\u5740";
@@ -5044,7 +5606,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       let host = new URL(url).hostname;
       message = message.split(url).join(`\u670D\u52A1\u5668 ${index + 1}`).split(host).join(`\u670D\u52A1\u5668 ${index + 1}`);
     }
-    return message.replace(/(?:https?|wss?):\/\/[^\s<>"'，。；）)]+/gi, "\u7F51\u7EDC\u5730\u5740").replace(/\b(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z][a-z0-9-]*(?::\d+)?\b/gi, "\u7F51\u7EDC\u5730\u5740").replace(/\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b/g, "\u7F51\u7EDC\u5730\u5740").replace(/\[?[a-f0-9]*:(?:[a-f0-9]*:)+[a-f0-9:.]+\]?(?::\d+)?/gi, "\u7F51\u7EDC\u5730\u5740");
+    return message.split(download).join("\u4E0B\u8F7D\u670D\u52A1\u5668").replace(/(?:https?|wss?):\/\/[^\s<>"'，。；）)]+/gi, "\u7F51\u7EDC\u5730\u5740").replace(/\b(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z][a-z0-9-]*(?::\d+)?\b/gi, "\u7F51\u7EDC\u5730\u5740").replace(/\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b/g, "\u7F51\u7EDC\u5730\u5740").replace(/\[?[a-f0-9]*:(?:[a-f0-9]*:)+[a-f0-9:.]+\]?(?::\d+)?/gi, "\u7F51\u7EDC\u5730\u5740");
   }
   var PACKAGE_FORMAT2 = "sgs-toolbox-plugin-v1", ID = /^[a-z][a-z0-9._-]{0,95}$/, VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/, DIGEST = /^[0-9a-f]{64}$/i, DEFAULT_MAX_BYTES = 8 * 1024 * 1024, MarketError = class extends Error {
     constructor(code, message, details = {}) {
@@ -5169,7 +5731,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return pkg;
     }
   }, LOCAL_MARKET_URL = "http://127.0.0.1:17321", PublicMarketClient = class {
-    constructor(fetchImpl, { sources = [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL], mirror = "", session = {}, probeTimeoutMs = 2500, ...options } = {}) {
+    constructor(fetchImpl, { sources = [GITHUB_MARKET_URL, DOWNLOAD_MARKET_URL], mirror = "", session = {}, probeTimeoutMs = 2500, ...options } = {}) {
       mirror && (sources = [mirror, ...sources]), this.clients = sources.map((baseUrl) => new MarketClient({ ...options, baseUrl, fetchImpl })), this.active = this.clients[0], this.session = session, this.mirror = mirror, this.probeTimeoutMs = probeTimeoutMs, this.fetchImpl = fetchImpl, this.options = options;
     }
     get baseUrl() {
@@ -5242,7 +5804,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let create = (baseUrl) => baseUrl === "" ? null : new MarketClient({ baseUrl, fetchImpl }), client;
     try {
       let saved = settings.get("marketUrl", LOCAL_MARKET_URL);
-      [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL].includes(String(saved).replace(/\/+$/, "")) && settings.get("marketCustomUrl", "") !== saved && (saved = LOCAL_MARKET_URL, settings.set("marketUrl", saved)), client = create(saved);
+      [GITHUB_MARKET_URL, DOWNLOAD_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL].includes(String(saved).replace(/\/+$/, "")) && settings.get("marketCustomUrl", "") !== saved && (saved = LOCAL_MARKET_URL, settings.set("marketUrl", saved)), client = create(saved);
     } catch {
       client = create(LOCAL_MARKET_URL), settings.set("marketUrl", client.baseUrl), onError("\u4FDD\u5B58\u7684\u5E02\u573A\u5730\u5740\u65E0\u6548\uFF0C\u5DF2\u6062\u590D\u672C\u673A\u9ED8\u8BA4\u5730\u5740\u3002");
     }
@@ -5512,6 +6074,119 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       dispose
     };
   }
+  function createStartupDiagnostics() {
+    return null;
+  }
+  var LOBBY = "poker-lobby", REPLAY = "poker-replay", OLD_LOBBY = "fd260286f73e30df493dec35a29838537279357098f9b7a45c57024020bde08e", PREVIOUS_MERGES = /* @__PURE__ */ new Set([
+    "a14110f60ba61179004a19410ac4286c25e48d0280b55782653c67cb503a811c",
+    "a09e573a4c933361c773b69e3d0f5db27552f1dd2086c50d2dcd4ffec18e6f8f",
+    "94d727101023e975861d6fc68a68d5924524371d3f20cc4526f1c846eb357906",
+    "ad853e64c9efe9e9e86c705971e98000292d7f5957de7db739a5ff6a99b29c44",
+    "185bc07523788e3c1974e371f01d97384c176822c97c632ba34121768c31496c",
+    "e028c1e6cbee2e7574f1caa31ef798577550a810a7ebe4288ee0d55c4d12bb08",
+    "4430ca0faad81c9b2259b994497b9e74fa7cc6bf7a76a4209bb0752c5c7b17a5",
+    "b545517fe283cdb895a68cce12f1220a1bc8714201d05383e7a87b03f152644c",
+    "68897ae6b46faddf38af11b3bd99c2374812b7873944c9965d58e99b8b02dbdc",
+    "8764d6c880466a33459f47bf4412e82038853d4e143c0a0d1fa4ffa31f847731",
+    "0e95a86b014fff9c3916b947099b63805abf7a1077efb46db438bc76d775d6dc",
+    "157b0bb91f03dbdb65ef15b17f65d643dfcdf515f0064c966703e50bc3a334bc",
+    "a1d99e167070775cb5cfe06c7dbb2109c03fb3a92f9efede17b54a69b4183ebe",
+    "67e02fe936b28aed3f553726ae6a13a09ad8acb25222893100f1c7c092ab8f9f",
+    "e43d812058d263c6dafec8364e280d50fb326b7ef4462476ccbcf4ed03be27b7",
+    "72fa1379c509e57ce9ba46501ef355bdf17d8f89dc8fb14a3749905e09b984b9",
+    "e25de527852d43ad5e0dc21ba44953b434e8516915b648c087c40e1d8df2cacc",
+    "02dac33955c548e7e0b2d498ef80ef18b380ebb0578f2a7c5d5113b6101b1182",
+    "80b51787cc3dd0c3d2b6143ab4022bf47b30d9861ddce38fd2f0f410d44965f2",
+    "0c41a6ca07cf66482f4b01a78040cf3d8d840b1abb3d50d1864a05edf3f3366c",
+    "9cbff6f7d62d17046f47bf3f1c4aba78c94f54d0d1e9092aca71188c4264c51f",
+    "d83f2e9de69b0213a56df6097783b9003d71acb53896f672a0cf902b4bf217f3",
+    "c7ec703b674ed3ea4aaac5356316b544b78e6b1c2be70ec451691b024fc9e030",
+    "96b6a0ee9622cd1c27e6bbf0dacdc8895bba2b738b6c44c9c56b1d501173cf8a",
+    "67ad0b7e24ef35154be6896d3730f6414ab91e83743de9cd1674a3228949bc61",
+    "be07ccf8535c8dfaab62f9e47cc1363d4755d88eb5f5652b7570fc18f2462a16",
+    "464c280d6fcbdc07b171dfe26904d950c6988cbe34aacfd811df725f4ea59f33",
+    "b1193623cc263ef850807c3e706d3f9559bf01bcb6184c9fef205242a0234317",
+    "5965be8c7775c3001289a1041a2586df4eb3b7a17114bedadd625bd29ca71523",
+    "4bcb83b84619ec83e688d8126c64bef50fb0ee52338a8e0606005dc70aad987a",
+    "7505328a9228d31c14c717f39558c26f0ac6a1cfa1986ccd861a6306113f72a3",
+    "f9e6205aedbd763c3f92f4a249a268115fb28238c33f67ab07e432d093b72975",
+    "283edcfa9c488ae4b01bc57d402d2df3be9130b506ca6940c957f002e3f9346f",
+    "76be196abdec5678a171fd85b7e92f7b3bca0c03a05fa853990842bf8b53e5bd",
+    "3b8a9c7febbc7abb599ec17ed34a7444b31b58d5ca840b9907d91e3b42614ff6",
+    "6298f877a3fb02a44c3230fff40bee5166b09dbb812a86f58b1922d064b5513e",
+    "9bee2a65754e93c3e114d8deb344f32713387fe087b90c3fe15c4dcbcfcad7c0",
+    "526058a02914191c16a777d5ee67fd33dea3bc8e959b7010cde34f656b010ca4",
+    "5908bc34415592289440fbad07d496f81f044b50c8e88e32d4e101bcacd3af33",
+    "c62c82ec01223561f8bde536f9a2fe3a15d99a69aff0ca31227ad8d67bc0fd89",
+    "c5fce0ce84779c09966789b741a9bcaa3c54de75fcdb4ab5dfc8543be0ef09c0",
+    "99b1b0b5580e60b5ee511e47be4c88638fd287fc0e13ee51b95e1e8d89cb9a20"
+  ]), OLD_REPLAYS = /* @__PURE__ */ new Set([
+    "fdfc23b82604669259dbb0ef5b1e8eaea97a53b05c9c9ac7337a4e24b81d6a2a",
+    "b7cd62d56c686f8331280cafec63f2bc476d444b874628b3a6595ac591b4bc35",
+    "dd453c9e1e0e64dfc9f48dda3806d890921c610a42bd5d64873abc2948656287",
+    "24fc47965a358d9a054ff9b6789e1b1789a3e62212a73369c9f3bde0b845f841",
+    "baace9085c3a6b65ac40638d9f90411916aee8c4af09bfe5052565586a81c3a6",
+    "824a876db93954c4ff3d71a11fa71db04a951cb426a4c286ae1992e619ed5637",
+    "defa38ce3ccf6097dbd2280ca1119d8c31ce333d668e5dd7e9c684bf0066c60a",
+    "ea899505cbddfc3be45123588882077ce263170b8ea2fdb7aa00c6906dccd875",
+    "76ad0732ccbc1b665f0cec8fb4dad358e2e1e2c76d28d4d542171694972e0338",
+    "16a62c6d03402833b22cb4f76aa2432f165fd718d9ff899d6e75922e6a992269"
+  ]);
+  async function reconcilePokerPackages(records, builtins, store) {
+    var _a2, _b2, _c, _d;
+    let merged = (_a2 = builtins.get(LOBBY)) == null ? void 0 : _a2.bundledPackage;
+    if (!merged) return;
+    let lobby = records.get(LOBBY), legacy = records.get(REPLAY), playback = (legacy == null ? void 0 : legacy.active) || ((_b2 = legacy == null ? void 0 : legacy.previous) != null && _b2.builtin ? null : legacy == null ? void 0 : legacy.previous), lobbyPackage = (lobby == null ? void 0 : lobby.active) || ((_c = lobby == null ? void 0 : lobby.previous) != null && _c.builtin ? null : lobby == null ? void 0 : lobby.previous), previousHash = lobbyPackage == null ? void 0 : lobbyPackage.sha256, previouslyMerged = PREVIOUS_MERGES.has(previousHash), previousLobby = previousHash === OLD_LOBBY || previouslyMerged, migrations = (lobby == null ? void 0 : lobby.appliedBuiltinMigrations) || [], knownReplay = ((_d = playback == null ? void 0 : playback.manifest) == null ? void 0 : _d.id) === REPLAY && OLD_REPLAYS.has(playback.sha256), archived = (legacy == null ? void 0 : legacy.mergedInto) === LOBBY;
+    if (playback && !knownReplay) {
+      lobbyPackage || builtins.delete(LOBBY);
+      return;
+    }
+    if (knownReplay && await verifyPackage(playback), lobby != null && lobby.uninstalled) return;
+    if (previousLobby && migrations.includes(previousHash)) {
+      if (previousHash === OLD_LOBBY && knownReplay && archived) {
+        let restored = { ...legacy, uninstalled: !1 };
+        delete restored.mergedInto, await store.put(restored), records.set(REPLAY, restored);
+      }
+      return;
+    }
+    let archive = knownReplay && !legacy.uninstalled ? { ...legacy, uninstalled: !0, mergedInto: LOBBY } : null;
+    if ((lobbyPackage == null ? void 0 : lobbyPackage.sha256) === merged.sha256) {
+      archive && (await store.put(archive), records.set(REPLAY, archive));
+      return;
+    }
+    if (lobbyPackage && !previousLobby || !lobby && !legacy) return;
+    previousLobby && await verifyPackage(lobbyPackage);
+    let appliedBuiltinMigrations = [...migrations];
+    previousLobby && appliedBuiltinMigrations.push(previousHash);
+    let next = {
+      id: LOBBY,
+      uninstalled: !1,
+      active: merged,
+      previous: previousLobby ? lobbyPackage : null,
+      enabled: (lobby == null ? void 0 : lobby.enabled) !== !1 && (previouslyMerged || (legacy == null ? void 0 : legacy.enabled) !== !1),
+      appliedBuiltinMigrations
+    };
+    await store.putMany(archive ? [next, archive] : [next]), records.set(LOBBY, next), archive && records.set(REPLAY, archive);
+  }
+  var ASSIST = "play-assist", LEGACY = "peixiu", OLD_ASSIST = /* @__PURE__ */ new Set([
+    "b55e22854e2b43a042ad2c85978fa4eff8b069be2215225cb77938e728e7f96e",
+    "c9e216221b36a84a00cd14464cff7bf6399376d61c8aac786b0baa61b1e020fd"
+  ]), OLD_PEIXIU = /* @__PURE__ */ new Set([
+    "ba71733110a58afe068a1dc1bf47a5120f1e84ceafef37b896bb78f060e2ab18",
+    "a5e09f8b60e70919eadada26ce94a6bc528d795df5f35b5a53803ba950a672d4"
+  ]);
+  async function reconcilePeixiuPackage(records, builtins, store, settings) {
+    var _a2, _b2, _c, _d;
+    let bundled = (_a2 = builtins.get(ASSIST)) == null ? void 0 : _a2.bundledPackage;
+    if (!bundled || compareVersions2(bundled.manifest.version, "0.2.31") < 0) return;
+    let assist = records.get(ASSIST), standalone = records.get(LEGACY), applied = (assist == null ? void 0 : assist.appliedBuiltinMigrations) || [], active = assist == null ? void 0 : assist.active, upgrade = ((_b2 = active == null ? void 0 : active.manifest) == null ? void 0 : _b2.id) === ASSIST && OLD_ASSIST.has(active.sha256) && !applied.includes(active.sha256) && compareVersions2(bundled.manifest.version, active.manifest.version) > 0;
+    if (assist != null && assist.uninstalled || active && !upgrade && active.sha256 !== bundled.sha256) return;
+    let legacy = (standalone == null ? void 0 : standalone.active) || ((_c = standalone == null ? void 0 : standalone.previous) != null && _c.builtin ? null : standalone == null ? void 0 : standalone.previous), archive = !(standalone != null && standalone.uninstalled) && ((_d = legacy == null ? void 0 : legacy.manifest) == null ? void 0 : _d.id) === LEGACY && OLD_PEIXIU.has(legacy.sha256), updates = [];
+    if (upgrade && (await verifyPackage(active), updates.push({ ...assist, active: bundled, previous: active, appliedBuiltinMigrations: [...applied, active.sha256] })), archive && (await verifyPackage(legacy), standalone.enabled === !1 && settings.get("peixiuAssist") === void 0 && settings.set("peixiuAssist", !1), updates.push({ ...standalone, uninstalled: !0, mergedInto: ASSIST })), !!updates.length) {
+      await store.putMany(updates);
+      for (let record of updates) records.set(record.id, record);
+    }
+  }
   function planDependencies(target, installed, catalog) {
     let existing = new Map(installed.map((item) => [item.id, item])), latest = /* @__PURE__ */ new Map();
     for (let item of catalog)
@@ -5536,7 +6211,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }
     return visit(target), result;
   }
-  var officialPluginIds = Object.freeze(["social", "player-info", "native-cards", "yjcm-cards", "dafeiyu-cards", "backgrounds", "gold-cards", "shanhetu", "shanhetu-beta", "cards", "play-assist", "daily-rewards", "seckill", "gaizhu", "effects", "skins", "stargazing", "wish-progress", "themes", "baisheng", "appearances", "ledger", "recharge"]);
+  var officialPluginIds = Object.freeze(["social", "player-info", "card-styles-extra", "backgrounds", "shanhetu", "cards", "play-assist", "daily-rewards", "seckill", "gaizhu", "effects", "skins", "poker-lobby", "themes-flow", "stargazing", "baisheng", "appearances", "ledger", "recharge"]);
   function planOfficialPlugins(installed, catalog) {
     let latest = /* @__PURE__ */ new Map();
     for (let entry of catalog)
@@ -5637,7 +6312,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       let node = doc.createElement("option");
       return node.textContent = text3, node.value = value, node;
     }, details = doc.createElement("details");
-    details.className = "card-face-catalog";
+    details.className = "card-face-catalog sgs-fold";
     let title = doc.createElement("summary");
     title.textContent = "\u5361\u724C\u56FE\u9274";
     let suites = doc.createElement("select");
@@ -5882,7 +6557,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
   }
   function mountCardStyleWorkshop(container, { document: doc, cardStyles, settings, bindFold }) {
     let details = doc.createElement("section");
-    details.className = "card-style-workshop plugin-group";
+    details.className = "card-style-workshop plugin-group appearance-section";
     let heading = doc.createElement("h3");
     heading.className = "plugin-heading";
     let toggle = doc.createElement("button");
@@ -5991,8 +6666,8 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .sgs-themes button.theme-card[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 0 -2px var(--sgs-accent),0 2px 7px #0002}
 .sgs-themes button.theme-card:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
 .sgs-themes button.theme-card:disabled{cursor:default;opacity:1}
-.sgs-themes .theme-preview{display:flex;align-items:center;justify-content:center;height:56px;padding:10px 7px;background:linear-gradient(145deg,var(--preview-surface),var(--preview-bg));border-bottom:1px solid color-mix(in srgb,var(--preview-border) 50%,transparent);color:var(--preview-text)}
-.sgs-themes .theme-mini{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;max-width:126px;height:30px;padding:0 7px;border:1px solid color-mix(in srgb,var(--preview-border) 65%,transparent);border-radius:7px;background:linear-gradient(155deg,var(--preview-raised),var(--preview-bg));box-shadow:0 2px 5px #0004,inset 0 1px color-mix(in srgb,var(--preview-accent) 12%,transparent)}
+.sgs-themes .theme-preview{display:flex;align-items:center;justify-content:center;height:56px;padding:10px 7px;background-color:var(--preview-bg);background-image:var(--preview-backdrop,linear-gradient(145deg,var(--preview-surface),var(--preview-bg)));border-bottom:1px solid color-mix(in srgb,var(--preview-border) 50%,transparent);color:var(--preview-text)}
+.sgs-themes .theme-mini{position:relative;display:flex;align-items:center;justify-content:center;gap:7px;width:100%;max-width:126px;height:30px;padding:0 7px;border:1px solid color-mix(in srgb,var(--preview-border) 65%,transparent);border-radius:7px;background-color:var(--preview-bg);background-image:var(--preview-compact,linear-gradient(155deg,var(--preview-raised),var(--preview-bg)));box-shadow:0 2px 5px #0004,inset 0 1px color-mix(in srgb,var(--preview-accent2,var(--preview-accent)) 22%,transparent)}
 .sgs-themes .theme-mini-seal{font:17px/1 'KaiTi','STKaiti',serif;color:var(--preview-accent)}
 .sgs-themes .theme-mini-number{font:600 18px/1 Georgia,serif;color:var(--preview-text)}
 .sgs-themes .theme-mini-separator{width:1px;height:13px;background:var(--preview-border);margin-left:auto}
@@ -6000,7 +6675,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .sgs-themes .theme-meta{display:block;padding:8px 8px 9px;min-width:0}
 .sgs-themes .theme-title-row{display:flex;align-items:center;justify-content:space-between;gap:3px;min-width:0}
 .sgs-themes .theme-name{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sgs-themes .theme-card-state{font-size:9px;color:var(--sgs-muted);white-space:nowrap;flex:none}
+.sgs-themes .theme-card-state{font-size:10px;color:var(--sgs-muted);white-space:nowrap;flex:none}
 .sgs-themes [aria-pressed=true] .theme-card-state{color:var(--sgs-accent)}
 .sgs-themes .theme-description{display:block;margin-top:3px;font-size:10px;color:var(--sgs-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sgs-themes .theme-status{display:flex;align-items:center;gap:5px;margin:11px 0 0;font-size:11px;color:var(--sgs-accent);overflow-wrap:anywhere}
@@ -6027,13 +6702,14 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     let statusRow = el("div", "theme-status-row");
     statusRow.append(status, footnote), root.append(style2, heading, grid, statusRow), container.append(root);
     let signature, cards = /* @__PURE__ */ new Map(), cardScope, update = () => {
+      var _a2, _b2, _c;
       if (scope.closed) return;
       let palette = (themes == null ? void 0 : themes.list()) || [BLACK_GOLD], current = themes == null ? void 0 : themes.current, next = JSON.stringify(palette);
       if (signature !== next) {
         signature = next, cardScope == null || cardScope.dispose(), cardScope = new ResourceScope(), cards = /* @__PURE__ */ new Map(), grid.replaceChildren(), count.textContent = `${palette.length} \u5957\u914D\u8272`;
         for (let theme of palette) {
           let description = theme.description || (theme.id === BLACK_GOLD.id ? "\u6C89\u9759\u7384\u8272\uFF0C\u7ECF\u5178\u938F\u91D1" : "\u6269\u5C55\u4E3B\u9898"), button = el("button", "theme-card");
-          button.type = "button", button.dataset.themeId = theme.id, button.setAttribute("aria-label", `\u4F7F\u7528${theme.name}\u4E3B\u9898`), button.title = `${theme.name} \xB7 ${description}`, button.setAttribute("aria-pressed", "false"), button.disabled = !themes;
+          button.type = "button", button.dataset.themeId = theme.id, ((_a2 = theme.tokens) != null && _a2.backdrop || (_b2 = theme.tokens) != null && _b2.card || (_c = theme.tokens) != null && _c.compact) && (button.dataset.themeTextured = ""), button.setAttribute("aria-label", `\u4F7F\u7528${theme.name}\u4E3B\u9898`), button.title = `${theme.name} \xB7 ${description}`, button.setAttribute("aria-pressed", "false"), button.disabled = !themes;
           let preview = el("span", "theme-preview");
           preview.setAttribute("aria-hidden", "true");
           for (let [key, value] of Object.entries({ ...BLACK_GOLD.tokens, ...theme.tokens })) preview.style.setProperty("--preview-" + key, value);
@@ -6712,7 +7388,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .feedback-form textarea::placeholder{color:var(--sgs-muted)}
 .feedback-form textarea:focus{outline:1px solid var(--sgs-accent);outline-offset:1px;border-color:var(--sgs-accent)}
 .feedback-form .actions{align-items:center;margin-top:0}
-.feedback-form .actions button{padding-inline:10px;white-space:nowrap}
+.feedback-form .actions button{padding-left:10px;padding-right:10px;white-space:nowrap}
 .feedback-form .actions button:enabled{color:var(--sgs-accent);border-color:var(--sgs-accent)}
 .feedback-form .actions button:disabled{opacity:.55}
 .feedback-status:empty{display:none}
@@ -6856,26 +7532,27 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       return label && (element.textContent = label), className && (element.className = className), element;
     }, root = node("div", "", "sync-settings"), style2 = node("style", `
     .sync-settings,.sync-stack{display:grid;gap:9px;min-width:0}
+    .sync-settings{font-size:12px;line-height:1.55}
     .sync-settings [hidden]{display:none!important}
     .sync-settings label{display:grid;min-width:0;gap:4px}
     .sync-settings input:not(.sgs-switch),.sync-settings textarea{width:100%;min-width:0;box-sizing:border-box;color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 8px;font:inherit}
     .sync-settings textarea{resize:vertical;line-height:1.45;overflow-wrap:anywhere}
     .sync-settings .sync-address{min-height:31px;resize:none;overflow:hidden;white-space:pre}
-    .sync-settings :is(input,textarea,summary):focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
-    .sync-settings summary{cursor:pointer;color:var(--sgs-text)}
-    .sync-settings details[open]>summary{margin-bottom:8px}
+    .sync-settings input:focus-visible,.sync-settings textarea:focus-visible,.sync-settings summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
+    .sync-settings summary{cursor:pointer;color:var(--sgs-text);padding:7px 0}
+    .sync-settings details[open]>summary{margin-bottom:6px}
     .sync-settings p{margin:0;overflow-wrap:anywhere}
-    .sync-settings button{min-height:29px;justify-self:start;max-width:100%;white-space:normal}
+    .sync-settings button{min-height:29px;justify-self:start;max-width:100%;padding:5px 9px;font-size:11px;white-space:normal}
     .sync-settings .sync-primary{color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 42%,var(--sgs-border))}
     .sync-settings .sync-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
     .sync-settings h3{margin:0}
-    .sync-chooser{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;background:var(--sgs-surface);border-radius:8px}
-    .sync-chooser button{width:100%;padding-inline:3px;white-space:nowrap}
-    .sync-chooser [aria-pressed=true]{color:var(--sgs-accent);background:var(--sgs-raised);border-color:var(--sgs-border)}
+    .sync-chooser{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:3px;background:#0002;background:color-mix(in srgb,var(--sgs-border) 16%,var(--sgs-surface));border-radius:8px;box-shadow:inset 0 1px 3px #0002}
+    .sync-chooser button{width:100%;min-height:26px;border:0;border-radius:5px;padding:4px 4px;background:transparent;box-shadow:none;color:var(--sgs-muted);white-space:nowrap}
+    .sync-chooser [aria-pressed=true]{color:var(--sgs-accent);background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 18%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent),0 1px 3px #0003}
     .sync-settings .sync-short{max-width:12ch;letter-spacing:.15em;font-variant-numeric:tabular-nums}
     .sync-preview-rows{list-style:none;padding:0;margin:0;min-width:0}
     .sync-preview-rows li{padding:6px 0;border-bottom:1px solid var(--sgs-border);overflow-wrap:anywhere}
-    .sync-preferences{padding:9px 0;border-block:1px solid var(--sgs-border)}
+    .sync-preferences{padding:9px 0;border-top:1px solid var(--sgs-border);border-bottom:1px solid var(--sgs-border)}
     .sync-settings .sync-download{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
     .sync-download svg{width:16px;height:16px;flex:none;margin:0}
     .sync-private-setup{gap:7px;padding:9px 10px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-surface)}
@@ -6907,7 +7584,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       }), result2;
     }
     function details(title, ...children2) {
-      let block = node("details"), body = node("div", "", "sync-stack");
+      let block = node("details", "", "sgs-fold"), body = node("div", "", "sync-stack");
       return body.append(...children2), block.append(node("summary", title), body), block;
     }
     function say(text3, error = !1) {
@@ -7155,6 +7832,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     } };
   }
   var feedbackIcon = { paths: ["M20 16h-8l-5 4v-4H4V4h16z", "M8 8h8M8 12h6"] }, cloudOffIcon = { paths: ["M8.5 6.5A5.5 5.5 0 0 1 18 10a4 4 0 0 1 2.6 6.9M16 18H6a4 4 0 0 1-1.2-7.8", "M3 3l18 18"] }, categories = [["game", "\u724C\u5C40"], ["automation", "\u81EA\u52A8"], ["tools", "\u5DE5\u5177"], ["manage", "\u7BA1\u7406"], ["info", "\u4FE1\u606F"]], FONT_SIZES = [["tiny", "\u7279\u5C0F", -2], ["small", "\u5C0F", -1], ["standard", "\u6807\u51C6", 0], ["large", "\u5927", 2]], COMPACT_OPACITIES = [60, 80, 100], DEFAULT_COMPACT_OPACITY = 80, scaleFonts = (css) => css.replace(/(font:\s*(?:\d+\s+)?)(\d+)px/g, (_, prefix3, size) => `${prefix3}calc(${size}px + var(--sgs-font-offset, 0px))`).replace(/font-size:\s*(\d+)px/g, (_, size) => `font-size:calc(${size}px + var(--sgs-font-offset, 0px))`), style = `
+
 /* A moving perimeter marker keeps the folded HUD easy to locate without covering controls. */
 .hud-locator{display:none;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:visible;color:var(--sgs-accent)}
 .hud-locator rect{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;x:1px;y:1px;width:calc(100% - 2px);height:calc(100% - 2px);rx:10px;stroke-dasharray:18 8 3 71;animation:hud-locator-flow 3.6s linear infinite,hud-locator-breathe 2.4s ease-in-out infinite}
@@ -7168,7 +7846,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
 .plugin-release-notes{margin:8px 0 0;min-width:0;color:var(--sgs-muted);font-size:11px}.plugin-release-notes summary{cursor:pointer;min-height:30px;padding:6px 2px;color:var(--sgs-text);overflow-wrap:anywhere}.plugin-release-notes summary:focus-visible,.plugin-release-notes-text:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px;border-radius:4px}.plugin-release-notes-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;padding:2px 6px 4px 8px;border-left:2px solid var(--sgs-border);max-height:160px;overflow:auto;scrollbar-width:thin}.plugin-update .plugin-release-notes summary{color:var(--sgs-accent)}
 .appearance-page .plugin-heading{margin:0}
 .management-tabs{position:sticky;top:-12px;z-index:8;background:var(--sgs-bg)!important;box-shadow:0 5px 8px var(--sgs-bg)!important}
-.management-tabs button{min-width:0;white-space:nowrap}
+.tabs.management-tabs button{flex:1 0 auto;min-width:0;padding-left:4px;padding-right:4px;white-space:nowrap}
 .market-update-actions{margin-bottom:8px}.market-update-actions button{display:inline-flex;align-items:center;gap:4px;min-height:29px}
 .market-update-actions button:first-child{color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 45%,var(--sgs-border))}
 .market-update-actions svg{width:14px;height:14px;flex:none}.market-auto-update>span{font-size:12px}
@@ -7192,7 +7870,8 @@ label.row[data-market-list-filter][hidden]{display:none}
 .custom-card-faces{margin-top:9px;padding:9px 0;border-bottom:1px solid var(--sgs-border)}
 .custom-card-face-fields{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
 .custom-card-face-fields input[type=search]{grid-column:1/-1;width:100%}
-.custom-card-face-fields.is-background button{grid-column:2}
+.custom-card-face-fields.is-background{grid-template-columns:minmax(0,1fr)}
+.custom-card-face-fields.is-background button{grid-column:1;justify-self:start}
 .custom-card-face-fields .sgs-select,.custom-card-face-fields button{height:34px}
 .custom-card-face-fields button{color:var(--sgs-accent)}
 .card-face-catalog{margin:10px 0;padding:0 9px 4px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-surface)}
@@ -7207,26 +7886,32 @@ label.row[data-market-list-filter][hidden]{display:none}
 .custom-card-face-preview button{display:grid;place-items:center;padding:0;height:36px;color:var(--sgs-muted)}
 .custom-card-face-preview button:hover:not(:disabled){color:var(--sgs-danger);border-color:var(--sgs-danger)}
 .custom-card-faces .custom-card-face-error{color:var(--sgs-danger);overflow-wrap:anywhere}
-.card-style-workshop summary{cursor:pointer;color:var(--sgs-accent);padding:8px 0;font-size:12px;min-height:34px}.card-style-workshop summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}.card-style-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-style-choices button{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;font-size:11px}.card-style-choices button[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 3px 0 var(--sgs-accent);background:color-mix(in srgb,var(--sgs-accent) 12%,var(--sgs-surface))}.card-style-preview{display:flex;gap:4px;width:100%;justify-content:center}.card-style-preview canvas,.card-style-preview img{width:43%;max-width:64px;height:auto;aspect-ratio:93/130;border-radius:3px}.card-style-workshop p{margin:8px 0}
+.card-style-workshop summary{cursor:pointer;color:var(--sgs-accent);padding:8px 0;font-size:12px;min-height:34px}.card-style-workshop summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}.card-style-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card-style-choices button{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:7px 6px;font-size:11px;line-height:1.35;white-space:normal;text-align:center;overflow-wrap:anywhere}.card-style-choices button>span:last-child{max-width:100%;overflow-wrap:anywhere}.card-style-choices button[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 3px 0 var(--sgs-accent);background:color-mix(in srgb,var(--sgs-accent) 12%,var(--sgs-surface))}.card-style-preview{display:flex;gap:4px;width:100%;justify-content:center}.card-style-preview canvas,.card-style-preview img{width:43%;max-width:64px;height:auto;aspect-ratio:93/130;border-radius:3px}.card-style-workshop p{margin:8px 0}
 
-.core-upgrade-actions{display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap}.core-upgrade-actions a{font-size:10px}.core-upgrade-refresh{display:inline-flex;align-items:center;gap:5px;flex:none;padding:5px;font-size:10px;color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 40%,var(--sgs-border));background:color-mix(in srgb,var(--sgs-accent) 8%,var(--sgs-surface))}.core-upgrade-reminder{margin-top:6px;padding-left:8px;border-left:2px solid var(--sgs-accent);font-size:11px;color:var(--sgs-muted);overflow-wrap:anywhere}
+.core-upgrade-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.core-upgrade-actions a{font-size:10px}.core-upgrade-actions button{display:inline-flex;align-items:center;gap:4px;min-height:29px;padding:4px 8px;font-size:11px}.core-upgrade-actions button svg{width:14px;height:14px;flex:none}.core-upgrade-refresh{display:inline-flex;align-items:center;gap:5px;flex:none;margin-left:auto;padding:5px;font-size:10px;color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 40%,var(--sgs-border));background:color-mix(in srgb,var(--sgs-accent) 8%,var(--sgs-surface))}.core-upgrade-reminder{margin-top:6px;padding-left:8px;border-left:2px solid var(--sgs-accent);font-size:11px;color:var(--sgs-muted);overflow-wrap:anywhere}
 
 .plugin-body .skin-entry{margin:0;padding:0;border:0;background:none}.plugin-body .skin-entry>h3{display:none}.plugin-body .reward-heading h3 .sgs-line-icon{display:none}.plugin-body .reward-heading h3,.plugin-body .sgs-effects h3{font-size:11px;font-weight:400;color:var(--sgs-muted)}
 :host{all:initial;position:fixed;top:72px;right:24px;width:280px;min-width:248px;max-width:420px;z-index:2147483000;color:var(--sgs-text);font:13px/1.55 var(--sgs-font);color-scheme:var(--sgs-scheme,dark)}
 *{box-sizing:border-box}button,input,select{font:inherit}button{white-space:nowrap} :host{-webkit-text-size-adjust:100%;text-size-adjust:100%}.settings-group .actions{align-items:center}.settings-group .actions>span{display:inline-flex;flex:none}.settings-group label.row>span{flex-shrink:1}button{cursor:pointer}button:disabled{cursor:wait;opacity:.5}button,input,select{color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 9px}button:hover{background:var(--sgs-raised);border-color:var(--sgs-accent)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}a{color:var(--sgs-accent)}
-:host([data-mobile][data-edge-docked]) .shell,:host([data-mobile][data-edge-docked]) .content{touch-action:pan-y}:host([data-mobile][data-edge-hidden]) .shell{visibility:hidden}.edge-tab{display:none}:host([data-mobile][data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 48px))}:host([data-mobile][data-edge-hidden]) .edge-tab{display:block;position:absolute;left:0;top:0;z-index:20;width:48px;height:100%;min-height:160px;padding:0;border-radius:7px 0 0 7px;background:var(--sgs-bg);color:var(--sgs-accent);font-size:26px;touch-action:pan-y}.shell{background:var(--sgs-bg);border:1px solid var(--sgs-border);border-radius:var(--sgs-radius);box-shadow:0 16px 48px #0006;overflow:hidden;resize:horizontal;min-width:248px;max-width:420px;width:100%}
+:host([data-mobile][data-edge-docked]) .shell,:host([data-mobile][data-edge-docked]) .content{touch-action:pan-y}:host([data-mobile][data-edge-hidden]) .shell{visibility:hidden}.edge-tab{display:none}:host([data-mobile][data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 48px))}:host([data-mobile][data-edge-hidden]) .edge-tab{display:block;position:absolute;left:0;top:0;z-index:20;width:48px;height:100%;min-height:160px;padding:0;border-radius:7px 0 0 7px;background:var(--sgs-bg);color:var(--sgs-accent);font-size:26px;touch-action:pan-y}.shell{position:relative;background-color:var(--sgs-bg);background-image:var(--sgs-backdrop,none);border:1px solid var(--sgs-border);border-radius:var(--sgs-radius);box-shadow:0 16px 48px #0006;overflow:hidden;resize:horizontal;min-width:248px;max-width:420px;width:100%}
+:host([data-theme-textured]:not([data-collapsed])) .shell::before{content:'';position:absolute;pointer-events:none;top:0;left:16px;right:16px;height:1px;z-index:1;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--sgs-accent) 48%,transparent),color-mix(in srgb,var(--sgs-accent2,var(--sgs-accent)) 52%,transparent),transparent)}
+:host([data-theme-textured]) .nav{background-color:color-mix(in srgb,var(--sgs-surface) 78%,transparent);background-image:var(--sgs-card,none)}
+:host([data-theme-textured]) .card{background-color:color-mix(in srgb,var(--sgs-surface) 84%,transparent);background-image:var(--sgs-card,none)}
+:host([data-theme-textured]) .management-tabs{background-color:var(--sgs-bg)!important;background-image:var(--sgs-card,none)!important;box-shadow:0 5px 8px color-mix(in srgb,var(--sgs-bg) 88%,transparent)!important}
+:host([data-theme-textured]) .nav button[aria-selected=true],:host([data-theme-textured]) .tabs button.active{background-image:linear-gradient(135deg,color-mix(in srgb,var(--sgs-accent) 20%,transparent),color-mix(in srgb,var(--sgs-accent2,var(--sgs-accent)) 10%,transparent))}
+:host([data-theme-textured]) .settings-group h3::before{background:linear-gradient(var(--sgs-accent),var(--sgs-accent2,color-mix(in srgb,var(--sgs-accent) 30%,transparent)))}
 .content.has-plugin-panels{min-height:0}.plugin-group{min-width:0}.plugin-group+.plugin-group{border-top:1px solid var(--sgs-border);margin-top:10px;padding-top:10px}.plugin-heading{margin:0;font-size:13px}.plugin-heading .plugin-toggle{display:flex;align-items:center;gap:9px;width:100%;min-height:36px;padding:6px 3px;border:0;border-radius:6px;background:transparent;box-shadow:none;text-align:left;color:var(--sgs-accent)}.plugin-heading .plugin-toggle:hover{background:color-mix(in srgb,var(--sgs-accent) 7%,transparent)}.plugin-toggle svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.plugin-toggle .plugin-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;letter-spacing:.5px}.plugin-toggle .plugin-chevron{width:15px;height:15px;color:var(--sgs-muted);transition:transform .16s}.plugin-toggle[aria-expanded=false] .plugin-chevron{transform:rotate(-90deg)}.plugin-body{padding:9px 2px 2px}.plugin-body[hidden]{display:none!important}:host([data-edge-docked]){left:auto!important;right:0!important;transition:transform 180ms ease;transform:translateX(0)}:host([data-edge-docked][data-edge-hidden]){transform:translateX(calc(100% - 5px));background:var(--sgs-bg);border-left:1px solid var(--sgs-accent);border-radius:5px 0 0 5px}:host([data-edge-hidden]) .shell{visibility:hidden}:host([data-edge-fixed]){transition:none;top:0!important;bottom:0!important;height:100vh;height:100dvh}:host([data-edge-fixed]) .shell{display:flex;flex-direction:column;height:100%;border-radius:0}:host([data-edge-fixed]) .shell>.brand,:host([data-edge-fixed]) .shell>.status,:host([data-edge-fixed]) .shell>.nav,:host([data-edge-fixed]) .shell>.footer,:host([data-edge-fixed]) .shell>.compact{flex-shrink:0}:host([data-edge-fixed]) .content{flex:1;min-height:0;max-height:none}.edge-resizer{display:none;position:absolute;left:0;bottom:0;width:22px;height:22px;z-index:12;color:var(--sgs-muted);cursor:ew-resize;touch-action:none;user-select:none;align-items:center;justify-content:center}.edge-resizer svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round}.edge-resizer:hover{color:var(--sgs-accent)}.edge-resizer:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:-3px}:host([data-edge-docked]) .shell{resize:none}:host([data-edge-docked]:not([data-collapsed]):not([data-edge-hidden])) .edge-resizer{display:flex}:host([data-edge-docked]) .footer{padding-left:25px}:host([data-edge-docked]:focus-visible){outline:2px solid var(--sgs-accent);outline-offset:-2px}
 @media(prefers-reduced-motion:reduce){.plugin-toggle .plugin-chevron{transition:none}}
 .brand{user-select:none;-webkit-user-select:none;display:flex;align-items:center;gap:8px;padding:12px 12px 8px;cursor:move;touch-action:none}.mark svg{width:21px;height:21px}.mark{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--sgs-accent);color:var(--sgs-accent);border-radius:7px;font-weight:bold}.brand small{display:block;font-size:9px;letter-spacing:2px;color:var(--sgs-muted)}.brand button svg{width:16px;height:24px}.footer [data-open-market]{display:flex;align-items:center;gap:4px}.footer [data-open-market] svg{width:12px;height:12px}.brand button{display:grid;place-items:center;margin-left:auto;font-size:16px;padding:0 7px;line-height:24px}.status{color:var(--sgs-muted);font-size:11px;padding:0 12px 9px;display:flex;align-items:center;gap:6px}.status[hidden]{display:none}.dot{width:5px;height:5px;background:var(--sgs-accent);border-radius:100%}
-.nav{display:flex;gap:4px;padding:7px 9px;border-block:1px solid var(--sgs-border);background:var(--sgs-surface)}.nav button{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:0;height:42px;padding:0;border-color:transparent;background:transparent;overflow:hidden;transition:flex-grow var(--sgs-motion) cubic-bezier(.2,.8,.2,1),background var(--sgs-motion),gap var(--sgs-motion)}.nav button svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform var(--sgs-motion)}.nav button span{max-width:0;opacity:0;white-space:nowrap;overflow:hidden;transition:max-width var(--sgs-motion),opacity var(--sgs-motion)}.nav button[aria-selected=true]{color:var(--sgs-accent);background:var(--sgs-raised)}.nav:has(button:hover) button:not(:hover):not(:focus-visible) svg,.nav:has(button:focus-visible) button:not(:hover):not(:focus-visible) svg{transform:scale(.92)}.nav button:hover,.nav button:focus-visible{flex-grow:2.2;gap:5px;color:var(--sgs-accent);background:var(--sgs-raised)}.nav button:hover svg,.nav button:focus-visible svg{transform:scale(1.15)}.nav button:hover span,.nav button:focus-visible span{max-width:32px;opacity:1}
+.nav{display:flex;gap:4px;padding:7px 9px;border-top:1px solid var(--sgs-border);border-bottom:1px solid var(--sgs-border);background:var(--sgs-surface)}.nav button{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:0;height:42px;padding:0;border-color:transparent;background:transparent;overflow:hidden;transition:flex-grow var(--sgs-motion) cubic-bezier(.2,.8,.2,1),background var(--sgs-motion),gap var(--sgs-motion)}.nav button svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:transform var(--sgs-motion)}.nav button span{max-width:0;opacity:0;white-space:nowrap;overflow:hidden;transition:max-width var(--sgs-motion),opacity var(--sgs-motion)}.nav button[aria-selected=true]{color:var(--sgs-accent);background:var(--sgs-raised)}.nav:has(button:focus-visible) button:not(:focus-visible) svg{transform:scale(.92)}.nav button:focus-visible{flex-grow:2.2;gap:5px;color:var(--sgs-accent);background:var(--sgs-raised)}.nav button:focus-visible svg{transform:scale(1.15)}.nav button:focus-visible span{max-width:32px;opacity:1}@media(hover:hover){.nav:has(button:hover) button:not(:hover):not(:focus-visible) svg{transform:scale(.92)}.nav button:hover{flex-grow:2.2;gap:5px;color:var(--sgs-accent);background:var(--sgs-raised)}.nav button:hover svg{transform:scale(1.15)}.nav button:hover span{max-width:32px;opacity:1}}
 .content{padding:12px;max-height:65vh;min-height:200px;overflow:auto;scrollbar-width:thin}.footer{display:flex;justify-content:space-between;border-top:1px solid var(--sgs-border);padding:7px 12px;color:var(--sgs-muted);font-size:10px}.footer button{padding:0;border:0;background:none;font-size:10px;color:var(--sgs-muted)}.empty{text-align:center;padding:35px 12px;color:var(--sgs-muted)}.empty svg{width:32px;height:32px;fill:none;stroke:var(--sgs-accent);stroke-width:1.2;margin-bottom:12px}.empty strong{display:block;color:var(--sgs-text);font-size:14px;margin-bottom:7px}.tabs{display:flex;gap:4px;margin-bottom:13px}.tabs button{flex:1;padding:5px 2px;font-size:12px}.tabs button.active{border-color:var(--sgs-accent);color:var(--sgs-accent)}h3{font-size:13px;margin:15px 0 7px}h3:first-child{margin-top:0}.card{padding:10px;border:1px solid var(--sgs-border);border-radius:8px;margin-bottom:8px;background:var(--sgs-surface)}.card .title{display:flex;justify-content:space-between;gap:5px}.muted{color:var(--sgs-muted);font-size:11px}.actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.actions button{font-size:11px;padding:4px 7px}.notice{color:var(--sgs-muted);font-size:11px;overflow-wrap:anywhere;padding:7px 0}.error{color:var(--sgs-danger)}label.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0}input[type=checkbox]{accent-color:var(--sgs-accent)}input.address{width:100%;font-size:11px}select{max-width:145px}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);max-width:80vw;background:var(--sgs-raised);color:var(--sgs-text);padding:10px 16px;border:1px solid var(--sgs-border);border-radius:8px;box-shadow:0 4px 20px #0008;z-index:2147483647}
 .toast[data-position=top]{top:22px;top:calc(22px + env(safe-area-inset-top, 0px));bottom:auto;box-sizing:border-box;max-width:min(36em,calc(100vw - 32px));text-align:center;overflow-wrap:anywhere;pointer-events:none}
 :host([data-collapsed]) .nav,:host([data-collapsed]) .content,:host([data-collapsed]) .status,:host([data-collapsed]) .footer{display:none}:host([data-collapsed]) .brand{display:none}
 .compact{display:none;align-items:center;height:38px;padding:0 7px 0 10px;cursor:grab;touch-action:none;white-space:nowrap;user-select:none;-webkit-user-select:none}.compact:active{cursor:grabbing}.compact .slash{display:flex;align-items:center;gap:9px;flex:1;min-width:0;height:100%;color:var(--sgs-accent)}.slash-seal{display:grid;place-items:center;flex:none;width:25px;height:27px;font:20px/1 "KaiTi","STKaiti","FangSong",serif;color:var(--sgs-accent);text-shadow:0 1px 1px #0009;background:radial-gradient(ellipse,color-mix(in srgb,var(--sgs-accent) 9%,transparent),transparent 72%)}.slash-reading{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:32px;height:34px}.slash-label{font:9px/10px var(--sgs-font);letter-spacing:1px;color:var(--sgs-muted)}.compact [data-slash]{font:600 21px/23px "Cambria","Georgia",serif;font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--sgs-accent) 42%,var(--sgs-text));text-shadow:0 1px 2px #0008;letter-spacing:.3px}.compact[data-count-state="empty"] [data-slash]{color:var(--sgs-muted)}.compact[data-count-state="unknown"] [data-slash]{color:var(--sgs-muted);font-size:19px}.compact[data-count-state="unlimited"] [data-slash]{font-size:24px}.compact[data-count-size="long"] [data-slash]{font-size:15px;letter-spacing:0}.compact-actions{display:flex;align-items:center;gap:1px;padding-left:6px;margin-left:6px;position:relative}.compact-actions::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:1px;background:linear-gradient(transparent,color-mix(in srgb,var(--sgs-accent) 30%,transparent),transparent)}.compact button{display:grid;place-items:center;flex:none;width:28px;height:30px;padding:5px;border:0;border-radius:7px;background:transparent;color:var(--sgs-muted);box-shadow:none;transition:background 140ms,color 140ms,transform 140ms}.compact button:hover{color:var(--sgs-text);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 13%,transparent),color-mix(in srgb,var(--sgs-accent) 4%,transparent))}.compact button:active{transform:translateY(1px);background:color-mix(in srgb,var(--sgs-accent) 15%,transparent)}.compact button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:-2px;background:color-mix(in srgb,var(--sgs-accent) 9%,transparent)}.compact svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.compact [data-expand] svg{width:16px;height:16px}
 :host([data-collapsed]){width:156px!important;min-width:156px;max-width:156px}
 :host([data-collapsed]) .shell{position:relative;isolation:isolate;width:100%!important;max-width:100%;min-width:0;resize:none;border:1px solid color-mix(in srgb,var(--sgs-border) 65%,transparent);border-radius:11px;background:transparent;box-shadow:0 3px 8px #0004,0 12px 28px #0002,inset 0 1px color-mix(in srgb,var(--sgs-text) 9%,transparent),inset 0 -1px #0005}
-:host([data-collapsed]) .shell::after{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:var(--sgs-compact-opacity);background-color:var(--sgs-bg);background-image:linear-gradient(165deg,var(--sgs-raised) 0%,var(--sgs-bg) 40%,color-mix(in srgb,var(--sgs-bg) 82%,#000) 100%)}
-:host([data-collapsed]) .shell::before{content:'';position:absolute;pointer-events:none;top:0;left:15px;right:15px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--sgs-accent) 40%,transparent),transparent)}
+:host([data-collapsed]) .shell::after{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:var(--sgs-compact-opacity);background-color:var(--sgs-bg);background-image:var(--sgs-compact,linear-gradient(165deg,var(--sgs-raised) 0%,var(--sgs-bg) 40%,color-mix(in srgb,var(--sgs-bg) 82%,#000) 100%))}
+:host([data-collapsed]) .shell::before{content:'';position:absolute;pointer-events:none;top:0;left:15px;right:15px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--sgs-accent) 40%,transparent),color-mix(in srgb,var(--sgs-accent2,var(--sgs-accent)) 45%,transparent),transparent)}
 :host([data-collapsed]) .compact{display:flex}
 
 .compact-summary{display:none}:host([data-collapsed]) .compact-summary:not(:empty){display:grid;gap:3px;padding:6px 9px 8px;border-top:1px solid var(--sgs-border);max-height:35vh;overflow:auto}.compact-summary-row{display:flex;align-items:baseline;gap:6px;min-width:0;font-size:11px}.compact-summary-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.compact-summary-row b{flex:none;color:var(--sgs-accent);font-variant-numeric:tabular-nums;font-weight:500}
@@ -7236,29 +7921,29 @@ label.row[data-market-list-filter][hidden]{display:none}
 :host([data-theme-scheme=light]){--sgs-success:#32613e}
 :host([data-theme-scheme=light]) .slash-seal,:host([data-theme-scheme=light]) .compact [data-slash]{text-shadow:none}
 :host([data-theme-scheme=light][data-collapsed]) .shell{box-shadow:0 3px 8px #0002,0 8px 20px #0001,inset 0 1px #fff8}
-:host([data-theme-scheme=light][data-collapsed]) .shell::after{background-image:linear-gradient(165deg,var(--sgs-surface),var(--sgs-bg) 65%)}
+:host([data-theme-scheme=light][data-collapsed]) .shell::after{background-image:var(--sgs-compact,linear-gradient(165deg,var(--sgs-surface),var(--sgs-bg) 65%))}
 ${CONTROL_STYLES}
 button{background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-raised) 60%,var(--sgs-surface)),var(--sgs-surface));border-color:color-mix(in srgb,var(--sgs-border) 60%,transparent);box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-text) 4%,transparent);transition:background 140ms,border-color 140ms,color 140ms}button:active:not(:disabled){background:var(--sgs-bg)}button:disabled{cursor:not-allowed}.nav button,.footer button{box-shadow:none}.tabs{gap:2px;padding:3px;border-radius:8px;background:var(--sgs-surface);box-shadow:inset 0 1px 3px #0004}.tabs button{border:0;background:transparent;box-shadow:none;color:var(--sgs-muted);padding:6px 2px}.tabs button.active{background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 17%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent);color:var(--sgs-accent)}
-.settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:1 1 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:0 1 142px;width:142px!important;min-width:60px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button{min-height:29px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
+.settings-group{padding:11px 0 13px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.settings-group:last-child{border:0;padding-bottom:0}.settings-group h3{display:flex;align-items:center;gap:7px;margin:0 0 8px;color:var(--sgs-accent);font-size:12px;letter-spacing:.06em}.settings-group h3::before{content:'';width:3px;height:11px;border-radius:2px;background:linear-gradient(var(--sgs-accent),color-mix(in srgb,var(--sgs-accent) 30%,transparent))}.settings-group label.row{margin:0;padding:9px 0;min-height:36px;font-size:12px}.settings-group label.row>span{display:flex;align-items:center;flex:0 1 auto;min-width:0;white-space:nowrap}.settings-group .muted{font-size:10px;line-height:1.7;color:var(--sgs-muted)}.settings-group .row input.sgs-input{flex:1 1 96px;width:0!important;min-width:72px;max-width:142px}.settings-group .address{margin:5px 0 8px}.settings-group .actions{gap:6px}.settings-group .actions button,.settings-group>button{min-height:29px;font-size:11px;padding:4px 8px}.settings-group .actions .icon-action{display:grid;place-items:center;width:30px;padding:5px;color:var(--sgs-muted);background:transparent;border-color:transparent;box-shadow:none}.settings-group .actions .icon-action:hover{color:var(--sgs-accent);background:var(--sgs-raised)}.settings-group .row select{max-width:145px}.settings-group>select{width:100%;max-width:none}.settings-group .notice{font-size:10px;line-height:1.7}.settings-group button .sgs-line-icon{vertical-align:-3px;margin-right:5px}.settings-group button:has(.sgs-line-icon){font-size:11px}.settings-group [data-setting=screenshotHideUI]{flex:none}
 .font-preview{margin-top:12px;padding:12px 0 12px 10px;border-left:2px solid var(--sgs-accent);line-height:1.6}.font-preview strong{font-size:13px}.font-preview p{font-size:12px;margin:5px 0}.font-settings .sgs-segments button{min-width:0;flex:1;padding:6px 2px}.brand-name{min-width:0;flex:1}.brand small{font-size:9px}.brand .mark{flex:none}.brand [data-collapse]{flex:none;margin-left:0}.brand [data-update-hint]{display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 7px;border:1px solid color-mix(in srgb,var(--sgs-accent) 48%,var(--sgs-border));border-radius:7px;background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 20%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 10%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 20%,transparent),0 2px 4px #0002;color:var(--sgs-accent);font-size:11px;font-weight:600;line-height:18px;cursor:pointer;white-space:nowrap;transition:background 140ms,border-color 140ms,box-shadow 140ms,transform 140ms}.brand [data-update-hint] svg{width:13px;height:13px;flex:none;stroke-width:1.8}.brand [data-update-hint][hidden]{display:none}.brand [data-update-hint]:hover{border-color:var(--sgs-accent);background:linear-gradient(180deg,color-mix(in srgb,var(--sgs-accent) 30%,var(--sgs-surface)),color-mix(in srgb,var(--sgs-accent) 17%,var(--sgs-bg)));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 28%,transparent),0 3px 7px #0003;transform:translateY(-1px)}.brand [data-update-hint]:active{transform:translateY(0);box-shadow:inset 0 1px 3px #0003}.brand [data-update-hint]:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:3px}
 
 .brand [data-feedback]{display:flex;align-items:center;justify-content:center;gap:4px;flex:none;min-height:28px;margin:0;padding:4px 6px;background:transparent;box-shadow:none;color:var(--sgs-muted);font-size:11px;line-height:18px;white-space:nowrap}
 .brand [data-feedback] svg{width:14px;height:14px}
 .brand [data-feedback]:hover,.brand [data-feedback]:focus-visible{color:var(--sgs-accent);border-color:var(--sgs-accent);background:var(--sgs-surface)}
 .brand small{white-space:nowrap;letter-spacing:.6px}
-.brand{gap:5px;padding-inline:10px}.brand-name small{overflow:hidden;text-overflow:ellipsis}
+.brand{gap:5px;padding-left:10px;padding-right:10px}.brand-name small{overflow:hidden;text-overflow:ellipsis}
 .brand [data-sync-action]{flex:none;min-width:28px;height:28px;margin:0;padding:0 5px;color:var(--sgs-muted);box-shadow:none}
 .brand [data-sync-action][hidden]{display:none}.brand [data-sync-action] svg{width:16px;height:16px}
 .brand [data-sync-action]:hover:not(:disabled){color:var(--sgs-accent);border-color:var(--sgs-accent)}
 .brand [data-sync-action]:disabled{opacity:.5}
 :host([data-tight-brand]) .brand{gap:4px}
 :host([data-tight-brand]) .brand [data-update-hint] span,:host([data-tight-brand]) .brand[data-sync-controls] [data-feedback] span{display:none}
-:host([data-tight-brand]) .brand :is([data-update-hint],[data-collapse]),:host([data-tight-brand]) .brand[data-sync-controls] [data-feedback]{width:28px;padding-inline:0}
+:host([data-tight-brand]) .brand [data-update-hint],:host([data-tight-brand]) .brand [data-collapse],:host([data-tight-brand]) .brand[data-sync-controls] [data-feedback]{width:28px;padding-left:0;padding-right:0}
 :host([data-tight-brand][data-sync-bound]) .brand.has-update .brand-name small{display:none}
 ${FEEDBACK_STYLES}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}@media(max-height:500px){.content{max-height:50vh}}
 `;
-  function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount, canReserveGameViewport, sceneWatch, managedSync, preferenceSync }) {
+  function createShell({ window: win, document: doc, settings, scope, getFeedbackAccount, canReserveGameViewport, sceneWatch, managedSync, preferenceSync, getStartupDiagnostics }) {
     let microUpdate = null, microUpdateBusy = !1, microUpdateError = "";
     async function runMicroUpdate(action) {
       microUpdateBusy = !0, microUpdateError = "", render();
@@ -7310,13 +7995,13 @@ ${FEEDBACK_STYLES}
     if (managedSync && preferenceSync) {
       let refreshSyncButtons = function() {
         let { connected } = managedSync.status();
-        upload.hidden = !connected, host.toggleAttribute("data-sync-bound", connected), upload.disabled = download.disabled = preferenceSync.busy;
+        upload.hidden = !connected, host.toggleAttribute("data-sync-bound", connected), upload.disabled = download2.disabled = preferenceSync.busy;
         let label = connected ? "\u4E0B\u8F7D\u5168\u90E8\u5907\u4EFD" : "\u4E91\u540C\u6B65\u672A\u542F\u7528\uFF0C\u6253\u5F00\u540C\u6B65\u8BBE\u7F6E";
-        download.title !== label && (download.toggleAttribute("data-sync-download", connected), download.toggleAttribute("data-sync-settings", !connected), download.title = label, download.setAttribute("aria-label", label), download.replaceChildren(createIcon(doc, connected ? "arrowDown" : cloudOffIcon)));
+        download2.title !== label && (download2.toggleAttribute("data-sync-download", connected), download2.toggleAttribute("data-sync-settings", !connected), download2.title = label, download2.setAttribute("aria-label", label), download2.replaceChildren(createIcon(doc, connected ? "arrowDown" : cloudOffIcon)));
       };
       feedbackButton.parentElement.dataset.syncControls = "";
-      let upload = doc.createElement("button"), download = doc.createElement("button");
-      upload.type = download.type = "button", upload.dataset.syncAction = download.dataset.syncAction = "", upload.dataset.syncUpload = "", upload.title = "\u4E0A\u4F20\u5230\u4E91\u7AEF", upload.setAttribute("aria-label", upload.title), upload.append(createIcon(doc, "arrowUp")), feedbackButton.before(upload, download);
+      let upload = doc.createElement("button"), download2 = doc.createElement("button");
+      upload.type = download2.type = "button", upload.dataset.syncAction = download2.dataset.syncAction = "", upload.dataset.syncUpload = "", upload.title = "\u4E0A\u4F20\u5230\u4E91\u7AEF", upload.setAttribute("aria-label", upload.title), upload.append(createIcon(doc, "arrowUp")), feedbackButton.before(upload, download2);
       async function transferFromHeader(transfer) {
         try {
           let pending = transfer();
@@ -7329,7 +8014,7 @@ ${FEEDBACK_STYLES}
           refreshSyncButtons();
         }
       }
-      scope.listen(upload, "click", () => transferFromHeader(preferenceSync.upload)), scope.listen(download, "click", () => managedSync.status().connected ? transferFromHeader(() => downloadSyncBackup(win, preferenceSync)) : openSyncSettings()), refreshSyncButtons(), managedSync.ready.then(refreshSyncButtons, () => {
+      scope.listen(upload, "click", () => transferFromHeader(preferenceSync.upload)), scope.listen(download2, "click", () => managedSync.status().connected ? transferFromHeader(() => downloadSyncBackup(win, preferenceSync)) : openSyncSettings()), refreshSyncButtons(), managedSync.ready.then(refreshSyncButtons, () => {
       }), scope.interval(refreshSyncButtons, 500);
     }
     let applyFontSize = () => {
@@ -7450,9 +8135,7 @@ ${FEEDBACK_STYLES}
       let workshop = el("div", void 0, "plugin-body");
       workshop.id = "core-theme-workshop", bindPageFold(":theme-workshop", themeToggle, workshop, "\u4E3B\u9898\u5DE5\u574A", settings.get("themeWorkshopCollapsed", !1));
       let themeGroup = el("section", void 0, "plugin-group appearance-section");
-      themeHeading.append(themeToggle), themeGroup.append(themeHeading, workshop), content.append(themeGroup), cleanups.push(mountThemeWorkshop(workshop, { document: doc, themes: handlers.themes, notify }));
-      let cardWorkshop = el("div", void 0, "plugin-group appearance-section");
-      content.append(cardWorkshop), cleanups.push(mountCardStyleWorkshop(cardWorkshop, { document: doc, cardStyles: handlers.cardStyles, settings, bindFold: bindPageFold }));
+      themeHeading.append(themeToggle), themeGroup.append(themeHeading, workshop), content.append(themeGroup), cleanups.push(mountThemeWorkshop(workshop, { document: doc, themes: handlers.themes, notify })), cleanups.push(mountCardStyleWorkshop(content, { document: doc, cardStyles: handlers.cardStyles, settings, bindFold: bindPageFold }));
     }
     function renderSettings(cleanups) {
       var _a2;
@@ -7839,8 +8522,8 @@ ${FEEDBACK_STYLES}
       card.dataset.coreUpgrade = "", pluginIdentity(card, { name: "\u5DE5\u5177\u7BB1\u6838\u5FC3", version: CORE_VERSION, icon: "toolbox", description: "\u901A\u8FC7\u7528\u6237\u811A\u672C\u5B89\u88C5\u9875\u5347\u7EA7\uFF0C\u5B89\u88C5\u5B8C\u6210\u540E\u5237\u65B0\u6E38\u620F\u3002" });
       let status = state.client ? state.loading ? "\u6B63\u5728\u68C0\u6D4B\u6838\u5FC3\u7248\u672C\u2026" : state.error ? "\u6838\u5FC3\u7248\u672C\u68C0\u6D4B\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5" : latest ? latest.order > 0 ? "\u53D1\u73B0\u6838\u5FC3\u66F4\u65B0\uFF1A" + CORE_VERSION + " \u2192 " + latest.version : latest.order < 0 ? "\u5F53\u524D\u6838\u5FC3\u9AD8\u4E8E\u5E02\u573A\u6B63\u5F0F\u7248 " + latest.version : "\u6838\u5FC3\u5DF2\u662F\u5E02\u573A\u6700\u65B0\u6B63\u5F0F\u7248" : "\u5C1A\u672A\u83B7\u53D6\u6838\u5FC3\u6B63\u5F0F\u7248\u4FE1\u606F" : "\u79BB\u7EBF \xB7 \u672A\u68C0\u6D4B\u6838\u5FC3\u7248\u672C";
       card.append(el("div", status, "notice"));
-      let link = el("a", (latest == null ? void 0 : latest.order) > 0 ? "\u8DF3\u8F6C\u5347\u7EA7\u81F3 " + latest.version : "\u67E5\u770B\u6838\u5FC3\u5B89\u88C5\u9875");
-      link.href = new URL("../lite/toolbox.user.js", (((_a2 = state.client) == null ? void 0 : _a2.baseUrl) || OSS_MARKET_URL) + "/").href, link.target = "_blank", link.rel = "noopener noreferrer", link.style.cssText = "display:inline-flex;align-items:center;gap:6px;color:var(--sgs-accent);padding:6px 0;";
+      let link = el("a", (latest == null ? void 0 : latest.order) > 0 ? "\u8DF3\u8F6C\u5347\u7EA7\u81F3 " + latest.version : "\u67E5\u770B\u6838\u5FC3\u5B89\u88C5\u9875"), marketUrl = (_a2 = state.client) == null ? void 0 : _a2.baseUrl, installMarketUrl = !marketUrl || marketUrl === DOWNLOAD_MARKET_URL ? GITHUB_MARKET_URL : marketUrl;
+      link.href = new URL("../lite/toolbox.user.js", installMarketUrl + "/").href, link.target = "_blank", link.rel = "noopener noreferrer", link.style.cssText = "display:inline-flex;align-items:center;gap:6px;color:var(--sgs-accent);padding:6px 0;";
       let actions = el("div", void 0, "core-upgrade-actions");
       if (link.addEventListener("click", () => {
         pendingCoreUpgrade = (latest == null ? void 0 : latest.order) > 0 ? latest.version : CORE_VERSION, settings.set("pendingCoreUpgrade", pendingCoreUpgrade), render(), notify("\u5DF2\u6253\u5F00\u6838\u5FC3\u5B89\u88C5\u9875\uFF1B\u5B8C\u6210\u5B89\u88C5\u540E\uFF0C\u8BF7\u8FD4\u56DE\u6B64\u9875\u70B9\u51FB\u201C\u5237\u65B0\u751F\u6548\u201D\u3002");
@@ -7889,8 +8572,8 @@ ${FEEDBACK_STYLES}
       }
       let pack = el("section", void 0, "card");
       pack.append(el("strong", "\u5B98\u65B9\u63D2\u4EF6\u5957\u88C5"), el("div", `\u4E00\u952E\u8865\u9F50 ${officialPluginIds.length} \u4E2A\u5B98\u65B9\u63D2\u4EF6\uFF1B\u4FDD\u7559\u5DF2\u6709\u7248\u672C\u3001\u8BBE\u7F6E\u548C\u505C\u7528\u72B6\u6001\u3002`, "notice"));
-      let complete = button(officialBusy ? "\u6B63\u5728\u8865\u9F50\u2026" : "\u4E00\u952E\u8865\u9F50\u5B98\u65B9\u63D2\u4EF6", completeOfficialPlugins);
-      if (complete.disabled = bulkBusy || officialBusy || !!installing.size || !currentMarketState().client, pack.append(complete), officialStatus) {
+      let packActions = el("div", void 0, "actions"), complete = button(officialBusy ? "\u6B63\u5728\u8865\u9F50\u2026" : "\u4E00\u952E\u8865\u9F50\u5B98\u65B9\u63D2\u4EF6", completeOfficialPlugins);
+      if (complete.disabled = bulkBusy || officialBusy || !!installing.size || !currentMarketState().client, packActions.append(complete), pack.append(packActions), officialStatus) {
         let status = el("div", officialStatus, "notice");
         status.setAttribute("role", "status"), pack.append(status);
       }
@@ -7994,7 +8677,7 @@ ${FEEDBACK_STYLES}
         return;
       }
       content.classList.add("has-plugin-panels");
-      let groups = /* @__PURE__ */ new Map(), tabHosts = /* @__PURE__ */ new Map();
+      let groups2 = /* @__PURE__ */ new Map(), tabHosts = /* @__PURE__ */ new Map();
       for (let panel of available)
         panel.groupTabs && !tabHosts.has(panel.pluginId) && tabHosts.set(panel.pluginId, panel);
       let appendPanel = (panel, body) => {
@@ -8018,7 +8701,7 @@ ${FEEDBACK_STYLES}
       };
       for (let panel of available) {
         if (panel.groupWith) continue;
-        let id = panel.pluginId || panel.id, body = groups.get(id);
+        let id = panel.pluginId || panel.id, body = groups2.get(id);
         if (!body) {
           let title = panel.pluginName || panel.title || id, group = el("section", void 0, "plugin-group");
           group.dataset.pluginGroup = id;
@@ -8030,13 +8713,13 @@ ${FEEDBACK_STYLES}
             toggle.dataset.marketPlaceholder = "", toggle.append(el("span", `\uFF08${state}\uFF09`, `plugin-placeholder-state${state === "\u672A\u5B89\u88C5" ? "" : " error"}`), createIcon(doc, "chevron", "plugin-chevron")), toggle.setAttribute("aria-label", `${title}\uFF08${state}\uFF09\uFF0C\u524D\u5F80\u63D2\u4EF6\u5E02\u573A`), toggle.title = "\u524D\u5F80\u63D2\u4EF6\u5E02\u573A", toggle.onclick = () => openMarketForPlugin(id), heading.append(toggle), group.append(heading), content.append(group);
             continue;
           }
-          toggle.append(createIcon(doc, "chevron", "plugin-chevron")), body = el("div", void 0, "plugin-body"), body.id = `plugin-body-${groups.size}`, bindPageFold(id, toggle, body, title, settings.get(`pluginCollapsed:${id}`, !1), { doubleClick: !0 }), heading.append(toggle), group.append(heading, body), content.append(group), groups.set(id, body);
+          toggle.append(createIcon(doc, "chevron", "plugin-chevron")), body = el("div", void 0, "plugin-body"), body.id = `plugin-body-${groups2.size}`, bindPageFold(id, toggle, body, title, settings.get(`pluginCollapsed:${id}`, !1), { doubleClick: !0 }), heading.append(toggle), group.append(heading, body), content.append(group), groups2.set(id, body);
         }
         appendPanel(panel, body);
       }
       for (let panel of available) {
         if (panel.groupTab && tabHosts.has(panel.groupWith)) continue;
-        let body = panel.groupWith && groups.get(panel.groupWith);
+        let body = panel.groupWith && groups2.get(panel.groupWith);
         body && appendPanel(panel, body);
       }
       restoreScroll();
@@ -8245,8 +8928,9 @@ ${FEEDBACK_STYLES}
         statusText.textContent !== text3 && (statusText.textContent = text3);
       },
       applyTheme(tokens) {
-        host.dataset.themeScheme = tokens.scheme === "light" ? "light" : "dark";
-        for (let [key, value] of Object.entries(tokens)) host.style.setProperty("--sgs-" + key, value);
+        host.dataset.themeScheme = tokens.scheme === "light" ? "light" : "dark", host.toggleAttribute("data-theme-textured", OPTIONAL_THEME_TOKENS.some((key) => !!tokens[key]));
+        for (let key of OPTIONAL_THEME_TOKENS) tokens[key] || host.style.removeProperty("--sgs-" + key);
+        for (let [key, value] of Object.entries(tokens)) typeof value == "string" && host.style.setProperty("--sgs-" + key, value);
       },
       registerPanel(spec) {
         if (panels.has(spec.id)) throw new Error("\u9762\u677F\u91CD\u590D\u6CE8\u518C\uFF1A" + spec.id);
@@ -8289,17 +8973,17 @@ ${FEEDBACK_STYLES}
     }
   }
   function observedLedgerEvents(events) {
-    let groups = /* @__PURE__ */ new Map(), overlaps = /* @__PURE__ */ new Map(), rows = [];
+    let groups2 = /* @__PURE__ */ new Map(), overlaps = /* @__PURE__ */ new Map(), rows = [];
     for (let event of events) {
       if (event.kind === "goods" && !event.items.length) continue;
       let key = event.kind === "goods" ? amounts(event) : `prayer:${event.prayer.secId}:${event.prayer.times}`, row = { ...event, review: event.review === !0 };
-      if (groups.has(key) || groups.set(key, []), groups.get(key).push(row), event.source === "DbsCcUserGoodshintNtf" || INSTANCE_SOURCES.has(event.source)) for (let item of event.items) {
+      if (groups2.has(key) || groups2.set(key, []), groups2.get(key).push(row), event.source === "DbsCcUserGoodshintNtf" || INSTANCE_SOURCES.has(event.source)) for (let item of event.items) {
         let key2 = itemKey(item);
         overlaps.has(key2) || overlaps.set(key2, []), overlaps.get(key2).push(row);
       }
       rows.push(row);
     }
-    for (let group of groups.values()) markNearby(group, 2e3, !1);
+    for (let group of groups2.values()) markNearby(group, 2e3, !1);
     for (let group of overlaps.values()) markNearby(group, 8e3, !0);
     return rows.sort((a, b) => b.at - a.at || a.id.localeCompare(b.id));
   }
@@ -9515,7 +10199,7 @@ ${FEEDBACK_STYLES}
     let offset = 7, take = (length) => {
       let value = bytes2.slice(offset, offset + length);
       return offset += length, value;
-    }, token = invite ? base64url(take(32)) : "", signer = base64url(take(65)), ipv4 = hasIpv4 ? [...take(4)].join(".") : "", ipv6 = hasIpv6 ? take(16).reduce((groups, byte, index, ip) => index % 2 ? [...groups, (ip[index - 1] << 8 | byte).toString(16)] : groups, []).join(":") : "", domain = hasDomain ? decodeAscii.decode(take(take(1)[0])) : "";
+    }, token = invite ? base64url(take(32)) : "", signer = base64url(take(65)), ipv4 = hasIpv4 ? [...take(4)].join(".") : "", ipv6 = hasIpv6 ? take(16).reduce((groups2, byte, index, ip) => index % 2 ? [...groups2, (ip[index - 1] << 8 | byte).toString(16)] : groups2, []).join(":") : "", domain = hasDomain ? decodeAscii.decode(take(take(1)[0])) : "";
     if (offset !== bytes2.length || hasDomain && !domainFormat.test(domain)) throw new Error("invalid_endpoint");
     return { tls: !!(flags & 1), local: !!(flags & 2), port, expiry, token, signer, ipv4, ipv6, domain };
   }
@@ -10471,11 +11155,11 @@ ${FEEDBACK_STYLES}
     refreshReentryEnabled: !0
   };
   function preferenceStorage(settings, account) {
-    let owner = account.padStart(10, "0"), groups = {
+    let owner = account.padStart(10, "0"), groups2 = {
       generalPools: "general-pools:" + generalPoolKey(account),
       friends: "social:friends:" + owner,
       friendLamps: "social:lamps:" + owner
-    }, pluginKeys = [...PLUGIN_SYNC_KEYS, ...ACCOUNT_SYNC_KEYS], localKey = (key) => syncPluginStorageKey(key, account), keys = [...TOOLBOX_SYNC_KEYS, ...Object.values(groups), ...pluginKeys.map(localKey)], watched = new Set(keys.map((key) => settings.prefix + key)), thresholdPrefix = settings.prefix + LEDGER_THRESHOLD_PREFIX + account + ":";
+    }, pluginKeys = [...PLUGIN_SYNC_KEYS, ...ACCOUNT_SYNC_KEYS], localKey = (key) => syncPluginStorageKey(key, account), keys = [...TOOLBOX_SYNC_KEYS, ...Object.values(groups2), ...pluginKeys.map(localKey)], watched = new Set(keys.map((key) => settings.prefix + key)), thresholdPrefix = settings.prefix + LEDGER_THRESHOLD_PREFIX + account + ":";
     function thresholds() {
       let all = [];
       for (let index = 0; index < settings.storage.length; index++) {
@@ -10491,7 +11175,7 @@ ${FEEDBACK_STYLES}
       for (let key of ["cardStyle", "cardFaceStyle", "cardBackStyle"])
         (_b2 = (_a2 = toolbox[key]) == null ? void 0 : _a2.startsWith) != null && _b2.call(_a2, "local-") && delete toolbox[key];
       let values = { toolbox };
-      for (let [group, key] of Object.entries(groups)) {
+      for (let [group, key] of Object.entries(groups2)) {
         let value = settings.get(key);
         value !== void 0 && (values[group] = value);
       }
@@ -10506,7 +11190,7 @@ ${FEEDBACK_STYLES}
     }
     function restore(values, baseline) {
       let writes = Object.entries(values.toolbox ?? {});
-      for (let [group, key] of Object.entries(groups))
+      for (let [group, key] of Object.entries(groups2))
         values[group] !== void 0 && writes.push([key, values[group]]);
       for (let [key, value] of Object.entries(values.pluginSettings ?? {})) {
         let storedKey = localKey(key);
@@ -10525,7 +11209,7 @@ ${FEEDBACK_STYLES}
       }
       let changedKeys = new Set(changed.map(([key]) => key));
       return [
-        ...Object.entries(groups).filter(([, key]) => changedKeys.has(key)).map(([name]) => name),
+        ...Object.entries(groups2).filter(([, key]) => changedKeys.has(key)).map(([name]) => name),
         ...TOOLBOX_SYNC_KEYS.some((key) => changedKeys.has(key)) ? ["toolbox"] : [],
         ...Object.keys(values.pluginSettings ?? {}).some((key) => changedKeys.has(localKey(key))) ? ["pluginSettings"] : []
       ];
@@ -10626,7 +11310,7 @@ ${FEEDBACK_STYLES}
       }
       return state.nextDownload = now() + 1e3, "";
     }
-    async function download(state, confirm) {
+    async function download2(state, confirm) {
       if (!state) throw new Error("\u8BF7\u5148\u7ED1\u5B9A\u540C\u6B65\u670D\u52A1\u5668");
       if (state.job) throw new Error("\u540C\u6B65\u6B63\u5728\u8FDB\u884C\uFF0C\u8BF7\u7A0D\u7B49");
       return confirm && !confirm() ? "" : run(state, async (key, signal) => {
@@ -10642,17 +11326,17 @@ ${FEEDBACK_STYLES}
       return run(state, async (key, signal) => {
         var _a2, _b2;
         state.nextUpload = now() + INTERVAL;
-        let local = state.storage.collect(), groups = Object.keys(local).filter((group) => force || JSON.stringify(local[group]) !== JSON.stringify(state.acknowledged[group]));
-        if (!groups.length) return "";
-        let values = Object.fromEntries(groups.map((group) => [group, local[group]]));
+        let local = state.storage.collect(), groups2 = Object.keys(local).filter((group) => force || JSON.stringify(local[group]) !== JSON.stringify(state.acknowledged[group]));
+        if (!groups2.length) return "";
+        let values = Object.fromEntries(groups2.map((group) => [group, local[group]]));
         for (let group of ["toolbox", "pluginSettings"]) !force && values[group] && (values[group] = Object.fromEntries(Object.entries(values[group]).filter(([key2, value]) => {
           var _a3;
           return JSON.stringify(value) !== JSON.stringify((_a3 = state.acknowledged[group]) == null ? void 0 : _a3[key2]);
         })));
         let preservePins = !force && JSON.stringify((_a2 = local.friends) == null ? void 0 : _a2.pins) === JSON.stringify((_b2 = state.acknowledged.friends) == null ? void 0 : _b2.pins);
         try {
-          await sync.exchange(state.account, PREFERENCES_SYNC_PATH, { groups, values, uploadOnly: !0, patch: !force, preservePins }, key, signal), ensureCurrent(state);
-          let acknowledged = { ...state.acknowledged, ...Object.fromEntries(groups.map((group) => [group, local[group]])) };
+          await sync.exchange(state.account, PREFERENCES_SYNC_PATH, { groups: groups2, values, uploadOnly: !0, patch: !force, preservePins }, key, signal), ensureCurrent(state);
+          let acknowledged = { ...state.acknowledged, ...Object.fromEntries(groups2.map((group) => [group, local[group]])) };
           return state.cursor ? await save(state, state.history, state.cursor, acknowledged) : state.acknowledged = acknowledged, state.error = "", "\u5DF2\u4E0A\u4F20\u5230\u4E91\u7AEF";
         } catch (error) {
           throw refresh() === state && (state.error = error.message), error;
@@ -10661,7 +11345,7 @@ ${FEEDBACK_STYLES}
     }
     function tick() {
       let state = refresh();
-      !state || state.job || (state.nextDownload !== null && state.nextDownload <= now() ? download(state).catch(() => {
+      !state || state.job || (state.nextDownload !== null && state.nextDownload <= now() ? download2(state).catch(() => {
       }) : state.ready && state.nextUpload <= now() && upload(state, !1).catch(() => {
       }));
     }
@@ -10687,7 +11371,7 @@ ${FEEDBACK_STYLES}
         state && (state.cursor || state.job || !state.hydrated) && requestPull(state), tick();
       },
       upload: () => upload(refresh(), !0),
-      restore: (confirm) => download(refresh(), confirm),
+      restore: (confirm) => download2(refresh(), confirm),
       canUpload(id) {
         let state = refresh();
         return !!(state != null && state.ready && state.account === id);
@@ -10778,11 +11462,14 @@ ${FEEDBACK_STYLES}
   }
   async function initialize(win, api, mobileSkinPort) {
     var _a2, _b2, _c;
-    let scope = api.scope;
+    let scope = api.scope, startup = null;
     installMicroCompatibility(win, scope);
     let onlyPlugin = null, settings = new Settings(win.localStorage, onlyPlugin ? `sgstoolbox:demo:${onlyPlugin}:` : "sgstoolbox:"), journal = new SessionJournal(), diagnostics = createCardDiagnostics({ journal, scope, version: CORE_VERSION });
     Object.assign(api, { version: CORE_VERSION, journal, diagnostics });
-    let game = createGameAdapter(win, scope, mobileSkinPort, { watchScene: !1 }), sceneWatch = createSceneWatch({ game, scope }), getAccount = () => readNativeAccount({ game }), syncKey = (id) => syncGameAccountKey(win, id), managedSync = !win.__SGS_TOOLBOX_DEMO__ || win.__SGS_TOOLBOX_DEMO__.managedSync === !0 ? createManagedSync(win, scope, getAccount, syncKey, createPrivateHttpTransport(win, mobileSkinPort), {
+    let bridge, game = createGameAdapter(win, scope, mobileSkinPort, {
+      watchScene: !1,
+      readLoginAccount: (proxy) => bridge == null ? void 0 : bridge.getLoginAccount(proxy)
+    }), sceneWatch = createSceneWatch({ game, scope }), getAccount = () => readNativeAccount({ game }), syncKey = (id) => syncGameAccountKey(win, id), managedSync = !win.__SGS_TOOLBOX_DEMO__ || win.__SGS_TOOLBOX_DEMO__.managedSync === !0 ? createManagedSync(win, scope, getAccount, syncKey, createPrivateHttpTransport(win, mobileSkinPort), {
       testEligible: (id) => canUseSyncTest(game, id),
       loadOfficerConfig: () => game.loadConfigData("h5_officer")
     }) : null;
@@ -10796,16 +11483,15 @@ ${FEEDBACK_STYLES}
       gameAccountKey: syncKey,
       scope,
       cache: openSyncBackupCache(win, scope),
-      onRestored: (groups) => win.dispatchEvent(new win.CustomEvent(PREFERENCES_RESTORED, { detail: groups })),
+      onRestored: (groups2) => win.dispatchEvent(new win.CustomEvent(PREFERENCES_RESTORED, { detail: groups2 })),
       onDownloaded: () => win.dispatchEvent(new win.CustomEvent(BACKUP_RESTORED)),
       onUpdated: (kinds) => win.dispatchEvent(new win.CustomEvent(SYNC_HISTORY_UPDATED, { detail: kinds }))
     });
-    preferenceSync && (scope.listen(win, "online", preferenceSync.reconnect), createPluginNative({ game, scope }).observe({
-      ClientLoginRep: (packet2) => {
-        let id = Number(field(packet2, "userID") ?? field(packet2, "UserID"));
-        return Number.isSafeInteger(id) && id > 0 ? String(id) : null;
-      }
-    }, (_, account) => preferenceSync.login(account)));
+    preferenceSync && (scope.listen(win, "online", preferenceSync.reconnect), scope.add(journal.subscribe(({ type, payload }) => {
+      if (type !== "ClientLoginRep") return;
+      let id = Number(payload == null ? void 0 : payload.userID);
+      Number.isSafeInteger(id) && id > 0 && preferenceSync.login(String(id));
+    })));
     let shell = createShell({
       window: win,
       document: win.document,
@@ -10815,14 +11501,25 @@ ${FEEDBACK_STYLES}
       getFeedbackAccount: getAccount,
       managedSync,
       preferenceSync,
+      getStartupDiagnostics: startup == null ? void 0 : startup.snapshot,
       canReserveGameViewport: () => !0
-    }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens)), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope, sceneWatch }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope, sceneWatch });
+    }), themes = new ThemeRegistry(settings, (tokens) => shell.applyTheme(tokens), THEMES), cardStyles = new CardStyleRegistry({ window: win, document: win.document, game, settings, scope, sceneWatch }), backgrounds = new BackgroundRegistry({ window: win, game, settings, scope, sceneWatch });
     scope.add(game.onSceneChange((scene) => shell.setGameView(gameViewForScene(scene)))), shell.setGameView(gameViewForScene(game.getScene()));
-    let screenshot = createScreenshotController({ window: win, game, settings, scope, notify: shell.notify }), bridge = installMessageBridge(win, journal, scope, (message) => shell.setStatus(message), {
+    let screenshot = createScreenshotController({ window: win, game, settings, scope, notify: shell.notify });
+    if (bridge = installMessageBridge(win, journal, scope, (message) => shell.setStatus(message), {
       getTargets: game.getMessageTargets,
-      observeType: diagnostics.observeType,
-      sceneWatch
-    }), compat, mounted = !1, legacyWarned = !1, marketConnection = createMarketConnection(settings, win.fetch.bind(win), shell.notify);
+      sceneWatch,
+      observeStartupDispatch: startup == null ? void 0 : startup.observeDispatch,
+      observeType: startup ? (type, source, observed) => {
+        startup.observeMessage(type, source), diagnostics.observeType(type, source, observed);
+      } : diagnostics.observeType
+    }), startup) {
+      let stop = scope.add(sceneWatch.watch(() => {
+        var _a3;
+        startup.observeGame(!!((_a3 = win.Laya) != null && _a3.stage), game.getRenderedScene(), bridge.getStatus().targets.includes("ServerProxy")) && stop();
+      }, 500, !0));
+    }
+    let compat, mounted = !1, legacyWarned = !1, marketConnection = createMarketConnection(settings, win.fetch.bind(win), shell.notify);
     marketConnection.start();
     let snapshots, manager2 = new PluginManager({
       journal,
@@ -10854,8 +11551,6 @@ ${FEEDBACK_STYLES}
       effects: REPLACED_EFFECT_PACKAGES,
       skins: REPLACED_SKIN_PACKAGES,
       shanhetu: REPLACED_SHANHETU_PACKAGES,
-      "shanhetu-beta": REPLACED_SHANHETU_BETA_PACKAGES,
-      themes: REPLACED_THEME_PACKAGES,
       baisheng: REPLACED_BAISHENG_PACKAGES,
       appearances: REPLACED_APPEARANCE_PACKAGES
     };
@@ -10873,8 +11568,8 @@ ${FEEDBACK_STYLES}
       screenshot: screenshot.capture,
       exportDiagnostics: async () => (await bridge.flush(), diagnostics.serialize({ bridge: bridge.getStatus() }))
     }, { deferStartupMarket: !0 }), shell.setStatusVisible(!1), scope.add(journal.subscribe((event) => {
-      var _a3, _b3;
-      event.type === "ClientLoginRep" && (_a3 = event.payload) != null && _a3.userID && (preferenceSync == null || preferenceSync.login(String(Number(event.payload.userID)))), event.type === "toolbox:snapshot" && typeof ((_b3 = event.payload) == null ? void 0 : _b3.inGame) == "boolean" ? shell.setStatusVisible(event.payload.inGame) : event.type === "MsgGamePlayCardNtf" ? shell.setStatusVisible(!0) : ["MsgGameOver", "ClientLeavetableRep"].includes(event.type) && shell.setStatusVisible(!1);
+      var _a3;
+      event.type === "toolbox:snapshot" && typeof ((_a3 = event.payload) == null ? void 0 : _a3.inGame) == "boolean" ? shell.setStatusVisible(event.payload.inGame) : event.type === "MsgGamePlayCardNtf" ? shell.setStatusVisible(!0) : ["MsgGameOver", "ClientLeavetableRep"].includes(event.type) && shell.setStatusVisible(!1);
     })), snapshots = attachSessionSnapshots({ journal, game, scope, settled: bridge.flush }), scope.add(sceneWatch.watch(() => {
       var _a3;
       shell.setRemainingSlash(game.getRemainingSlash());
@@ -10882,7 +11577,13 @@ ${FEEDBACK_STYLES}
       shell.host.style.display !== display && (shell.host.style.display = display), ready && !mounted && (mounted = !0, snapshots.request());
       let capture = bridge.getStatus();
       shell.setStatus(bridge.error || (ready ? capture.received ? `\u5DF2\u6536 ${capture.received} \u6761\u6D88\u606F \xB7 ${journal.incomplete ? "\u7F3A\u5C11\u5F00\u5C40\u8BB0\u5F55" : "\u672C\u5C40\u8BB0\u5F55\u4E2D"}` : capture.targets.length ? "\u6D88\u606F\u5165\u53E3\u5DF2\u8FDE\u63A5 \xB7 \u7B49\u5F85\u6536\u5305" : "\u672A\u63A5\u5165\u6E38\u620F\u6D88\u606F \xB7 \u4EC5\u539F\u751F\u663E\u793A\u53EF\u7528" : "\u7B49\u5F85\u6E38\u620F\u8FD0\u884C\u65F6"));
-    }, 500)), !win.__SGS_TOOLBOX_DEMO__ && !((_c = win.Laya) != null && _c.stage) && (shell.host.style.display = "none"), await manager2.init(), scope.closed ? null : (scope.timeout(shell.startMarketUpdates, 1500), Object.assign(api, { manager: manager2, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager2.storageError ? shell.notify("\u65E0\u6CD5\u8BFB\u53D6\u63D2\u4EF6\u5B58\u50A8\uFF0C\u8BF7\u5237\u65B0\u6E38\u620F\u91CD\u8BD5\u3002") : manager2.loadIssues.size ? shell.notify(`${manager2.loadIssues.size} \u4E2A\u63D2\u4EF6\u52A0\u8F7D\u5F02\u5E38\uFF0C\u5DF2\u4FDD\u7559\u5B89\u88C5\u8BB0\u5F55\u3002`) : manager2.errors.length && shell.notify(manager2.errors.join("\uFF1B")), api);
+    }, 500)), !win.__SGS_TOOLBOX_DEMO__ && !((_c = win.Laya) != null && _c.stage) && (shell.host.style.display = "none"), await manager2.init(async (records, builtins, store) => {
+      let migrations = [reconcileConsolidatedPlugins(records, builtins, store, settings, consolidationDigests)], errors = (await Promise.allSettled(migrations)).filter((result) => result.status === "rejected").map((result) => {
+        var _a3;
+        return ((_a3 = result.reason) == null ? void 0 : _a3.message) || String(result.reason);
+      });
+      if (errors.length) throw new Error(errors.join("\uFF1B"));
+    }), scope.closed ? null : (scope.timeout(shell.startMarketUpdates, 1500), Object.assign(api, { manager: manager2, game, themes, cardStyles, backgrounds, compat, shell, settings, bridge, market: marketConnection.get }), win.__SGS_TOOLBOX_DEMO__ && snapshots.request(), manager2.storageError ? shell.notify("\u65E0\u6CD5\u8BFB\u53D6\u63D2\u4EF6\u5B58\u50A8\uFF0C\u8BF7\u5237\u65B0\u6E38\u620F\u91CD\u8BD5\u3002") : manager2.loadIssues.size ? shell.notify(`${manager2.loadIssues.size} \u4E2A\u63D2\u4EF6\u52A0\u8F7D\u5F02\u5E38\uFF0C\u5DF2\u4FDD\u7559\u5B89\u88C5\u8BB0\u5F55\u3002`) : manager2.errors.length && shell.notify(manager2.errors.join("\uFF1B")), api);
   }
   boot(window, typeof sgsToolboxMobileSkinPort > "u" ? void 0 : sgsToolboxMobileSkinPort).catch((error) => {
     console.error("[\u4E09\u56FD\u6740OL\u5DE5\u5177\u7BB1]", error);

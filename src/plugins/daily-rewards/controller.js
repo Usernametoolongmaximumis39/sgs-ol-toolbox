@@ -346,7 +346,7 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
     (async () => {
       const noted = new Set(), skipped = new Set();
       let count = 0, unresolved = 0, rejected = 0, lastFailure = '';
-      let dailyFreeGiftCount, giftCheckedAt;
+      let dailyFreeGiftCount, giftCheckedAt, treePrerequisiteMet;
       const newPermanentUnresolved = new Set();
       const previousRecoveries = new Set(Object.entries(ledger.items)
         .filter(([id, entry]) => id.startsWith('mail-legacy:') && entry?.status === 'superseded')
@@ -378,7 +378,9 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
           }
         }
         for (const [actionKey, entry] of Object.entries(ledger.items)) {
-          if (uncertainStatuses.has(entry?.status) && safely(() => adapter.confirmedAttempt?.(actionKey, entry)) === true) {
+          if (!uncertainStatuses.has(entry?.status)) continue;
+          if (safely(() => adapter.confirmedAttempt?.(actionKey, entry)) === true ||
+              (actionKey.startsWith('welfare:tree:') && enabled('welfare') && safely(() => treePrerequisiteMet?.(actionKey)) === true)) {
             ledger.items[actionKey] = { ...entry, status: 'confirmed', at: now() }; reconciled = true;
           }
         }
@@ -419,6 +421,7 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
           giftCheckedAt = now();
           const prepared = await adapter.prepare?.(selection(), { signal, valid });
           dailyFreeGiftCount = prepared?.dailyFreeGiftCount;
+          treePrerequisiteMet = prepared?.treePrerequisiteMet;
           if (prepared?.incomplete) log('system', '部分奖励配置加载失败，仍检查已就绪的领取项目');
         }
       }
@@ -502,7 +505,8 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
         count++; state.status = action.category === 'codes'
           ? `正在兑换 ${++codeAttempted}/${codeTotal}：${action.code}`
           : `正在领取：${action.label}`; emit();
-        const result = await awaitClaim(action, { signal, valid: () => valid() && (isDailyGift ? enabled('welfare') : action.category === 'codes' || ordinaryRewards()), timeout, poll });
+        const needsWelfare = isDailyGift || action.key.startsWith('welfare:tree:');
+        const result = await awaitClaim(action, { signal, valid: () => valid() && (needsWelfare ? enabled('welfare') : action.category === 'codes' || ordinaryRewards()), timeout, poll });
         if (result.status === 'not-sent') {
           if (prior) records[action.key] = prior;
           else delete records[action.key];

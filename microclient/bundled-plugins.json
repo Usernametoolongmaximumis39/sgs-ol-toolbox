@@ -1,6 +1,6 @@
 [
-  "social", "player-info", "native-cards", "yjcm-cards", "dafeiyu-cards",
-  "backgrounds", "gold-cards", "shanhetu", "cards", "play-assist",
-  "daily-rewards", "seckill", "gaizhu", "effects", "skins", "stargazing", "wish-progress",
-  "themes", "baisheng", "appearances", "ledger", "recharge"
+  "social", "player-info", "card-styles-extra",
+  "backgrounds", "shanhetu", "cards", "play-assist",
+  "daily-rewards", "seckill", "gaizhu", "effects", "skins", "stargazing",
+  "baisheng", "appearances", "ledger", "recharge"
 ]

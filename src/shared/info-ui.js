@@ -8,8 +8,8 @@ export const INFO_STYLES = `
 .sgs-info button:hover{color:var(--sgs-accent);border-color:var(--sgs-accent)}.sgs-info button:focus-visible,.sgs-info summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
 .sgs-info button:disabled{opacity:.45;cursor:not-allowed}.sgs-info .primary{color:var(--sgs-accent)}.sgs-info .danger{color:var(--sgs-danger)}
 .sgs-info .sgs-segments{margin:8px 0}.sgs-info .sgs-segments>button{border:0;background:transparent;padding:4px;font-size:11px}.sgs-info .sgs-segments>button[aria-pressed=true]{background:color-mix(in srgb,var(--sgs-accent) 12%,transparent)}
-.sgs-info input.sgs-input{width:100%}.sgs-info .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sgs-info .filters label{color:var(--sgs-muted);font-size:11px;min-width:0}
-.sgs-info .filters label:has(input[type=datetime-local]){grid-column:1/-1}
+.sgs-info input.sgs-input{width:100%}.sgs-info input[type=number]{appearance:textfield;-moz-appearance:textfield}.sgs-info input[type=number]::-webkit-inner-spin-button,.sgs-info input[type=number]::-webkit-outer-spin-button{appearance:none;margin:0}.sgs-info .filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sgs-info .filters label{color:var(--sgs-muted);font-size:11px;min-width:0}
+.sgs-info .filters label.filter-full{grid-column:1/-1}.sgs-info .filters label:has(input[type=datetime-local]){grid-column:1/-1}
 .sgs-info .stat{display:flex;align-items:baseline;gap:6px;margin:10px 0;font-variant-numeric:tabular-nums}.sgs-info .stat strong{font-size:25px;font-weight:600;color:var(--sgs-accent)}
 .sgs-info .list{max-height:430px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}.sgs-info .row{padding:10px 0;border-top:1px solid color-mix(in srgb,var(--sgs-border) 60%,transparent)}
 .sgs-info .row-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px}.sgs-info .name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sgs-info .number{font-variant-numeric:tabular-nums;flex:none;font-size:11px}

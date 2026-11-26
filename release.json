@@ -1,15 +1,17 @@
 {
-  "version": "0.6.294",
+  "version": "0.6.304",
   "editions": {
     "full": {
-      "bytes": 2868837,
-      "plugins": 22,
+      "bytes": 2983733,
+      "plugins": 17,
+      "sha256": "3272daf8aed38a3df80ac24c2d698745813f9bdc6ea16fccd4b4aa05ad2731c6",
       "updatesTo": "full",
       "toolboxUpdatesTo": "lite"
     },
     "lite": {
-      "bytes": 637313,
+      "bytes": 656728,
       "plugins": 0,
+      "sha256": "c9de4ee6b22854a52ea611491214734b50c5a666dd2228a3146d88508bd505e1",
       "updatesTo": "lite",
       "toolboxUpdatesTo": "lite"
     }
@@ -17,131 +19,105 @@
   "plugins": [
     {
       "id": "social",
-      "version": "0.1.25",
-      "sha256": "2aab2646a93903fe301aa474a5d00fe8f452638852dc18d0659cf47a64f88dc5"
+      "version": "0.1.34",
+      "sha256": "711e15b65e9c12bb75d08d61cf285f0d55ec950de25365b09df7f2fc6f97f524"
     },
     {
       "id": "player-info",
-      "version": "0.4.28",
-      "sha256": "0fbb7a1bf9f3447cd2c07ee21a84285c588c58a07fd8bf08b589f6e71b3bba68"
+      "version": "0.4.30",
+      "sha256": "f32ab05227d46447017ee7ba214812edc0d00ae7114ef0ac9cac1843d216a599"
     },
     {
-      "id": "native-cards",
-      "version": "0.1.0",
-      "sha256": "22950fcd5b71918f6f7c35166726c51aaa016581bff5047e29f0b19454732592"
-    },
-    {
-      "id": "yjcm-cards",
-      "version": "0.1.3",
-      "sha256": "91fc886373bd9991a8582ac805dc20548b1c2d549f4e969016d551469cd63382"
-    },
-    {
-      "id": "dafeiyu-cards",
-      "version": "0.4.7",
-      "sha256": "8ad857e49ca44304963b9e8918f60e9c0569b1793da05e90073d360b22a1ab9f"
+      "id": "card-styles-extra",
+      "version": "0.1.2",
+      "sha256": "25b3592d5c69230031813394696c9f6c9c8668d32d9d6244aeac47497bcd7734"
     },
     {
       "id": "backgrounds",
-      "version": "0.2.13",
-      "sha256": "060d7c246cb327c0088c629c9d00276fa9e445e6781aaf978d10173e5da38e9b"
-    },
-    {
-      "id": "gold-cards",
-      "version": "0.1.0",
-      "sha256": "223cb665ae968062d24d4cf2f4757f8508e47f20c7e162da08eabf9e3dc5ecba"
+      "version": "0.2.16",
+      "sha256": "0e8b2a3329689d69d46d84301de95c86408435dbcae6b8194cad624d662bdd84"
     },
     {
       "id": "shanhetu",
-      "version": "0.2.52",
-      "sha256": "082236c181b0482dd6bcbcbd7c7e2c9adbe3fbf00a01c4575c14e22aa53a6cad"
-    },
-    {
-      "id": "shanhetu-beta",
-      "version": "0.1.16",
-      "sha256": "d9aa77f6bb90d372a29fe1d98c20ceda3c46de311bbce805ead175f10c239715"
+      "version": "0.2.56",
+      "sha256": "2b48ec3b1fe0bc092318b4c0bcdc2665bf5c9ff6ca8c4c1361f766e2d9ed72df"
     },
     {
       "id": "cards",
-      "version": "0.1.98",
-      "sha256": "574d7737e990b98bf61969cd808b69a170fd33db75c582993245b168d5d2ef41"
+      "version": "0.1.99",
+      "sha256": "7b981e804520818cd22736f891e1446c1e6bf73f36fc9cf2b2b5ecaf795ffd7c"
     },
     {
       "id": "play-assist",
-      "version": "0.2.38",
-      "sha256": "578d5ab8283511d8c95ac6a7cd990a487f4f6919a6f6bd350fc8f08b91db9177"
+      "version": "0.2.41",
+      "sha256": "840c7ac75309508d5d1e3dc63b7eab3fec836650dd4dcbe69ddadb6aee502afd"
     },
     {
       "id": "daily-rewards",
-      "version": "0.7.48",
-      "sha256": "7d38bc8fc0cab23427e44d08cb988c6e4b3bfa980e03b018121c0dd1b7d05e7e"
+      "version": "0.7.50",
+      "sha256": "4cd6e8d3843e4b64170a0ff605bf6c19f4a7ecf61e00487a9e13690fc1f67f2b"
     },
     {
       "id": "seckill",
-      "version": "0.1.5",
-      "sha256": "5d107bf7e907b350d1283ba902bc6bd1c7b2aa6d4b0f3b0b87cd40f653cd8f00"
+      "version": "0.1.6",
+      "sha256": "582002dca94de79d86ed3c519db7a7cff6a31a77148cec5f754a83562a1c2653"
     },
     {
       "id": "gaizhu",
-      "version": "0.2.14",
-      "sha256": "36ffb82c64e8e0b6cf7e051cdb77fed1a7928dda84b43b28c6ef4031c11d5432"
+      "version": "0.2.15",
+      "sha256": "dbfc5a691ac25a49a963781e00577981e5ade0fa906a39580e12cbf206d2281e"
     },
     {
       "id": "effects",
-      "version": "0.5.15",
-      "sha256": "e6973492910d63622b55286a770e1993caa68b349f24ac3ddb494d930e42dc77"
+      "version": "0.5.16",
+      "sha256": "3053c5b2e0aa3c538486223546d8da439c58678a66daf1400b615cc7648a0a5f"
     },
     {
       "id": "skins",
-      "version": "0.4.107",
-      "sha256": "31afb0b9c5f56d99cc0de263fa18f3548ccc245e73457c4fdc80bf22fb081306"
+      "version": "0.4.108",
+      "sha256": "9694b646136565f67f9731d3054287b87684a43b4294a7e701f7cf2fc9c742a9"
     },
     {
       "id": "poker-lobby",
-      "version": "0.3.67",
-      "sha256": "7cd077d577420d5f1e8ba57d47eca1870fe638d6a8fb322fc64b95999596b946"
+      "version": "0.3.71",
+      "sha256": "122be256b563a3e34c0071e7d6693f198317407ee477c84d45e1b0055274110b"
+    },
+    {
+      "id": "themes-flow",
+      "version": "0.1.1",
+      "sha256": "0a6fae8a8645c92885f1ab86c8a9e72fd517cd40b9a4a788979abbac3e0d207a"
     },
     {
       "id": "stargazing",
-      "version": "0.1.1",
-      "sha256": "4687a61380e734ce5b06384ecfc757984cf960e0ccc4e0fa10eacfa04adc5502"
-    },
-    {
-      "id": "wish-progress",
-      "version": "0.1.3",
-      "sha256": "704171a5ca3c1c2d3f51373af8efdb56af17586619978e030a1010870cc9b0b3"
-    },
-    {
-      "id": "themes",
-      "version": "0.1.6",
-      "sha256": "554a80c4d9b62ed718941613867d51da524dcb191b823a7a79ea2ec72b39e666"
+      "version": "0.1.2",
+      "sha256": "ca49c46db62863f71ecd9fc91312f8e8714ca94ed72d48fcde3a9ec0280ceaec"
     },
     {
       "id": "baisheng",
-      "version": "0.1.12",
-      "sha256": "9cdfddfee79d02f2d9c68645a1a2192b4180d1942c440b9e04532a8a4de5a897"
+      "version": "0.1.13",
+      "sha256": "9f48f97e198ba2248eb5a8dcec6719c6de236b2870b150844f153ce51ae07ebc"
     },
     {
       "id": "appearances",
-      "version": "0.4.39",
-      "sha256": "567d0a1b8e0e8b769f1b6b4a833195b8b400dd0d330b6932ae32e635b93d2359"
+      "version": "0.4.40",
+      "sha256": "b106a2aeff341486411aab3f782fed66cb9819b076b906905666cf9a102e03d1"
     },
     {
       "id": "ledger",
-      "version": "0.3.23",
-      "sha256": "2fec527eb8eb0662749aa1610371715c7b24d5e4c21f7be968b885dbd9b61312"
+      "version": "0.3.25",
+      "sha256": "0ee82d5e59a24cd188969bdc37f294655cd9cd456fe661b8d38a87e8f03d136d"
     },
     {
       "id": "recharge",
-      "version": "0.1.17",
-      "sha256": "6a322edce67764d21183ce2586d674744ef32ce8f8dfee738ce1a3b51ea56efc"
+      "version": "0.1.18",
+      "sha256": "9fd518223acf7a5376a2eebd501374c2b231d0b7bd1c893aaed29b64fd928439"
     }
   ],
   "assets": [
     {
       "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.2/card.atlas",
       "fallbackUrls": [
-        "https://chk-sgstools-hangzhou.oss-cn-hangzhou.aliyuncs.com/sgs-toolbox/card-art/dafeiyu/0.4.2/card.atlas",
-        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.4.2/card.atlas"
+        "https://dl.3gs.xyz/card-art/dafeiyu/0.4.2/card.atlas"
       ],
       "bytes": 19529,
       "sha256": "41224ff9933c22a719f43c5fefcee10f46afeb2174f6200c0571b920103834cc"
@@ -149,8 +125,7 @@
     {
       "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.2/cards.png",
       "fallbackUrls": [
-        "https://chk-sgstools-hangzhou.oss-cn-hangzhou.aliyuncs.com/sgs-toolbox/card-art/dafeiyu/0.4.2/cards.png",
-        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.4.2/cards.png"
+        "https://dl.3gs.xyz/card-art/dafeiyu/0.4.2/cards.png"
       ],
       "bytes": 6628555,
       "sha256": "05ff6844866771bd465a05dbe8e752fbecc7417ffce9b8ad09800a2f61f34ab8"
@@ -158,8 +133,7 @@
     {
       "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.2/cards1.png",
       "fallbackUrls": [
-        "https://chk-sgstools-hangzhou.oss-cn-hangzhou.aliyuncs.com/sgs-toolbox/card-art/dafeiyu/0.4.2/cards1.png",
-        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.4.2/cards1.png"
+        "https://dl.3gs.xyz/card-art/dafeiyu/0.4.2/cards1.png"
       ],
       "bytes": 6612589,
       "sha256": "b58d28d932e973c307a608879b698dd61d2dd2b8a8b6fa2def33847cc70bedfd"
@@ -167,8 +141,7 @@
     {
       "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.2/cards2.png",
       "fallbackUrls": [
-        "https://chk-sgstools-hangzhou.oss-cn-hangzhou.aliyuncs.com/sgs-toolbox/card-art/dafeiyu/0.4.2/cards2.png",
-        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.4.2/cards2.png"
+        "https://dl.3gs.xyz/card-art/dafeiyu/0.4.2/cards2.png"
       ],
       "bytes": 7039522,
       "sha256": "b172ca183617d0daeb00f80ec67c5a02057a56760826c36cfd81ed415806e9f7"
@@ -176,8 +149,7 @@
     {
       "url": "https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/card-art/dafeiyu/0.4.2/cards3.png",
       "fallbackUrls": [
-        "https://chk-sgstools-hangzhou.oss-cn-hangzhou.aliyuncs.com/sgs-toolbox/card-art/dafeiyu/0.4.2/cards3.png",
-        "https://tools.3gs.xyz/sgs-toolbox/card-art/dafeiyu/0.4.2/cards3.png"
+        "https://dl.3gs.xyz/card-art/dafeiyu/0.4.2/cards3.png"
       ],
       "bytes": 6435718,
       "sha256": "a219423abe51480d1028bc8f525dab88c13d2bdf792feafd5ce9ea994d1e430a"

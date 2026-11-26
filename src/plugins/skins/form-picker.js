@@ -31,9 +31,9 @@ input.sgs-input,select.sgs-select{width:100%;font-size:inherit}
 .route-switch{display:inline-flex;align-items:center;gap:7px;min-height:32px;white-space:nowrap;cursor:pointer}
 .route-add{display:grid;gap:8px;padding-top:6px;border-top:1px solid var(--sgs-border,#665b42)}
 .route-add-fields{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}
-.sgs-segments button{font-size:inherit;padding-inline:3px;white-space:nowrap}
+.sgs-segments button{font-size:inherit;padding-left:3px;padding-right:3px;white-space:nowrap}
 @media(max-width:340px){.route-add-fields{grid-template-columns:1fr}}
-@media(max-width:280px){.body{padding-inline:10px}.sgs-segments button{font-size:.85em;padding-inline:2px}}
+@media(max-width:280px){.body{padding-left:10px;padding-right:10px}.sgs-segments button{font-size:.85em;padding-left:2px;padding-right:2px}}
 [hidden]{display:none!important}
 `;
 

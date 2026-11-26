@@ -222,7 +222,7 @@ function mountLocalBacks(container, doc, cardStyles) {
 }
 
 export function mountCardStyleWorkshop(container, { document: doc, cardStyles, settings, bindFold }) {
-  const details = doc.createElement('section'); details.className = 'card-style-workshop plugin-group';
+  const details = doc.createElement('section'); details.className = 'card-style-workshop plugin-group appearance-section';
   const heading = doc.createElement('h3'); heading.className = 'plugin-heading';
   const toggle = doc.createElement('button'); toggle.type = 'button'; toggle.className = 'plugin-toggle';
   const title = doc.createElement('span'); title.className = 'plugin-title'; title.textContent = '卡牌外观';

@@ -1,6 +1,6 @@
 # 三国杀 OL 工具箱
 
-项目主页：[tools.3gs.xyz](https://tools.3gs.xyz/)。工具箱提供独立插件、统一主题、卡牌信息及常用工具；插件可分别安装、停用、更新、回退和卸载，配置保存在当前浏览器。
+项目主页位于 [tools.3gs.xyz](https://tools.3gs.xyz/)。工具箱提供独立插件、统一主题、卡牌信息及常用工具；插件可分别安装、停用、更新、回退和卸载，配置保存在当前浏览器。
 
 ## 安装与更新
 
@@ -8,12 +8,12 @@
 
 | 版本 | 内容 | 安装 |
 | --- | --- | --- |
-| Full | 完整核心及随附官方插件，具体清单以实际发行包为准 | [安装](https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/full/toolbox.user.js) · [备用](https://tools.3gs.xyz/sgs-toolbox/full/toolbox.user.js) |
-| Lite | 完整核心，不随附插件；继续使用已安装插件和用户设置 | [安装](https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/lite/toolbox.user.js) · [备用](https://tools.3gs.xyz/sgs-toolbox/lite/toolbox.user.js) |
+| Full | 完整核心及随附官方插件，具体清单以实际发行包为准 | [安装](https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/full/toolbox.user.js) |
+| Lite | 完整核心，不随附插件；继续使用已安装插件和用户设置 | [安装](https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/lite/toolbox.user.js) |
 
 两版共用脚本身份，切换时替换原脚本。扩展自动更新保持当前发行版；工具箱内核心更新使用 Lite。插件在市场单独更新，不因核心更新重新启用已停用插件。详见[发行版说明](docs/distributions.md)。
 
-自 0.6.223 起，浏览器和微端 Full 使用同一份随附名单，含 22 个官方插件。山河图拓展（Beta）可在市场按需安装。新增官方插件不会自动加入随附名单。微端安装请参阅[微端说明](docs/microclient.md)。
+浏览器和微端 Full 共用随附名单，本次随附 17 个官方插件。原山河图拓展已并入山河图。三国斗地主和流彩主题包可在市场按需安装。微端安装请参阅[微端说明](docs/microclient.md)。
 
 ## 插件与数据
 

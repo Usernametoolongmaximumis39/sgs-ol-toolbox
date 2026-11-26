@@ -54,7 +54,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
   const extended = createExtended(ctx, {button,choice,locked:id=>locks.has(id),hasKind:kind=>EXTRA_IDS.some(id=>locks.has(id) && skillKind(id)===kind)});
   function persist() { ctx.settings.set('rememberedSkillIds', [...remembered]); }
   function gameContext() { return read(() => ctx.game.getClass('GameContext')); }
-  function alive(s = state, scene) {
+  function alive(s = state, scene, requireOperation = true) {
     if (disposed || ctx.scope.signal.aborted || !s || s !== state || ended || !visible(s.self)
       || s.self.seat?.IsDead || s.self.seat?.IsAiControl || s.scene.IsViewer === true) return false;
     if ((scene ?? ctx.game.getScene()) !== s.scene || isNativePokerTable(s.scene)) return false;
@@ -62,7 +62,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     // GameContext is closure-local in production builds, not a registered
     // Laya class. Native handlers still enforce its operation restrictions.
     return snap?.inGame === true && !snap.isReplay && !snap.pokerTable && gc?.IsViewer !== true &&
-      read(() => gc.IsViewerOrReplay()) !== true && read(() => gc.CanOperationInGame()) !== false;
+      read(() => gc.IsViewerOrReplay()) !== true && (!requireOperation || read(() => gc.CanOperationInGame()) !== false);
   }
   function notify() { onChange(); }
   function toggle(id, remember = false) {
@@ -274,7 +274,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
         if (id === 295) {
           const hp = self.seat?.Hp;
           if (hp == null || hp === '' || !Number.isFinite(Number(hp))) return false;
-          return choice(s,d => Number(d.sendData) === (Number(hp) < 2 ? 1 : 2));
+          return choice(s,d => Number(d.sendData) === (Number(hp) < 1 ? 1 : 2));
         }
         if (id === 250 && currentSeat !== null) return choice(s,d => d.label === (currentSeat === Number(self.seat?.Index) ? '令其摸两张牌' : '摸一张牌'));
         if (id === 784) return choice(s,d => d.label === (String(selector.txtOptMsg?._innerHTML).includes('(您)') ? '选项二' : '选项一'));
@@ -521,10 +521,12 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       quandao.update(self, Boolean(options.quandaoCount) && live);
       tianshu.update(scene, self, Boolean(options.tianshuAssist) && live);
       peixiu.update(scene, !ended && Boolean(options.peixiuAssist));
-      if (live && (options.quanyuAssist || options.zhuohunAssist)) {
+      const showQuanyu = options.quanyuAssist && (live || alive(s, scene, false));
+      const showZhuohun = options.zhuohunAssist && live;
+      if (showQuanyu || showZhuohun) {
         const seats = seatUIs(scene, self);
-        if (options.quanyuAssist) quanyu.update(scene, seats); else quanyu.hide();
-        zhuohun.update(self, seats, options.zhuohunAssist);
+        if (showQuanyu) quanyu.update(scene, seats, live); else quanyu.hide();
+        zhuohun.update(self, seats, showZhuohun);
       } else { quanyu.hide(); zhuohun.hide(); }
       if (!live || state !== s || ended || disposed || ctx.scope.signal.aborted) return;
       const current = list(self.skillItems).filter(item => !item.destroyed && (supported(item) || getSettings().rapid));

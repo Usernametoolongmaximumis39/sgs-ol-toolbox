@@ -1,13 +1,13 @@
 import { marketServerLabel, userErrorMessage } from './market-display.js';
 import { MarketClient } from '../market/client.js';
 import { verifyPackage } from './packages.js';
-import { DEVELOPMENT, GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL, UPDATE_MIRROR } from './distribution.js';
-export { GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL } from './distribution.js';
+import { DEVELOPMENT, DOWNLOAD_MARKET_URL, GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL, UPDATE_MIRROR } from './distribution.js';
+export { DOWNLOAD_MARKET_URL, GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL } from './distribution.js';
 export const LOCAL_MARKET_URL = 'http://127.0.0.1:17321';
 
 // Keep one client identity while falling back so in-flight UI operations stay valid.
 export class PublicMarketClient {
-  constructor(fetchImpl, { sources = [GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL], mirror = '', session = {}, probeTimeoutMs = 2500, ...options } = {}) {
+  constructor(fetchImpl, { sources = [GITHUB_MARKET_URL, DOWNLOAD_MARKET_URL], mirror = '', session = {}, probeTimeoutMs = 2500, ...options } = {}) {
     if (mirror) sources = [mirror, ...sources];
     this.clients = sources.map(baseUrl => new MarketClient({ ...options, baseUrl, fetchImpl }));
     this.active = this.clients[0];
@@ -73,7 +73,7 @@ export function createMarketConnection(settings, fetchImpl, onError = () => {}, 
   let client;
   try {
     let saved = settings.get('marketUrl', LOCAL_MARKET_URL);
-    if ([GITHUB_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL].includes(String(saved).replace(/\/+$/, '')) && settings.get('marketCustomUrl', '') !== saved) {
+    if ([GITHUB_MARKET_URL, DOWNLOAD_MARKET_URL, HANGZHOU_MARKET_URL, OSS_MARKET_URL].includes(String(saved).replace(/\/+$/, '')) && settings.get('marketCustomUrl', '') !== saved) {
       saved = LOCAL_MARKET_URL; settings.set('marketUrl', saved);
     }
     client = create(saved);

@@ -1,6 +1,7 @@
 import { ResourceScope } from '../../core/resources.js';
 import { isNativeNodeMounted } from '../../shared/native-tree.js';
 import { createBackgroundPane } from './native-pane.js';
+import { bindOfficialWallpaper } from './official-wallpaper.js';
 
 const customTab = 3;
 
@@ -24,8 +25,7 @@ function wallpaperIn(toolbar) {
   const owner = toolbar?.wallPaperUI;
   if (owner && owner.parent === toolbar && !owner.destroyed && owner.visible !== false && owner.bg &&
     Array.isArray(owner.wallPaperItems) && typeof owner.SettingAllModePaper === 'function' &&
-    typeof owner.initList === 'function' && typeof owner.onResetTabPos === 'function' &&
-    typeof owner.tabGroup?.InitUi === 'function' && typeof owner.tabGroup?.GetButtonByValue === 'function') return owner;
+    typeof owner.initList === 'function') return owner;
   return null;
 }
 
@@ -56,8 +56,10 @@ function clientProjection(laya, doc) {
   };
 }
 
-function attach(ctx, laya, owner, options) {
+function attachHistory(ctx, laya, owner, options) {
   const toolbar = owner.parent, stage = laya.stage, tabs = owner.tabGroup;
+  if (typeof tabs?.InitUi !== 'function' || typeof tabs.GetButtonByValue !== 'function'
+    || typeof owner.onResetTabPos !== 'function') return null;
   const template = tabs.BtnList?.find(button => button.value === 0)?.WholeData;
   if (!template || tabs.GetButtonByValue(customTab)) return null;
   const originalWidth = tabs.btnWidth;
@@ -133,6 +135,28 @@ function attach(ctx, laya, owner, options) {
     });
     layout();
     return { owner, stage, visible, layout, dispose: () => scope.dispose() };
+  } catch (error) {
+    scope.dispose();
+    throw error;
+  }
+}
+
+function attach(ctx, laya, owner, options) {
+  const scope = new ResourceScope(), stage = laya.stage;
+  const visible = () => isNativeNodeMounted(owner, stage, 64, true);
+  let history;
+  try {
+    const refresh = bindOfficialWallpaper(ctx, laya, owner, scope, options, visible);
+    scope.patch(owner, 'initList', original => function (...args) {
+      const result = Reflect.apply(original, this, args);
+      refresh();
+      return result;
+    });
+    refresh();
+    try { history = attachHistory(ctx, laya, owner, options); }
+    catch (error) { ctx.notify('背景历史菜单接入失败：' + (error?.message || error)); }
+    scope.add(() => history?.dispose());
+    return { owner, stage, visible, layout: () => history?.layout(), dispose: () => scope.dispose() };
   } catch (error) {
     scope.dispose();
     throw error;

@@ -23,6 +23,8 @@ class ActivityCard {
   ModeBtn = new Events();
   gotoU3dBtn = new Events();
   ruleBtn = new Events();
+  descTxt = { text: '', visible: false };
+  timeTxt = { text: '', visible: true };
   constructor(calls) {
     this.calls = calls;
     this.ModeBtn.on('click', this, this.onEnterMode);
@@ -41,7 +43,7 @@ class ActivityModeView {
   leftArr = {};
   rightArr = {};
   constructor(calls, modes) {
-    this.modeDataList = modes.map(row);
+    this.modeDataList = modes.map(item => typeof item === 'object' ? item : row(item));
     this.items = Array.from({ length: this.pageItemCtn }, () => new ActivityCard(calls));
   }
   updateItems(page) {
@@ -51,6 +53,9 @@ class ActivityModeView {
       card.visible = Boolean(data);
       if (!data) continue;
       card.data = data;
+      card.descTxt.text = data.ModeTips2 || '';
+      card.descTxt.visible = true;
+      card.timeTxt.text = data.OpenDesc || '';
       card.gotoU3dBtn.visible = data.ModeID === 175;
     }
   }
@@ -94,6 +99,11 @@ test('activates the original card only in the selected activity view and restore
   const reused = view.items[0];
   assert.equal(reused.data.ModeID, 175);
   assert.equal(reused.data.ResourceModeId, 175);
+  assert.equal(reused.data.ModeTips2, '技能加持，扑克对决');
+  assert.equal(reused.data.OpenDesc, '超级加倍，好玩不累');
+  assert.equal(reused.descTxt.text, '技能加持，扑克对决');
+  assert.equal(reused.descTxt.visible, true);
+  assert.equal(reused.timeTxt.text, '超级加倍，好玩不累');
   assert.equal(reused.gotoU3dBtn.visible, false);
   reused.ModeBtn.emit('click');
   reused.gotoU3dBtn.emit('click');
@@ -137,4 +147,33 @@ test('moves and restores a previously available native 175 row without duplicati
   view.items[0].gotoU3dBtn.emit('click');
   assert.deepEqual(calls, [['stock card', 175], ['remake redirect']]);
   assert.equal(stack.listeners.length, 0);
+});
+
+test('uses the custom poker card description while preserving stock or config OpenDesc', () => {
+  const fromConfig = createFixture([160, 40]);
+  fromConfig.ctx.game.getConfigData = () => ({ Root: { modes: { content: [
+    { Model: 175, Section: 2, Mode_tips3: '限时开放中', openDesc: '配置底部文案', ModelBelongDesc: '规则' },
+  ] } } });
+  fromConfig.stack.selectedChild = fromConfig.view;
+  installPokerActivityEntry(fromConfig.ctx, () => {});
+  const configCard = fromConfig.view.items[1];
+  assert.equal(configCard.data.ModeTips2, '技能加持，扑克对决');
+  assert.equal(configCard.data.OpenDesc, '配置底部文案');
+  assert.equal(configCard.descTxt.text, '技能加持，扑克对决');
+  assert.equal(configCard.descTxt.visible, true);
+  assert.equal(configCard.timeTxt.text, '配置底部文案');
+  fromConfig.ctx.scope.dispose();
+
+  const fromStock = createFixture([
+    { ModeVo: { ModeID: 175, Section: 2, ModeTips2: '限时开放中', OpenDesc: '原生底部文案' } },
+    160,
+  ]);
+  fromStock.stack.selectedChild = fromStock.view;
+  installPokerActivityEntry(fromStock.ctx, () => {});
+  const stockCard = fromStock.view.items[1];
+  assert.equal(stockCard.data.ModeTips2, '技能加持，扑克对决');
+  assert.equal(stockCard.data.OpenDesc, '原生底部文案');
+  assert.equal(stockCard.descTxt.text, '技能加持，扑克对决');
+  assert.equal(stockCard.timeTxt.text, '原生底部文案');
+  fromStock.ctx.scope.dispose();
 });

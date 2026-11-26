@@ -57,9 +57,8 @@ const mainFrames = new Map();
 const crypto = require('crypto');
 const https = require('https');
 const UPDATE_SOURCES = [
-  'https://chk-sgstools-hangzhou.oss-cn-hangzhou.aliyuncs.com/sgs-toolbox/microclient/',
   'https://raw.githubusercontent.com/Usernametoolongmaximumis39/sgs-ol-toolbox/main/microclient/',
-  'https://tools.3gs.xyz/sgs-toolbox/microclient/'
+  'https://dl.3gs.xyz/microclient/'
 ];
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const versionOf = source => { const match = /^\/\/ 三国杀OL工具箱 · 微端 (?:LITE|FULL) · (\d+\.\d+\.\d+)\r?\n/.exec(source); return match && match[1]; };
@@ -84,19 +83,23 @@ function startDownload(url, limit, timeout, label = '更新', resource) {
       try {
         if (resource?.range) expectedLength = MobileSkinSecurity.mobileSkinPartialLength(resource, response.statusCode,
           response.headers?.['content-range'], response.headers?.['content-length'], response.headers?.['content-encoding']);
-        else if (response.statusCode !== 200) { response.resume(); reject(new Error(label + '服务器返回 ' + response.statusCode)); return; }
+        else if (response.statusCode !== 200) { response.resume(); reject(Object.assign(new Error(label + '服务器返回 ' + response.statusCode), { statusCode: response.statusCode })); return; }
         if (Number(response.headers?.['content-length']) > limit) throw new Error(label + '文件过大');
       } catch (error) { request.destroy(error); return; }
       const chunks = []; let size = 0;
       response.on('data', chunk => {
         size += chunk.length;
-        if (size > (expectedLength ?? limit)) request.destroy(new Error(label + '文件过大'));
-        else chunks.push(chunk);
+        if (size > (expectedLength ?? limit)) {
+          const error = new Error(label + '文件过大');
+          reject(error);
+          request.destroy(error);
+        } else chunks.push(chunk);
       });
       response.on('end', () => {
         if (expectedLength !== undefined && size !== expectedLength) reject(new Error('移动版安装包分段响应长度不符'));
         else resolve(Buffer.concat(chunks));
       });
+      response.on('aborted', () => reject(new Error(label + '下载中断')));
       response.on('error', reject);
     };
     request = resource?.headers ? https.get(url, { headers: { ...resource.headers, 'Accept-Encoding': 'identity' } }, receive) : https.get(url, receive);
@@ -109,49 +112,224 @@ function startDownload(url, limit, timeout, label = '更新', resource) {
 function download(url, limit, timeout) {
   return startDownload(url, limit, timeout).promise;
 }
-let updating = false;
 async function updateScript(action) {
-  if (!['check', 'install', 'rollback'].includes(action)) throw new Error('未知更新操作');
-  if (updating) throw new Error('正在更新，请稍候');
-  updating = true;
-  try {
-    const saved = loadUpdate(), current = saved ? saved.current : { source: code, version: versionOf(code) || '0.0.0', sha256: hash(code) };
-    if (action === 'rollback') {
-      if (!saved || !valid(saved.previous)) throw new Error('没有可回退的脚本');
-      // Never persist an older script than the installed host baseline.
-      if (compare(saved.previous.version, versionOf(code) || '0.0.0') < 0) throw new Error('旧脚本低于安装版本');
-      saveUpdate({ current: saved.previous }); return { version: saved.previous.version, pending: true, rollback: false };
+  const saved = loadUpdate(), current = saved ? saved.current : { source: code, version: versionOf(code) || '0.0.0', sha256: hash(code) };
+  if (action === 'rollback') {
+    if (!saved || !valid(saved.previous)) throw new Error('没有可回退的脚本');
+    // Never persist an older script than the installed host baseline.
+    if (compare(saved.previous.version, versionOf(code) || '0.0.0') < 0) throw new Error('旧脚本低于安装版本');
+    saveUpdate({ current: saved.previous }); return { version: saved.previous.version, pending: true, rollback: false };
+  }
+  const errors = [];
+  for (const base of UPDATE_SOURCES) {
+    try {
+      const manifest = JSON.parse((await download(base + 'update.json', 16384, 10000)).toString('utf8'));
+      if (manifest.format !== 'sgs-toolbox-script-v1' || manifest.hostApi !== 1 || !/^\d+\.\d+\.\d+$/.test(manifest.version) || !/^[a-f0-9]{64}$/.test(manifest.sha256) || !Number.isInteger(manifest.bytes) || manifest.bytes < 1 || manifest.bytes > 12 * 1024 * 1024) throw new Error('脚本更新清单无效或需要新版接入层');
+      const newer = compare(manifest.version, current.version) > 0;
+      if (action === 'check' || !newer) return { version: manifest.version, current: current.version, newer, rollback: !!(saved && valid(saved.previous)) };
+      const bytes = await download(base + 'toolbox.js', 12 * 1024 * 1024, 20000);
+      const next = { version: manifest.version, sha256: manifest.sha256, source: bytes.toString('utf8') };
+      if (bytes.length !== manifest.bytes || hash(bytes) !== manifest.sha256 || !valid(next) || !next.source.startsWith('// 三国杀OL工具箱 · 微端 LITE · ')) throw new Error('脚本版本或摘要校验失败');
+      new (require('vm').Script)(next.source); // Parse only; never run remote code in the main process.
+      saveUpdate({ current: next, previous: current });
+      return { version: next.version, pending: true, rollback: true };
+    } catch (error) {
+      const detail = error.code === 'ETIMEDOUT' ? '连接超时' : error.message;
+      errors.push(new URL(base).hostname + '（' + detail + '）');
     }
-    const errors = [];
-    for (const base of UPDATE_SOURCES) {
-      try {
-        const manifest = JSON.parse((await download(base + 'update.json', 16384, 10000)).toString('utf8'));
-        if (manifest.format !== 'sgs-toolbox-script-v1' || manifest.hostApi !== 1 || !/^\d+\.\d+\.\d+$/.test(manifest.version) || !/^[a-f0-9]{64}$/.test(manifest.sha256) || !Number.isInteger(manifest.bytes) || manifest.bytes < 1 || manifest.bytes > 12 * 1024 * 1024) throw new Error('脚本更新清单无效或需要新版接入层');
-        const newer = compare(manifest.version, current.version) > 0;
-        if (action === 'check' || !newer) return { version: manifest.version, current: current.version, newer, rollback: !!(saved && valid(saved.previous)) };
-        const bytes = await download(base + 'toolbox.js', 12 * 1024 * 1024, 20000);
-        const next = { version: manifest.version, sha256: manifest.sha256, source: bytes.toString('utf8') };
-        if (bytes.length !== manifest.bytes || hash(bytes) !== manifest.sha256 || !valid(next) || !next.source.startsWith('// 三国杀OL工具箱 · 微端 LITE · ')) throw new Error('脚本版本或摘要校验失败');
-        new (require('vm').Script)(next.source); // Parse only; never run remote code in the main process.
-        saveUpdate({ current: next, previous: current });
-        return { version: next.version, pending: true, rollback: true };
-      } catch (error) {
-        const detail = error.code === 'ETIMEDOUT' ? '连接超时' : error.message;
-        errors.push(new URL(base).hostname + '（' + detail + '）');
+  }
+  throw new Error('脚本更新失败：' + errors.join('；'));
+}
+function topFrameURL(event) {
+  if (event.senderFrame) return event.senderFrame.parent ? '' : event.senderFrame.url;
+  const id = event.sender?.id;
+  const frame = mainFrames.get(id);
+  const processId = event.processId ?? event.sender?.getProcessId?.();
+  return frame && frame.routingId >= 0 && frame.processId >= 0 &&
+    event.frameId === frame.routingId && processId === frame.processId ? navigations.get(id) : '';
+}
+function allowed(event) { return isGameURL(topFrameURL(event)); }
+
+const boot = typeof bootstrap === 'undefined' ? null : bootstrap;
+const runtimeTools = typeof MicroclientRuntimeUpdate === 'undefined' ? null : MicroclientRuntimeUpdate;
+const runtime = boot && runtimeTools?.createRuntimeUpdater({ bootstrap: boot, sources: UPDATE_SOURCES, download });
+const shellFile = typeof path.resolve === 'function' ? path.resolve(boot?.installDir || __dirname, '..', 'index_wd.html') : null;
+const shells = new Set();
+let runningScript = null, scriptCheck = null, scriptError = null, busy = null, revision = 0;
+let scriptErrorAuto = false, runtimeErrorAuto = false, lastUpdate = null;
+let coreOperationDone = null, startupSynced = null;
+
+function corePrefsFile() { return path.join(app.getPath('userData'), 'sgs-toolbox-core-prefs.json'); }
+function corePrefsIO() { return runtimeTools || require('./runtime-cache.cjs'); }
+function autoUpdateEnabled() {
+  try { return corePrefsIO().readJSON(corePrefsFile(), 4096)?.autoUpdate !== false; }
+  catch (_) { return true; }
+}
+
+function isShell(url) {
+  if (!shellFile) return false;
+  try { return path.resolve(require('url').fileURLToPath(url)).toLowerCase() === shellFile.toLowerCase(); }
+  catch (_) { return false; }
+}
+
+function scriptIdentity(source) {
+  return {
+    version: versionOf(source),
+    edition: source.startsWith('// 三国杀OL工具箱 · 微端 FULL · ') ? 'full' : 'lite',
+    source: source === code ? 'bundled' : 'updated'
+  };
+}
+
+function coreStatus() {
+  const saved = loadUpdate();
+  const target = scriptIdentity(saved?.current.source || code);
+  const script = runningScript || target;
+  return {
+    busy, revision, autoUpdate: autoUpdateEnabled(), lastUpdate,
+    script: {
+      ...script, pending: script.version !== target.version ? target.version : null,
+      rollback: !!saved && valid(saved.previous) && compare(saved.previous.version, versionOf(code) || '0.0.0') >= 0,
+      newer: !!scriptCheck && compare(scriptCheck.version, target.version || '0.0.0') > 0,
+      check: scriptCheck, error: scriptError, errorAuto: scriptErrorAuto
+    },
+    runtime: {
+      ...(runtime?.status() || {
+        version: boot?.activeRuntimeVersion || '1.0.1', source: 'bundled', bootstrapApi: 1,
+        pending: null, rollback: false, recoveredFrom: null, check: null, error: null, newer: false
+      }),
+      errorAuto: runtimeErrorAuto
+    }
+  };
+}
+
+function notifyCore() {
+  revision++;
+  if (!shells.size) return;
+  const status = JSON.stringify(coreStatus());
+  for (const shell of shells) {
+    try {
+      if (!shell.isDestroyed() && isShell(shell.getURL())) {
+        shell.executeJavaScript('window.dispatchEvent(new CustomEvent("sgs-toolbox-core-state", { detail: ' + status + ' }))').catch(() => {});
       }
+    } catch (_) {}
+  }
+}
+
+async function runScript(action, auto) {
+  scriptError = null;
+  scriptErrorAuto = auto;
+  try {
+    const result = await updateScript(action);
+    if (action !== 'rollback') scriptCheck = { version: result.version };
+    return result;
+  } catch (error) {
+    if (action === 'check') scriptCheck = null;
+    scriptError = String(error.message || error);
+    throw error;
+  }
+}
+
+async function runCoreOperation(action, work, auto = false) {
+  if (busy) throw new Error('正在更新，请稍候');
+  if (!runningScript) runningScript = scriptIdentity(loadUpdate()?.current.source || code);
+  let finish;
+  coreOperationDone = new Promise(resolve => { finish = resolve; });
+  let scriptVersion = null, runtimeVersion = null;
+  const operations = {
+    async script(op) {
+      const result = await runScript(op, auto);
+      if (op === 'install' && result.pending) scriptVersion = result.version;
+      return result;
+    },
+    async runtime(op) {
+      runtimeErrorAuto = auto;
+      const installed = await runtime?.run(op);
+      if (op === 'install' && installed) runtimeVersion = installed;
     }
-    throw new Error('脚本更新失败：' + errors.join('；'));
-  } finally { updating = false; }
+  };
+  busy = action;
+  try {
+    notifyCore();
+    return await work(operations);
+  } finally {
+    busy = null;
+    coreOperationDone = null;
+    finish();
+    if (scriptVersion || runtimeVersion) {
+      const state = coreStatus();
+      if (scriptVersion !== state.script.pending) scriptVersion = null;
+      if (runtimeVersion !== state.runtime.pending) runtimeVersion = null;
+      if (scriptVersion || runtimeVersion) lastUpdate = { auto, scriptVersion, runtimeVersion, revision: revision + 1 };
+    }
+    notifyCore();
+  }
 }
-function allowed(event) {
-  const url = event.senderFrame ? event.senderFrame.url : navigations.get(event.sender.id) || event.sender.getURL();
-  const frame = event.senderFrame ? null : mainFrames.get(event.sender.id);
-  return isGameURL(url) && (event.senderFrame ? !event.senderFrame.parent : !!frame && event.frameId === frame.routingId && event.sender.getProcessId() === frame.processId);
-}
+
 ipcMain.handle('sgs-toolbox:update:v1', async (event, action) => {
   if (!allowed(event)) throw new Error('仅允许官方游戏主页面更新工具箱');
-  return updateScript(action);
+  if (!['check', 'install', 'rollback'].includes(action)) throw new Error('未知更新操作');
+  return runCoreOperation(action, operations => operations.script(action));
 });
+
+function checkUpdates(operations) {
+  return Promise.all([operations.script('check').catch(() => {}), operations.runtime('check')]);
+}
+
+async function installAvailable(operations, auto = false) {
+  const status = coreStatus();
+  if (auto && !status.autoUpdate) return;
+  const installScript = status.script.newer && !status.script.pending;
+  const installRuntime = status.runtime.newer && !status.runtime.pending && !status.runtime.check?.unsupportedBootstrap;
+  if (!installScript && !installRuntime) return;
+  if (auto) {
+    busy = 'install';
+    notifyCore();
+  }
+  if (installScript) await operations.script('install').catch(() => {});
+  if (installRuntime && (!auto || autoUpdateEnabled())) await operations.runtime('install');
+}
+
+async function startupSync() {
+  // If the user already started a manual operation, check once that operation finishes.
+  while (coreOperationDone) await coreOperationDone;
+  await runCoreOperation('check', async operations => {
+    await checkUpdates(operations);
+    await installAvailable(operations, true);
+  }, true);
+}
+
+async function handleCore(request) {
+  const { action } = request;
+  if (action === 'core:status') return coreStatus();
+  if (action === 'core:set-auto-update') {
+    if (typeof request.enabled !== 'boolean') throw new Error('启动时自动更新开关必须为布尔值');
+    corePrefsIO().writeJSON(corePrefsFile(), { autoUpdate: request.enabled });
+    notifyCore();
+    return coreStatus();
+  }
+  if (action === 'core:startup-sync') {
+    if (!startupSynced) startupSynced = startupSync();
+    await startupSynced;
+    return coreStatus();
+  }
+  if (action === 'core:relaunch') {
+    if (busy) throw new Error('正在更新，请稍候');
+    const status = coreStatus();
+    if (status.script.pending || status.runtime.pending) { app.relaunch(); app.quit(); }
+    return status;
+  }
+  const operation = {
+    'core:check': ['check', checkUpdates],
+    'core:update-script': ['install', operations => operations.script('install').catch(() => {})],
+    'core:rollback-script': ['rollback', operations => operations.script('rollback').catch(() => {})],
+    'core:update-runtime': ['install', operations => operations.runtime('install')],
+    'core:rollback-runtime': ['rollback', operations => operations.runtime('rollback')],
+    'core:update-all': ['install', installAvailable]
+  }[action];
+  if (!operation) throw new Error('未知核心操作');
+  await runCoreOperation(...operation);
+  return coreStatus();
+}
 const mobileSkinJobs = new WeakMap();
 ipcMain.handle('sgs-toolbox:mobile-skin:v1', async (event, message) => {
   if (!allowed(event)) throw new Error('仅允许官方游戏主页面读取移动版皮肤');
@@ -211,6 +389,12 @@ const accounts = typeof MicroclientAccounts === 'undefined' ? null : Microclient
 });
 ipcMain.handle('sgs-toolbox:channel-shell:v1', (event, request) => {
   if (accounts && typeof request?.action === 'string' && request.action.startsWith('accounts:')) return accounts.handle(event, request);
+  if (typeof request?.action === 'string' && request.action.startsWith('core:')) {
+    if (!shells.has(event.sender) || !isShell(event.sender.getURL()) || !isShell(topFrameURL(event))) {
+      throw new Error('仅允许微端外壳管理工具箱核心');
+    }
+    return handleCore(request);
+  }
   const url = event.senderFrame ? event.senderFrame.url : event.sender.getURL();
   if (!/^file:/i.test(url) || !/index_wd\.html(?:[?#]|$)/i.test(url)) throw new Error('仅允许微端外壳切换游戏渠道');
   if (!request || typeof request !== 'object') throw new Error('无效的渠道请求');
@@ -229,10 +413,22 @@ app.on('web-contents-created', function (_, contents) {
   const remember = function (_, url, _inPlace, mainFrame, processId, routingId) { if (mainFrame) { navigations.set(id, url); mainFrames.set(id, { processId, routingId }); } };
   contents.on('did-start-navigation', remember);
   contents.on('will-redirect', remember);
+  contents.on('did-redirect-navigation', remember);
   contents.on('did-frame-navigate', function (_, url, _status, _text, mainFrame, processId, routingId) { remember(_, url, false, mainFrame, processId, routingId); });
   const cancelSkinJobs = () => { for (const job of mobileSkinJobs.get(contents)?.values() ?? []) job.cancel(); };
   contents.on('did-start-navigation', (_, _url, inPlace, mainFrame) => { if (mainFrame && !inPlace) cancelSkinJobs(); });
-  contents.once('destroyed', function () { cancelSkinJobs(); navigations.delete(id); mainFrames.delete(id); });
+  if (shellFile && contents.getType?.() === 'window') {
+    contents.on('did-finish-load', () => {
+      if (!isShell(contents.getURL())) { shells.delete(contents); return; }
+      shells.add(contents);
+      if (typeof MicroclientTopbar !== 'undefined') {
+        contents.executeJavaScript('(' + MicroclientTopbar.mountTopbar.toString() + ')();').catch(() => {});
+      }
+    });
+  }
+  contents.once('destroyed', function () {
+    cancelSkinJobs(); navigations.delete(id); mainFrames.delete(id); shells.delete(contents);
+  });
 });
 function isGameURL(value) {
   try {
@@ -242,10 +438,20 @@ function isGameURL(value) {
   } catch (_) { return false; }
 }
 ipcMain.on('sgs-toolbox:source:v1', event => {
-  // Only the official OL game guest, never a login/payment/third-party frame.
-  const url = event.senderFrame ? event.senderFrame.url : navigations.get(event.sender.id) || event.sender.getURL();
-  const topLevel = !event.senderFrame || !event.senderFrame.parent;
-  event.returnValue = isGameURL(url) && topLevel ? (loadUpdate()?.current.source || code) : '';
+  if (!allowed(event)) { event.returnValue = ''; return; }
+  const source = loadUpdate()?.current.source || code;
+  event.returnValue = source;
+  const identity = scriptIdentity(source);
+  const changed = runningScript?.version !== identity.version || runningScript?.source !== identity.source;
+  runningScript = identity;
+  if (changed) notifyCore();
+});
+ipcMain.on('sgs-toolbox:preload:v1', event => {
+  const url = topFrameURL(event);
+  const isLogin = typeof MicroclientAccounts !== 'undefined' && MicroclientAccounts.loginChannel(url) > 0;
+  event.returnValue = isGameURL(url) || isLogin
+    ? (boot?.activePreloadSource ? { mode: 'code', source: boot.activePreloadSource } : null)
+    : { mode: 'skip' };
 });
 
 // Read only the official cashier endpoints; never forward cookies or execute HTML.

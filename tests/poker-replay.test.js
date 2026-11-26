@@ -6,6 +6,9 @@ import { ResourceScope } from '../src/core/resources.js';
 import { fields, messages, number, Reader, readReplay } from '../src/plugins/poker-lobby/replay/reader.js';
 import { defaultReplayPerspective } from '../src/plugins/poker-lobby/replay/perspective.js';
 import { buildTimeline, cardDetail, cardFace, isWildCard, playType, pointIndex } from '../src/plugins/poker-lobby/replay/model.js';
+import { paintCard } from '../src/plugins/poker-lobby/replay/board.js';
+import { resolveNativePalette } from '../src/ui/native-theme.js';
+import { THEMES } from '../src/core/theme-palettes.js';
 import { originalRank, POKER_ZONE, trackRemainingCards } from '../src/plugins/poker-lobby/replay/remaining.js';
 import { createPokerReplay } from '../src/plugins/poker-lobby/replay/controller.js';
 import { connectNativeReplay } from '../src/plugins/poker-lobby/replay/native-entry.js';
@@ -211,6 +214,63 @@ test('poker faces and combination labels follow the recorded codes', () => {
   assert.ok(isWildCard(cardFace(30501, 0, 0, 0, 40)));
   assert.equal(cardDetail(cardFace(30501, 0, 0, 10, 40)), '♣10（癞·原♣5）');
   assert.equal(cardFace(30501, 0, 8, 10, 40).rank, 8);
+});
+
+test('paintCard omits opaque theme backing behind native poker textures and avoids white shadows in light themes', () => {
+  const lightPalette = resolveNativePalette(THEMES.find(theme => theme.id === 'themes.ricepaper').tokens);
+  const texture = name => ({ name, bitmap: { destroyed: false }, destroyed: false, width: 93, height: 130 });
+  const resources = new Map([
+    ['cards/cardBack_0.png', texture('cardBack_0')],
+    ['activityCards/poker_card_bg.png', texture('card_bg')],
+    ['activityCards/poker_spade.png', texture('spade')],
+    ['activityCards/poker_spade_big.png', texture('spade_big')],
+    ['activityCards/poker_black_A.png', texture('black_A')],
+  ]);
+  class Text {
+    size(w, h) { this.width = w; this.height = h; }
+    pos(x, y) { this.x = x; this.y = y; }
+  }
+  const makeLaya = withAssets => ({
+    Text,
+    loader: { getRes: key => withAssets ? resources.get(key) ?? null : null },
+  });
+  const makeLayer = () => {
+    const rects = [], textures = [], children = [];
+    return {
+      rects, textures, children,
+      graphics: {
+        drawRect(x, y, w, h, fill, stroke, lineWidth) { rects.push({ x, y, w, h, fill, stroke, lineWidth }); },
+        drawTexture(img, x, y, w, h) { textures.push({ img, x, y, w, h }); },
+      },
+      addChild(child) { children.push(child); return child; },
+    };
+  };
+
+  const faceLayer = makeLayer();
+  paintCard(makeLaya(true), faceLayer, cardFace(11400), 0, 0, 93, 130, lightPalette);
+  assert.equal(faceLayer.textures.length, 4);
+  assert.equal(faceLayer.rects.length, 0);
+
+  const jokerLayer = makeLayer();
+  paintCard(makeLaya(true), jokerLayer, cardFace(51700), 0, 0, 93, 130, lightPalette);
+  assert.equal(jokerLayer.textures.length, 1);
+  assert.equal(jokerLayer.rects.length, 0);
+
+  const backLayer = makeLayer();
+  paintCard(makeLaya(true), backLayer, null, 0, 0, 93, 130, lightPalette);
+  assert.equal(backLayer.textures.length, 1);
+  assert.equal(backLayer.rects.length, 0);
+
+  const wildLayer = makeLayer();
+  paintCard(makeLaya(true), wildLayer, cardFace(11400, 0, 0, 14, 40), 0, 0, 93, 130, lightPalette);
+  assert.ok(wildLayer.rects.every(rect => rect.fill !== lightPalette.shadow));
+  assert.equal(wildLayer.rects[0].fill, null);
+
+  const fallbackLayer = makeLayer();
+  paintCard(makeLaya(false), fallbackLayer, cardFace(11400), 0, 0, 93, 130, lightPalette);
+  assert.equal(fallbackLayer.textures.length, 0);
+  assert.ok(fallbackLayer.rects.every(rect => rect.fill !== lightPalette.shadow));
+  assert.equal(fallbackLayer.rects[0].fill, '#00000055');
 });
 
 test('remaining natural ranks follow private hands and physical cards through returns', () => {

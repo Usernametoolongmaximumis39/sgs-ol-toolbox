@@ -18,9 +18,10 @@ test('suite preserves installed versions and refuses disabled prerequisites / in
   assert.throws(() => planOfficialPlugins([], catalog().filter(p => p.id !== 'social')), /市场缺少/);
   assert.equal(planOfficialPlugins([{ id: 'social', version: '0.0.1' }], catalog()).some(p => p.id === 'social'), false);
 });
-test('Shanhe Beta and Poker Lobby are available in the official suite without being bundled in Full', () => {
+test('merged official plugins use their receiving identities and Poker Lobby stays market-only', () => {
   const entries = catalog();
-  assert.ok(planOfficialPlugins([], entries).some(entry => entry.id === 'shanhetu-beta'));
+  assert.ok(planOfficialPlugins([], entries).some(entry => entry.id === 'card-styles-extra'));
+  assert.ok(!officialPluginIds.includes('shanhetu-beta'));
   assert.ok(planOfficialPlugins([], entries).some(entry => entry.id === 'poker-lobby'));
   const bundled = fullBundledPackages(entries.map(manifest => ({ manifest }))).map(pkg => pkg.manifest.id);
   assert.ok(bundled.includes('shanhetu'));
@@ -33,8 +34,8 @@ test('Full browser and microclient both include stargazing', () => {
   assert.ok(bundled.some(pkg => pkg.manifest.id === 'stargazing'));
   assert.ok(microclientFull.includes('stargazing'));
   assert.deepEqual(bundled.map(pkg => pkg.manifest.id), microclientFull);
-  assert.deepEqual([...microclientFull].sort(), officialPluginIds.filter(id => !['shanhetu-beta', 'poker-lobby'].includes(id)).sort());
+  assert.deepEqual([...microclientFull].sort(), officialPluginIds.filter(id => !['poker-lobby', 'themes-flow'].includes(id)).sort());
   assert.throws(() => fullBundledPackages(catalog().filter(m => m.id !== 'baisheng').map(manifest => ({ manifest }))), /缺少随附插件/);
   assert.throws(() => fullBundledPackages(catalog().map(manifest => ({ manifest: manifest.id === 'gaizhu'
-    ? { ...manifest, dependencies: ['shanhetu-beta'] } : manifest }))), /缺少显式随附的前置插件/);
+    ? { ...manifest, dependencies: ['poker-lobby'] } : manifest }))), /缺少显式随附的前置插件/);
 });

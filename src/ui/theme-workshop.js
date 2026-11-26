@@ -14,8 +14,8 @@ const STYLES = `
 .sgs-themes button.theme-card[aria-pressed=true]{border-color:var(--sgs-accent);box-shadow:inset 0 -2px var(--sgs-accent),0 2px 7px #0002}
 .sgs-themes button.theme-card:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
 .sgs-themes button.theme-card:disabled{cursor:default;opacity:1}
-.sgs-themes .theme-preview{display:flex;align-items:center;justify-content:center;height:56px;padding:10px 7px;background:linear-gradient(145deg,var(--preview-surface),var(--preview-bg));border-bottom:1px solid color-mix(in srgb,var(--preview-border) 50%,transparent);color:var(--preview-text)}
-.sgs-themes .theme-mini{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;max-width:126px;height:30px;padding:0 7px;border:1px solid color-mix(in srgb,var(--preview-border) 65%,transparent);border-radius:7px;background:linear-gradient(155deg,var(--preview-raised),var(--preview-bg));box-shadow:0 2px 5px #0004,inset 0 1px color-mix(in srgb,var(--preview-accent) 12%,transparent)}
+.sgs-themes .theme-preview{display:flex;align-items:center;justify-content:center;height:56px;padding:10px 7px;background-color:var(--preview-bg);background-image:var(--preview-backdrop,linear-gradient(145deg,var(--preview-surface),var(--preview-bg)));border-bottom:1px solid color-mix(in srgb,var(--preview-border) 50%,transparent);color:var(--preview-text)}
+.sgs-themes .theme-mini{position:relative;display:flex;align-items:center;justify-content:center;gap:7px;width:100%;max-width:126px;height:30px;padding:0 7px;border:1px solid color-mix(in srgb,var(--preview-border) 65%,transparent);border-radius:7px;background-color:var(--preview-bg);background-image:var(--preview-compact,linear-gradient(155deg,var(--preview-raised),var(--preview-bg)));box-shadow:0 2px 5px #0004,inset 0 1px color-mix(in srgb,var(--preview-accent2,var(--preview-accent)) 22%,transparent)}
 .sgs-themes .theme-mini-seal{font:17px/1 'KaiTi','STKaiti',serif;color:var(--preview-accent)}
 .sgs-themes .theme-mini-number{font:600 18px/1 Georgia,serif;color:var(--preview-text)}
 .sgs-themes .theme-mini-separator{width:1px;height:13px;background:var(--preview-border);margin-left:auto}
@@ -23,7 +23,7 @@ const STYLES = `
 .sgs-themes .theme-meta{display:block;padding:8px 8px 9px;min-width:0}
 .sgs-themes .theme-title-row{display:flex;align-items:center;justify-content:space-between;gap:3px;min-width:0}
 .sgs-themes .theme-name{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sgs-themes .theme-card-state{font-size:9px;color:var(--sgs-muted);white-space:nowrap;flex:none}
+.sgs-themes .theme-card-state{font-size:10px;color:var(--sgs-muted);white-space:nowrap;flex:none}
 .sgs-themes [aria-pressed=true] .theme-card-state{color:var(--sgs-accent)}
 .sgs-themes .theme-description{display:block;margin-top:3px;font-size:10px;color:var(--sgs-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sgs-themes .theme-status{display:flex;align-items:center;gap:5px;margin:11px 0 0;font-size:11px;color:var(--sgs-accent);overflow-wrap:anywhere}
@@ -60,6 +60,7 @@ export function mountThemeWorkshop(container, { document: doc, themes, notify })
       for (const theme of palette) {
         const description = theme.description || (theme.id === BLACK_GOLD.id ? '沉静玄色，经典鎏金' : '扩展主题');
         const button = el('button', 'theme-card'); button.type = 'button'; button.dataset.themeId = theme.id;
+        if (theme.tokens?.backdrop || theme.tokens?.card || theme.tokens?.compact) button.dataset.themeTextured = '';
         button.setAttribute('aria-label', `使用${theme.name}主题`); button.title = `${theme.name} · ${description}`;
         button.setAttribute('aria-pressed', 'false'); button.disabled = !themes;
         const preview = el('span', 'theme-preview'); preview.setAttribute('aria-hidden', 'true');

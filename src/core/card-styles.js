@@ -1,3 +1,4 @@
+import { LEGACY_CARD_STYLES } from './card-style-ids.js';
 import { ResourceScope } from './resources.js';
 import { validateCardAtlas, loadCardAtlas, cardFrameName } from './card-atlas.js';
 import { LOCAL_BACK_PREFIX, LOCAL_BACK_WIDTH, LOCAL_BACK_HEIGHT, localCardBack, localCardBackTransaction, readLocalCardBack } from './card-back-local.js';
@@ -274,12 +275,24 @@ export class CardStyleRegistry {
     for (const texture of previous) texture.destroy(true);
     this.emit();
   }
-  get current() { return this.settings.get('cardStyle', ''); }
-  get selection() { return { face: this.settings.get('cardFaceStyle', this.current), back: this.settings.get('cardBackStyle', this.current), scope: this.settings.get('cardStyleScope', 'all') }; }
+  resolveStyleId(id) {
+    const mergedId = LEGACY_CARD_STYLES.get(id);
+    if (!mergedId || this.styles.has(id) || !this.styles.has(mergedId)) return id;
+    const inactive = this.settings.get('inactiveLegacyCardPacks', []);
+    return Array.isArray(inactive) && inactive.includes(id.split('.')[0]) ? id : mergedId;
+  }
+  get current() { return this.resolveStyleId(this.settings.get('cardStyle', '')); }
+  get selection() {
+    return {
+      face: this.resolveStyleId(this.settings.get('cardFaceStyle', this.current)),
+      back: this.resolveStyleId(this.settings.get('cardBackStyle', this.current)),
+      scope: this.settings.get('cardStyleScope', 'all'),
+    };
+  }
   styleFor(side, id = this.selection[side]) {
     if (side === 'face' && id === LOCAL_FACE_STYLE.id) return LOCAL_FACE_STYLE;
     if (side === 'face' && id === LOCAL_FACE_BACKGROUND_STYLE.id) return LOCAL_FACE_BACKGROUND_STYLE;
-    return (side === 'back' ? this.localBacks.get(id) : null) || this.styles.get(id);
+    return (side === 'back' ? this.localBacks.get(id) : null) || this.styles.get(this.resolveStyleId(id));
   }
   selectSide(side, id) {
     if (!['face', 'back'].includes(side)) throw new Error('无效卡牌面');
@@ -305,6 +318,7 @@ export class CardStyleRegistry {
     return this.selfModels.has(card) || this.selfIds.has(this.cardId(card));
   }
   select(id) {
+    id = this.resolveStyleId(id);
     if (id && !this.styles.has(id)) throw new Error('卡牌样式尚未启用');
     this.settings.set('cardStyle', id); this.settings.set('cardFaceStyle', id);
     if (!this.styles.get(id)?.atlas || this.styles.get(id).atlas.backImage) this.settings.set('cardBackStyle', id);

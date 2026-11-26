@@ -13,7 +13,8 @@ export const pluginQuality = {
       "tools/browser-social-check.mjs",
       "tools/browser-social-menu-check.mjs",
       "tools/browser-social-lamps-check.mjs",
-      "tools/browser-social-missing-check.mjs"
+      "tools/browser-social-missing-check.mjs",
+      "tools/browser-social-bubbles-check.mjs"
     ]
   },
   "player-info": {
@@ -24,57 +25,32 @@ export const pluginQuality = {
       "tests/player-info.test.js",
       "tests/player-stats.test.js",
       "tests/player-lamps.test.js",
-      "tests/player-manual-lamps.test.js"
+      "tests/player-manual-lamps.test.js",
+      "tests/general-pools.test.js"
     ],
     "browser": [
       "tools/browser-player-info-check.mjs",
       "tools/browser-player-info-native-check.mjs",
       "tools/browser-player-stats-check.mjs",
       "tools/browser-player-lamps-check.mjs",
-      "tools/browser-player-settings-check.mjs"
+      "tools/browser-player-settings-check.mjs",
+      "tools/browser-general-pools-check.mjs"
     ]
   },
-  "native-cards": {
+  "card-styles-extra": {
     "docs": [
-      "docs/card-styles.md"
-    ],
-    "tests": [
-      "tests/card-styles.test.js"
-    ],
-    "browser": [
-      "tools/browser-card-styles-check.mjs"
-    ]
-  },
-  "gold-cards": {
-    "docs": [
-      "docs/card-styles.md"
-    ],
-    "tests": [
-      "tests/card-styles.test.js"
-    ],
-    "browser": [
-      "tools/browser-card-styles-check.mjs"
-    ]
-  },
-  "yjcm-cards": {
-    "docs": [
-      "docs/yjcm-cards.md"
-    ],
-    "tests": [
-      "tests/card-atlas.test.js"
-    ],
-    "browser": [
-      "tools/browser-yjcm-cards-check.mjs"
-    ]
-  },
-  "dafeiyu-cards": {
-    "docs": [
+      "docs/card-styles.md",
+      "docs/yjcm-cards.md",
       "docs/dafeiyu-cards.md"
     ],
     "tests": [
+      "tests/card-styles.test.js",
+      "tests/card-atlas.test.js",
       "tests/dafeiyu-cards.test.js"
     ],
     "browser": [
+      "tools/browser-card-styles-check.mjs",
+      "tools/browser-yjcm-cards-check.mjs",
       "tools/browser-card-dafeiyu-check.mjs"
     ]
   },
@@ -245,17 +221,6 @@ export const pluginQuality = {
       "tools/browser-mobile-skin-bridge-check.mjs"
     ]
   },
-  "wish-progress": {
-    "docs": [
-      "docs/wish-progress.md"
-    ],
-    "tests": [
-      "tests/info-plugins.test.js"
-    ],
-    "browser": [
-      "tools/browser-wish-progress-check.mjs"
-    ]
-  },
   "shanhetu": {
     "docs": [
       "docs/shanhetu-placement-v2.md"
@@ -268,28 +233,6 @@ export const pluginQuality = {
     "browser": [
       "tools/browser-shanhetu-placement-v2-check.mjs",
       "tools/browser-shanhetu-extra-check.mjs"
-    ]
-  },
-  "shanhetu-beta": {
-    "docs": [
-      "docs/shanhetu-placement-v2.md"
-    ],
-    "tests": [
-      "tests/shanhetu-extra.test.js"
-    ],
-    "browser": [
-      "tools/browser-shanhetu-extra-check.mjs"
-    ]
-  },
-  "themes": {
-    "docs": [
-      "docs/themes.md"
-    ],
-    "tests": [
-      "tests/themes.test.js"
-    ],
-    "browser": [
-      "tools/browser-themes-check.mjs"
     ]
   },
   "baisheng": {
@@ -320,9 +263,11 @@ export const pluginQuality = {
   },
   "ledger": {
     "docs": [
-      "docs/ledger.md"
+      "docs/ledger.md",
+      "docs/wish-progress.md"
     ],
     "tests": [
+      "tests/info-plugins.test.js",
       "tests/ledger.test.js",
       "tests/ledger-bag.test.js",
       "tests/ledger-sync.test.js"
@@ -330,6 +275,7 @@ export const pluginQuality = {
     "browser": [
       "tools/browser-ledger-check.mjs",
       "tools/browser-ledger-bag-check.mjs",
+      "tools/browser-wish-progress-check.mjs",
       "tools/browser-ledger-sync-check.mjs",
       "tools/microclient-ledger-alert-check.mjs"
     ]
@@ -343,6 +289,17 @@ export const pluginQuality = {
     ],
     "browser": [
       "tools/browser-recharge-check.mjs"
+    ]
+  },
+  "themes-flow": {
+    "docs": [
+      "docs/themes.md"
+    ],
+    "tests": [
+      "tests/themes-flow.test.js"
+    ],
+    "browser": [
+      "tools/browser-themes-flow-check.mjs"
     ]
   }
 };

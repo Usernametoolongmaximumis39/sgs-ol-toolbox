@@ -116,6 +116,47 @@ function nativeEffect(layer, spine) {
   return effect;
 }
 
+export function createWallpaperMotion({ window, layer, spec, scope, ready, fail }) {
+  const spine = spec.kind === 'spine';
+  const effect = nativeEffect(layer, spine);
+  if (!effect) throw new Error('游戏动画加载器尚未就绪');
+  scope.add(() => effect.destroy());
+  const layoutMethod = spine ? layer.layoutBgLiveEffect : layer.layoutBgEffect;
+  const host = { [spine ? 'bgLiveEffect' : 'bgEffect']: effect };
+  const layout = () => Reflect.apply(layoutMethod, host, []);
+  const root = new window.Laya.Sprite();
+  let loaded = false, visible = false;
+  root.name = 'sgs-background-motion';
+  root.visible = root.mouseEnabled = root.mouseChildren = false;
+  root.zOrder = layer.bgSprite.zOrder || 0;
+  scope.add(() => root.destroy(false));
+  layer.addChildAt(root, layer.getChildIndex(layer.bgSprite) + 1);
+  root.addChild(effect);
+  effect.AutoReleaseRes = true;
+  layout();
+  effect.once(window.Laya.Event?.START || 'start', effect, () => {
+    if (scope.closed) return;
+    loaded = true;
+    root.visible = visible;
+    if (!visible) effect.stop();
+    ready();
+  });
+  effect.once(window.Laya.Event?.ERROR || 'error', effect, error => fail(error?.message || '官方动态资源加载失败'));
+  scope.timeout(() => { if (!loaded) fail('官方动态背景加载超时'); }, 20000);
+  effect.InitEffect(spec.url, spine ? 0 : 'play', true, false);
+  effect.playEffect();
+  return {
+    get loaded() { return loaded; },
+    layout,
+    show(value) {
+      if (visible === value) return;
+      visible = value;
+      root.visible = loaded && value;
+      if (loaded) { if (value) effect.playEffect(); else effect.stop(); }
+    },
+  };
+}
+
 function stableBackgroundClip(animations) {
   const names = animations?.map(animation => animation.name).filter(Boolean) ?? [];
   // The native skin player loops the last configured segment. In the skin

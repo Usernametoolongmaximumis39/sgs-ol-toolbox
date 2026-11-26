@@ -1,3 +1,5 @@
+import { ResourceScope } from '../../core/resources.js';
+import { createShanheExtra } from './extra/index.js';
 import { SHANHETU_ICON } from '../../ui/plugin-icons.js';
 import { CONFIG_FILES, MAP_SCENES, buildConfig, buildView, itemTypes, num } from './model.js';
 import { createNativeAdapter, createMapLabels } from './native.js';
@@ -19,6 +21,9 @@ import { createSchoolWindowSync } from './native-windows.js';
 const CSS = `
 .sh-main-content,.sh-main-chrome{font-size:12px;line-height:1.65}
 .sh-root .sh-tabs>button{font-size:calc(11px + var(--sgs-font-offset,0px));white-space:nowrap}
+.sh-extra-off{font-size:calc(12px + var(--sgs-font-offset,0px));line-height:1.5}
+.sh-extra-off p{margin:0 0 10px}
+.sh-root .sh-extra-off button{min-height:34px;padding:4px 12px;color:var(--sgs-accent);white-space:nowrap}
 .sh-root .sh-school{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 0;margin-bottom:0}
 .sh-root .sh-school .sh-meta{margin-bottom:0}
 .sh-root .sh-follow{min-height:34px;min-width:68px;padding:4px 8px;white-space:nowrap}
@@ -35,10 +40,18 @@ const CSS = `
 .sh-impact[data-impact=unknown]{color:var(--sgs-muted)}
 .sh-enemy+.sh-enemy{margin-top:7px}.sh-enemy-stats{font-size:11px;line-height:1.6;color:var(--sgs-muted);font-variant-numeric:tabular-nums}.sh-node[open] .sh-enemies{display:none}
 .sh-root{min-width:0;color:var(--sgs-text,#eee3cc)}.sh-root *{box-sizing:border-box}.sh-root h3{margin:0;font-size:15px;letter-spacing:.12em}.sh-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.sh-head small{color:var(--sgs-muted);font-size:10px;letter-spacing:.04em}.sh-head button{width:30px;height:30px;padding:6px;background:transparent;border:0;display:grid;place-items:center}.sh-chapter{color:var(--sgs-accent);font-size:16px;font-weight:600;overflow-wrap:anywhere}.sh-muted{color:var(--sgs-muted,#ada48e);font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}.sh-meta{display:flex;gap:8px;flex-wrap:wrap;margin:3px 0 12px;color:var(--sgs-muted);font-size:11px}.sh-meta span+span:before{content:'·';margin-right:8px;color:var(--sgs-border)}.sh-tabs{margin:12px 0}.sh-tabs button{min-height:30px}.sh-node{border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 45%,transparent);padding:0 0 8px;margin-bottom:8px}.sh-node>summary{align-items:flex-start;padding:9px 0}.sh-node>summary>span{min-width:0;flex:1}.sh-node strong{display:block;font-size:12px;color:var(--sgs-text);overflow-wrap:anywhere}.sh-node small{display:block;font-size:10px;line-height:1.5;color:var(--sgs-muted)}.sh-node[data-current=true]{border-left:2px solid var(--sgs-accent);padding-left:9px}.sh-body{padding:0 2px 5px}.sh-general{margin:10px 0;padding-left:9px;border-left:1px solid color-mix(in srgb,var(--sgs-border) 50%,transparent)}.sh-general>b{font-size:12px;color:var(--sgs-accent)}.sh-stats{font-variant-numeric:tabular-nums;margin:3px 0;color:var(--sgs-text);font-size:11px}.sh-skill{margin:6px 0}.sh-skill strong{display:inline;font-size:11px;color:var(--sgs-text)}.sh-choice{margin:12px 0}.sh-choice>b{font-size:12px;color:var(--sgs-accent)}.sh-choice p{margin:3px 0}.sh-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px 12px;margin:10px 0}.sh-stat{display:flex;justify-content:space-between;gap:6px;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 25%,transparent);padding:7px 0;font-size:11px}.sh-stat span{color:var(--sgs-muted)}.sh-stat b{font-variant-numeric:tabular-nums;overflow-wrap:anywhere;text-align:right}.sh-shop-head{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:10px 0}.sh-shop-head button{font-size:11px;flex:none;padding:6px 10px}.sh-good{padding:10px 0;border-bottom:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.sh-good summary{padding:0;align-items:flex-start}.sh-good summary>span{flex:1;min-width:0}.sh-good strong{display:block;font-size:12px;color:var(--sgs-text);overflow-wrap:anywhere}.sh-good small{display:block;font-size:10px;color:var(--sgs-muted)}.sh-good .sh-price{color:var(--sgs-accent);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}.sh-good[data-bought=true]{opacity:.65}.sh-error{border-left:2px solid var(--sgs-danger,#db8175);padding:7px 9px;margin:10px 0;color:var(--sgs-danger,#db8175);font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}.sh-options{margin-top:13px;border-top:1px solid color-mix(in srgb,var(--sgs-border) 35%,transparent)}.sh-options label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0}.sh-empty{padding:20px 5px;text-align:center;color:var(--sgs-muted)}.sh-root button:disabled{cursor:not-allowed;opacity:.45}.sh-root summary:focus-visible,.sh-root button:focus-visible{outline:1px solid var(--sgs-accent);outline-offset:3px}.sh-root button{font:inherit;color:inherit;cursor:pointer}.sh-root .sh-hint{font-size:10px;line-height:1.7;margin-top:9px;color:var(--sgs-muted)}
-.sh-head{margin:0 0 4px;gap:8px}.sh-head>div{min-width:0}.sh-head button{flex:none}.sh-head small{display:none}.sh-chapter{font-size:17px;line-height:1.5;letter-spacing:.04em}.sh-meta{margin-bottom:13px;gap:5px}.sh-meta span+span:before{margin-right:5px}.sh-node{padding-bottom:7px;margin-bottom:7px}.sh-node>summary{padding:10px 0 7px}.sh-node strong{font-size:13px;font-weight:600;letter-spacing:.02em}.sh-node .sh-caption{font-size:12px;color:var(--sgs-text);margin-top:4px;line-height:1.6}.sh-preview{font-size:11px;color:var(--sgs-muted);line-height:1.7;white-space:pre-line;margin-top:3px;overflow-wrap:anywhere}.sh-preview.sh-loot{color:var(--sgs-accent);margin-top:5px;font-size:11px}.sh-node[open] .sh-preview{display:none}.sh-node small{margin-top:3px}.sh-body{padding-top:3px}.sh-hint{opacity:.85}
+.sh-head{margin:0 0 4px;gap:8px}.sh-head>div{min-width:0}.sh-head button{flex:none}.sh-head small{display:none}.sh-chapter{font-size:14px;line-height:1.45;letter-spacing:.04em}.sh-meta{margin-bottom:13px;gap:5px}.sh-meta span+span:before{margin-right:5px}.sh-node{padding-bottom:7px;margin-bottom:7px}.sh-node>summary{padding:10px 0 7px}.sh-node strong{font-size:13px;font-weight:600;letter-spacing:.02em}.sh-node .sh-caption{font-size:12px;color:var(--sgs-text);margin-top:4px;line-height:1.6}.sh-preview{font-size:11px;color:var(--sgs-muted);line-height:1.7;white-space:pre-line;margin-top:3px;overflow-wrap:anywhere}.sh-preview.sh-loot{color:var(--sgs-accent);margin-top:5px;font-size:11px}.sh-node[open] .sh-preview{display:none}.sh-node small{margin-top:3px}.sh-body{padding-top:3px}.sh-hint{opacity:.85}
 `;
 
 const SHOP_REFRESH_REQUEST = 102063;
+
+function mapProgress(chapter, identity) {
+  if (!chapter) return null;
+  const locations = chapter.locations.map(({ location, event, appTime }) => [location, event, appTime])
+    .sort(([left], [right]) => left - right);
+  const finished = chapter.alreadyFinishEvent.slice().sort();
+  return JSON.stringify([identity, chapter.day, chapter.accday, chapter.endFlag, locations, finished]);
+}
 
 export function activate(ctx) {
   createTacticCounts(ctx);
@@ -55,6 +68,17 @@ export function activate(ctx) {
   const expanded = new Map();
   let followedGoods = new Set(), shopRefresh = 0;
   const setting = (key, fallback = true) => ctx.settings.get(key, fallback);
+  let extraScope, renderExtra;
+  function updateExtra() {
+    if (setting('showExtra') === false) {
+      extraScope?.dispose(); extraScope = renderExtra = undefined;
+    } else if (!extraScope) {
+      extraScope = new ResourceScope();
+      renderExtra = createShanheExtra({ ...ctx, scope: extraScope });
+    }
+  }
+  ctx.scope.add(() => extraScope?.dispose());
+  updateExtra();
   const followsKey = () => 'followedSchools:' + account;
   const follows = () => {
     const saved = account && setting(followsKey(), []);
@@ -88,7 +112,7 @@ export function activate(ctx) {
     if (force || next !== signature) { signature = next; emit(); }
     const labelsEnabled = onMap && active && !blockedAccount && setting('labels');
     const nodes = labelsEnabled ? view?.nodes.filter(node => node.type === 'fight' ? setting('enemies') : setting('events')) : null;
-    labels.update(scene, nodes || [], labelsEnabled);
+    labels.update(scene, nodes || [], labelsEnabled, labelsEnabled ? mapProgress(snapshot.chapterData, identity) : null);
   }
   async function loadConfig(force = false) {
     if (configJob || config || (configAttempt && !force) || !active) return;
@@ -175,8 +199,11 @@ export function activate(ctx) {
     const doc = ctx.document, layout = doc.createElement('div'); layout.className = 'sh-root'; layout.dataset.shanhetu = '';
     const header = doc.createElement('div'), root = doc.createElement('div'), extensions = doc.createElement('div');
     header.className = 'sh-main-chrome'; root.className = 'sh-main-content';
-    const modules = new Map(groupTabs.map(module => [module.id, module])), mounted = new Map();
-    const tabs = [...groupTabs.map(({ id, title }) => [id, title]), ['nodes', '地图'], ['shop', '商店'], ['run', '概况']];
+    let extraMount;
+    const extraId = 'extra';
+    const externalTabs = new Map(groupTabs.map(module => [module.id, module]));
+    const hasIntegratedExtra = !externalTabs.has('shanhetu-beta:main');
+    const mounted = new Map();
     const style = doc.createElement('style'); style.textContent = CSS;
     layout.append(header, root, extensions); container.append(style, layout);
     const el = (tag, cls, text) => {
@@ -199,6 +226,17 @@ export function activate(ctx) {
       }
       return n;
     };
+    const extraDisabled = el('section', 'sh-empty sh-extra-off');
+    const enableExtra = el('button', '', '启用拓展');
+    enableExtra.type = 'button';
+    enableExtra.onclick = () => {
+      ctx.settings.set('showExtra', true);
+      updateExtra();
+      update(extraId);
+    };
+    extraDisabled.hidden = true;
+    extraDisabled.append(el('p', '', '战绩分与结局倾向已关闭。'), enableExtra);
+    extensions.append(extraDisabled);
     const muted = text => el('div', 'sh-muted', text);
     const lootParts = rewards => infoLineTokens({ kind: 'reward', tokens: rewardTokens(rewards) });
     const warnings = names => infoLineTokens({ kind: 'warning', text: names.join(' ') });
@@ -227,10 +265,14 @@ export function activate(ctx) {
     }
     function appendOptions() {
       const options = details('options', 'sh-options'); options.append(el('summary', '', '显示设置'));
-      for (const [key, label, fallback = true] of [['labels', '地图标注'], ['enemies', '敌军标注'], ['events', '问号与事件标注'], ['optionImpact', '数值变化标注', false], ['keepBattleBackground', '保留自选战斗背景']]) {
+      for (const [key, label, fallback = true] of [['labels', '地图标注'], ['enemies', '敌军标注'], ['events', '问号与事件标注'], ['optionImpact', '数值变化标注', false], ['showExtra', '战绩分与结局倾向'], ['keepBattleBackground', '保留自选战斗背景']]) {
         const row = el('label'), input = ctx.ui.styleSwitch(el('input')); input.type = 'checkbox';
         input.checked = setting(key, fallback); input.dataset.key = key; input.setAttribute('aria-label', label);
-        input.onchange = () => { ctx.settings.set(key, input.checked); background.refresh(); publish(true); };
+        input.onchange = () => {
+          ctx.settings.set(key, input.checked);
+          if (key === 'showExtra') updateExtra();
+          background.refresh(); publish(true);
+        };
         const copy = el('span', '', label);
         if (key === 'keepBattleBackground') copy.append(ctx.ui.helpTip('进入山河对局后，通过官方背景选择入口重新应用当前选择；每局自动触发。', '战斗背景说明'));
         row.append(copy, input); options.append(row);
@@ -271,6 +313,9 @@ export function activate(ctx) {
     }
     function update(requestedFocus) {
       const focused = requestedFocus ?? layout.getRootNode()?.activeElement?.dataset?.key;
+      if (!renderExtra && extraMount) { extraMount.cleanup(); extraMount = undefined; }
+      const tabs = [...Array.from(externalTabs.values(), ({ id, title }) => [id, title]), ['nodes', '地图'], ['shop', '商店'], ['run', '概况']];
+      if (hasIntegratedExtra) tabs.unshift([extraId, '拓展']);
       const selected = tabs.some(([id]) => id === tab) ? tab : 'nodes';
       const restoreFocus = () => {
         if (focused) [...layout.querySelectorAll('[data-key]')].find(n => n.dataset.key === focused)?.focus?.({ preventScroll: true });
@@ -287,22 +332,29 @@ export function activate(ctx) {
         for (const text of [view.difficulty, snapshot.chapterData ? `行军 ${unknown(snapshot.chapterData.accday)} 月` : '月份待同步', snapshot.gameData ? `${unknown(snapshot.gameData.money)} 铜钱` : '铜钱待同步']) meta.append(el('span', '', text));
         header.append(meta);
       }
-      if (modules.size || (active && !blockedAccount && view)) {
-        const segments = el('div', 'sgs-segments sh-tabs'); segments.setAttribute('role', 'group'); segments.setAttribute('aria-label', '山河内容');
-        for (const [id, label] of tabs) {
-          const button = el('button', '', label); button.type = 'button'; button.dataset.key = id;
-          button.setAttribute('aria-pressed', String(selected === id));
-          button.onclick = () => { tab = id; update(id); };
-          segments.append(button);
-        }
-        header.append(segments);
+      const segments = el('div', 'sgs-segments sh-tabs'); segments.setAttribute('role', 'group'); segments.setAttribute('aria-label', '山河内容');
+      for (const [id, label] of tabs) {
+        const button = el('button', '', label); button.type = 'button'; button.dataset.key = id;
+        button.setAttribute('aria-pressed', String(selected === id));
+        button.onclick = () => { tab = id; update(id); };
+        segments.append(button);
       }
-      const module = modules.get(selected);
-      root.hidden = !!module;
-      extensions.hidden = !module;
+      header.append(segments);
+      const module = externalTabs.get(selected), extraSelected = selected === extraId;
+      extraDisabled.hidden = !extraSelected || Boolean(renderExtra);
+      if (extraSelected && renderExtra && !extraMount) {
+        const section = doc.createElement('section');
+        section.dataset.panelId = 'shanhetu:extra';
+        extensions.append(section);
+        const cleanup = renderExtra(section);
+        extraMount = { section, cleanup() { cleanup(); section.remove(); } };
+      }
+      root.hidden = Boolean(module || extraSelected);
+      extensions.hidden = !root.hidden;
       if (module && !mounted.has(selected)) mounted.set(selected, module.mount(extensions));
       for (const [id, section] of mounted) section.hidden = id !== selected;
-      if (module) { restoreFocus(); return; }
+      if (extraMount) extraMount.section.hidden = !extraSelected;
+      if (root.hidden) { restoreFocus(); return; }
       if (!active || blockedAccount || !view) {
         root.append(el('div', 'sh-empty', !active ? '进入山河地图后显示本轮信息' : blockedAccount ? '账号已切换，等待新账号同步' : config ? '等待本轮数据' : '正在读取官方配置…'));
         appendOptions();
@@ -384,17 +436,18 @@ export function activate(ctx) {
       appendOptions();
       restoreFocus();
     }
-    listeners.add(update); update(); return () => { listeners.delete(update); layout.remove(); style.remove(); };
+    listeners.add(update); update();
+    return () => { listeners.delete(update); extraMount?.cleanup(); layout.remove(); style.remove(); };
   }
-  const offPanel = ctx.ui.registerPanel({ id: 'main', title: '山河图', category: 'game', priority: 32768, groupTabs: true, render });
+  const offPanel = ctx.ui.registerPanel({ id: 'main', title: '山河图', category: 'game', gameView: 'shanhe', priority: 32768, groupTabs: true, render });
   const offScene = ctx.game.onSceneChange?.(() => tick());
   ctx.scope.interval(() => tick(), 700); tick();
   ctx.scope.add(() => { offManager?.(); offScene?.(); cancelPending(); listeners.clear(); });
   return () => { offPanel(); labels.clear(); };
 }
-export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.52', apiVersion: 1, contractVersion: 1, journalEvents: TACTIC_JOURNAL_EVENTS,
-    releaseNotes: "地图节点详情在空间不足时支持翻页和滚动，密集处可从节点旁的入口展开。调整地图标注和节点详情的布局，减少对游戏按钮及邻近节点的遮挡。", minCoreVersion: '0.6.121', categories: ['game'], icon: SHANHETU_ICON, priority: 11000,
-    description: '敌军、奇遇与商店预览，换将卡预判、战法计数与流派进度' }, initialState, reduce, activate };
+export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.56', apiVersion: 1, contractVersion: 1, journalEvents: TACTIC_JOURNAL_EVENTS,
+    releaseNotes: "原山河图拓展功能并入山河图，可在「拓展」查看结局条件和战绩分预估，不再需要单独安装。优化密集地图的标注和节点详情布局；实际战绩分以游戏结算为准。", minCoreVersion: '0.6.121', categories: ['game'], icon: SHANHETU_ICON, priority: 11000,
+    description: '敌军奇遇预览、战法流派与结局算分' }, initialState, reduce, activate };
 
 
 

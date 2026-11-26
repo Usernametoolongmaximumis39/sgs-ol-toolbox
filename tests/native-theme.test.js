@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createNativeTheme, getNativeTheme, resolveNativePalette, DEFAULT_NATIVE_PALETTE } from '../src/ui/native-theme.js';
 import { ResourceScope } from '../src/core/resources.js';
 import { ThemeRegistry } from '../src/core/themes.js';
-import { THEMES } from '../src/plugins/themes/palettes.js';
+import { THEMES } from '../src/core/theme-palettes.js';
 import { PluginManager } from '../src/core/plugins.js';
 import { SessionJournal } from '../src/core/session.js';
 

@@ -8,23 +8,38 @@ import { validateRepositoryPlugins } from './plugin-validation.mjs';
 import { fullBundledPackages, makePluginPackage } from './plugin-packages.mjs';
 import { CORE_VERSION } from '../src/core/version.js';
 import { zipFiles } from './microclient-zip.mjs';
+import runtimeCache from '../microclient/runtime-cache.cjs';
 
-export async function buildMicroclientHost(root) {
-  const [security, accounts, host] = await Promise.all([
+async function runtimeVersion(root) {
+  const value = JSON.parse(await readFile(resolve(root, 'microclient/runtime-version.json'), 'utf8'));
+  if (!runtimeCache.validVersion(value.version) || value.bootstrapApi !== runtimeCache.BOOTSTRAP_API) {
+    throw new Error('Invalid microclient runtime version');
+  }
+  return value;
+}
+
+export async function buildMicroclientRuntimeHost(root) {
+  const [security, accounts, topbar, updater, host, { version }] = await Promise.all([
     build({ absWorkingDir: root, stdin: {
       contents: `export { toolboxDownloadRequest, mobileSkinPartialLength } from './src/core/mobile-skin-download.js';
         export { privateHttpRequest, PRIVATE_HTTP_LIMIT, PRIVATE_HTTP_TIMEOUT } from './src/shared/private-sync-http.js';`, resolveDir: root,
     }, bundle: true, format: 'iife', target: 'node12', globalName: 'MobileSkinSecurity', write: false }),
     build({ absWorkingDir: root, entryPoints: ['microclient/accounts-host.cjs'], bundle: true,
       platform: 'node', external: ['electron'], format: 'iife', target: 'node12', globalName: 'MicroclientAccounts', write: false }),
-    readFile(resolve(root, 'microclient/host.cjs'), 'utf8')
+    build({ absWorkingDir: root, entryPoints: ['microclient/topbar-shell.cjs'], bundle: true,
+      format: 'iife', target: 'chrome85', globalName: 'MicroclientTopbar', write: false }),
+    build({ absWorkingDir: root, entryPoints: ['microclient/runtime-update.cjs'], bundle: true,
+      platform: 'node', format: 'iife', target: 'node12', globalName: 'MicroclientRuntimeUpdate', write: false }),
+    readFile(resolve(root, 'microclient/host.cjs'), 'utf8'),
+    runtimeVersion(root)
   ]);
   const mirror = configuredUpdateMirror();
   const source = mirror ? host.replace('const UPDATE_SOURCES = [', `const UPDATE_SOURCES = [\n  ${JSON.stringify(mirror + '/microclient/')},`) : host;
-  return Buffer.from(source.replace("'use strict';", "'use strict';\n" + security.outputFiles[0].text + accounts.outputFiles[0].text));
+  const modules = [security, accounts, topbar, updater].map(result => result.outputFiles[0].text).join('\n');
+  return Buffer.from(source.replace("'use strict';", () => "'use strict';\n// Microclient runtime " + version + '\n' + modules));
 }
 
-export async function buildMicroclientPreload(root) {
+export async function buildMicroclientRuntimePreload(root) {
   const [preload, accounts] = await Promise.all([
     readFile(resolve(root, 'microclient/preload.cjs'), 'utf8'),
     build({ absWorkingDir: root, entryPoints: ['microclient/accounts-guest.cjs'], bundle: true,
@@ -33,16 +48,60 @@ export async function buildMicroclientPreload(root) {
   return Buffer.from(preload + '\n' + accounts.outputFiles[0].text);
 }
 
+async function wrapHost(root, host, preload, version) {
+  const result = await build({
+    absWorkingDir: root, entryPoints: ['microclient/bootstrap-host.cjs'], bundle: true, write: false,
+    platform: 'node', external: ['electron'], format: 'cjs', target: 'node12',
+    define: {
+      BUNDLED_RUNTIME_VERSION: JSON.stringify(version),
+      bundledHostSource: JSON.stringify(host.toString('utf8')),
+      bundledPreloadSource: JSON.stringify(preload.toString('utf8'))
+    }
+  });
+  return Buffer.from(result.outputFiles[0].contents);
+}
+
+async function wrapPreload(root, preload) {
+  const bootstrap = await readFile(resolve(root, 'microclient/bootstrap-preload.cjs'), 'utf8');
+  return Buffer.from(';(function (bundledPreloadSource) {\n' + bootstrap +
+    '\n})(' + JSON.stringify(preload.toString('utf8')) + ');\n');
+}
+
+export async function buildMicroclientHost(root) {
+  const [host, preload, { version }] = await Promise.all([
+    buildMicroclientRuntimeHost(root), buildMicroclientRuntimePreload(root), runtimeVersion(root)
+  ]);
+  return wrapHost(root, host, preload, version);
+}
+
+export async function buildMicroclientPreload(root) {
+  return wrapPreload(root, await buildMicroclientRuntimePreload(root));
+}
+
 export async function buildMicroclient({ root = resolve(import.meta.dirname, '..'), out = resolve(root, 'release/microclient'), editions = ['full', 'lite'] } = {}) {
   if (!editions.length || editions.some(edition => !['full', 'lite'].includes(edition))) throw new Error('Microclient builds support full/lite only');
   const { bundles } = await validateRepositoryPlugins({ root });
   const packages = await Promise.all(fullBundledPackages(bundles).map(bundle => makePluginPackage(bundle)));
-  const [host, preload] = await Promise.all([buildMicroclientHost(root), buildMicroclientPreload(root)]);
+  const [runtimeHost, runtimePreload, { version, bootstrapApi }] = await Promise.all([
+    buildMicroclientRuntimeHost(root), buildMicroclientRuntimePreload(root), runtimeVersion(root)
+  ]);
+  const [host, preload] = await Promise.all([
+    wrapHost(root, runtimeHost, runtimePreload, version), wrapPreload(root, runtimePreload)
+  ]);
   const readme = await readFile(resolve(root, 'public-docs/microclient/README.txt'), 'utf8').catch(error => {
     if (error.code !== 'ENOENT') throw error;
     return readFile(resolve(root, 'microclient/README.txt'), 'utf8');
   });
   const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+  const manifestFile = (name, data) => {
+    const { file, limit } = runtimeCache.files[name];
+    if (!data.length || data.length > limit) throw new Error('Invalid microclient runtime size: ' + file);
+    return { file, bytes: data.length, sha256: hash(data) };
+  };
+  const runtimeManifest = {
+    format: runtimeCache.FORMAT, bootstrapApi, version, host: manifestFile('host', runtimeHost),
+    preload: manifestFile('preload', runtimePreload)
+  };
   const built = {};
   const approved = JSON.parse(await readFile(resolve(root, 'microclient/approved-payloads.json'), 'utf8'));
   for (const edition of ['full', 'lite']) {
@@ -55,6 +114,9 @@ export async function buildMicroclient({ root = resolve(import.meta.dirname, '..
   await mkdir(out, { recursive: true });
   await writeFile(resolve(out, 'toolbox.js'), built.lite.source);
   await writeFile(resolve(out, 'update.json'), JSON.stringify({ format: 'sgs-toolbox-script-v1', hostApi: 1, version: CORE_VERSION, bytes: Buffer.byteLength(built.lite.source), sha256: hash(built.lite.source) }, null, 2) + '\n');
+  await writeFile(resolve(out, runtimeManifest.host.file), runtimeHost);
+  await writeFile(resolve(out, runtimeManifest.preload.file), runtimePreload);
+  await writeFile(resolve(out, 'runtime-update.json'), JSON.stringify(runtimeManifest, null, 2) + '\n');
   for (const edition of editions) {
     const dir = resolve(out, edition), { source, inputs } = built[edition];
     if (inputs.some(file => /compat\/(?:profiles|index)\.js/.test(file) && !file.endsWith('compat/index.js'))) throw new Error('Microclient includes browser compatibility runtime');

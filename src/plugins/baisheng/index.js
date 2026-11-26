@@ -2,9 +2,9 @@ import { BAISHENG_ICON } from '../../ui/plugin-icons.js';
 import { read, field, generalNames, downloadJSON } from '../../shared/info-runtime.js';
 import { definitions, evaluate, validSnapshot } from './model.js';
 import { achievementExport } from './export.js';
-export const manifest = { id: 'baisheng', name: '百胜战功', version: '0.1.12', apiVersion: 1, contractVersion: 1,
+export const manifest = { id: 'baisheng', name: '百胜战功', version: '0.1.13', apiVersion: 1, contractVersion: 1,
   releaseNotes: "修复断线或重新登录时刷新战功可能报错的问题。连接恢复前仍可查看和导出当前账号已保存的进度，连接就绪后自动恢复查询。", minCoreVersion: '0.6.222', categories: ['info'], icon: BAISHENG_ICON, priority: 31000,
-  description: '查看当前账号百胜进度、完成日期与技能战功，仅保存在本机' };
+  description: '本机记录百胜进度、日期与技能战功' };
 
 export function createController(ctx) {
   const achievements = ctx.native.achievements;

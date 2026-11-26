@@ -9,23 +9,24 @@ import { ResourceScope } from '../src/core/resources.js';
 import { validateCardAtlas } from '../src/core/card-atlas.js';
 import { verifyPackage } from '../src/core/packages.js';
 import { bundlePlugin, makePluginPackage } from '../tools/plugin-packages.mjs';
-import plugin from '../src/plugins/dafeiyu-cards/index.js';
-import { cards, replaceCards } from '../src/plugins/dafeiyu-cards/coverage.js';
-import { localCards } from '../src/plugins/dafeiyu-cards/local-resources.js';
+import { registerDafeiyuCardStyles } from '../src/plugins/card-styles-extra/dafeiyu/index.js';
+import { manifest } from '../src/plugins/card-styles-extra/index.js';
+import { cards, replaceCards } from '../src/plugins/card-styles-extra/dafeiyu/coverage.js';
+import { localCards } from '../src/plugins/card-styles-extra/dafeiyu/local-resources.js';
 
 const expectedCards = [...replaceCards, ...localCards.map(card => card.name)];
 
 test('dafeiyu package contains only its pinned external references and exact Lite scope', async () => {
   const styles = [];
-  plugin.activate({ core: { distribution: 'lite' }, cardStyles: { register: style => styles.push(style) } });
+  registerDafeiyuCardStyles({ core: { distribution: 'lite' }, cardStyles: { register: style => styles.push(style) } });
   assert.equal(styles.length, 1);
-  assert.equal(plugin.manifest.name, '大肥鱼卡面');
-  assert.equal(styles[0].name, plugin.manifest.name);
-  assert.equal(styles[0].id, 'dafeiyu-cards.beta');
+  assert.equal(manifest.name, '卡面卡背拓展');
+  assert.equal(styles[0].name, '大肥鱼卡面');
+  assert.equal(styles[0].id, 'card-styles-extra.dafeiyu');
   const atlas = validateCardAtlas(styles[0].atlas);
   assert.equal(atlas.pixelRatio, 3);
   assert.equal(atlas.pages.length, 4);
-  assert.equal(plugin.manifest.minCoreVersion, '0.6.185');
+  assert.equal(manifest.minCoreVersion, '0.6.185');
   assert.equal(atlas.preview, 'Sha');
   assert.match(atlas.previewImage, /^data:image\/webp;base64,/);
   assert.match(atlas.backImage, /^data:image\/webp;base64,/);
@@ -47,18 +48,18 @@ test('dafeiyu package contains only its pinned external references and exact Lit
     assert.equal(new URL(resource.url).origin, 'https://raw.githubusercontent.com');
     assert(!new URL(resource.url).pathname.includes('/market/'), 'art is deployed separately from plugin packages');
   }
-  const bundle = await bundlePlugin('dafeiyu-cards');
-  assert(bundle.inputs.every(path => path.startsWith('src/plugins/dafeiyu-cards/')));
+  const bundle = await bundlePlugin('card-styles-extra');
+  assert(bundle.inputs.every(path => path.startsWith('src/plugins/card-styles-extra/')));
   const packet = await makePluginPackage(bundle);
   await verifyPackage(packet);
-  assert(packet.code.length < 1100000, 'only the small preview may be embedded');
+  assert(packet.code.length < 256000, 'only the small preview may be embedded');
   assert(packet.code.includes('data:image/webp;base64,'));
 });
 
 test('dafeiyu installs offline and preserves independent selections across the complete plugin lifecycle', async t => {
   const dom = new JSDOM('', { url: 'https://example.test/' }), scope = new ResourceScope();
   const settings = new Settings(dom.window.localStorage), rows = new Map();
-  settings.set('cardFaceStyle', ''); settings.set('cardBackStyle', 'native-cards.classic'); settings.set('cardStyleScope', 'self');
+  settings.set('cardFaceStyle', ''); settings.set('cardBackStyle', 'card-styles-extra.native-classic'); settings.set('cardStyleScope', 'self');
   dom.window.fetch = () => assert.fail('installing or enabling a card pack must not download art');
   const registry = new CardStyleRegistry({ window: dom.window, document: dom.window.document, game: {}, settings, scope });
   const manager = new PluginManager({ journal: new SessionJournal(), settings,
@@ -67,22 +68,22 @@ test('dafeiyu installs offline and preserves independent selections across the c
   });
   t.after(() => { manager.dispose(); scope.dispose(); dom.window.close(); });
   await manager.init();
-  const packet = await makePluginPackage(await bundlePlugin('dafeiyu-cards'));
+  const packet = await makePluginPackage(await bundlePlugin('card-styles-extra'));
   await manager.install(packet);
-  assert.equal(registry.list().length, 1); assert.equal(registry.atlases.size, 0);
-  assert.deepEqual(registry.selection, { face: '', back: 'native-cards.classic', scope: 'self' });
+  assert.equal(registry.list().length, 6); assert.equal(registry.atlases.size, 0);
+  assert.deepEqual(registry.selection, { face: '', back: 'card-styles-extra.native-classic', scope: 'self' });
   // Network loading is covered by atlas tests; isolate lifecycle and stored selections here.
   registry.ensureAtlas = () => ({});
-  registry.selectSide('face', 'dafeiyu-cards.beta');
-  const selection = { ...registry.selection, back: 'dafeiyu-cards.beta' };
-  registry.selectSide('back', 'dafeiyu-cards.beta');
-  await manager.disable('dafeiyu-cards');
+  registry.selectSide('face', 'card-styles-extra.dafeiyu');
+  const selection = { ...registry.selection, back: 'card-styles-extra.dafeiyu' };
+  registry.selectSide('back', 'card-styles-extra.dafeiyu');
+  await manager.disable('card-styles-extra');
   assert.equal(registry.list().length, 0); assert.deepEqual(registry.selection, selection);
-  await manager.enable('dafeiyu-cards'); await manager.reload('dafeiyu-cards');
-  assert.equal(registry.list().length, 1); assert.deepEqual(registry.selection, selection);
-  await manager.install(packet); await manager.rollback('dafeiyu-cards');
-  assert.equal(registry.list().length, 1); assert.deepEqual(registry.selection, selection);
-  await manager.uninstall('dafeiyu-cards');
+  await manager.enable('card-styles-extra'); await manager.reload('card-styles-extra');
+  assert.equal(registry.list().length, 6); assert.deepEqual(registry.selection, selection);
+  await manager.install(packet); await manager.rollback('card-styles-extra');
+  assert.equal(registry.list().length, 6); assert.deepEqual(registry.selection, selection);
+  await manager.uninstall('card-styles-extra');
   assert.equal(registry.list().length, 0); assert.equal(registry.atlases.size, 0);
   assert.deepEqual(registry.selection, selection);
 });
@@ -106,8 +107,8 @@ test('dafeiyu applies all 94 exact names, preserves suit/rank, and restores a re
   // Even if a later sheet contains an extra frame, the plugin's exact whitelist owns the scope.
   registry.atlasCanvas = () => ({});
   let unregister;
-  plugin.activate({ cardStyles: { register: style => { unregister = registry.register(style, 'dafeiyu-cards'); } } });
-  registry.selectSide('face', 'dafeiyu-cards.beta');
+  registerDafeiyuCardStyles({ cardStyles: { register: style => { unregister = registry.register(style, 'card-styles-extra'); } } });
+  registry.selectSide('face', 'card-styles-extra.dafeiyu');
   for (const ui of uis.slice(0, expectedCards.length)) {
     assert.notEqual(ui.bmpFace.texture, original, ui.theCard.ResName);
     assert.equal(ui.bmpFace2.visible, false); assert.equal(ui.bmpName.visible, false);

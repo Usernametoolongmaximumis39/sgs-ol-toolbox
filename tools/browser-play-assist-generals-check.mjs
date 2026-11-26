@@ -116,6 +116,17 @@ try {
     selfUI.y = 395;
     window.targetUI = seat(1, 358, '曹操', false);
     selfUI.cardContainer = {cardUis:[]}; selfUI.skillItems = [];
+    const selector = selfUI.spellSelector = sprite(Laya.stage,'native-spell-selector',284,333,392,34);
+    selector.visible = false;
+    selector.graphics.drawRect(0,0,392,34,'#29251c','#927a54',1);
+    label(selector,'权御 · 请选择一项效果',12,8);
+    const choice = sprite(selector,'option',261,4,125,26);
+    choice.graphics.drawRect(0,0,125,26,'#403424','#927a54',1);
+    label(choice,'白虹',47,4);
+    window.nativeChoices = 0;
+    choice.on('click', choice, () => window.nativeChoices++);
+    window.canOperate = true;
+    const gameContext = {CanOperationInGame:()=>window.canOperate};
     window.quan = { ID:3793, Value:0, mask:0 };
     targetUI.seat.GetSeatState = () => quan;
     targetUI.seat.GetSkillBuffInfo = () => [quan.mask];
@@ -191,11 +202,16 @@ try {
     ged.on('OPEN_WINDOW', {gamePopUpWindowDict: windows}, () => {});
     window.runtime = createRuntime({
       window, scope, settings:{get:(key, fallback)=>saved.get(key) ?? fallback,set:(key,value)=>saved.set(key,value)},
-      game:{ getScene:()=>scene, getSnapshot:()=>({inGame:true}), getClass:()=>null, getServerProxy:()=>proxy },
+      game:{ getScene:()=>scene, getSnapshot:()=>({inGame:true}), getClass:name=>name === 'GameContext' ? gameContext : null, getServerProxy:()=>proxy },
       ui:{nativeTheme}, reportError:error=>{window.failure = String(error.stack);},
     }, () => options);
     window.row = () => targetUI.stateContainer.getChildByName('sgs-play-assist-quanyu');
-    window.effectOrder = () => row()?._children.filter(icon=>icon.visible).sort((a,b)=>a.y-b.y || a.x-b.x).map(icon=>Number(icon.name.at(-1)));
+    window.effectIcons = (strip = row()) => strip._children.filter(icon=>icon.visible).sort((a,b)=>a.x-b.x);
+    window.effectOrder = () => effectIcons().map(icon=>Number(icon.name.at(-1)));
+    window.geometry = node => {
+      const a = node.localToGlobal(new Laya.Point(0,0)), b = node.localToGlobal(new Laya.Point(node.width,node.height));
+      return {left:a.x, right:b.x, top:a.y, bottom:b.y};
+    };
     window.sideSnapshot = () => [official, adjacentMark, ownOfficial].map(node =>
       [node.x,node.y,node.width,node.height,node.alpha,node.mouseEnabled,node.visible]);
     window.hpMarks = (ui = targetUI) => ui.hpbarManager.render.getChildByName('sgs-play-assist-zhuohun');
@@ -264,7 +280,12 @@ try {
     const current = own.getChildByName('sgs-quanyu-4'), before = own.getChildByName('sgs-quanyu-6');
     return [row().x + active.x, row().y + active.y, official.height, adjacentMark.y,
       own.x + current.x, own.y + current.y, own.x + before.x, own.y + before.y];
-  }), [20,25,30,-5,10,143,10,119], 'the first effect starts at the exact stock button coordinates');
+  }), [4,25,30,-5,10,143,58,143], 'both seats use one horizontal strip near the stock button');
+  assert.ok(await page.evaluate(() => {
+    const icons = effectIcons(), portrait = geometry(targetUI.seatAvatar);
+    return icons.length === 6 && icons.every(icon => icon.y === 0 && icon.width === 22
+      && geometry(icon).left >= portrait.left && geometry(icon).right <= portrait.right);
+  }), 'all six full-size icons fit the native portrait');
   await page.screenshot({ path: resolve(output,'quanyu-replaced-card-button.png') });
   const point = await page.evaluate(() => row().getChildByName('sgs-quanyu-5').localToGlobal(new Laya.Point(12,12)));
   await page.mouse.move(point.x,point.y);
@@ -280,25 +301,78 @@ try {
     targetUI.layoutStateIcons(); runtime.tick();
   });
   assert.deepEqual(await page.evaluate(()=>effectOrder()), [3,6,4,1,5,2]);
-  assert.deepEqual(await page.evaluate(()=>[row().x,row().y,adjacentMark.x,adjacentMark.y]), [20,25,146,-5]);
+  assert.deepEqual(await page.evaluate(()=>[row().x,row().y,adjacentMark.x,adjacentMark.y]), [2,25,146,-5],
+    'the strip leaves a gap when native marks move to the right edge');
   await page.evaluate(() => {
     const blocker = window.blocker = new Laya.Sprite();
-    blocker.SeatState = {ID:999};
-    blocker.pos(20,49); blocker.size(47,23);
+    blocker.pos(20,25); blocker.size(47,23).scale(1.2,1);
+    blocker.graphics.drawRect(0,0,47,23,'#384252','#a1a8bf',1);
+    const label = new Laya.Text();
+    label.text = '其他技'; label.color = '#ece7d8'; label.pos(4,4); blocker.addChild(label);
+    blocker.on('click', blocker, () => window.blockerClicks++);
+    window.blockerClicks = 0;
     targetUI.stateContainer.addChild(blocker);
     runtime.tick();
   });
   assert.deepEqual(await page.evaluate(()=>effectOrder()),[3,6,4,1,5,2]);
-  assert.deepEqual(await page.evaluate(()=>[blocker.y,blocker.alpha,row().getChildByName('sgs-quanyu-4').y]),[49,1,48],
-    'history skips a neighboring native on-card marker');
+  assert.ok(await page.evaluate(() => effectIcons().every(icon => {
+    const a = geometry(icon), b = geometry(blocker);
+    return icon.y === 0 && (a.bottom <= b.top - 2 || a.top >= b.bottom + 2 || a.right <= b.left - 2 || a.left >= b.right + 2);
+  })), 'entire row avoids a scaled native skill marker without a SeatState property');
+  const blockerPoint = await page.evaluate(()=>blocker.localToGlobal(new Laya.Point(12,12)));
+  await page.mouse.click(blockerPoint.x,blockerPoint.y);
+  assert.deepEqual(await page.evaluate(()=>[blocker.x,blocker.y,blocker.alpha,blockerClicks,clicks]),[20,25,1,1,1]);
   await page.evaluate(() => {
+    const selector = selfUI.spellSelector;
+    selector.visible = true;
+    selector.spell = {ID:3793};
+    canOperate = false;
+    quan.Value = 0;
+    window.beforeChoosing = row();
+    runtime.tick();
+  });
+  assert.deepEqual(await page.evaluate(()=>[effectOrder(),row() === beforeChoosing,officialButton.alpha,row().mouseEnabled]),
+    [[3,6,4,1,5,2],true,0,false], 'choosing keeps the replacement visible when native operations are paused and current effect is transiently missing');
+  await page.screenshot({ path: resolve(output,'quanyu-choosing-one-row.png') });
+  await page.evaluate(() => { canOperate = true; runtime.tick(); });
+  const choicePoint = await page.evaluate(() => selfUI.spellSelector.getChildByName('option').localToGlobal(new Laya.Point(60,12)));
+  await page.mouse.click(choicePoint.x,choicePoint.y);
+  assert.deepEqual(await page.evaluate(()=>[nativeChoices,clicks,row().mouseEnabled]),[1,1,false], 'the native choice stays clickable while the strip is present');
+  await page.evaluate(() => {
+    selfUI.spellSelector.spell = null;
+    selfUI.spellSelector.btnList = [{Data:{thisObject:{ID:3795}}}];
+    quan.mask = null;
+    officialButton.removeSelf();
+    runtime.tick();
+  });
+  assert.deepEqual(await page.evaluate(()=>[effectOrder(),row() === beforeChoosing,officialButton.alpha]), [[3,6,4,1,5,2],true,0],
+    'choice buttons identify the native selector and keep the same strip through button removal');
+  await page.evaluate(() => {
+    targetUI.stateContainer.addChild(officialButton);
     officialButton.visible = false;
     runtime.tick();
   });
-  assert.equal(await page.evaluate(()=>row()),null,'the side mark alone cannot mount a replacement');
+  assert.deepEqual(await page.evaluate(()=>[effectOrder(),row() === beforeChoosing,officialButton.alpha]), [[3,6,4,1,5,2],true,0],
+    'choice does not restore a temporarily hidden stock button');
+  await page.evaluate(() => {
+    selfUI.spellSelector.visible = false;
+    canOperate = true;
+    quan.mask = 126;
+    quan.Value = 3;
+    runtime.tick();
+  });
+  assert.equal(await page.evaluate(()=>row()),null,'the side mark alone cannot mount a replacement outside the choice');
   assert.deepEqual(await page.evaluate(()=>[official.height,official.alpha,officialButton.alpha]),[30,1,1]);
   await page.evaluate(() => {
     officialButton.visible = true;
+    targetUI.seatAvatar.scrollRect = new Laya.Rectangle(0,0,112,172);
+    runtime.tick();
+  });
+  assert.deepEqual(await page.evaluate(()=>effectOrder()),[3,6,4,1,5,2]);
+  assert.ok(await page.evaluate(() => effectIcons().every(icon => icon.width === 17 && icon.y === 0)
+    && row().x + effectIcons().at(-1).x + 17 <= 112), 'all six shrink together within a clipped portrait');
+  await page.evaluate(() => {
+    targetUI.seatAvatar.scrollRect = null;
     blocker.destroy();
     targetUI.layoutStateIcons(); runtime.tick();
   });
@@ -419,7 +493,7 @@ try {
   assert.equal(await page.evaluate(()=>window.failure),undefined);
   await writeFile(resolve(output,'report.json'),JSON.stringify({
     clientSha256: createHash('sha256').update(client).digest('hex'),
-    checks:['Laya native window order and click IDs','effect guides and highlights','six icons in observed order','replaces only the stock card button while keeping side markers','history avoids neighboring markers and stays above a bottom-anchored button','mouse hover and native history button','high-contrast HP tags follow native own and opponent HP layouts','text size and spacing survive reduced viewport and seat scaling','direct color changes, numeric HP, sync, turn reset and reconnect','hidden native HP, toggle and end-of-game cleanup'], compactTags, errors,
+    checks:['Laya native window order and click IDs','effect guides and highlights','six icons on one line in observed order in full and clipped portraits','replaces only the stock card button while keeping side markers','the entire row avoids scaled native skill markers while keeping their clicks','selection keeps the replacement during temporary operation, state and button changes','mouse hover and native history button','high-contrast HP tags follow native own and opponent HP layouts','text size and spacing survive reduced viewport and seat scaling','direct color changes, numeric HP, sync, turn reset and reconnect','hidden native HP, toggle and end-of-game cleanup'], compactTags, errors,
   },null,2)+'\n');
   console.log('PASS play-assist Laya TianShu, QuanYu and ZhuoHun');
 } finally { await browser.close(); }

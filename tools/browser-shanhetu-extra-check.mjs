@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 import { BLACK_GOLD } from '../src/core/themes.js';
-import { THEMES } from '../src/plugins/themes/palettes.js';
+import { THEMES } from '../src/core/theme-palettes.js';
 import { bundleCore } from './distribution-build.mjs';
 
 const out = resolve('test-results/shanhetu-extra');
@@ -14,13 +14,11 @@ const fixture = await build({
 });
 const laya = process.env.SGS_LAYA_CORE || resolve('../小抄屏蔽服务器/公告语料整理/临时/laya.core.min.js');
 const catalog = JSON.parse(await readFile('release/market/catalog.json', 'utf8'));
-const entry = catalog.plugins.find(plugin => plugin.id === 'shanhetu-beta');
-const pkg = JSON.parse(await readFile(resolve('release/market', entry.packageUrl), 'utf8'));
 const mainEntry = catalog.plugins.find(plugin => plugin.id === 'shanhetu');
 const mainPackage = JSON.parse(await readFile(resolve('release/market', mainEntry.packageUrl), 'utf8'));
 const assistEntry = catalog.plugins.find(plugin => plugin.id === 'play-assist');
 const assistPackage = JSON.parse(await readFile(resolve('release/market', assistEntry.packageUrl), 'utf8'));
-const coldBundle = await bundleCore({ root: resolve('.'), edition: 'dev', packages: [mainPackage, pkg] });
+const coldBundle = await bundleCore({ root: resolve('.'), edition: 'dev', packages: [mainPackage] });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
 const errors = [], unexpected = [];
@@ -39,11 +37,9 @@ try {
     await cold.addScriptTag({ content: coldBundle.code });
     await cold.waitForFunction(() => window[Symbol.for('sgs.ol.toolbox.core')]?.manager);
     const states = await cold.evaluate(() => window[Symbol.for('sgs.ol.toolbox.core')].manager.list()
-      .filter(plugin => ['shanhetu', 'shanhetu-beta'].includes(plugin.id))
       .map(({ id, active, error }) => ({ id, active, error })));
     assert.deepEqual(states, [
       { id: 'shanhetu', active: true, error: '' },
-      { id: 'shanhetu-beta', active: true, error: '' },
     ]);
     await cold.addScriptTag({ content: fixture.outputFiles[0].text });
     await cold.evaluate(() => {
@@ -436,13 +432,59 @@ try {
   assert.equal(await page.evaluate(() => shanheFixture.optionClicks), 1);
   await page.evaluate(() => { shanheFixture.adventure.visible = false; });
 
-  await page.evaluate(pkg => window[Symbol.for('sgs.ol.toolbox.core')].manager.install(pkg), pkg);
-  assert.deepEqual(pkg.manifest.dependencies, ['shanhetu']);
+  await page.evaluate(() => {
+    const fixture = shanheFixture;
+    fixture.beforeAdventure = {
+      chapter: structuredClone(fixture.manager.AllDatas.chapterData), scene: fixture.demo.scene,
+      overlay: fixture.demo.scene.getChildByName('sgs-shanhetu-labels-v2'),
+    };
+  });
+  await page.mouse.click(610, 285);
+  assert.equal(await page.evaluate(() => shanheFixture.clicks), 1, 'the original question-mark city receives the click');
+  await page.evaluate(() => {
+    const { manager } = shanheFixture, chapter = manager.AllDatas.chapterData;
+    chapter.curLocation = 102;
+    chapter.locations.reverse();
+    manager.event('CLIENT_ROGUE_ALL_DATA_REP');
+    manager.event('CLIENT_ROGUE_EVENT_SELECT_NTF', { eventId: 1484, eventType: 2, data: [] });
+  });
+  await encounter.getByText('当前节点', { exact: false }).waitFor();
+  assert.equal(await page.evaluate(() => shanheFixture.demo.scene.getChildByName('sgs-shanhetu-labels-v2')
+    === shanheFixture.beforeAdventure.overlay), true, 'opening the adventure leaves its map layout frozen');
+  await page.evaluate(() => {
+    const { manager } = shanheFixture, chapter = manager.AllDatas.chapterData;
+    manager.event('CLIENT_ROGUE_EVENT_SELECT_REP', { eventId: 1484, eventType: 2, result: 0 });
+    chapter.alreadyFinishEvent.push(1484);
+    chapter.locations = chapter.locations.filter(node => node.location !== 102);
+    chapter.locations.find(node => node.location === 104).event = 1001;
+    manager.event('CLIENT_ROGUE_ALL_DATA_REP');
+  });
+  await encounter.waitFor({ state: 'detached' });
+  await mapCard.waitFor({ state: 'detached', timeout: 5000 });
+  const settlement = page.locator('section[aria-label="山河图地图节点信息"] p').filter({ hasText: '山间奇遇' });
+  await settlement.waitFor({ state: 'attached', timeout: 5000 });
+  assert.equal(await page.evaluate(() => shanheFixture.demo.scene === shanheFixture.beforeAdventure.scene), true);
+  await page.screenshot({ path: resolve(out, 'map-adventure-settled.png') });
+  await page.evaluate(() => {
+    const { manager, beforeAdventure } = shanheFixture;
+    manager.AllDatas.chapterData = beforeAdventure.chapter;
+    delete shanheFixture.beforeAdventure;
+    manager.event('CLIENT_ROGUE_ALL_DATA_REP');
+  });
+  await mapCard.waitFor({ state: 'attached' });
+  console.log('通过：原生问号点击时冻结排版，同场结算同步后移除旧标注并显示新节点。');
+
+  assert.ok(!mainPackage.manifest.dependencies?.length);
   assert.equal(await host.locator('[data-plugin-group=shanhetu-beta]').count(), 0);
-  await assert.rejects(page.evaluate(() => window[Symbol.for('sgs.ol.toolbox.core')].manager.disable('shanhetu')), /依赖此插件/);
+  await page.evaluate(async () => {
+    const manager = window[Symbol.for('sgs.ol.toolbox.core')].manager;
+    await manager.disable('shanhetu');
+    if (manager.list().find(item => item.id === 'shanhetu').active) throw Error('山河图仍在运行');
+    await manager.enable('shanhetu');
+  });
   const tabs = mainGroup.getByRole('group', { name: '山河内容' });
   const extension = tabs.getByRole('button', { name: '拓展', exact: true });
-  const module = mainGroup.locator('[data-panel-id="shanhetu-beta:main"]');
+  const module = mainGroup.locator('[data-panel-id="shanhetu:extra"]');
   assert.deepEqual(await tabs.locator('button').allTextContents(), ['拓展', '地图', '商店', '概况']);
   await extension.press('Enter');
   assert.equal(await extension.getAttribute('aria-pressed'), 'true');
@@ -869,7 +911,8 @@ try {
   const theme = tokens => host.evaluate((node, palette) => {
     for (const [key, value] of Object.entries(palette)) node.style.setProperty('--sgs-' + key, value);
   }, tokens);
-  for (const [name, width, palette, height] of [['dark-248', 248, BLACK_GOLD.tokens, 800], ['light-420', 420, THEMES.find(p => p.tokens.scheme === 'light').tokens, 800], ['dark-280-low', 280, BLACK_GOLD.tokens, 555]]) {
+  const panelSizes = [['dark-248', 248, BLACK_GOLD.tokens, 800], ['light-420', 420, THEMES.find(p => p.tokens.scheme === 'light').tokens, 800], ['dark-280-low', 280, BLACK_GOLD.tokens, 555]];
+  for (const [name, width, palette, height] of panelSizes) {
     await page.setViewportSize({ width: 1200, height });
     await host.evaluate((node, value) => {
       node.style.width = value + 'px';
@@ -968,12 +1011,41 @@ try {
   assert.equal(await score.locator('.shb-score-total').textContent(), '');
   await page.evaluate(() => { shanheFixture.manager.event('CLIENT_ROGUE_ALL_DATA_REP'); });
   await page.waitForFunction(() => shanheFixture.adventure.showItemList[0].getChildByName('sgs-shanhe-option-impact'));
-  await page.evaluate(() => window[Symbol.for('sgs.ol.toolbox.core')].manager.disable('shanhetu-beta'));
+  await tabs.getByRole('button', { name: '地图', exact: true }).click();
+  if (!await impactSwitch.isVisible()) await settings.locator('summary').click();
+  await host.locator('[data-key="showExtra"]').uncheck();
   assert.equal(await host.locator('.shb-panel').count(), 0);
   assert.equal(await score.count(), 0);
-  assert.deepEqual(await tabs.locator('button').allTextContents(), ['地图', '商店', '概况']);
+  assert.deepEqual(await tabs.locator('button').allTextContents(), ['拓展', '地图', '商店', '概况']);
   assert.equal(await tabs.getByRole('button', { name: '地图', exact: true }).getAttribute('aria-pressed'), 'true');
   assert.deepEqual(await labels(), ['战功 +5', null]);
+  await extension.press('Enter');
+  const enableExtra = mainGroup.getByRole('button', { name: '启用拓展', exact: true });
+  await enableExtra.waitFor();
+  assert.equal(await score.count(), 0);
+  for (const [name, width, palette, height] of panelSizes) {
+    await page.setViewportSize({ width: 1200, height });
+    await host.evaluate((node, value) => { node.style.width = value + 'px'; }, width);
+    await theme(palette);
+    for (const offset of [-2, -1, 0, 2]) {
+      await host.evaluate((node, value) => node.style.setProperty('--sgs-font-offset', value + 'px'), offset);
+      assert.ok(await enableExtra.evaluate(button => {
+        const group = button.closest('.sh-extra-off'), bounds = button.getBoundingClientRect();
+        const host = button.getRootNode().host.getBoundingClientRect();
+        return bounds.left >= host.left && bounds.right <= host.right && bounds.height >= 34
+          && button.scrollWidth <= button.clientWidth + 1 && group.scrollWidth <= group.clientWidth + 1;
+      }), JSON.stringify({ name, offset }));
+    }
+    await tabs.evaluate(node => node.scrollIntoView({ block: 'start' }));
+    await page.screenshot({ path: resolve(out, 'extension-disabled-' + name + '.png') });
+  }
+  await enableExtra.press('Enter');
+  await score.waitFor();
+  await mainGroup.getByText('结局倾向', { exact: true }).waitFor();
+  assert.equal(await extension.getAttribute('aria-pressed'), 'true');
+  assert.equal(await extension.evaluate(button => button.getRootNode().activeElement === button), true);
+  await tabs.getByRole('button', { name: '地图', exact: true }).click();
+  assert.equal(await host.locator('[data-key="showExtra"]').isChecked(), true);
   if (!await impactSwitch.isVisible()) await settings.locator('summary').click();
   await impactSwitch.uncheck();
   assert.deepEqual(await labels(), [null, null]);
@@ -983,7 +1055,7 @@ try {
   assert.deepEqual(await page.evaluate(() => shanheFixture.requests), []);
   assert.deepEqual(unexpected, []);
   assert.deepEqual(errors, []);
-  console.log('通过：拓展页签排序、键盘进入、切换保留、停用回到地图、分数和结局动态同步，以及 248／280／420px 四档字号渲染。');
+  console.log('通过：拓展页签排序、键盘进入、切换保留、停用后从页签重新启用、分数和结局动态同步，以及 248／280／420px 四档字号渲染。');
   console.log('通过：套装关注、商店三级红点与面板星标、购买回执和刷新即时同步，以及原有顶部提示、结局与战法选择提醒回归。');
 } finally {
   await browser.close();

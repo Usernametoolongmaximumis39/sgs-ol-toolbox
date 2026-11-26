@@ -39,10 +39,15 @@ export function activate(ctx) {
     const find = input('搜索武将'); find.value = search; listen(find, 'input', () => { search = find.value.trim(); count = 50; draw(); });
     const filters = el('details', 'sgs-fold'), fields = el('div', 'filters');
     const minimum = input('最少出框或出场次数', 'number'); minimum.min = '0'; minimum.value = String(min);
+    minimum.style.width = '96px';
     const from = input('开始时间', 'datetime-local'), to = input('结束时间', 'datetime-local');
     const localDate = time => time ? new Date(time - new Date(time).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
     from.value = localDate(start); to.value = localDate(end);
-    for (const [label, node] of [['最少次数', minimum], ['开始时间', from], ['结束时间', to]]) { const n = el('label', '', label); n.append(node); fields.append(n); }
+    const minRow = el('label', '', '最少次数');
+    minRow.style.cssText = 'grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px';
+    minRow.append(minimum);
+    fields.append(minRow);
+    for (const [label, node] of [['开始时间', from], ['结束时间', to]]) { const n = el('label', 'filter-full', label); n.append(node); fields.append(n); }
     listen(minimum, 'input', () => { min = Math.max(0, Number(minimum.value) || 0); count = 50; draw(); });
     const dates = () => { start = from.value ? new Date(from.value).getTime() : 0; end = to.value ? new Date(to.value).getTime() : 0; count = 50; draw(); };
     listen(from, 'change', dates); listen(to, 'change', dates);
@@ -77,8 +82,10 @@ export function activate(ctx) {
     const confirmation = el('div'); confirmation.hidden = true;
     const yes = button('确认清空', null, () => { if (controller.view().who.id === confirmAccount) controller.clear(); confirmation.hidden = true; confirmAccount = null; }); yes.className = 'danger';
     const no = button('取消', null, () => { confirmation.hidden = true; confirmAccount = null; });
-    confirmation.append(el('p', 'muted', '将删除当前账号的全部本机出框和战绩，请先导出备份。'), yes, no);
-    help.append(restore, restoreInput, clear, confirmation);
+    const confirmBar = el('div'); confirmBar.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px'; confirmBar.append(yes, no);
+    confirmation.append(el('p', 'muted', '将删除当前账号的全部本机出框和战绩，请先导出备份。'), confirmBar);
+    const helpActions = el('div'); helpActions.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:8px'; helpActions.append(restore, clear);
+    help.append(helpActions, restoreInput, confirmation);
     root.append(note, summary, totals, state, bar, historyState, syncState, captureState, tabs, modes, roles, find, filters, error, list, more, help);
     function metrics(node, values) { const m = el('div', 'metrics'); for (const [value, label] of values) { const n = el('span', '', label); n.prepend(el('b', '', String(value))); m.append(n); } node.append(m); }
     function draw() {
@@ -147,7 +154,7 @@ export function activate(ctx) {
     style.textContent = `
 :host{position:fixed;top:12px;right:12px;bottom:12px;left:12px;z-index:2147483646;display:flex;justify-content:center;pointer-events:none}
 main{box-sizing:border-box;position:relative;width:100%;max-width:1100px;min-width:0;padding:20px;overflow:auto;background:var(--sgs-bg);color:var(--sgs-text);border:1px solid var(--sgs-border);border-radius:12px;box-shadow:0 12px 40px #0006;pointer-events:auto;scrollbar-width:thin}
-.sgs-info h1{font-size:20px;margin:0 36px 16px 0}.sgs-info .list{max-height:none;overflow:visible;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.sgs-info .row{padding:12px;background:var(--sgs-surface);border-radius:8px}.sgs-info .filters,.sgs-info .sgs-segments{max-width:700px}
+.sgs-info h1{font-size:20px;margin:0 36px 16px 0}.sgs-info .list{max-height:none;overflow:visible;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.sgs-info .row{padding:12px;background:var(--sgs-surface);border-radius:8px}.sgs-info .filters,.sgs-info .sgs-segments,.sgs-info>input.sgs-input{max-width:700px}.sgs-info>.bar{display:flex!important;flex-wrap:wrap;max-width:700px}.sgs-info>.bar>button{flex:0 1 160px}
 .close{position:absolute;top:12px;right:12px;width:32px;height:32px;padding:7px;border:0;border-radius:6px;background:var(--sgs-surface);color:var(--sgs-text);cursor:pointer}.close:hover{background:var(--sgs-raised)}.close:focus-visible{outline:2px solid var(--sgs-accent)}
 @media(max-width:500px){main{padding:12px}.sgs-info .list{grid-template-columns:1fr}}
 `;

@@ -1,5 +1,5 @@
 import { ResourceScope } from './resources.js';
-import { createBackgroundMotion, createSkinBackgroundMotion } from './background-motion.js';
+import { createBackgroundMotion, createSkinBackgroundMotion, createWallpaperMotion } from './background-motion.js';
 import { backgroundImageBlob, localBackgroundImage, readLocalBackground } from './background-local.js';
 import { BackgroundHistory, backgroundHistoryId } from './background-history.js';
 import { nativeSeat } from './seat.js';
@@ -43,6 +43,14 @@ export function backgroundSpec(value) {
   if (url.length > 4096 || !/^(https?:\/\/|res\/)/.test(url)) throw new Error('背景须为游戏资源路径或 HTTP(S) 图片');
   if (/^https?:/.test(url)) { const parsed = new URL(url); if (parsed.username || parsed.password) throw new Error('背景地址不能包含凭据'); }
   const result = { name: value.name.trim(), url };
+  if (value.officialWallpaper === true) {
+    result.officialWallpaper = true;
+    if (value.wallpaperMotion) {
+      const { kind, url } = value.wallpaperMotion;
+      if (kind !== 'spine' && kind !== 'bone') throw new Error('官方动态背景类型无效');
+      result.wallpaperMotion = Object.freeze({ kind, url: backgroundSpec({ name: '动态资源', url }).url });
+    }
+  }
   if (value.dynamic === null) result.dynamic = null;
   if (value.dynamic != null) {
     const d = value.dynamic;
@@ -372,9 +380,8 @@ export class BackgroundRegistry {
       local.add(() => coverStill());
       const showMotion = visible => {
         b.motion?.show(visible);
-        coverStill(visible && choice.skinMotion && b.motion?.loaded ? layer.bg : undefined);
+        coverStill(visible && (choice.skinMotion || choice.wallpaperMotion) && b.motion?.loaded ? layer.bg : undefined);
       };
-      b.syncMotion = () => showMotion(eligible() && layer.bg?.skin === choice.url);
       if (layer) {
         const fill = new laya.Sprite();
         local.add(() => fill.destroy(true));
@@ -383,6 +390,11 @@ export class BackgroundRegistry {
         layer.addChildAt(fill, Math.max(0, layer.getChildIndex(layer.bgSprite)));
         const soften = new laya.Sprite(); soften.mouseEnabled = false; fill.addChild(soften);
         if (laya.BlurFilter && !choice.skinKey) soften.filters = [new laya.BlurFilter(18)];
+        b.syncMotion = () => {
+          const visible = eligible() && layer.bg?.skin === choice.url;
+          showMotion(visible);
+          if (choice.wallpaperMotion) fill.visible = visible && !b.motion?.loaded;
+        };
         b.hideFill = () => { fill.visible = false; showMotion(false); };
         let fillKey = '';
         local.patch(layer, 'updateBgSize', original => function (...args) {
@@ -409,7 +421,8 @@ export class BackgroundRegistry {
           if (typeof this.bg.scale === 'function') this.bg.scale(fit.scale, fit.scale);
           else this.bg.scale = fit.scale;
           this.bg.posInteger(fit.x, fit.y);
-          if (choice.skinMotion) b.motion?.layout(w, h);
+          if (choice.wallpaperMotion) b.motion?.layout();
+          else if (choice.skinMotion) b.motion?.layout(w, h);
           else if (b.motion) b.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h));
           b.syncMotion();
           return result;
@@ -459,7 +472,8 @@ export class BackgroundRegistry {
       }
       if (!b.yielded) scene.onWallPaperChange();
       const playSkinMotion = choice.skinMotion && !this.window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      if ((choice.dynamic || playSkinMotion) && choice.animated !== false) {
+      const playWallpaperMotion = choice.wallpaperMotion && !this.window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      if ((choice.dynamic || playSkinMotion || playWallpaperMotion) && choice.animated !== false) {
         const motionScope = new ResourceScope(); local.add(() => motionScope.dispose());
         const fail = message => {
           if (local.closed) return;
@@ -469,7 +483,8 @@ export class BackgroundRegistry {
         try {
           const options = { window: this.window, layer, scope: motionScope,
             ready: () => { if (!local.closed) this.refresh(); }, fail };
-          b.motion = choice.skinMotion ? createSkinBackgroundMotion({ ...options,
+          b.motion = playWallpaperMotion ? createWallpaperMotion({ ...options, spec: choice.wallpaperMotion })
+            : choice.skinMotion ? createSkinBackgroundMotion({ ...options,
             load: signal => this.skinMotion?.(choice.skinKey, signal, { imageUrl: this.localImage?.objectUrl, quality: skinQuality }),
             imageUrl: this.localImage?.objectUrl })
             : createBackgroundMotion({ ...options, spec: choice.dynamic, size: choice.dynamic });

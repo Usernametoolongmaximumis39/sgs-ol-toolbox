@@ -3,16 +3,20 @@ import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const bundle = await build({stdin:{contents:`
- export { createWishProgress } from './src/plugins/wish-progress/native.js';
+ export { activate as activateLedger } from './src/plugins/ledger/index.js';
  export { ResourceScope } from './src/core/resources.js';
  export { ThemeRegistry } from './src/core/themes.js';
- export { THEMES } from './src/plugins/themes/palettes.js';
+ export { THEMES } from './src/core/theme-palettes.js';
  export { createNativeTheme } from './src/ui/native-theme.js';
+ export { createPluginNative } from './src/core/plugin-native.js';
+ export { mountPluginUI } from './src/ui/plugin-ui.js';
 `,resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'Check'});
 const browser = await chromium.launch({channel:'chrome',headless:true});
 try {
 const page = await browser.newPage({viewport:{width:336,height:300}});
-await page.setContent('<body style="margin:0;background:#373127"></body>');
+const url = 'http://wish-progress.test/';
+await page.route(url, route => route.fulfill({ contentType: 'text/html', body: '<body style="margin:0;background:#373127"></body>' }));
+await page.goto(url);
 await page.addScriptTag({path:'C:/Users/Admin/AppData/Local/Temp/sgsres/game/laya.core.min.js'});
 await page.addScriptTag({content:bundle.outputFiles[0].text});
 const results = await page.evaluate(() => {
@@ -35,8 +39,14 @@ const results = await page.evaluate(() => {
  }
  const proxy={_events:{known:managers.map(caller=>({caller,method:caller.onServerGeneralWishPoolDataResp??caller.onServerSkinWishPoolDataResp}))}};
  const nativeTheme = Check.createNativeTheme({themes, scope, window});
- const ctx={window,scope,themes,game:{getSelf:()=>({ClientId:1}),getClass:()=>null,getServerProxy:()=>proxy},ui:{nativeTheme},reportError(e){throw e}};
- Check.createWishProgress(ctx);
+ const registered = [];
+ const ctx={window,document,scope,themes,settings:{get:(_, fallback)=>fallback, set(){}},
+  game:{getSelf:()=>({ClientId:1}),getClass:()=>null,getServerProxy:()=>proxy, loadConfigData:async()=>undefined},
+  reportError(error){if(error) throw Error(error)}};
+ ctx.native=Check.createPluginNative(ctx);
+ ctx.ui={...Check.mountPluginUI(ctx,()=>ctx),nativeTheme,registerPanel(spec){registered.push(spec.id);}};
+ Check.activateLedger(ctx);
+ if (registered.join() !== 'main') throw Error('Unexpected ledger panel registration');
  const texts=()=>windows.map(v=>v.proBar.label.text);const initial=texts();
  const body=ProtoObj=>({Protocol:{Data:{ProtoObj}}});
  for(const [i,k] of ['General','Skin'].entries()) {
@@ -69,5 +79,5 @@ assert.deepEqual(await page.evaluate(()=>{
  wishCheck.scope.dispose();
  return wishCheck.windows.map(({proBar:{label}})=>[label.text,label.font,label.bold]);
 }), Array.from({length:2},()=>['original','Times New Roman',false]));
-console.log('Laya wish progress: light/dark typography, single/five draw, response orders, negative delta, change reset, disposal passed');
+console.log('Ledger default Laya wish progress: light/dark typography, single/five draw, response orders, negative delta, change reset, disposal passed');
 } finally { await browser.close(); }

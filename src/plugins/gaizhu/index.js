@@ -3,9 +3,9 @@ import { durationOf } from './model.js';
 import { createGaiZhu } from './runtime.js';
 
 export const manifest = {
-  id: 'gaizhu', name: '盖主速刷', version: '0.2.14', apiVersion: 1, contractVersion: 1,
+  id: 'gaizhu', name: '盖主速刷', version: '0.2.15', apiVersion: 1, contractVersion: 1,
   releaseNotes: "改进盖主房首局的座位检查、补位与同伴恢复。点将和部分商店操作可能消耗游戏道具或局内货币。",
-  minCoreVersion: '0.6.222', dependencies: ['baisheng'], description: '双人盖主速刷，以及身份、国战、单骑自动挂机。',
+  minCoreVersion: '0.6.222', dependencies: ['baisheng'], description: '双人盖主速刷，身份国战单骑挂机',
   icon: GAIZHU_ICON, priority: 21000, categories: ['automation'],
 };
 

@@ -1,7 +1,7 @@
 import { build, transform } from 'esbuild';
 import { resolve } from 'node:path';
 import { fullBundledPackages } from './plugin-packages.mjs';
-import { GITHUB_MARKET_URL } from '../src/core/distribution.js';
+import { GITHUB_UPDATE_URL } from '../src/core/distribution.js';
 
 export function configuredUpdateMirror(value = process.env.SGS_TOOLBOX_UPDATE_ORIGIN) {
   if (!value) return '';
@@ -21,7 +21,10 @@ export async function bundleCore({ root, edition, packages, panelSources = editi
   const fullPluginPanels = panelSources.length
     ? fullBundledPackages(panelSources).flatMap(({ manifest: { id, name, icon, priority, categories } }) =>
       categories.map(category => ({ id: id + ':market-placeholder', category, pluginId: id, pluginName: name, pluginIcon: icon,
-        pluginPriority: priority, ...(id === 'play-assist' && { gameView: 'battle' }) }))) : [];
+        pluginPriority: priority, ...(id === 'play-assist' && { gameView: 'battle' }), ...(id === 'shanhetu' && { gameView: 'shanhe' }) }))) : [];
+  const consolidationDigests = Object.fromEntries(packages
+    .filter(({ manifest }) => ['shanhetu', 'player-info', 'ledger', 'card-styles-extra'].includes(manifest.id))
+    .map(({ manifest, sha256 }) => [manifest.id, sha256]));
   const result = await build({ absWorkingDir: root, entryPoints: [resolve(root, 'src/core/main.js')], bundle: true,
     format: 'iife', target: microclient ? 'chrome85' : 'es2022', write: false, metafile: true, legalComments: 'inline', minifySyntax: true, minifyWhitespace: !microclient,
     define: { __SGS_TOOLBOX_DEVELOPMENT__: String(edition === 'dev'), __SGS_TOOLBOX_EDITION__: JSON.stringify(edition),
@@ -32,7 +35,7 @@ export async function bundleCore({ root, edition, packages, panelSources = editi
       if (microclient) api.onLoad({ filter: /[\\/]compat[\\/]index\.js$/ }, () => ({ contents: 'export function createCompatibility() { throw new Error("Browser compatibility is unavailable in microclient"); }', loader: 'js' }));
       if (microclient) api.onLoad({ filter: /[\\/]core[\\/]refresh-reentry\.js$/ }, () => ({ contents: 'export function installRefreshReentry() { return false; }', loader: 'js' }));
       api.onLoad({ filter: /[\\/]core[\\/]bundled-plugins\.js$/ }, () => ({
-        contents: `export const bundledPackages = ${JSON.stringify(injected)};\nexport const fullPluginPanels = ${JSON.stringify(fullPluginPanels)};\nexport const localAppearanceSyncPackage = ${JSON.stringify(localAppearanceSyncPackage)};`, loader: 'js',
+        contents: `export const bundledPackages = ${JSON.stringify(injected)};\nexport const fullPluginPanels = ${JSON.stringify(fullPluginPanels)};\nexport const localAppearanceSyncPackage = ${JSON.stringify(localAppearanceSyncPackage)};\nexport const consolidationDigests = ${JSON.stringify(consolidationDigests)};`, loader: 'js',
       }));
     } }] });
   const inputs = Object.keys(result.metafile.inputs);
@@ -54,7 +57,7 @@ export async function bundleCore({ root, edition, packages, panelSources = editi
 export function userscriptHeader({ edition, version, toolboxSvg }) {
   const dev = edition === 'dev', label = { dev: '开发版', full: '完整版', lite: '轻量版' }[edition];
   const mirror = dev ? '' : configuredUpdateMirror();
-  const root = dev ? 'http://127.0.0.1:17321' : mirror || GITHUB_MARKET_URL.slice(0, -'/plugins'.length);
+  const root = dev ? 'http://127.0.0.1:17321' : mirror || GITHUB_UPDATE_URL;
   const channel = mirror ? 'lite' : edition;
   const update = `// @updateURL    ${root}/${channel}/toolbox.meta.js\n// @downloadURL  ${root}/${channel}/toolbox.user.js\n`;
   // Full and lite intentionally share script identity. An update replaces the

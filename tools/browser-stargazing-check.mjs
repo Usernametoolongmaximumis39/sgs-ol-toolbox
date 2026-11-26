@@ -8,7 +8,7 @@ import { STARGAZING_REPORT } from '../src/shared/stargazing-source.js';
 
 const root = resolve(import.meta.dirname, '..');
 const output = resolve(root, 'test-results/stargazing');
-const packages = await Promise.all(['stargazing', 'themes'].map(async id => makePluginPackage(await bundlePlugin(id, { root }))));
+const packages = await Promise.all(['stargazing'].map(async id => makePluginPackage(await bundlePlugin(id, { root }))));
 const { code } = await bundleCore({ root, edition: 'dev', packages });
 const report = {
   updatedAt: '2026/11/20 20:30:00',

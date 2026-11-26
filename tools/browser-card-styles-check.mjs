@@ -16,7 +16,7 @@ assert(method.startsWith('SetCardFace(t){') && method.includes('this.theCard.IsE
 const playcards = { abbreviation: [{ Short: 'a', Long: 'id' }, { Short: 'b', Long: 'name' }, { Short: 'p', Long: 'res' }],
   GamePlayCards: { card: [{ a: 1, b: '杀', p: 'Sha' }, { a: 2, b: '杀', p: 'HuoSha' }, { a: 3, b: '闪', p: 'Shan' }] } };
 const configArchive = [...zipSync({ 'sys_playcard.sgs': gzipSync(Buffer.from(JSON.stringify(playcards))) })];
-const bundle = await build({stdin:{contents:`export { CardStyleRegistry } from './src/core/card-styles.js'; export { createGameAdapter } from './src/core/game.js'; export { ResourceScope } from './src/core/resources.js'; export { Settings } from './src/core/storage.js'; export { createShell } from './src/ui/shell.js'; export { ThemeRegistry, BLACK_GOLD } from './src/core/themes.js'; export { default as gold } from './src/plugins/gold-cards/index.js'; export { default as nativeCards } from './src/plugins/native-cards/index.js';`,resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'CardCheck',define:{__SGS_TOOLBOX_DEVELOPMENT__:'true',__SGS_TOOLBOX_EDITION__:'"dev"'}});
+const bundle = await build({stdin:{contents:`export { CardStyleRegistry } from './src/core/card-styles.js'; export { createGameAdapter } from './src/core/game.js'; export { ResourceScope } from './src/core/resources.js'; export { Settings } from './src/core/storage.js'; export { createShell } from './src/ui/shell.js'; export { ThemeRegistry, BLACK_GOLD } from './src/core/themes.js'; export { registerGoldCardStyles } from './src/plugins/card-styles-extra/gold/index.js'; export { registerNativeCardStyles } from './src/plugins/card-styles-extra/native/index.js';`,resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'CardCheck',define:{__SGS_TOOLBOX_DEVELOPMENT__:'true',__SGS_TOOLBOX_EDITION__:'"dev"'}});
 await mkdir('test-results',{recursive:true});
 const browser = await chromium.launch({channel:'chrome',headless:true});
 const page = await browser.newPage({viewport:{width:1000,height:780},hasTouch:true}), errors=[];
@@ -57,12 +57,12 @@ try {
       } };
     const game = CardCheck.createGameAdapter(configWindow, scope);
     const registry=new CardStyleRegistry({window,document,game:{...game,getSelfSeatUI:()=>game.getSelfSeatUI() || self},settings,scope});
-    let releases=[]; const enable=()=>CardCheck.gold.activate({cardStyles:{register:s=>{const off=registry.register(s,'gold-cards');releases.push(off);return off;}}});
+    let releases=[]; const enable=()=>CardCheck.registerGoldCardStyles({cardStyles:{register:s=>{const off=registry.register(s,'card-styles-extra');releases.push(off);return off;}}});
     enable();
     const officialFixtures = { cardFace_0: originals.face, cardBack_0: originals.back,
       cardFace_10: nativeTexture('#f9d26e'), cardBack_5: nativeTexture('#705322') };
     for (const [key,texture] of Object.entries(officialFixtures)) Laya.Loader.cacheTexture('/fixture-atlas/'+key+'.png',texture);
-    CardCheck.nativeCards.activate({cardStyles:{register:s=>scope.add(registry.register(s,'native-cards'))}});
+    CardCheck.registerNativeCardStyles({cardStyles:{register:s=>scope.add(registry.register(s,'card-styles-extra'))}});
     const shell=createShell({window,document,scope,settings});const themes=new ThemeRegistry(settings,t=>shell.applyTheme(t));
     shell.setHandlers({cardStyles:registry,themes,manager:{list:()=>[]},market:()=>null});
     window.check={hand,scope,settings,registry,cards,originals,officialFixtures,shell,themes,enable,disable:()=>{releases.forEach(f=>f());releases=[];},addCard,configLoads,Native};
@@ -72,9 +72,9 @@ try {
   if (await workshop.getAttribute('aria-expanded') === 'false') await workshop.click();
   }
   await mount();
-  for (const side of ['face','back']) await host.locator('[data-card-style="gold-cards.classic"][data-card-side="'+side+'"]').click();
+  for (const side of ['face','back']) await host.locator('[data-card-style="card-styles-extra.gold"][data-card-side="'+side+'"]').click();
   const result=await page.evaluate(()=>{
-    const c=check,r=c.registry,id='gold-cards.classic',assert=(yes,msg)=>{if(!yes)throw Error(msg);};
+    const c=check,r=c.registry,id='card-styles-extra.gold',assert=(yes,msg)=>{if(!yes)throw Error(msg);};
     const goldFace=c.cards[0].bmpFace.texture,goldBack=c.cards[1].bmpFace.texture;
     assert(goldFace!==c.originals.face&&goldBack!==c.originals.back,'native texture not replaced');
     c.cards[0].SetCardFace(null);assert(c.cards[0].bmpFace.texture===goldFace,'native refresh lost styling');
@@ -89,16 +89,16 @@ try {
     for(let i=0;i<5;i++){c.disable();c.enable();}assert(r.bindings.size===3,'leaked bindings');
     return {nativeCards:r.bindings.size,status:r.status};
   });
-  for (const side of ['face','back']) await host.locator('[data-card-style="native-cards.general"][data-card-side="'+side+'"]').click();
+  for (const side of ['face','back']) await host.locator('[data-card-style="card-styles-extra.native-general"][data-card-side="'+side+'"]').click();
   await page.evaluate(()=>{
     const {registry:r,cards,officialFixtures:f}=check;
     if(cards[0].bmpFace.texture!==f.cardFace_10 || cards[1].bmpFace.texture!==f.cardBack_5) throw Error('official general pair mismatch');
     cards[0].SetCardFace(null);if(cards[0].bmpFace.texture!==f.cardFace_10)throw Error('native refresh lost official face');
   });
-  for (const side of ['face','back']) await host.locator('[data-card-style="native-cards.classic"][data-card-side="'+side+'"]').click();
+  for (const side of ['face','back']) await host.locator('[data-card-style="card-styles-extra.native-classic"][data-card-side="'+side+'"]').click();
   await page.evaluate(()=>{const {cards,officialFixtures:f}=check;if(cards[0].bmpFace.texture!==f.cardFace_0||cards[1].bmpFace.texture!==f.cardBack_0)throw Error('official classic pair mismatch');});
-  assert.equal(await host.locator('[data-card-style^="native-cards."] canvas').count(),4);
-  for (const side of ['face','back']) await host.locator('[data-card-style="native-cards.general"][data-card-side="'+side+'"]').click();
+  assert.equal(await host.locator('[data-card-style^="card-styles-extra.native-"] canvas').count(),4);
+  for (const side of ['face','back']) await host.locator('[data-card-style="card-styles-extra.native-general"][data-card-side="'+side+'"]').click();
   await page.evaluate(()=>{
     const first=check.hand.createNormalCardUi({IsEmpty:false});
     if(first.bmpFace.texture!==check.officialFixtures.cardFace_10)throw Error('new native card flashes original before factory returns');
@@ -488,7 +488,7 @@ try {
     assert(await editor.getByRole('button', { name: '更换图片' }).isEnabled({ timeout: 2000 }));
   }
   await page.setViewportSize({ width: 1000, height: 540 });
-  await host.locator('[data-card-style="native-cards.general"][data-card-side="face"]').click();
+  await host.locator('[data-card-style="card-styles-extra.native-general"][data-card-side="face"]').click();
   await page.waitForFunction(() => check.cards[0].bmpFace.texture === check.officialFixtures.cardFace_10 && check.cards[0].bmpName.visible);
   await localFace.click();
   assert.equal(await backgroundMode.getAttribute('aria-pressed'), 'true');

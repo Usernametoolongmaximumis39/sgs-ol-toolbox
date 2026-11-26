@@ -19,26 +19,27 @@ export function mountSyncSettings(document, window, sync, preferences, { initial
   const root = node('div', '', 'sync-settings');
   const style = node('style', `
     .sync-settings,.sync-stack{display:grid;gap:9px;min-width:0}
+    .sync-settings{font-size:12px;line-height:1.55}
     .sync-settings [hidden]{display:none!important}
     .sync-settings label{display:grid;min-width:0;gap:4px}
     .sync-settings input:not(.sgs-switch),.sync-settings textarea{width:100%;min-width:0;box-sizing:border-box;color:var(--sgs-text);background:var(--sgs-surface);border:1px solid var(--sgs-border);border-radius:7px;padding:6px 8px;font:inherit}
     .sync-settings textarea{resize:vertical;line-height:1.45;overflow-wrap:anywhere}
     .sync-settings .sync-address{min-height:31px;resize:none;overflow:hidden;white-space:pre}
-    .sync-settings :is(input,textarea,summary):focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
-    .sync-settings summary{cursor:pointer;color:var(--sgs-text)}
-    .sync-settings details[open]>summary{margin-bottom:8px}
+    .sync-settings input:focus-visible,.sync-settings textarea:focus-visible,.sync-settings summary:focus-visible{outline:2px solid var(--sgs-accent);outline-offset:2px}
+    .sync-settings summary{cursor:pointer;color:var(--sgs-text);padding:7px 0}
+    .sync-settings details[open]>summary{margin-bottom:6px}
     .sync-settings p{margin:0;overflow-wrap:anywhere}
-    .sync-settings button{min-height:29px;justify-self:start;max-width:100%;white-space:normal}
+    .sync-settings button{min-height:29px;justify-self:start;max-width:100%;padding:5px 9px;font-size:11px;white-space:normal}
     .sync-settings .sync-primary{color:var(--sgs-accent);border-color:color-mix(in srgb,var(--sgs-accent) 42%,var(--sgs-border))}
     .sync-settings .sync-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
     .sync-settings h3{margin:0}
-    .sync-chooser{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;background:var(--sgs-surface);border-radius:8px}
-    .sync-chooser button{width:100%;padding-inline:3px;white-space:nowrap}
-    .sync-chooser [aria-pressed=true]{color:var(--sgs-accent);background:var(--sgs-raised);border-color:var(--sgs-border)}
+    .sync-chooser{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:3px;background:#0002;background:color-mix(in srgb,var(--sgs-border) 16%,var(--sgs-surface));border-radius:8px;box-shadow:inset 0 1px 3px #0002}
+    .sync-chooser button{width:100%;min-height:26px;border:0;border-radius:5px;padding:4px 4px;background:transparent;box-shadow:none;color:var(--sgs-muted);white-space:nowrap}
+    .sync-chooser [aria-pressed=true]{color:var(--sgs-accent);background:linear-gradient(color-mix(in srgb,var(--sgs-accent) 18%,transparent),color-mix(in srgb,var(--sgs-accent) 7%,transparent));box-shadow:inset 0 1px color-mix(in srgb,var(--sgs-accent) 14%,transparent),0 1px 3px #0003}
     .sync-settings .sync-short{max-width:12ch;letter-spacing:.15em;font-variant-numeric:tabular-nums}
     .sync-preview-rows{list-style:none;padding:0;margin:0;min-width:0}
     .sync-preview-rows li{padding:6px 0;border-bottom:1px solid var(--sgs-border);overflow-wrap:anywhere}
-    .sync-preferences{padding:9px 0;border-block:1px solid var(--sgs-border)}
+    .sync-preferences{padding:9px 0;border-top:1px solid var(--sgs-border);border-bottom:1px solid var(--sgs-border)}
     .sync-settings .sync-download{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
     .sync-download svg{width:16px;height:16px;flex:none;margin:0}
     .sync-private-setup{gap:7px;padding:9px 10px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-surface)}
@@ -85,7 +86,7 @@ export function mountSyncSettings(document, window, sync, preferences, { initial
     return result;
   }
   function details(title, ...children) {
-    const block = node('details'), body = node('div', '', 'sync-stack');
+    const block = node('details', '', 'sgs-fold'), body = node('div', '', 'sync-stack');
     body.append(...children);
     block.append(node('summary', title), body);
     return block;

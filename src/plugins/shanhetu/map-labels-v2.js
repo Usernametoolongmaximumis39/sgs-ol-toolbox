@@ -25,7 +25,7 @@ export function createMapLabels(ctx) {
   const now = () => ctx.window.performance?.now?.() ?? Date.now();
   let work = null, workFrame = null, sourceRows = [], lastPerformance = null, cancelledJobs = 0;
   let scene = null, host = null, source = [], enabled = false, disposed = false;
-  let layer = null, frozen = false, committedPosition = '';
+  let layer = null, frozen = false, mapProgress = null, committedPosition = '';
   let iconHints = [], tooltip = null, accessibleMap = null;
   let lastSignature = '', contentSignature = '', previous = [], revision = 0, scheduled = false;
   let geometry = null, lastLayout = null, localDetails = [], measuredCards = [];
@@ -437,14 +437,21 @@ export function createMapLabels(ctx) {
   function clear() {
     cancelScheduled();
     enabled = frozen = false; cancelWork(); release(sceneCleanup); resetVisuals(); scene = host = null; source = []; sourceRows = []; contentSignature = '';
+    mapProgress = null;
     displayStatus('inactive');
   }
-  function update(nextScene, nodes, nextEnabled) {
+  function update(nextScene, nodes, nextEnabled, nextMapProgress = null) {
     if (!alive()) return;
     const nextHost = nextScene?.cityView;
     if (!nextEnabled || !nextHost || nextHost.destroyed || nextScene.destroyed) { clear(); return; }
     if (scene !== nextScene || host !== nextHost) { clear(); scene = nextScene; host = nextHost; bindScene(); }
-    if (frozen) return;
+    if (frozen) {
+      // Adventures can advance the chapter map without replacing its scene.
+      if (nextMapProgress === null || nextMapProgress === mapProgress) return;
+      frozen = false;
+      lastSignature = '';
+    }
+    mapProgress = nextMapProgress;
     const rows = (nodes || []).filter(node => node && node.type !== 'camp' && node.id != null)
       .map(node => ({ node, lines: labelLines(node, false) })).filter(row => row.lines.length);
     const nextSignature = JSON.stringify(rows.map(row => [row.node.id, heading(row.node), row.lines]));

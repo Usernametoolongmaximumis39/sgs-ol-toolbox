@@ -12,7 +12,7 @@ const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 function fixture(existingDirectory) {
   const dir = existingDirectory || fs.mkdtempSync(path.join(os.tmpdir(), 'sgs-update-')), handlers = {}, requests = [];
   let created;
-  let remote = source('1.0.1'), broken = false, offline = false, failWrite = false;
+  let remote = source('1.0.1'), broken = false, offline = false, failWrite = false, githubUp = false;
   const baseline = source('1.0.0');
   const disk = Object.create(fs);
   disk.readFileSync = (file, ...args) => file.endsWith('toolbox.js') ? baseline : fs.readFileSync(file, ...args);
@@ -22,7 +22,8 @@ function fixture(existingDirectory) {
     const req = new EventEmitter();
     req.destroy = error => { req.emit('error', error); req.emit('close'); };
     queueMicrotask(() => {
-      if (offline || !url.includes('tools.3gs.xyz')) {
+      const { hostname } = new URL(url);
+      if (offline || (hostname !== 'dl.3gs.xyz' && !(githubUp && hostname === 'raw.githubusercontent.com'))) {
         req.destroy(Object.assign(new Error('connect ETIMEDOUT'), { code: 'ETIMEDOUT' }));
         return;
       }
@@ -40,7 +41,7 @@ function fixture(existingDirectory) {
   const event = (url = 'https://web.sanguosha.com/220/h5_2/index.php', parent = null) => ({ senderFrame: { url, parent } });
   const contents = new EventEmitter(); contents.id = 1; contents.getURL = () => event().senderFrame.url; contents.getProcessId = () => 7;
   created(null, contents); contents.emit('did-start-navigation', null, contents.getURL(), false, true, 7, 4);
-  return { dir, requests, legacy: { sender: contents, frameId: 4 }, call: (a, e = event()) => handlers['sgs-toolbox:update:v1'](e, a), read() { const e = event(); handlers['sgs-toolbox:source:v1'](e); return e.returnValue; }, set(options) { if ('broken' in options) broken = options.broken; if ('offline' in options) offline = options.offline; if ('failWrite' in options) failWrite = options.failWrite; if ('remote' in options) remote = options.remote; }, event, cleanup() { fs.rmSync(dir, { recursive: true, force: true }); } };
+  return { dir, requests, legacy: { sender: contents, frameId: 4 }, call: (a, e = event()) => handlers['sgs-toolbox:update:v1'](e, a), read() { const e = event(); handlers['sgs-toolbox:source:v1'](e); return e.returnValue; }, set(options) { if ('broken' in options) broken = options.broken; if ('offline' in options) offline = options.offline; if ('failWrite' in options) failWrite = options.failWrite; if ('remote' in options) remote = options.remote; if ('githubUp' in options) githubUp = options.githubUp; }, event, cleanup() { fs.rmSync(dir, { recursive: true, force: true }); } };
 }
 test('script updates use fallback, persist verified code, survive offline restart and rollback', async () => {
   const f = fixture();
@@ -48,12 +49,15 @@ test('script updates use fallback, persist verified code, survive offline restar
     const sentinel = path.join(f.dir, 'settings'); fs.writeFileSync(sentinel, 'disabled plugins / rollback state');
     assert.equal((await f.call('check')).newer, true); assert.equal(f.read(), source('1.0.0'));
     assert.deepEqual(f.requests.map(url => new URL(url).hostname), [
-      'chk-sgstools-hangzhou.oss-cn-hangzhou.aliyuncs.com', 'raw.githubusercontent.com', 'tools.3gs.xyz'
+      'raw.githubusercontent.com', 'dl.3gs.xyz'
     ]);
     assert.equal((await f.call('install')).pending, true); assert.equal(f.read(), source('1.0.1'));
     const restarted = fixture(f.dir); restarted.set({ offline: true }); assert.equal(restarted.read(), source('1.0.1'));
+    f.set({ githubUp: true });
+    const requestCount = f.requests.length;
     assert.equal((await f.call('check')).newer, false);
-    f.set({ offline: true }); await assert.rejects(f.call('check'), /更新失败.*tools\.3gs\.xyz（连接超时）/); assert.equal(f.read(), source('1.0.1'));
+    assert.deepEqual(f.requests.slice(requestCount).map(url => new URL(url).hostname), ['raw.githubusercontent.com']);
+    f.set({ offline: true }); await assert.rejects(f.call('check'), /更新失败.*dl\.3gs\.xyz（连接超时）/); assert.equal(f.read(), source('1.0.1'));
     assert.equal((await f.call('rollback')).version, '1.0.0'); assert.equal(f.read(), source('1.0.0'));
     assert.equal(fs.readFileSync(sentinel, 'utf8'), 'disabled plugins / rollback state');
     assert(f.requests.every(url => url.startsWith('https://')));

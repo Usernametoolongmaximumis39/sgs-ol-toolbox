@@ -68,6 +68,10 @@ export function legacyMicroCSS(css, variable, pixel) {
     return `rgba(${rgb.join(',')},${alpha})`;
   });
   return css.replace(/:focus-visible/g, ':focus').replace(/overflow:\s*clip/g, 'overflow:hidden')
+    .replace(/\b(padding|margin)-inline:\s*([^;}]+)/g, (_, prop, value) => { const v = value.trim().split(/\s+/); return `${prop}-left:${v[0]};${prop}-right:${v[1] || v[0]}`; })
+    .replace(/\b(padding|margin)-block:\s*([^;}]+)/g, (_, prop, value) => { const v = value.trim().split(/\s+/); return `${prop}-top:${v[0]};${prop}-bottom:${v[1] || v[0]}`; })
+    .replace(/\bborder-block:\s*([^;}]+)/g, (_, value) => `border-top:${value.trim()};border-bottom:${value.trim()}`)
+    .replace(/\bborder-inline:\s*([^;}]+)/g, (_, value) => `border-left:${value.trim()};border-right:${value.trim()}`)
     .replace(/\binset:\s*([^;}]+)/g, (_, value) => { const v = value.trim().split(/\s+/); return `top:${v[0]};right:${v[1] || v[0]};bottom:${v[2] || v[0]};left:${v[3] || v[1] || v[0]}`; });
 }
 
