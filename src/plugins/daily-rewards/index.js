@@ -10,8 +10,8 @@ import { DAILY_FREE_GIFT_KEY } from './daily-free-gift.js';
 
 
 export default {
-  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.50', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "优化窄面板中的领奖项目、排除状态和兑换码开关，扩大可点击区域。自动领奖及兑换码保留原有设置；免费礼盒仍只在确认价格为零且可领时提交。", minCoreVersion: '0.6.38', categories: ['automation'], icon: DAILY_REWARDS_ICON, priority: 20000,
+  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.52', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "修复发财树在未打开游戏窗口、已有待领元宝时可能漏领的问题。同一天后续检查可继续处理服务器显示仍可操作的步骤；购买结果不明时不会重复购买同一轮的道具。开启福利自动领取后，符合条件时可能自动购买砍树道具，每次最多消耗 200 元宝。", minCoreVersion: '0.6.38', categories: ['automation'], icon: DAILY_REWARDS_ICON, priority: 20000,
     description: '签到、任务、邮件与活动自动领奖' },
   activate(ctx) {
     const native = createNativeAdapter(ctx);

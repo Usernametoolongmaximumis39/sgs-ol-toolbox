@@ -1,17 +1,17 @@
 {
-  "version": "0.6.304",
+  "version": "0.6.306",
   "editions": {
     "full": {
-      "bytes": 2983733,
+      "bytes": 2985195,
       "plugins": 17,
-      "sha256": "3272daf8aed38a3df80ac24c2d698745813f9bdc6ea16fccd4b4aa05ad2731c6",
+      "sha256": "554fbb700737c70b7bb1a719ef449755f5128ede9e761161f8beb1ea5549b605",
       "updatesTo": "full",
       "toolboxUpdatesTo": "lite"
     },
     "lite": {
       "bytes": 656728,
       "plugins": 0,
-      "sha256": "c9de4ee6b22854a52ea611491214734b50c5a666dd2228a3146d88508bd505e1",
+      "sha256": "89edcb2b1e4a3d205f4f069b7c13280821008607e6bb536e00a0ad5a4320a603",
       "updatesTo": "lite",
       "toolboxUpdatesTo": "lite"
     }
@@ -54,8 +54,8 @@
     },
     {
       "id": "daily-rewards",
-      "version": "0.7.50",
-      "sha256": "4cd6e8d3843e4b64170a0ff605bf6c19f4a7ecf61e00487a9e13690fc1f67f2b"
+      "version": "0.7.52",
+      "sha256": "e2c76a8dc3ba025ec2ee66e6417b688b1e2d1fee938db7f5752284d2f939e4ac"
     },
     {
       "id": "seckill",

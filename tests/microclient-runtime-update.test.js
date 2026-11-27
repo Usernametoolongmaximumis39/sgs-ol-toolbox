@@ -109,6 +109,7 @@ function fixture(t) {
       core: (sender, request) => handlers.get('sgs-toolbox:channel-shell:v1')(sender,
         typeof request === 'string' ? { action: request } : request),
       legacy: (sender, action) => handlers.get('sgs-toolbox:update:v1')(sender, action),
+      invoke: (name, sender) => handlers.get(name)(sender),
       sync(name, sender) { ipcMain.emit(name, sender); return sender.returnValue; }
     };
   }
@@ -234,6 +235,70 @@ test('preload bootstrap runs active code once and falls back with older or fault
   assert.equal(start(active, false).window.count, undefined);
   assert.equal(start({ mode: 'skip' }).rendered, 0);
   for (const reply of [null, new Error('missing handler'), { mode: 'code', source: '' }]) assert.equal(start(reply).rendered, 1);
+});
+
+test('4399 redirect waits for the committed game frame before loading the runtime and core', async t => {
+  const boot = fixture(t).start();
+  const guest = boot.contents(partner);
+  const destination = 'https://web.sanguosha.com/220/h5_2/index_120116.php?client=120116';
+  const previous = { sender: guest, processId: 7, frameId: 4 };
+  const next = { sender: guest, processId: 8, frameId: 4 };
+  const preloadChannel = 'sgs-toolbox:preload:v1';
+  const afterCommitChannel = 'sgs-toolbox:preload-after-commit:v1';
+  const sourceChannel = 'sgs-toolbox:source:v1';
+  const route = 'https://my.4399.com/yxsgs/play-sid-1-site-2_2-ref-wd-channel-my-randsj-0.5';
+  guest.emit('did-start-navigation', null, route, false, true, previous.processId, previous.frameId);
+  guest.emit('will-redirect', null, destination, false, true, previous.processId, previous.frameId);
+  guest.emit('did-redirect-navigation', null, destination, false, true, previous.processId, previous.frameId);
+
+  const preloadReply = sender => boot.sync(preloadChannel, { ...sender });
+  assert.doesNotMatch(preloadReply(previous).source, /__SGS_TOOLBOX_MICRO_PRELOAD__/);
+  assert.equal(boot.sync(sourceChannel, { ...previous }), '');
+  assert.equal(boot.sync(sourceChannel, { ...next }), '');
+  const denied = [previous, { ...next, frameId: 5 }].map(sender => boot.invoke(afterCommitChannel, sender));
+
+  const requests = [];
+  const ipcRenderer = {
+    sendSync: channel => boot.sync(channel, { ...next }),
+    invoke(channel) {
+      const result = boot.invoke(channel, { ...next });
+      requests.push(result);
+      return result;
+    }
+  };
+  const window = { location: { href: destination } };
+  window.top = window.self = window;
+  const injections = [];
+  const context = vm.createContext({
+    window, location: window.location, console, URL,
+    require: () => ({ ipcRenderer, webFrame: { executeJavaScript: async source => injections.push(source) } })
+  });
+  preloadScript.runInContext(context);
+  assert.equal(window.__SGS_TOOLBOX_MICRO_PRELOAD__, undefined);
+  assert.equal(injections.length, 0);
+  assert.equal(requests.length, 1);
+  guest.emit('did-frame-navigate', null, destination, 200, '', false, next.processId, 5);
+  await Promise.resolve();
+  assert.equal(injections.length, 0);
+
+  guest.getURL = () => destination;
+  guest.emit('did-frame-navigate', null, destination, 200, '', true, next.processId, next.frameId);
+  await Promise.all(requests);
+  assert.equal(window.__SGS_TOOLBOX_MICRO_PRELOAD__, true);
+  assert.equal(injections.length, 1);
+  assert.match(injections[0], /微端 FULL · 0\.6\.300/);
+  for (const request of denied) assert.equal((await request).mode, 'skip');
+  assert.equal(boot.sync(sourceChannel, { ...previous }), '');
+  assert.equal(boot.sync(sourceChannel, { ...next, frameId: 5 }), '');
+  preloadScript.runInContext(context);
+  assert.equal(injections.length, 1);
+
+  guest.emit('did-start-navigation', null, route, false, true, next.processId, next.frameId);
+  guest.emit('did-redirect-navigation', null, destination, false, true, next.processId, next.frameId);
+  const cancelled = boot.invoke(afterCommitChannel, { ...next, processId: 9 });
+  guest.emit('did-fail-provisional-load', null, -3, 'ERR_ABORTED', destination, true, 9, next.frameId);
+  assert.equal((await cancelled).mode, 'skip');
+  assert.equal(boot.sync(sourceChannel, { ...next }), script('0.6.300', 'FULL'));
 });
 
 function publishScript(replies, version = '0.6.301') {

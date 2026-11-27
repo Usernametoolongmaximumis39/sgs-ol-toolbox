@@ -1,11 +1,11 @@
 {
   "format": "sgs-toolbox-runtime-v1",
   "bootstrapApi": 1,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "host": {
     "file": "runtime-host.cjs",
-    "bytes": 98893,
-    "sha256": "74efdc04376ee190201ec8dc415d9037be00b350815d0134000d69d75f42a486"
+    "bytes": 101073,
+    "sha256": "7a7974cd8fa56f3f011d1840c7c391bbfc3e3aac204b231c3971f17352085e6c"
   },
   "preload": {
     "file": "runtime-preload.cjs",

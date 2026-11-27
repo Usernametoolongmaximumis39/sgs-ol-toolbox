@@ -11,6 +11,7 @@ const defaults = { automatic: false, sign: true, mail: true, tasks: true, welfar
 const names = { sign: '签到', mail: '邮件', tasks: '任务', welfare: '福利', activities: '活动', codes: '兑换码' };
 const safely = fn => { try { return fn(); } catch { return undefined; } };
 const uncertainStatuses = new Set(['pending', 'unconfirmed', 'interrupted']);
+const treeStep = key => key.startsWith('welfare:tree:');
 const dailyFreeGiftRecoveryDelay = 60_000;
 const giftAttempts = entry => entry ? Math.max(1, Number(entry.attempts) || 1) : 0;
 const giftSettled = (entry, checkedAt) => Number.isFinite(entry.at) && checkedAt - entry.at >= dailyFreeGiftRecoveryDelay;
@@ -47,7 +48,7 @@ export function rewardWorkflowGroup(action) {
   if (typeof action.workflowGroup === 'string' && action.workflowGroup) return action.workflowGroup;
   const sign = /^sign:(\d+):/.exec(key);
   if (sign) return `sign:${sign[1]}`;
-  if (key.startsWith('welfare:tree:')) return 'welfare:tree';
+  if (treeStep(key)) return 'welfare:tree';
   if (/^mail-read(?:-v[23])?:/.test(key)) return 'mail-read';
   const drum = /^welfare:drum:([^:]+):/.exec(key);
   if (drum) return `welfare:drum:${drum[1]}`;
@@ -139,7 +140,7 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
       schemaVersion: 2, ...(!owner ? { automatic: false } : {}) };
   }
   state.status = config().automatic ? '自动领取已开启，等待检查' : state.status;
-  const excludedAttempt = (id, entry) => /^lamp:/.test(id) || /^(?:task|quest):/.test(id) &&
+  const excludedAttempt = (id, entry) => treeStep(id) || /^lamp:/.test(id) || /^(?:task|quest):/.test(id) &&
     (safely(() => adapter.describeAttempt?.(id)?.excluded) === true || isReturnTask({ baseVo: { name: entry?.label } }));
   const snapshot = () => {
     const owner = account(), date = day(), issues = [], codeHistory = [];
@@ -344,9 +345,9 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
     running = runResult;
     state = { ...state, running: true, sourceError: '', status: '正在检查可领取奖励', confirmed: 0, lastRun: now() }; emit();
     (async () => {
-      const noted = new Set(), skipped = new Set();
+      const noted = new Set(), skipped = new Set(), treeSentThisRun = new Set();
       let count = 0, unresolved = 0, rejected = 0, lastFailure = '';
-      let dailyFreeGiftCount, giftCheckedAt, treePrerequisiteMet;
+      let dailyFreeGiftCount, giftCheckedAt, treeReady = !adapter.prepare, treeWaiting = false, waitingForTreePurchase = false;
       const newPermanentUnresolved = new Set();
       const previousRecoveries = new Set(Object.entries(ledger.items)
         .filter(([id, entry]) => id.startsWith('mail-legacy:') && entry?.status === 'superseded')
@@ -378,9 +379,8 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
           }
         }
         for (const [actionKey, entry] of Object.entries(ledger.items)) {
-          if (!uncertainStatuses.has(entry?.status)) continue;
-          if (safely(() => adapter.confirmedAttempt?.(actionKey, entry)) === true ||
-              (actionKey.startsWith('welfare:tree:') && enabled('welfare') && safely(() => treePrerequisiteMet?.(actionKey)) === true)) {
+          if (treeStep(actionKey) || !uncertainStatuses.has(entry?.status)) continue;
+          if (safely(() => adapter.confirmedAttempt?.(actionKey, entry)) === true) {
             ledger.items[actionKey] = { ...entry, status: 'confirmed', at: now() }; reconciled = true;
           }
         }
@@ -421,7 +421,7 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
           giftCheckedAt = now();
           const prepared = await adapter.prepare?.(selection(), { signal, valid });
           dailyFreeGiftCount = prepared?.dailyFreeGiftCount;
-          treePrerequisiteMet = prepared?.treePrerequisiteMet;
+          treeReady = prepared?.treeReady !== false;
           if (prepared?.incomplete) log('system', '部分奖励配置加载失败，仍检查已就绪的领取项目');
         }
       }
@@ -454,12 +454,17 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
           if (tier) blockedMilitaryBatches.add(`activity:${tier[1]}`);
         }
         unresolved = Object.entries(ledger.items).filter(([id, entry]) => !excludedAttempt(id, entry) && uncertainStatuses.has(entry?.status)).length + newPermanentUnresolved.size;
-        const retryable = item => {
-          const prior = record(item)[item.key];
-          return prior?.status === 'rejected' && Number.isInteger(item.maxRejectedAttempts) && item.maxRejectedAttempts > 1 && item.maxRejectedAttempts <= 3 &&
-            (Number(prior.attempts) || 1) < item.maxRejectedAttempts;
-        };
+        waitingForTreePurchase = false;
         const canClaim = item => {
+          if (treeStep(item.key)) {
+            const prior = ledger.items[item.key];
+            // Each check begins with a new native snapshot. Only an unresolved
+            // paid request for this exact tree can hold a second purchase.
+            const purchaseInFlight = item.treePurchase && prior?.treePurchase === item.treePurchase && uncertainStatuses.has(prior.status);
+            if (purchaseInFlight) waitingForTreePurchase = true;
+            return treeReady && !treeWaiting && !treeSentThisRun.has('welfare:tree:claim') &&
+              !treeSentThisRun.has(item.key) && !skipped.has(item.key) && !purchaseInFlight;
+          }
           if (blockedByNewCardAttempt(item.key, ledger.items)) return false;
           const group = rewardWorkflowGroup(item);
           const tier = militaryTier.exec(item.key);
@@ -474,9 +479,9 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
             const premium = tier ? item.key.endsWith(':1') : item.manager?.hadBuyNewJD;
             if (item.manager !== jieyueManager || !jieyueLists.free || (premium && !jieyueLists.premium)) { waitingForJieyue = true; return false; }
           }
-          return (!record(item)[item.key] || retryable(item) || canRecover || canRetryGift) && !skipped.has(item.key) &&
+          return (!record(item)[item.key] || canRecover || canRetryGift) && !skipped.has(item.key) &&
             (!blockedGroups.has(group) || canRecover || canRetryGift) && !blockedMilitaryBatches.has(group) &&
-            !(tier && blockedGroups.has(`activity:${tier[1]}`)) && !(item.skipAfter && ledger.items[item.skipAfter]);
+            !(tier && blockedGroups.has(`activity:${tier[1]}`));
         };
         const gift = plan.actions.find(item => item.key === DAILY_FREE_GIFT_KEY);
         const action = gift && canClaim(gift) ? gift : plan.actions.find(canClaim);
@@ -485,12 +490,11 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
         if (!enabled(action.category)) { skipped.add(action.key); continue; }
         const records = record(action);
         const prior = records[action.key];
-        const isDailyGift = action.key === DAILY_FREE_GIFT_KEY;
-        const attempts = isDailyGift ? { attempts: giftAttempts(prior) + 1 } : action.maxRejectedAttempts ?
-          { attempts: (Number(prior?.attempts) || (prior ? 1 : 0)) + 1 } : {};
+        const isDailyGift = action.key === DAILY_FREE_GIFT_KEY, isTree = treeStep(action.key);
+        const attemptData = isDailyGift ? { attempts: giftAttempts(prior) + 1 } : action.treePurchase ? { treePurchase: action.treePurchase } : {};
         if (!safely(action.eligible)) { skipped.add(action.key); continue; }
         if (safely(action.done) === true) { records[action.key] = { status: 'confirmed' }; continue; }
-        if (Object.keys(records).length >= (action.permanent ? 5000 : 1000)) { state.status = '领取记录已达上限，请手动领取剩余奖励'; break; }
+        if (!isTree && Object.keys(records).length >= (action.permanent ? 5000 : 1000)) { state.status = '领取记录已达上限，请手动领取剩余奖励'; break; }
         if (action.mailRecovery) {
           const { previous, readKey } = action.mailRecovery;
           const priorKey = `mail-legacy:${action.key.slice(5)}:${Number(previous.at) || 0}`;
@@ -498,14 +502,14 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
         }
         // Persist intent before sending. Any permitted recovery must first
         // bring independent, current evidence back from the game.
-        records[action.key] = { status: 'pending', at: now(), label: action.label, workflowGroup: rewardWorkflowGroup(action), ...attempts, ...(action.flowVersion ? { flowVersion: action.flowVersion } : {}) };
+        records[action.key] = { status: 'pending', at: now(), label: action.label, workflowGroup: rewardWorkflowGroup(action), ...attemptData, ...(action.flowVersion ? { flowVersion: action.flowVersion } : {}) };
         try { write(); }
         catch { state.status = '无法保存领取记录，本轮未继续发送请求'; log('system', state.status, 'error'); break; }
         pendingActions.set(action.key, { action, owner, date });
         count++; state.status = action.category === 'codes'
           ? `正在兑换 ${++codeAttempted}/${codeTotal}：${action.code}`
           : `正在领取：${action.label}`; emit();
-        const needsWelfare = isDailyGift || action.key.startsWith('welfare:tree:');
+        const needsWelfare = isDailyGift || isTree;
         const result = await awaitClaim(action, { signal, valid: () => valid() && (needsWelfare ? enabled('welfare') : action.category === 'codes' || ordinaryRewards()), timeout, poll });
         if (result.status === 'not-sent') {
           if (prior) records[action.key] = prior;
@@ -515,7 +519,11 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
           if (!scope.signal.aborted && day() === date) write();
           continue;
         }
-        records[action.key] = { status: result.status, at: now(), label: action.label, text: result.text, workflowGroup: rewardWorkflowGroup(action), ...attempts, ...(action.flowVersion ? { flowVersion: action.flowVersion } : {}) };
+        if (isTree) {
+          treeSentThisRun.add(action.key);
+          treeWaiting = uncertainStatuses.has(result.status);
+        }
+        records[action.key] = { status: result.status, at: now(), label: action.label, text: result.text, workflowGroup: rewardWorkflowGroup(action), ...attemptData, ...(action.flowVersion ? { flowVersion: action.flowVersion } : {}) };
         if (!uncertainStatuses.has(result.status)) pendingActions.delete(action.key);
         try { if (!isDailyGift || (!scope.signal.aborted && day() === date)) write(); }
         catch { /* A saved pending intent is reconciled on a later run. */ }
@@ -541,6 +549,8 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
         const unconfirmed = uncertainStatuses.has(ledger.items[DAILY_FREE_GIFT_KEY]?.status) ? '' : '（未重发）';
         state.status = unresolved ? `本轮已确认 ${state.confirmed} 项，另有 ${unresolved} 项待核对${unconfirmed}。以游戏内领取记录为准。` : `本轮完成，已确认领取 ${state.confirmed} 项`;
       }
+      if (valid() && waitingForTreePurchase) state.status += ' 等待游戏确认砍树道具购买。';
+      else if (valid() && treeWaiting) state.status += ' 发财树等待游戏更新领取状态。';
       if (valid() && waitingForJieyue) state.status += ' 等待游戏同步节钺令领取记录。';
       if (valid() && rejected) state.status += `；${rejected} 项失败：${lastFailure}`;
       if (count >= 200) state.status = `本轮已达 200 项上限，已确认 ${state.confirmed} 项`;

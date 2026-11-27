@@ -174,6 +174,21 @@ test('tree claim refreshes the native state when the award event is missing', as
   assert.equal((await claim(action(f, 'tree:claim'), { timeout: 80 })).status, 'confirmed');
   assert.deepEqual(f.calls, [['tree-claim', 12130101], 'tree-info']);
 });
+test('tree claims ordinary yuanbao when the native pending state omits the peach preview', async t => {
+  for (const reward of ['ordinary', 'special-event', 'incomplete-event', 'excluded-item']) {
+    const f = createWelfareFixture(), scope = new ResourceScope(); t.after(() => scope.dispose());
+    f.welfare.JbpUserData = { Status: 1, Count: 0, Level: 1, HasTriggerEvent: reward === 'special-event', EventId: reward.endsWith('-event') ? 1 : 0 };
+    f.managers.GameGoodsManager.count = 1;
+    if (reward === 'excluded-item') f.welfare.JbpUserData.PeachList = [{ info: [{ goodId: 123, goodCnt: 1 }] }];
+    f.adapter.goods = id => id === 100016 ? { name: '元宝' } : id === 123 ? { name: '抵价券' } : null;
+    const map = new Map(), settings = { get: (key, fallback) => map.get(key) ?? fallback, set: (key, value) => map.set(key, structuredClone(value)) };
+    const controller = createRewardsController({ adapter: f.adapter, settings, scope, timeout: 50, poll: 2 });
+    controller.options({ automatic: true, sign: false, tasks: false, mail: false, activities: false, codes: false, welfare: true, excludeCoupon: true });
+    await controller.run();
+    await controller.run();
+    assert.deepEqual(f.calls.filter(call => call[0] === 'tree-claim'), reward === 'ordinary' ? [['tree-claim', 12130101]] : [], reward);
+  }
+});
 test('free drum requires native CanDrum and remaining times; no paid method', async () => {
   const f = createWelfareFixture();
   assert.equal((await claim(action(f, 'drum:8:1'))).status, 'confirmed');
@@ -217,7 +232,7 @@ test('prepare checks cancellation after config load and sends no read request', 
   f.adapter.loadConfig = async () => { aborter.abort(); };
   await prepareWelfare(f.adapter, { welfare: true }); assert.deepEqual(f.calls, []);
 });
-test('existing tree claim returning to status zero cannot start again, including after reload', async t => {
+test('tree checks the native state again after a claim and a reload on the same day', async t => {
   const f = createWelfareFixture(), store = new Map();
   const settings = new Settings({ getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value) }, 'welfare-integration:');
   f.welfare.JbpUserData.Status = 1; f.managers.GameGoodsManager.count = 1;
@@ -231,8 +246,10 @@ test('existing tree claim returning to status zero cannot start again, including
   await controller.run();
   assert.equal(f.calls.filter(call => Array.isArray(call) && call[0] === 'tree-claim').length, 1);
   assert.equal(f.calls.includes('tree-start'), false);
-  await controller.run(); await makeController().run();
-  assert.equal(f.calls.filter(call => Array.isArray(call) && call[0] === 'tree-claim').length, 1);
+  f.welfare.JbpUserData.Status = 1;
+  f.managers.GameGoodsManager.count = 1;
+  await makeController().run();
+  assert.equal(f.calls.filter(call => Array.isArray(call) && call[0] === 'tree-claim').length, 2);
   assert.equal(f.calls.includes('tree-start'), false);
 });
 
@@ -263,7 +280,7 @@ test('tree paid tool is always included, capped at 200, matches current tree pri
   assert.equal(paid(changed).send(), false); assert.equal(changed.calls.some(x => x[0] === 'tree-buy'), false);
 });
 
-test('new client buys the tool and claims tree gold without opening the window, once per day', async t => {
+test('new client buys the tool and claims tree gold without opening the window, then follows the native exhausted state', async t => {
   const f = createWelfareFixture('G'), scope = new ResourceScope(); t.after(() => scope.dispose());
   f.welfare.JbpUserData.PeachList = [{ info: [{ goodId: 100011, goodCnt: 280 }] }];
   f.configs['ff_jubaopen.sgs'].root.award[0].needMoney = 200;
@@ -277,7 +294,7 @@ test('new client buys the tool and claims tree gold without opening the window, 
     balance -= message.GoodsList[0].PriceYuanBao;
   };
   const original = f.welfare.ReqJbpAwd;
-  f.welfare.ReqJbpAwd = function (id) { original.call(this, id); this.JbpUserData.Status = 0; balance += 280; };
+  f.welfare.ReqJbpAwd = function (id) { original.call(this, id); balance += 280; };
   const map = new Map(), settings = { get: (k, d) => map.get(k) ?? d, set: (k, v) => map.set(k, structuredClone(v)) };
   const controller = createRewardsController({ adapter: f.adapter, settings, scope, timeout: 40, poll: 1 });
   controller.options({ automatic: true, sign: false, tasks: false, mail: false, activities: false, codes: false, welfare: true, excludeCoupon: true, excludeTrial: true });
@@ -309,8 +326,8 @@ test('tree skips locked or sub-200 accounts before cutting; pickup continues aft
   assert.ok(plan().actions.find(x => x.key === 'welfare:tree:claim'));
 });
 
-test('fresh native tree status resumes an interrupted cut or tool purchase after plugin reload', async t => {
-  for (const step of ['start', 'item', 'claim']) {
+test('fresh native tree status bypasses legacy attempt records after plugin reload', async t => {
+  for (const [step, status] of [['start', 'unconfirmed'], ['item', 'unconfirmed'], ['claim', 'unconfirmed'], ['claim', 'confirmed'], ['claim', 'rejected']]) {
     const f = createWelfareFixture('G');
     const scope = new ResourceScope(); t.after(() => scope.dispose());
     const date = new Date(2026, 10, 13, 12);
@@ -331,7 +348,7 @@ test('fresh native tree status resumes an interrupted cut or tool purchase after
       refresh.call(this);
     };
     const ledgerKey = 'account:41:attempts', key = `welfare:tree:${step}`;
-    const map = new Map([[ledgerKey, { day: '2026-11-13', items: { [key]: { status: 'unconfirmed' } } }]]);
+    const map = new Map([[ledgerKey, { day: '2026-11-13', items: { [key]: { status, attempts: 3 } } }]]);
     const settings = { get: (k, d) => map.get(k) ?? d, set: (k, v) => map.set(k, structuredClone(v)) };
     const controller = createRewardsController({ adapter, settings, scope, timeout: 100, poll: 2 });
     controller.options({ automatic: true, sign: false, tasks: false, mail: false, activities: false, codes: false, welfare: true, excludeRecruit: false, excludeCoupon: false, excludeTrial: false });
@@ -339,12 +356,12 @@ test('fresh native tree status resumes an interrupted cut or tool purchase after
     await controller.run();
     const operations = f.calls.filter(call => call === 'tree-start' || ['tree-buy', 'tree-claim'].includes(call[0]))
       .map(call => Array.isArray(call) ? call[0] : call);
-    assert.deepEqual(operations, step === 'start' ? ['tree-buy', 'tree-claim'] : step === 'item' ? ['tree-claim'] : []);
-    assert.equal(map.get(ledgerKey).items[key].status, step === 'claim' ? 'unconfirmed' : 'confirmed');
+    assert.deepEqual(operations, step === 'start' ? ['tree-buy', 'tree-claim'] : ['tree-claim']);
+    assert.equal(map.get(ledgerKey).items['welfare:tree:claim'].status, 'confirmed');
   }
 });
 
-test('explicit tree failures stop after three and stay stopped after reload; unknown result sends once', async t => {
+test('tree retries in later checks on the same day without overlapping requests', async t => {
   for (const explicit of [true, false]) {
     const f = createWelfareFixture(), scope = new ResourceScope(); t.after(() => scope.dispose());
     let sends = 0;
@@ -352,10 +369,40 @@ test('explicit tree failures stop after three and stay stopped after reload; unk
     const map = new Map(), settings = { get: (k, d) => map.get(k) ?? d, set: (k, v) => map.set(k, structuredClone(v)) };
     const controller = createRewardsController({ adapter: f.adapter, settings, scope, timeout: 15, poll: 1 });
     controller.options({ automatic: true, sign: false, tasks: false, mail: false, activities: false, codes: false, welfare: true });
-    await controller.run(); assert.equal(sends, explicit ? 3 : 1);
-    await controller.run(); scope.dispose();
+    await Promise.all([controller.run(), controller.run()]); assert.equal(sends, 1);
+    for (let check = 0; check < 3; check++) await controller.run();
+    assert.equal(sends, 4); scope.dispose();
     const scope2 = new ResourceScope(); t.after(() => scope2.dispose());
     await createRewardsController({ adapter: f.adapter, settings, scope: scope2, timeout: 15, poll: 1 }).run();
-    assert.equal(sends, explicit ? 3 : 1);
+    assert.equal(sends, 5);
+  }
+});
+
+test('later tree checks retry a confirmed shop rejection and wait on an unresolved paid request', async t => {
+  for (const rejected of [true, false]) {
+    const f = createWelfareFixture(), scope = new ResourceScope(); t.after(() => scope.dispose());
+    f.welfare.JbpUserData.Status = 1;
+    f.configs['ff_jubaopen.sgs'].root.award[0].needMoney = 100;
+    f.configs['sys_gs_dbs_fs_goodsbaseinfo.sgs'].root.goodslist.goods[0].yb = 100;
+    f.adapter.self = () => ({ TotalYuanBao: 200 });
+    f.adapter.prepare = async () => ({ treeReady: true });
+    const transport = f.managers.GameShopManager.proxy;
+    transport.on = f.proxy.on.bind(f.proxy);
+    transport.off = f.proxy.off.bind(f.proxy);
+    let sends = 0;
+    transport.send = () => {
+      sends++;
+      if (sends === 1 && rejected) f.proxy.emit('DbsCBuyShopogoodsRep', { Protocol: { GoodsBaseID: 12130101, Result: 2 } });
+      if (sends === 2) f.managers.GameGoodsManager.count = 1;
+    };
+    const map = new Map(), settings = { get: (key, fallback) => map.get(key) ?? fallback, set: (key, value) => map.set(key, structuredClone(value)) };
+    const controller = createRewardsController({ adapter: f.adapter, settings, scope, timeout: 20, poll: 2 });
+    controller.options({ automatic: true, sign: false, mail: false, tasks: false, welfare: true, activities: false, codes: false, excludeRecruit: false, excludeCoupon: false, excludeTrial: false });
+    await controller.run();
+    await controller.run();
+    assert.equal(sends, rejected ? 2 : 1);
+    if (!rejected) f.managers.GameGoodsManager.count = 1;
+    await controller.run();
+    assert.deepEqual(f.calls.filter(call => call[0] === 'tree-claim'), [['tree-claim', 12130101]]);
   }
 });

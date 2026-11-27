@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.304"
+    "version": "0.6.306"
   },
   "plugins": [
     {
@@ -169,7 +169,7 @@
     {
       "id": "daily-rewards",
       "name": "日常领奖",
-      "version": "0.7.50",
+      "version": "0.7.52",
       "icon": {
         "paths": [
           "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -184,9 +184,9 @@
       "minCoreVersion": "0.6.38",
       "apiVersion": 1,
       "description": "签到、任务、邮件与活动自动领奖",
-      "releaseNotes": "优化窄面板中的领奖项目、排除状态和兑换码开关，扩大可点击区域。自动领奖及兑换码保留原有设置；免费礼盒仍只在确认价格为零且可领时提交。",
-      "packageUrl": "packages/daily-rewards/0.7.50.json",
-      "sha256": "4cd6e8d3843e4b64170a0ff605bf6c19f4a7ecf61e00487a9e13690fc1f67f2b"
+      "releaseNotes": "修复发财树在未打开游戏窗口、已有待领元宝时可能漏领的问题。同一天后续检查可继续处理服务器显示仍可操作的步骤；购买结果不明时不会重复购买同一轮的道具。开启福利自动领取后，符合条件时可能自动购买砍树道具，每次最多消耗 200 元宝。",
+      "packageUrl": "packages/daily-rewards/0.7.52.json",
+      "sha256": "e2c76a8dc3ba025ec2ee66e6417b688b1e2d1fee938db7f5752284d2f939e4ac"
     },
     {
       "id": "seckill",

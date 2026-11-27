@@ -1,5 +1,5 @@
 'use strict';
-// Microclient runtime 1.0.2
+// Microclient runtime 1.0.3
 var MobileSkinSecurity = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1408,8 +1408,7 @@ function channelState() {
   return { running, selected, installed, channels, restartRequired: selected !== running };
 }
 if (typeof module !== 'undefined') module.exports = { channelPackageId };
-const navigations = new Map();
-const mainFrames = new Map();
+const mainFrames = new WeakMap();
 const crypto = require('crypto');
 const https = require('https');
 const UPDATE_SOURCES = [
@@ -1497,12 +1496,12 @@ async function updateScript(action) {
   throw new Error('脚本更新失败：' + errors.join('；'));
 }
 function topFrameURL(event) {
+  const frame = mainFrames.get(event.sender);
+  if (frame?.waitForCommit) return '';
   if (event.senderFrame) return event.senderFrame.parent ? '' : event.senderFrame.url;
-  const id = event.sender?.id;
-  const frame = mainFrames.get(id);
   const processId = event.processId ?? event.sender?.getProcessId?.();
   return frame && frame.routingId >= 0 && frame.processId >= 0 &&
-    event.frameId === frame.routingId && processId === frame.processId ? navigations.get(id) : '';
+    event.frameId === frame.routingId && processId === frame.processId ? frame.url : '';
 }
 function allowed(event) { return isGameURL(topFrameURL(event)); }
 
@@ -1709,8 +1708,9 @@ ipcMain.on('sgs-toolbox:mobile-skin-cancel:v1', (event, id) => {
 });
 const privateSyncJobs = new WeakMap();
 ipcMain.handle('sgs-toolbox:private-sync-http:v1', async (event, message) => {
-  if (!allowed(event) || !/^[a-f0-9]{32}$/.test(message?.id ?? '')) throw new Error('无效的私有同步请求');
-  const origin = new URL(event.senderFrame?.url || navigations.get(event.sender.id) || event.sender.getURL()).origin;
+  const page = topFrameURL(event);
+  if (!isGameURL(page) || !/^[a-f0-9]{32}$/.test(message?.id ?? '')) throw new Error('无效的私有同步请求');
+  const origin = new URL(page).origin;
   const { url, headers, body } = MobileSkinSecurity.privateHttpRequest(message, origin);
   const { PRIVATE_HTTP_LIMIT: limit, PRIVATE_HTTP_TIMEOUT: timeout } = MobileSkinSecurity;
   let jobs = privateSyncJobs.get(event.sender);
@@ -1762,15 +1762,51 @@ ipcMain.handle('sgs-toolbox:channel-shell:v1', (event, request) => {
   accounts?.notify(event.sender);
   return channelState();
 });
-// Electron 10 getURL() can still return the previous document during preload.
-// Record the actual main-frame navigation before the new preload requests source.
+const preloadAfterCommit = 'sgs-toolbox:preload-after-commit:v1';
+// Older installed bootstraps can run this small loader as a preload reply.
+// The real runtime and game source still require the verified main frame.
+const waitForGamePreload = '(' + function (channel) {
+  const { ipcRenderer } = require('electron');
+  ipcRenderer.invoke(channel).then(reply => {
+    if (reply?.mode === 'code') new Function('require', reply.source)(require);
+  }).catch(error => console.error('[工具箱微端]', error));
+}.toString() + ')(' + JSON.stringify(preloadAfterCommit) + ');';
+
+// Electron 10 can report the old renderer's frame IDs during a cross-site
+// redirect. In that case the new preload must wait for the committed IDs.
 app.on('web-contents-created', function (_, contents) {
-  const id = contents.id;
-  const remember = function (_, url, _inPlace, mainFrame, processId, routingId) { if (mainFrame) { navigations.set(id, url); mainFrames.set(id, { processId, routingId }); } };
-  contents.on('did-start-navigation', remember);
-  contents.on('will-redirect', remember);
-  contents.on('did-redirect-navigation', remember);
-  contents.on('did-frame-navigate', function (_, url, _status, _text, mainFrame, processId, routingId) { remember(_, url, false, mainFrame, processId, routingId); });
+  let committedFrame, finishRedirect;
+  function releasePreload() {
+    finishRedirect?.();
+    finishRedirect = null;
+  }
+  function remember(url, processId, routingId, deferPreload = false) {
+    const waitForCommit = deferPreload ? mainFrames.get(contents)?.waitForCommit ||
+      new Promise(resolve => { finishRedirect = resolve; }) : null;
+    const frame = { url, processId, routingId, waitForCommit };
+    mainFrames.set(contents, frame);
+    if (!deferPreload) releasePreload();
+    return frame;
+  }
+  contents.on('did-start-navigation', (_, url, _inPlace, mainFrame, processId, routingId) => {
+    if (mainFrame) remember(url, processId, routingId);
+  });
+  const redirect = (_, url, _inPlace, mainFrame, processId, routingId) => {
+    if (mainFrame) remember(url, processId, routingId,
+      !!boot?.activePreloadSource && contents.getType?.() === 'webview' && isGameURL(url));
+  };
+  contents.on('will-redirect', redirect);
+  contents.on('did-redirect-navigation', redirect);
+  contents.on('did-frame-navigate', (_, url, _status, _text, mainFrame, processId, routingId) => {
+    if (mainFrame) committedFrame = remember(url, processId, routingId);
+  });
+  contents.on('did-fail-provisional-load', (_, _code, _description, url, mainFrame) => {
+    const frame = mainFrames.get(contents);
+    if (!mainFrame || !frame?.waitForCommit || frame.url !== url) return;
+    if (committedFrame && contents.getURL() === committedFrame.url) mainFrames.set(contents, committedFrame);
+    else mainFrames.delete(contents);
+    releasePreload();
+  });
   const cancelSkinJobs = () => { for (const job of mobileSkinJobs.get(contents)?.values() ?? []) job.cancel(); };
   contents.on('did-start-navigation', (_, _url, inPlace, mainFrame) => { if (mainFrame && !inPlace) cancelSkinJobs(); });
   if (shellFile && contents.getType?.() === 'window') {
@@ -1783,7 +1819,8 @@ app.on('web-contents-created', function (_, contents) {
     });
   }
   contents.once('destroyed', function () {
-    cancelSkinJobs(); navigations.delete(id); mainFrames.delete(id); shells.delete(contents);
+    cancelSkinJobs(); mainFrames.delete(contents); shells.delete(contents);
+    releasePreload();
   });
 });
 function isGameURL(value) {
@@ -1803,10 +1840,24 @@ ipcMain.on('sgs-toolbox:source:v1', event => {
   if (changed) notifyCore();
 });
 ipcMain.on('sgs-toolbox:preload:v1', event => {
+  if (boot?.activePreloadSource && mainFrames.get(event.sender)?.waitForCommit && !event.senderFrame?.parent) {
+    event.returnValue = { mode: 'code', source: waitForGamePreload };
+    return;
+  }
   const url = topFrameURL(event);
   const isLogin = typeof MicroclientAccounts !== 'undefined' && MicroclientAccounts.loginChannel(url) > 0;
   event.returnValue = isGameURL(url) || isLogin
     ? (boot?.activePreloadSource ? { mode: 'code', source: boot.activePreloadSource } : null)
+    : { mode: 'skip' };
+});
+ipcMain.handle(preloadAfterCommit, async event => {
+  if (!boot?.activePreloadSource || event.senderFrame?.parent) return { mode: 'skip' };
+  const { sender } = event;
+  await mainFrames.get(sender)?.waitForCommit;
+  if (sender.isDestroyed?.()) return { mode: 'skip' };
+  const url = topFrameURL(event);
+  return isGameURL(url) && url === sender.getURL()
+    ? { mode: 'code', source: boot.activePreloadSource }
     : { mode: 'skip' };
 });
 

@@ -135,7 +135,7 @@ export function createNativeAdapter(ctx) {
         selected.sign && !signRows().length ? adapter.loadConfig('gn_zonghe') : null,
         prepareActivities(preparation, selected), prepareActivityQuests(preparation, selected),
       ]);
-      return { dailyFreeGiftCount: results[0].value, treePrerequisiteMet: results[1].value, incomplete: results.some(result => result.status === 'rejected') };
+      return { dailyFreeGiftCount: results[0].value, treeReady: results[1].value === true, incomplete: results.some(result => result.status === 'rejected') };
     },
   };
   return adapter;
