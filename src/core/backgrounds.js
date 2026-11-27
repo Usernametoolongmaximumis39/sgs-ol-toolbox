@@ -6,6 +6,15 @@ import { nativeSeat } from './seat.js';
 import { supportsSkinBackgroundAttack } from '../shared/skin-detail.js';
 
 const skinQualitySetting = 'backgrounds:skinQuality';
+const globalBackgroundSetting = 'backgrounds:globalBackground';
+const startupScene = /(?:^|\.)(?:LoginScene|LoadingScene|CreateUserScene|CreateRoleScene|MainNullScene)$/;
+const battleWallpaperMethods = ['SetWallPaperById', 'SetWallPaperByUrl', 'OnNormalWallPaperChange', 'onWallPaperChange'];
+
+function canUseGlobalBackground(scene) {
+  if (!scene || scene.destroyed || scene.initialized === false) return false;
+  const name = scene.SceneName || scene.sceneName || scene.name || scene.constructor?.name;
+  return Boolean(name && name !== 'Object' && !startupScene.test(name));
+}
 
 function fitBackground(width, height, viewportWidth, viewportHeight, scaleFor) {
   if (![width, height, viewportWidth, viewportHeight].every(n => Number.isFinite(n) && n > 0)) return null;
@@ -45,6 +54,7 @@ export function backgroundSpec(value) {
   const result = { name: value.name.trim(), url };
   if (value.officialWallpaper === true) {
     result.officialWallpaper = true;
+    if (typeof value.officialWallpaperWide === 'boolean') result.officialWallpaperWide = value.officialWallpaperWide;
     if (value.wallpaperMotion) {
       const { kind, url } = value.wallpaperMotion;
       if (kind !== 'spine' && kind !== 'bone') throw new Error('官方动态背景类型无效');
@@ -125,9 +135,11 @@ export class BackgroundRegistry {
       if (event.storageArea !== settings.storage) return;
       if (event.key === settings.prefix + 'battleBackground' || event.key === null) this.selectionChanged();
       if (event.key === settings.prefix + skinQualitySetting) { this.refresh(); this.emit(); }
+      if (event.key === settings.prefix + globalBackgroundSetting) this.globalBackgroundChanged();
     });
   }
   get current() { return this.settings.get('battleBackground', null); }
+  get globalBackground() { return this.settings.get(globalBackgroundSetting, false) === true; }
   get currentHistoryId() { return backgroundHistoryId(this.current); }
   isActive(owner) { return this.providers.has(owner); }
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
@@ -166,6 +178,17 @@ export class BackgroundRegistry {
     if (this.settings.get(skinQualitySetting, 'high') === quality) return;
     this.settings.set(skinQualitySetting, quality);
     this.refresh();
+    this.emit();
+  }
+  setGlobalBackground(owner, enabled) {
+    if (owner !== 'backgrounds' || !this.providers.has(owner) || this.globalBackground === (enabled === true)) return;
+    this.settings.set(globalBackgroundSetting, enabled === true);
+    this.globalBackgroundChanged();
+  }
+  globalBackgroundChanged() {
+    this.retryAt = 0;
+    this.refresh();
+    if (!this.globalBackground) this.nativeBackground = null;
     this.emit();
   }
   setAnimated(owner, enabled) {
@@ -280,6 +303,16 @@ export class BackgroundRegistry {
   detach(restore) {
     const b = this.binding; if (!b) return;
     this.binding = null; b.scope.dispose();
+    if (b.global) {
+      if (restore && !this.game.isInGame()) {
+        this.nativeBackground = null;
+        if (b.applied && !b.layer.destroyed && b.layer.bg?.skin === b.url) {
+          b.layer.tt(...b.nativeBackground.args);
+          b.layer.updateBgSize();
+        }
+      }
+      return;
+    }
     // Never ask the game to refresh a skill-owned background on disable.
     if (restore && b.applied && !b.yielded && !b.scene.currentWeatherWallPaper && !b.scene.destroyed && this.game.getScene() === b.scene) b.scene.onWallPaperChange();
   }
@@ -289,7 +322,7 @@ export class BackgroundRegistry {
     try { this.refreshReady(); }
     catch (error) {
       this.ticket++; this.loading = null;
-      try { this.detach(false); } catch { /* release partial attachment */ }
+      try { this.detach(this.binding?.global === true); } catch { /* release partial attachment */ }
       this.retryAt = Date.now() + 2000;
       this.state('背景接入暂未就绪，将自动重试：' + (error?.stack || error));
     }
@@ -304,7 +337,7 @@ export class BackgroundRegistry {
     let choice = this.current;
     if (!choice || !this.providers.has(choice.owner)) {
       this.ticket++; this.ready = this.loading = null;
-      try { this.detach(true); } finally { this.dropLocalImage(); }
+      try { this.detach(true); } finally { this.nativeBackground = null; this.dropLocalImage(); }
       this.state(choice ? '背景插件已停用，跟随游戏背景' : '跟随游戏背景'); return;
     }
     const localId = choice.localImageId;
@@ -314,12 +347,17 @@ export class BackgroundRegistry {
     }
     catch (error) { this.detach(true); this.state('背景配置无效：' + error.message); return; }
     const scene = this.game.getScene();
-    if (this.binding?.scene !== scene) this.detach(false);
-    if (this.binding && (this.binding.layer.destroyed || this.binding.stage !== this.window.Laya?.stage)) this.detach(false);
-    if (!this.game.isInGame() || !['SetWallPaperById', 'SetWallPaperByUrl', 'OnNormalWallPaperChange', 'onWallPaperChange'].every(k => typeof scene?.[k] === 'function')) {
-      this.detach(false); this.state('已保存，等待进入牌局'); return;
-    }
+    const inGame = this.game.isInGame();
+    const battle = inGame && battleWallpaperMethods.every(k => typeof scene?.[k] === 'function');
+    const global = !inGame && this.globalBackground && canUseGlobalBackground(scene);
     const laya = this.window.Laya;
+    const previous = this.binding;
+    if (previous && (previous.layer.destroyed || previous.layer.displayedInStage === false || previous.stage !== laya?.stage)) this.detach(false);
+    if (this.binding && (previous.global !== global || !global && previous.scene !== scene)) this.detach(!inGame && !global);
+    if (!battle && !global) {
+      this.detach(!inGame);
+      this.state(this.globalBackground ? '已保存，等待游戏场景就绪' : '已保存，等待进入牌局'); return;
+    }
     if (localId !== undefined) {
       const url = this.localUrl(localId);
       if (!url) return;
@@ -360,15 +398,37 @@ export class BackgroundRegistry {
     if (!this.binding) {
       const layer = findBackgroundLayer(laya?.stage);
       const viewport = layer && backgroundViewport(layer, this.window);
-      if (!laya?.Sprite || !laya.Rectangle || !(viewport?.width > 0 && viewport.height > 0)) {
+      if (!laya?.Sprite || !laya.Rectangle || !(viewport?.width > 0 && viewport.height > 0) || global && typeof layer.tt !== 'function') {
         this.state('等待游戏背景层与布局就绪'); return;
       }
-      const local = new ResourceScope(), b = { scene, layer, stage: laya.stage, scope: local, skinQuality,
-        applied: false, yielded: this.yieldedScene === scene, writing: false };
+      const local = new ResourceScope(), b = { scene, layer, stage: laya.stage, scope: local, skinQuality, global,
+        url: choice.url, applied: false, yielded: !global && this.yieldedScene === scene, writing: false };
       this.binding = b;
       const registry = this;
-      const originalById = scene.SetWallPaperById;
-      const eligible = () => !scene.currentWeatherWallPaper && !b.yielded;
+      const eligible = () => global || !scene.currentWeatherWallPaper && !b.yielded;
+      if (global) {
+        const pending = previous?.layer === layer && previous.handoffArgs;
+        if (pending && pending[0] === layer.bg?.skin) this.nativeBackground = { layer, args: pending };
+        else if (this.nativeBackground?.layer !== layer) {
+          this.nativeBackground = { layer, args: [layer.bg?.skin, undefined, layer.isWideBg] };
+        }
+      }
+      if (global) b.nativeBackground = this.nativeBackground;
+      if (typeof layer.tt === 'function') local.patch(layer, 'tt', original => function (...args) {
+        if (!b.writing && !b.nativeBattleWrite && registry.globalBackground) {
+          if (!registry.game.isInGame() && canUseGlobalBackground(registry.game.getScene())) {
+            const background = registry.nativeBackground;
+            if (background?.layer === layer) background.args = args;
+            else registry.nativeBackground = { layer, args };
+            if (global) return;
+          } else if (!global) {
+            // Scene creation can request its background before the rendered
+            // scene switches. Keep that request only if its skin is still set.
+            b.handoffArgs = args;
+          }
+        }
+        return Reflect.apply(original, this, args);
+      });
       let covered;
       function coverStill(next) {
         if (covered?.node !== next) {
@@ -382,7 +442,16 @@ export class BackgroundRegistry {
         b.motion?.show(visible);
         coverStill(visible && (choice.skinMotion || choice.wallpaperMotion) && b.motion?.loaded ? layer.bg : undefined);
       };
-      if (layer) {
+      b.syncMotion = () => showMotion(eligible() && layer.bg?.skin === choice.url);
+      if (choice.officialWallpaper) {
+        b.hideFill = () => showMotion(false);
+        if (choice.wallpaperMotion) local.patch(layer, 'updateBgSize', original => function (...args) {
+          const result = Reflect.apply(original, this, args);
+          if (eligible() && this.bg?.skin === choice.url) b.motion?.layout();
+          b.syncMotion();
+          return result;
+        });
+      } else {
         const fill = new laya.Sprite();
         local.add(() => fill.destroy(true));
         fill.name = 'sgs-background-edge-fill'; fill.mouseEnabled = false; fill.mouseChildren = false;
@@ -390,11 +459,6 @@ export class BackgroundRegistry {
         layer.addChildAt(fill, Math.max(0, layer.getChildIndex(layer.bgSprite)));
         const soften = new laya.Sprite(); soften.mouseEnabled = false; fill.addChild(soften);
         if (laya.BlurFilter && !choice.skinKey) soften.filters = [new laya.BlurFilter(18)];
-        b.syncMotion = () => {
-          const visible = eligible() && layer.bg?.skin === choice.url;
-          showMotion(visible);
-          if (choice.wallpaperMotion) fill.visible = visible && !b.motion?.loaded;
-        };
         b.hideFill = () => { fill.visible = false; showMotion(false); };
         let fillKey = '';
         local.patch(layer, 'updateBgSize', original => function (...args) {
@@ -421,56 +485,39 @@ export class BackgroundRegistry {
           if (typeof this.bg.scale === 'function') this.bg.scale(fit.scale, fit.scale);
           else this.bg.scale = fit.scale;
           this.bg.posInteger(fit.x, fit.y);
-          if (choice.wallpaperMotion) b.motion?.layout();
-          else if (choice.skinMotion) b.motion?.layout(w, h);
+          if (choice.skinMotion) b.motion?.layout(w, h);
           else if (b.motion) b.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h));
           b.syncMotion();
           return result;
         });
       }
-      if (typeof scene.OnWeatherWallPaperChange === 'function') local.patch(scene, 'OnWeatherWallPaperChange', original => function (...args) {
-        b.hideFill?.(); return Reflect.apply(original, this, args);
-      });
       const apply = () => {
         if (localId !== undefined && laya.loader.getRes && !laya.loader.getRes(choice.url)) {
           // Native background changes can evict textures that were unused during a skill.
           this.detach(false); this.ready = null; this.refresh(); return;
         }
         b.writing = true;
-        try { scene.SetWallPaperByUrl(choice.url); b.applied = true; layer?.updateBgSize(); }
+        try {
+          if (global) {
+            b.applied = true;
+            layer.tt(choice.url);
+          } else {
+            const size = this.imageSize, wideSize = layer.wideSize;
+            // Older saved selections only have the URL. Match the native wide canvas in that case.
+            const wide = choice.officialWallpaper && (choice.officialWallpaperWide
+              ?? (!choice.wallpaperMotion && size && wideSize && size.width * wideSize.height === size.height * wideSize.width));
+            const setNativeImage = layer.tt ?? layer.O;
+            if (wide && typeof setNativeImage === 'function') Reflect.apply(setNativeImage, layer, [choice.url, false, true]);
+            else scene.SetWallPaperByUrl(choice.url);
+            b.applied = true;
+          }
+          layer.updateBgSize();
+        }
         finally { b.writing = false; }
       };
-      local.patch(scene, 'SetWallPaperByUrl', original => function (...args) {
-        if (!b.writing) { b.yielded = true; registry.yieldedScene = scene; b.hideFill?.(); registry.state('技能背景优先'); }
-        return Reflect.apply(original, this, args);
-      });
-      local.patch(scene, 'SetWallPaperById', original => function (...args) {
-        if (args[1]) { b.yielded = true; registry.yieldedScene = scene; b.hideFill?.(); return Reflect.apply(original, this, args); }
-        if (eligible()) { apply(); return; }
-        return Reflect.apply(original, this, args);
-      });
-      local.patch(scene, 'OnNormalWallPaperChange', original => function (...args) {
-        b.yielded = false; registry.yieldedScene = null;
-        if (eligible()) { apply(); return; }
-        return Reflect.apply(original, this, args);
-      });
-      // Laya keeps the method reference captured when the scene subscribed.
-      // Retarget only that exact existing handler; never remove/re-add listeners.
-      const dispatcher = this.game.getDispatcher?.();
-      const event = dispatcher?.constructor?.BACKGROUND_USEDID_GOT || 'BACKGROUND_USEDID_GOT';
-      const entries = dispatcher?._events?.[event];
-      for (const handler of Array.isArray(entries) ? entries : [entries]) {
-        if (handler?.caller === scene && handler.method === originalById) {
-          // Keep identical function identity so native off(event, scene,
-          // scene.SetWallPaperById) can still remove it during scene teardown.
-          const redirected = scene.SetWallPaperById;
-          handler.method = redirected;
-          local.add(() => {
-            if (handler.caller === scene && handler.method === redirected) handler.method = originalById;
-          });
-        }
-      }
-      if (!b.yielded) scene.onWallPaperChange();
+      if (global) apply();
+      else this.bindBattle(b, apply, eligible);
+      if (this.binding !== b) return;
       const playSkinMotion = choice.skinMotion && !this.window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
       const playWallpaperMotion = choice.wallpaperMotion && !this.window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
       if ((choice.dynamic || playSkinMotion || playWallpaperMotion) && choice.animated !== false) {
@@ -489,7 +536,7 @@ export class BackgroundRegistry {
             imageUrl: this.localImage?.objectUrl })
             : createBackgroundMotion({ ...options, spec: choice.dynamic, size: choice.dynamic });
           if (motionScope.closed) b.motion = null;
-          if (b.motion && supportsSkinBackgroundAttack(choice.dynamic)) {
+          if (!global && b.motion && supportsSkinBackgroundAttack(choice.dynamic)) {
             b.syncAttackSeat = watchBackgroundAttack(this.game, scene, motionScope, () => {
               if (eligible() && layer.bg?.skin === choice.url) b.motion?.playAttack?.();
             });
@@ -498,14 +545,61 @@ export class BackgroundRegistry {
         } catch (error) { fail(error?.stack || String(error)); }
       }
     }
-    if (scene.currentWeatherWallPaper || this.binding.yielded) this.binding.hideFill?.();
-    else this.binding.syncMotion();
     const b = this.binding;
+    const overridden = !global && (scene.currentWeatherWallPaper || b.yielded);
+    if (overridden) b.hideFill?.();
+    else b.syncMotion();
     if (b.motion) b.syncAttackSeat?.(choice.attackEffects !== false);
-    this.state(scene.currentWeatherWallPaper || b.yielded ? '技能背景优先'
+    const place = global ? '全局' : '牌局';
+    this.state(overridden ? '技能背景优先'
       : b.motionError ? '动态背景失败，已显示静态原画：' + b.motionError
       : b.motion?.unsuitableSize ? '当前窗口比例不适合动态构图，已显示静态原画'
-      : b.motion ? (b.motion.loaded ? '动态牌局背景已启用' : '正在加载动态背景，暂显静态原画')
-      : '静态牌局背景已启用');
+      : b.motion ? (b.motion.loaded ? '动态' + place + '背景已启用' : '正在加载动态背景，暂显静态原画')
+      : '静态' + place + '背景已启用');
+  }
+
+  bindBattle(b, apply, eligible) {
+    const { scene, scope: local } = b;
+    const registry = this, originalById = scene.SetWallPaperById;
+    const callNative = (method, receiver, args) => {
+      const wasWriting = b.nativeBattleWrite;
+      b.nativeBattleWrite = true;
+      try { return Reflect.apply(method, receiver, args); }
+      finally { b.nativeBattleWrite = wasWriting; }
+    };
+    if (typeof scene.OnWeatherWallPaperChange === 'function') local.patch(scene, 'OnWeatherWallPaperChange', original => function (...args) {
+      b.hideFill?.(); return callNative(original, this, args);
+    });
+    local.patch(scene, 'SetWallPaperByUrl', original => function (...args) {
+      if (!b.writing) { b.yielded = true; registry.yieldedScene = scene; b.hideFill?.(); registry.state('技能背景优先'); }
+      return callNative(original, this, args);
+    });
+    local.patch(scene, 'SetWallPaperById', original => function (...args) {
+      if (args[1]) { b.yielded = true; registry.yieldedScene = scene; b.hideFill?.(); return callNative(original, this, args); }
+      if (eligible()) { apply(); return; }
+      return callNative(original, this, args);
+    });
+    local.patch(scene, 'OnNormalWallPaperChange', original => function (...args) {
+      b.yielded = false; registry.yieldedScene = null;
+      if (eligible()) { apply(); return; }
+      return callNative(original, this, args);
+    });
+    // Laya keeps the method reference captured when the scene subscribed.
+    // Retarget only that exact existing handler; never remove/re-add listeners.
+    const dispatcher = this.game.getDispatcher?.();
+    const event = dispatcher?.constructor?.BACKGROUND_USEDID_GOT || 'BACKGROUND_USEDID_GOT';
+    const entries = dispatcher?._events?.[event];
+    for (const handler of Array.isArray(entries) ? entries : [entries]) {
+      if (handler?.caller === scene && handler.method === originalById) {
+        // Keep identical function identity so native off(event, scene,
+        // scene.SetWallPaperById) can still remove it during scene teardown.
+        const redirected = scene.SetWallPaperById;
+        handler.method = redirected;
+        local.add(() => {
+          if (handler.caller === scene && handler.method === redirected) handler.method = originalById;
+        });
+      }
+    }
+    if (!b.yielded) scene.onWallPaperChange();
   }
 }

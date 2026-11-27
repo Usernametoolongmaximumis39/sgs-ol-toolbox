@@ -1,3 +1,4 @@
+import { ResourceScope } from '../../../core/resources.js';
 import { findNativeListenerOwner } from '../../../shared/native-manager.js';
 import { attachOpening, attachSkillTips, escapeNativeText, replayPopupManager } from '../replay/native-opening.js';
 import { pokerCardSprite } from '../replay/native-card-motion.js';
@@ -27,6 +28,7 @@ import { attachPokerCardDisplay } from './table-card-display.js';
 import { GENERAL_SELECTION_PHASE_LABEL } from './table-state.js';
 
 const CARD_RISE = 12;
+const CLICK_TAIL_MS = 500;
 const FIGURE_TEXTURE = { 1: 'figure_fightlord_1', 3: 'figure_fightlord_3' };
 const EMPTY_INFO = { bottom: [], score: null, rate: null, remaining: null };
 
@@ -51,7 +53,7 @@ export function mountPokerTableView(ctx, scope, scene, names, input) {
   const slots = seats.map(seat => seat.Seat.Index);
   const bar = self.getButtonBar();
   const options = new Map();
-  const event = Laya.Event.CLICK;
+  const event = Laya.Event?.CLICK || 'click';
   const ok = bar.ButtonOk;
   const cancel = bar.ButtonCancel;
   const hint = bar.btnReset;
@@ -292,9 +294,72 @@ export function mountPokerTableView(ctx, scope, scene, names, input) {
     return rows ? rows * 38 + 12 : 0;
   }
 
+  const mouseDown = Laya.Event?.MOUSE_DOWN || 'mousedown';
+  const mouseMove = Laya.Event?.MOUSE_MOVE || 'mousemove';
+  const mouseUp = Laya.Event?.MOUSE_UP || 'mouseup';
+  let handScope, drag, clickTail;
+  function listenLaya(owner, node, type, fn) {
+    node.on(type, owner, fn);
+    owner.add(() => node.off(type, owner, fn));
+  }
+  function restoreDrag(swallowClick = false) {
+    const gesture = drag;
+    drag = null;
+    if (gesture) {
+      for (const { node, x, y, alpha } of gesture.cards) {
+        if (node.destroyed) continue;
+        node.pos(x, y);
+        node.alpha = alpha;
+      }
+      if (swallowClick) clickTail = gesture;
+    }
+    return gesture;
+  }
+  function moveDrag(pointer) {
+    if (!drag || !Number.isFinite(pointer?.stageX)
+      || drag.touchId != null && pointer.touchId != null && drag.touchId !== pointer.touchId) return;
+    const x = handLayer.globalToLocal(new Laya.Point(pointer.stageX, pointer.stageY ?? 0)).x;
+    const last = drag.cards.length - 1;
+    const hit = drag.cards.findIndex(card => x >= card.x && x < card.x + card.hitWidth);
+    const end = hit >= 0 ? hit : x < drag.cards[0].x ? 0 : x >= drag.cards[last].x + drag.cards[last].hitWidth ? last : drag.end;
+    if (end === drag.end) return;
+    drag.crossed = true;
+    drag.end = end;
+    const first = Math.min(drag.start, end), final = Math.max(drag.start, end);
+    drag.cards.forEach((card, index) => {
+      if (!card.enabled) return;
+      const preview = index >= first && index <= final;
+      const rise = card.selected ? CARD_RISE : -CARD_RISE;
+      card.node.pos(card.x, preview ? card.y + rise : card.y);
+      card.node.alpha = preview ? .74 : card.alpha;
+    });
+  }
+  function endDrag(pointer) {
+    if (pointer?.button > 0 || pointer?.isPrimary === false
+      || drag?.touchId != null && pointer?.touchId != null && drag.touchId !== pointer.touchId) return;
+    const gesture = restoreDrag(drag?.crossed);
+    if (clickTail) {
+      const tail = clickTail;
+      scope.timeout(() => { if (clickTail === tail) clickTail = null; }, CLICK_TAIL_MS);
+    }
+    if (!gesture?.crossed || scope.closed || scene.destroyed) return;
+    const lo = Math.min(gesture.start, gesture.end), hi = Math.max(gesture.start, gesture.end);
+    const ids = gesture.cards.slice(lo, hi + 1).filter(card => card.enabled).map(card => card.id);
+    input.toggleDraggedCards(ids, gesture.isChoice, gesture.snapshot);
+  }
+  if (Laya.stage?.on && Laya.stage?.off) {
+    listenLaya(scope, Laya.stage, mouseMove, moveDrag);
+    listenLaya(scope, Laya.stage, mouseUp, endDrag);
+  }
+  if (win.addEventListener) {
+    scope.listen(win, 'mouseup', endDrag);
+    scope.listen(win, 'pointerup', endDrag);
+    scope.listen(win, 'pointercancel', () => restoreDrag(true));
+    scope.listen(win, 'blur', () => restoreDrag(true));
+  }
+  scope.add(() => { restoreDrag(); handScope?.dispose(); clickTail = null; });
+
   function drawHand(nativeChoice) {
-    handLayer.destroyChildren();
-    const cardTargets = [];
     const decision = state.decision;
     const fromHand = Boolean(decision?.fromHand && decision.cards);
     const showChoices = !nativeChoice && Boolean(decision?.cards) && !fromHand && !decision.copyCard;
@@ -305,6 +370,25 @@ export function mountPokerTableView(ctx, scope, scene, names, input) {
     const gap = cards.length > 1 ? hand.computeHandCard(cards.length, 0, width).gap : 0;
     const size = hand.cardUiSize;
     const pitch = size.width + gap;
+    const selected = isChoice ? decision.selected : state.selected;
+    const enabled = !state.pending && !state.ended && !state.trustee && !state.trusteePending
+      && (isChoice ? decision.max > 0 : !decision);
+    const allowDrag = !decision || isChoice && !decision.giveFromHand && decision.max > 1;
+    const layout = [handLeft, width, size.width, size.height, gap, hand.NORMAL_Y].join(':');
+    if (drag && enabled && allowDrag) {
+      const before = drag.snapshot;
+      const previous = isChoice ? before.decision?.selected : before.selected;
+      if (before.selectionContext === state.selectionContext && drag.isChoice === isChoice
+        && before.phase === state.phase && before.turnSeat === state.turnSeat
+        && before.hand.length === state.hand.length && before.hand.every((card, index) => card === state.hand[index])
+        && before.decision?.cards === decision?.cards && previous?.size === selected.size
+        && [...selected].every(id => previous.has(id)) && drag.layout === layout) return drag.targets;
+    }
+    restoreDrag(true);
+    handScope?.dispose();
+    handScope = new ResourceScope();
+    handLayer.destroyChildren();
+    const cardTargets = [];
     const own = state.seats.find(seat => seat.id === state.selfSeat);
     const marked = handSkillMarks(own.skillStates, names.skill);
     for (const { id, source } of own.visibleHand) {
@@ -313,10 +397,8 @@ export function mountPokerTableView(ctx, scope, scene, names, input) {
       labels.add(names.skill(source));
       marked.set(id, labels);
     }
-    const selected = isChoice ? decision.selected : state.selected;
-    const enabled = !state.pending && !state.ended && !state.trustee && !state.trusteePending
-      && (isChoice ? decision.max > 0 : !decision);
     const selectCard = decision?.giveFromHand ? input.giveCard : isChoice ? input.toggleChoiceCard : input.toggleCard;
+    const dragCards = [];
     cards.forEach((card, index) => {
       const node = pokerCardSprite(Laya, card, size, ctx.ui.nativeTheme.palette);
       node.pokerChoiceCard = showChoices;
@@ -326,16 +408,30 @@ export function mountPokerTableView(ctx, scope, scene, names, input) {
       if (!showChoices && !card.hidden) markHandCard(Laya, node, size, marked.get(card.id));
       node.name = `poker-live-${showChoices ? 'choice-' : ''}card-${card.id}`;
       const x = Math.round(handLeft + index * pitch);
-      node.pos(x, hand.NORMAL_Y - (selected.has(card.id) ? CARD_RISE : 0));
+      const isSelected = selected.has(card.id);
+      const y = hand.NORMAL_Y - (isSelected ? CARD_RISE : 0);
+      node.pos(x, y);
       handLayer.addChild(node);
-      if (!enabled || disabled) return;
-      if (fromHand && gap < 0 && index < cards.length - 1 && Laya.Rectangle) {
-        const stripWidth = Math.round(handLeft + (index + 1) * pitch) - x;
-        node.hitArea = new Laya.Rectangle(0, 0, stripWidth, size.height);
-      }
+      const hitWidth = gap < 0 && index < cards.length - 1 ? Math.round(handLeft + (index + 1) * pitch) - x : size.width;
+      const interactive = enabled && !disabled && node.visible !== false;
+      dragCards.push({ node, id: card.id, x, y, hitWidth, selected: isSelected, enabled: interactive, alpha: node.alpha ?? 1 });
+      if (!interactive) return;
+      if (hitWidth < size.width && Laya.Rectangle) node.hitArea = new Laya.Rectangle(0, 0, hitWidth, size.height);
       const select = () => selectCard(card.id);
       node.mouseEnabled = true;
-      node.on(event, scope, () => { keyboard.focus(node.name); select(); });
+      const snapshot = state;
+      listenLaya(handScope, node, mouseDown, pointer => {
+        if (drag || pointer?.nativeEvent?.button > 0 || pointer?.button > 0 || pointer?.nativeEvent?.isPrimary === false) return;
+        clickTail = null;
+        if (!allowDrag || dragCards.length < 2) return;
+        drag = { cards: dragCards, targets: cardTargets, start: index, end: index,
+          crossed: false, isChoice, snapshot, layout, touchId: pointer?.touchId };
+      });
+      listenLaya(handScope, node, event, () => {
+        if (clickTail || drag?.crossed) return;
+        keyboard.focus(node.name);
+        select();
+      });
       cardTargets.push({ node, key: node.name, title: card.hidden ? '暗牌' : `${card.symbol || ''}${card.face}`, invoke: select });
     });
     return cardTargets;
@@ -533,8 +629,12 @@ export function mountPokerTableView(ctx, scope, scene, names, input) {
     settlementWindow.show(state.settlement, state.selfSeat);
   }
 
-  scope.add(ctx.ui.nativeTheme.watch(() => { if (state) render(state); }));
+  scope.add(ctx.ui.nativeTheme.watch(() => {
+    restoreDrag(true);
+    if (state) render(state);
+  }));
   scope.patch(scene, 'OnStageResize', original => function (...args) {
+    restoreDrag(true);
     original.apply(this, args);
     if (state) render(state);
   });

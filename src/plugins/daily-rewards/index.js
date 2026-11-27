@@ -10,17 +10,21 @@ import { DAILY_FREE_GIFT_KEY } from './daily-free-gift.js';
 
 
 export default {
-  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.52', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "修复发财树在未打开游戏窗口、已有待领元宝时可能漏领的问题。同一天后续检查可继续处理服务器显示仍可操作的步骤；购买结果不明时不会重复购买同一轮的道具。开启福利自动领取后，符合条件时可能自动购买砍树道具，每次最多消耗 200 元宝。", minCoreVersion: '0.6.38', categories: ['automation'], icon: DAILY_REWARDS_ICON, priority: 20000,
+  manifest: { id: 'daily-rewards', name: '日常领奖', version: '0.7.53', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "关闭「自动领取」后，斗地主和单骑商店的自动兑换也会暂停，已勾选商品保留。优化商店按钮的显示和跟随；启用自动兑换后仍可能消耗欢乐豆。", minCoreVersion: '0.6.38', categories: ['automation'], icon: DAILY_REWARDS_ICON, priority: 20000,
     description: '签到、任务、邮件与活动自动领奖' },
   activate(ctx) {
     const native = createNativeAdapter(ctx);
     const controller = createRewardsController({ adapter: native, settings: ctx.settings, scope: ctx.scope, sources: createCodeSources(ctx.window, { core: ctx.core }) });
     const exchangeAdapter = createExchangeAdapter(ctx, native);
-    const exchange = createExchangeController({ adapter: exchangeAdapter, settings: ctx.settings, enabled: () => controller.snapshot().config.automatic });
+    const exchange = createExchangeController({ adapter: exchangeAdapter, settings: ctx.settings, enabled: controller.automaticEnabled });
     const exchangeUI = createExchangeUI(ctx, exchange, exchangeAdapter);
+    function onExchangeUpdate(reply) {
+      if (reply) exchange.reply(reply.id, reply.result);
+      else exchange.tick();
+    }
     const exchangeTick = () => {
-      exchangeAdapter.bind(reply => { if (reply) exchange.reply(reply.id, reply.result); else exchange.tick(); });
+      exchangeAdapter.bind(onExchangeUpdate);
       exchange.tick();
       // Request only after the account/day transition has invalidated the snapshot.
       if (exchangeAdapter.account() && ctx.settings.get(`account:${exchangeAdapter.account()}:shop-exchange`, {}).selected?.length) exchangeAdapter.refresh();

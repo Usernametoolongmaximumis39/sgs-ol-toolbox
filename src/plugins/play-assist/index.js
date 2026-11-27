@@ -17,14 +17,14 @@ export const OPTIONS = [
   ['rapid', '技能连按', '取消连按间隔'],
 ];
 const DEFAULT_ON = new Set(['skillLock', 'quandaoCount', 'tianshuAssist', 'quanyuAssist', 'zhuohunAssist', 'peixiuAssist']);
-export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.41', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "改进权御记录的显示，等待本人操作时也可查看；修正狂骨在 1 点体力时的自动选择。自动选择仍只按已开启的设置运行。", minCoreVersion: '0.6.87', description: '长按技能、自动确定与武将专属提示',
+export const manifest = { id: 'play-assist', name: '出牌辅助', version: '0.2.47', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "优化裴秀采风的花色按钮和路线提示位置，减少遮挡；窄屏可滚动查看路线。减少空闲时的重复检查，自动选择仍只按已开启的设置运行。", minCoreVersion: '0.6.87', description: '长按技能、自动确定与武将专属提示',
   icon: PLAY_ASSIST_ICON, priority: 12000, categories: ['game'] };
 
 export default { manifest, activate(ctx) {
   const listeners = new Set();
   const settings = () => Object.fromEntries(OPTIONS.map(([key]) => [key, ctx.settings.get(key, DEFAULT_ON.has(key)) === true]));
-  const emit = () => listeners.forEach(fn => fn());
+  const emit = options => listeners.forEach(fn => fn(options));
   const runtime = createRuntime(ctx, settings, emit);
   ctx.ui.registerPanel({ id: 'main', category: 'game', gameView: 'battle', render(container) {
     const doc = ctx.document, cleanups = [];
@@ -72,8 +72,8 @@ export default { manifest, activate(ctx) {
     cleanups.push(ctx.scope.listen(skills, 'click', event => { const b = event.target.closest('button[data-id]'); if (b && !b.disabled) runtime.toggle(Number(b.dataset.id)); }));
     root.append(heading, skills); container.append(style, root);
     let signature = '';
-    function paint() {
-      const config = settings(); inputs.forEach((input, key) => { input.checked = config[key]; });
+    function paint(config = settings()) {
+      inputs.forEach((input, key) => { if (input.checked !== config[key]) input.checked = config[key]; });
       const list = runtime.getSkills().map(({id,name,locked,remembered}) => ({id,name,locked,remembered})), next = JSON.stringify([list, config.skillLock]);
       if (signature === next) return; signature = next; skills.replaceChildren();
       count.textContent = `${list.filter(s => s.locked).length} / ${list.length}`;

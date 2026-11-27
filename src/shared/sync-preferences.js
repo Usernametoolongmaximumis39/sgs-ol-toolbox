@@ -155,12 +155,48 @@ export function cleanPreferences(value) {
   return result;
 }
 
-export function mergePreferenceUpload(previous, values, { patch, preservePins } = {}) {
-  const next = { ...previous, ...values };
-  if (!patch) return next;
+function mergeRows(preferred, other, select) {
+  const rows = { ...preferred };
+  for (const [id, row] of Object.entries(other)) rows[id] = rows[id] ? select(rows[id], row) : row;
+  return rows;
+}
+
+export function mergePreferenceCollections(preferred, other) {
+  const next = { ...preferred };
+  if (preferred.generalPools && other.generalPools) {
+    const pools = new Map(preferred.generalPools.map(row => [row.id, row]));
+    for (const row of other.generalPools) if (!pools.has(row.id)) pools.set(row.id, row);
+    next.generalPools = [...pools.values()].slice(0, GENERAL_POOL_LIMIT);
+  }
+  if (preferred.friends && other.friends) {
+    const a = preferred.friends, b = other.friends;
+    const changes = new Map([...a.changes, ...b.changes].map(row => [JSON.stringify([row.id, row.from, row.to, row.at]), row]));
+    next.friends = {
+      version: 1,
+      pins: [...new Set([...a.pins, ...b.pins])],
+      friends: mergeRows(a.friends, b.friends, (first, second) => second.seenAt > first.seenAt ? second : first),
+      changes: [...changes.values()].sort((a, b) => b.at - a.at).slice(0, 200),
+    };
+  }
+  if (preferred.friendLamps && other.friendLamps) {
+    next.friendLamps = {
+      version: 1,
+      friends: mergeRows(preferred.friendLamps.friends, other.friendLamps.friends, (first, second) => {
+        const [newer, older] = second.at > first.at ? [second, first] : [first, second];
+        return { ...newer, ids: [...new Set([...newer.ids, ...older.ids])].sort((a, b) => a - b),
+          names: { ...older.names, ...newer.names } };
+      }),
+    };
+  }
+  return next;
+}
+
+export function mergePreferenceUpload(previous, values, { patch, preservePins, unionCollections } = {}) {
+  const next = { ...previous, ...(unionCollections ? mergePreferenceCollections(values, previous) : values) };
+  if (!patch) return unionCollections ? cleanPreferences(next) : next;
   for (const group of ['toolbox', 'pluginSettings']) {
     if (values[group]) next[group] = { ...previous[group], ...values[group] };
   }
-  if (preservePins && values.friends && previous.friends) next.friends = { ...values.friends, pins: previous.friends.pins };
+  if (!unionCollections && preservePins && values.friends && previous.friends) next.friends = { ...values.friends, pins: previous.friends.pins };
   return cleanPreferences(next);
 }

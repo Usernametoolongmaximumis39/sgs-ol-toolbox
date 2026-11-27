@@ -16,7 +16,7 @@ function themeSpec(row, thumbnail) {
     return url && { name: row.Name, url: thumbnail, wallpaperMotion: { kind: 'bone', url } };
   }
   const url = assetFromThumbnail(thumbnail, 'bg', source);
-  return url && { name: row.Name, url };
+  return url && { name: row.Name, url, officialWallpaperWide: Boolean(row.fcSrc) };
 }
 
 export function wallpaperModelSpec(data, live = data?.IsLiveBg === true) {
@@ -28,7 +28,7 @@ export function wallpaperModelSpec(data, live = data?.IsLiveBg === true) {
     return url && animation ? { name: data.Name, url, wallpaperMotion: { kind, url: animation } } : null;
   }
   const url = data.ActiveBgURL || data.BgURL;
-  return url ? { name: data.Name, url } : null;
+  return url ? { name: data.Name, url, officialWallpaperWide: Boolean(data.fcSrc) } : null;
 }
 
 export function selectOfficialWallpaper(ctx, spec, animated) {

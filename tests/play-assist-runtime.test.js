@@ -86,6 +86,25 @@ test('one snapshot per assist tick and deferred actions recheck a changed scene'
   assert.equal(f.calls, 0);
 });
 
+test('idle assist skips full snapshots and reacts to a newly enabled native prompt', async t => {
+  const f = fixture(t, { quandaoCount: true });
+  const scene = f.ctx.game.getScene();
+  let checks = 0;
+  f.ctx.game.isInGame = () => { checks++; return true; };
+  f.ctx.game.isReplay = current => { assert.equal(current, scene); return false; };
+  f.ctx.game.getSnapshot = () => assert.fail('lightweight checks cover this scene');
+  f.runtime.tick();
+  await flush();
+  assert.equal(checks, 1, 'an idle tick does not queue a second action check');
+
+  f.settings.autoConfirm = true;
+  f.self.cardContainer.selectCardContext = { message: '请选择牌', SelectCountMin: 1, SelectCountMax: 1 };
+  f.self.cardContainer.cardUis = [{ selected: true }];
+  f.self.buttonBar.Show();
+  await flush();
+  assert.equal(f.calls, 1);
+});
+
 test('ordinary assist leaves native poker buttons and skill listeners to the table', async t => {
   const f = fixture(t, { autoConfirm: true, skillLock: true, rapid: true });
   const ordinary = f.ctx.game.getScene();

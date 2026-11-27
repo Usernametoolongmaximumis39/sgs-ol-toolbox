@@ -40,7 +40,7 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
   let phase = null, bidding = null, history = [], trustee = false, trusteePending = false, surrenderNotice;
   let remaining = trackRemainingCards(), bottom = [], score = null, baseRate = null, multiplier = null;
   let leadingSeat = null;
-  let hintPending = false;
+  let hintPending = false, selectionContext = 0;
   const available = () => !ended && !leaving && !unavailable && !pending && !trustee && !trusteePending && !surrenderNotice;
   const ours = () => available() && !decision && turn?.seat === selfSeat && turn.actionable === true;
   const canPass = () => ours() && turn.canPass === true;
@@ -69,6 +69,7 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
   }
 
   function resetTurn() {
+    selectionContext++;
     turn = null;
     hintPending = false;
     if (pending?.kind === 'play' || pending?.kind === 'pass' || pending?.kind === 'skill') pending = null;
@@ -81,6 +82,7 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
     if (value && value.kind === decision?.kind && value.optionKey != null && value.optionKey === decision.optionKey) return;
     if (decision && pending?.kind === decision.kind) pending = null;
     decision = value;
+    selectionContext++;
     choiceCards.clear();
     choiceOptions.clear();
   }
@@ -689,7 +691,7 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
       else if (!completeHand) status = '等待手牌同步';
       else status = '轮到你出牌';
     }
-    return { hand: orderedHand, selected: new Set(selected), selfSeat, turnSeat: activeSeat, phase, bidding, history,
+    return { hand: orderedHand, selected: new Set(selected), selectionContext, selfSeat, turnSeat: activeSeat, phase, bidding, history,
       seats: [...players.values()].map(seat => ({ ...seat,
         role: seat.role ?? (landlord == null ? null : seat.id === landlord ? 1 : 3) })),
       played: [...played.values()], lastPlay: played.get(leadingSeat) ?? null,
@@ -714,6 +716,29 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
     };
   }
 
+  function toggleCard(id) {
+    if (!hand.has(id) || !available() || decision) return false;
+    hintPending = false;
+    if (!selected.delete(id)) selected.add(id);
+    wildRanks.clear();
+    if (turn) notice = null;
+    return true;
+  }
+
+  function toggleChoiceCard(id) {
+    if (!available() || decision?.kind !== 'skill-choice' || decision.mode === 'unsupported' || decision.giveFromHand
+      || !decision.cards.length) return false;
+    const choice = decision.cards.find(card => card.id === id);
+    if (!choice || choice.disabled || decision.fromHand && !hand.has(id)) return false;
+    if (choiceCards.delete(id)) return true;
+    if (decision.requiredGroups?.includes(choice.choiceGroup)) {
+      for (const card of decision.cards) if (card.choiceGroup === choice.choiceGroup) choiceCards.delete(card.id);
+    }
+    if (decision.max === 1) choiceCards.clear();
+    if (choiceCards.size < decision.max) choiceCards.add(id);
+    return true;
+  }
+
   return {
     receive,
     view,
@@ -730,26 +755,23 @@ export function createPokerTableState({ selfSeat, seats }, names = {}) {
       leaving = false;
       leaveError = true;
     },
-    toggleCard(id) {
-      if (!hand.has(id) || !available() || decision) return false;
-      hintPending = false;
-      if (!selected.delete(id)) selected.add(id);
-      wildRanks.clear();
-      if (turn) notice = null;
-      return true;
-    },
-    toggleChoiceCard(id) {
-      if (!available() || decision?.kind !== 'skill-choice' || decision.mode === 'unsupported' || decision.giveFromHand
-        || !decision.cards.length) return false;
-      const choice = decision.cards.find(card => card.id === id);
-      if (!choice || choice.disabled || decision.fromHand && !hand.has(id)) return false;
-      if (choiceCards.delete(id)) return true;
-      if (decision.requiredGroups?.includes(choice.choiceGroup)) {
-        for (const card of decision.cards) if (card.choiceGroup === choice.choiceGroup) choiceCards.delete(card.id);
-      }
-      if (decision.max === 1) choiceCards.clear();
-      if (choiceCards.size < decision.max) choiceCards.add(id);
-      return true;
+    toggleCard,
+    toggleChoiceCard,
+    toggleDraggedCards(ids, fromChoice, snapshot) {
+      if (!available() || snapshot.selectionContext !== selectionContext || hand.size !== snapshot.hand.length
+        || snapshot.hand.some(card => hand.get(card.id) !== card)) return false;
+      if (fromChoice ? decision?.kind !== 'skill-choice' || decision.giveFromHand || decision.max <= 1 : decision) return false;
+      // Free up choice slots before applying any newly selected cards.
+      const toggle = fromChoice ? toggleChoiceCard : toggleCard;
+      const target = fromChoice ? choiceCards : selected;
+      const before = fromChoice ? snapshot.decision.selected : snapshot.selected;
+      if (target.size !== before.size || [...target].some(id => !before.has(id))) return false;
+      const unique = [...new Set(ids)];
+      const removals = unique.filter(id => target.has(id));
+      const additions = unique.filter(id => !target.has(id));
+      let changed = false;
+      for (const id of [...removals, ...additions]) if (toggle(id)) changed = true;
+      return changed;
     },
     begin(kind, id) {
       if (!available()) return null;

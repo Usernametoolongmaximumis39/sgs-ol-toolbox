@@ -36,7 +36,7 @@ export function readPublicRecovery(value) {
 }
 export function createPublicTransport(crypto, post) {
   const states = new WeakMap();
-  const authorize = ({ vault, credential }) => ({ vault, credential });
+  const authorize = ({ vault, credential, seed }) => ({ vault, credential, seed });
   async function stateFor(entry) {
     if (!states.has(entry)) states.set(entry, createVaultCipher(crypto, entry).then(cipher => ({
       cipher, revision: -1, snapshot: { ledger: EMPTY_LEDGER, matches: [] }, pending: Promise.resolve(),
@@ -75,7 +75,7 @@ export function createPublicTransport(crypto, post) {
         let next = before, result;
         if (path === PREFERENCES_SYNC_PATH) {
           const known = before.preferences ?? {};
-          if (data.values) next = { ...before, preferences: mergePreferenceUpload(known, cleanPreferences(data.values), data) };
+          if (data.values) next = { ...before, preferences: mergePreferenceUpload(known, cleanPreferences(data.values), { ...data, unionCollections: true }) };
           result = { values: Object.fromEntries(data.groups.filter(group => known[group] !== undefined).map(group => [group, known[group]])) };
         } else if (path === LEDGER_SYNC_PATH) {
           const { entry: ledger, conflicts } = mergeLedgerUpload(before.ledger, data, Date.now(), () => ledgerVersion(crypto));
@@ -109,10 +109,14 @@ export function createPublicTransport(crypto, post) {
   }
   return {
     exchange,
-    async register(entry, profile, invitation) {
+    async register(entry, profile, invitation, replaceStale) {
       const { cipher } = await stateFor(entry);
       return post(entry.origin, invitation ? PUBLIC_INVITE_PATH : '/v2/vault/register',
-        { ...authorize(entry), verifier: cipher.verifier, profile, ...(invitation && { invitation }) });
+        { ...authorize(entry), verifier: cipher.verifier, profile, ...(invitation && { invitation }), ...(replaceStale && { replaceStale }) });
+    },
+    async join(entry, profile) {
+      const { cipher } = await stateFor(entry);
+      return post(entry.origin, '/v2/vault/join', { vault: entry.vault, verifier: cipher.verifier, credential: entry.credential, profile });
     },
     async stage(entry, device, profile) {
       const { cipher } = await stateFor(entry);

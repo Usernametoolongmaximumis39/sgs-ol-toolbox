@@ -1,5 +1,5 @@
 import { ACCOUNT_SYNC_KEYS, cleanPreferences, LEDGER_THRESHOLD_PREFIX, PLUGIN_SYNC_KEYS, PREFERENCES_SYNC_PATH,
-  syncPluginStorageKey, TOOLBOX_SYNC_KEYS } from '../shared/sync-preferences.js';
+  mergePreferenceCollections, syncPluginStorageKey, TOOLBOX_SYNC_KEYS } from '../shared/sync-preferences.js';
 import { BACKUP_READ_PATH, SYNC_CHANGES_PATH, validSyncCursor } from '../shared/sync-paths.js';
 import { generalPoolKey } from '../shared/general-pool-storage.js';
 import { DEFAULT_SCREENSHOT_SHORTCUT } from './screenshot.js';
@@ -54,7 +54,17 @@ function preferenceStorage(settings, account) {
       return values;
     }
   }
-  function restore(values, baseline) {
+  function restore(values, baseline, unionCollections) {
+    if (unionCollections) {
+      const local = {};
+      for (const [group, key] of Object.entries(groups)) {
+        if (values[group] === undefined) continue;
+        baseline.set(key, read(key));
+        const value = settings.get(key);
+        if (value !== undefined) local[group] = value;
+      }
+      values = cleanPreferences(mergePreferenceCollections(values, cleanPreferences(local)));
+    }
     const writes = Object.entries(values.toolbox ?? {});
     for (const [group, key] of Object.entries(groups)) {
       if (values[group] !== undefined) writes.push([key, values[group]]);
@@ -87,7 +97,7 @@ function preferenceStorage(settings, account) {
       .map(key => [key, read(key)])) };
 }
 
-function preservePending(remote, local, acknowledged) {
+function preservePending(remote, local, acknowledged, unionCollections) {
   const safe = {};
   for (const [group, value] of Object.entries(remote)) {
     if (group === 'toolbox' || group === 'pluginSettings') {
@@ -95,7 +105,7 @@ function preservePending(remote, local, acknowledged) {
         const previous = acknowledged[group]?.[key] ?? (group === 'toolbox' ? defaults[key] : undefined);
         return JSON.stringify(local[group]?.[key]) === JSON.stringify(previous);
       }));
-    } else if (JSON.stringify(local[group]) === JSON.stringify(acknowledged[group])) safe[group] = value;
+    } else if (unionCollections || JSON.stringify(local[group]) === JSON.stringify(acknowledged[group])) safe[group] = value;
   }
   return safe;
 }
@@ -104,10 +114,10 @@ export function createPreferenceSync({ settings, sync, gameAccountKey, scope, ca
   let session, applying = false, scheduled = false;
   const now = Date.now;
   function refresh() {
-    const { accountId, bindingIdentity, connected } = sync.status();
+    const { accountId, bindingIdentity, connected, public: unionCollections } = sync.status();
     if (connected && session?.account === accountId && session.binding === bindingIdentity) return session;
     session?.job?.abort();
-    session = connected ? { account: accountId, binding: bindingIdentity, cacheKey: sync.cacheKey(accountId),
+    session = connected ? { account: accountId, binding: bindingIdentity, unionCollections, cacheKey: sync.cacheKey(accountId),
       storage: preferenceStorage(settings, accountId), nextDownload: 0, nextUpload: 0, acknowledged: {}, error: '', ready: false } : null;
     return session;
   }
@@ -148,7 +158,7 @@ export function createPreferenceSync({ settings, sync, gameAccountKey, scope, ca
   }
   function applyPreferences(state, values, baseline) {
     applying = true;
-    try { return state.storage.restore(values, baseline); }
+    try { return state.storage.restore(values, baseline, state.unionCollections); }
     finally { applying = false; }
   }
   async function save(state, history, cursor, acknowledged) {
@@ -177,7 +187,7 @@ export function createPreferenceSync({ settings, sync, gameAccountKey, scope, ca
     const { snapshot, cursor } = reply;
     if (!validHistory(snapshot) || cursor !== undefined && !validSyncCursor(cursor)) throw new Error('云端备份格式无效');
     const values = cleanPreferences(snapshot.preferences ?? {});
-    const allowed = !manual && state.cursor ? preservePending(values, local, state.acknowledged) : values;
+    const allowed = !manual && state.cursor ? preservePending(values, local, state.acknowledged, state.unionCollections) : values;
     const history = { matches: snapshot.matches, ledger: snapshot.ledger };
     const changed = applyPreferences(state, allowed, baseline);
     onRestored(changed);
@@ -195,7 +205,7 @@ export function createPreferenceSync({ settings, sync, gameAccountKey, scope, ca
       if (reply.reset === true) return fullBackup(state, key, signal, false);
       const { history, preferences, updated } = applySyncChangePage(state.history, after, reply);
       if (reply.records.length) {
-        const values = preservePending(preferences, local, state.acknowledged);
+        const values = preservePending(preferences, local, state.acknowledged, state.unionCollections);
         const acknowledged = { ...state.acknowledged, ...preferences };
         const changed = applyPreferences(state, values, baseline);
         if (changed.length) onRestored(changed);

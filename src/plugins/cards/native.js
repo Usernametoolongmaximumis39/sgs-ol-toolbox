@@ -1,4 +1,4 @@
-import { observedHandCandidates, cardsInZone, zoneKey, seatLabel } from './model.js';
+import { observedHandCandidates, indexHandCards, zoneKey, seatLabel } from './model.js';
 import { createSortControls, sortControlsOrigin } from './sort-controls.js';
 import { createShanheAutoPlay } from './shanhe-auto-play.js';
 import { createCountdowns } from './countdowns.js';
@@ -181,7 +181,7 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
     });
   }
 
-  function update(allowAutoPlay = false) {
+  function update(allowAutoPlay = false, readHands = indexHandCards) {
     if (disposed) return;
     const state = readState();
     if (!state) return;
@@ -219,12 +219,14 @@ export function createNativeEnhancements(ctx, overlay, makeCard, refreshSettings
         return [location, owner < 255 ? seatLabel(state, owner) : null];
       })];
     };
+    let hands;
     reveals.update(seats, self, (ui, seatId) => {
       // Allow an earlier installed poker package to keep publishing confirmed cards.
       if (pokerHands) return pokerRevealedHand(ctx, ui, seatId, pokerHands.find(row => row.seat === seatId)?.cards);
       if (seatId === state.selfSeatId || state.seats[seatId]?.dead) return null;
-      const known = cardsInZone(state, zoneKey(5, seatId));
-      const possible = observedHandCandidates(state, seatId);
+      hands ??= readHands(state);
+      const known = hands.get(zoneKey(5, seatId))?.known ?? [];
+      const possible = observedHandCandidates(state, seatId, hands);
       if (!known.length && !possible.length) return null;
       return { count: known.length + possible.length,
         label: `${seatLabel(state, seatId)}手牌：确定有 ${known.length} 张，可能有 ${possible.length} 张`,

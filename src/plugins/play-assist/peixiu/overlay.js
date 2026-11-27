@@ -3,9 +3,7 @@ import { DIRECTIONS } from './routes.js';
 
 const POSITION_GAP = 8;
 const OBSTACLE_GAP = 4;
-const BUTTON_GAP = 6;
-const SUIT_RIGHT = .30;
-const SUIT_CENTER_Y = .775;
+const BUTTON_GAP = 4;
 const SUITS = [3, 1, 4, 2].map(id => DIRECTIONS[id - 1]);
 const SCROLL_SLOTS = ['juanzhou_zhong', 'juanzhou_zuo', 'juanzhou_you'];
 
@@ -21,10 +19,10 @@ const styles = `
   .routes li{display:flex;flex-wrap:wrap;gap:2px 4px;max-width:100%}
   .move{font:700 calc(24px + var(--sgs-font-offset,0px)) / 1 "Segoe UI Symbol","Microsoft YaHei",sans-serif}
   .red{color:var(--sgs-danger,#f58980)}
-  .routes p{margin:0}
-  .routes ol+p{margin-top:5px}
-  .suits{display:flex;gap:${BUTTON_GAP}px;pointer-events:none}
-  .suits button{width:var(--suit-size);height:var(--suit-size);display:grid;place-items:center;
+  .routes[data-scroll]{overflow-y:auto;pointer-events:auto;overscroll-behavior:contain}
+  .suits{display:flex;gap:var(--suit-gap,${BUTTON_GAP}px);pointer-events:none}
+  .suits[data-vertical]{flex-direction:column}
+  .suits button{flex:none;width:var(--suit-size);height:var(--suit-size);display:grid;place-items:center;
     padding:0;border:1px solid var(--sgs-border,#685535);border-radius:6px;
     pointer-events:auto;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-touch-callout:none;
     background:var(--sgs-surface,#252721);color:var(--sgs-text,#eee3cc);
@@ -95,14 +93,78 @@ export function mapBoxes(window, map) {
   ];
   const stage = nativeBox(window, map, 0, 0, map.getTableViewportWidth?.() ?? map.width, map.height);
   if (!boxes.length || !stage) return null;
+  const view = viewportBox(window);
   return {
     parts: boxes, board, city,
-    table: { left: Math.max(stage.left, 0), top: Math.max(stage.top, 0),
-      right: Math.min(stage.right, window.innerWidth), bottom: Math.min(stage.bottom, window.innerHeight) },
+    table: { left: Math.max(stage.left, view.left), top: Math.max(stage.top, view.top),
+      right: Math.min(stage.right, view.right), bottom: Math.min(stage.bottom, view.bottom) },
   };
 }
 
-function placeRoutes(routes, board, table, viewportHeight, obstacles) {
+const overlapArea = (a, b) => Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+  * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+function viewportBox(window) {
+  const view = window.visualViewport;
+  if (view?.width > 0 && view.height > 0) {
+    return { left: view.offsetLeft, top: view.offsetTop, right: view.offsetLeft + view.width, bottom: view.offsetTop + view.height };
+  }
+  return { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
+}
+
+function rotateBox(box, turn) {
+  if (turn === 90) return { left: -box.bottom, right: -box.top, top: box.left, bottom: box.right };
+  if (turn === 270) return { left: box.top, right: box.bottom, top: -box.right, bottom: -box.left };
+  if (turn === 180) return { left: -box.right, right: -box.left, top: -box.bottom, bottom: -box.top };
+  return box;
+}
+
+export function placeSuits({ table, confirm, turn = 0, controls = [] }, viewport, obstacles) {
+  // Position in the table's axes so "left of confirm" works after rotation.
+  const orient = box => rotateBox(box, (360 - turn) % 360);
+  const area = orient(table), view = orient(viewport), ok = orient(confirm);
+  const intersection = {
+    left: Math.max(area.left, view.left), right: Math.min(area.right, view.right),
+    top: Math.max(area.top, view.top), bottom: Math.min(area.bottom, view.bottom),
+  };
+  const visible = width(intersection) > 0 && height(intersection) > 0 ? intersection : view;
+  const pad = Math.min(POSITION_GAP, Math.floor(Math.min(width(visible), height(visible)) / 10));
+  const left = Math.ceil(visible.left + pad), right = Math.floor(visible.right - pad);
+  const top = Math.ceil(visible.top + pad), bottom = Math.floor(visible.bottom - pad);
+  const anchorRight = Math.min(right, Math.floor(ok.left - POSITION_GAP));
+  const center = (ok.top + ok.bottom) / 2;
+  const occupied = [...obstacles, ...controls].map(orient).map(box => ({
+    left: Math.floor(box.left - OBSTACLE_GAP), right: Math.ceil(box.right + OBSTACLE_GAP),
+    top: Math.floor(box.top - OBSTACLE_GAP), bottom: Math.ceil(box.bottom + OBSTACLE_GAP),
+  })).filter(box => overlaps(box, { left, right: anchorRight, top, bottom }));
+  const preferredSize = Math.round(clamp(width(area) / 16, 26, 39));
+  const gap = Math.min(BUTTON_GAP, Math.floor((right - left) / (2 * SUITS.length)));
+  const gapWidth = gap * (SUITS.length - 1);
+  const span = size => size * SUITS.length + gapWidth;
+  const maxSize = edge => Math.min(preferredSize, bottom - top, Math.floor((edge - left - gapWidth) / SUITS.length));
+  const centeredTop = size => clamp(Math.round(center - size / 2), top, bottom - size);
+  const makeBox = (x, y, size) => ({ left: x, top: y, right: x + span(size), bottom: y + size });
+  const placement = (box, size) => {
+    const fit = rotateBox(box, turn);
+    return { left: fit.left, top: fit.top, size, gap, vertical: turn % 180 !== 0 };
+  };
+  const largest = maxSize(anchorRight);
+  for (let size = largest; size >= 18; size--) {
+    const y = centeredTop(size);
+    const xs = [anchorRight - span(size), ...occupied.map(box => box.left - span(size))].sort((a, b) => b - a);
+    for (const x of xs) {
+      if (x < left || x + span(size) > anchorRight) continue;
+      const box = makeBox(x, y, size);
+      if (!occupied.some(other => overlaps(box, other))) return placement(box, size);
+    }
+  }
+  // Keep the shortcut on the confirm line when all collision checks fail.
+  // If clipping removes the left strip, fit the row into the visible table.
+  const size = largest >= 18 ? largest : Math.max(1, maxSize(right));
+  const x = clamp(anchorRight - span(size), left, right - span(size));
+  return placement(makeBox(x, centeredTop(size), size), size);
+}
+
+function placeRoutes(routes, board, table, viewport, obstacles) {
   const area = {
     left: Math.ceil(table.left + POSITION_GAP), right: Math.floor(table.right - POSITION_GAP),
     top: Math.ceil(table.top + POSITION_GAP), bottom: Math.floor(table.bottom - POSITION_GAP),
@@ -118,17 +180,21 @@ function placeRoutes(routes, board, table, viewportHeight, obstacles) {
   // The game can be letterboxed in portrait. Use the empty space at the
   // canvas edge when the tabletop itself has no room for the complete list.
   const gutters = [
-    { ...area, top: POSITION_GAP, bottom: Math.floor(table.top - POSITION_GAP), edge: 'above' },
-    { ...area, top: Math.ceil(table.bottom + POSITION_GAP), bottom: viewportHeight - POSITION_GAP, edge: 'below' },
+    { ...area, top: viewport.top + POSITION_GAP, bottom: Math.floor(table.top - POSITION_GAP), edge: 'above' },
+    { ...area, top: Math.ceil(table.bottom + POSITION_GAP), bottom: viewport.bottom - POSITION_GAP, edge: 'below' },
   ];
+  let best = null;
+  routes.style.maxHeight = '';
+  routes.toggleAttribute('data-scroll', false);
   for (const [horizontal, regions] of [[true, bands], [false, [...bands, ...sides]], [true, gutters]]) {
     routes.toggleAttribute('data-horizontal', horizontal);
     routes.style.width = 'max-content';
     const natural = routes.offsetWidth + 2;
     let shifted = null;
     for (const region of regions) {
+      const wideRegion = width(region) >= 90;
+      if (!wideRegion && width(region) < natural) continue;
       const panelWidth = Math.min(natural, width(region));
-      if (panelWidth < 90) continue;
       setPixel(routes, 'width', panelWidth);
       const panelHeight = routes.offsetHeight;
       if (panelHeight > height(region)) continue;
@@ -139,18 +205,60 @@ function placeRoutes(routes, board, table, viewportHeight, obstacles) {
         : clamp(centerX, region.left, region.right - panelWidth);
       const top = edge === 'below' ? region.top : edge === 'above' ? region.bottom - panelHeight
         : clamp(centerY, region.top, region.bottom - panelHeight);
-      const clear = x => !obstacles.some(box => overlaps({ left: x, top, right: x + panelWidth, bottom: top + panelHeight }, box));
-      if (clear(left)) return { left, top };
-      if (!horizontal || shifted) continue;
-      const next = obstacles.flatMap(box => [box.left - panelWidth, box.right])
-        .filter(x => x >= region.left && x + panelWidth <= region.right
-          && x + panelWidth / 2 >= board.left && x + panelWidth / 2 <= board.right && clear(x))
-        .sort((a, b) => Math.abs(a - left) - Math.abs(b - left))[0];
-      if (next !== undefined) shifted = { left: next, top };
+      const relevant = obstacles.filter(box => overlaps(box, region));
+      const score = (x, y) => relevant.reduce((sum, box) => sum + overlapArea(box, {
+        left: x, right: x + panelWidth, top: y, bottom: y + panelHeight,
+      }), 0);
+      if (wideRegion && score(left, top) === 0) return { left, top };
+      const candidateX = new Set([left, region.left, region.right - panelWidth,
+        ...relevant.flatMap(box => [box.left - panelWidth, box.right])]);
+      const candidateY = new Set([top, region.top, region.bottom - panelHeight,
+        ...relevant.flatMap(box => [box.top - panelHeight, box.bottom])]);
+      for (const x of candidateX) {
+        if (x < region.left || x + panelWidth > region.right) continue;
+        for (const y of candidateY) {
+          if (y < region.top || y + panelHeight > region.bottom) continue;
+          const overlap = score(x, y);
+          const distance = Math.abs(x - left) + Math.abs(y - top);
+          if (!best || overlap < best.overlap || overlap === best.overlap && distance < best.distance) {
+            best = { left: x, top: y, overlap, distance, horizontal, panelWidth };
+          }
+        }
+        if (wideRegion && horizontal && x + panelWidth / 2 >= board.left && x + panelWidth / 2 <= board.right && score(x, top) === 0
+            && (!shifted || Math.abs(x - left) < shifted.distance)) {
+          shifted = { left: x, top, distance: Math.abs(x - left), panelWidth };
+        }
+      }
     }
-    if (shifted) return shifted;
+    if (shifted) { setPixel(routes, 'width', shifted.panelWidth); return shifted; }
   }
-  return null;
+  if (best) {
+    routes.toggleAttribute('data-horizontal', best.horizontal);
+    setPixel(routes, 'width', best.panelWidth);
+    return best;
+  }
+  // Even when the grid and native UI leave no complete band, keep the
+  // directions readable inside the window.
+  const safe = width(area) >= 90 && height(area) > 0 ? area : {
+    left: viewport.left, right: viewport.right, top: viewport.top, bottom: viewport.bottom,
+  };
+  if (width(safe) <= 0 || height(safe) <= 0) return null;
+  routes.toggleAttribute('data-horizontal', true);
+  routes.style.width = 'max-content';
+  const w = Math.min(routes.offsetWidth + 2, width(safe));
+  setPixel(routes, 'width', w);
+  const h = Math.min(routes.offsetHeight, height(safe));
+  if (routes.offsetHeight > h) {
+    setPixel(routes, 'maxHeight', h);
+    routes.toggleAttribute('data-scroll', true);
+  }
+  const left = clamp((board.left + board.right - w) / 2, safe.left, safe.right - w);
+  const top = clamp(board.top - POSITION_GAP - h, safe.top, safe.bottom - h);
+  const below = clamp(board.bottom + POSITION_GAP, safe.top, safe.bottom - h);
+  const overlap = y => [board, ...obstacles].reduce((sum, box) => sum + overlapArea(box, {
+    left, right: left + w, top: y, bottom: y + h,
+  }), 0);
+  return { left, top: overlap(top) <= overlap(below) ? top : below };
 }
 
 function setPixel(node, name, value) {
@@ -211,32 +319,31 @@ export function createOverlay(ctx, onSuit) {
   const badges = new Map();
   let routeKey = '';
   let layoutKey = '';
+  let suitAnchorKey = '';
+  let lockedSuitFit = null;
 
   function updateRoutes(boxes, plan, count, battleBoxes) {
-    if (!boxes?.board || !plan || !count) { routes.hidden = true; layoutKey = ''; return; }
-    const { paths, covered } = plan;
-    const key = [count, covered, ...paths.map(path => path.join(''))].join('|');
+    if (!boxes?.board || !count || plan?.covered !== count || !plan.paths.length) {
+      routes.hidden = true; layoutKey = ''; return;
+    }
+    const { paths } = plan;
+    const key = paths.map(path => path.join('')).join('|');
     if (!routes.firstChild || key !== routeKey) {
       routeKey = key;
       routes.replaceChildren();
-      if (paths.length) {
-        const list = make('ol');
-        list.setAttribute('role', 'list');
-        for (const path of paths) {
-          const row = make('li');
-          row.setAttribute('aria-label', path.map(step => DIRECTIONS[step - 1].name).join('、'));
-          for (const step of path) {
-            const move = make('span', step <= 2 ? 'move red' : 'move', DIRECTIONS[step - 1].symbol + '\uFE0E');
-            move.setAttribute('aria-hidden', 'true');
-            row.append(move);
-          }
-          list.append(row);
+      const list = make('ol');
+      list.setAttribute('role', 'list');
+      for (const path of paths) {
+        const row = make('li');
+        row.setAttribute('aria-label', path.map(step => DIRECTIONS[step - 1].name).join('、'));
+        for (const step of path) {
+          const move = make('span', step <= 2 ? 'move red' : 'move', DIRECTIONS[step - 1].symbol + '\uFE0E');
+          move.setAttribute('aria-hidden', 'true');
+          row.append(move);
         }
-        routes.append(list);
+        list.append(row);
       }
-      if (covered < count) {
-        routes.append(make('p', '', covered ? `可再绘 ${covered}/${count} 城` : '当前找不到可绘路线'));
-      }
+      routes.append(list);
     }
     const { board, table, city } = boxes;
     const suitBounds = suits.hidden ? null : suits.getBoundingClientRect();
@@ -246,31 +353,29 @@ export function createOverlay(ctx, onSuit) {
     }));
     const core = document.querySelector('[data-sgs-toolbox="core"]');
     const offset = core?.style.getPropertyValue('--sgs-font-offset') || '0px';
-    const layout = [key, offset, window.innerHeight, ...Object.values(board), ...Object.values(table), ...obstacles.flatMap(Object.values)].join('|');
+    const viewport = viewportBox(window);
+    const layout = [key, offset, ...Object.values(viewport), ...Object.values(board), ...Object.values(table), ...obstacles.flatMap(Object.values)].join('|');
     if (layout === layoutKey) return;
     layoutKey = layout;
     if (host.style.getPropertyValue('--sgs-font-offset') !== offset) host.style.setProperty('--sgs-font-offset', offset);
     routes.hidden = false;
-    const fit = placeRoutes(routes, board, table, window.innerHeight, obstacles);
+    const fit = placeRoutes(routes, board, table, viewport, obstacles);
     if (fit) position(routes, fit.left, fit.top);
     else routes.hidden = true;
   }
 
-  function updateSuits(canvas, cards, locked) {
-    const rect = canvas?.getBoundingClientRect();
-    if (!rect?.width || !rect.height) { suits.hidden = true; return; }
-    const left = Math.max(0, rect.left), top = Math.max(0, rect.top);
-    const tableWidth = Math.min(window.innerWidth, rect.right) - left;
-    const tableBottom = Math.min(window.innerHeight, rect.bottom);
-    if (tableWidth <= 0 || tableBottom <= top) { suits.hidden = true; return; }
-    const size = Math.round(clamp(tableWidth * .065, 25, 39));
-    const groupWidth = size * SUITS.length + BUTTON_GAP * (SUITS.length - 1);
-    // These coordinates follow only the game canvas, so selection, the action bar,
-    // and the scroll animation all leave the shortcuts in place.
-    const anchorLeft = left + tableWidth * SUIT_RIGHT - groupWidth;
-    const gutter = anchorLeft < left + POSITION_GAP && tableBottom + size + POSITION_GAP <= window.innerHeight;
-    const anchorY = top + (tableBottom - top) * SUIT_CENTER_Y - size / 2;
-    position(suits, Math.max(left + POSITION_GAP, anchorLeft), gutter ? tableBottom + POSITION_GAP : anchorY);
+  function updateSuits(geometry, cards, locked, map, obstacles = []) {
+    if (!geometry) { suits.hidden = true; return; }
+    const viewport = viewportBox(window);
+    const anchorKey = [geometry.turn, geometry.scaleKey || '', ...Object.values(geometry.table), ...Object.values(viewport)].join('|');
+    if (!lockedSuitFit || suitAnchorKey !== anchorKey) {
+      suitAnchorKey = anchorKey;
+      lockedSuitFit = placeSuits(geometry, viewport, [map?.board, ...obstacles].filter(Boolean));
+    }
+    const { left, top, size, gap, vertical } = lockedSuitFit;
+    suits.toggleAttribute('data-vertical', vertical);
+    position(suits, left, top);
+    if (suits.style.getPropertyValue('--suit-gap') !== `${gap}px`) suits.style.setProperty('--suit-gap', `${gap}px`);
     if (suits.style.getPropertyValue('--suit-size') !== `${size}px`) suits.style.setProperty('--suit-size', `${size}px`);
     const eligible = cards.filter(entry => !locked.has(entry.id) && isSelectable(entry.ui));
     for (const [control, suit] of buttons) {

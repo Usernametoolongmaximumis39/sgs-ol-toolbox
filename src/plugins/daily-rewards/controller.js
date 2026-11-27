@@ -574,7 +574,8 @@ export function createRewardsController({ adapter, settings, scope, sources, tim
       void importCodes('clipboard').then(changed => { if (changed && config().codes) void run('clipboard'); });
     }
   }, 2000);
-  return { snapshot, options, run, stop, refresh, refreshChoices, claimChoice, importCodes, subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); } };
+  return { snapshot, automaticEnabled: () => config().automatic, options, run, stop, refresh, refreshChoices, claimChoice, importCodes,
+    subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); } };
 }
 
 export { names as rewardCategoryNames };

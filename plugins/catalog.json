@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "core": {
-    "version": "0.6.306"
+    "version": "0.6.309"
   },
   "plugins": [
     {
       "id": "social",
       "name": "好友与聊天",
-      "version": "0.1.34",
+      "version": "0.1.35",
       "icon": {
         "paths": [
           "M4 4h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-3.5 3v-3H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z",
@@ -23,14 +23,14 @@
       "minCoreVersion": "0.6.185",
       "apiVersion": 1,
       "description": "好友置顶进房、聊天过滤与本地泡泡",
-      "releaseNotes": "新增本地聊天气泡，可使用游戏现有样式或导入静态图片，图片只保存在本机，效果只有自己能看到。可从工具箱打开游戏表情页，挑选表情后在自己的牌桌本地预览，不会发送给其他玩家；实际解锁仍以游戏提示和道具消耗为准。",
-      "packageUrl": "packages/social/0.1.34.json",
-      "sha256": "711e15b65e9c12bb75d08d61cf285f0d55ec950de25365b09df7f2fc6f97f524"
+      "releaseNotes": "减少聊天和好友窗口在后台的重复刷新，避免已有内容反复重新排版。好友设置、聊天筛选和气泡设置保持不变。",
+      "packageUrl": "packages/social/0.1.35.json",
+      "sha256": "88f38af9972c7b032bf7e8e7796b52f097d65494af027cee18419867df072e71"
     },
     {
       "id": "player-info",
       "name": "资料与将池",
-      "version": "0.4.30",
+      "version": "0.4.31",
       "icon": {
         "paths": [
           "M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z",
@@ -46,9 +46,9 @@
       "minCoreVersion": "0.6.297",
       "apiVersion": 1,
       "description": "玩家资料、将灯人机提示与将池方案",
-      "releaseNotes": "将池并入玩家资料，可在同一插件管理将池方案、查看和搜索武将。改善切换玩家后的资料加载，减少重复查询。将池信息以游戏查询结果为准。",
-      "packageUrl": "packages/player-info/0.4.30.json",
-      "sha256": "f32ab05227d46447017ee7ba214812edc0d00ae7114ef0ac9cac1843d216a599"
+      "releaseNotes": "更新游戏窗口的识别方式，未改变资料、将池的操作或已有设置。",
+      "packageUrl": "packages/player-info/0.4.31.json",
+      "sha256": "5afcab6e4bc9fc8dab58771899890ee46cbdd22fcfab2fb7740807d08d6d433a"
     },
     {
       "id": "card-styles-extra",
@@ -75,7 +75,7 @@
     {
       "id": "backgrounds",
       "name": "自定义背景",
-      "version": "0.2.16",
+      "version": "0.2.19",
       "icon": {
         "paths": [
           "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z",
@@ -88,20 +88,20 @@
         "appearance"
       ],
       "contractVersion": 1,
-      "minCoreVersion": "0.6.298",
+      "minCoreVersion": "0.6.309",
       "apiVersion": 1,
       "dependencies": [
         "skins"
       ],
       "description": "本地图片、皮肤或官图换牌局背景",
-      "releaseNotes": "游戏背景设置支持选用最近用过的背景，并在个性化界面预览官方壁纸。导入的本地图片只保存在本机；官方图片和动态素材按需联网加载。",
-      "packageUrl": "packages/backgrounds/0.2.16.json",
-      "sha256": "0e8b2a3329689d69d46d84301de95c86408435dbcae6b8194cad624d662bdd84"
+      "releaseNotes": "新增「全局背景」开关，可把已选背景延伸到支持的非牌局场景，默认关闭。原有牌局背景设置保留；导入图片只留在本机，官方素材按需联网加载。",
+      "packageUrl": "packages/backgrounds/0.2.19.json",
+      "sha256": "9179358de3c4aedd40c8d165a30d8555288cbf63cd22785614c5da6a5702289c"
     },
     {
       "id": "shanhetu",
       "name": "山河图",
-      "version": "0.2.56",
+      "version": "0.2.57",
       "icon": {
         "paths": [
           "M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z",
@@ -117,14 +117,14 @@
       "minCoreVersion": "0.6.121",
       "apiVersion": 1,
       "description": "敌军奇遇预览、战法流派与结局算分",
-      "releaseNotes": "原山河图拓展功能并入山河图，可在「拓展」查看结局条件和战绩分预估，不再需要单独安装。优化密集地图的标注和节点详情布局；实际战绩分以游戏结算为准。",
-      "packageUrl": "packages/shanhetu/0.2.56.json",
-      "sha256": "2b48ec3b1fe0bc092318b4c0bcdc2665bf5c9ff6ca8c4c1361f766e2d9ed72df"
+      "releaseNotes": "减少密集地图重新排布标注时的卡顿；刷新节点详情时尽量保留正在查看的页。",
+      "packageUrl": "packages/shanhetu/0.2.57.json",
+      "sha256": "176c1b76792a17929191a3e4ef6d638721ff682063a98d97f473612bb69d4ea8"
     },
     {
       "id": "cards",
       "name": "卡牌",
-      "version": "0.1.99",
+      "version": "0.1.100",
       "icon": {
         "paths": [
           "M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
@@ -139,14 +139,14 @@
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "记牌、明牌、牌堆查询与理牌读秒",
-      "releaseNotes": "优化窄面板中的牌区筛选布局，扩大牌堆分类、置顶和明牌设置的点击区域。已有记牌和排序设置保持不变。",
-      "packageUrl": "packages/cards/0.1.99.json",
-      "sha256": "7b981e804520818cd22736f891e1446c1e6bf73f36fc9cf2b2b5ecaf795ffd7c"
+      "releaseNotes": "修复手牌推断展开后可能在刷新时自己收起的问题，减少牌桌和面板上的重复刷新。推断仍不是确定手牌，已有设置保持不变。",
+      "packageUrl": "packages/cards/0.1.100.json",
+      "sha256": "880bea2af216e8e64a7829eadf2bb0d3a3ec36c3e11938fbe924db2fe4ea14fc"
     },
     {
       "id": "play-assist",
       "name": "出牌辅助",
-      "version": "0.2.41",
+      "version": "0.2.47",
       "icon": {
         "paths": [
           "M6.8 9.4a4.8 4.8 0 1 1 8.2 0",
@@ -162,14 +162,14 @@
       "minCoreVersion": "0.6.87",
       "apiVersion": 1,
       "description": "长按技能、自动确定与武将专属提示",
-      "releaseNotes": "改进权御记录的显示，等待本人操作时也可查看；修正狂骨在 1 点体力时的自动选择。自动选择仍只按已开启的设置运行。",
-      "packageUrl": "packages/play-assist/0.2.41.json",
-      "sha256": "840c7ac75309508d5d1e3dc63b7eab3fec836650dd4dcbe69ddadb6aee502afd"
+      "releaseNotes": "优化裴秀采风的花色按钮和路线提示位置，减少遮挡；窄屏可滚动查看路线。减少空闲时的重复检查，自动选择仍只按已开启的设置运行。",
+      "packageUrl": "packages/play-assist/0.2.47.json",
+      "sha256": "2c09ec889aba971931c143eded10d9c5144052b02e67c27ddc8206bc92e4c2bf"
     },
     {
       "id": "daily-rewards",
       "name": "日常领奖",
-      "version": "0.7.52",
+      "version": "0.7.53",
       "icon": {
         "paths": [
           "M3 8h18v4H3ZM5 12v9h14v-9M12 8v13",
@@ -184,9 +184,9 @@
       "minCoreVersion": "0.6.38",
       "apiVersion": 1,
       "description": "签到、任务、邮件与活动自动领奖",
-      "releaseNotes": "修复发财树在未打开游戏窗口、已有待领元宝时可能漏领的问题。同一天后续检查可继续处理服务器显示仍可操作的步骤；购买结果不明时不会重复购买同一轮的道具。开启福利自动领取后，符合条件时可能自动购买砍树道具，每次最多消耗 200 元宝。",
-      "packageUrl": "packages/daily-rewards/0.7.52.json",
-      "sha256": "e2c76a8dc3ba025ec2ee66e6417b688b1e2d1fee938db7f5752284d2f939e4ac"
+      "releaseNotes": "关闭「自动领取」后，斗地主和单骑商店的自动兑换也会暂停，已勾选商品保留。优化商店按钮的显示和跟随；启用自动兑换后仍可能消耗欢乐豆。",
+      "packageUrl": "packages/daily-rewards/0.7.53.json",
+      "sha256": "1fc6f782427e5c66e39587f05d08a79a98187f7bf58454db285eed7130095d0a"
     },
     {
       "id": "seckill",
@@ -261,7 +261,7 @@
     {
       "id": "skins",
       "name": "皮肤管理",
-      "version": "0.4.108",
+      "version": "0.4.109",
       "icon": {
         "paths": [
           "M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z",
@@ -276,14 +276,14 @@
       "minCoreVersion": "0.6.206",
       "apiVersion": 1,
       "description": "皮肤收藏、原图下载与本地换肤",
-      "releaseNotes": "改进本地多形态皮肤对转换技阴阳状态切换的识别。素材按需联网加载，外服及导入皮肤仅自己可见或可听。",
-      "packageUrl": "packages/skins/0.4.108.json",
-      "sha256": "9694b646136565f67f9731d3054287b87684a43b4294a7e701f7cf2fc9c742a9"
+      "releaseNotes": "减少未打开皮肤窗口时的后台检查，保留武将详情的皮肤入口与已有设置。素材按需联网加载，外服及导入皮肤仅自己可见或可听。",
+      "packageUrl": "packages/skins/0.4.109.json",
+      "sha256": "3a597584d49c3fff9592bdb5f4ae704bf2c38061851e0d8013b0c50f5a328102"
     },
     {
       "id": "poker-lobby",
       "name": "三国斗地主",
-      "version": "0.3.71",
+      "version": "0.3.72",
       "icon": {
         "paths": [
           "M12 3C9.3 6.8 4 10.1 4 14.1a4.2 4.2 0 0 0 7.1 3c.4-.3.7-.8.9-1.2.2.4.5.9.9 1.2a4.2 4.2 0 0 0 7.1-3C20 10.1 14.7 6.8 12 3Z",
@@ -298,9 +298,9 @@
       "minCoreVersion": "0.6.272",
       "apiVersion": 1,
       "description": "斗地主大厅、实战牌桌与历史录像",
-      "releaseNotes": "改善经典版活动场入口的文字提示和录像牌面显示。能否在线匹配仍由游戏服务器决定，参与对局可能消耗欢乐豆。部分技能移牌的明暗显示尚未完成验证。",
-      "packageUrl": "packages/poker-lobby/0.3.71.json",
-      "sha256": "122be256b563a3e34c0071e7d6693f198317407ee477c84d45e1b0055274110b"
+      "releaseNotes": "经典版牌桌支持拖过多张手牌批量选牌或取消选择，仍需点击原按钮出牌。能否在线匹配及欢乐豆消耗以游戏为准；部分技能移牌的明暗显示尚未完成验证。",
+      "packageUrl": "packages/poker-lobby/0.3.72.json",
+      "sha256": "51ef0d4c2dd013b997e9ce9a9b74c5b9cb841c3f268d2ff947bedc4194b0fcfe"
     },
     {
       "id": "themes-flow",

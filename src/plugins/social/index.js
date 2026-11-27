@@ -10,8 +10,8 @@ import { createChatBubbles, renderBubblePanel } from './bubbles.js';
 import { createLocalEmoji, openEmojiGallery } from './emoji.js';
 
 export const manifest = {
-  id: 'social', name: '好友与聊天', version: '0.1.34', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "新增本地聊天气泡，可使用游戏现有样式或导入静态图片，图片只保存在本机，效果只有自己能看到。可从工具箱打开游戏表情页，挑选表情后在自己的牌桌本地预览，不会发送给其他玩家；实际解锁仍以游戏提示和道具消耗为准。", minCoreVersion: '0.6.185',
+  id: 'social', name: '好友与聊天', version: '0.1.35', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "减少聊天和好友窗口在后台的重复刷新，避免已有内容反复重新排版。好友设置、聊天筛选和气泡设置保持不变。", minCoreVersion: '0.6.185',
   description: '好友置顶进房、聊天过滤与本地泡泡',
   journalEvents: ['ClientLoginRep'],
   icon: SOCIAL_ICON,

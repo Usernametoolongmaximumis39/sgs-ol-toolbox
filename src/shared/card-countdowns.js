@@ -46,15 +46,19 @@ export function createCountdowns(ctx) {
       }
       if (selectionTimer) timers.add(selectionTimer);
       if (selectionTimer === undefined) {
-        // Native fight/selection windows are children of WindowLayer (order 4).
-        // Skip the scene layer (2): seats above already cover its game timers.
-        const queue = [...(laya?.stage?._children || [])], visited = new Set();
+        // The native WindowLayer contains the selection windows. Keep the
+        // broader search for older clients without an identifiable layer.
+        const stage = laya?.stage;
+        const roots = stage?._children || [];
+        const namedLayer = stage?.getChildByName?.('WindowLayer');
+        const windows = namedLayer ? [namedLayer] : roots.filter(owner => owner?.layerOrder === 4 || owner?.LayerOrder === 4 || owner?.name === 'WindowLayer');
+        const queue = (windows.length ? windows : roots).slice(0, 512), visited = new Set();
         for (let i = 0; i < queue.length && i < 512; i++) {
           const owner = queue[i];
           if (!owner || visited.has(owner) || !visible(owner, laya.stage) || owner.layerOrder === 2 || owner.LayerOrder === 2) continue;
           visited.add(owner);
           if (owner.countdownTimer?.parent) timers.add(owner.countdownTimer);
-          if (Array.isArray(owner._children)) queue.push(...owner._children);
+          if (Array.isArray(owner._children) && queue.length < 512) queue.push(...owner._children.slice(0, 512 - queue.length));
         }
       }
       const active = new Set();

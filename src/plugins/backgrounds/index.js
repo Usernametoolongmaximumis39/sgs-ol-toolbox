@@ -1,15 +1,18 @@
 import { BACKGROUNDS_ICON } from '../../ui/plugin-icons.js';
-import { findSkinDetail, supportsSkinBackgroundAttack, watchSkinDetail } from '../../shared/skin-detail.js';
+import { findSkinDetail, isSkinDetail, supportsSkinBackgroundAttack, watchSkinDetail } from '../../shared/skin-detail.js';
+import { ResourceScope } from '../../core/resources.js';
 import { scopedStyles } from '../../shared/scoped-styles.js';
 import { isTyping, matchesShortcut, shortcutLabel } from '../../shared/keyboard-shortcut.js';
+import { isNativeNodeMounted } from '../../shared/native-tree.js';
+import { cachedNativeWindow } from '../../shared/window-cache.js';
 import { createNativeWallpaper } from './native-wallpaper.js';
 import { createWallpaperPreview } from './wallpaper-preview.js';
 
 const nativeSkinShortcut = { code: 'KeyK', ctrl: true, alt: true };
 
 export const manifest = {
-  id: 'backgrounds', name: '自定义背景', version: '0.2.16', apiVersion: 1, contractVersion: 1,
-  releaseNotes: "游戏背景设置支持选用最近用过的背景，并在个性化界面预览官方壁纸。导入的本地图片只保存在本机；官方图片和动态素材按需联网加载。", minCoreVersion: '0.6.298', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
+  id: 'backgrounds', name: '自定义背景', version: '0.2.19', apiVersion: 1, contractVersion: 1,
+  releaseNotes: "新增「全局背景」开关，可把已选背景延伸到支持的非牌局场景，默认关闭。原有牌局背景设置保留；导入图片只留在本机，官方素材按需联网加载。", minCoreVersion: '0.6.309', dependencies: ['skins'], categories: ['appearance'], priority: 31000,
   icon: BACKGROUNDS_ICON,
   description: '本地图片、皮肤或官图换牌局背景',
 };
@@ -25,7 +28,9 @@ const STYLES = `
 [data-sgs-backgrounds] .bg-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 [data-sgs-backgrounds] .bg-mode{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:6px;margin:10px 0 8px;font-size:calc(12px + var(--sgs-font-offset,0px))}
 [data-sgs-backgrounds] .bg-mode-label{display:inline-flex;align-items:center;gap:6px;min-inline-size:calc(4em + 30px);color:var(--sgs-muted);white-space:nowrap}
-[data-sgs-backgrounds] .bg-attack{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;min-height:30px;color:var(--sgs-muted);font-size:calc(12px + var(--sgs-font-offset,0px));cursor:pointer}
+[data-sgs-backgrounds] .bg-switch-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;min-height:30px;color:var(--sgs-muted);font-size:calc(12px + var(--sgs-font-offset,0px));cursor:pointer}
+[data-sgs-backgrounds] .bg-switch-row > span{min-width:0;white-space:nowrap}
+[data-sgs-backgrounds] .bg-switch-row > input{flex:none}
 [data-sgs-backgrounds] [hidden]{display:none}
 [data-sgs-backgrounds] .bg-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center;gap:6px}
 [data-sgs-backgrounds] .bg-actions button{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:0;min-height:32px;padding:5px 6px;white-space:nowrap;font-size:calc(11px + var(--sgs-font-offset,0px))}
@@ -114,34 +119,44 @@ export function activate(ctx) {
   let owner = null, observed = null;
   let importing = false, importError = '', updatePanel;
   ctx.scope.add(() => observed?.dispose());
+  const hideShortcut = () => { if (!floating.hidden) floating.hidden = true; };
   function refreshButton() {
     try { refreshReadyButton(); }
     catch (error) {
-      floating.hidden = true;
+      hideShortcut();
       // Skin models and canvas may disappear while the client changes scene.
       // Keep the plugin active; the scoped discovery timer retries next tick.
       floating.title = String(error?.stack || error);
     }
   }
   function refreshReadyButton() {
+    if (ctx.backgrounds.skinShortcutEnabled?.() === false) { hideShortcut(); return; }
     const laya = ctx.window.Laya ?? ctx.window.laya;
-    const next = findSkinDetails(laya?.stage);
-    if (next !== owner) { observed?.dispose(); owner = next; observed = owner ? watchSkinDetail(ctx.scope, owner, () => { floating.hidden = true; }) : null; }
-    if (observed?.closing || ctx.backgrounds.skinShortcutEnabled?.() === false) { floating.hidden = true; return; }
-    const vo = owner?.skinData?.skinBaseVo, img = owner?.skinImg;
+    const stage = laya?.stage, cached = stage ? cachedNativeWindow(ctx.game?.getDispatcher?.(), 'SkinInfoWindow') : null;
+    let next = cached;
+    if (cached === undefined) next = findSkinDetails(stage);
+    else if (!isSkinDetail(cached) || !isNativeNodeMounted(cached, stage, 64, true)) next = null;
+    if (next !== owner) { observed?.dispose(); owner = next; observed = owner ? watchSkinDetail(ctx.scope, owner, hideShortcut) : null; }
+    if (observed?.closing || !canUseSkinBackground(owner, laya)) { hideShortcut(); return; }
+    const vo = owner.skinData.skinBaseVo, img = owner.skinImg;
     const canvas = laya?.Render?.canvas || doc.querySelector('#layaCanvas') || doc.querySelector('canvas');
-    if (!canUseSkinBackground(owner, laya) || !img?.localToGlobal || !canvas || !laya.Point) { floating.hidden = true; return; }
+    if (!img?.localToGlobal || !canvas || !laya.Point) { hideShortcut(); return; }
     const rect = canvas.getBoundingClientRect();
-    if (!rect.width || !laya.stage.width) { floating.hidden = true; return; }
+    if (!rect.width || !stage.width) { hideShortcut(); return; }
     // Same stage coordinates as the native image, mapped into CSS pixels.
     const point = img.localToGlobal(new laya.Point(12, 12), true);
-    floating.style.left = `${rect.left + point.x * rect.width / laya.stage.width}px`;
-    floating.style.top = `${rect.top + point.y * rect.height / laya.stage.height}px`;
-    floating.hidden = false;
+    const left = `${rect.left + point.x * rect.width / stage.width}px`;
+    const top = `${rect.top + point.y * rect.height / stage.height}px`;
+    if (floating.style.left !== left) floating.style.left = left;
+    if (floating.style.top !== top) floating.style.top = top;
+    if (floating.hidden) floating.hidden = false;
     const selected = ctx.backgrounds.current?.url === vo.SkinBigUrl(owner.juexingState || 1);
-    use.textContent = selected ? '已设为牌局背景' : '作为牌局背景';
+    const label = selected ? '已设为牌局背景' : '作为牌局背景';
+    if (use.textContent !== label) use.textContent = label;
     const spec = skinBackgroundSpec(owner, animated(), attackEffects());
-    use.setAttribute('aria-pressed', String(selected)); use.title = `${vo.skinname || '当前皮肤'} · ${spec.dynamic && spec.animated ? '动态背景' : '静态原画'}`;
+    const pressed = String(selected), title = `${vo.skinname || '当前皮肤'} · ${spec.dynamic && spec.animated ? '动态背景' : '静态原画'}`;
+    if (use.getAttribute('aria-pressed') !== pressed) use.setAttribute('aria-pressed', pressed);
+    if (use.title !== title) use.title = title;
     // Refresh capability only for the exact saved skin resource.
     if (selected && spec.dynamic) {
       const saved = ctx.backgrounds.current.dynamic;
@@ -176,9 +191,16 @@ export function activate(ctx) {
     qualitySegments.setAttribute('role', 'group'); qualitySegments.setAttribute('aria-label', '背景画质');
     const high = element('button', '高'), low = element('button', '低');
     high.type = low.type = 'button'; qualitySegments.append(high, low); qualityRow.append(qualityLabel, qualitySegments);
+    const panelScope = new ResourceScope();
+    const globalBackground = ctx.ui.styleSwitch(element('input'));
+    globalBackground.type = 'checkbox';
+    const globalRow = element('label', '', 'bg-switch-row bg-global');
+    globalRow.append(element('span', '全局背景'), globalBackground);
+    globalRow.hidden = typeof ctx.backgrounds.setGlobalBackground !== 'function';
+    panelScope.listen(globalBackground, 'change', () => ctx.backgrounds.setGlobalBackground(globalBackground.checked));
     const attack = ctx.ui.styleSwitch(element('input'));
     attack.type = 'checkbox';
-    const attackRow = element('label', '', 'bg-attack');
+    const attackRow = element('label', '', 'bg-switch-row bg-attack');
     attackRow.append(element('span', '攻击特效'), attack);
     const capability = element('p', '', 'bg-note');
     const skinLinks = element('div', '', 'bg-skin-links');
@@ -223,6 +245,7 @@ export function activate(ctx) {
       const skinMotion = current?.skinMotion === true;
       name.textContent = current?.name || '尚未选择背景'; name.title = name.textContent;
       status.textContent = ctx.backgrounds.status; reset.disabled = !current || importing;
+      globalBackground.checked = ctx.backgrounds.globalBackground === true;
       picker.disabled = importing; pickerLabel.textContent = importing ? '正在读取图片…' : '选择本地图片';
       error.textContent = importError; error.hidden = !importError;
       mode.hidden = (local && !skinMotion) || (current?.officialWallpaper && !current.wallpaperMotion);
@@ -270,9 +293,10 @@ export function activate(ctx) {
     attack.addEventListener('change', changeAttack);
     updatePanel = update;
     const release = ctx.backgrounds.subscribe(update); update();
-    root.append(name, status, mode, qualityRow, attackRow, capability, skinLinks, actions, localNote, error); container.append(root);
+    root.append(name, status, globalRow, mode, qualityRow, attackRow, capability, skinLinks, actions, localNote, error); container.append(root);
     return () => {
       if (updatePanel === update) updatePanel = null;
+      panelScope.dispose();
       closeCatalogue?.(); skinLinks.removeEventListener('click', openFromPanel);
       release(); reset.removeEventListener('click', click);
       picker.removeEventListener('click', openFile); input.removeEventListener('change', importFile);

@@ -112,7 +112,8 @@ try {
       window.POt = { wallPaperBtn1: '主题背景', wallPaperBtn2: '静态皮肤', wallPaperBtn3: '动态皮肤', checkMore: '查看更多' };
       const ids = Array.from({ length: 12 }, (_, i) => i + 1);
       const data = ids.map(ID => ({ Group: 1, IsOutside: true, ID, Name: '游戏背景 ' + ID,
-        Source: `full${ID}.png`, Vip: ID === 3 ? 3 : 0, GoodsID: ID === 2 ? 200 : 0, PowerId: 0 }));
+        Source: `full${ID}.png`, ...(ID === 2 && { fcSrc: 'full2-wide.png' }),
+        Vip: ID === 3 ? 3 : 0, GoodsID: ID === 2 ? 200 : 0, PowerId: 0 }));
       const live = { ID: 1001, Name: '未解锁动态背景', IsCanUse: false, SmallImgUrl: 'res/wallpaper/small/live.png',
         ActiveAniURL: 'res/wallpaper/ani/live.json' };
       const skin = { ID: 101, Name: '已有皮肤', canUsed: true };
@@ -252,7 +253,9 @@ try {
       window.Pm = class {};
       const theme = (ID, Name, args) => Object.assign(new vm(), { ID, Name, Source: `wardrobe-${ID}.png`,
         BgURL: `res/wallpaper/bg/wardrobe-${ID}.png`, ...args });
-      const themes = [theme(1, '已选原生背景', { IsCanUse: true }), theme(201, '未解锁官方主题', { Vip: 9, IsCanUse: false }),
+      const themes = [theme(1, '已选原生背景', { IsCanUse: true }),
+        theme(201, '未解锁官方主题', { Vip: 9, IsCanUse: false, fcSrc: 'wardrobe-201-wide.png',
+          ActiveBgURL: 'res/wallpaper/bg/wardrobe-201-wide.png' }),
         theme(25, '已解锁背景', { IsCanUse: true })];
       const skin = Object.assign(new Pm(), { ID: 111, Name: '未解锁静态皮肤', SkinID: 103, canUsed: false, BgURL: 'res/wallpaper/bg/wardrobe-skin.png' });
       const live = theme(100002, '未解锁动态皮肤', { IsLiveBg: true, IsCanUse: false, SmallImgUrl: 'res/wallpaper/small/wardrobe-live.png',
@@ -457,11 +460,15 @@ try {
     });
     throw new Error(JSON.stringify({ ...state, errors }), { cause });
   });
-  assert.equal(await page.evaluate(() => fixture.registry.current.url), 'res/wallpaper/bg/full2.png');
+  assert.deepEqual(await page.evaluate(() => {
+    const { url, officialWallpaperWide } = fixture.registry.current;
+    return [url, officialWallpaperWide];
+  }), ['res/wallpaper/bg/full2-wide.png', true]);
   assert.deepEqual(await page.evaluate(() => wallpaperData.nativeSelections), []);
   await page.screenshot({ path: resolve(out, 'native-locked-themes.png') });
   await clickCanvas('theme', 3);
   await page.waitForFunction(() => fixture.registry.current?.url === 'res/wallpaper/bg/full3.png');
+  assert.equal(await page.evaluate(() => fixture.registry.current.officialWallpaperWide), false);
   await clickCanvas('tab', 2);
   await clickCanvas('live');
   await page.waitForFunction(() => fixture.registry.current?.wallpaperMotion?.url === 'res/wallpaper/ani/live.json');
@@ -502,7 +509,10 @@ try {
   assert.equal(await page.evaluate(() => fixture.registry.current), null, 'preview alone does not apply anything');
   await clickWardrobe('use');
   await waitForLabel('取消本地使用');
-  assert.equal(await page.evaluate(() => fixture.registry.current?.url), 'res/wallpaper/bg/wardrobe-201.png');
+  assert.deepEqual(await page.evaluate(() => {
+    const { url, officialWallpaperWide } = fixture.registry.current;
+    return [url, officialWallpaperWide];
+  }), ['res/wallpaper/bg/wardrobe-201-wide.png', true]);
   assert.deepEqual(await page.evaluate(() => fixture.wardrobe.actions), []);
   assert.ok(await page.evaluate(() => {
     const button = fixture.wardrobe.preview.botBtn;

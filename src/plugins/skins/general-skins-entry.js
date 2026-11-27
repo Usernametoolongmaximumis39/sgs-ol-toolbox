@@ -1,5 +1,10 @@
 import { createNativeCatalogueButton } from './native-catalogue-button.js';
 import { isNativeNodeMounted as isVisible } from '../../shared/native-tree.js';
+import { read } from '../../shared/safe-read.js';
+import { cachedNativeWindow, watchNativeWindowEvents } from '../../shared/window-cache.js';
+
+const GENERAL_INFO = 'GeneralInfoWindow';
+const DISCOVERY_INTERVAL = 1750;
 
 function skinList(view) {
   const title = view?.skinTitle;
@@ -12,21 +17,27 @@ function skinList(view) {
   return label ? { title, label, id, name } : null;
 }
 
-function findSkinList(stage) {
-  const queue = stage ? [stage] : [];
+function findSkinList(root) {
+  const queue = root ? [root] : [];
   for (let i = 0; i < queue.length && i < 4000; i++) {
     const view = queue[i];
     if (!view || view.destroyed || view.visible === false) continue;
     const list = skinList(view);
     if (list) return { view, ...list };
-    if (Array.isArray(view._children)) queue.push(...view._children);
+    if (Array.isArray(view._children)) queue.push(...view._children.slice(0, 4000 - queue.length));
   }
   return null;
 }
 
 export function createGeneralSkinsEntry(ctx, openYjcm, openMobile) {
   const theme = ctx.ui.nativeTheme;
-  let entry;
+  let entry, previousStage, previousOwner, lastDiscovery = -Infinity, queued = false;
+  const bindWindows = watchNativeWindowEvents(ctx.scope, null, queueCheck);
+  function queueCheck() {
+    if (queued || ctx.scope.signal.aborted) return;
+    queued = true;
+    ctx.scope.timeout(() => { queued = false; check(true); }, 0);
+  }
   function attach(laya, list) {
     const { stage } = laya, { view, title, label, id, name } = list;
     let closePicker;
@@ -89,17 +100,27 @@ export function createGeneralSkinsEntry(ctx, openYjcm, openMobile) {
       for (const action of entries) action.dispose();
     } };
   }
-  function check() {
+  function check(forceDiscovery = false) {
+    if (ctx.scope.signal.aborted || !theme?.surface || ctx.document?.hidden) return;
     if (entry?.active()) { entry.update(); return; }
+    const replaced = !!entry;
     entry?.dispose();
     entry = null;
-    if (ctx.scope.signal.aborted || !theme?.surface) return;
     const laya = ctx.window.Laya ?? ctx.window.laya;
     if (!laya?.Sprite || !laya.Text) return;
-    const list = findSkinList(laya.stage);
+    const stage = laya.stage, dispatcher = read(() => ctx.game?.getDispatcher?.()) ?? null;
+    bindWindows(dispatcher);
+    const owner = cachedNativeWindow(dispatcher, GENERAL_INFO);
+    const changed = stage !== previousStage || owner !== previousOwner;
+    previousStage = stage; previousOwner = owner;
+    if (!forceDiscovery && !changed && !replaced && Date.now() - lastDiscovery < DISCOVERY_INTERVAL) return;
+    lastDiscovery = Date.now();
+    const list = (isVisible(owner, stage, 64) && findSkinList(owner)) || findSkinList(stage);
     if (list) entry = attach(laya, list);
   }
-  ctx.scope.interval(check, 350);
+  if (ctx.game?.onSceneChange) ctx.scope.add(ctx.game.onSceneChange(queueCheck));
+  if (ctx.document?.addEventListener) ctx.scope.listen(ctx.document, 'visibilitychange', queueCheck);
+  ctx.scope.interval(() => check(), 350);
   ctx.scope.add(() => entry?.dispose());
   check();
 }

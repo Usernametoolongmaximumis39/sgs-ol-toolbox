@@ -4,7 +4,9 @@ import { ResourceScope } from '../../core/resources.js';
 import { userId, normalizeRecord, captureFriends, pinnedFirst } from './model.js';
 const read = fn => { try { return fn(); } catch { return undefined; } };
 const FRIEND_LIST = 'FsCAddFriendsNtf';
+const FRIEND_UPDATE = 'FsCUpdateUserfriendinfoNtf';
 const USER_BASE_INFO = ['ClientUserbaseinfoRep', 'decodeClientUserBaseInfoRep', '21405', '180053'];
+const IDLE_REFRESH_MS = 2000;
 // These are display-tree fields used by native Laya and the client's DrawSprite.
 export function socialNodes(stage) {
   const queue = stage ? [stage] : [], seen = new Set(), result = [];
@@ -17,7 +19,7 @@ export function socialNodes(stage) {
 }
 export function friendManager(ctx, nodes) {
   const proxy = read(() => ctx.game.getServerProxy());
-  for (const event of [FRIEND_LIST, 'FsCUpdateUserfriendinfoNtf']) {
+  for (const event of [FRIEND_LIST, FRIEND_UPDATE]) {
     const h = read(() => proxy._events[event]);
     for (const e of Array.isArray(h) ? h : [h]) {
       const c = e?.caller;
@@ -31,9 +33,10 @@ export function createFriendManagement(ctx, banner = null) {
   let account = null, record = normalizeRecord(null), manager = null, child = new ResourceScope();
   let storageError = null, storageReadable = true;
   const deletionListeners = new Set();
-  let deleted = new Set(), listStamp = '', listSince = 0;
+  let deleted = new Set(), listStamp = new Map(), listSince = 0;
   let rows = new Map(), menus = new Map(), menuHosts=new Map(), requested = new Set(), lastSave = 0, refresh = false;
   let nextPriorityRequest = 0;
+  let lastStage, lastScene, nextIdleRefresh = 0, waitingRequests = false;
   const currentId = () => userId(ctx.native.account().id);
   const ctor = () => read(() => ctx.game.getSelf().constructor);
   function dataFor(f) { const u=read(() => f.userData); return userId(read(()=>u.ClientId)) ? u : read(() => ctor().GetNameInstance(f.FriendNickname)); }
@@ -42,7 +45,8 @@ export function createFriendManagement(ctx, banner = null) {
   function restoreOrder(){for(const n of socialNodes(ctx.window.Laya?.stage))if(Array.isArray(n.goodFriendsList)&&typeof n.itemResizeHandler==='function'&&typeof manager?.sortFriend==='function'){n.goodFriendsList.sort((a,b)=>manager.sortFriend(a.data,b.data));n.itemResizeHandler();}}
   function reset(next) {
     banner?.clear();
-    deleted.clear(); listStamp = ''; listSince = 0; nextPriorityRequest = 0;
+    deleted.clear(); listStamp.clear(); listSince = 0; nextPriorityRequest = 0;
+    nextIdleRefresh = 0; waitingRequests = false;
     record.pins=[]; child.dispose(); restoreOrder(); child = new ResourceScope(); rows = new Map(); menus = new Map(); manager = null; requested.clear(); lastSave = 0;
     menuHosts=new Map();account = next; storageError=null; storageReadable=true; try { record = normalizeRecord(next ? ctx.storage.get('friends:' + next) : null); } catch(error) { record=normalizeRecord(null); storageReadable=false; storageError=String(error?.message || error);ctx.reportError?.(error); } refresh = true;
   }
@@ -150,13 +154,18 @@ export function createFriendManagement(ctx, banner = null) {
     }
   }
 
-  function syncFriends(background) {
+  function syncFriends(background, scheduled = false) {
     if(root.signal.aborted) return;
     const next=currentId(); if(next!==account)reset(next); if(!account)return;
-    const nodes=socialNodes(ctx.window.Laya?.stage), live=new Set(nodes), found=friendManager(ctx,nodes);
+    const stage = ctx.window.Laya?.stage, scene = read(() => ctx.game.getScene());
+    const knownManager = friendManager(ctx, []), now = Date.now();
+    if (scheduled && stage === lastStage && scene === lastScene && (!knownManager || knownManager === manager) &&
+        !rows.size && !menus.size && !waitingRequests && !deleted.size && now < nextIdleRefresh) return;
+    lastStage = stage; lastScene = scene; nextIdleRefresh = now + IDLE_REFRESH_MS;
+    const nodes = socialNodes(stage), live = new Set(nodes), found = knownManager || friendManager(ctx, nodes);
     // The native prompt layer removes itself from stage when empty. Its
     // existing dispatcher subscriptions still identify it before the first click.
-    const dispatcher=read(()=>ctx.game.getScene().ged);
+    const dispatcher = scene?.ged;
     for(const event of ['SHOW_TEXT_PROMPT','SHOW_COMFIRM_TIPS_EVENT']){
       const handlers=read(()=>dispatcher._events[event]);
       for(const handler of Array.isArray(handlers)?handlers:[handlers]){
@@ -170,7 +179,7 @@ export function createFriendManagement(ctx, banner = null) {
     for(const node of nodes)if(typeof node.ShowUserOptMenu==='function'&&typeof node.ResetOptMenuPos==='function'&&typeof node.addChild==='function')bindMenuHost(node);
     if(found && found!==manager) {
       manager=found;
-      listStamp = ''; listSince = Date.now();
+      listStamp.clear(); listSince = now;
       if (typeof manager.friendListResponse === 'function') child.patch(manager, 'friendListResponse', original => function(...args) {
         listSince = Date.now(); return original.apply(this, args);
       });
@@ -196,19 +205,23 @@ export function createFriendManagement(ctx, banner = null) {
       refresh=true;
     }
     const list=read(()=>manager.GetGoodFriendsList());
+    waitingRequests = false;
     if(Array.isArray(list)) {
       if (!flushDeleted()) return;
-      const known = [], stampEntries = [], unresolved = new Set();
+      const known = [], stamp = new Map(), unresolved = new Set();
       for(const f of list.slice(0,2000)) {
         const id=idFor(f), name=f.FriendNickname;
-        stampEntries.push([id, name]);
+        const key = (id ?? '') + '\0' + (typeof name === 'string' ? name : '');
+        stamp.set(key, (stamp.get(key) || 0) + 1);
         if(id)known.push({id,name});
         else if(typeof name==='string' && name && !requested.has(name)) unresolved.add(name);
       }
-      const ids = new Set(known.map(f => f.id)), now = Date.now();
+      const ids = new Set(known.map(f => f.id));
       requestFriendInfo(unresolved, ids, background, now);
-      const stamp = JSON.stringify(stampEntries.sort());
-      if (stamp !== listStamp) { listStamp = stamp; listSince = now; }
+      waitingRequests = [...unresolved].some(name => !requested.has(name));
+      if (stamp.size !== listStamp.size || [...stamp].some(([key, count]) => listStamp.get(key) !== count)) {
+        listStamp = stamp; listSince = now;
+      }
       // Friend pages arrive incrementally; never infer absence from unresolved IDs
       // or from the manager's initial empty list before its first response.
       const complete = manager?.firstPageCome === true && list.length <= 2000 && known.length === list.length && Date.now() - listSince >= 5000;
@@ -252,12 +265,13 @@ export function createFriendManagement(ctx, banner = null) {
   };
   ctx.native.observe({
     [FRIEND_LIST]: () => true,
+    [FRIEND_UPDATE]: () => true,
     ...Object.fromEntries(USER_BASE_INFO.map(type => [type, projectPinnedProfile])),
   }, type => {
     if (type === FRIEND_LIST) listSince = Date.now();
     syncFriends(false);
   }, undefined, { scope: root });
-  root.interval(tick,500); tick();
+  root.interval(() => syncFriends(true, true), 500); tick();
   root.add(() => deletionListeners.clear());
   return {tick,dispose:()=>root.dispose(),getRecord:()=>structuredClone({...record,accountId:account,savedAt:lastSave,error:storageError}),togglePin,
     reload: () => reset(currentId()),

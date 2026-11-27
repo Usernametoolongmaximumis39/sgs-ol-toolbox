@@ -12,9 +12,9 @@ import { cachedNativeWindow, watchNativeWindowEvents } from '../../shared/window
 const BATTLE_EVENTS = new Set(['toolbox:gap', 'MsgGamePlayCardNtf', 'MsgReconnectGame',
   'MsgReconnectGameHand', 'SmsgGameSetCharacter', 'GsCGuoZhanSetCharacter', 'ClientLeavetableRep', 'ClientLoginRep']);
 export const manifest = {
-  id: 'player-info', name: '资料与将池', version: '0.4.30', apiVersion: 1, contractVersion: 1,
+  id: 'player-info', name: '资料与将池', version: '0.4.31', apiVersion: 1, contractVersion: 1,
   journalEvents: ['toolbox:snapshot', ...BATTLE_EVENTS],
-  releaseNotes: "将池并入玩家资料，可在同一插件管理将池方案、查看和搜索武将。改善切换玩家后的资料加载，减少重复查询。将池信息以游戏查询结果为准。", minCoreVersion: '0.6.297', description: '玩家资料、将灯人机提示与将池方案',
+  releaseNotes: "更新游戏窗口的识别方式，未改变资料、将池的操作或已有设置。", minCoreVersion: '0.6.297', description: '玩家资料、将灯人机提示与将池方案',
   icon: PLAYER_INFO_ICON,
   priority: 30200, categories: ['game'],
 };

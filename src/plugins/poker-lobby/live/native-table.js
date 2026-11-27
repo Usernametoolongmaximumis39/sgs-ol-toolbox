@@ -269,6 +269,9 @@ function openTable(ctx, origin, match, onLeave, onFailure, fromSnapshot, notBefo
       scene = mounted;
       view = mountPokerTableView(ctx, scope, mounted, names, {
         toggleCard: id => { if (active() && state.toggleCard(id)) render(); },
+        toggleDraggedCards: (ids, fromChoice, snapshot) => {
+          if (active() && state.toggleDraggedCards(ids, fromChoice, snapshot)) render();
+        },
         play: () => submit('play'),
         pass: () => submit('pass'),
         hint: () => { if (canAct() && transport?.requestHint()) render(); },

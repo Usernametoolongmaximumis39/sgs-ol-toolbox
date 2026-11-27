@@ -64,6 +64,32 @@ test('new native cards are styled synchronously at creation and pool checkout, w
   registry.select('card-styles-extra.native-general');sceneListener();const external=function(){return 'external';};hand.createNormalCardUi=external;scope.dispose();assert.equal(hand.createNormalCardUi,external);assert.equal(pool.BorrowObject,nativeBorrow);assert.equal(sceneListener,null);
 });
 
+test('same-scene card insertion styles the branch immediately and leaves full discovery to the poll', async t => {
+  const scope = new ResourceScope(), data = new Map();
+  t.after(() => scope.dispose());
+  const settings = { get: (key, fallback) => data.get(key) ?? fallback, set: (key, value) => data.set(key, value) };
+  const stage = { _children: [], addChild(child) { this._children.push(child); return child; } };
+  let scene = stage, scans = 0;
+  const face = { bitmap: {}, width: 93, height: 130 };
+  const registry = new CardStyleRegistry({ window: { Laya: { stage, Texture() {}, Texture2D() {},
+    loader: { getRes: () => face } } }, document: {}, game: { getScene: () => scene }, settings, scope });
+  registry.register({ id: 'test.style', name: '测试外观', native: { face: 'cardFace_0', back: 'cardBack_0' } }, 'test');
+  registry.selectSide('face', 'test.style');
+  const discover = registry.discover.bind(registry);
+  registry.discover = seat => { scans++; return discover(seat); };
+  const card = { bmpFace: {}, theCard: { IsEmpty: false }, isNewCardUI: true,
+    SetCardFace() {}, getCardFaceBaseTexture() {}, updateNewCardFace() {} };
+  stage.addChild(card);
+  assert.equal(card.bmpFace.texture, face);
+  await Promise.resolve();
+  assert.equal(scans, 0);
+
+  scene = { _children: [] };
+  stage.addChild(scene);
+  await Promise.resolve();
+  assert.equal(scans, 1, 'a new scene still schedules full discovery');
+});
+
 test('selected individual card images start loading in the lobby before their cards enter the scene', async t => {
   const scope = new ResourceScope(), data = new Map(), imageLoads = new Map();
   const settings = { get: (key, fallback) => data.get(key) ?? fallback, set: (key, value) => data.set(key, value) };
@@ -113,7 +139,9 @@ test('selected individual card images start loading in the lobby before their ca
 });
 
 test('native cards: exact official resources, delayed cache, native refresh and borrowed ownership', async t => {
-  const scope = new ResourceScope(), data = new Map(), cache = {};
+  const scope = new ResourceScope(), data = new Map();
+  let cacheScans = 0;
+  const cache = new Proxy({}, { ownKeys(target) { cacheScans++; return Reflect.ownKeys(target); } });
   const settings = { get: (k,d) => data.has(k) ? data.get(k) : d, set: (k,v) => data.set(k,v) };
   const texture = name => ({ name, bitmap: {}, width: 93, height: 130, destroy() { assert.fail('must never destroy official textures'); } });
   const originalFace = texture('original face'), originalBack = texture('original back');
@@ -131,6 +159,9 @@ test('native cards: exact official resources, delayed cache, native refresh and 
   assert.deepEqual(registry.list().map(s=>s.native), [{face:'cardFace_0',back:'cardBack_0'},{face:'cardFace_10',back:'cardBack_5'}]);
   registry.select('card-styles-extra.native-general');assert.match(registry.status,/等待官方/);assert.equal(cards[0].bmpFace.texture,originalFace);
   const face=texture('general face'),back=texture('general back');
+  const initialScans = cacheScans;
+  for (let i = 0; i < 20; i++) cards[0].SetCardFace();
+  assert.equal(cacheScans - initialScans, 1, 'native draws share the missing alias lookup');
   loader.cacheTexture('res/atlas/card/cardFace_10.png?v=2', face);
   await Promise.resolve();
   assert.equal(cards[0].bmpFace.texture,face,'late cache entry bypasses the previous miss and applies independently'); assert.equal(cards[1].bmpFace.texture,originalBack);

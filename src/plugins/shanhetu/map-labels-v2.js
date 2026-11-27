@@ -329,10 +329,12 @@ export function createMapLabels(ctx) {
         for (const card of carousels) {
           const row = byId.get(key(card.id));
           const widths = [...new Set([card.w, Math.min(maxW, 252), Math.min(maxW, 320)])];
-          const available = timed('measureMs', () => widths.map(w => {
-            const { full, pagedHeight } = nodeDetails.measure(row, w);
-            return { w, full: full.h, paged: pagedHeight };
-          }));
+          const available = [];
+          for (const w of widths) {
+            const { full, pagedHeight } = timed('measureMs', () => nodeDetails.measure(row, w));
+            available.push({ w, full: full.h, paged: pagedHeight });
+            yield;
+          }
           const choices = new Map();
           const add = ({ w, full, paged }, h) => {
             if (h <= 0 || h > maxH) return;
@@ -383,6 +385,13 @@ export function createMapLabels(ctx) {
         fullViews.push({ placement, spec, sprite }); yield;
       }
       for (const detail of details) if (detail.rect) drawLine(detail.placement);
+      const detailWork = nodeDetails.prepare(details, next.viewport, clientViewport,
+        [...final, ...carousels, ...next.controls].map(client).filter(Boolean), drawing, client);
+      let detailProgress;
+      do {
+        detailProgress = timed('renderMs', () => detailWork.next());
+        if (!detailProgress.done) yield;
+      } while (!detailProgress.done);
       // No obsolete computation is ever committed after resize, content change,
       // battle return, disable or a native scene replacement.
       if (work !== job || !alive() || !enabled || frozen || scene !== ownerScene || host !== ownerHost
@@ -390,8 +399,7 @@ export function createMapLabels(ctx) {
       const priorLayer = layer; ownerScene.addChild(fresh); layer = fresh; priorLayer?.destroy(true);
       showIconHints(fullViews);
       measuredCards = cards.map(copyMeasurement);
-      localDetails = timed('renderMs', () => nodeDetails.paint(details, next.viewport, clientViewport,
-        [...final, ...carousels, ...next.controls].map(client).filter(Boolean), drawing, client));
+      localDetails = timed('renderMs', detailProgress.value);
       const visible = new Set([...final, ...localDetails].map(({ id }) => key(id)));
       lastLayout = { placements: final, carousels, overflow: rows.filter(({ node }) => !visible.has(key(node.id)))
         .map(({ node }) => ({ id: node.id, reason: anchors.has(key(node.id)) ? '节点详情暂不可用' : '节点不在可见地图或几何待就绪' })),

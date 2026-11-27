@@ -8,6 +8,8 @@ import { PluginManager } from '../src/core/plugins.js';
 import { SessionJournal } from '../src/core/session.js';
 import { Settings } from '../src/core/storage.js';
 import { ThemeRegistry } from '../src/core/themes.js';
+import backgroundsPlugin from '../src/plugins/backgrounds/index.js';
+import skinsPlugin from '../src/plugins/skins/index.js';
 
 test('background package requires enabled skins and preserves static preference through its lifecycle without accumulating UI', async t => {
   const dom = new JSDOM('<main></main>', { url: 'https://example.test/' });
@@ -76,4 +78,54 @@ test('background package requires enabled skins and preserves static preference 
   await manager.enable('backgrounds'); check();
   await manager.uninstall('backgrounds'); assert.equal(backgrounds.providers.size, 0);
   await manager.install(pkg); check();
+});
+
+test('global background uses the shared switch and reflects settings from another tab', async t => {
+  const dom = new JSDOM('<main></main>', { url: 'https://example.test/' });
+  const { window } = dom, { document, localStorage } = window;
+  const scope = new ResourceScope(), settings = new Settings(localStorage);
+  const game = { getScene: () => ({ SceneName: 'LobbyScene' }), isInGame: () => false };
+  const backgrounds = new BackgroundRegistry({ window, game, settings, scope });
+  const manager = new PluginManager({ journal: new SessionJournal(), settings,
+    store: { async list() { return []; }, async put() {} },
+    context: { window, document, game, backgrounds, themes: new ThemeRegistry(settings), notify() {},
+      ui: { registerPanel(panel) {
+        const host = document.createElement('section');
+        document.body.append(host);
+        const cleanup = panel.render(host);
+        return () => { cleanup(); host.remove(); };
+      } },
+    },
+  });
+  t.after(() => { manager.dispose(); scope.dispose(); window.close(); });
+  manager.registerBuiltin(skinsPlugin);
+  manager.registerBuiltin(backgroundsPlugin);
+  await manager.init();
+  await manager.enable('skins');
+  await manager.enable('backgrounds');
+  const query = () => document.querySelector('.bg-global input');
+  const control = query();
+  assert.ok(control.classList.contains('sgs-switch'));
+  assert.equal(control.getAttribute('role'), 'switch');
+  assert.equal(control.labels[0].textContent, '全局背景');
+  assert.equal(control.checked, false);
+  control.click();
+  assert.equal(backgrounds.globalBackground, true);
+  assert.equal(settings.namespace('backgrounds').get('globalBackground'), true);
+  backgrounds.select('backgrounds', { name: '测试', url: 'res/example.png' });
+  assert.equal(backgrounds.status, '等待游戏图片加载器');
+  const key = settings.prefix + 'backgrounds:globalBackground';
+  const storage = storageArea => window.dispatchEvent(new window.StorageEvent('storage', { key, storageArea }));
+  localStorage.setItem(key, 'false');
+  storage(window.sessionStorage);
+  assert.equal(control.checked, true);
+  storage(localStorage);
+  assert.equal(control.checked, false);
+  assert.equal(backgrounds.status, '已保存，等待进入牌局');
+  await manager.reload('backgrounds');
+  assert.equal(query().checked, false);
+  assert.equal(document.querySelectorAll('.bg-global input').length, 1);
+  await manager.disable('backgrounds');
+  control.click();
+  assert.equal(backgrounds.globalBackground, false);
 });

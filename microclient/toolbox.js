@@ -1,4 +1,4 @@
-// 三国杀OL工具箱 · 微端 LITE · 0.6.306
+// 三国杀OL工具箱 · 微端 LITE · 0.6.309
 (() => {
   var __create = Object.create, __defProp = Object.defineProperty, __getOwnPropDesc = Object.getOwnPropertyDescriptor, __getOwnPropNames = Object.getOwnPropertyNames, __getProtoOf = Object.getPrototypeOf, __hasOwnProp = Object.prototype.hasOwnProperty, __commonJS = (cb, mod) => function() {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
@@ -266,7 +266,7 @@
       for (let [host, record] of watched) unwatch(host, record);
     });
   }
-  var bundledPackages = [], fullPluginPanels = [{ id: "social:market-placeholder", category: "tools", pluginId: "social", pluginName: "\u597D\u53CB\u4E0E\u804A\u5929", pluginIcon: { paths: ["M4 4h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-3.5 3v-3H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z", "M16 9h4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-.5v3L16 18h-5a2 2 0 0 1-2-2v-2", "M6 8.2h6M6 11h4"] }, pluginPriority: 30300 }, { id: "player-info:market-placeholder", category: "game", pluginId: "player-info", pluginName: "\u8D44\u6599\u4E0E\u5C06\u6C60", pluginIcon: { paths: ["M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z", "M8.5 11.2a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8ZM5.5 16a3.1 3.1 0 0 1 6 0", "M14.5 9.5h4.5M14.5 12.8h4.5M14.5 16h3"] }, pluginPriority: 30200 }, { id: "backgrounds:market-placeholder", category: "appearance", pluginId: "backgrounds", pluginName: "\u81EA\u5B9A\u4E49\u80CC\u666F", pluginIcon: { paths: ["M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z", "M2.5 16.5 8 11l4 4 3.2-3.2L21.5 17.5", "M15.5 8.5a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0"] }, pluginPriority: 31e3 }, { id: "shanhetu:market-placeholder", category: "game", pluginId: "shanhetu", pluginName: "\u5C71\u6CB3\u56FE", pluginIcon: { paths: ["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z", "M6 12 10 7l4 5 3-3 2 3", "M6 16c3-3 7 3 12-1"] }, pluginPriority: 11e3, gameView: "shanhe" }, { id: "cards:market-placeholder", category: "game", pluginId: "cards", pluginName: "\u5361\u724C", pluginIcon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, pluginPriority: 1e4 }, { id: "play-assist:market-placeholder", category: "game", pluginId: "play-assist", pluginName: "\u51FA\u724C\u8F85\u52A9", pluginIcon: { paths: ["M6.8 9.4a4.8 4.8 0 1 1 8.2 0", "M9.5 15V6.8a1.4 1.4 0 0 1 2.8 0V12", "M12.3 11.4a1.4 1.4 0 0 1 2.8 0V13m0-.8a1.4 1.4 0 0 1 2.8 0V15a5.8 5.8 0 0 1-5.8 5.8h-1.6a5.4 5.4 0 0 1-4.6-2.6l-1.9-3.2a1.4 1.4 0 0 1 2.3-1.6L9.5 15"] }, pluginPriority: 12e3, gameView: "battle" }, { id: "daily-rewards:market-placeholder", category: "automation", pluginId: "daily-rewards", pluginName: "\u65E5\u5E38\u9886\u5956", pluginIcon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, pluginPriority: 2e4 }, { id: "seckill:market-placeholder", category: "automation", pluginId: "seckill", pluginName: "\u81EA\u52A8\u79D2\u6740", pluginIcon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, pluginPriority: 21e3 }, { id: "gaizhu:market-placeholder", category: "automation", pluginId: "gaizhu", pluginName: "\u76D6\u4E3B\u901F\u5237", pluginIcon: { paths: ["M4.5 11.5a7.5 7.5 0 0 1 13-5.1L19.5 8.5M19.5 4.2v4.3h-4.3", "M19.5 12.5a7.5 7.5 0 0 1-13 5.1L4.5 15.5M4.5 19.8v-4.3h4.3", "M10.4 9.6 14.8 12l-4.4 2.4Z"] }, pluginPriority: 21e3 }, { id: "effects:market-placeholder", category: "tools", pluginId: "effects", pluginName: "\u7279\u6548\u5C4F\u853D", pluginIcon: { paths: ["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2", "M3 3 21 21M19 3v4M17 5h4"] }, pluginPriority: 2e4 }, { id: "skins:market-placeholder", category: "tools", pluginId: "skins", pluginName: "\u76AE\u80A4\u7BA1\u7406", pluginIcon: { paths: ["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z", "M8 3l8 9M16 3l-6 7M8 16h8"] }, pluginPriority: 3e4 }, { id: "stargazing:market-placeholder", category: "tools", pluginId: "stargazing", pluginName: "\u81EA\u52A9\u89C2\u661F", pluginIcon: { paths: ["M3.5 13.5 15.2 6l3 4.8-13 5.2Z", "M12 8.1l2.7 4.4", "M10.5 14 6.8 21M10.5 14 14.8 21M10.5 14v7", "M19.8 3v3M18.3 4.5h3"] }, pluginPriority: 32768 }, { id: "baisheng:market-placeholder", category: "info", pluginId: "baisheng", pluginName: "\u767E\u80DC\u6218\u529F", pluginIcon: { paths: ["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4", "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"] }, pluginPriority: 31e3 }, { id: "appearances:market-placeholder", category: "info", pluginId: "appearances", pluginName: "\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1", pluginIcon: { paths: ["M3 20h18", "M5 20v-4.5h3V20M10.5 20v-7.5h3V20M16 20v-10.5h3V20", "M5 10.5 10.5 6.5l3 2 5-4.5M15.5 4h3v3"] }, pluginPriority: 32e3 }, { id: "ledger:market-placeholder", category: "info", pluginId: "ledger", pluginName: "\u8D26\u672C", pluginIcon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, pluginPriority: 3e4 }, { id: "recharge:market-placeholder", category: "tools", pluginId: "recharge", pluginName: "\u65E7\u5468\u6708\u5361", pluginIcon: { paths: ["M4 5h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z", "M8 3v4M16 3v4M2 10h20", "M7 14h2.5M14.5 14h2.5M7 17.5h2.5M14.5 17.5h2.5"] }, pluginPriority: 45e3 }], localAppearanceSyncPackage = null, consolidationDigests = { "player-info": "f32ab05227d46447017ee7ba214812edc0d00ae7114ef0ac9cac1843d216a599", "card-styles-extra": "25b3592d5c69230031813394696c9f6c9c8668d32d9d6244aeac47497bcd7734", shanhetu: "2b48ec3b1fe0bc092318b4c0bcdc2665bf5c9ff6ca8c4c1361f766e2d9ed72df", ledger: "0ee82d5e59a24cd188969bdc37f294655cd9cd456fe661b8d38a87e8f03d136d" }, ResourceScope = class {
+  var bundledPackages = [], fullPluginPanels = [{ id: "social:market-placeholder", category: "tools", pluginId: "social", pluginName: "\u597D\u53CB\u4E0E\u804A\u5929", pluginIcon: { paths: ["M4 4h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-3.5 3v-3H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z", "M16 9h4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-.5v3L16 18h-5a2 2 0 0 1-2-2v-2", "M6 8.2h6M6 11h4"] }, pluginPriority: 30300 }, { id: "player-info:market-placeholder", category: "game", pluginId: "player-info", pluginName: "\u8D44\u6599\u4E0E\u5C06\u6C60", pluginIcon: { paths: ["M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z", "M8.5 11.2a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8ZM5.5 16a3.1 3.1 0 0 1 6 0", "M14.5 9.5h4.5M14.5 12.8h4.5M14.5 16h3"] }, pluginPriority: 30200 }, { id: "backgrounds:market-placeholder", category: "appearance", pluginId: "backgrounds", pluginName: "\u81EA\u5B9A\u4E49\u80CC\u666F", pluginIcon: { paths: ["M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z", "M2.5 16.5 8 11l4 4 3.2-3.2L21.5 17.5", "M15.5 8.5a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0"] }, pluginPriority: 31e3 }, { id: "shanhetu:market-placeholder", category: "game", pluginId: "shanhetu", pluginName: "\u5C71\u6CB3\u56FE", pluginIcon: { paths: ["M3 5 9 3l6 2 6-2v16l-6 2-6-2-6 2Z", "M6 12 10 7l4 5 3-3 2 3", "M6 16c3-3 7 3 12-1"] }, pluginPriority: 11e3, gameView: "shanhe" }, { id: "cards:market-placeholder", category: "game", pluginId: "cards", pluginName: "\u5361\u724C", pluginIcon: { paths: ["M9 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z", "M4 5 2 6l2 14M14 7l3 5-3 5-3-5Z"] }, pluginPriority: 1e4 }, { id: "play-assist:market-placeholder", category: "game", pluginId: "play-assist", pluginName: "\u51FA\u724C\u8F85\u52A9", pluginIcon: { paths: ["M6.8 9.4a4.8 4.8 0 1 1 8.2 0", "M9.5 15V6.8a1.4 1.4 0 0 1 2.8 0V12", "M12.3 11.4a1.4 1.4 0 0 1 2.8 0V13m0-.8a1.4 1.4 0 0 1 2.8 0V15a5.8 5.8 0 0 1-5.8 5.8h-1.6a5.4 5.4 0 0 1-4.6-2.6l-1.9-3.2a1.4 1.4 0 0 1 2.3-1.6L9.5 15"] }, pluginPriority: 12e3, gameView: "battle" }, { id: "daily-rewards:market-placeholder", category: "automation", pluginId: "daily-rewards", pluginName: "\u65E5\u5E38\u9886\u5956", pluginIcon: { paths: ["M3 8h18v4H3ZM5 12v9h14v-9M12 8v13", "M12 8H8a3 3 0 1 1 3-3ZM12 8h4a3 3 0 1 0-3-3Z"] }, pluginPriority: 2e4 }, { id: "seckill:market-placeholder", category: "automation", pluginId: "seckill", pluginName: "\u81EA\u52A8\u79D2\u6740", pluginIcon: { paths: ["M5 7h14l2 14H3ZM8 7V5a4 4 0 0 1 8 0v2", "M13 10 9 15h3l-1 4 5-6h-4Z"] }, pluginPriority: 21e3 }, { id: "gaizhu:market-placeholder", category: "automation", pluginId: "gaizhu", pluginName: "\u76D6\u4E3B\u901F\u5237", pluginIcon: { paths: ["M4.5 11.5a7.5 7.5 0 0 1 13-5.1L19.5 8.5M19.5 4.2v4.3h-4.3", "M19.5 12.5a7.5 7.5 0 0 1-13 5.1L4.5 15.5M4.5 19.8v-4.3h4.3", "M10.4 9.6 14.8 12l-4.4 2.4Z"] }, pluginPriority: 21e3 }, { id: "effects:market-placeholder", category: "tools", pluginId: "effects", pluginName: "\u7279\u6548\u5C4F\u853D", pluginIcon: { paths: ["M9 5 11 2l2.5 7.5L21 12l-4 1.5M14.5 16 12 22l-2.5-7.5L2 12l5-2", "M3 3 21 21M19 3v4M17 5h4"] }, pluginPriority: 2e4 }, { id: "skins:market-placeholder", category: "tools", pluginId: "skins", pluginName: "\u76AE\u80A4\u7BA1\u7406", pluginIcon: { paths: ["M8 3 12 5l4-2 6 5-4 4-2-2v11H8V10l-2 2-4-4Z", "M8 3l8 9M16 3l-6 7M8 16h8"] }, pluginPriority: 3e4 }, { id: "stargazing:market-placeholder", category: "tools", pluginId: "stargazing", pluginName: "\u81EA\u52A9\u89C2\u661F", pluginIcon: { paths: ["M3.5 13.5 15.2 6l3 4.8-13 5.2Z", "M12 8.1l2.7 4.4", "M10.5 14 6.8 21M10.5 14 14.8 21M10.5 14v7", "M19.8 3v3M18.3 4.5h3"] }, pluginPriority: 32768 }, { id: "baisheng:market-placeholder", category: "info", pluginId: "baisheng", pluginName: "\u767E\u80DC\u6218\u529F", pluginIcon: { paths: ["M7 3h10v6a5 5 0 0 1-10 0ZM7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4", "M12 14v4M8 21v-3h8v3ZM12 6l2 2-2 2-2-2Z"] }, pluginPriority: 31e3 }, { id: "appearances:market-placeholder", category: "info", pluginId: "appearances", pluginName: "\u51FA\u6846\u4E0E\u80DC\u7387\u7EDF\u8BA1", pluginIcon: { paths: ["M3 20h18", "M5 20v-4.5h3V20M10.5 20v-7.5h3V20M16 20v-10.5h3V20", "M5 10.5 10.5 6.5l3 2 5-4.5M15.5 4h3v3"] }, pluginPriority: 32e3 }, { id: "ledger:market-placeholder", category: "info", pluginId: "ledger", pluginName: "\u8D26\u672C", pluginIcon: { paths: ["M6 3h13a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 3v18", "M2 7h4M2 12h4M2 17h4M12 8h5M12 12h5M12 16h3"] }, pluginPriority: 3e4 }, { id: "recharge:market-placeholder", category: "tools", pluginId: "recharge", pluginName: "\u65E7\u5468\u6708\u5361", pluginIcon: { paths: ["M4 5h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z", "M8 3v4M16 3v4M2 10h20", "M7 14h2.5M14.5 14h2.5M7 17.5h2.5M14.5 17.5h2.5"] }, pluginPriority: 45e3 }], localAppearanceSyncPackage = null, consolidationDigests = { "player-info": "5afcab6e4bc9fc8dab58771899890ee46cbdd22fcfab2fb7740807d08d6d433a", "card-styles-extra": "25b3592d5c69230031813394696c9f6c9c8668d32d9d6244aeac47497bcd7734", shanhetu: "176c1b76792a17929191a3e4ef6d638721ff682063a98d97f473612bb69d4ea8", ledger: "0ee82d5e59a24cd188969bdc37f294655cd9cd456fe661b8d38a87e8f03d136d" }, ResourceScope = class {
     constructor() {
       this.controller = new AbortController(), this.signal = this.controller.signal, this.cleanups = [], this.closed = !1;
     }
@@ -1037,19 +1037,17 @@
     }
     return result;
   }
-  function findNativeCardTexture(L, name) {
-    var _a2, _b2, _c, _d, _e, _f, _g;
-    if (!/^card(?:Face|Back)_\d{1,5}$/.test(name)) return null;
-    let valid = (t) => (t == null ? void 0 : t.bitmap) && !t.destroyed && !t.bitmap.destroyed && t.width > 0 && t.height > 0, direct = (_b2 = (_a2 = L == null ? void 0 : L.loader) == null ? void 0 : _a2.getRes) == null ? void 0 : _b2.call(_a2, name);
-    if (valid(direct)) return direct;
-    for (let cache2 of [(_c = L == null ? void 0 : L.Loader) == null ? void 0 : _c.textureMap, (_d = L == null ? void 0 : L.Loader) == null ? void 0 : _d.loadedMap, (_e = L == null ? void 0 : L.Loader) == null ? void 0 : _e._loadedMap]) {
+  var nativeTextureName = /^card(?:Face|Back)_\d{1,5}$/, validNativeTexture = (t) => (t == null ? void 0 : t.bitmap) && !t.destroyed && !t.bitmap.destroyed && t.width > 0 && t.height > 0;
+  function findNativeCardAlias(L, name) {
+    var _a2, _b2, _c, _d, _e;
+    for (let cache2 of [(_a2 = L == null ? void 0 : L.Loader) == null ? void 0 : _a2.textureMap, (_b2 = L == null ? void 0 : L.Loader) == null ? void 0 : _b2.loadedMap, (_c = L == null ? void 0 : L.Loader) == null ? void 0 : _c._loadedMap]) {
       if (!cache2) continue;
       let keys = Object.keys(cache2), count = Math.min(keys.length, 6e4);
       for (let i2 = 0; i2 < count; i2++) {
         let key = keys[i2];
         if (!key.includes(name) || nativeCardResourceName(key) !== name) continue;
-        let entry = cache2[key], texture = entry != null && entry.bitmap ? entry : (_g = (_f = L == null ? void 0 : L.loader) == null ? void 0 : _f.getRes) == null ? void 0 : _g.call(_f, key);
-        if (valid(texture)) return texture;
+        let entry = cache2[key], texture = entry != null && entry.bitmap ? entry : (_e = (_d = L == null ? void 0 : L.loader) == null ? void 0 : _d.getRes) == null ? void 0 : _e.call(_d, key);
+        if (validNativeTexture(texture)) return texture;
       }
     }
     return null;
@@ -1341,18 +1339,22 @@
       return this.textures.get(key);
     }
     nativeTexture(name, immediate = !1) {
-      var _a2;
+      var _a2, _b2;
+      if (!nativeTextureName.test(name)) return null;
       let cached = this.nativeResources.get(name);
-      if (cached && !cached.destroyed && !((_a2 = cached.bitmap) != null && _a2.destroyed)) return cached;
-      if (this.nativeResources.delete(name), !immediate && Date.now() - (this.nativeAttempts.get(name) || 0) < 1e3) return null;
-      this.nativeAttempts.set(name, Date.now());
-      let texture;
+      if (validNativeTexture(cached)) return cached;
+      cached && (this.nativeResources.delete(name), this.nativeAttempts.delete(name));
+      let laya = this.win.Laya, texture;
       try {
-        texture = findNativeCardTexture(this.win.Laya, name);
+        if (texture = (_b2 = (_a2 = laya == null ? void 0 : laya.loader) == null ? void 0 : _a2.getRes) == null ? void 0 : _b2.call(_a2, name), !validNativeTexture(texture)) {
+          let attempt = this.nativeAttempts.get(name), now = Date.now();
+          if (attempt && attempt.laya === laya && now - attempt.at < 1e3 && (!immediate || attempt.immediate)) return null;
+          this.nativeAttempts.set(name, { laya, at: now, immediate }), texture = findNativeCardAlias(laya, name);
+        }
       } catch {
         return null;
       }
-      return texture && this.nativeResources.set(name, texture), texture;
+      return texture && (this.nativeResources.set(name, texture), this.nativeAttempts.delete(name)), texture;
     }
     preview(style2, back) {
       if (style2.localFace || style2.localFaceBackground) return null;
@@ -1607,7 +1609,11 @@
         let result = original.call(this, child, ...args);
         if (!child || child === this || child.destroyed) return result;
         try {
-          (this === registry.win.Laya.stage || this.name === "SceneLayer" || this.layerOrder === 2 || this === registry.scene) && (registry.syncScene(), registry.queueRefresh()), registry.captureBranch(child);
+          if (this === registry.win.Laya.stage || this.name === "SceneLayer" || this.layerOrder === 2 || this === registry.scene) {
+            let { scene, selfHand } = registry;
+            registry.syncScene(), (registry.scene !== scene || registry.selfHand !== selfHand) && registry.queueRefresh();
+          }
+          registry.captureBranch(child);
         } catch (error) {
           registry.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
         }
@@ -1723,7 +1729,7 @@
         this.restore(), this.setStatus("\u5361\u724C\u5916\u89C2\u672A\u5E94\u7528\uFF1A" + error.message);
       }
     }
-  }, CORE_VERSION = "0.6.306", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
+  }, CORE_VERSION = "0.6.309", REPLACED_APPEARANCE_PACKAGES = Object.freeze(["e2c8e04c364afd9ffaa53e56156c0590377d55151ff0b2e86248ab2032be824b", "7ef5c15f358262e51a2329f759097dfb987c5334b8a7fd3051d4a92db25f9815", "4ca6f3e6c66a2ab1395cc5112f61a3d6f034ad3efc9b3c86f00de3b739f86b58", "7bec5a6b883a24f2c1a2d0a13ed72acec8d6eb8e833ceb63f1c7658ea3f2e030", "53f94a22c97502e972edffd5b5124537e7ac1db802a7894199429eef2cf29335", "87df68acc195b8129a2491c70a8e267072588afe4abeeea2f9c6b95770b5faea"]), REPLACED_BAISHENG_PACKAGES = Object.freeze(["0a16a51e7d259d0eeabf566a3dd249a0c59e9258dde6691079fcfc8248a3b3f9", "1921ab510f12f1733711b40eaa7dacc0fa0aff8f28155e0b41dcc2415d0d628a"]), REPLACED_EFFECT_PACKAGES = Object.freeze(["03eb9e28e9ec775d3ceacfeb22d0ab8a3e19a0a8f707a7c07c1ca216e5c3afc5", "fce15684f99e3323fa3eefaa60df9b4c90bd85650248a3bac28875d32f8b93d7", "88d3c1037f3a54138f0cfa1134a3f125617ed18bf09a89b40b8824cee5561890", "539f036598d1e330a7131c912dc61ea09467153dfa2afc151494316eb700e717", "083214a3c8649667d30580a128b11e0992b6d7cd17debd125b30789f70271523", "a37337cd1ffac142bdda9a32a4836eb201fc6df8fdf9e684e713ab7681f7ada6"]), REPLACED_REWARD_PACKAGES = Object.freeze(["527539a0735f246222503c007436ced375c41b4d947baec94e9ed37b44ee8716", "1eaac52669cd397aa4c99807367bc313b4a79d17c0f97b773a297e6ebd13c3bb", "b5f2d99e5ba0f0a2560de36763deea20e4566c69057a6ed7de1a10452fb3fecc", "4263c63d08130fab8e1503600732eef86dc271ef31487471f25cf922aa2d3288", "9fd45a179f960d091e7eb2809c1f5d07083ece95de712ab555a63648134a7a45", "7e3632ff06f32fdffc4dcb8361df8d588b9bcd1ffd72517bd32f8a69cbc165c3", "e620754ebe4ccdf7548347f690fdb308050251ded636b9a69a729e0e367294ae", "0ac4bf9d6684cf1acdfc532bc0dbd3c98b89740fbd0e2139da217648ca3f4cf0", "60bdd051a1bf5768561ba2b8c5d8b812fb13c58785d4116d2fdaf68bc5b83b9d", "62c6b1d542d010db621f56903a1337ef26bfc786f765bb0109e52c08be42fb0e", "583f57d57f1bbb511c7a65e7d84c2a2aa8473d423397787d38c9c89f670046ad", "72ff62b4ba885edffb9feddb000944de79bdbda2a324faa858ab0fe2b5dfa2f3", "388c6ac86b1cb7e8c39fdb74df849628f7f009d3bf7b50eec0dda19f0b66544c", "73ef27a716f2b73718be28ab30d9651dcb10fb3cabe02e15415aecd31c40e6bd"]), REPLACED_CARD_PACKAGES = Object.freeze([
     "89ade7342aac0ba92a8b0b6b4b22254a4dca7e7d531c8ebbc7a5ea07597ea68a",
     "18f813ddbdae1cb83949a59bf52379a64a5ebfed680d605936d849f3405f3987",
     "43a4cbff657c319e8b7b1bf2ec7689e0a557fc9bb17a9090d24a2163d1857dda",
@@ -1954,14 +1960,27 @@
     if (scope.timeout(() => {
       !loaded && !failed && error("\u52A8\u6001\u80CC\u666F\u52A0\u8F7D\u8D85\u65F6");
     }, 2e4), spec.kind === "video") {
+      let watchVideoFrame = function() {
+        if (!(!useVideoCallback || videoCallback !== void 0 || scope.closed || !visible || failed))
+          try {
+            let callback = video.requestVideoFrameCallback(() => {
+              videoCallback === callback && (videoCallback = void 0, !(scope.closed || !visible || failed) && (frameReady = !0, watchVideoFrame()));
+            });
+            videoCallback = callback;
+          } catch {
+            useVideoCallback = !1;
+          }
+      }, stopWatchingVideoFrame = function() {
+        videoCallback !== void 0 && video.cancelVideoFrameCallback(videoCallback), videoCallback = void 0;
+      };
       if (!laya.VideoTexture || !laya.Texture || !window2.document) throw new Error("\u6E38\u620F\u89C6\u9891\u7EB9\u7406\u5C1A\u672A\u5C31\u7EEA");
       let video = window2.document.createElement("video");
       video.crossOrigin = "anonymous", video.muted = !0, video.loop = !0, video.playsInline = !0, video.preload = "auto";
       let bitmap = new laya.VideoTexture();
       bitmap.video = video;
-      let texture = new laya.Texture(bitmap);
+      let texture = new laya.Texture(bitmap), useVideoCallback = typeof video.requestVideoFrameCallback == "function" && typeof video.cancelVideoFrameCallback == "function", videoCallback, lastFrame, frameReady = !0;
       scope.add(() => {
-        video.pause(), video.removeAttribute("src"), video.load(), texture.destroy(), bitmap.destroy();
+        stopWatchingVideoFrame(), video.pause(), video.removeAttribute("src"), video.load(), texture.destroy(), bitmap.destroy();
         let pool = laya.VideoTexture._videoTexturePool, index = pool == null ? void 0 : pool.indexOf(bitmap);
         index >= 0 && pool.splice(index, 1);
       }), scope.listen(video, "error", () => {
@@ -1970,19 +1989,24 @@
       }), scope.listen(video, "loadeddata", () => {
         scope.closed || failed || (bitmap._width = video.videoWidth, bitmap._height = video.videoHeight, texture.setTo(bitmap, void 0, video.videoWidth, video.videoHeight), root.graphics.clear(), root.graphics.drawTexture(texture, 0, 0, size.width, size.height), complete(), result.show(visible));
       }), players.push({ pause() {
-        bitmap.videoPause();
+        stopWatchingVideoFrame(), bitmap.videoPause();
       }, resume() {
-        bitmap._needUpdate = !0;
+        frameReady = !0, watchVideoFrame(), bitmap._needUpdate = !0;
         let attempt = video.play();
         attempt == null || attempt.catch(error);
       } });
       let frame = () => {
-        if (!scope.closed && visible && loaded && !failed && video.readyState >= 2)
+        var _a3, _b3;
+        if (scope.closed || !visible || !loaded || failed || video.readyState < 2) return;
+        let totalFrames = useVideoCallback || (_b3 = (_a3 = video.getVideoPlaybackQuality) == null ? void 0 : _a3.call(video)) == null ? void 0 : _b3.totalVideoFrames, nextFrame = useVideoCallback || Number.isFinite(totalFrames) ? totalFrames : video.currentTime;
+        if (!(!frameReady && nextFrame === lastFrame)) {
+          frameReady = !1, lastFrame = nextFrame;
           try {
             bitmap._updateVideoData(), root.repaint();
           } catch (e) {
             error(e);
           }
+        }
       };
       laya.timer.frameLoop(1, root, frame), scope.add(() => laya.timer.clear(root, frame)), video.src = spec.url, video.load();
     } else {
@@ -2191,7 +2215,13 @@
   function supportsSkinBackgroundAttack(dynamic) {
     return (dynamic == null ? void 0 : dynamic.kind) === "spine" && dynamic.modern === !0 && dynamic.attack !== !1;
   }
-  var skinQualitySetting = "backgrounds:skinQuality";
+  var skinQualitySetting = "backgrounds:skinQuality", globalBackgroundSetting = "backgrounds:globalBackground", startupScene = /(?:^|\.)(?:LoginScene|LoadingScene|CreateUserScene|CreateRoleScene|MainNullScene)$/, battleWallpaperMethods = ["SetWallPaperById", "SetWallPaperByUrl", "OnNormalWallPaperChange", "onWallPaperChange"];
+  function canUseGlobalBackground(scene) {
+    var _a2;
+    if (!scene || scene.destroyed || scene.initialized === !1) return !1;
+    let name = scene.SceneName || scene.sceneName || scene.name || ((_a2 = scene.constructor) == null ? void 0 : _a2.name);
+    return !!(name && name !== "Object" && !startupScene.test(name));
+  }
   function fitBackground(width, height, viewportWidth, viewportHeight, scaleFor) {
     if (![width, height, viewportWidth, viewportHeight].every((n) => Number.isFinite(n) && n > 0)) return null;
     let scale = scaleFor(viewportWidth / width, viewportHeight / height);
@@ -2226,7 +2256,7 @@
       if (parsed.username || parsed.password) throw new Error("\u80CC\u666F\u5730\u5740\u4E0D\u80FD\u5305\u542B\u51ED\u636E");
     }
     let result = { name: value.name.trim(), url };
-    if (value.officialWallpaper === !0 && (result.officialWallpaper = !0, value.wallpaperMotion)) {
+    if (value.officialWallpaper === !0 && (result.officialWallpaper = !0, typeof value.officialWallpaperWide == "boolean" && (result.officialWallpaperWide = value.officialWallpaperWide), value.wallpaperMotion)) {
       let { kind, url: url2 } = value.wallpaperMotion;
       if (kind !== "spine" && kind !== "bone") throw new Error("\u5B98\u65B9\u52A8\u6001\u80CC\u666F\u7C7B\u578B\u65E0\u6548");
       result.wallpaperMotion = Object.freeze({ kind, url: backgroundSpec({ name: "\u52A8\u6001\u8D44\u6E90", url: url2 }).url });
@@ -2299,11 +2329,14 @@
           this.dropLocalImage();
         }
       }), window2.addEventListener && settings.prefix && scope.listen(window2, "storage", (event) => {
-        event.storageArea === settings.storage && ((event.key === settings.prefix + "battleBackground" || event.key === null) && this.selectionChanged(), event.key === settings.prefix + skinQualitySetting && (this.refresh(), this.emit()));
+        event.storageArea === settings.storage && ((event.key === settings.prefix + "battleBackground" || event.key === null) && this.selectionChanged(), event.key === settings.prefix + skinQualitySetting && (this.refresh(), this.emit()), event.key === settings.prefix + globalBackgroundSetting && this.globalBackgroundChanged());
       });
     }
     get current() {
       return this.settings.get("battleBackground", null);
+    }
+    get globalBackground() {
+      return this.settings.get(globalBackgroundSetting, !1) === !0;
     }
     get currentHistoryId() {
       return backgroundHistoryId(this.current);
@@ -2345,6 +2378,12 @@
     }
     setSkinQuality(owner, quality) {
       owner !== "backgrounds" || !this.providers.has(owner) || !this.skinQualityAvailable || !["high", "low"].includes(quality) || this.settings.get(skinQualitySetting, "high") !== quality && (this.settings.set(skinQualitySetting, quality), this.refresh(), this.emit());
+    }
+    setGlobalBackground(owner, enabled) {
+      owner !== "backgrounds" || !this.providers.has(owner) || this.globalBackground === (enabled === !0) || (this.settings.set(globalBackgroundSetting, enabled === !0), this.globalBackgroundChanged());
+    }
+    globalBackgroundChanged() {
+      this.retryAt = 0, this.refresh(), this.globalBackground || (this.nativeBackground = null), this.emit();
     }
     setAnimated(owner, enabled) {
       let choice = this.current;
@@ -2448,17 +2487,25 @@
       return this.localImage.url || this.state(this.localImage.error || "\u6B63\u5728\u8BFB\u53D6\u672C\u5730\u56FE\u7247"), this.localImage.url;
     }
     detach(restore) {
+      var _a2;
       let b = this.binding;
-      b && (this.binding = null, b.scope.dispose(), restore && b.applied && !b.yielded && !b.scene.currentWeatherWallPaper && !b.scene.destroyed && this.game.getScene() === b.scene && b.scene.onWallPaperChange());
+      if (b) {
+        if (this.binding = null, b.scope.dispose(), b.global) {
+          restore && !this.game.isInGame() && (this.nativeBackground = null, b.applied && !b.layer.destroyed && ((_a2 = b.layer.bg) == null ? void 0 : _a2.skin) === b.url && (b.layer.tt(...b.nativeBackground.args), b.layer.updateBgSize()));
+          return;
+        }
+        restore && b.applied && !b.yielded && !b.scene.currentWeatherWallPaper && !b.scene.destroyed && this.game.getScene() === b.scene && b.scene.onWallPaperChange();
+      }
     }
     refresh() {
+      var _a2;
       if (!this.scope.closed && !(this.retryAt && Date.now() < this.retryAt))
         try {
           this.refreshReady();
         } catch (error) {
           this.ticket++, this.loading = null;
           try {
-            this.detach(!1);
+            this.detach(((_a2 = this.binding) == null ? void 0 : _a2.global) === !0);
           } catch {
           }
           this.retryAt = Date.now() + 2e3, this.state("\u80CC\u666F\u63A5\u5165\u6682\u672A\u5C31\u7EEA\uFF0C\u5C06\u81EA\u52A8\u91CD\u8BD5\uFF1A" + ((error == null ? void 0 : error.stack) || error));
@@ -2468,14 +2515,14 @@
       this.ticket++, this.loading = null, this.failed = url, this.loadAttempts = (this.loadAttempts || 0) + 1, this.retryAt = Date.now() + Math.min(3e4, 2e3 * 2 ** (this.loadAttempts - 1)), this.state(message + "\uFF1B\u7A0D\u540E\u81EA\u52A8\u91CD\u8BD5");
     }
     refreshReady() {
-      var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t;
+      var _a2, _b2, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p;
       let choice = this.current;
       if (!choice || !this.providers.has(choice.owner)) {
         this.ticket++, this.ready = this.loading = null;
         try {
           this.detach(!0);
         } finally {
-          this.dropLocalImage();
+          this.nativeBackground = null, this.dropLocalImage();
         }
         this.state(choice ? "\u80CC\u666F\u63D2\u4EF6\u5DF2\u505C\u7528\uFF0C\u8DDF\u968F\u6E38\u620F\u80CC\u666F" : "\u8DDF\u968F\u6E38\u620F\u80CC\u666F");
         return;
@@ -2488,12 +2535,11 @@
         this.detach(!0), this.state("\u80CC\u666F\u914D\u7F6E\u65E0\u6548\uFF1A" + error.message);
         return;
       }
-      let scene = this.game.getScene();
-      if (((_a2 = this.binding) == null ? void 0 : _a2.scene) !== scene && this.detach(!1), this.binding && (this.binding.layer.destroyed || this.binding.stage !== ((_b2 = this.window.Laya) == null ? void 0 : _b2.stage)) && this.detach(!1), !this.game.isInGame() || !["SetWallPaperById", "SetWallPaperByUrl", "OnNormalWallPaperChange", "onWallPaperChange"].every((k) => typeof (scene == null ? void 0 : scene[k]) == "function")) {
-        this.detach(!1), this.state("\u5DF2\u4FDD\u5B58\uFF0C\u7B49\u5F85\u8FDB\u5165\u724C\u5C40");
+      let scene = this.game.getScene(), inGame = this.game.isInGame(), battle = inGame && battleWallpaperMethods.every((k) => typeof (scene == null ? void 0 : scene[k]) == "function"), global = !inGame && this.globalBackground && canUseGlobalBackground(scene), laya = this.window.Laya, previous = this.binding;
+      if (previous && (previous.layer.destroyed || previous.layer.displayedInStage === !1 || previous.stage !== (laya == null ? void 0 : laya.stage)) && this.detach(!1), this.binding && (previous.global !== global || !global && previous.scene !== scene) && this.detach(!inGame && !global), !battle && !global) {
+        this.detach(!inGame), this.state(this.globalBackground ? "\u5DF2\u4FDD\u5B58\uFF0C\u7B49\u5F85\u6E38\u620F\u573A\u666F\u5C31\u7EEA" : "\u5DF2\u4FDD\u5B58\uFF0C\u7B49\u5F85\u8FDB\u5165\u724C\u5C40");
         return;
       }
-      let laya = this.window.Laya;
       if (localId2 !== void 0) {
         let url = this.localUrl(localId2);
         if (!url) return;
@@ -2501,7 +2547,7 @@
       }
       if (this.failed === choice.url && (this.failed = null), this.ready !== choice.url) {
         if (this.loading === choice.url) return;
-        if (!((_c = laya == null ? void 0 : laya.loader) != null && _c.load) || !((_d = laya.Handler) != null && _d.create)) {
+        if (!((_a2 = laya == null ? void 0 : laya.loader) != null && _a2.load) || !((_b2 = laya.Handler) != null && _b2.create)) {
           this.state("\u7B49\u5F85\u6E38\u620F\u56FE\u7247\u52A0\u8F7D\u5668");
           return;
         }
@@ -2522,13 +2568,13 @@
               return;
             }
             this.loadAttempts = 0, this.retryAt = 0, this.imageSize = { width: texture.sourceWidth || texture.width, height: texture.sourceHeight || texture.height }, this.imageTexture = texture, this.ready = choice.url, this.refresh();
-          }), null, ((_e = laya.Loader) == null ? void 0 : _e.IMAGE) || "image");
+          }), null, ((_c = laya.Loader) == null ? void 0 : _c.IMAGE) || "image");
         } catch (error) {
           this.loadFailed(choice.url, "\u80CC\u666F\u52A0\u8F7D\u5931\u8D25\uFF1A" + error.message);
         }
         return;
       }
-      if (choice.skinKey && !(((_f = this.imageSize) == null ? void 0 : _f.width) > ((_g = this.imageSize) == null ? void 0 : _g.height))) {
+      if (choice.skinKey && !(((_d = this.imageSize) == null ? void 0 : _d.width) > ((_e = this.imageSize) == null ? void 0 : _e.height))) {
         this.detach(!0), this.state("\u6B64\u76AE\u80A4\u6CA1\u6709\u53EF\u7528\u7684\u6A2A\u7248\u539F\u753B");
         return;
       }
@@ -2537,7 +2583,7 @@
         let coverStill = function(next) {
           (covered == null ? void 0 : covered.node) !== next && (covered && !covered.node.destroyed && (covered.node.visible = covered.visible), covered = next && { node: next, visible: next.visible }), next && (next.visible = !1);
         }, layer = findBackgroundLayer(laya == null ? void 0 : laya.stage), viewport = layer && backgroundViewport(layer, this.window);
-        if (!(laya != null && laya.Sprite) || !laya.Rectangle || !((viewport == null ? void 0 : viewport.width) > 0 && viewport.height > 0)) {
+        if (!(laya != null && laya.Sprite) || !laya.Rectangle || !((viewport == null ? void 0 : viewport.width) > 0 && viewport.height > 0) || global && typeof layer.tt != "function") {
           this.state("\u7B49\u5F85\u6E38\u620F\u80CC\u666F\u5C42\u4E0E\u5E03\u5C40\u5C31\u7EEA");
           return;
         }
@@ -2547,31 +2593,51 @@
           stage: laya.stage,
           scope: local,
           skinQuality,
+          global,
+          url: choice.url,
           applied: !1,
-          yielded: this.yieldedScene === scene,
+          yielded: !global && this.yieldedScene === scene,
           writing: !1
         };
         this.binding = b2;
-        let registry = this, originalById = scene.SetWallPaperById, eligible = () => !scene.currentWeatherWallPaper && !b2.yielded, covered;
+        let registry = this, eligible = () => global || !scene.currentWeatherWallPaper && !b2.yielded;
+        if (global) {
+          let pending = (previous == null ? void 0 : previous.layer) === layer && previous.handoffArgs;
+          pending && pending[0] === ((_f = layer.bg) == null ? void 0 : _f.skin) ? this.nativeBackground = { layer, args: pending } : ((_g = this.nativeBackground) == null ? void 0 : _g.layer) !== layer && (this.nativeBackground = { layer, args: [(_h = layer.bg) == null ? void 0 : _h.skin, void 0, layer.isWideBg] });
+        }
+        global && (b2.nativeBackground = this.nativeBackground), typeof layer.tt == "function" && local.patch(layer, "tt", (original) => function(...args) {
+          if (!b2.writing && !b2.nativeBattleWrite && registry.globalBackground)
+            if (!registry.game.isInGame() && canUseGlobalBackground(registry.game.getScene())) {
+              let background = registry.nativeBackground;
+              if ((background == null ? void 0 : background.layer) === layer ? background.args = args : registry.nativeBackground = { layer, args }, global) return;
+            } else global || (b2.handoffArgs = args);
+          return Reflect.apply(original, this, args);
+        });
+        let covered;
         local.add(() => coverStill());
         let showMotion = (visible) => {
           var _a3, _b3;
           (_a3 = b2.motion) == null || _a3.show(visible), coverStill(visible && (choice.skinMotion || choice.wallpaperMotion) && (_b3 = b2.motion) != null && _b3.loaded ? layer.bg : void 0);
         };
-        if (layer) {
+        if (b2.syncMotion = () => {
+          var _a3;
+          return showMotion(eligible() && ((_a3 = layer.bg) == null ? void 0 : _a3.skin) === choice.url);
+        }, choice.officialWallpaper)
+          b2.hideFill = () => showMotion(!1), choice.wallpaperMotion && local.patch(layer, "updateBgSize", (original) => function(...args) {
+            var _a3, _b3;
+            let result = Reflect.apply(original, this, args);
+            return eligible() && ((_a3 = this.bg) == null ? void 0 : _a3.skin) === choice.url && ((_b3 = b2.motion) == null || _b3.layout()), b2.syncMotion(), result;
+          });
+        else {
           let fill = new laya.Sprite();
           local.add(() => fill.destroy(!0)), fill.name = "sgs-background-edge-fill", fill.mouseEnabled = !1, fill.mouseChildren = !1, fill.zOrder = (layer.bgSprite.zOrder || 0) - 1, layer.addChildAt(fill, Math.max(0, layer.getChildIndex(layer.bgSprite)));
           let soften = new laya.Sprite();
-          soften.mouseEnabled = !1, fill.addChild(soften), laya.BlurFilter && !choice.skinKey && (soften.filters = [new laya.BlurFilter(18)]), b2.syncMotion = () => {
-            var _a3, _b3;
-            let visible = eligible() && ((_a3 = layer.bg) == null ? void 0 : _a3.skin) === choice.url;
-            showMotion(visible), choice.wallpaperMotion && (fill.visible = visible && !((_b3 = b2.motion) != null && _b3.loaded));
-          }, b2.hideFill = () => {
+          soften.mouseEnabled = !1, fill.addChild(soften), laya.BlurFilter && !choice.skinKey && (soften.filters = [new laya.BlurFilter(18)]), b2.hideFill = () => {
             fill.visible = !1, showMotion(!1);
           };
           let fillKey = "";
           local.patch(layer, "updateBgSize", (original) => function(...args) {
-            var _a3, _b3, _c2;
+            var _a3, _b3;
             let result = Reflect.apply(original, this, args), customBackground = eligible() && ((_a3 = this.bg) == null ? void 0 : _a3.skin) === choice.url;
             if (fill.visible = customBackground && !choice.skinKey, !customBackground)
               return b2.syncMotion(), result;
@@ -2584,13 +2650,9 @@
               let scale = Math.max(w / fit.width, h / fit.height), dw = fit.width * scale, dh = fit.height * scale;
               fill.size(w, h), fill.scrollRect = new laya.Rectangle(0, 0, w, h), soften.graphics.clear(), soften.graphics.drawTexture(registry.imageTexture, (w - dw) / 2, (h - dh) / 2, dw, dh), soften.graphics.drawRect(0, 0, w, h, "rgba(0,0,0,0.28)");
             }
-            return this.bg.size(fit.width, fit.height), typeof this.bg.scale == "function" ? this.bg.scale(fit.scale, fit.scale) : this.bg.scale = fit.scale, this.bg.posInteger(fit.x, fit.y), choice.wallpaperMotion ? (_b3 = b2.motion) == null || _b3.layout() : choice.skinMotion ? (_c2 = b2.motion) == null || _c2.layout(w, h) : b2.motion && b2.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h)), b2.syncMotion(), result;
+            return this.bg.size(fit.width, fit.height), typeof this.bg.scale == "function" ? this.bg.scale(fit.scale, fit.scale) : this.bg.scale = fit.scale, this.bg.posInteger(fit.x, fit.y), choice.skinMotion ? (_b3 = b2.motion) == null || _b3.layout(w, h) : b2.motion && b2.motion.layout(containBackground(choice.dynamic.width, choice.dynamic.height, w, h)), b2.syncMotion(), result;
           });
         }
-        typeof scene.OnWeatherWallPaperChange == "function" && local.patch(scene, "OnWeatherWallPaperChange", (original) => function(...args) {
-          var _a3;
-          return (_a3 = b2.hideFill) == null || _a3.call(b2), Reflect.apply(original, this, args);
-        });
         let apply = () => {
           if (localId2 !== void 0 && laya.loader.getRes && !laya.loader.getRes(choice.url)) {
             this.detach(!1), this.ready = null, this.refresh();
@@ -2598,40 +2660,19 @@
           }
           b2.writing = !0;
           try {
-            scene.SetWallPaperByUrl(choice.url), b2.applied = !0, layer == null || layer.updateBgSize();
+            if (global)
+              b2.applied = !0, layer.tt(choice.url);
+            else {
+              let size = this.imageSize, wideSize = layer.wideSize, wide = choice.officialWallpaper && (choice.officialWallpaperWide ?? (!choice.wallpaperMotion && size && wideSize && size.width * wideSize.height === size.height * wideSize.width)), setNativeImage = layer.tt ?? layer.O;
+              wide && typeof setNativeImage == "function" ? Reflect.apply(setNativeImage, layer, [choice.url, !1, !0]) : scene.SetWallPaperByUrl(choice.url), b2.applied = !0;
+            }
+            layer.updateBgSize();
           } finally {
             b2.writing = !1;
           }
         };
-        local.patch(scene, "SetWallPaperByUrl", (original) => function(...args) {
-          var _a3;
-          return b2.writing || (b2.yielded = !0, registry.yieldedScene = scene, (_a3 = b2.hideFill) == null || _a3.call(b2), registry.state("\u6280\u80FD\u80CC\u666F\u4F18\u5148")), Reflect.apply(original, this, args);
-        }), local.patch(scene, "SetWallPaperById", (original) => function(...args) {
-          var _a3;
-          if (args[1])
-            return b2.yielded = !0, registry.yieldedScene = scene, (_a3 = b2.hideFill) == null || _a3.call(b2), Reflect.apply(original, this, args);
-          if (eligible()) {
-            apply();
-            return;
-          }
-          return Reflect.apply(original, this, args);
-        }), local.patch(scene, "OnNormalWallPaperChange", (original) => function(...args) {
-          if (b2.yielded = !1, registry.yieldedScene = null, eligible()) {
-            apply();
-            return;
-          }
-          return Reflect.apply(original, this, args);
-        });
-        let dispatcher = (_i = (_h = this.game).getDispatcher) == null ? void 0 : _i.call(_h), event = ((_j = dispatcher == null ? void 0 : dispatcher.constructor) == null ? void 0 : _j.BACKGROUND_USEDID_GOT) || "BACKGROUND_USEDID_GOT", entries = (_k = dispatcher == null ? void 0 : dispatcher._events) == null ? void 0 : _k[event];
-        for (let handler of Array.isArray(entries) ? entries : [entries])
-          if ((handler == null ? void 0 : handler.caller) === scene && handler.method === originalById) {
-            let redirected = scene.SetWallPaperById;
-            handler.method = redirected, local.add(() => {
-              handler.caller === scene && handler.method === redirected && (handler.method = originalById);
-            });
-          }
-        b2.yielded || scene.onWallPaperChange();
-        let playSkinMotion = choice.skinMotion && !((_m = (_l = this.window).matchMedia) != null && _m.call(_l, "(prefers-reduced-motion: reduce)").matches), playWallpaperMotion = choice.wallpaperMotion && !((_o = (_n = this.window).matchMedia) != null && _o.call(_n, "(prefers-reduced-motion: reduce)").matches);
+        if (global ? apply() : this.bindBattle(b2, apply, eligible), this.binding !== b2) return;
+        let playSkinMotion = choice.skinMotion && !((_j = (_i = this.window).matchMedia) != null && _j.call(_i, "(prefers-reduced-motion: reduce)").matches), playWallpaperMotion = choice.wallpaperMotion && !((_l = (_k = this.window).matchMedia) != null && _l.call(_k, "(prefers-reduced-motion: reduce)").matches);
         if ((choice.dynamic || playSkinMotion || playWallpaperMotion) && choice.animated !== !1) {
           let motionScope = new ResourceScope();
           local.add(() => motionScope.dispose());
@@ -2654,8 +2695,8 @@
                 var _a3, _b3;
                 return (_b3 = this.skinMotion) == null ? void 0 : _b3.call(this, choice.skinKey, signal, { imageUrl: (_a3 = this.localImage) == null ? void 0 : _a3.objectUrl, quality: skinQuality });
               },
-              imageUrl: (_p = this.localImage) == null ? void 0 : _p.objectUrl
-            }) : createBackgroundMotion({ ...options, spec: choice.dynamic, size: choice.dynamic }), motionScope.closed && (b2.motion = null), b2.motion && supportsSkinBackgroundAttack(choice.dynamic) && (b2.syncAttackSeat = watchBackgroundAttack(this.game, scene, motionScope, () => {
+              imageUrl: (_m = this.localImage) == null ? void 0 : _m.objectUrl
+            }) : createBackgroundMotion({ ...options, spec: choice.dynamic, size: choice.dynamic }), motionScope.closed && (b2.motion = null), !global && b2.motion && supportsSkinBackgroundAttack(choice.dynamic) && (b2.syncAttackSeat = watchBackgroundAttack(this.game, scene, motionScope, () => {
               var _a3, _b3, _c2;
               eligible() && ((_a3 = layer.bg) == null ? void 0 : _a3.skin) === choice.url && ((_c2 = (_b3 = b2.motion) == null ? void 0 : _b3.playAttack) == null || _c2.call(_b3));
             })), layer.updateBgSize();
@@ -2664,9 +2705,53 @@
           }
         }
       }
-      scene.currentWeatherWallPaper || this.binding.yielded ? (_r = (_q = this.binding).hideFill) == null || _r.call(_q) : this.binding.syncMotion();
-      let b = this.binding;
-      b.motion && ((_s = b.syncAttackSeat) == null || _s.call(b, choice.attackEffects !== !1)), this.state(scene.currentWeatherWallPaper || b.yielded ? "\u6280\u80FD\u80CC\u666F\u4F18\u5148" : b.motionError ? "\u52A8\u6001\u80CC\u666F\u5931\u8D25\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B\uFF1A" + b.motionError : (_t = b.motion) != null && _t.unsuitableSize ? "\u5F53\u524D\u7A97\u53E3\u6BD4\u4F8B\u4E0D\u9002\u5408\u52A8\u6001\u6784\u56FE\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B" : b.motion ? b.motion.loaded ? "\u52A8\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528" : "\u6B63\u5728\u52A0\u8F7D\u52A8\u6001\u80CC\u666F\uFF0C\u6682\u663E\u9759\u6001\u539F\u753B" : "\u9759\u6001\u724C\u5C40\u80CC\u666F\u5DF2\u542F\u7528");
+      let b = this.binding, overridden = !global && (scene.currentWeatherWallPaper || b.yielded);
+      overridden ? (_n = b.hideFill) == null || _n.call(b) : b.syncMotion(), b.motion && ((_o = b.syncAttackSeat) == null || _o.call(b, choice.attackEffects !== !1));
+      let place = global ? "\u5168\u5C40" : "\u724C\u5C40";
+      this.state(overridden ? "\u6280\u80FD\u80CC\u666F\u4F18\u5148" : b.motionError ? "\u52A8\u6001\u80CC\u666F\u5931\u8D25\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B\uFF1A" + b.motionError : (_p = b.motion) != null && _p.unsuitableSize ? "\u5F53\u524D\u7A97\u53E3\u6BD4\u4F8B\u4E0D\u9002\u5408\u52A8\u6001\u6784\u56FE\uFF0C\u5DF2\u663E\u793A\u9759\u6001\u539F\u753B" : b.motion ? b.motion.loaded ? "\u52A8\u6001" + place + "\u80CC\u666F\u5DF2\u542F\u7528" : "\u6B63\u5728\u52A0\u8F7D\u52A8\u6001\u80CC\u666F\uFF0C\u6682\u663E\u9759\u6001\u539F\u753B" : "\u9759\u6001" + place + "\u80CC\u666F\u5DF2\u542F\u7528");
+    }
+    bindBattle(b, apply, eligible) {
+      var _a2, _b2, _c, _d;
+      let { scene, scope: local } = b, registry = this, originalById = scene.SetWallPaperById, callNative = (method, receiver, args) => {
+        let wasWriting = b.nativeBattleWrite;
+        b.nativeBattleWrite = !0;
+        try {
+          return Reflect.apply(method, receiver, args);
+        } finally {
+          b.nativeBattleWrite = wasWriting;
+        }
+      };
+      typeof scene.OnWeatherWallPaperChange == "function" && local.patch(scene, "OnWeatherWallPaperChange", (original) => function(...args) {
+        var _a3;
+        return (_a3 = b.hideFill) == null || _a3.call(b), callNative(original, this, args);
+      }), local.patch(scene, "SetWallPaperByUrl", (original) => function(...args) {
+        var _a3;
+        return b.writing || (b.yielded = !0, registry.yieldedScene = scene, (_a3 = b.hideFill) == null || _a3.call(b), registry.state("\u6280\u80FD\u80CC\u666F\u4F18\u5148")), callNative(original, this, args);
+      }), local.patch(scene, "SetWallPaperById", (original) => function(...args) {
+        var _a3;
+        if (args[1])
+          return b.yielded = !0, registry.yieldedScene = scene, (_a3 = b.hideFill) == null || _a3.call(b), callNative(original, this, args);
+        if (eligible()) {
+          apply();
+          return;
+        }
+        return callNative(original, this, args);
+      }), local.patch(scene, "OnNormalWallPaperChange", (original) => function(...args) {
+        if (b.yielded = !1, registry.yieldedScene = null, eligible()) {
+          apply();
+          return;
+        }
+        return callNative(original, this, args);
+      });
+      let dispatcher = (_b2 = (_a2 = this.game).getDispatcher) == null ? void 0 : _b2.call(_a2), event = ((_c = dispatcher == null ? void 0 : dispatcher.constructor) == null ? void 0 : _c.BACKGROUND_USEDID_GOT) || "BACKGROUND_USEDID_GOT", entries = (_d = dispatcher == null ? void 0 : dispatcher._events) == null ? void 0 : _d[event];
+      for (let handler of Array.isArray(entries) ? entries : [entries])
+        if ((handler == null ? void 0 : handler.caller) === scene && handler.method === originalById) {
+          let redirected = scene.SetWallPaperById;
+          handler.method = redirected, local.add(() => {
+            handler.caller === scene && handler.method === redirected && (handler.method = originalById);
+          });
+        }
+      b.yielded || scene.onWallPaperChange();
     }
   }, BLACK_GOLD = { id: "core.black-gold", name: "\u7384\u91D1", tokens: { bg: "#201e1a", surface: "#2c2922", raised: "#383327", text: "#eee3cc", muted: "#b7aa8c", accent: "#dbba70", border: "#665b42", danger: "#f3988c", radius: "10px", font: '"Microsoft YaHei", system-ui, sans-serif', motion: "240ms", scheme: "dark" } }, DECORATIVE_COLOR_TOKENS = Object.freeze(["bg2", "accent2"]), GRADIENT_TOKENS = Object.freeze(["backdrop", "card", "compact"]), OPTIONAL_THEME_TOKENS = Object.freeze([...DECORATIVE_COLOR_TOKENS, ...GRADIENT_TOKENS]), allowed = Object.keys(BLACK_GOLD.tokens), safeScalar = (value) => typeof value == "string" && value.length > 0 && value.length < 180 && !/[;{}]|url\s*\(/i.test(value), gradientHead = /^(?:repeating-)?(?:linear|radial|conic)-gradient\(/i;
   function isSafeGradient(value) {
@@ -2968,9 +3053,9 @@
     if (m.apiVersion !== 1) throw new Error("\u63D2\u4EF6\u9700\u8981\u4E0D\u517C\u5BB9\u7684\u6838\u5FC3 API\u3002");
     validatePluginPresentation(m, options);
   }
-  async function verifyPackage(pkg) {
+  async function verifyPackage(pkg, options) {
     if ((pkg == null ? void 0 : pkg.format) !== PACKAGE_FORMAT || typeof pkg.code != "string" || pkg.code.length > 10 * 1024 * 1024) throw new Error("\u63D2\u4EF6\u5305\u683C\u5F0F\u4E0D\u6B63\u786E\u6216\u8D85\u8FC7 10 MB\u3002");
-    if (validateManifest(pkg.manifest), await packageDigest(pkg.manifest, pkg.code) !== String(pkg.sha256).toLowerCase()) throw new Error("\u63D2\u4EF6\u5305\u6821\u9A8C\u5931\u8D25\uFF0C\u6587\u4EF6\u53EF\u80FD\u635F\u574F\u3002");
+    if (validateManifest(pkg.manifest, options), await packageDigest(pkg.manifest, pkg.code) !== String(pkg.sha256).toLowerCase()) throw new Error("\u63D2\u4EF6\u5305\u6821\u9A8C\u5931\u8D25\uFF0C\u6587\u4EF6\u53EF\u80FD\u635F\u574F\u3002");
     return pkg;
   }
   function compilePackage(pkg) {
@@ -4064,6 +4149,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
           },
           setSkinQuality: (quality) => {
             scope.closed || this.context.backgrounds.setSkinQuality(id, quality);
+          },
+          setGlobalBackground: (enabled) => {
+            scope.closed || context2.backgrounds.setGlobalBackground(id, enabled);
+          },
+          get globalBackground() {
+            return id === "backgrounds" && !scope.closed && context2.backgrounds.globalBackground === !0;
           },
           get skinQualityAvailable() {
             return !scope.closed && thisContext.backgrounds.skinQualityAvailable === !0;
@@ -7557,6 +7648,12 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     .sync-download svg{width:16px;height:16px;flex:none;margin:0}
     .sync-private-setup{gap:7px;padding:9px 10px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-surface)}
     .sync-private-setup .sync-actions{min-width:0}
+    .sync-public-join{gap:7px;padding:8px 10px;border-left:2px solid var(--sgs-accent);background:var(--sgs-surface);border-radius:6px}
+    .sync-settings .sync-public-rebuild{color:var(--sgs-danger,#f28b82);overflow-wrap:anywhere}
+    @media (prefers-reduced-motion:no-preference){
+      .sync-public-join:not([hidden]){animation:sync-public-join-in .15s ease-out}
+      @keyframes sync-public-join-in{from{opacity:0;transform:translateY(-3px)}}
+    }
     .sync-test{gap:6px;padding:8px 10px;border-left:2px solid var(--sgs-accent);background:var(--sgs-surface);border-radius:6px}
     .sync-settings .sync-copy-link{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;white-space:nowrap}
     .sync-copy-link svg{width:14px;height:14px;flex:none}
@@ -7689,23 +7786,68 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     }), request.wrapper, credential.wrapper, act("\u540C\u610F\u5E76\u7ED1\u5B9A\u79C1\u6709\u670D\u52A1\u5668", async () => {
       await sync.bind(credential.control.value.trim()), credential.control.value = request.control.value = "", request.wrapper.hidden = !0, say("\u79C1\u6709\u670D\u52A1\u5668\u7ED1\u5B9A\u6210\u529F");
     }, !0), details("\u66F4\u6539\u79C1\u6709\u670D\u52A1\u5668\u5730\u5740", address.wrapper)), privateFields.append(node("p", privateConsent, "muted"), ways, fourDigit, credentialBinding.form), privatePanel.append(privateSetup, privateFields, joining);
-    let server = serverAddress("\u516C\u5171\u670D\u52A1\u5668\u5730\u5740\u6216\u9080\u8BF7\u7801", "https://sync.example.com:8888"), restore = input("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), publicBinding = node("div", "", "sync-stack"), publicConsent = "\u670D\u52A1\u5668\u7BA1\u7406\u5458\u53EF\u89C1\u7528\u6237\u7801\u3001\u6635\u79F0\u548C\u8BB0\u5F55\u7F16\u53F7\u3002\u8D26\u672C\u3001\u6218\u7EE9\u548C\u5907\u4EFD\u5185\u5BB9\u5728\u5DE5\u5177\u7BB1\u52A0\u5BC6\u3002", testPanel = node("section", "", "sync-stack sync-test"), testButton = act("\u53C2\u52A0\u4E91\u540C\u6B65\u7070\u6D4B", async () => {
-      await sync.bindTest(), say("\u5DF2\u7ED1\u5B9A\u4E91\u540C\u6B65\u6D4B\u8BD5\u670D\u52A1\u5668");
+    let server = serverAddress("\u516C\u5171\u670D\u52A1\u5668\u5730\u5740\u6216\u9080\u8BF7\u7801", "https://sync.example.com:8888"), restore = input("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), publicBinding = node("div", "", "sync-stack"), publicConsent = "\u670D\u52A1\u5668\u7BA1\u7406\u5458\u53EF\u89C1\u7528\u6237\u7801\u3001\u6635\u79F0\u548C\u8BB0\u5F55\u7F16\u53F7\u3002\u8D26\u672C\u3001\u6218\u7EE9\u548C\u5907\u4EFD\u5185\u5BB9\u5728\u5DE5\u5177\u7BB1\u52A0\u5BC6\u3002", pendingPublicBinding, publicJoin = node("section", "", "sync-stack sync-public-join"), joinStatus = node("p", "", "muted"), joinHint = node("p", "", "muted");
+    joinStatus.setAttribute("role", "status");
+    let joinPass = input("\u539F\u8BBE\u5907\u7684\u516D\u4F4D\u67E5\u770B\u7801");
+    short(joinPass.control, 6), joinPass.control.setAttribute("autocapitalize", "characters");
+    function clearPublicJoin() {
+      pendingPublicBinding = void 0, joinPass.control.value = "";
+    }
+    function renderPublicJoin() {
+      if (publicJoin.hidden = !pendingPublicBinding, !pendingPublicBinding) return;
+      let { seed, stale, lastSyncAt } = pendingPublicBinding, time = Number.isSafeInteger(lastSyncAt) ? new Date(lastSyncAt).toLocaleString() : "", summary = [
+        time ? "\u4E3B\u5E93\u6700\u8FD1\u540C\u6B65 " + time + "\u3002" : "\u6682\u65E0\u4E3B\u5E93\u6700\u8FD1\u540C\u6B65\u65F6\u95F4\u3002",
+        stale ? "\u6B64\u8D26\u53F7\u7684\u4E91\u7AEF\u5E93\u5747\u5DF2\u8D85\u8FC7 7 \u5929\u672A\u540C\u6B65\u3002" : "\u6709\u4E91\u7AEF\u5E93\u5728 7 \u5929\u5185\u540C\u6B65\u8FC7\u6216\u540C\u6B65\u65F6\u95F4\u5F85\u786E\u8BA4\uFF0C\u5F53\u524D\u65E0\u6CD5\u91CD\u5EFA\u3002"
+      ].join("");
+      joinStatus.textContent !== summary && (joinStatus.textContent = summary), joinHint.hidden = !!seed, joinPass.wrapper.hidden = joinButton.hidden = !seed, rebuildButton.hidden = !stale;
+    }
+    async function finishPublicBinding(work, success) {
+      var _a2;
+      let accountId = sync.status().accountId;
+      try {
+        if (await work(), sync.status().accountId !== accountId) return;
+        clearPublicJoin(), server.control.value = restore.control.value = "", say(success);
+      } catch (error) {
+        let status = sync.status();
+        if (status.accountId !== accountId || status.connected) return;
+        if (error.code !== "public_passcode_required" && error.code !== "public_vault_not_stale") throw error;
+        clearPublicJoin(), pendingPublicBinding = ((_a2 = error.publicBinding) == null ? void 0 : _a2.accountId) === accountId ? error.publicBinding : void 0, renderPublicJoin(), say(error.code === "public_passcode_required" && pendingPublicBinding ? "" : error.message, !0), pendingPublicBinding != null && pendingPublicBinding.seed && !publicPanel.hidden && joinPass.control.focus();
+      }
+    }
+    joinHint.textContent = "\u8BF7\u5728\u539F\u8BBE\u5907\u6253\u5F00\u5DE5\u5177\u7BB1\u5E76\u5B8C\u6210\u4E00\u6B21\u540C\u6B65\uFF0C\u6216\u4F7F\u7528\u4E0B\u65B9\u7684\u5B8C\u6574\u516C\u5171\u6062\u590D\u51ED\u636E\u3002";
+    let joinButton = act("\u9A8C\u8BC1\u516D\u4F4D\u7801\u5E76\u5408\u5E76\u63A5\u5165", () => {
+      if (pendingPublicBinding) return finishPublicBinding(
+        () => sync.joinPublic(pendingPublicBinding, joinPass.control.value),
+        "\u5DF2\u63A5\u5165\u539F\u4E91\u7AEF\u5E93\uFF0C\u6B63\u5728\u51C6\u5907\u5408\u5E76\u672C\u673A\u8BB0\u5F55"
+      );
+    }, !0);
+    joinPass.control.addEventListener("keydown", (event) => {
+      event.key === "Enter" && !event.isComposing && (event.preventDefault(), joinButton.click());
+    });
+    let rebuildButton = act("\u5220\u9664\u65E7\u6570\u636E\u5E76\u91CD\u5EFA", () => {
+      if (!(!(pendingPublicBinding != null && pendingPublicBinding.stale) || !window2.confirm("\u8FD9\u4F1A\u6C38\u4E45\u5220\u9664\u6B64\u8D26\u53F7\u7684\u65E7\u4E91\u7AEF\u5907\u4EFD\uFF0C\u4F7F\u539F\u8BBE\u5907\u7684\u540C\u6B65\u548C\u5206\u4EAB\u51ED\u636E\u5931\u6548\u3002\u672C\u673A\u6570\u636E\u4F1A\u4FDD\u7559\u3002\u786E\u5B9A\u91CD\u5EFA\uFF1F")))
+        return finishPublicBinding(() => sync.replaceStalePublic(pendingPublicBinding), "\u5DF2\u91CD\u5EFA\u516C\u5171\u540C\u6B65\u5E93");
+    });
+    rebuildButton.classList.add("sync-public-rebuild"), publicJoin.append(joinStatus, joinHint, joinPass.wrapper, joinButton, rebuildButton);
+    let testPanel = node("section", "", "sync-stack sync-test"), testButton = act("\u53C2\u52A0\u4E91\u540C\u6B65\u7070\u6D4B", async () => {
+      clearPublicJoin(), renderPublicJoin(), await finishPublicBinding(() => sync.bindTest(), "\u5DF2\u7ED1\u5B9A\u4E91\u540C\u6B65\u6D4B\u8BD5\u670D\u52A1\u5668");
     }, !0);
     testButton.dataset.syncBindTest = "", testPanel.append(node("h3", "\u4E91\u540C\u6B65\u7070\u6D4B"), node("p", TEST_NOTICE, "muted"), testButton), publicBinding.append(
       node("p", publicConsent, "muted"),
       server.wrapper,
-      node("p", "\u9996\u6B21\u7ED1\u5B9A\u8BF7\u586B\u5199\u7BA1\u7406\u5458\u63D0\u4F9B\u7684\u5730\u5740\u6216\u4E00\u6B21\u6027\u9080\u8BF7\u7801\u3002\u5DF2\u767B\u8BB0\u8D26\u53F7\u53EF\u76F4\u63A5\u586B\u5199\u5730\u5740\u7ED1\u5B9A\u65B0\u8BBE\u5907\u3002", "muted"),
+      node("p", "\u9996\u6B21\u7ED1\u5B9A\u8BF7\u586B\u5199\u7BA1\u7406\u5458\u63D0\u4F9B\u7684\u5730\u5740\u6216\u4E00\u6B21\u6027\u9080\u8BF7\u7801\u3002\u5DF2\u6709\u4E91\u7AEF\u5E93\u65F6\uFF0C\u8BF7\u7528\u539F\u8BBE\u5907\u7684\u516D\u4F4D\u67E5\u770B\u7801\u63A5\u5165\u3002", "muted"),
       act("\u540C\u610F\u5E76\u7ED1\u5B9A\u516C\u5171\u670D\u52A1\u5668", async () => {
-        await sync.bindPublic(server.control.value.trim()), server.control.value = "", say("\u516C\u5171\u670D\u52A1\u5668\u7ED1\u5B9A\u6210\u529F");
+        clearPublicJoin(), renderPublicJoin(), await finishPublicBinding(() => sync.bindPublic(server.control.value.trim()), "\u516C\u5171\u670D\u52A1\u5668\u7ED1\u5B9A\u6210\u529F");
       }, !0),
+      publicJoin,
       details(
-        "\u5728\u65B0\u8BBE\u5907\u6062\u590D\u516C\u5171\u8D26\u53F7",
-        node("p", "\u4F7F\u7528\u539F\u8BBE\u5907\u7684\u6062\u590D\u51ED\u636E\u63A5\u7EED\u4E91\u7AEF\u5386\u53F2\u3002\u76F4\u63A5\u7528\u5730\u5740\u7ED1\u5B9A\u4F1A\u521B\u5EFA\u72EC\u7ACB\u5B58\u50A8\u3002", "muted"),
+        "\u4F7F\u7528\u5B8C\u6574\u6062\u590D\u51ED\u636E",
+        node("p", "\u4F7F\u7528\u539F\u8BBE\u5907\u7684\u5B8C\u6574\u6062\u590D\u51ED\u636E\u63A5\u7EED\u4E91\u7AEF\u5386\u53F2\u3002", "muted"),
         restore.wrapper,
-        act("\u6062\u590D\u516C\u5171\u7ED1\u5B9A", async () => {
-          await sync.bindPublic(server.control.value.trim(), restore.control.value), server.control.value = "", restore.control.value = "", say("\u516C\u5171\u7ED1\u5B9A\u5DF2\u6062\u590D");
-        })
+        act("\u6062\u590D\u516C\u5171\u7ED1\u5B9A", () => finishPublicBinding(
+          () => sync.bindPublic(server.control.value.trim(), restore.control.value),
+          "\u516C\u5171\u7ED1\u5B9A\u5DF2\u6062\u590D"
+        ))
       )
     ), publicPanel.append(testPanel, publicBinding), pairing.append(chooser, privatePanel, publicPanel);
     let privateActions = node("div", "", "sync-stack"), publicActions = node("div", "", "sync-stack"), share = readout("\u8D26\u672C\u4E0E\u6218\u7EE9\u67E5\u770B\u94FE\u63A5"), prepared = readout("\u8F6C\u6362\u7528\u7684\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), addressUpdate = input("\u5730\u5740\u66F4\u65B0\u7801", "textarea"), recovery = readout("\u516C\u5171\u6062\u590D\u51ED\u636E", "textarea"), publicShare = readout("\u516C\u5171\u5206\u4EAB\u51ED\u636E", "textarea"), password = readout("\u6211\u7684\u516D\u4F4D\u67E5\u770B\u7801"), publicLink = readout("\u516C\u5171 HTTPS \u5206\u4EAB\u94FE\u63A5", "textarea"), testBoundNotice = node("p", TEST_NOTICE, "notice");
@@ -7740,7 +7882,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
       detach
     ), publicActions.append(
       testBoundNotice,
-      node("p", "\u7BA1\u7406\u5458\u5141\u8BB8\u5206\u4EAB\u65F6\uFF0C\u63A5\u6536\u4EBA\u53EF\u5728\u6D4F\u89C8\u5668\u6253\u5F00 HTTPS \u94FE\u63A5\u5E76\u8F93\u5165\u516D\u4F4D\u67E5\u770B\u7801\u3002\u8BF7\u5206\u5F00\u53D1\u9001\u3002", "muted"),
+      node("p", "\u7BA1\u7406\u5458\u5141\u8BB8\u5206\u4EAB\u65F6\uFF0C\u63A5\u6536\u4EBA\u53EF\u6253\u5F00\u94FE\u63A5\u5E76\u8F93\u5165\u516D\u4F4D\u67E5\u770B\u7801\u3002\u8BE5\u7EC4\u5408\u4E5F\u53EF\u7528\u4E8E\u63A5\u5165\u540C\u6B65\uFF0C\u8BF7\u4EC5\u4EA4\u7ED9\u4FE1\u4EFB\u7684\u4EBA\u3002", "muted"),
       act("\u590D\u5236\u516C\u5171\u5206\u4EAB\u94FE\u63A5", async () => copy2(await sync.viewLink(), publicLink), !0),
       publicLink.wrapper,
       act("\u663E\u793A\u516D\u4F4D\u67E5\u770B\u7801", () => {
@@ -7808,7 +7950,7 @@ select.sgs-select:focus-visible,input.sgs-input:focus-visible{outline:1px solid 
     function refresh() {
       if (disposed) return;
       let status = sync.status(), text3 = status.connected ? status.testing ? "\u5F53\u524D\u8D26\u53F7\u5DF2\u7ED1\u5B9A\u4E91\u540C\u6B65\u6D4B\u8BD5\u670D\u52A1\u5668" : status.public ? "\u5F53\u524D\u8D26\u53F7\u5DF2\u7ED1\u5B9A\u516C\u5171\u670D\u52A1\u5668" : "\u5F53\u524D\u8D26\u53F7\u5DF2\u7ED1\u5B9A\u79C1\u6709\u670D\u52A1\u5668" : status.signedIn ? "\u5F53\u524D\u8D26\u53F7\u5C1A\u672A\u7ED1\u5B9A" : "\u767B\u5F55\u6E38\u620F\u540E\u53EF\u7ED1\u5B9A\u540C\u6B65\u670D\u52A1";
-      state.textContent !== text3 && (state.textContent = text3), pairing.hidden = status.connected, privatePanel.hidden = selectedMode !== "private", privateFields.hidden = !status.signedIn, publicPanel.hidden = selectedMode !== "public", publicBinding.hidden = !status.signedIn, testPanel.hidden = !status.testAvailable, testBoundNotice.hidden = !status.testing, selectedMode === "public" && status.signedIn && !status.connected && !status.testAvailable && checkedTestAccount !== status.accountId && sync.loadTestEligibility && (checkedTestAccount = status.accountId, sync.loadTestEligibility().then(refresh, () => {
+      state.textContent !== text3 && (state.textContent = text3), pairing.hidden = status.connected, privatePanel.hidden = selectedMode !== "private", privateFields.hidden = !status.signedIn, publicPanel.hidden = selectedMode !== "public", publicBinding.hidden = !status.signedIn, (status.connected || (pendingPublicBinding == null ? void 0 : pendingPublicBinding.accountId) !== status.accountId) && clearPublicJoin(), renderPublicJoin(), testPanel.hidden = !status.testAvailable, testBoundNotice.hidden = !status.testing, selectedMode === "public" && status.signedIn && !status.connected && !status.testAvailable && checkedTestAccount !== status.accountId && sync.loadTestEligibility && (checkedTestAccount = status.accountId, sync.loadTestEligibility().then(refresh, () => {
       }));
       let publicSection = status.connected ? publicActions : publicPanel;
       if (viewer.parentElement !== publicSection && publicSection.append(viewer), preferencePanel.hidden = !preferences || !status.connected, preferences) {
@@ -10341,12 +10483,45 @@ ${FEEDBACK_STYLES}
     if (has(value, "toolbox") && (result.toolbox = cleanToolbox(value.toolbox)), has(value, "generalPools") && (result.generalPools = cleanGeneralPools(value.generalPools)), has(value, "friends") && (result.friends = cleanFriends(value.friends)), has(value, "friendLamps") && (result.friendLamps = cleanFriendLamps(value.friendLamps)), has(value, "pluginSettings") && (result.pluginSettings = cleanPluginSettings(value.pluginSettings)), new TextEncoder().encode(JSON.stringify(result)).length > PREFERENCES_LIMIT) throw new Error("\u540C\u6B65\u5907\u4EFD\u8D85\u8FC7 4 MB");
     return result;
   }
-  function mergePreferenceUpload(previous, values, { patch, preservePins } = {}) {
-    let next = { ...previous, ...values };
-    if (!patch) return next;
+  function mergeRows(preferred, other, select) {
+    let rows = { ...preferred };
+    for (let [id, row] of Object.entries(other)) rows[id] = rows[id] ? select(rows[id], row) : row;
+    return rows;
+  }
+  function mergePreferenceCollections(preferred, other) {
+    let next = { ...preferred };
+    if (preferred.generalPools && other.generalPools) {
+      let pools = new Map(preferred.generalPools.map((row) => [row.id, row]));
+      for (let row of other.generalPools) pools.has(row.id) || pools.set(row.id, row);
+      next.generalPools = [...pools.values()].slice(0, 20);
+    }
+    if (preferred.friends && other.friends) {
+      let a = preferred.friends, b = other.friends, changes = new Map([...a.changes, ...b.changes].map((row) => [JSON.stringify([row.id, row.from, row.to, row.at]), row]));
+      next.friends = {
+        version: 1,
+        pins: [.../* @__PURE__ */ new Set([...a.pins, ...b.pins])],
+        friends: mergeRows(a.friends, b.friends, (first, second) => second.seenAt > first.seenAt ? second : first),
+        changes: [...changes.values()].sort((a2, b2) => b2.at - a2.at).slice(0, 200)
+      };
+    }
+    return preferred.friendLamps && other.friendLamps && (next.friendLamps = {
+      version: 1,
+      friends: mergeRows(preferred.friendLamps.friends, other.friendLamps.friends, (first, second) => {
+        let [newer, older] = second.at > first.at ? [second, first] : [first, second];
+        return {
+          ...newer,
+          ids: [.../* @__PURE__ */ new Set([...newer.ids, ...older.ids])].sort((a, b) => a - b),
+          names: { ...older.names, ...newer.names }
+        };
+      })
+    }), next;
+  }
+  function mergePreferenceUpload(previous, values, { patch, preservePins, unionCollections } = {}) {
+    let next = { ...previous, ...unionCollections ? mergePreferenceCollections(values, previous) : values };
+    if (!patch) return unionCollections ? cleanPreferences(next) : next;
     for (let group of ["toolbox", "pluginSettings"])
       values[group] && (next[group] = { ...previous[group], ...values[group] });
-    return preservePins && values.friends && previous.friends && (next.friends = { ...values.friends, pins: previous.friends.pins }), cleanPreferences(next);
+    return !unionCollections && preservePins && values.friends && previous.friends && (next.friends = { ...values.friends, pins: previous.friends.pins }), cleanPreferences(next);
   }
   function vaultRecords({ matches, ledger, preferences }) {
     let { events, ...ledgerDetails } = ledger;
@@ -10384,7 +10559,7 @@ ${FEEDBACK_STYLES}
     return fromBase64url(signer, 65), { origin: publicOrigin(origin), signer, vault, credential, seed, password, gameKey };
   }
   function createPublicTransport(crypto, post) {
-    let states = /* @__PURE__ */ new WeakMap(), authorize = ({ vault, credential }) => ({ vault, credential });
+    let states = /* @__PURE__ */ new WeakMap(), authorize = ({ vault, credential, seed }) => ({ vault, credential, seed });
     async function stateFor(entry) {
       return states.has(entry) || states.set(entry, createVaultCipher(crypto, entry).then((cipher) => ({
         cipher,
@@ -10414,7 +10589,7 @@ ${FEEDBACK_STYLES}
           let next = before, result;
           if (path === PREFERENCES_SYNC_PATH) {
             let known = before.preferences ?? {};
-            data.values && (next = { ...before, preferences: mergePreferenceUpload(known, cleanPreferences(data.values), data) }), result = { values: Object.fromEntries(data.groups.filter((group) => known[group] !== void 0).map((group) => [group, known[group]])) };
+            data.values && (next = { ...before, preferences: mergePreferenceUpload(known, cleanPreferences(data.values), { ...data, unionCollections: !0 }) }), result = { values: Object.fromEntries(data.groups.filter((group) => known[group] !== void 0).map((group) => [group, known[group]])) };
           } else if (path === LEDGER_SYNC_PATH) {
             let { entry: ledger, conflicts } = mergeLedgerUpload(before.ledger, data, Date.now(), () => ledgerVersion(crypto));
             ledger !== before.ledger && (next = { ...before, ledger }), result = { conflicts, ...data.pull && { download: ledgerDownload(ledger, data.pull) } };
@@ -10442,13 +10617,17 @@ ${FEEDBACK_STYLES}
     }
     return {
       exchange,
-      async register(entry, profile, invitation) {
+      async register(entry, profile, invitation, replaceStale) {
         let { cipher } = await stateFor(entry);
         return post(
           entry.origin,
           invitation ? PUBLIC_INVITE_PATH : "/v2/vault/register",
-          { ...authorize(entry), verifier: cipher.verifier, profile, ...invitation && { invitation } }
+          { ...authorize(entry), verifier: cipher.verifier, profile, ...invitation && { invitation }, ...replaceStale && { replaceStale } }
         );
+      },
+      async join(entry, profile) {
+        let { cipher } = await stateFor(entry);
+        return post(entry.origin, "/v2/vault/join", { vault: entry.vault, verifier: cipher.verifier, credential: entry.credential, profile });
       },
       async stage(entry, device, profile) {
         let { cipher } = await stateFor(entry), { snapshot, fingerprint } = await post(entry.origin, "/v2/migrate/read", {}, { device }), records = await Promise.all(vaultRecords(snapshot).map(cipher.seal));
@@ -10525,6 +10704,10 @@ ${FEEDBACK_STYLES}
     view_locked: "\u6B64 IP \u8F93\u9519 50 \u6B21\uFF0C\u67E5\u770B\u5DF2\u9501\u5B9A 30 \u5206\u949F",
     public_preview_disabled: "\u670D\u52A1\u5668\u7BA1\u7406\u5458\u5173\u95ED\u4E86\u516C\u5171\u9884\u89C8",
     public_recovery_required: "\u6B64\u7528\u6237\u7801\u5DF2\u5728\u8BE5\u670D\u52A1\u5668\u7ED1\u5B9A\uFF0C\u8BF7\u7528\u539F\u8BBE\u5907\u7684\u516C\u5171\u6062\u590D\u51ED\u636E\u63A5\u7EED\u540C\u6B65",
+    public_passcode_required: "\u6B64\u8D26\u53F7\u5DF2\u6709\u516C\u5171\u540C\u6B65\u5E93\uFF0C\u8BF7\u8F93\u5165\u539F\u8BBE\u5907\u7684\u516D\u4F4D\u67E5\u770B\u7801",
+    public_vault_not_stale: "\u6B64\u8D26\u53F7\u7684\u4E91\u7AEF\u5E93\u5F53\u524D\u65E0\u6CD5\u91CD\u5EFA\uFF0C\u8BF7\u91CD\u65B0\u68C0\u67E5\u7ED1\u5B9A\u72B6\u6001",
+    invalid_passcode: "\u516D\u4F4D\u67E5\u770B\u7801\u9519\u8BEF\uFF0C\u6216\u4E91\u7AEF\u7ED1\u5B9A\u5DF2\u53D8\u66F4",
+    join_locked: "\u6B64 IP \u5728 30 \u5206\u949F\u5185\u8F93\u9519 20 \u6B21\uFF0C\u8BF7\u5728\u9501\u5B9A\u7ED3\u675F\u540E\u91CD\u8BD5",
     public_invite_required: "\u9996\u6B21\u7ED1\u5B9A\u6B64\u670D\u52A1\u5668\u9700\u8981\u4E00\u6B21\u6027\u9080\u8BF7\u7801\uFF0C\u8BF7\u5411\u7BA1\u7406\u5458\u83B7\u53D6",
     public_invite_unavailable: "\u4E00\u6B21\u6027\u9080\u8BF7\u7801\u65E0\u6548\u6216\u5DF2\u4F7F\u7528\uFF0C\u8BF7\u5411\u7BA1\u7406\u5458\u83B7\u53D6\u65B0\u7801",
     public_invite_disabled: "\u670D\u52A1\u5668\u5DF2\u505C\u7528\u4E00\u6B21\u6027\u9080\u8BF7\u7801\uFF0C\u8BF7\u5411\u7BA1\u7406\u5458\u786E\u8BA4\u7ED1\u5B9A\u65B9\u5F0F",
@@ -10620,7 +10803,10 @@ ${FEEDBACK_STYLES}
           signal: timeout.signal
         }), payload = path === STARGAZING_SYNC_PATH ? await readStargazingJson(response) : await response.json();
         if (response.status === 404 && (path === BACKUP_READ_PATH || path === "/v2/vault/backup")) throw fail("backup_upgrade_required");
-        if (!response.ok) throw fail(payload == null ? void 0 : payload.error);
+        if (!response.ok) {
+          let error = fail(payload == null ? void 0 : payload.error);
+          throw (payload == null ? void 0 : payload.details) !== void 0 && (error.details = payload.details), error;
+        }
         return payload;
       } catch (error) {
         throw error.code ? error : fail("connection_error", insecure.protocol === "http:" ? "\u65E0\u6CD5\u8FDE\u63A5\u79C1\u6709\u540C\u6B65\u670D\u52A1\uFF0C\u8BF7\u68C0\u67E5 HTTP \u5730\u5740\u3001\u7AEF\u53E3\u548C\u5BA2\u6237\u7AEF\u8BBF\u95EE\u6743\u9650" : "\u65E0\u6CD5\u8FDE\u63A5\u540C\u6B65\u670D\u52A1\uFF0C\u8BF7\u68C0\u67E5\u5730\u5740\u3001\u7AEF\u53E3\u548C\u8BC1\u4E66");
@@ -10985,10 +11171,11 @@ ${FEEDBACK_STYLES}
         gameKey
       };
     }
-    async function bindPublic(target, recovery) {
+    async function bindPublic(target, recovery, { conflict, passcode, replaceStale = !1 } = {}) {
       var _a2;
       let id = obtainAccount();
       if (await bindingsReady, bindingIndex.has(id)) throw fail("already_bound", "\u8BF7\u5148\u89E3\u9664\u5F53\u524D\u8D26\u53F7\u7684\u540C\u6B65\u7ED1\u5B9A");
+      if (conflict && conflict.accountId !== id) throw fail("account_mismatch");
       function checkTarget(origin) {
         if (ensureAccount(id), origin === TEST_SYNC_ORIGIN && !(testEligible != null && testEligible(id))) throw fail("test_unavailable", "\u5F53\u524D\u8D26\u53F7\u6682\u65E0\u6CD5\u4F7F\u7528\u4E91\u540C\u6B65\u7070\u6D4B\u3002");
       }
@@ -11000,10 +11187,31 @@ ${FEEDBACK_STYLES}
       } else {
         let { origin: address, invitation } = publicBindingTarget(target);
         checkTarget(address);
-        let pendingId = "public-registration:" + id + ":" + address;
-        entry = ((_a2 = await get2("requests", pendingId)) == null ? void 0 : _a2.entry) ?? await newVault(id, address, ""), await put("requests", { id: pendingId, entry }), checkTarget(address);
-        let { signer } = await publicTransport.register(entry, publicProfile(id), invitation);
-        entry.signer = signer;
+        let pendingId = "public-registration:" + id + ":" + address, pending = (_a2 = await get2("requests", pendingId)) == null ? void 0 : _a2.entry;
+        if (passcode !== void 0) {
+          let password = passcode.trim().toUpperCase();
+          if (!passFormat.test(password)) throw fail("invalid_passcode", "\u8BF7\u8F93\u5165\u6709\u6548\u7684\u516D\u4F4D\u67E5\u770B\u7801");
+          if (!tokenFormat.test((conflict == null ? void 0 : conflict.vault) ?? "") || !tokenFormat.test((conflict == null ? void 0 : conflict.seed) ?? ""))
+            throw fail("public_recovery_required");
+          entry = {
+            id,
+            origin: address,
+            public: !0,
+            device: (pending == null ? void 0 : pending.device) ?? random(),
+            credential: (pending == null ? void 0 : pending.credential) ?? random(),
+            vault: conflict.vault,
+            seed: conflict.seed,
+            password,
+            gameKey: await gameAccountKey(id)
+          }, checkTarget(address), { signer: entry.signer } = await publicTransport.join(entry, publicProfile(id));
+        } else {
+          entry = pending ?? await newVault(id, address, ""), await put("requests", { id: pendingId, entry }), checkTarget(address);
+          try {
+            ({ signer: entry.signer } = await publicTransport.register(entry, publicProfile(id), invitation, replaceStale));
+          } catch (error) {
+            throw (error.code === "public_passcode_required" || error.code === "public_vault_not_stale") && (error.publicBinding = error.details && { ...error.details, accountId: id, origin: address }), error;
+          }
+        }
       }
       let proof = await prove(entry.origin, entry.signer);
       checkTarget(entry.origin), await save({ ...entry, account: entry.vault, revision: proof.revision }), recovery || await del("requests", "public-registration:" + id + ":" + entry.origin);
@@ -11091,6 +11299,8 @@ ${FEEDBACK_STYLES}
       exchange,
       previewLink,
       bindPublic: (target, recovery) => enroll(() => bindPublic(target, recovery)),
+      joinPublic: (conflict, passcode) => enroll(() => bindPublic(conflict.origin, void 0, { conflict, passcode })),
+      replaceStalePublic: (conflict) => enroll(() => bindPublic(conflict.origin, void 0, { conflict, replaceStale: !0 })),
       loadTestEligibility: loadOfficerConfig,
       bindTest: () => enroll(() => bindPublic(TEST_SYNC_ORIGIN)),
       updatePublicProfile: () => enroll(updatePublicProfile),
@@ -11188,7 +11398,17 @@ ${FEEDBACK_STYLES}
         return values;
       }
     }
-    function restore(values, baseline) {
+    function restore(values, baseline, unionCollections) {
+      if (unionCollections) {
+        let local = {};
+        for (let [group, key] of Object.entries(groups2)) {
+          if (values[group] === void 0) continue;
+          baseline.set(key, read6(key));
+          let value = settings.get(key);
+          value !== void 0 && (local[group] = value);
+        }
+        values = cleanPreferences(mergePreferenceCollections(values, cleanPreferences(local)));
+      }
       let writes = Object.entries(values.toolbox ?? {});
       for (let [group, key] of Object.entries(groups2))
         values[group] !== void 0 && writes.push([key, values[group]]);
@@ -11221,14 +11441,14 @@ ${FEEDBACK_STYLES}
       baseline: () => new Map([...keys, ...thresholds().map((id) => LEDGER_THRESHOLD_PREFIX + account + ":" + id)].map((key) => [key, read6(key)]))
     };
   }
-  function preservePending(remote, local, acknowledged) {
+  function preservePending(remote, local, acknowledged, unionCollections) {
     let safe = {};
     for (let [group, value] of Object.entries(remote))
       group === "toolbox" || group === "pluginSettings" ? safe[group] = Object.fromEntries(Object.entries(value).filter(([key]) => {
         var _a2, _b2;
         let previous = ((_a2 = acknowledged[group]) == null ? void 0 : _a2[key]) ?? (group === "toolbox" ? defaults[key] : void 0);
         return JSON.stringify((_b2 = local[group]) == null ? void 0 : _b2[key]) === JSON.stringify(previous);
-      })) : JSON.stringify(local[group]) === JSON.stringify(acknowledged[group]) && (safe[group] = value);
+      })) : (unionCollections || JSON.stringify(local[group]) === JSON.stringify(acknowledged[group])) && (safe[group] = value);
     return safe;
   }
   function createPreferenceSync({ settings, sync, gameAccountKey, scope, cache: cache2, onRestored, onDownloaded, onUpdated = () => {
@@ -11236,10 +11456,11 @@ ${FEEDBACK_STYLES}
     let session, applying = !1, scheduled = !1, now = Date.now;
     function refresh() {
       var _a2;
-      let { accountId, bindingIdentity, connected } = sync.status();
+      let { accountId, bindingIdentity, connected, public: unionCollections } = sync.status();
       return connected && (session == null ? void 0 : session.account) === accountId && session.binding === bindingIdentity || ((_a2 = session == null ? void 0 : session.job) == null || _a2.abort(), session = connected ? {
         account: accountId,
         binding: bindingIdentity,
+        unionCollections,
         cacheKey: sync.cacheKey(accountId),
         storage: preferenceStorage(settings, accountId),
         nextDownload: 0,
@@ -11275,7 +11496,7 @@ ${FEEDBACK_STYLES}
     function applyPreferences(state, values, baseline) {
       applying = !0;
       try {
-        return state.storage.restore(values, baseline);
+        return state.storage.restore(values, baseline, state.unionCollections);
       } finally {
         applying = !1;
       }
@@ -11290,7 +11511,7 @@ ${FEEDBACK_STYLES}
         return state.ready || (state.acknowledged = local), state.ready = !0, state.error = "", (!manual || !state.cursor) && (state.nextDownload = now() + reply2.retryAfter), manual ? "\u6BCF\u5C0F\u65F6\u6700\u591A\u4E0B\u8F7D\u4E00\u6B21\uFF0C\u7EA6 " + Math.ceil(reply2.retryAfter / 6e4) + " \u5206\u949F\u540E\u53EF\u518D\u6B21\u4E0B\u8F7D" : "";
       let { snapshot, cursor } = reply2;
       if (!validHistory(snapshot) || cursor !== void 0 && !validSyncCursor(cursor)) throw new Error("\u4E91\u7AEF\u5907\u4EFD\u683C\u5F0F\u65E0\u6548");
-      let values = cleanPreferences(snapshot.preferences ?? {}), allowed2 = !manual && state.cursor ? preservePending(values, local, state.acknowledged) : values, history = { matches: snapshot.matches, ledger: snapshot.ledger }, changed = applyPreferences(state, allowed2, baseline);
+      let values = cleanPreferences(snapshot.preferences ?? {}), allowed2 = !manual && state.cursor ? preservePending(values, local, state.acknowledged, state.unionCollections) : values, history = { matches: snapshot.matches, ledger: snapshot.ledger }, changed = applyPreferences(state, allowed2, baseline);
       return onRestored(changed), await save(state, history, cursor, values), state.nextDownload = cursor ? now() + INTERVAL : null, onDownloaded(), changed.includes("toolbox") || changed.includes("pluginSettings") ? "\u5DF2\u4E0B\u8F7D\u8BBE\u7F6E\u3001\u6C34\u8868\u3001\u8D26\u672C\u548C\u6218\u7EE9\uFF0C\u5237\u65B0\u6E38\u620F\u540E\u5E94\u7528\u8BBE\u7F6E" : "\u5DF2\u4E0B\u8F7D\u8BBE\u7F6E\u3001\u6C34\u8868\u3001\u8D26\u672C\u548C\u6218\u7EE9";
     }
     async function pull(state, key, signal) {
@@ -11299,7 +11520,7 @@ ${FEEDBACK_STYLES}
         if (ensureCurrent(state), reply2.reset === !0) return fullBackup(state, key, signal, !1);
         let { history, preferences, updated } = applySyncChangePage(state.history, after, reply2);
         if (reply2.records.length) {
-          let values = preservePending(preferences, local, state.acknowledged), acknowledged = { ...state.acknowledged, ...preferences }, changed = applyPreferences(state, values, baseline);
+          let values = preservePending(preferences, local, state.acknowledged, state.unionCollections), acknowledged = { ...state.acknowledged, ...preferences }, changed = applyPreferences(state, values, baseline);
           changed.length && onRestored(changed);
           let accepted = await save(state, history, reply2.cursor, acknowledged);
           if (accepted && updated.length && onUpdated(updated), !accepted)

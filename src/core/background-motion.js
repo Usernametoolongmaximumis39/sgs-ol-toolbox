@@ -204,7 +204,27 @@ export function createBackgroundMotion({ window, layer, spec, size, scope, ready
     video.crossOrigin = 'anonymous'; video.muted = true; video.loop = true; video.playsInline = true; video.preload = 'auto';
     const bitmap = new laya.VideoTexture(); bitmap.video = video;
     const texture = new laya.Texture(bitmap);
+    let useVideoCallback = typeof video.requestVideoFrameCallback === 'function' && typeof video.cancelVideoFrameCallback === 'function';
+    let videoCallback, lastFrame, frameReady = true;
+    function watchVideoFrame() {
+      if (!useVideoCallback || videoCallback !== undefined || scope.closed || !visible || failed) return;
+      try {
+        const callback = video.requestVideoFrameCallback(() => {
+          if (videoCallback !== callback) return;
+          videoCallback = undefined;
+          if (scope.closed || !visible || failed) return;
+          frameReady = true;
+          watchVideoFrame();
+        });
+        videoCallback = callback;
+      } catch { useVideoCallback = false; }
+    }
+    function stopWatchingVideoFrame() {
+      if (videoCallback !== undefined) video.cancelVideoFrameCallback(videoCallback);
+      videoCallback = undefined;
+    }
     scope.add(() => {
+      stopWatchingVideoFrame();
       video.pause(); video.removeAttribute('src'); video.load();
       texture.destroy(); bitmap.destroy();
       // The bundled Laya version does not remove destroyed video textures.
@@ -219,16 +239,23 @@ export function createBackgroundMotion({ window, layer, spec, size, scope, ready
       root.graphics.clear(); root.graphics.drawTexture(texture, 0, 0, size.width, size.height);
       complete(); result.show(visible);
     });
-    players.push({ pause() { bitmap.videoPause(); }, resume() {
+    players.push({ pause() { stopWatchingVideoFrame(); bitmap.videoPause(); }, resume() {
+      frameReady = true;
+      watchVideoFrame();
       bitmap._needUpdate = true;
       const attempt = video.play(); attempt?.catch(error);
     } });
     // This client's bundled Laya exposes VideoTexture, but its renderer never
-    // invokes the static update pool. Update only our playing texture.
+    // invokes the static update pool. Keep uploads on the Laya frame loop and
+    // coalesce multiple decoded frames into the next draw when Laya is slower.
     const frame = () => {
-      if (!scope.closed && visible && loaded && !failed && video.readyState >= 2) {
-        try { bitmap._updateVideoData(); root.repaint(); } catch (e) { error(e); }
-      }
+      if (scope.closed || !visible || !loaded || failed || video.readyState < 2) return;
+      const totalFrames = useVideoCallback ? undefined : video.getVideoPlaybackQuality?.()?.totalVideoFrames;
+      const nextFrame = useVideoCallback || Number.isFinite(totalFrames) ? totalFrames : video.currentTime;
+      if (!frameReady && nextFrame === lastFrame) return;
+      frameReady = false;
+      lastFrame = nextFrame;
+      try { bitmap._updateVideoData(); root.repaint(); } catch (e) { error(e); }
     };
     laya.timer.frameLoop(1, root, frame); scope.add(() => laya.timer.clear(root, frame));
     video.src = spec.url; video.load();

@@ -44,6 +44,12 @@ export function mountSyncSettings(document, window, sync, preferences, { initial
     .sync-download svg{width:16px;height:16px;flex:none;margin:0}
     .sync-private-setup{gap:7px;padding:9px 10px;border:1px solid var(--sgs-border);border-radius:8px;background:var(--sgs-surface)}
     .sync-private-setup .sync-actions{min-width:0}
+    .sync-public-join{gap:7px;padding:8px 10px;border-left:2px solid var(--sgs-accent);background:var(--sgs-surface);border-radius:6px}
+    .sync-settings .sync-public-rebuild{color:var(--sgs-danger,#f28b82);overflow-wrap:anywhere}
+    @media (prefers-reduced-motion:no-preference){
+      .sync-public-join:not([hidden]){animation:sync-public-join-in .15s ease-out}
+      @keyframes sync-public-join-in{from{opacity:0;transform:translateY(-3px)}}
+    }
     .sync-test{gap:6px;padding:8px 10px;border-left:2px solid var(--sgs-accent);background:var(--sgs-surface);border-radius:6px}
     .sync-settings .sync-copy-link{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;white-space:nowrap}
     .sync-copy-link svg{width:14px;height:14px;flex:none}
@@ -233,27 +239,85 @@ export function mountSyncSettings(document, window, sync, preferences, { initial
   const server = serverAddress('公共服务器地址或邀请码', 'https://sync.example.com:8888'), restore = input('公共恢复凭据', 'textarea');
   const publicBinding = node('div', '', 'sync-stack');
   const publicConsent = '服务器管理员可见用户码、昵称和记录编号。账本、战绩和备份内容在工具箱加密。';
+  let pendingPublicBinding;
+  const publicJoin = node('section', '', 'sync-stack sync-public-join');
+  const joinStatus = node('p', '', 'muted'), joinHint = node('p', '', 'muted');
+  joinStatus.setAttribute('role', 'status');
+  const joinPass = input('原设备的六位查看码');
+  short(joinPass.control, 6);
+  joinPass.control.setAttribute('autocapitalize', 'characters');
+  function clearPublicJoin() {
+    pendingPublicBinding = undefined;
+    joinPass.control.value = '';
+  }
+  function renderPublicJoin() {
+    publicJoin.hidden = !pendingPublicBinding;
+    if (!pendingPublicBinding) return;
+    const { seed, stale, lastSyncAt } = pendingPublicBinding;
+    const time = Number.isSafeInteger(lastSyncAt) ? new Date(lastSyncAt).toLocaleString() : '';
+    const summary = [
+      time ? '主库最近同步 ' + time + '。' : '暂无主库最近同步时间。',
+      stale ? '此账号的云端库均已超过 7 天未同步。' : '有云端库在 7 天内同步过或同步时间待确认，当前无法重建。',
+    ].join('');
+    if (joinStatus.textContent !== summary) joinStatus.textContent = summary;
+    joinHint.hidden = Boolean(seed);
+    joinPass.wrapper.hidden = joinButton.hidden = !seed;
+    rebuildButton.hidden = !stale;
+  }
+  async function finishPublicBinding(work, success) {
+    const accountId = sync.status().accountId;
+    try {
+      await work();
+      if (sync.status().accountId !== accountId) return;
+      clearPublicJoin();
+      server.control.value = restore.control.value = '';
+      say(success);
+    } catch (error) {
+      const status = sync.status();
+      if (status.accountId !== accountId || status.connected) return;
+      if (error.code !== 'public_passcode_required' && error.code !== 'public_vault_not_stale') throw error;
+      clearPublicJoin();
+      pendingPublicBinding = error.publicBinding?.accountId === accountId ? error.publicBinding : undefined;
+      renderPublicJoin();
+      say(error.code === 'public_passcode_required' && pendingPublicBinding ? '' : error.message, true);
+      if (pendingPublicBinding?.seed && !publicPanel.hidden) joinPass.control.focus();
+    }
+  }
+  joinHint.textContent = '请在原设备打开工具箱并完成一次同步，或使用下方的完整公共恢复凭据。';
+  const joinButton = act('验证六位码并合并接入', () => {
+    if (pendingPublicBinding) return finishPublicBinding(
+      () => sync.joinPublic(pendingPublicBinding, joinPass.control.value), '已接入原云端库，正在准备合并本机记录');
+  }, true);
+  joinPass.control.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.isComposing) {
+      event.preventDefault();
+      joinButton.click();
+    }
+  });
+  const rebuildButton = act('删除旧数据并重建', () => {
+    if (!pendingPublicBinding?.stale || !window.confirm('这会永久删除此账号的旧云端备份，使原设备的同步和分享凭据失效。本机数据会保留。确定重建？')) return;
+    return finishPublicBinding(() => sync.replaceStalePublic(pendingPublicBinding), '已重建公共同步库');
+  });
+  rebuildButton.classList.add('sync-public-rebuild');
+  publicJoin.append(joinStatus, joinHint, joinPass.wrapper, joinButton, rebuildButton);
   const testPanel = node('section', '', 'sync-stack sync-test');
   const testButton = act('参加云同步灰测', async () => {
-    await sync.bindTest();
-    say('已绑定云同步测试服务器');
+    clearPublicJoin();
+    renderPublicJoin();
+    await finishPublicBinding(() => sync.bindTest(), '已绑定云同步测试服务器');
   }, true);
   testButton.dataset.syncBindTest = '';
   testPanel.append(node('h3', '云同步灰测'), node('p', TEST_NOTICE, 'muted'), testButton);
   publicBinding.append(node('p', publicConsent, 'muted'),
-    server.wrapper, node('p', '首次绑定请填写管理员提供的地址或一次性邀请码。已登记账号可直接填写地址绑定新设备。', 'muted'),
+    server.wrapper, node('p', '首次绑定请填写管理员提供的地址或一次性邀请码。已有云端库时，请用原设备的六位查看码接入。', 'muted'),
     act('同意并绑定公共服务器', async () => {
-      await sync.bindPublic(server.control.value.trim());
-      server.control.value = '';
-      say('公共服务器绑定成功');
-    }, true), details('在新设备恢复公共账号',
-      node('p', '使用原设备的恢复凭据接续云端历史。直接用地址绑定会创建独立存储。', 'muted'), restore.wrapper,
-      act('恢复公共绑定', async () => {
-        await sync.bindPublic(server.control.value.trim(), restore.control.value);
-        server.control.value = '';
-        restore.control.value = '';
-        say('公共绑定已恢复');
-      })));
+      clearPublicJoin();
+      renderPublicJoin();
+      await finishPublicBinding(() => sync.bindPublic(server.control.value.trim()), '公共服务器绑定成功');
+    }, true), publicJoin, details('使用完整恢复凭据',
+      node('p', '使用原设备的完整恢复凭据接续云端历史。', 'muted'), restore.wrapper,
+      act('恢复公共绑定', () => finishPublicBinding(
+        () => sync.bindPublic(server.control.value.trim(), restore.control.value), '公共绑定已恢复'))));
   publicPanel.append(testPanel, publicBinding);
   pairing.append(chooser, privatePanel, publicPanel);
 
@@ -287,7 +351,7 @@ export function mountSyncSettings(document, window, sync, preferences, { initial
     details('服务器地址变更', addressUpdate.wrapper, act('验证并更新地址', async () => {
       await sync.update(addressUpdate.control.value); addressUpdate.control.value = ''; say('同步地址已更新');
     })), details('使用主账号凭据重新绑定', rebind.form), publicMigration, detach);
-  publicActions.append(testBoundNotice, node('p', '管理员允许分享时，接收人可在浏览器打开 HTTPS 链接并输入六位查看码。请分开发送。', 'muted'),
+  publicActions.append(testBoundNotice, node('p', '管理员允许分享时，接收人可打开链接并输入六位查看码。该组合也可用于接入同步，请仅交给信任的人。', 'muted'),
     act('复制公共分享链接', async () => copy(await sync.viewLink(), publicLink), true), publicLink.wrapper,
     act('显示六位查看码', () => { password.wrapper.hidden = !password.wrapper.hidden; }), password.wrapper,
     details('其他公共凭据',
@@ -367,6 +431,8 @@ export function mountSyncSettings(document, window, sync, preferences, { initial
     privateFields.hidden = !status.signedIn;
     publicPanel.hidden = selectedMode !== 'public';
     publicBinding.hidden = !status.signedIn;
+    if (status.connected || pendingPublicBinding?.accountId !== status.accountId) clearPublicJoin();
+    renderPublicJoin();
     testPanel.hidden = !status.testAvailable;
     testBoundNotice.hidden = !status.testing;
     if (selectedMode === 'public' && status.signedIn && !status.connected && !status.testAvailable &&

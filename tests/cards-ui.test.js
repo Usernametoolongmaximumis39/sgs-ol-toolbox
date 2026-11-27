@@ -292,6 +292,9 @@ test('selection windows get native countdown text and clear it on hide or disabl
   try {
     const layer = new env.window.Laya.Sprite(); layer.layerOrder = 4;
     const popup = new env.window.Laya.Sprite(), timer = new env.window.Laya.Sprite();
+    const otherLayer = new env.window.Laya.Sprite();
+    Object.defineProperty(otherLayer, 'countdownTimer', { get() { assert.fail('must only inspect the native window layer'); } });
+    env.window.Laya.stage.addChild(otherLayer);
     env.window.Laya.stage.addChild(layer); layer.addChild(popup); popup.addChild(timer);
     popup.countdownTimer = timer; timer.RemainValue = 5.8; timer.countTween = {}; timer.size(230,12);
     env.activate();
@@ -742,8 +745,47 @@ test('deduplicated panel keeps eligible inference but does not repeat confirmed 
     const section = [...env.document.querySelectorAll('main .sgs-card-section')].find(node => node.querySelector('h3').textContent === '手牌推断');
     assert.equal(section.hidden, false);
     assert.deepEqual([...section.querySelectorAll('.sgs-card-mini')].map(card => Number(card.dataset.cardId)), [5, 6]);
+    const expansion = section.querySelector('details');
+    const firstCard = section.querySelector('.sgs-card-mini');
+    expansion.open = true;
+    env.send('PubGsCUseCard', { SeatID: 3, CardID: 0 });
+    assert.equal(section.querySelector('details'), expansion);
+    assert.equal(section.querySelector('.sgs-card-mini'), firstCard);
+    assert.equal(expansion.open, true);
     env.send('toolbox:snapshot', { seats: [{ seatId: 2, handCount: 3, knownHandCardIds: [2, 4] }] });
     assert.equal(section.hidden, true, 'new hidden teammate card disables inference');
+  } finally { env.close(); }
+});
+
+test('only a possible single-rider scene checks for the native shop', () => {
+  const env = setup();
+  try {
+    let checked = 0;
+    const getClass = env.game.getClass;
+    class RogueLike1v1GameShopWindow extends env.window.Laya.Sprite {}
+    env.game.getClass = name => {
+      if (name !== 'RogueLike1v1GameShopWindow') return getClass(name);
+      checked++;
+      return RogueLike1v1GameShopWindow;
+    };
+    env.settings.set('queryExpanded', true);
+    env.activate();
+    const hud = env.overlay.querySelector('.sgs-card-hud');
+    const query = env.document.querySelector('.sgs-card-query-section');
+    assert.equal(checked, 0);
+    assert.equal(hud.hidden, false);
+    assert.ok(query.querySelector('.sgs-card-mini'));
+    const shop = new RogueLike1v1GameShopWindow();
+    env.window.Laya.stage.addChild(shop);
+    env.changeScene({ ...env.game.getScene(), SceneName: 'RogueLike1v1GameScene', ModeID: 44 });
+    env.send('MsgGameTurnNtf', { SeatID: 1 });
+    assert.equal(checked, 1, 'the HUD, hints and query share the shop check');
+    assert.equal(hud.hidden, true);
+    assert.equal(query.querySelector('.sgs-card-mini'), null);
+    shop.visible = false;
+    env.send('MsgGameTurnNtf', { SeatID: 0 });
+    assert.equal(hud.hidden, false);
+    assert.ok(query.querySelector('.sgs-card-mini'));
   } finally { env.close(); }
 });
 

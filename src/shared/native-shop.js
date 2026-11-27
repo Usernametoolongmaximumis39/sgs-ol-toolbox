@@ -1,5 +1,11 @@
+import { SHANHE_BATTLE_SCENE } from './shanhe-scenes.js';
+
 // Inspect attached display objects only; never instantiate a game window.
-export function singleRiderShopVisible(window, game) {
+export function singleRiderShopVisible(window, game, scene, modeId) {
+  const sceneName = scene?.SceneName || scene?.sceneName || scene?.name;
+  const nativeModeId = scene?.ModeID ?? scene?.modeId;
+  if (Number(nativeModeId) !== 44 && Number(modeId) !== 44 &&
+    (sceneName === 'GameScene' || sceneName === SHANHE_BATTLE_SCENE)) return false;
   const stage = (window.Laya ?? window.laya)?.stage;
   let Type;
   try { Type = game?.getClass?.('RogueLike1v1GameShopWindow'); } catch {}

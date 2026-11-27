@@ -445,8 +445,8 @@ export function activate(ctx) {
   ctx.scope.add(() => { offManager?.(); offScene?.(); cancelPending(); listeners.clear(); });
   return () => { offPanel(); labels.clear(); };
 }
-export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.56', apiVersion: 1, contractVersion: 1, journalEvents: TACTIC_JOURNAL_EVENTS,
-    releaseNotes: "原山河图拓展功能并入山河图，可在「拓展」查看结局条件和战绩分预估，不再需要单独安装。优化密集地图的标注和节点详情布局；实际战绩分以游戏结算为准。", minCoreVersion: '0.6.121', categories: ['game'], icon: SHANHETU_ICON, priority: 11000,
+export default { manifest: { id: 'shanhetu', name: '山河图', version: '0.2.57', apiVersion: 1, contractVersion: 1, journalEvents: TACTIC_JOURNAL_EVENTS,
+    releaseNotes: "减少密集地图重新排布标注时的卡顿；刷新节点详情时尽量保留正在查看的页。", minCoreVersion: '0.6.121', categories: ['game'], icon: SHANHETU_ICON, priority: 11000,
     description: '敌军奇遇预览、战法流派与结局算分' }, initialState, reduce, activate };
 
 

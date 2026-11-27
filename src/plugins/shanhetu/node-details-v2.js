@@ -107,9 +107,12 @@ export function createNodeDetails(ctx, theme, cardView) {
     body.setAttribute('role', 'region'); body.setAttribute('aria-label', '节点内容');
     body.append(summary, spacer); panel.append(body);
     const count = create('span');
+    const savedPage = () => Math.min(remembered.get(id) || 0, pages.length - 1);
     const view = { panel, placement, rect, toClient, card: null, spec: null,
+      syncPage() { const saved = savedPage(); if (saved !== page) show(saved - page); },
+      remember() { remembered.set(id, page); },
       destroy() { views.delete(view); if (view.card && !view.card.destroyed) view.card.destroy(true); panel.remove(); } };
-    let page = Math.min(remembered.get(id) || 0, pages.length - 1);
+    let page = savedPage();
     function show(offset) {
       const next = (page + offset + pages.length) % pages.length, spec = pages[next];
       const card = cardView.build(spec, { h: placement.h, footer, mode });
@@ -120,7 +123,7 @@ export function createNodeDetails(ctx, theme, cardView) {
       } catch (error) { card.destroy(true); throw error; }
       if (view.card && !view.card.destroyed) view.card.destroy(true);
       view.card = card; view.spec = spec; view.iconOffset = null; page = next;
-      remembered.set(id, page);
+      if (views.has(view)) view.remember();
       const { bodyY, bodyHeight, range } = card._shanheDetail;
       body.style.top = bodyY + 'px'; body.style.height = bodyHeight + 'px';
       spacer.style.height = bodyHeight + range + 'px'; body.scrollTop = 0;
@@ -145,7 +148,6 @@ export function createNodeDetails(ctx, theme, cardView) {
       panel.append(nav);
     }
     show(0);
-    views.add(view);
     return view;
   }
   function iconAt(x, y) {
@@ -186,27 +188,29 @@ export function createNodeDetails(ctx, theme, cardView) {
       for (const element of controls) element.style.visibility = '';
     };
   }
-  function paint(rows, viewport, clientViewport, occupied, drawing, toClient) {
-    clear();
+  function* prepare(rows, viewport, clientViewport, occupied, drawing, toClient) {
     const ids = new Set(rows.map(({ node }) => String(node.id)));
-    for (const id of remembered.keys()) if (!ids.has(id)) remembered.delete(id);
-    if (!rows.length || !clientViewport || !doc?.body) return [];
-    host = create('div'); host.dataset.sgsShanheNodeDetails = '';
-    const shadow = host.attachShadow({ mode: 'open' });
+    const clearPrevious = () => {
+      clear();
+      for (const id of remembered.keys()) if (!ids.has(id)) remembered.delete(id);
+    };
+    if (!rows.length || !clientViewport || !doc?.body) return () => { clearPrevious(); return []; };
+    const nextHost = create('div'); nextHost.dataset.sgsShanheNodeDetails = '';
+    const shadow = nextHost.attachShadow({ mode: 'open' });
     shadow.append(create('style', css));
-    for (const key of ['surface', 'raised', 'text', 'muted', 'accent', 'border']) host.style.setProperty('--sh-' + key, theme.palette[key]);
+    for (const key of ['surface', 'raised', 'text', 'muted', 'accent', 'border']) nextHost.style.setProperty('--sh-' + key, theme.palette[key]);
     for (const event of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'wheel', 'touchstart', 'touchmove', 'keydown', 'keyup']) {
       shadow.addEventListener(event, e => e.stopPropagation(), { passive: true });
     }
     shadow.addEventListener('keydown', event => { if (event.key === 'Escape') close(true); });
-    releaseOutside = ctx.scope.listen(doc, 'pointerdown', event => { if (!event.composedPath().includes(host)) close(); }, { capture: true, passive: true });
-    doc.body.append(host);
-    const result = [], markers = [];
+    const result = [], markers = [], preparedViews = [];
     for (const row of rows) {
       const { node, anchor, mapAnchor, placement, rect } = row;
       if (rect) {
         const view = createPanel(row, measure(row, placement.w), placement, rect, drawing, toClient);
+        preparedViews.push(view);
         shadow.append(view.panel); result.push({ id: node.id, mode: 'carousel', rect });
+        yield;
         continue;
       }
       const area = markerRect(anchor, clientViewport, occupied, markers);
@@ -225,6 +229,7 @@ export function createNodeDetails(ctx, theme, cardView) {
         const placement = popupRect(mapAnchor, viewport, w, h), rect = toClient(placement);
         if (!rect) return;
         const view = createPanel(row, layout, placement, rect, drawing, toClient, () => close(true));
+        views.add(view); view.remember();
         popup = { marker, view, restore: coverCards(view, drawing, shadow) };
         shadow.append(view.panel);
         marker.setAttribute('aria-expanded', 'true'); view.panel.querySelector('.close').focus({ preventScroll: true });
@@ -232,9 +237,17 @@ export function createNodeDetails(ctx, theme, cardView) {
       marker.dataset.nodeId = String(node.id); marker.setAttribute('aria-expanded', 'false');
       position(marker, area); shadow.append(marker);
       result.push({ id: node.id, mode: 'marker', rect: area });
+      yield;
     }
-    return result;
+    return () => {
+      clearPrevious();
+      for (const view of preparedViews) { view.syncPage(); views.add(view); view.remember(); }
+      host = nextHost;
+      releaseOutside = ctx.scope.listen(doc, 'pointerdown', event => { if (!event.composedPath().includes(nextHost)) close(); }, { capture: true, passive: true });
+      doc.body.append(nextHost);
+      return result;
+    };
   }
-  return { measure, paint, iconAt, clear, ownsClick: event => !!host && event.composedPath().includes(host),
+  return { measure, prepare, iconAt, clear, ownsClick: event => !!host && event.composedPath().includes(host),
     reset() { clear(); remembered.clear(); } };
 }

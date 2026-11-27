@@ -25,7 +25,7 @@ const checks = [], errors = [];
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 
-async function setup(options, jizhou = false) {
+async function setup(options, jizhou = false, classic = false) {
   const context = await browser.newContext(options);
   await context.routeWebSocket('**/*', socket => socket.close());
   const page = await context.newPage();
@@ -33,7 +33,7 @@ async function setup(options, jizhou = false) {
   await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><body style="margin:0;background:#101918"><div data-sgs-toolbox="core"></div><aside id="assist-options" style="position:fixed;top:0;left:0;z-index:100;width:248px;background:#201e1a" hidden></aside></body>');
   await page.addScriptTag({ path: laya });
   await page.addScriptTag({ content: bundle });
-  await page.evaluate(({ nativeMethod, jizhou }) => {
+  await page.evaluate(({ nativeMethod, jizhou, classic }) => {
     Laya.init(1320, 760);
     const stage = Laya.stage;
     stage.scaleMode = Laya.Stage.SCALE_SHOWALL;
@@ -56,7 +56,8 @@ async function setup(options, jizhou = false) {
     }
     const layer = sprite(stage, 'BackgroundLayer', 0, 0, 1320, 760); layer.layerOrder = 1;
     const map = sprite(layer, 'PeiXiuMapBackground', 0, 0, 1320, 760);
-    map.getTableViewportWidth = () => jizhou ? 1220 : 1320;
+    const tableWidth = classic ? 1080 : jizhou ? 1220 : 1320;
+    map.getTableViewportWidth = () => tableWidth;
     map.scrollEffect = jizhou ? sprite(map, 'scrollEffect', 18, 70, 1180, 556, '#8c7355')
       : sprite(map, 'scrollEffect', 246, 156, 828, 384, '#8c7355');
     map.panel = jizhou ? sprite(map, 'panel', 44, 154, 1090, 450, '#b69d73')
@@ -105,27 +106,34 @@ async function setup(options, jizhou = false) {
     const self = sprite(scene, 'self', 0, 0, 1320, 760);
     scene.SelfSeatUi = self;
     self.seat = { IsSelf: true, IsDead: false, InOwnRound2: true, HasSkill: id => id === 4021 };
-    const bar = sprite(self, 'buttonBar', 0, 0, 1320, 760);
-    const ok = sprite(bar, 'btnOK', 594, jizhou ? 591 : 551, 80, 43, '#267065');
-    const cancel = sprite(bar, 'btnCancel', 708, ok.y, 80, 43, '#354340');
+    const bar = classic ? sprite(self, 'buttonBar', 75, 530, tableWidth - 150, 80)
+      : sprite(self, 'buttonBar', 0, 0, 1320, 760);
+    if (classic) bar.SetActualSize = () => {};
+    const okX = classic ? bar.width / 2 - 40 : 594;
+    const okY = classic ? 40 : jizhou ? 591 : 551;
+    const ok = sprite(bar, 'btnOK', okX, okY, 80, 43, '#267065');
+    const cancel = sprite(bar, 'btnCancel', ok.x + 114, ok.y, 80, 43, '#354340');
     text(ok, '确定', 20, 8, 20, '#fff3cb'); text(cancel, '取消', 20, 8, 20, '#fff3cb');
-    bar.txtOptMsg = sprite(bar, 'action-prompt', 467, jizhou ? 540 : 496, 310, 24);
+    bar.txtOptMsg = sprite(bar, 'action-prompt', classic ? 392 : 467, classic ? -12 : jizhou ? 540 : 496, 310, 24);
     text(bar.txtOptMsg, '出牌阶段，请选择一张卡牌', 0, 1, 20, '#fff3cb');
-    self.countdownTimer = sprite(self, 'countdown', 416, jizhou ? 575 : 532, 390, 9, '#9f352b');
+    self.countdownTimer = classic ? sprite(self, 'countdown', 345, 550, 390, 12, '#9f352b')
+      : sprite(self, 'countdown', 416, jizhou ? 575 : 532, 390, 9, '#9f352b');
     let confirms = 0;
     ok.on('click', ok, () => confirms++);
     bar.btns = [ok, cancel].map(node => ({
       name: node.name, width: node.width, height: node.height, x: node.x, y: node.y, visible: true,
     }));
     self.getButtonBar = () => bar;
-    const hand = sprite(self, 'cardContainer', 0, 620, 1320, 140);
+    const hand = sprite(self, 'cardContainer', 0, classic ? 591 : 620, 1320, classic ? 169 : 140);
+    hand.NORMAL_Y = classic ? 32 : 19;
+    hand.SELECTED_Y = classic ? 15 : 10;
     hand.mouseThrough = true;
     self.cardContainer = hand;
     hand.cardUis = []; hand.equipCardUis = []; hand.textureList = [];
     hand.areChoosingCard = true; hand.selectCardContext = { Skill: { SkillId: 4023 } };
     hand.getTextureByPosition = new Function('Laya', 'return ({' + nativeMethod + '}).getTextureByPosition')(Laya);
     // The classic flat renderer resolves overlapping cards in reverse texture order on click.
-    hand.graphics.drawRect(0, 0, 1320, 140, '#1c2a27');
+    hand.graphics.drawRect(0, 0, hand.width, hand.height, '#1c2a27');
     hand.mouseThrough = false;
     hand.on('click', hand, event => hand.getTextureByPosition(event.stageX, event.stageY)?.ui.CardUI_Click(null));
     function addCard(id, suit, name, x, y, equip = false) {
@@ -139,7 +147,7 @@ async function setup(options, jizhou = false) {
         CardUI_Click() {
           this.clicks++;
           this.Card.Selected = !this.Card.Selected;
-          visual.y = y - Number(this.Card.Selected) * 9;
+          visual.y = y - Number(this.Card.Selected) * (hand.NORMAL_Y - hand.SELECTED_Y);
         },
       };
       const face = { ui, mouseEnabled: true, renderVisible: true, render: hand, renderX: x,
@@ -149,12 +157,12 @@ async function setup(options, jizhou = false) {
       (equip ? hand.equipCardUis : hand.cardUis).push(ui);
       return ui;
     }
-    addCard(10, 1, '杀', 316, 19);
-    addCard(11, 1, '桃', 379, 19);
-    addCard(12, 1, '闪', 442, 19);
-    addCard(13, 3, '过拆', 505, 19);
-    addCard(14, 4, '杀', 568, 19);
-    addCard(15, 2, '酒', 631, 19);
+    addCard(10, 1, '杀', 316, hand.NORMAL_Y);
+    addCard(11, 1, '桃', 379, hand.NORMAL_Y);
+    addCard(12, 1, '闪', 442, hand.NORMAL_Y);
+    addCard(13, 3, '过拆', 505, hand.NORMAL_Y);
+    addCard(14, 4, '杀', 568, hand.NORMAL_Y);
+    addCard(15, 2, '酒', 631, hand.NORMAL_Y);
     addCard(20, 1, '赤兔', 135, 45, true);
     addCard(21, 2, '方天', 135, 77, true);
     let currentScene = scene, replay = false;
@@ -211,7 +219,7 @@ async function setup(options, jizhou = false) {
         };
       },
     };
-  }, { nativeMethod: nativeHitTest, jizhou });
+  }, { nativeMethod: nativeHitTest, jizhou, classic });
   await page.locator('.routes').waitFor();
   await page.locator('.suits').waitFor();
   return { page, context };
@@ -249,7 +257,9 @@ async function layout(page) {
   assert.ok(obstacles.every(box => !intersects(suits, box)), 'suit buttons clear native portraits, cards and controls');
   assert.ok(!intersects(routes, confirm), 'routes are outside the native confirm button');
   assert.ok(suits.x + suits.width < confirm.left, 'suit buttons are to the left of the native confirm button');
-  assert.ok(suits.y >= table.top + (table.bottom - table.top) * .65, 'suit buttons stay near the hand area');
+  assert.ok(suits.y >= table.top && suits.x >= table.left
+    && suits.x + suits.width <= table.right && suits.y + suits.height <= table.bottom,
+  'suit buttons stay inside the visible table');
   assert.ok(!intersects(routes, { left: suits.x, top: suits.y, right: suits.x + suits.width, bottom: suits.y + suits.height }));
   assert.ok(await page.locator('.suits').evaluate(group => [...group.querySelectorAll('button')].every(button => {
     const { x, y, width, height } = button.getBoundingClientRect();
@@ -334,6 +344,19 @@ try {
 
   await page.evaluate(() => fixture.updateMap(12, [12]));
   await page.waitForFunction(value => document.querySelector('[data-sgs-peixiu]').shadowRoot.querySelector('.routes').innerText !== value, before);
+  await page.evaluate(() => fixture.updateMap(7, [4, 12, 20]));
+  await page.locator('.routes li[aria-label="黑桃"]').waitFor();
+  assert.equal(await page.locator('.routes li').count(), 1);
+  assert.ok((await page.locator('.routes').boundingBox()).width < 90);
+  await page.evaluate(() => {
+    fixture.updateMap(7, [4, 12, 20]);
+    fixture.map.mapState.mapConfig = {
+      ...fixture.map.mapState.mapConfig, Cells: [7, 8, 25], RewardCells: [{ CellID: 8 }, { CellID: 25 }],
+    };
+  });
+  await page.locator('.routes').waitFor({ state: 'hidden' });
+  await page.evaluate(() => fixture.updateMap(13, []));
+  await page.locator('.routes').waitFor();
   await page.evaluate(() => { fixture.map.isScrollDisappearPlaying = true; });
   await page.locator('.routes').waitFor({ state: 'hidden' });
   assert.deepEqual(await page.locator('.suits').boundingBox(), fixedSuits);
@@ -366,11 +389,25 @@ try {
   checks.push('移除换出的装备锁，其他选牌、回放、离桌和停用时收起相应界面');
   await desktop.context.close();
 
+  const classic = await setup({ viewport: { width: 1320, height: 760 } }, false, true);
+  const classicRow = (await layout(classic.page)).suits;
+  const classicAnchors = await classic.page.evaluate(() => ({
+    hand: fixture.bounds(fixture.hand), confirm: fixture.bounds(fixture.ok), countdown: fixture.bounds(fixture.self.countdownTimer),
+  }));
+  assert.ok(classicRow.y < classicAnchors.hand.top && classicRow.y + classicRow.height > classicAnchors.hand.top);
+  assert.ok(Math.abs(classicRow.y + classicRow.height / 2 - (classicAnchors.confirm.top + classicAnchors.confirm.bottom) / 2) <= .5);
+  assert.ok(!intersects(classicRow, classicAnchors.countdown));
+  await classic.page.evaluate(() => {
+    fixture.bar.pos(68, -35);
+    fixture.hand.cardUis[0].CardUI_Click();
+  });
+  await classic.page.locator('button[data-suit="1"][aria-pressed="mixed"]').waitFor();
+  assert.deepEqual(await classic.page.locator('.suits').boundingBox(), classicRow);
+  await classic.context.close();
+  checks.push('经典版带聊天栏的采风按钮与原生确定同排，可使用手牌容器顶部留白，操作栏平移和手牌上浮时坐标一致');
+
   const reference = await setup({ viewport: { width: 2041, height: 1212 } });
-  const referenceSuits = (await layout(reference.page)).suits;
-  assert.ok(referenceSuits.x >= 410 && referenceSuits.x + referenceSuits.width <= 633
-    && referenceSuits.y >= 900 && referenceSuits.y + referenceSuits.height <= 973,
-  'the suit row fits the open space to the left of confirm and above the hand in the supplied practice screenshot');
+  await layout(reference.page);
   await reference.context.close();
 
   const practice = await setup({ viewport: { width: 1850, height: 1207 } }, true);
@@ -436,11 +473,28 @@ try {
   for (const [width, height, name, jizhou] of [[390, 844, 'mobile-portrait', false], [1180, 820, 'tablet-landscape', false],
     [768, 1024, 'tablet-portrait', true], [540, 820, 'tablet-split', true]]) {
     const sized = await setup({ viewport: { width, height }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 }, jizhou);
+    const fixed = (await layout(sized.page)).suits;
     for (const offset of [-2, -1, 0, 2]) {
       await setFont(sized.page, offset);
-      await layout(sized.page);
+      assert.deepEqual((await layout(sized.page)).suits, fixed);
       if (offset === 0) await take(sized.page, name);
     }
+    await sized.page.evaluate(() => {
+      fixture.bar.pos(68, -35);
+      fixture.hand.cardUis[0].CardUI_Click();
+      fixture.map.isScrollDisappearPlaying = true;
+    });
+    await sized.page.locator('.routes').waitFor({ state: 'hidden' });
+    assert.deepEqual(await sized.page.locator('.suits').boundingBox(), fixed);
+    await sized.page.evaluate(() => { fixture.hand.selectCardContext = { Purpose: 'deal' }; });
+    await sized.page.locator('.suits').waitFor({ state: 'hidden' });
+    await sized.page.evaluate(() => {
+      fixture.bar.pos(0, 0);
+      fixture.hand.selectCardContext = { Skill: { SkillId: 4023 } };
+      fixture.map.isScrollDisappearPlaying = false;
+    });
+    await sized.page.locator('.routes').waitFor();
+    assert.deepEqual((await layout(sized.page)).suits, fixed);
     await sized.context.close();
   }
   checks.push('花色按钮落在用户截图中「确定」左侧、手牌上方的空位，移动原生按钮栏、选牌、收卷和下次采风时坐标一致');

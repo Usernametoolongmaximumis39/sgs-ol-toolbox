@@ -2,7 +2,7 @@ import { ResourceScope } from '../../../core/resources.js';
 import { read } from '../../../shared/safe-read.js';
 import {
   actionBar, caifengContext, cardAt, confirmButton, gameCanvas, openMap, ownedCards, readBattle, routeObstacles,
-  selectSuit, setSelection,
+  selectSuit, setSelection, suitGeometry,
 } from './native.js';
 import { createOverlay, mapBoxes } from './overlay.js';
 import { planRoutes, readBoard } from './routes.js';
@@ -49,9 +49,10 @@ function bindBattle(ctx, battle) {
     } else previousMap = null;
     const picking = active && caifengContext(state.hand);
     const bar = boxes || picking ? actionBar(state.self) : null;
-    const canvas = picking && confirmButton(bar) ? gameCanvas(window) : null;
-    overlay.updateSuits(canvas, cards, locked);
-    overlay.updateRoutes(boxes, plan, cityCount, boxes && cityCount ? routeObstacles(window, state, bar, cards) : []);
+    const confirm = picking && confirmButton(bar);
+    const obstacles = boxes && cityCount || confirm ? routeObstacles(window, state, bar, cards) : [];
+    overlay.updateSuits(confirm && suitGeometry(window, state, confirm), cards, locked, boxes, obstacles);
+    overlay.updateRoutes(boxes, plan, cityCount, obstacles);
     overlay.updateLocks(active ? cards : [], locked);
   }
   function currentBattle() {

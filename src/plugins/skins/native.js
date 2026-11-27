@@ -2,6 +2,10 @@ import { resolveSkinRuntime } from './runtime.js';
 import { read, nativeSkinState, matchesSkin, skinTotals, emptyDynamicFilters, readCrystalCatalogue, readDynamicMaterials } from './native-model.js';
 import { createSkinControls, sectionTitle, textNode } from './controls.js';
 import { skinWindowInk } from './game-chrome.js';
+import { cachedNativeWindow, isMountedWindowNode, watchNativeWindowEvents } from '../../shared/window-cache.js';
+
+const SKIN_WINDOW = 'SkinWindow';
+const DISCOVERY_INTERVAL = 1750;
 
 const alive = node => node && !read(() => node.destroyed);
 // lk.virtualDraw requires this interface on EVERY direct content child,
@@ -16,14 +20,17 @@ const visible = node => {
   for (let p = node, i = 0; p && i++ < 24; p = p.parent) if (p.visible === false || p.destroyed) return false;
   return Boolean(node?.parent);
 };
+function isSkinWindow(node) {
+  return typeof node.formData === 'function' && typeof node.selectGenerals === 'function'
+    && typeof node.onCreateGeneralSkinPanelItem === 'function' && node.skinPanel && node.ownRadioBtn && node.typeRadioBtn && node.tabGroup;
+}
 export function findSkinWindow(stage) {
   const queue = stage ? [stage] : [];
   for (let i = 0; i < queue.length && i < 4000; i++) {
     const node = queue[i];
     if (!alive(node)) continue;
-    if (typeof node.formData === 'function' && typeof node.selectGenerals === 'function'
-      && typeof node.onCreateGeneralSkinPanelItem === 'function' && node.skinPanel && node.ownRadioBtn && node.typeRadioBtn && node.tabGroup && visible(node)) return node;
-    if (Array.isArray(node._children)) queue.push(...node._children);
+    if (isSkinWindow(node) && visible(node)) return node;
+    if (Array.isArray(node._children)) queue.push(...node._children.slice(0, 4000 - queue.length));
   }
   return null;
 }
@@ -359,23 +366,43 @@ export function enhanceSkinWindow(ctx, owner) {
 
 export function createNativeSkins(ctx) {
   let attachment = null, message = '等待打开游戏的皮肤管理。';
-  function check() {
+  let stageBefore, dispatcherBefore, lastDiscovery = -Infinity, queued = false;
+  const bindWindows = watchNativeWindowEvents(ctx.scope, [SKIN_WINDOW], queueCheck);
+  function queueCheck() {
+    if (queued || ctx.scope.signal.aborted) return;
+    queued = true;
+    ctx.scope.timeout(() => { queued = false; check(true); }, 0);
+  }
+  function check(forceDiscovery) {
     if (ctx.scope.signal.aborted) return;
     try {
       if (ctx.settings.get('advanced', true) !== true) {
         const previous = attachment; attachment = null; previous?.dispose();
+        bindWindows(null);
+        lastDiscovery = -Infinity;
         message = '高级皮肤整理已关闭。';
         return;
       }
-      const laya = ctx.window.Laya ?? ctx.window.laya;
-      if (attachment && (!alive(attachment.owner) || !attachment.owner.parent)) { attachment.dispose(); attachment = null; }
-      if (attachment && !visible(attachment.owner)) {
-        const next = findSkinWindow(laya?.stage);
-        if (next && next !== attachment.owner) { attachment.dispose(); attachment = null; }
+      if (ctx.document?.hidden) return;
+      const stage = (ctx.window.Laya ?? ctx.window.laya)?.stage;
+      const dispatcher = stage ? read(() => ctx.game.getDispatcher?.()) ?? null : null;
+      bindWindows(dispatcher);
+      if (stage !== stageBefore || dispatcher !== dispatcherBefore) {
+        stageBefore = stage; dispatcherBefore = dispatcher; lastDiscovery = -Infinity;
       }
-      if (!attachment) {
-        const owner = findSkinWindow(laya?.stage);
-        if (owner && visible(owner)) attachment = enhanceSkinWindow(ctx, owner);
+      if (attachment && (!alive(attachment.owner) || !attachment.owner.parent)) {
+        attachment.dispose(); attachment = null; lastDiscovery = -Infinity;
+      }
+      if (!attachment || !visible(attachment.owner)) {
+        const cached = cachedNativeWindow(dispatcher, SKIN_WINDOW);
+        let owner = isMountedWindowNode(stage, cached) && isSkinWindow(cached) ? cached : null;
+        if (cached === undefined && (forceDiscovery || Date.now() - lastDiscovery >= DISCOVERY_INTERVAL)) {
+          lastDiscovery = Date.now();
+          owner = findSkinWindow(stage);
+        }
+        if (owner && owner !== attachment?.owner) {
+          attachment?.dispose(); attachment = enhanceSkinWindow(ctx, owner);
+        }
       }
       attachment?.check();
       message = attachment ? '已接入游戏皮肤管理。' : '等待打开游戏的皮肤管理。';
@@ -384,7 +411,9 @@ export function createNativeSkins(ctx) {
       message = `皮肤界面接入失败：${String(error?.message || error).slice(0, 140)}`;
     }
   }
-  ctx.scope.interval(check, 700); check();
+  if (ctx.game.onSceneChange) ctx.scope.add(ctx.game.onSceneChange(queueCheck));
+  if (ctx.document?.addEventListener) ctx.scope.listen(ctx.document, 'visibilitychange', queueCheck);
+  ctx.scope.interval(() => check(false), 700); check(true);
   ctx.scope.add(() => { attachment?.dispose(); attachment = null; });
-  return { check, getStatus: () => message };
+  return { check: () => check(true), getStatus: () => message };
 }

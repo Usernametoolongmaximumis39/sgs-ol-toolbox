@@ -266,6 +266,8 @@ export class PluginManager {
         setAttackEffects: enabled => { if (!scope.closed) this.context.backgrounds.setAttackEffects(id, enabled); },
         setAnimated: enabled => { if (!scope.closed) this.context.backgrounds.setAnimated(id, enabled); },
         setSkinQuality: quality => { if (!scope.closed) this.context.backgrounds.setSkinQuality(id, quality); },
+        setGlobalBackground: enabled => { if (!scope.closed) context.backgrounds.setGlobalBackground(id, enabled); },
+        get globalBackground() { return id === 'backgrounds' && !scope.closed && context.backgrounds.globalBackground === true; },
         get skinQualityAvailable() { return !scope.closed && thisContext.backgrounds.skinQualityAvailable === true; },
         selectLocal: (file, isCurrent) => {
           if (!scope.closed) return this.context.backgrounds.selectLocal(id, file, { isCurrent });

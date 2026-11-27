@@ -21,8 +21,8 @@ const finite = Number.isFinite;
 const idKey = id => typeof id === 'string' && id.length > 0
   ? id : typeof id === 'number' && finite(id) ? String(id) : null;
 const compareKey = (a, b) => a < b ? -1 : a > b ? 1 : 0;
-const validRect = r => !!r && [r.x, r.y, r.w, r.h, r.x + r.w, r.y + r.h].every(finite)
-  && r.w > 0 && r.h > 0;
+const validRect = r => !!r && finite(r.x) && finite(r.y) && finite(r.w) && finite(r.h)
+  && finite(r.x + r.w) && finite(r.y + r.h) && r.w > 0 && r.h > 0;
 const rect = r => ({ x: r.x, y: r.y, w: r.w, h: r.h });
 const cardSize = ({ w, h, carousel, detailFit }) => ({ w, h,
   ...(carousel ? { carousel: true, detailFit: detailFit || 0 } : {}) });
@@ -34,12 +34,18 @@ const inside = (a, b) => a.x >= b.x - EPS && a.y >= b.y - EPS
   && right(a) <= right(b) + EPS && bottom(a) <= bottom(b) + EPS;
 const overlap = (a, b) => a.x < right(b) - EPS && right(a) > b.x + EPS
   && a.y < bottom(b) - EPS && bottom(a) > b.y + EPS;
-const distance = (a, b) => Math.hypot(
-  Math.max(a.x - right(b), b.x - right(a), 0),
-  Math.max(a.y - bottom(b), b.y - bottom(a), 0),
-);
+const distance = (a, b) => {
+  const dx = Math.max(a.x - right(b), b.x - right(a), 0);
+  const dy = Math.max(a.y - bottom(b), b.y - bottom(a), 0);
+  return dx && dy ? Math.hypot(dx, dy) : dx + dy;
+};
+const fartherThan = (a, b, limit) => {
+  const dx = Math.max(a.x - right(b), b.x - right(a), 0);
+  const dy = Math.max(a.y - bottom(b), b.y - bottom(a), 0);
+  return dx > limit || dy > limit || (dx && dy && Math.hypot(dx, dy) > limit);
+};
 const lineLength = l => Math.hypot(l.toX - l.fromX, l.toY - l.fromY);
-const validLine = l => !!l && [l.fromX, l.fromY, l.toX, l.toY].every(finite);
+const validLine = l => !!l && finite(l.fromX) && finite(l.fromY) && finite(l.toX) && finite(l.toY);
 const pointInside = (x, y, r) => x >= r.x - EPS && x <= right(r) + EPS
   && y >= r.y - EPS && y <= bottom(r) + EPS;
 const sameLine = (a, b) => validLine(a) && validLine(b)
@@ -69,24 +75,29 @@ function connector(anchor, card) {
 // Liang–Barsky clipping. Contact with an obstacle edge also makes a line
 // ambiguous, so this deliberately treats touching as an intersection.
 function lineHitsRect(l, r) {
-  if (Math.max(l.fromX, l.toX) < r.x - EPS || Math.min(l.fromX, l.toX) > right(r) + EPS
-    || Math.max(l.fromY, l.toY) < r.y - EPS || Math.min(l.fromY, l.toY) > bottom(r) + EPS) return false;
+  const rRight = right(r), rBottom = bottom(r);
+  if (Math.max(l.fromX, l.toX) < r.x - EPS || Math.min(l.fromX, l.toX) > rRight + EPS
+    || Math.max(l.fromY, l.toY) < r.y - EPS || Math.min(l.fromY, l.toY) > rBottom + EPS) return false;
   let lo = 0;
   let hi = 1;
   const dx = l.toX - l.fromX;
   const dy = l.toY - l.fromY;
-  for (const [p, q] of [[-dx, l.fromX - r.x], [dx, right(r) - l.fromX],
-    [-dy, l.fromY - r.y], [dy, bottom(r) - l.fromY]]) {
-    if (Math.abs(p) <= EPS) {
-      if (q < -EPS) return false;
-    } else {
-      const t = q / p;
-      if (p < 0) lo = Math.max(lo, t);
-      else hi = Math.min(hi, t);
-      if (lo > hi + EPS) return false;
-    }
+  if (Math.abs(dx) <= EPS) {
+    if (l.fromX - r.x < -EPS || rRight - l.fromX < -EPS) return false;
+  } else {
+    const left = (l.fromX - r.x) / -dx, rightEdge = (rRight - l.fromX) / dx;
+    lo = Math.max(lo, dx > 0 ? left : rightEdge);
+    hi = Math.min(hi, dx > 0 ? rightEdge : left);
+    if (lo > hi + EPS) return false;
   }
-  return true;
+  if (Math.abs(dy) <= EPS) {
+    if (l.fromY - r.y < -EPS || rBottom - l.fromY < -EPS) return false;
+  } else {
+    const top = (l.fromY - r.y) / -dy, bottomEdge = (rBottom - l.fromY) / dy;
+    lo = Math.max(lo, dy > 0 ? top : bottomEdge);
+    hi = Math.min(hi, dy > 0 ? bottomEdge : top);
+  }
+  return !(lo > hi + EPS);
 }
 
 function linesIntersect(a, b) {
@@ -251,13 +262,14 @@ function candidateRejections(ctx, p, owner) {
   if (!validRect(ctx.safe) || !inside(p, ctx.safe)) rejected |= 2;
   if (lineLength(p.line) > p.w + EPS) rejected |= 4;
   if (!pointInside(p.line.fromX, p.line.fromY, ctx.viewport) || !pointInside(p.line.toX, p.line.toY, ctx.viewport)) rejected |= 8;
-  const ownerDistance = distance(p, owner.anchor), selfOverlay = isSelfOverlay(owner.anchor, p);
+  const ownerDistance = distance(p, owner.anchor) + EPS, selfOverlay = isSelfOverlay(owner.anchor, p);
   for (const node of ctx.nodes) {
     if (!(rejected & 16) && (node !== owner || !selfOverlay) && node.protectedRegions.some(r => overlap(p, r))) rejected |= 16;
     if (node !== owner) {
-      if (!(rejected & 32) && !(ownerDistance + EPS < distance(p, node.anchor))) rejected |= 32;
+      if (!(rejected & 32) && !fartherThan(p, node.anchor, ownerDistance)) rejected |= 32;
       if (!(rejected & 64) && node.protectedRegions.some(r => lineHitsRect(p.line, r))) rejected |= 64;
     }
+    if ((rejected & 112) === 112) break;
   }
   if (ctx.protectedDrawer) {
     if (overlap(p, ctx.protectedDrawer)) rejected |= 128;
@@ -267,6 +279,11 @@ function candidateRejections(ctx, p, owner) {
 }
 
 function unionArea(regions) {
+  if (!regions.length) return 0;
+  if (regions.length === 1) {
+    const region = regions[0];
+    return (right(region) - region.x) * (bottom(region) - region.y);
+  }
   const xs = [...new Set(regions.flatMap(r => [r.x, right(r)]))].sort((a, b) => a - b);
   let area = 0;
   for (let i = 1; i < xs.length; i++) {
@@ -539,6 +556,12 @@ function* placementSteps(snapshot) {
       (MAX_EXPANSIONS - diagnostics.expansions) / (entries.length - entryIndex),
     );
     const next = [];
+    const retainBest = () => {
+      next.sort(stateOrder);
+      if (next.length <= BEAM_WIDTH) return;
+      diagnostics.searchTruncated = true;
+      next.length = BEAM_WIDTH;
+    };
     for (const state of states) {
       next.push({ ...state, signature: `${state.signature}|${entry.key}:~` });
       for (const candidate of entry.candidates) {
@@ -549,11 +572,13 @@ function* placementSteps(snapshot) {
         next.push({ placements: [...state.placements, candidate.p], ...addPreference(state, candidate),
           signature: `${state.signature}|${entry.key}:${candidate.p.x},${candidate.p.y},${candidate.p.w},${candidate.p.h}` });
       }
+      // The search order stays the same. Keep each sort short so a whole
+      // stage's discarded states never accumulate in a single frame.
+      if (next.length >= BEAM_WIDTH * 4) { retainBest(); yield; }
     }
     yield;
-    next.sort(stateOrder);
-    if (next.length > BEAM_WIDTH) diagnostics.searchTruncated = true;
-    states = next.slice(0, BEAM_WIDTH);
+    retainBest();
+    states = next;
   }
   const chosen = (states[0]?.placements || []).sort((a, b) => compareKey(idKey(a.id), idKey(b.id)));
   const placements = [];
@@ -562,7 +587,7 @@ function* placementSteps(snapshot) {
   // the public validator, with every other final card and connector present.
   for (const p of chosen) {
     yield;
-    const verification = validatePlacement(snapshot, p, chosen.filter(other => other !== p));
+    const verification = check(ctx, p, chosen.filter(other => other !== p));
     if (verification.valid) placements.push(p);
     else { failed.add(idKey(p.id)); diagnostics.errors.push(...verification.reasons); }
   }

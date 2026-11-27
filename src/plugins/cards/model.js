@@ -621,6 +621,24 @@ export function cardsInZone(state, key, certainty = 'known') {
     (certainty === 'all' || (certainty === 'known' ? item.locations.length === 1 : item.locations.length > 1))).map(item => item.id);
 }
 
+export function indexHandCards(state) {
+  const hands = new Map();
+  for (const { id, locations, seen } of Object.values(state.cards)) {
+    const known = locations.length === 1;
+    const observed = !known && seen && locations.every(key => key.startsWith('5:'));
+    for (const key of locations) {
+      if (!key.startsWith('5:')) continue;
+      if (!hands.has(key)) hands.set(key, { known: [], possible: [], observed: [] });
+      const hand = hands.get(key);
+      const cards = known ? hand.known : hand.possible;
+      if (cards.at(-1) === id) continue;
+      cards.push(id);
+      if (observed) hand.observed.push(id);
+    }
+  }
+  return hands;
+}
+
 export function seatLabel(state, seatId) {
   const seat = state.seats[seatId];
   if (seat?.name) return seat.name;
@@ -633,24 +651,27 @@ export function seatLabel(state, seatId) {
 // run out and only one living player's hand is still uncertain. Fully visible
 // teammates can be excluded even in multiplayer modes. Observations do not need
 // this gate.
-export function observedHandCandidates(state, seatId) {
+export function observedHandCandidates(state, seatId, hands) {
   if (!state.active || state.seats[seatId]?.dead) return [];
+  if (hands) return hands.get(zoneKey(5, seatId))?.observed ?? [];
   return cardsInZone(state, zoneKey(5, seatId), 'possible').filter(id => {
     const item = state.cards[id];
     return item.seen && item.locations.every(key => key.startsWith('5:'));
   });
 }
 
-export function handCandidates(state, seatId) {
+export function handCandidates(state, seatId, hands) {
   if (!state.active || !state.historyComplete || !state.deckCycleCompleted || !validSeat(state.selfSeatId)) return [];
   const living = Object.values(state.seats).filter(seat => seat.dead !== true);
   if (!living.some(seat => seat.seatId === state.selfSeatId) || seatId === state.selfSeatId) return [];
   const uncertain = living.filter(seat => {
     const key = zoneKey(5, seat.seatId), hand = state.zones[key];
-    return !hand || hand.countExact === false || cardsInZone(state, key).length !== hand.count;
+    const known = hands ? hands.get(key)?.known.length ?? 0 : cardsInZone(state, key).length;
+    return !hand || hand.countExact === false || known !== hand.count;
   });
   if (uncertain.length !== 1 || uncertain[0].seatId !== seatId) return [];
-  return cardsInZone(state, zoneKey(5, seatId), 'possible');
+  const key = zoneKey(5, seatId);
+  return hands ? hands.get(key)?.possible ?? [] : cardsInZone(state, key, 'possible');
 }
 
 export function unknownCards(state) {

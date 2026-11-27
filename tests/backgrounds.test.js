@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { JSDOM } from 'jsdom';
 import { BackgroundRegistry, backgroundSpec, containBackground } from '../src/core/backgrounds.js';
+import { createBackgroundMotion } from '../src/core/background-motion.js';
 import { ResourceScope } from '../src/core/resources.js';
-import { skinBackgroundSpec } from '../src/plugins/backgrounds/index.js';
+import { activate as activateBackgrounds, skinBackgroundSpec } from '../src/plugins/backgrounds/index.js';
 
 test('portrait, landscape and square backgrounds preserve the entire image inside resized viewports', () => {
   for (const [w,h,vw,vh] of [[800,1200,1946,1234],[2400,1000,1200,850],[1000,1000,800,1200],[800,1200,850,500]]) {
@@ -12,6 +14,118 @@ test('portrait, landscape and square backgrounds preserve the entire image insid
     assert.equal(f.x, (vw-w*f.scale)/2); assert.equal(f.y, (vh-h*f.scale)/2);
   }
   assert.equal(containBackground(0,1200,1200,850),null);
+});
+
+test('video background updates once per decoded frame and refreshes when resuming', async t => {
+  for (const source of ['video callback', 'frame counter', 'media time']) await t.test(source, t => {
+    const scope = new ResourceScope();
+    t.after(() => scope.dispose());
+    let repaint = 0, upload = 0, render, request = 0, totalVideoFrames = 1;
+    const callbacks = new Map();
+    class Video extends EventTarget {
+      readyState = 2;
+      currentTime = 1;
+      videoWidth = 320;
+      videoHeight = 180;
+      play() { return Promise.resolve(); }
+      pause() {}
+      removeAttribute() {}
+      load() {}
+    }
+    const video = new Video();
+    if (source === 'video callback') {
+      video.requestVideoFrameCallback = callback => { callbacks.set(++request, callback); return request; };
+      video.cancelVideoFrameCallback = id => callbacks.delete(id);
+    } else if (source === 'frame counter') video.getVideoPlaybackQuality = () => ({ totalVideoFrames });
+    class Sprite {
+      graphics = { clear() {}, drawTexture() {} };
+      size() {}
+      destroy() {}
+      repaint() { repaint++; }
+    }
+    const Laya = { Sprite, Rectangle: class {},
+      Texture: class { setTo() {} destroy() {} },
+      VideoTexture: class { _updateVideoData() { upload++; } videoPause() {} destroy() {} },
+      timer: { frameLoop(n, owner, fn) { render = fn; }, clear() { render = null; } },
+    };
+    const layer = { bgSprite: {}, getChildIndex: () => 0, addChildAt() {} };
+    const motion = createBackgroundMotion({ window: { Laya, document: { createElement: () => video } }, layer, scope,
+      spec: { kind: 'video', url: 'res/skin.mp4' }, size: { width: 320, height: 180 }, ready() {}, fail: assert.fail });
+    video.dispatchEvent(new Event('loadeddata'));
+    motion.show(true);
+    for (let i = 0; i < 60; i++) render();
+    assert.deepEqual([upload, repaint], [1, 1]);
+
+    if (source === 'video callback') {
+      for (let i = 0; i < 2; i++) {
+        const [id, callback] = callbacks.entries().next().value;
+        callbacks.delete(id);
+        callback();
+      }
+    } else if (source === 'frame counter') {
+      video.currentTime += 0.05;
+      render();
+      assert.equal(upload, 1, 'time can advance without another decoded frame');
+      totalVideoFrames++;
+    } else video.currentTime += 0.05;
+    render();
+    render();
+    assert.deepEqual([upload, repaint], [2, 2]);
+
+    motion.show(false);
+    assert.equal(callbacks.size, 0);
+    render();
+    assert.equal(upload, 2);
+    motion.show(true);
+    render();
+    assert.deepEqual([upload, repaint], [3, 3]);
+    scope.dispose();
+    assert.equal(callbacks.size, 0);
+    assert.equal(render, null);
+  });
+});
+
+test('the skin background shortcut checks the switch and native popup cache before scanning', t => {
+  const { window } = new JSDOM('<body><canvas></canvas></body>');
+  const scope = new ResourceScope();
+  t.after(() => { scope.dispose(); window.close(); });
+  let visits = 0, refresh, enabled = false, cache;
+  const stage = { width: 200, get _children() { visits++; return [detail]; } };
+  const detail = { parent: stage, isHor: true, visible: true, showMaxSkinWindow() {}, updateSkinInfo() {},
+    skinImg: { width: 160, height: 90, localToGlobal: p => p },
+    skinData: { skinBaseVo: { SkinBigUrl: () => 'res/skin.png' } } };
+  const canvas = window.document.querySelector('canvas');
+  canvas.getBoundingClientRect = () => ({ width: 200, left: 0, top: 0 });
+  window.Laya = { stage, Render: { canvas }, Point: class { constructor(x, y) { Object.assign(this, { x, y }); } },
+    loader: { getRes: () => ({ width: 160, height: 90 }) } };
+  const game = { getDispatcher: () => cache && { _events: { OPEN_WINDOW: { caller: { WindowInstanceDict: cache } } } } };
+  scope.interval = (fn, interval) => { if (interval === 200) refresh = fn; };
+  activateBackgrounds({ window, document: window.document, scope, game, settings: { get: (key, fallback) => fallback },
+    backgrounds: { register() {}, skinShortcutEnabled: () => enabled },
+    ui: { nativeTheme: { watch() {} }, registerPanel() {} } });
+  const floating = window.document.querySelector('.bg-skin-action');
+  visits = 0;
+  refresh();
+  assert.equal(visits, 0);
+  assert.equal(floating.hidden, true);
+  enabled = true;
+  cache = { getStringKey: () => null };
+  refresh();
+  assert.equal(visits, 0);
+  assert.equal(floating.hidden, true);
+  cache = { getStringKey: () => detail };
+  refresh();
+  assert.equal(visits, 0);
+  assert.equal(floating.hidden, false);
+  detail.visible = false;
+  refresh();
+  assert.equal(floating.hidden, true);
+  assert.equal(visits, 0);
+  detail.visible = true;
+  cache = undefined;
+  refresh();
+  assert.equal(visits, 1);
+  assert.equal(floating.hidden, false);
 });
 
 function fixture() {
@@ -38,7 +152,7 @@ function fixture() {
   scene = makeScene();
   const handler = { caller: scene, method: scene.SetWallPaperById };
   dispatcher._events.BACKGROUND_USEDID_GOT = handler;
-  const game = { getScene: () => scene, isInGame: () => Boolean(scene), getDispatcher: () => dispatcher,
+  const game = { getScene: () => scene, isInGame: () => typeof scene?.SetWallPaperById === 'function', getDispatcher: () => dispatcher,
     getSelfSeatUI: () => scene.SelfSeatUi, getCardMeta: id => cards.get(id) };
   const effects = [];
   class Sprite {
@@ -80,6 +194,7 @@ function fixture() {
     select: (url = 'res/skin.png') => registry.select('backgrounds', { name: '皮肤', url }),
     finish: (index = pending.length - 1, ok = {}) => pending[index].fn(ok),
     next: () => { scene = makeScene(); registry.refresh(); },
+    changeScene: next => { scene = next; },
   };
 }
 
@@ -92,6 +207,134 @@ test('ordinary personalization replaced, cached Laya listener redirected, Pei Xi
     assert.equal(f.scene.special, f.special); f.special.click(); assert.equal(f.special.clicks, 1); assert.equal(f.special.visible, true);
     f.release(); assert.equal(f.scene.image, 'personal-7'); assert.equal(f.handler.method, original);
   } finally { f.scope.dispose(); }
+});
+
+function globalFixture() {
+  const f = fixture();
+  const battle = f.scene, writes = [], fills = [];
+  const skin = { skin: 'res/hall.png', visible: true,
+    size(w, h) { this.width = w; this.height = h; }, posInteger(x, y) { this.position = [x, y]; }, scale(x) { this.zoom = x; } };
+  Object.assign(f.layer, {
+    bg: skin, scrollRect: { width: 1000, height: 800 },
+    tt(...args) { writes.push(args); skin.skin = args[0]; this.updateBgSize(); },
+    addChildAt(fill) { fills.push(fill); },
+  });
+  const original = f.layer.tt;
+  battle.SetWallPaperByUrl = url => f.layer.tt(url);
+  battle.SetWallPaperById = (id, url) => f.layer.tt(url || `res/battle-${id}.png`);
+  const scene = SceneName => f.changeScene({ SceneName });
+  scene('LobbyScene');
+  return { ...f, battle, writes, fills, skin, original, scene, enable: value => f.registry.setGlobalBackground('backgrounds', value) };
+}
+
+test('global mode is opt-in, preserves the latest native tt arguments and restores them on every exit path', t => {
+  const f = globalFixture();
+  t.after(() => f.scope.dispose());
+  f.select();
+  assert.equal(f.registry.globalBackground, false);
+  assert.equal(f.registry.status, '已保存，等待进入牌局');
+  assert.equal(f.pending.length, 0);
+  f.enable(true);
+  f.finish(undefined, { width: 2000, height: 1000 });
+  assert.equal(f.skin.skin, 'res/skin.png');
+  assert.equal(f.registry.status, '静态全局背景已启用');
+  assert.equal(f.skin.zoom, .5);
+  assert.equal(f.fills[0].visible, true);
+  f.layer.scrollRect.width = 1200;
+  f.layer.updateBgSize();
+  assert.equal(f.skin.zoom, .6);
+  f.scene('RoomScene');
+  f.layer.tt('res/room.png', true, false);
+  f.registry.refresh();
+  assert.equal(f.skin.skin, 'res/skin.png');
+  assert.equal(f.fills.length, 1);
+  f.enable(false);
+  assert.equal(f.skin.skin, 'res/room.png');
+  assert.deepEqual(f.writes.at(-1), ['res/room.png', true, false]);
+  assert.equal(f.layer.tt, f.original);
+  assert.equal(f.fills[0].destroyed, true);
+  f.layer.tt('res/practice.png', false, true);
+  f.enable(true);
+  f.layer.tt('res/updated-practice.png', true, true);
+  f.registry.select('backgrounds', null);
+  assert.deepEqual(f.writes.at(-1), ['res/updated-practice.png', true, true]);
+  assert.equal(f.registry.status, '跟随游戏背景');
+  f.select(); f.finish();
+  f.layer.tt('res/mode.png', false, true);
+  f.release();
+  assert.deepEqual(f.writes.at(-1), ['res/mode.png', false, true]);
+  assert.equal(f.layer.tt, f.original);
+});
+
+test('global mode leaves startup scenes alone and hands the shared layer over to battle and back', t => {
+  const f = globalFixture();
+  t.after(() => f.scope.dispose());
+  f.enable(true);
+  for (const name of ['LoginScene', 'LoadingScene', 'CreateUserScene', 'CreateRoleScene', 'MainNullScene']) {
+    f.scene(name);
+    f.select();
+    assert.equal(f.pending.length, 0);
+    assert.equal(f.layer.tt, f.original);
+  }
+  f.scene('LobbyScene');
+  f.registry.refresh();
+  f.finish();
+  f.layer.tt('res/latest-hall.png', false, true);
+  f.writes.length = 0;
+  f.changeScene(f.battle);
+  f.registry.refresh();
+  assert.deepEqual(f.writes, [['res/skin.png']], 'entering battle does not replay the lobby background');
+  assert.equal(f.registry.status, '静态牌局背景已启用');
+  f.battle.SetWallPaperById(10, 'res/skill.png');
+  f.registry.refresh();
+  assert.equal(f.skin.skin, 'res/skill.png');
+  assert.equal(f.registry.status, '技能背景优先');
+  f.battle.OnNormalWallPaperChange();
+  f.registry.refresh();
+  f.scene('LobbyScene');
+  f.layer.tt('res/next-hall.png', true, false);
+  f.registry.refresh();
+  assert.equal(f.registry.status, '静态全局背景已启用');
+  assert.equal(f.skin.skin, 'res/skin.png');
+  f.scene('LoadingScene');
+  f.layer.tt('res/loading.png');
+  f.registry.refresh();
+  assert.equal(f.skin.skin, 'res/loading.png');
+  assert.equal(f.layer.tt, f.original);
+  f.changeScene(f.battle);
+  f.registry.refresh();
+  f.layer.tt('res/early-room.png', true, true);
+  f.scene('RoomScene');
+  f.registry.refresh();
+  assert.equal(f.skin.skin, 'res/skin.png');
+  f.enable(false);
+  assert.deepEqual(f.writes.at(-1), ['res/early-room.png', true, true]);
+});
+
+test('global mode reuses local texture URLs and official wallpaper motion', t => {
+  const f = globalFixture();
+  t.after(() => f.scope.dispose());
+  const url = 'blob:null/test-local#://';
+  const revoked = [];
+  f.registry.window.URL = { revokeObjectURL: value => revoked.push(value) };
+  f.registry.settings.set('battleBackground', { name: '本地', owner: 'backgrounds', localImageId: 7 });
+  f.registry.localImage = { id: 7, url, objectUrl: 'blob:null/test-local' };
+  f.enable(true);
+  assert.equal(f.pending.at(-1).url, url);
+  f.finish(undefined, { width: 1200, height: 900 });
+  assert.equal(f.skin.skin, url);
+  f.registry.select('backgrounds', { name: '官图', url: 'res/wallpaper.png', officialWallpaper: true,
+    wallpaperMotion: { kind: 'spine', url: 'res/wallpaper.sk' } });
+  assert.deepEqual(revoked, ['blob:null/test-local']);
+  f.layer.layoutBgLiveEffect = () => {};
+  f.finish(undefined, { width: 1600, height: 900 });
+  const effect = f.effects.at(-1);
+  assert.equal(effect.url, 'res/wallpaper.sk');
+  effect.load();
+  assert.equal(f.registry.status, '动态全局背景已启用');
+  f.enable(false);
+  assert.equal(f.skin.skin, 'res/hall.png');
+  assert.equal(effect.destroyed, true);
 });
 
 const dynamic = {kind:'spine',url:'res/animate/skinEffectNew/123',modern:true,width:594,height:335};
@@ -134,6 +377,21 @@ test('dynamic lifecycle loads all layers, pauses for skills and cleans on toggle
     assert.ok(f.effects.every(e=>e.destroyed));assert.equal(f.registry.binding.motion,undefined);
     f.scene.onWallPaperChange();assert.equal(f.scene.image,'res/skin.png');f.release();assert.equal(f.scene.image,'personal-7');
   }finally{f.scope.dispose();}
+});
+
+test('global skin animation plays without subscribing to any battle attack events', t => {
+  const f = globalFixture();
+  t.after(() => f.scope.dispose());
+  f.enable(true);
+  f.registry.select('backgrounds', { name: '皮肤', url: 'res/skin.png', dynamic: { ...dynamic, attack: true } });
+  f.finish(undefined, { width: 1600, height: 900 });
+  for (const effect of f.effects) effect.load();
+  f.registry.refresh();
+  assert.equal(f.registry.status, '动态全局背景已启用');
+  assert.equal(f.battle.SelfSeatUi.seat.events.size, 0);
+  f.enable(false);
+  assert.ok(f.effects.every(effect => effect.destroyed));
+  assert.equal(f.skin.skin, 'res/hall.png');
 });
 
 test('modern backgrounds use the loaded stable clip and stay hidden when only entrance is available', () => {

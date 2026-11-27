@@ -80,7 +80,7 @@ export function findExchangeViews(stage) {
     if (!node || node.destroyed || node.visible === false) continue;
     if ('ddzShopList' in node && Array.isArray(node.itemList) && typeof node.updateList === 'function'
       && node.itemList.some(item => item?.limitInfo && item?.goodsinfo)) found.push(node);
-    if (Array.isArray(node._children)) queue.push(...node._children);
+    if (Array.isArray(node._children)) queue.push(...node._children.slice(0, 4000 - queue.length));
   }
   return found;
 }

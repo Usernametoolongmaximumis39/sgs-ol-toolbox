@@ -1,17 +1,17 @@
 {
-  "version": "0.6.306",
+  "version": "0.6.309",
   "editions": {
     "full": {
-      "bytes": 2985195,
+      "bytes": 3016329,
       "plugins": 17,
-      "sha256": "554fbb700737c70b7bb1a719ef449755f5128ede9e761161f8beb1ea5549b605",
+      "sha256": "7cdd612cf404271ab12580856e21311d6d2a6fd7906837dde3fb9d5adc83b0f9",
       "updatesTo": "full",
       "toolboxUpdatesTo": "lite"
     },
     "lite": {
-      "bytes": 656728,
+      "bytes": 669310,
       "plugins": 0,
-      "sha256": "89edcb2b1e4a3d205f4f069b7c13280821008607e6bb536e00a0ad5a4320a603",
+      "sha256": "fb0a4d8c4322821f77731ad9c86cb42481216107857ddb5a09d35e4d16e15067",
       "updatesTo": "lite",
       "toolboxUpdatesTo": "lite"
     }
@@ -19,13 +19,13 @@
   "plugins": [
     {
       "id": "social",
-      "version": "0.1.34",
-      "sha256": "711e15b65e9c12bb75d08d61cf285f0d55ec950de25365b09df7f2fc6f97f524"
+      "version": "0.1.35",
+      "sha256": "88f38af9972c7b032bf7e8e7796b52f097d65494af027cee18419867df072e71"
     },
     {
       "id": "player-info",
-      "version": "0.4.30",
-      "sha256": "f32ab05227d46447017ee7ba214812edc0d00ae7114ef0ac9cac1843d216a599"
+      "version": "0.4.31",
+      "sha256": "5afcab6e4bc9fc8dab58771899890ee46cbdd22fcfab2fb7740807d08d6d433a"
     },
     {
       "id": "card-styles-extra",
@@ -34,28 +34,28 @@
     },
     {
       "id": "backgrounds",
-      "version": "0.2.16",
-      "sha256": "0e8b2a3329689d69d46d84301de95c86408435dbcae6b8194cad624d662bdd84"
+      "version": "0.2.19",
+      "sha256": "9179358de3c4aedd40c8d165a30d8555288cbf63cd22785614c5da6a5702289c"
     },
     {
       "id": "shanhetu",
-      "version": "0.2.56",
-      "sha256": "2b48ec3b1fe0bc092318b4c0bcdc2665bf5c9ff6ca8c4c1361f766e2d9ed72df"
+      "version": "0.2.57",
+      "sha256": "176c1b76792a17929191a3e4ef6d638721ff682063a98d97f473612bb69d4ea8"
     },
     {
       "id": "cards",
-      "version": "0.1.99",
-      "sha256": "7b981e804520818cd22736f891e1446c1e6bf73f36fc9cf2b2b5ecaf795ffd7c"
+      "version": "0.1.100",
+      "sha256": "880bea2af216e8e64a7829eadf2bb0d3a3ec36c3e11938fbe924db2fe4ea14fc"
     },
     {
       "id": "play-assist",
-      "version": "0.2.41",
-      "sha256": "840c7ac75309508d5d1e3dc63b7eab3fec836650dd4dcbe69ddadb6aee502afd"
+      "version": "0.2.47",
+      "sha256": "2c09ec889aba971931c143eded10d9c5144052b02e67c27ddc8206bc92e4c2bf"
     },
     {
       "id": "daily-rewards",
-      "version": "0.7.52",
-      "sha256": "e2c76a8dc3ba025ec2ee66e6417b688b1e2d1fee938db7f5752284d2f939e4ac"
+      "version": "0.7.53",
+      "sha256": "1fc6f782427e5c66e39587f05d08a79a98187f7bf58454db285eed7130095d0a"
     },
     {
       "id": "seckill",
@@ -74,13 +74,13 @@
     },
     {
       "id": "skins",
-      "version": "0.4.108",
-      "sha256": "9694b646136565f67f9731d3054287b87684a43b4294a7e701f7cf2fc9c742a9"
+      "version": "0.4.109",
+      "sha256": "3a597584d49c3fff9592bdb5f4ae704bf2c38061851e0d8013b0c50f5a328102"
     },
     {
       "id": "poker-lobby",
-      "version": "0.3.71",
-      "sha256": "122be256b563a3e34c0071e7d6693f198317407ee477c84d45e1b0055274110b"
+      "version": "0.3.72",
+      "sha256": "51ef0d4c2dd013b997e9ce9a9b74c5b9cb841c3f268d2ff947bedc4194b0fcfe"
     },
     {
       "id": "themes-flow",

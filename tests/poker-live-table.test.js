@@ -51,6 +51,7 @@ class Node {
   find(name) {
     return this.name === name ? this : this.children.map(node => node.find(name)).find(Boolean);
   }
+  emit(type, data) { this.events.get(type)?.(data); }
   click() {
     const handler = this.events.get('click');
     if (handler) handler();
@@ -232,8 +233,11 @@ function fixture({ nativePoker = false, hasGameContext = false, withRouter = tru
     document,
     window: {
       document, innerWidth: dom.innerWidth, innerHeight: dom.innerHeight,
+      addEventListener: dom.addEventListener.bind(dom), removeEventListener: dom.removeEventListener.bind(dom),
+      dispatchEvent: dom.dispatchEvent.bind(dom),
       RES: { IsGroupLoaded: () => true, LoadGroup() {} },
       Laya: { Sprite: Node, Text: Node, Point: class { constructor(x, y) { this.x = x; this.y = y; } },
+        Rectangle: class { constructor(x, y, width, height) { Object.assign(this, { x, y, width, height }); } },
         timer: { clear() {}, clearAll() {} }, stage: stages, Event: { CLICK: 'click', MOUSE_MOVE: 'mousemove' } },
     },
     ui: { nativeTheme: { palette: {}, surface() {}, watch() {} } },
@@ -341,6 +345,125 @@ test('a confirmed poker start creates one scene and manual controls use the curr
   assert.equal(f.node(SCENE), undefined);
   assert.equal(f.origin.visible, true);
   assert.equal(f.listenerCount(), 0);
+});
+
+async function dragFixture(t) {
+  const f = fixture();
+  t.after(() => f.ctx.scope.dispose());
+  f.sit(); f.start();
+  f.signal(201000, {});
+  const nativeCards = Array.from({ length: 4 }, (_, index) => ({ card_id: 10400 + index * 100 }));
+  const zone = { seat_id: 0, zone_type: 201 };
+  f.signal(201025, { from_zone_info: zone, is_all: true, card_ids: nativeCards, card_num: nativeCards.length });
+  f.signal(201021, { phase: 202, cur_seat_id: 0 });
+  f.signal(201001, turn);
+  await tick();
+  const stage = f.ctx.window.Laya.stage;
+  const layer = f.node('sgs-toolbox-poker-live-hand');
+  const cards = () => layer.children;
+  const normalY = layer.parent.NORMAL_Y;
+  const selected = () => cards().flatMap((node, index) => node.y < normalY ? [index] : []);
+  const move = (index, dx = 1) => stage.emit('mousemove', { stageX: cards()[index].x + dx, stageY: normalY });
+  const down = index => cards()[index].emit('mousedown', { button: 0 });
+  const up = () => stage.emit('mouseup', { button: 0 });
+  const outside = type => f.ctx.window.dispatchEvent(new f.ctx.document.defaultView.Event(type));
+  const prompt = async (skill, opt_type, data_cards, options) => {
+    f.signal(201030, { ...turn, opt_index: { ...OPTION, low: skill }, opt_type, spell_id: skill,
+      data_use_skill: { spell_id: skill }, data_cards, options });
+    await tick();
+  };
+  return { ...f, stage, cards, selected, move, down, up, outside, prompt, zone, nativeCards };
+}
+
+test('dragging toggles the exposed interval in one hand redraw and preserves click selection', async t => {
+  const f = await dragFixture(t);
+  assert.equal(f.cards()[0].hitArea.width, f.cards()[1].x - f.cards()[0].x);
+  assert.equal(f.cards().at(-1).hitArea, undefined);
+  f.down(0);
+  f.up();
+  f.cards()[0].click();
+  assert.deepEqual(f.selected(), [0]);
+  const before = [...f.cards()];
+  f.down(1);
+  f.move(3, f.cards()[3].width - 1);
+  assert.ok(f.cards().every((card, index) => card === before[index]));
+  assert.deepEqual(f.selected(), [0, 1, 2, 3]);
+  f.signal(201026, { state_list: [{ seat: 1, is_trust: true }] });
+  await tick();
+  assert.ok(f.cards().every((card, index) => card === before[index]));
+  f.move(2);
+  assert.deepEqual(f.selected(), [0, 1, 2]);
+  f.up();
+  assert.ok(before.every(card => card.destroyed));
+  f.cards()[2].click();
+  assert.deepEqual(f.selected(), [0, 1, 2], 'release click does not flip the endpoint');
+  f.down(3);
+  f.move(0);
+  f.outside('pointerup');
+  assert.deepEqual(f.selected(), [3]);
+  f.down(3);
+  f.up();
+  f.cards()[3].click();
+  assert.deepEqual(f.selected(), []);
+});
+
+test('multi-card skill drags skip disabled cards and single-card prompts keep clicks', async t => {
+  const f = await dragFixture(t);
+  const offered = [f.cards()[0], f.cards()[3]].map(card => ({ card_id: card.pokerCardId }));
+  await f.prompt(16, 1, offered);
+  assert.equal(f.cards()[1].mouseEnabled, false);
+  f.down(0);
+  f.move(1);
+  assert.deepEqual(f.selected(), [0]);
+  f.move(3);
+  f.up();
+  assert.deepEqual(f.selected(), [0, 3]);
+  f.down(3);
+  f.move(0);
+  f.up();
+  assert.deepEqual(f.selected(), []);
+  await f.prompt(2, 1, undefined);
+  f.down(0); f.move(3); f.up();
+  assert.deepEqual(f.selected(), []);
+  f.cards()[0].click();
+  assert.deepEqual(f.selected(), [0]);
+  await f.prompt(100, 3, undefined, [2]);
+  f.down(0); f.move(3); f.up();
+  assert.deepEqual(f.requests, []);
+  f.cards()[0].click();
+  assert.equal(f.requests.at(-1).type, 201031);
+});
+
+test('a pending drag is cancelled by blur, hand changes, a new turn, trustee and teardown', async t => {
+  const f = await dragFixture(t);
+  const begin = () => { f.down(0); f.move(3); assert.deepEqual(f.selected(), [0, 1, 2, 3]); };
+  begin();
+  f.outside('blur'); f.up();
+  assert.deepEqual(f.selected(), []);
+  begin();
+  f.signal(201001, { ...turn, opt_index: { ...OPTION, low: 12 } });
+  f.up();
+  await tick();
+  assert.deepEqual(f.selected(), []);
+  begin();
+  f.signal(201025, { from_zone_info: f.zone, is_all: true, card_ids: f.nativeCards.slice(0, -1), card_num: 3 });
+  f.up();
+  await tick();
+  assert.equal(f.cards().length, 3);
+  assert.deepEqual(f.selected(), []);
+  f.down(0); f.move(2);
+  f.signal(201026, { state_list: [{ seat: 0, is_trust: true }] });
+  f.up();
+  await tick();
+  assert.deepEqual(f.selected(), []);
+  f.signal(201026, { state_list: [{ seat: 0, is_trust: false }] });
+  await tick();
+  f.down(0); f.move(2);
+  f.router.SwitchScene('ModeScene');
+  f.outside('mouseup');
+  assert.equal(f.node(SCENE), undefined);
+  assert.equal(f.stage.events.has('mouseup'), false);
+  assert.equal(f.stage.events.has('mousemove'), false);
 });
 
 test('unverified, ordinary, replay and already native starts leave the scene switch with the game', t => {

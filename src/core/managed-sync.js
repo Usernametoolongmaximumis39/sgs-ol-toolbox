@@ -1,6 +1,6 @@
 import { base64url, createPairingRequest, fromBase64url, openPairing, PAIR_INVITE, PAIR_UPDATE, PIN_FORMAT, syncProofBytes } from './sync-pairing-code.js';
 import { createPublicTransport, publicOrigin, publicRecovery, publicViewCode, randomPass, readPublicRecovery } from './public-sync.js';
-import { publicViewLink } from '../shared/public-sync-view.js';
+import { passFormat, publicViewLink, tokenFormat } from '../shared/public-sync-view.js';
 import { publicUserCode, publicUserName } from '../shared/public-sync-account.js';
 import { publicBindingTarget } from '../shared/public-sync-invite.js';
 import { openPrivateCredential } from './private-sync-code.js';
@@ -34,6 +34,10 @@ const messages = {
   view_locked: '此 IP 输错 50 次，查看已锁定 30 分钟',
   public_preview_disabled: '服务器管理员关闭了公共预览',
   public_recovery_required: '此用户码已在该服务器绑定，请用原设备的公共恢复凭据接续同步',
+  public_passcode_required: '此账号已有公共同步库，请输入原设备的六位查看码',
+  public_vault_not_stale: '此账号的云端库当前无法重建，请重新检查绑定状态',
+  invalid_passcode: '六位查看码错误，或云端绑定已变更',
+  join_locked: '此 IP 在 30 分钟内输错 20 次，请在锁定结束后重试',
   public_invite_required: '首次绑定此服务器需要一次性邀请码，请向管理员获取',
   public_invite_unavailable: '一次性邀请码无效或已使用，请向管理员获取新码',
   public_invite_disabled: '服务器已停用一次性邀请码，请向管理员确认绑定方式',
@@ -155,7 +159,11 @@ export function createManagedSync(win, scope, getAccount, gameAccountKey, privat
         body: data, signal: timeout.signal });
       const payload = path === STARGAZING_SYNC_PATH ? await readStargazingJson(response) : await response.json();
       if (response.status === 404 && (path === BACKUP_READ_PATH || path === '/v2/vault/backup')) throw fail('backup_upgrade_required');
-      if (!response.ok) throw fail(payload?.error);
+      if (!response.ok) {
+        const error = fail(payload?.error);
+        if (payload?.details !== undefined) error.details = payload.details;
+        throw error;
+      }
       return payload;
     } catch (error) {
       if (error.code) throw error;
@@ -545,10 +553,11 @@ export function createManagedSync(win, scope, getAccount, gameAccountKey, privat
     return { id, origin, signer, public: true, device: random(), vault: random(), credential: random(),
       seed: random(), password: await uniquePassword(gameKey), gameKey };
   }
-  async function bindPublic(target, recovery) {
+  async function bindPublic(target, recovery, { conflict, passcode, replaceStale = false } = {}) {
     const id = obtainAccount();
     await bindingsReady;
     if (bindingIndex.has(id)) throw fail('already_bound', '请先解除当前账号的同步绑定');
+    if (conflict && conflict.accountId !== id) throw fail('account_mismatch');
     function checkTarget(origin) {
       ensureAccount(id);
       if (origin === TEST_SYNC_ORIGIN && !testEligible?.(id)) throw fail('test_unavailable', '当前账号暂无法使用云同步灰测。');
@@ -565,11 +574,30 @@ export function createManagedSync(win, scope, getAccount, gameAccountKey, privat
       const { origin: address, invitation } = publicBindingTarget(target);
       checkTarget(address);
       const pendingId = 'public-registration:' + id + ':' + address;
-      entry = (await get('requests', pendingId))?.entry ?? await newVault(id, address, '');
-      await put('requests', { id: pendingId, entry });
-      checkTarget(address);
-      const { signer } = await publicTransport.register(entry, publicProfile(id), invitation);
-      entry.signer = signer;
+      const pending = (await get('requests', pendingId))?.entry;
+      if (passcode !== undefined) {
+        const password = passcode.trim().toUpperCase();
+        if (!passFormat.test(password)) throw fail('invalid_passcode', '请输入有效的六位查看码');
+        if (!tokenFormat.test(conflict?.vault ?? '') || !tokenFormat.test(conflict?.seed ?? '')) {
+          throw fail('public_recovery_required');
+        }
+        entry = { id, origin: address, public: true, device: pending?.device ?? random(), credential: pending?.credential ?? random(),
+          vault: conflict.vault, seed: conflict.seed, password, gameKey: await gameAccountKey(id) };
+        checkTarget(address);
+        ({ signer: entry.signer } = await publicTransport.join(entry, publicProfile(id)));
+      } else {
+        entry = pending ?? await newVault(id, address, '');
+        await put('requests', { id: pendingId, entry });
+        checkTarget(address);
+        try {
+          ({ signer: entry.signer } = await publicTransport.register(entry, publicProfile(id), invitation, replaceStale));
+        } catch (error) {
+          if (error.code === 'public_passcode_required' || error.code === 'public_vault_not_stale') {
+            error.publicBinding = error.details && { ...error.details, accountId: id, origin: address };
+          }
+          throw error;
+        }
+      }
     }
     const proof = await prove(entry.origin, entry.signer);
     checkTarget(entry.origin);
@@ -655,6 +683,8 @@ export function createManagedSync(win, scope, getAccount, gameAccountKey, privat
     bindPrivateCredential: code => enrollPrivate(() => bindPrivateCredential(code)),
     recover: (code, address) => enroll(() => recover(code, address)), disconnect, detachPrivate: () => enrollPrivate(detachPrivate), update, exchange, previewLink,
     bindPublic: (target, recovery) => enroll(() => bindPublic(target, recovery)),
+    joinPublic: (conflict, passcode) => enroll(() => bindPublic(conflict.origin, undefined, { conflict, passcode })),
+    replaceStalePublic: conflict => enroll(() => bindPublic(conflict.origin, undefined, { conflict, replaceStale: true })),
     loadTestEligibility: loadOfficerConfig,
     bindTest: () => enroll(() => bindPublic(TEST_SYNC_ORIGIN)),
     updatePublicProfile: () => enroll(updatePublicProfile),

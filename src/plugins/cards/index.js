@@ -1,11 +1,12 @@
 import { singleRiderShopVisible } from '../../shared/native-shop.js';
+import { read } from '../../shared/safe-read.js';
 import { isPokerReplayActive, POKER_REPLAY_ATTRIBUTE } from '../../shared/poker-replay-mode.js';
 import { isNativePokerTable } from '../../shared/poker-table-mode.js';
 import { scopedStyles } from '../../shared/scoped-styles.js';
 import { CARD_MINIATURE_STYLES, CARD_SUITS, colorCardRank, createCardMiniature } from '../../shared/card-miniatures.js';
 import { CARD_OVERLAY_STYLES, SEAT_REVEAL_STYLES } from '../../shared/card-reveals.js';
 import { CARDS_ICON } from '../../ui/plugin-icons.js';
-import { initialState, reduce, CARD_JOURNAL_EVENTS, observedHandCandidates, handCandidates, zoneKey, metadata, sortCards, queryCardNames, queryCardPreview, deckComposition, wasSeen, ZONE_NAMES, REFERENCE, seatLabel } from './model.js';
+import { initialState, reduce, CARD_JOURNAL_EVENTS, indexHandCards, observedHandCandidates, handCandidates, zoneKey, metadata, sortCards, queryCardNames, queryCardPreview, deckComposition, wasSeen, ZONE_NAMES, REFERENCE, seatLabel } from './model.js';
 import { createNativeEnhancements, REVEAL_COLUMN_LEVELS, REVEAL_OPACITY_LEVELS, revealColumns, revealOpacity, roundInfoBounds } from './native.js';
 import { skillHints, SKILL_HINT_GROUPS } from './skill-hints.js';
 
@@ -114,9 +115,18 @@ export function activate(ctx) {
   const initialScene = ctx.game.getScene?.();
   let nativePokerTable = isNativePokerTable(initialScene);
   const currentState = () => nativePokerTable || isPokerReplayActive(document) ? idleState : ctx.getState() || idleState;
+  function readBattleView(state) {
+    if (!state.active) return {};
+    const scene = read(() => ctx.game.getScene?.());
+    let hands;
+    return { scene, shopVisible: singleRiderShopVisible(window, ctx.game, scene, state.mode?.id),
+      readHands: current => current === state ? hands ??= indexHandCards(state) : indexHandCards(current) };
+  }
   const mountStyle = scopedStyles(document, scope, STYLES);
   function resolveDeckMeta(id) {
-    const info = getMeta(id);
+    const info = getMeta(id), previous = unknownDeckMetadata.get(id);
+    if (previous && (previous.name !== info.name || previous.suit !== info.suit ||
+      previous.number !== info.number || previous.cardClass !== info.cardClass)) deckCompositions.clear();
     if (info.suit && info.number && !/^(?:(?:牌 #|卡牌 )\d+|未知牌)$/.test(info.name)) {
       deckMetadata.set(id, info);
       unknownDeckMetadata.delete(id);
@@ -124,16 +134,14 @@ export function activate(ctx) {
     return info;
   }
   const getDeckMeta = id => deckMetadata.get(id) ?? unknownDeckMetadata.get(id) ?? resolveDeckMeta(id);
+  // Retry less complete metadata when the native card table is still loading.
+  const getDisplayMeta = id => deckMetadata.get(id) ?? resolveDeckMeta(id);
   function getDeckComposition(state, group) {
     if (deckStatsState !== state) {
       deckStatsState = state;
       const key = JSON.stringify([state.historyComplete, state.seenHistoryComplete, state.deckIds.map(id => [id, wasSeen(state, id)])]);
-      let metaChanged = false;
-      for (const [id, previous] of unknownDeckMetadata) {
-        const next = resolveDeckMeta(id);
-        if (previous.name !== next.name || previous.suit !== next.suit || previous.number !== next.number || previous.cardClass !== next.cardClass) metaChanged = true;
-      }
-      if (key !== deckStatsKey || metaChanged) deckCompositions.clear();
+      for (const id of unknownDeckMetadata.keys()) resolveDeckMeta(id);
+      if (key !== deckStatsKey) deckCompositions.clear();
       deckStatsKey = key;
     }
     if (!deckCompositions.has(group)) deckCompositions.set(group, deckComposition(state, group, getDeckMeta));
@@ -174,14 +182,6 @@ export function activate(ctx) {
   function makeCard(id, possible = false, compact = false, miniature = false, getCardMeta = getMeta) {
     return drawCard(cardDetails(id, currentState(), possible, getCardMeta), possible, compact, miniature);
   }
-  function cardList(host, ids, { possible = false, empty = '暂无已知记录', limit = 120 } = {}) {
-    host.replaceChildren();
-    if (!ids.length) { host.append(element('div', 'sgs-card-empty', empty)); return; }
-    const grid = element('div', 'sgs-card-grid');
-    ids.slice(0, limit).forEach(id => grid.append(makeCard(id, possible, false, true)));
-    if (ids.length > limit) grid.append(element('span', 'sgs-card-muted', `另有 ${ids.length - limit} 张，请缩小筛选范围`));
-    host.append(grid);
-  }
   function selectedRecent(state) {
     return recentMode === 'current' ? state.recentCurrent : state.recentBySeat[state.selfSeatId];
   }
@@ -201,15 +201,14 @@ export function activate(ctx) {
   (document.body || document.documentElement).append(overlayHost);
   const hud = element('div', 'sgs-card-hud');
   hud.setAttribute('aria-label', '卡牌快捷查看');
-  function positionHud() {
+  function positionHud(state = currentState(), view) {
     if (disposed) return;
-    if (!currentState().active || !['recent', 'deck', 'discard'].some(key => setting(key)) || singleRiderShopVisible(window, ctx.game)) {
+    if (!state.active || !['recent', 'deck', 'discard'].some(key => setting(key))) {
       if (!hud.hidden) hud.hidden = true;
       return;
     }
-    let scene;
-    try { scene = ctx.game.getScene?.(); } catch { /* Scene may be changing. */ }
-    const bounds = roundInfoBounds(window, scene);
+    view ??= readBattleView(state);
+    const bounds = !view.shopVisible && roundInfoBounds(window, view.scene);
     if (hud.hidden !== !bounds) hud.hidden = !bounds;
     if (!bounds) return;
     const recentWidth = setting('recent') ? 66 : 0;
@@ -232,7 +231,7 @@ export function activate(ctx) {
     if (hud.style.left !== x + 'px') hud.style.left = x + 'px';
     if (hud.style.top !== y + 'px') hud.style.top = y + 'px';
   }
-  scope.listen(window, 'resize', positionHud);
+  scope.listen(window, 'resize', () => positionHud());
   scope.interval(positionHud, 180);
   const recentButton = element('button', 'sgs-card-hud-recent'); recentButton.type = 'button';
   recentButton.title = '点击切换本人／当前回合角色的最近用牌';
@@ -278,9 +277,8 @@ export function activate(ctx) {
       if (overlayHost.style.getPropertyValue(property) !== value) overlayHost.style.setProperty(property, value);
     }
   }
-  function updateHud() {
+  function updateHud(state = currentState(), view) {
     if (disposed) return;
-    const state = currentState();
     if (!state.active) { if (!hud.hidden) hud.hidden = true; return; }
     const recent = setting('recent'), deck = setting('deck'), discard = setting('discard'), fourColors = setting('fourColors', false);
     hud.classList.toggle('has-recent', recent);
@@ -346,7 +344,7 @@ export function activate(ctx) {
       if (hudMore.hidden !== !more) hudMore.hidden = !more;
       if (more && hudMore.textContent !== `更多（还剩 ${more} 张）`) hudMore.textContent = `更多（还剩 ${more} 张）`;
     }
-    positionHud();
+    positionHud(state, view);
   }
   const publishCompact = ctx.ui.registerCompactSummary?.() || (() => {});
   let compactKey = '[]';
@@ -383,7 +381,8 @@ export function activate(ctx) {
   }
   function refresh() {
     if (disposed) return;
-    updateHud(); panelRefreshers.forEach(update => update()); native?.update();
+    const state = currentState(), view = readBattleView(state);
+    updateHud(state, view); panelRefreshers.forEach(update => update(state, view)); native?.update(false, view.readHands);
   }
   scope.listen(window, 'keydown', event => {
     if (event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
@@ -461,13 +460,66 @@ export function activate(ctx) {
     const compositionHint = element('p', 'sgs-card-reason');
     compositionSection.body.append(deckSummary, deckControls, compositionTable, compositionHint);
     const inferenceSection = section('手牌推断');
+    const inferenceRows = new Map();
+    let inferenceSession, inferenceGame;
+    function updateInference(state, view) {
+      if (!state.active || inferenceSession !== state.sessionId || inferenceGame !== state.deckStartSeq) {
+        inferenceRows.clear();
+        if (inferenceSection.body.hasChildNodes()) inferenceSection.body.replaceChildren();
+        inferenceSession = state.sessionId; inferenceGame = state.deckStartSeq;
+      }
+      if (!state.active || !setting('reveals')) { inferenceSection.wrap.hidden = true; return; }
+
+      const hands = view.readHands(state), fourColors = setting('fourColors', false);
+      const details = new Map(), displayed = new Set();
+      const seats = [...new Set([...Object.keys(state.seats).map(Number), ...Object.values(state.zones).filter(zone => zone.kind === 5).map(zone => zone.seatId)])]
+        .filter(seatId => seatId !== state.selfSeatId && seatId < 255).sort((a, b) => a - b);
+      let nextRow = inferenceSection.body.firstElementChild;
+      for (const seatId of seats) {
+        const possible = [...new Set([...observedHandCandidates(state, seatId, hands), ...handCandidates(state, seatId, hands)])];
+        if (!possible.length) continue;
+        displayed.add(seatId);
+        let row = inferenceRows.get(seatId);
+        if (!row) {
+          const root = element('div', 'sgs-card-seat-row'), heading = element('div', 'sgs-card-seat-heading');
+          const details = element('details', 'sgs-card-possibilities sgs-fold');
+          const summary = element('summary'), list = element('div');
+          details.append(summary, list); root.append(heading, details);
+          row = { root, heading, summary, list };
+          inferenceRows.set(seatId, row);
+        }
+        const title = `${seatLabel(state, seatId)}${state.seats[seatId]?.dead ? ' · 已阵亡' : ''}`;
+        const total = `推断候选 ${possible.length} 张（非确定手牌）`;
+        if (row.heading.textContent !== title) row.heading.textContent = title;
+        if (row.summary.textContent !== total) row.summary.textContent = total;
+        const cards = possible.slice(0, 60).map(id => {
+          if (!details.has(id)) details.set(id, cardDetails(id, state, true, getDisplayMeta));
+          return details.get(id);
+        });
+        const key = JSON.stringify([fourColors, possible.length, cards]);
+        if (row.key !== key) {
+          row.key = key;
+          const grid = element('div', 'sgs-card-grid');
+          grid.append(...cards.map(card => drawCard(card, true, false, true)));
+          if (possible.length > cards.length) grid.append(element('span', 'sgs-card-muted', `另有 ${possible.length - cards.length} 张，请缩小筛选范围`));
+          row.list.replaceChildren(grid);
+        }
+        if (row.root !== nextRow) inferenceSection.body.insertBefore(row.root, nextRow);
+        nextRow = row.root.nextElementSibling;
+      }
+      for (const [seatId, row] of inferenceRows) if (!displayed.has(seatId)) {
+        row.root.remove();
+        inferenceRows.delete(seatId);
+      }
+      inferenceSection.wrap.hidden = !displayed.size;
+    }
     const hintSection = section('技能提示');
     hintSection.wrap.dataset.cardSkillHints = 'true';
     let hintSignature = '';
-    function updateHints(state = currentState()) {
+    function updateHints(state = currentState(), view) {
       if (disposed || !visible()) return;
       const skills = [], confirmedSkills = new Set();
-      const allowed = state.active && setting('skillHints') && !singleRiderShopVisible(window, ctx.game);
+      const allowed = state.active && setting('skillHints') && !(view ?? readBattleView(state)).shopVisible;
       if (allowed) {
         try {
           for (const ui of ctx.game.getSeatUIs?.() || []) {
@@ -505,17 +557,16 @@ export function activate(ctx) {
     let nameOptionsKey = '', queryKey = '';
     queryForm.append(nameSelect);
     const queryResults = element('div'), queryCount = element('p', 'sgs-card-muted');
-    function updateQuery() {
+    function updateQuery(state = currentState(), view) {
       if (!visible()) return;
-      const state = currentState();
-      if (!state.active || !querySection.open || singleRiderShopVisible(window, ctx.game)) {
+      if (!state.active || !querySection.open || (view ?? readBattleView(state)).shopVisible) {
         if (queryResults.hasChildNodes()) queryResults.replaceChildren();
         queryKey = '';
         return;
       }
       const queryMeta = new Map();
       const readMeta = id => {
-        if (!queryMeta.has(id)) queryMeta.set(id, getMeta(id));
+        if (!queryMeta.has(id)) queryMeta.set(id, getDisplayMeta(id));
         return queryMeta.get(id);
       };
       const allCards = Object.values(state.cards);
@@ -628,43 +679,29 @@ export function activate(ctx) {
       }
       compositionTable.scrollTop = compositionScrollTop;
     }
-    function update() {
+    function update(state = currentState(), view) {
       if (disposed) return;
-      const state = currentState();
       const statusText = state.active ? `记录中 · ${state.historyComplete ? '已取得开局牌表' : '记录不完整，仅展示已确认信息'}${state.turn ? ` · 第 ${state.turn} 回合` : ''}` : '';
       if (status.hidden !== !state.active) status.hidden = !state.active;
       if (status.textContent !== statusText) status.textContent = statusText;
       if (!visible()) return;
-      updateHints(state);
+      view ??= readBattleView(state);
+      updateHints(state, view);
       inputs.forEach(([key, fallback, input]) => { input.checked = setting(key, fallback); });
       opacity.update(revealOpacity(settings));
       size.update(revealColumns(settings));
-      for (const node of [inferenceSection.wrap, querySection, diagnostics]) node.hidden = !state.active;
+      for (const node of [querySection, diagnostics]) node.hidden = !state.active;
       compositionSection.wrap.hidden = !state.active || !setting('deck');
+      updateInference(state, view);
       if (!state.active) {
-        updateQuery();
+        updateQuery(state, view);
         return;
       }
       status.classList.toggle('is-partial', !state.historyComplete);
-      inferenceSection.body.replaceChildren();
-      const seatIds = [...new Set([...Object.keys(state.seats).map(Number), ...Object.values(state.zones).filter(value => value.kind === 5).map(value => value.seatId)])].filter(value => value !== state.selfSeatId && value < 255).sort((a, b) => a - b);
-      for (const seatId of seatIds) {
-        const possible = [...new Set([...observedHandCandidates(state, seatId), ...handCandidates(state, seatId)])];
-        if (!possible.length) continue;
-        const row = element('div', 'sgs-card-seat-row');
-        row.append(element('div', 'sgs-card-seat-heading', `${seatLabel(state, seatId)}${state.seats[seatId]?.dead ? ' · 已阵亡' : ''}`));
-        if (possible.length) {
-          const details = element('details', 'sgs-card-possibilities sgs-fold'), list = element('div');
-          details.append(element('summary', '', `推断候选 ${possible.length} 张（非确定手牌）`));
-          cardList(list, possible, { possible: true, limit: 60 }); details.append(list); row.append(details);
-        }
-        inferenceSection.body.append(row);
-      }
-      inferenceSection.wrap.hidden = !setting('reveals') || !inferenceSection.body.childElementCount;
       diagnosticBody.replaceChildren(element('p', 'sgs-card-reason', `功能参考 ${REFERENCE.version} · 最近记录序号 ${state.lastSeq}`));
       for (const item of state.limitations) diagnosticBody.append(element('p', 'sgs-card-reason', item.detail));
       if (!state.limitations.length) diagnosticBody.append(element('p', 'sgs-card-reason', '尚未发现记录缺口；实际信息以本局已收到的客户端消息为准。'));
-      updateQuery();
+      updateQuery(state, view);
     }
     const deckPanel = { visible, update: updateDeck };
     const visibilityObserver = new window.MutationObserver(() => { if (visible()) { update(); updateDeck(currentState()); } });
@@ -715,7 +752,11 @@ export function activate(ctx) {
   });
   const releaseTheme = ctx.themes?.subscribe?.(applyTheme);
   applyTheme();
-  scope.interval(() => { if (!releaseTheme) applyTheme(); updateHud(); hintRefreshers.forEach(update => update()); }, 1000);
+  scope.interval(() => {
+    if (!releaseTheme) applyTheme();
+    const state = currentState(), view = readBattleView(state);
+    updateHud(state, view); hintRefreshers.forEach(update => update(state, view));
+  }, 1000);
   refresh();
   return () => {
     if (disposed) return;
@@ -725,8 +766,8 @@ export function activate(ctx) {
 }
 
 export default {
-  manifest: { id: 'cards', name: '卡牌', version: '0.1.99', apiVersion: 1, contractVersion: 1, journalEvents: CARD_JOURNAL_EVENTS,
-    releaseNotes: "优化窄面板中的牌区筛选布局，扩大牌堆分类、置顶和明牌设置的点击区域。已有记牌和排序设置保持不变。", minCoreVersion: '0.6.87', categories: ['game'], icon: CARDS_ICON, priority: 10000,
+  manifest: { id: 'cards', name: '卡牌', version: '0.1.100', apiVersion: 1, contractVersion: 1, journalEvents: CARD_JOURNAL_EVENTS,
+    releaseNotes: "修复手牌推断展开后可能在刷新时自己收起的问题，减少牌桌和面板上的重复刷新。推断仍不是确定手牌，已有设置保持不变。", minCoreVersion: '0.6.87', categories: ['game'], icon: CARDS_ICON, priority: 10000,
     description: '记牌、明牌、牌堆查询与理牌读秒' },
   initialState, reduce, activate,
 };

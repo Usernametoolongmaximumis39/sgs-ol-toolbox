@@ -1,10 +1,12 @@
 import { read } from '../../shared/info-runtime.js';
+import { watchNativeWindowEvents } from '../../shared/window-cache.js';
 
 const USER_LINK = 'ATtextNickname*&.!**.%#';
 export const ROOM_LINK = 'sgs-social-room:';
 export const BINDING_CODE_FILTER = 'filterBindingCodes';
 const BINDING_CODE_TEXT = /互|绑|好友|周年|(?:^|[^A-Z])[AC][A-Z]{4,}/;
 const RANK_WAIT_MS = 10000;
+const DISCOVERY_INTERVAL = 1600;
 const isPublicChatChannel = channel => channel === 0 || channel === 1; // Native ALL and SYS.
 const escapeAttr = value => String(value).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const decodeHTML = value => String(value).replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
@@ -122,12 +124,10 @@ export function officerIcon(level, config) {
   // Exact native OfficerManager.GetOfficerChatIcon rule, including level 9 variants.
   return `res/assets/chat/officer/${big === 9 ? `${big}_${n}` : big}.png`;
 }
-export function decorateChatHTML(html, data, { lookup, config, robotIcon = '', getOfficerIcon } = {}) {
-  const original = String(html || '');
-  if (!data || !original || data.isBigFace) return original;
+function chatIcons(names, data, { lookup, config, robotIcon = '', getOfficerIcon }) {
   const speaker = String(data.SpokerMan || '');
   const icons = new Map();
-  for (const name of linkedNames(original)) {
+  for (const name of names) {
     const user = lookup?.(name);
     const uid = Number(user?.ClientId);
     const robot = Number.isSafeInteger(uid) && uid > 4000000000;
@@ -138,10 +138,13 @@ export function decorateChatHTML(html, data, { lookup, config, robotIcon = '', g
     const icon = robot ? robotIcon : getOfficerIcon ? getOfficerIcon(level) : officerIcon(level, config);
     if (icon) icons.set(name, icon);
   }
+  return icons;
+}
+function applyChatIcons(original, data, icons) {
   let result = original;
   // Native speaker rank sits before MessageHtml, while system mentions have no
   // rank. Move only a rank we can replace, preserving VIP/channel icons.
-  if (icons.has(speaker)) result = result.replace(/<img\b[^>]*\bsrc\s*=\s*(['"])res\/assets\/chat\/officer\/[^'"]+\1[^>]*\/?\s*>/gi, '');
+  if (icons.has(String(data.SpokerMan || ''))) result = result.replace(/<img\b[^>]*\bsrc\s*=\s*(['"])res\/assets\/chat\/officer\/[^'"]+\1[^>]*\/?\s*>/gi, '');
   result = result.replace(USER_TAG, (tag, quote, raw, offset, full) => {
     const name=linkName(raw,full,offset+tag.length);if(!name)return tag;
     const icon = icons.get(name);
@@ -153,6 +156,16 @@ export function decorateChatHTML(html, data, { lookup, config, robotIcon = '', g
     for (const room of roomNumbers(data.chatMsg)) result += ` <a href='${ROOM_LINK}${room}'><font color='#FFCA56'>进入${room}</font></a>`;
   }
   return result;
+}
+export function decorateChatHTML(html, data, options = {}) {
+  const original = String(html || '');
+  if (!data || !original || data.isBigFace) return original;
+  return applyChatIcons(original, data, chatIcons(linkedNames(original), data, options));
+}
+function sameIcons(a, b) {
+  if (!b || a.size !== b.size) return false;
+  for (const [name, icon] of a) if (b.get(name) !== icon) return false;
+  return true;
 }
 
 function roomController(ctx) {
@@ -213,7 +226,10 @@ export function createChatEnhancements(ctx) {
   let filterBindingCodes = bindingCodeFilterEnabled(ctx), filteredViews = new WeakSet();
   let rankWaits = new WeakMap(), rankWakeAt = Infinity, clearRankWake;
   const views = new Map(), items = new Map(), requested = new Set(), robotAssets = new Set();
-  const rankAssets=new Map();let nativeOfficer=null,diagnostics={};
+  const rankAssets = new Map(); let nativeOfficer = null, rowsSeen;
+  let priorStage, priorScene, discoveryAt = -Infinity, discoveryQueued = false;
+  let discoveredViews = [], discoveredRows = [];
+  const bindWindows = watchNativeWindowEvents(ctx.scope, null, queueDiscovery);
   const now = () => typeof ctx.now === 'function' ? ctx.now() : Date.now();
   const active = () => !stopped && !ctx.scope.signal.aborted;
   const filterActive = () => active() && filterBindingCodes;
@@ -237,7 +253,7 @@ export function createChatEnhancements(ctx) {
       try{loader.load(url,ctx.window.Laya.Handler.create(null,value=>{
         if(!active())return;
         const ready=value||read(()=>loader.getRes(url));rankAssets.set(url,ready?'ready':'failed');
-        if(!ready)ctx.reportError?.('聊天官阶图片加载失败：'+url);tick();
+        if(!ready)ctx.reportError?.('聊天官阶图片加载失败：'+url);tick(false);
       }),null,ctx.window.Laya.Loader?.IMAGE||'image');}catch(error){rankAssets.set(url,'failed');ctx.reportError?.(error);}
     }
     return rankAssets.get(url) === 'failed' ? '' : null;
@@ -248,7 +264,7 @@ export function createChatEnhancements(ctx) {
     rankWakeAt = deadline;
     const timer = setTimeout(() => {
       clearRankWake?.();
-      tick();
+      tick(false);
     }, Math.max(0, deadline - now()));
     clearRankWake = ctx.scope.add(() => {
       clearTimeout(timer); clearRankWake = null; rankWakeAt = Infinity;
@@ -303,7 +319,7 @@ export function createChatEnhancements(ctx) {
       const ready = () => {
         asset.texture = read(() => laya.loader.getRes(url));
         if (!active() || generation !== robotGeneration || asset.released) { releaseAsset(asset); return; }
-        robotIcon = url; tick();
+        robotIcon = url; tick(false);
       };
       try { laya.loader.load(url, laya.Handler.create(null, ready), null, laya.Loader?.IMAGE || 'image'); }
       catch (error) { releaseAsset(asset); ctx.reportError?.(error); }
@@ -380,7 +396,8 @@ export function createChatEnhancements(ctx) {
     }
   }
   function clear() {
-    diagnostics={};nativeOfficer=null;
+    rowsSeen = undefined; nativeOfficer = null;
+    discoveryAt = -Infinity; discoveredViews = []; discoveredRows = [];
     clearRankWake?.(); rankWaits = new WeakMap();
     clearAttempt();passwordJob=null;
     pending = null; requested.clear(); submitUntil = 0;
@@ -389,7 +406,7 @@ export function createChatEnhancements(ctx) {
     for (const view of views.values()) view.release(); views.clear();
     filteredViews = new WeakSet();
   }
-  function enhance(item) {
+  function enhance(item, lookupProfile = lookup, getRankIcon = rankIcon) {
     if (!item || item.destroyed) return false;
     let entry = items.get(item);
     if (entry && entry.data !== item.chatData) { removeItem(item); entry = undefined; }
@@ -397,7 +414,7 @@ export function createChatEnhancements(ctx) {
       || (item.visible === false && !entry?.held)) return false;
     const html = htmlOf(item); if (typeof html !== 'string') return false;
     if (!entry) {
-      entry = { base: html, applied: html, data: item.chatData, release: null }; items.set(item, entry);
+      entry = { base: html, applied: html, names: linkedNames(html), data: item.chatData, release: null }; items.set(item, entry);
       if (typeof item.htmlTxt.event === 'function') entry.release = ctx.scope.patch(item.htmlTxt, 'event', original => function (type, value, ...args) {
         const href = typeof value === 'string' ? value : Array.isArray(value) ? value[0] : value?.href;
         if (active() && type === (ctx.window.Laya?.Event?.LINK || 'link') && typeof href === 'string' && href.startsWith(ROOM_LINK)) {
@@ -409,16 +426,23 @@ export function createChatEnhancements(ctx) {
         return original.call(this, type, value, ...args);
       });
     }
-    if (html !== entry.applied) entry.base = html;
+    const changedBase = html !== entry.applied;
+    if (changedBase) { entry.base = html; entry.names = linkedNames(html); }
+    const data = entry.data;
     let rankPending = false;
-    const applied = decorateChatHTML(entry.base, item.chatData, { lookup, config, robotIcon, getOfficerIcon(level) {
-      const icon = rankIcon(level);
+    const icons = data.isBigFace ? new Map() : chatIcons(entry.names, data, { lookup: lookupProfile, robotIcon, getOfficerIcon(level) {
+      const icon = getRankIcon(level);
       if (icon === null) rankPending = true;
       return icon;
     } });
-    entry.applied = applied;
-    const changed=html!==applied;
-    if(changed){item.htmlTxt.innerHTML=applied;item.htmlTxt.layout?.();}
+    if (changedBase || !sameIcons(icons, entry.icons) || entry.message !== data.chatMsg || entry.type !== data.MsgType ||
+        entry.speaker !== data.SpokerMan || entry.bigFace !== data.isBigFace) {
+      entry.applied = data.isBigFace ? entry.base : applyChatIcons(entry.base, data, icons);
+      entry.icons = icons; entry.message = data.chatMsg; entry.type = data.MsgType;
+      entry.speaker = data.SpokerMan; entry.bigFace = data.isBigFace;
+    }
+    const changed = html !== entry.applied;
+    if (changed) { item.htmlTxt.innerHTML = entry.applied; item.htmlTxt.layout?.(); }
     // HTML layout may also finish later (image/font/width changes). Do not
     // assume unchanged markup means unchanged height, or the next row overlaps.
     const height=Number(item.contextHeight),resized=Number.isFinite(height)&&entry.height!==height;
@@ -445,7 +469,28 @@ export function createChatEnhancements(ctx) {
     view.msgContainer.refresh?.(); view.msgContainer.UpdateDrawContent?.();
     if(atBottom)view.refreshMsgSize?.(true);
   }
-  function tick() {
+  function queueDiscovery() {
+    if (discoveryQueued || !active()) return;
+    discoveryQueued = true;
+    ctx.scope.timeout(() => { discoveryQueued = false; tick(); }, 0);
+  }
+  function discover(stage, scene, force) {
+    const sceneView = read(() => scene.chatViewUI);
+    if (force || stage !== priorStage || scene !== priorScene || now() - discoveryAt >= DISCOVERY_INTERVAL) {
+      priorStage = stage; priorScene = scene; discoveryAt = now();
+      const nodes = displayedNodes(stage);
+      discoveredViews = nodes.filter(node => typeof node.getHtmlBase === 'function' && node.msgContainer);
+      discoveredRows = nodes.filter(node => node.chatData && node.htmlTxt && typeof node.linkHandler === 'function')
+        .map(node => ({ node, hadParent: !!node.parent }));
+      if (sceneView && !nodes.includes(sceneView)) nodes.push(sceneView);
+      return nodes;
+    }
+    const nodes = new Set();
+    for (const view of new Set([sceneView, ...discoveredViews])) for (const node of displayedNodes(view)) nodes.add(node);
+    for (const { node, hadParent } of discoveredRows) if (!node.destroyed && (!hadParent || node.parent)) nodes.add(node);
+    return nodes;
+  }
+  function tick(forceDiscovery = true) {
     if (!active()) return;
     const accountId = ctx.native.account().id; if (accountId !== who) { clear(); who = accountId; }
     if (!who) return;
@@ -474,9 +519,19 @@ export function createChatEnhancements(ctx) {
         else if (c.scene?.SceneName === 'HallScene' && !Number(c.rc?.TableId)) submit(pending, c);
       }
     }
-    const nodes = displayedNodes(ctx.window.Laya?.stage);
-    const sceneView = read(() => ctx.game.getScene().chatViewUI); if (sceneView && !nodes.includes(sceneView)) nodes.push(sceneView);
+    const stage = ctx.window.Laya?.stage, scene = read(() => ctx.game.getScene());
+    bindWindows(stage ? read(() => ctx.game.getDispatcher?.()) ?? null : null);
+    const nodes = discover(stage, scene, forceDiscovery);
     const liveViews = new Set(), liveItems = new Set(), changedItems = new Set();
+    const profiles = new Map(), rankIcons = new Map();
+    const lookupProfile = name => {
+      if (!profiles.has(name)) profiles.set(name, lookup(name));
+      return profiles.get(name);
+    };
+    const getRankIcon = level => {
+      if (!rankIcons.has(level)) rankIcons.set(level, rankIcon(level));
+      return rankIcons.get(level);
+    };
     const filteredRows = new Map();
     const enabled = bindingCodeFilterEnabled(ctx), filterChanged = enabled !== filterBindingCodes;
     filterBindingCodes = enabled;
@@ -515,22 +570,23 @@ export function createChatEnhancements(ctx) {
       }
     }
     for (const item of nodes) if (item?.chatData && filteredRows.get(item) !== item.chatData && item.htmlTxt && typeof item.linkHandler === 'function') {
-      liveItems.add(item); if (enhance(item)) changedItems.add(item);
+      liveItems.add(item); if (enhance(item, lookupProfile, getRankIcon)) changedItems.add(item);
     }
     for (const view of liveViews) {
       let changed = false;
       for (const item of (view.msgContainer._children || []).slice(0, 256)) {
         if (!item?.chatData || filteredRows.get(item) === item.chatData) continue;
-        liveItems.add(item); changed = enhance(item) || changedItems.has(item) || changed;
+        if (!liveItems.has(item)) {
+          liveItems.add(item);
+          if (enhance(item, lookupProfile, getRankIcon)) changedItems.add(item);
+        }
+        changed = changedItems.has(item) || changed;
       }
       if (changed) relayout(view);
     }
     for (const view of [...views.keys()]) if (!liveViews.has(view) || view.destroyed) { views.get(view).release(); views.delete(view); }
     for (const item of [...items.keys()]) if (!liveItems.has(item)) removeItem(item);
-    const names=new Set([...items.values()].flatMap(entry=>linkedNames(entry.base)));
-    diagnostics={rows:liveItems.size,links:names.size,profiles:[...names].filter(name=>Number(lookup(name)?.OfficerLevel)>0).length,
-      nativeOfficer:Boolean(nativeOfficer),config:Boolean(config),inserted:[...items.values()].reduce((n,e)=>n+(e.applied.match(/res\/assets\/chat\/officer\//g)||[]).length,0),
-      loading:[...rankAssets.values()].filter(v=>v==='loading').length,failed:[...rankAssets.values()].filter(v=>v==='failed').length};
+    rowsSeen = liveItems.size;
     releaseUnusedAssets();
     // The native menu requests detail info even for a cached nickname. A cached
     // ClientId/default OfficerLevel is not proof that its profile was loaded.
@@ -539,9 +595,14 @@ export function createChatEnhancements(ctx) {
     {
       const ctor = self()?.constructor;
       if (typeof ctor?.SendUserDetailReq === 'function' || typeof ctor?.SendUserBaseInfo === 'function') {
-        const visibleNames = new Set([...liveItems].reverse()
-           .filter(item=>visibleChatItem(item,ctx.window.Laya?.stage,ctx.window.Laya,items.get(item)?.held))
-          .flatMap(item=>linkedNames(items.get(item)?.base).reverse()));
+        const trimRequests = requested.size > 512;
+        const visibleNames = new Set();
+        for (const item of [...liveItems].reverse()) {
+          const entry = items.get(item);
+          if (!entry?.names.length || !trimRequests && entry.names.every(name => requested.has(name))) continue;
+          if (!visibleChatItem(item, stage, ctx.window.Laya, entry.held)) continue;
+          for (let i = entry.names.length - 1; i >= 0; i--) visibleNames.add(entry.names[i]);
+        }
         // Bound memory without letting old/offscreen history exhaust a lifetime quota.
         if(requested.size>512)for(const name of requested)if(!visibleNames.has(name))requested.delete(name);
         for (const name of visibleNames) {
@@ -549,13 +610,21 @@ export function createChatEnhancements(ctx) {
           if(requested.has(name)||name===self()?.Nickname||name===self()?.NickNameForLocal)continue;
           requested.add(name);
           try {
-            if(!lookup(name)&&typeof ctor.CreateNickNameInstance==='function'&&typeof ctor.SetInstance==='function')ctor.SetInstance(ctor.CreateNickNameInstance(name));
+            if(!lookupProfile(name)&&typeof ctor.CreateNickNameInstance==='function'&&typeof ctor.SetInstance==='function')ctor.SetInstance(ctor.CreateNickNameInstance(name));
             if(typeof ctor.SendUserDetailReq==='function')ctor.SendUserDetailReq(name,false);
             else ctor.SendUserBaseInfo(name);
           } catch (error) { ctx.reportError?.(error); }
         }
       }
     }
+  }
+  function getDiagnostics() {
+    if (rowsSeen === undefined) return {};
+    const names = new Set([...items.values()].flatMap(entry => entry.names));
+    return { rows: rowsSeen, links: names.size, profiles: [...names].filter(name => Number(lookup(name)?.OfficerLevel) > 0).length,
+      nativeOfficer: Boolean(nativeOfficer), config: Boolean(config),
+      inserted: [...items.values()].reduce((n, e) => n + (e.applied.match(/res\/assets\/chat\/officer\//g) || []).length, 0),
+      loading: [...rankAssets.values()].filter(v => v === 'loading').length, failed: [...rankAssets.values()].filter(v => v === 'failed').length };
   }
   function dispose() {
     if (stopped) return;
@@ -566,6 +635,7 @@ export function createChatEnhancements(ctx) {
     for (const asset of [...robotAssets]) releaseAsset(asset);
     for (const view of restoreViews) refreshChat(view);
   }
-  ctx.scope.add(dispose); ctx.scope.interval(tick, 400); tick();
-  return { tick, dispose, requestEnterRoom, getDiagnostics:()=>({...diagnostics}) };
+  if (ctx.game.onSceneChange) ctx.scope.add(ctx.game.onSceneChange(queueDiscovery));
+  ctx.scope.add(dispose); ctx.scope.interval(() => tick(false), 400); tick();
+  return { tick, dispose, requestEnterRoom, getDiagnostics };
 }

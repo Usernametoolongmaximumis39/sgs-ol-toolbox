@@ -52,11 +52,9 @@ function cardBookFaces(node, listType, detailType) {
 
 // The official loader stores atlas subtextures separately from bitmap resources.
 // Borrow only; neither resize nor destroy a game-owned texture.
-export function findNativeCardTexture(L, name) {
-  if (!/^card(?:Face|Back)_\d{1,5}$/.test(name)) return null;
-  const valid = t => t?.bitmap && !t.destroyed && !t.bitmap.destroyed && t.width > 0 && t.height > 0;
-  const direct = L?.loader?.getRes?.(name);
-  if (valid(direct)) return direct;
+const nativeTextureName = /^card(?:Face|Back)_\d{1,5}$/;
+const validNativeTexture = t => t?.bitmap && !t.destroyed && !t.bitmap.destroyed && t.width > 0 && t.height > 0;
+function findNativeCardAlias(L, name) {
   for (const cache of [L?.Loader?.textureMap, L?.Loader?.loadedMap, L?.Loader?._loadedMap]) {
     if (!cache) continue;
     const keys = Object.keys(cache), count = Math.min(keys.length, 60000);
@@ -64,10 +62,15 @@ export function findNativeCardTexture(L, name) {
       const key = keys[i];
       if (!key.includes(name) || nativeCardResourceName(key) !== name) continue;
       const entry = cache[key], texture = entry?.bitmap ? entry : L?.loader?.getRes?.(key);
-      if (valid(texture)) return texture;
+      if (validNativeTexture(texture)) return texture;
     }
   }
   return null;
+}
+export function findNativeCardTexture(L, name) {
+  if (!nativeTextureName.test(name)) return null;
+  const direct = L?.loader?.getRes?.(name);
+  return validNativeTexture(direct) ? direct : findNativeCardAlias(L, name);
 }
 
 // One core-owned drawing path serves the native texture and the settings preview.
@@ -412,14 +415,31 @@ export class CardStyleRegistry {
     return this.textures.get(key);
   }
   nativeTexture(name, immediate = false) {
+    if (!nativeTextureName.test(name)) return null;
     const cached = this.nativeResources.get(name);
-    if (cached && !cached.destroyed && !cached.bitmap?.destroyed) return cached;
-    this.nativeResources.delete(name);
-    if (!immediate && Date.now() - (this.nativeAttempts.get(name) || 0) < 1000) return null;
-    this.nativeAttempts.set(name, Date.now());
+    if (validNativeTexture(cached)) return cached;
+    if (cached) {
+      this.nativeResources.delete(name);
+      this.nativeAttempts.delete(name);
+    }
+    const laya = this.win.Laya;
     let texture;
-    try { texture = findNativeCardTexture(this.win.Laya, name); } catch { return null; }
-    if (texture) this.nativeResources.set(name, texture);
+    try {
+      texture = laya?.loader?.getRes?.(name);
+      if (!validNativeTexture(texture)) {
+        const attempt = this.nativeAttempts.get(name);
+        const now = Date.now();
+        // One native redraw can retry a polling miss in case an atlas appeared
+        // without a loader event. Other redraws share that result.
+        if (attempt && attempt.laya === laya && now - attempt.at < 1000 && (!immediate || attempt.immediate)) return null;
+        this.nativeAttempts.set(name, { laya, at: now, immediate });
+        texture = findNativeCardAlias(laya, name);
+      }
+    } catch { return null; }
+    if (texture) {
+      this.nativeResources.set(name, texture);
+      this.nativeAttempts.delete(name);
+    }
     return texture;
   }
   preview(style, back) {
@@ -690,8 +710,9 @@ export class CardStyleRegistry {
       if (!child || child === this || child.destroyed) return result;
       try {
         if (this === registry.win.Laya.stage || this.name === 'SceneLayer' || this.layerOrder === 2 || this === registry.scene) {
+          const { scene, selfHand } = registry;
           registry.syncScene();
-          registry.queueRefresh();
+          if (registry.scene !== scene || registry.selfHand !== selfHand) registry.queueRefresh();
         }
         registry.captureBranch(child);
       } catch (error) { registry.setStatus('卡牌外观未应用：' + error.message); }

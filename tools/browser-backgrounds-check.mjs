@@ -66,6 +66,14 @@ try {
       get scale() { return this.scaleX; }
       get skin() { return this.url; }
       posInteger(x,y) { this.pos(x,y); }
+      size(width, height) {
+        super.size(width, height);
+        if (this.url?.includes('/wallpaper/bg/')) {
+          this.graphics.clear();
+          this.graphics.drawTexture(window.wallpaperTexture, 0, 0, width, height);
+        }
+        return this;
+      }
     };
     window.ti = { backgroundLayer: 0 }; window.hi = { Lv1: 1 };
     window.cAt = { gameWidth: 1200, gameHeight: 850, gameScale: 1, GetBackAniScale: () => 1 };
@@ -120,6 +128,15 @@ try {
       ${nativeMethod(client.scene, 'SetWallPaperByUrl')},
       ${nativeMethod(client.scene, 'onWallPaperChange')}
     };` });
+  await page.evaluate(async () => {
+    const wallpaper = document.createElement('canvas'); wallpaper.width = 2024; wallpaper.height = 960;
+    const paint = wallpaper.getContext('2d'), gradient = paint.createLinearGradient(0, 0, wallpaper.width, wallpaper.height);
+    gradient.addColorStop(0, '#245866'); gradient.addColorStop(.56, '#448a88'); gradient.addColorStop(1, '#193e56');
+    paint.fillStyle = gradient; paint.fillRect(0, 0, wallpaper.width, wallpaper.height);
+    paint.fillStyle = '#b8d6bd'; paint.beginPath(); paint.arc(1012, 480, 240, 0, Math.PI * 2); paint.fill();
+    window.wallpaperTexture = await new Promise(resolve =>
+      Laya.loader.load(wallpaper.toDataURL(), Laya.Handler.create(null, resolve), null, Laya.Loader.IMAGE));
+  });
   await page.evaluate(()=>new Promise(resolve=>{
     const canvas=document.createElement('canvas');canvas.width=800;canvas.height=1200;
     const c=canvas.getContext('2d');const gradient=c.createLinearGradient(0,0,800,1200);gradient.addColorStop(0,'#7d9f9b');gradient.addColorStop(1,'#765739');c.fillStyle=gradient;c.fillRect(0,0,800,1200);c.fillStyle='#ae9760';c.beginPath();c.arc(400,600,180,0,Math.PI*2);c.fill();
@@ -141,7 +158,7 @@ try {
     const registry = new Check.BackgroundRegistry({ window: { document, SystemContext: window.SystemContext, URL, Image, Blob, indexedDB, IDBKeyRange, Laya: { ...Laya, stage: Laya.stage, loader: {
       load(url, handler, progress, type) {
         if (url.startsWith('blob:')) Laya.loader.load(url, handler, progress, type);
-        else handler.runWith(edgeTexture);
+        else handler.runWith(url.includes('/wallpaper/bg/') ? wallpaperTexture : edgeTexture);
       },
       getRes: url => Laya.loader.getRes(url), clearRes: url => Laya.loader.clearRes(url),
     } } }, scope, settings: baseSettings, game: { getScene:()=>scene,isInGame:()=>true,
@@ -183,6 +200,40 @@ try {
     await page.getByRole('button', { name: '恢复游戏背景' }).click();
   }
   if (!currentClientPath) {
+    await page.setViewportSize({ width: 1906, height: 650 });
+    const layout = () => {
+      const { bg, isWideBg } = fixture.native;
+      return { wide: isWideBg, width: bg.width, height: bg.height, scale: bg.scale, x: bg.x, y: bg.y };
+    };
+    const officialUrl = 'res/wallpaper/bg/wide.png';
+    const viewports = [{ width: 1906, height: 650 }, { width: 1024, height: 768 }];
+    const nativeLayouts = [];
+    for (const { width, height } of viewports) {
+      await page.evaluate(({ officialUrl, width, height }) => {
+        Object.assign(V2t, { IsInGame: true, SceneRightWidth: 164 });
+        fixture.native.O(officialUrl, false, true);
+        fixture.resize(width, height, width, height);
+      }, { officialUrl, width, height });
+      nativeLayouts.push(await page.evaluate(layout));
+    }
+    // Start with a saved selection without wide metadata, as on upgrade.
+    await page.evaluate(officialUrl => fixture.registry.select('backgrounds', {
+      name: '宽版官图演练', url: officialUrl, officialWallpaper: true,
+    }), officialUrl);
+    for (const [index, { width, height }] of viewports.entries()) {
+      await page.setViewportSize({ width, height });
+      await page.evaluate(({ width, height }) => fixture.resize(width, height, width, height), { width, height });
+      assert.deepEqual(await page.evaluate(layout), nativeLayouts[index], 'local official wallpaper uses native battle framing');
+      assert.equal(await page.evaluate(() => fixture.native.getChildByName('sgs-background-edge-fill')), null);
+      if (index === 0) await page.screenshot({ path: path.join(out, 'official-wallpaper-ultrawide.png') });
+    }
+    await page.evaluate(() => {
+      fixture.registry.select('backgrounds', null);
+      Object.assign(V2t, { IsInGame: false, SceneRightWidth: 0 });
+      fixture.resize(1200, 850, 1200, 850);
+    });
+    await page.setViewportSize({ width: 1200, height: 850 });
+
     await page.evaluate(() => fixture.registry.select('backgrounds', { name: '官方动态演练',
       url: 'res/wallpaper/small/live.png', officialWallpaper: true,
       wallpaperMotion: { kind: 'spine', url: 'res/wallpaper/ani/live.json' } }));
@@ -200,6 +251,7 @@ try {
     await page.evaluate(() => fixture.registry.setAnimated('backgrounds', false));
     assert.equal(await page.evaluate(() => fixture.native.getChildByName('sgs-background-motion')), null);
     assert.equal(await page.evaluate(() => fixture.native.bg.visible), true);
+    assert.deepEqual(await page.evaluate(layout), { wide: false, width: 1600, height: 960, scale: 850 / 960, x: -108, y: 0 });
     await page.evaluate(() => fixture.registry.select('backgrounds', null));
   }
   const button = page.getByRole('button', { name: '作为牌局背景', exact: true });
@@ -371,7 +423,16 @@ try {
   });
   await page.waitForFunction(()=>fixture.registry.status==='动态牌局背景已启用' || fixture.registry.status.includes('失败'));
   assert.equal(await page.evaluate(()=>fixture.registry.status),'动态牌局背景已启用');
-  await page.waitForTimeout(160);
+  await page.evaluate(() => {
+    const texture = Laya.VideoTexture._videoTexturePool.find(t => t.video);
+    const update = texture._updateVideoData;
+    fixture.videoUploads = 0;
+    texture._updateVideoData = function (...args) {
+      fixture.videoUploads++;
+      return Reflect.apply(update, this, args);
+    };
+  });
+  await page.waitForFunction(() => fixture.videoUploads >= 2, null, { timeout: 4000 });
   assert.equal(await page.evaluate(()=>Laya.VideoTexture._videoTexturePool.filter(t=>t.video).length),1);
   const videoShot = await page.screenshot({path:path.join(out,'video-playing.png')});
   const pixel = await page.evaluate(async bytes=>{

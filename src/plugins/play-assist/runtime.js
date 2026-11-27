@@ -58,29 +58,32 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     if (disposed || ctx.scope.signal.aborted || !s || s !== state || ended || !visible(s.self)
       || s.self.seat?.IsDead || s.self.seat?.IsAiControl || s.scene.IsViewer === true) return false;
     if ((scene ?? ctx.game.getScene()) !== s.scene || isNativePokerTable(s.scene)) return false;
-    const gc = gameContext(), snap = read(() => ctx.game.getSnapshot());
+    const gc = gameContext();
+    const inGame = read(() => ctx.game.isInGame()), replay = read(() => ctx.game.isReplay(s.scene));
+    const snap = typeof inGame !== 'boolean' || typeof replay !== 'boolean' ? read(() => ctx.game.getSnapshot()) : null;
     // GameContext is closure-local in production builds, not a registered
     // Laya class. Native handlers still enforce its operation restrictions.
-    return snap?.inGame === true && !snap.isReplay && !snap.pokerTable && gc?.IsViewer !== true &&
+    return (inGame ?? snap?.inGame) === true && !(replay ?? snap?.isReplay) && !snap?.pokerTable && gc?.IsViewer !== true &&
       read(() => gc.IsViewerOrReplay()) !== true && (!requireOperation || read(() => gc.CanOperationInGame()) !== false);
   }
-  function notify() { onChange(); }
+  function notify(options) { onChange(options); }
   function toggle(id, remember = false) {
     id = Number(id);
-    if (!alive() || !getSettings().skillLock || !list(state.self.skillItems).some(x => supported(x) && Number(x.Skill?.SkillId) === id)) return false;
+    const options = getSettings();
+    if (!options.skillLock || !alive() || !list(state.self.skillItems).some(x => supported(x) && Number(x.Skill?.SkillId) === id)) return false;
     if (remember) { locks.add(id); remembered.add(id); }
     else if (locks.has(id)) { locks.delete(id); remembered.delete(id); }
     else locks.add(id);
     state.priorityAction = null;
-    persist(); paint(); schedule(state); notify(); return true;
+    persist(); paint(options); schedule(state, options); notify(options); return true;
   }
   function getSkills() {
     return list(state?.self.skillItems).filter(supported).map(item => ({id:Number(item.Skill.SkillId), name:String(item.Skill.Name || item.Skill.SkillId), locked:locks.has(Number(item.Skill.SkillId)), remembered:remembered.has(Number(item.Skill.SkillId))}));
   }
-  function paint() {
+  function paint(options = getSettings()) {
     for (const [item, binding] of state?.bindings || []) if (binding.label && !binding.label.destroyed) {
       binding.label.text = remembered.has(Number(item.Skill?.SkillId)) ? '记\n住' : '自\n动';
-      binding.label.visible = getSettings().skillLock && locks.has(Number(item.Skill?.SkillId));
+      binding.label.visible = options.skillLock && locks.has(Number(item.Skill?.SkillId));
       binding.label.color = ctx.ui.nativeTheme?.palette?.accent || '#c8ab6a';
       binding.label.bgColor = ctx.ui.nativeTheme?.palette?.bg || '#171b1d';
       // Native skill labels reserve at least 8px on the right. Keep the status
@@ -90,8 +93,14 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     }
   }
   function later(fn, ms) { return ctx.scope.timeout(() => { if (!disposed) fn(); }, ms); }
-  function schedule(s) {
+  function hasActions(options, scene, priorityOnly = false) {
+    const sceneName = scene.SceneName || scene.sceneName || scene.name;
+    return options.skillLock && locks.size > 0 || options.fireAttack || options.skipTao || options.skipAssist
+      || options.skipWuxie && sceneName === SHANHE_BATTLE_SCENE || !priorityOnly && options.autoConfirm;
+  }
+  function schedule(s, options) {
     if (s.pending) return;
+    if (!hasActions(options ?? getSettings(), s.scene)) return;
     s.pending = true; later(() => { s.pending = false; processActions(s); }, 0);
   }
   function bindSkill(s, item) {
@@ -158,10 +167,10 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       item.addChild(label); clean.push(() => { if (!label.destroyed) label.destroy(true); });
     }
     let rapidRestore = null, rapidTarget = null;
-    const rapid = () => {
+    const rapid = (enabled = getSettings().rapid) => {
       const auto = item.autoReset;
       if (rapidRestore && auto !== rapidTarget) { rapidRestore(); rapidRestore = null; rapidTarget = null; }
-      if (getSettings().rapid && auto && !rapidRestore) {
+      if (enabled && auto && !rapidRestore) {
         const own = Object.getOwnPropertyDescriptor(auto, 'Value');
         if (!own || own.configurable) {
           const descriptor = { configurable:true, get:() => false, set:() => {} };
@@ -169,7 +178,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
           rapidTarget = auto;
           rapidRestore = () => { const now = Object.getOwnPropertyDescriptor(auto,'Value'); if (now?.get === descriptor.get) { if (own) Object.defineProperty(auto,'Value',own); else delete auto.Value; } };
         }
-      } else if (!getSettings().rapid && rapidRestore) { rapidRestore(); rapidRestore = null; rapidTarget = null; }
+      } else if (!enabled && rapidRestore) { rapidRestore(); rapidRestore = null; rapidTarget = null; }
     };
     return {id, label, rapid, dispose:ctx.scope.add(() => { cancel(); rapidRestore?.(); clean.reverse().forEach(fn => fn()); })};
   }
@@ -190,7 +199,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     syncBar(s);
     patch(self.spellSelector,'Show',() => s.selector++); patch(self.spellSelector,'UpdateBtnState',() => {});
     patch(self,'StartSelectSkillItem',(_trigger, skill) => { s.askedSkillId = Number(skill?.SkillId ?? skill?.ID); });
-    if (ctx.ui.nativeTheme?.watch) s.clean.push(ctx.ui.nativeTheme.watch(paint));
+    if (ctx.ui.nativeTheme?.watch) s.clean.push(ctx.ui.nativeTheme.watch(() => paint()));
   }
   function syncBar(s) {
     const bar = buttonBar(s.self);
@@ -231,14 +240,14 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     if (!card || typeof card.setSelected !== 'function') return false;
     card.setSelected(true); return true;
   }
-  function clickSkill(s,item) {
-    if (!alive(s) || !item.activated || item.Selected || !visible(item) || !getSettings().rapid && Date.now() - s.lastSkill < SKILL_REPEAT_MS) return false;
+  function clickSkill(s,item, rapid) {
+    if (!item.activated || item.Selected || !visible(item) || !rapid && Date.now() - s.lastSkill < SKILL_REPEAT_MS || !alive(s)) return false;
     s.lastSkill = Date.now(); s.automatic = true;
     try { return nativeClick(item); }
     finally { s.automatic = false; }
   }
-  function declineQianfuFollowup(s, context) {
-    if (!getSettings().skillLock || !QIANFU_IDS.some(id => locks.has(id))) return false;
+  function declineQianfuFollowup(s, context, options) {
+    if (!options.skillLock || !QIANFU_IDS.some(id => locks.has(id))) return false;
     const self = s.self, selector = self.spellSelector;
     const plain = value => String(value || '').replace(/<[^>]*>/g,'').replace(/\s/g,'');
     const texts = [context?.message, buttonBar(self)?.txtOptMsg?._innerHTML,
@@ -264,8 +273,8 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     // through to conversion confirmation, generic skill activation or OK.
     return true;
   }
-  function lockedAction(s, context, message, gc) {
-    if (!getSettings().skillLock || !locks.size) return false;
+  function lockedAction(s, context, message, gc, options) {
+    if (!options.skillLock || !locks.size) return false;
     const self = s.self, selector = self.spellSelector, cards = list(self.cardContainer?.cardUis);
     if (selector?.visible) {
       if (choice(s,d => { const id = Number(d.callBackParams?.[0]?.FirstTriggerParam?.SpellId ?? d.callBackParams?.[0]?.TriggerSpellData?.[0]?.SpellId); return !QIANGZHI_IDS.includes(id) && locks.has(id); })) return true;
@@ -343,24 +352,26 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
         if (!usableHeal) continue;
       }
       if (message === '是否发动' + item.Skill.Name && button(s,'btnOK')) return true;
-      if (clickSkill(s,item)) return true;
+      if (clickSkill(s,item,options.rapid)) return true;
     }
     return false;
   }
   function processActions(s, priorityOnly = false) {
-    if (!alive(s)) return false;
+    if (!s || s !== state || disposed || ended || ctx.scope.signal.aborted) return false;
+    const options = getSettings();
+    if (!hasActions(options, s.scene, priorityOnly) || !alive(s)) return false;
     const hand = s.self.cardContainer;
     const context = hand?.selectCardContext ?? hand?.SelectContext;
     const { bar, selector, priorityAction } = s;
     if (priorityOnly && priorityAction && priorityAction.context === context && priorityAction.bar === bar &&
         priorityAction.selector === selector && Date.now() < priorityAction.until) return true;
-    if (!run(s, context, priorityOnly)) return false;
+    if (!run(s, context, priorityOnly, options)) return false;
     // A skill can send an action before the client replaces the ordinary prompt.
     s.priorityAction = { context, bar, selector, until: Date.now() + SKILL_REPEAT_MS };
     return true;
   }
-  function run(s, context, priorityOnly) {
-    const opt = getSettings(), self = s.self, gc = gameContext();
+  function run(s, context, priorityOnly, opt) {
+    const self = s.self, gc = gameContext();
     const barMessage = buttonBar(self)?.txtOptMsg?._innerHTML;
     const message = String(context?.message || context?.Message || barMessage || '').replace(/<[^>]*>/g,'');
     const specify = Number(context?.SpecifySkillId), skill = Number(context?.Skill?.SkillId), selection = self.spellSelector?.visible ? Number(self.spellSelector.spell?.SkillId) : 0;
@@ -378,7 +389,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       if (!selector?.visible && prompt === '是否发动强识，摸一张牌') return button(s,'btnOK');
       if (involved || /强识/.test(prompt)) return true;
     }
-    if (declineQianfuFollowup(s,context)) return true;
+    if (declineQianfuFollowup(s,context,opt)) return true;
     // The card context can outlive its prompt. These skills need the current bar text first.
     if (opt.skillLock && locks.size && extended.run(s,context,barMessage || message,sourceCard,currentSeat,gc)) return true;
     if (opt.skillLock && locks.has(62) && Number(self.seat?.Hp) <= 0 && specify === 3 && Number(gc?.NextSpellTargets?.[0]) === Number(self.seat?.Index)) {
@@ -411,7 +422,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
       }
       chooseCard(s); if (!button(s,'btnOK')) button(s,'btnCancel'); return true;
     }
-    if (lockedAction(s,context,message,gc)) return true;
+    if (lockedAction(s,context,message,gc,opt)) return true;
     if (priorityOnly || !opt.autoConfirm || self.spellSelector?.visible || !message || /手气卡|更换手牌|替换现有的手牌|连环|业炎/.test(message)) return;
     const targets = s.scene.seatContainer?.selectContext;
     if (skill === 85 || Number(targets?.Skill?.SkillId) === 85 || Number(context?.SelectCountMax) > 1) return;
@@ -509,7 +520,7 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
     if (state) syncBar(state);
     return { scene, self };
   }
-  function tick() {
+  function refresh() {
     if (disposed || ctx.scope.signal.aborted) return;
     try {
       const currentState = syncState();
@@ -529,14 +540,18 @@ export function createRuntime(ctx, getSettings, onChange = () => {}) {
         zhuohun.update(self, seats, showZhuohun);
       } else { quanyu.hide(); zhuohun.hide(); }
       if (!live || state !== s || ended || disposed || ctx.scope.signal.aborted) return;
-      const current = list(self.skillItems).filter(item => !item.destroyed && (supported(item) || getSettings().rapid));
-      for (const [item,b] of s.bindings) if (!current.includes(item) || Number(item.Skill?.SkillId) !== b.id) { b.dispose(); s.bindings.delete(item); }
+      const current = new Set(list(self.skillItems).filter(item => !item.destroyed && (supported(item) || options.rapid)));
+      for (const [item,b] of s.bindings) if (!current.has(item) || Number(item.Skill?.SkillId) !== b.id) { b.dispose(); s.bindings.delete(item); }
       for (const item of current) {
         if (!s.bindings.has(item)) s.bindings.set(item,bindSkill(s,item));
-        s.bindings.get(item).rapid();
+        s.bindings.get(item).rapid(options.rapid === true);
       }
-      paint(); schedule(s); notify();
+      paint(options); schedule(s, options); notify(options);
     } catch (error) { clear(); ctx.reportError?.(error); }
+  }
+  function tick() {
+    if (typeof ctx.game.withSceneCycle === 'function') ctx.game.withSceneCycle(refresh);
+    else refresh();
   }
   function dispose() { if (disposed) return; disposed = true; clear(); proxyCleanup.forEach(fn => fn()); releases.splice(0).reverse().forEach(fn => fn()); }
   tracked(dispose);

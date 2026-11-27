@@ -23,7 +23,8 @@ export function watchNativeWindowEvents(scope, names, changed) {
   const subscribed = [];
   function onWindow(packet) {
     const name = typeof packet === 'string' ? packet : read(() => packet.WindowName);
-    if (names.includes(name)) changed();
+    // Embedded views may be opened by several different native windows.
+    if (typeof name === 'string' && name && (names === null || names.includes(name))) changed();
   }
   function bind(dispatcher) {
     if (current === dispatcher) return;
