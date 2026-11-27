@@ -18,7 +18,7 @@ test('suite preserves installed versions and refuses disabled prerequisites / in
   assert.throws(() => planOfficialPlugins([], catalog().filter(p => p.id !== 'social')), /市场缺少/);
   assert.equal(planOfficialPlugins([{ id: 'social', version: '0.0.1' }], catalog()).some(p => p.id === 'social'), false);
 });
-test('merged official plugins use their receiving identities and Poker Lobby stays market-only', () => {
+test('merged official plugins use their receiving identities and Full bundles all official plugins', () => {
   const entries = catalog();
   assert.ok(planOfficialPlugins([], entries).some(entry => entry.id === 'card-styles-extra'));
   assert.ok(!officialPluginIds.includes('shanhetu-beta'));
@@ -26,16 +26,17 @@ test('merged official plugins use their receiving identities and Poker Lobby sta
   const bundled = fullBundledPackages(entries.map(manifest => ({ manifest }))).map(pkg => pkg.manifest.id);
   assert.ok(bundled.includes('shanhetu'));
   assert.ok(!bundled.includes('shanhetu-beta'));
-  assert.ok(!bundled.includes('poker-lobby'));
+  assert.ok(bundled.includes('poker-lobby'));
+  assert.ok(bundled.includes('themes-flow'));
 });
 
-test('Full browser and microclient both include stargazing', () => {
+test('Full browser and microclient both include all official plugins and enforce explicit prerequisites', () => {
   const bundled = fullBundledPackages(catalog().map(manifest => ({ manifest })));
   assert.ok(bundled.some(pkg => pkg.manifest.id === 'stargazing'));
   assert.ok(microclientFull.includes('stargazing'));
   assert.deepEqual(bundled.map(pkg => pkg.manifest.id), microclientFull);
-  assert.deepEqual([...microclientFull].sort(), officialPluginIds.filter(id => !['poker-lobby', 'themes-flow'].includes(id)).sort());
+  assert.deepEqual([...microclientFull].sort(), [...officialPluginIds].sort());
   assert.throws(() => fullBundledPackages(catalog().filter(m => m.id !== 'baisheng').map(manifest => ({ manifest }))), /缺少随附插件/);
   assert.throws(() => fullBundledPackages(catalog().map(manifest => ({ manifest: manifest.id === 'gaizhu'
-    ? { ...manifest, dependencies: ['poker-lobby'] } : manifest }))), /缺少显式随附的前置插件/);
+    ? { ...manifest, dependencies: ['community.example'] } : manifest }))), /缺少显式随附的前置插件/);
 });

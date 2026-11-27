@@ -9,8 +9,8 @@ import { createGeneralSkinsEntry } from './general-skins-entry.js';
 import { createFormPicker } from './form-picker.js';
 import { registerSkinBackgroundMotion } from './background-motion.js';
 export default {
-  manifest: { id: 'skins', name: '皮肤管理', version: '0.4.109', apiVersion: 1, contractVersion: 1,
-    releaseNotes: "减少未打开皮肤窗口时的后台检查，保留武将详情的皮肤入口与已有设置。素材按需联网加载，外服及导入皮肤仅自己可见或可听。",
+  manifest: { id: 'skins', name: '皮肤管理', version: '0.4.110', apiVersion: 1, contractVersion: 1,
+    releaseNotes: "修复在部分游戏客户端中打开皮肤管理或切回皮肤页签时，工具箱的筛选和快捷操作没有出现的问题。素材按需联网加载，外服及导入皮肤仅自己可见或可听。",
     minCoreVersion: '0.6.206', categories: ['tools'], icon: SKINS_ICON, priority: 30000,
     description: '皮肤收藏、原图下载与本地换肤' },
   activate(ctx) {

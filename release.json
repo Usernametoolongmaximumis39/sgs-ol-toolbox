@@ -1,17 +1,17 @@
 {
-  "version": "0.6.309",
+  "version": "0.6.310",
   "editions": {
     "full": {
-      "bytes": 3016329,
-      "plugins": 17,
-      "sha256": "7cdd612cf404271ab12580856e21311d6d2a6fd7906837dde3fb9d5adc83b0f9",
+      "bytes": 3449333,
+      "plugins": 19,
+      "sha256": "3a97a5694053a8be285388499c520d9277e0bb4c627b7af4147eefd3244bbbbd",
       "updatesTo": "full",
       "toolboxUpdatesTo": "lite"
     },
     "lite": {
-      "bytes": 669310,
+      "bytes": 669621,
       "plugins": 0,
-      "sha256": "fb0a4d8c4322821f77731ad9c86cb42481216107857ddb5a09d35e4d16e15067",
+      "sha256": "eb782abf1b6a02644c702f9c9a8ba06637019f06fe2b98689665a78e94c50149",
       "updatesTo": "lite",
       "toolboxUpdatesTo": "lite"
     }
@@ -74,8 +74,8 @@
     },
     {
       "id": "skins",
-      "version": "0.4.109",
-      "sha256": "3a597584d49c3fff9592bdb5f4ae704bf2c38061851e0d8013b0c50f5a328102"
+      "version": "0.4.110",
+      "sha256": "60ce962ecbee536907a389735edbd63c87e185c7ce0f18d5cb56e2b22638cb9b"
     },
     {
       "id": "poker-lobby",

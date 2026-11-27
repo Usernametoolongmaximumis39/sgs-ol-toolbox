@@ -284,7 +284,7 @@ try {
   assert.equal(await page.evaluate(() => skinFixture.owner.breakSkinSp.y === skinFixture.originalBreakY), true);
   assert.equal(await page.evaluate(() => skinFixture.owner.searchView.searchInput.maxChars === skinFixture.originalMaxChars), true);
   assert.deepEqual(errors, []);
-  // Attach through stage discovery, close/reopen, then replace a cached window.
+  // Attach through stage discovery, close/reopen, then replace the discovered window.
   await page.evaluate(() => {
     skinFixture.controllerContext = NativeSkinCheck.prepareSkinContext(skinFixture.ctx);
     skinFixture.controller = NativeSkinCheck.createNativeSkins(skinFixture.controllerContext);
@@ -298,11 +298,59 @@ try {
   assert.equal(await page.evaluate(() => skinFixture.owner._children.filter(n => n.name === 'sgs-toolbox-skin-controls').length), 1);
   await page.evaluate(() => { skinFixture.owner.removeSelf(); NativeSkinCheck.createSkinFixtureOwner(); skinFixture.controller.check(); });
   assert.equal(await page.evaluate(() => skinFixture.owner._children.filter(n => n.name === 'sgs-toolbox-skin-controls').length), 1);
+  // The native cache holds SkinWindow. Its view stack mounts one child in the content sprite.
+  const cachedControlCount = () => page.evaluate(() =>
+    skinFixture.owner._children.filter(n => n.name === 'sgs-toolbox-skin-controls').length);
+  await page.evaluate(() => {
+    const f = skinFixture, container = Laya.stage.addChild(new Laya.Sprite());
+    container.name = 'SkinWindow'; container.isHideWindow = true;
+    const content = container.addChild(new Laya.Sprite());
+    const collection = content.addChild(new Laya.Sprite()); collection.name = 'QunYingCollectView';
+    f.owner.name = 'GeneralSkinView'; f.owner.removeSelf();
+    container.viewStack = { selectedChild: collection };
+    f.cachedSkinWindow = container;
+    f.selectCachedTab = view => {
+      container.viewStack.selectedChild.removeSelf();
+      container.viewStack.selectedChild = content.addChild(view);
+    };
+    f.cachedCollection = collection;
+    const dispatcher = { _events: { OPEN_WINDOW: { caller: {
+      WindowInstanceDict: { getStringKey: key => key === 'SkinWindow' ? container : null },
+    } } } };
+    f.controllerContext.game.getDispatcher = () => dispatcher;
+    f.controller.check();
+  });
+  assert.match(await page.evaluate(() => skinFixture.controller.getStatus()), /等待打开/);
+  assert.equal(await cachedControlCount(), 0);
+  await page.evaluate(() => {
+    const f = skinFixture, panel = f.owner.skinPanel;
+    f.owner.loading = true; f.owner.skinPanel = null; f.selectCachedTab(f.owner);
+    f.finishSkinLoad = () => { f.owner.skinPanel = panel; f.owner.loading = false; };
+    f.controller.check();
+  });
+  assert.match(await page.evaluate(() => skinFixture.controller.getStatus()), /等待打开/);
+  assert.equal(await cachedControlCount(), 0);
+  await page.evaluate(() => skinFixture.finishSkinLoad());
+  await page.waitForFunction(() => skinFixture.controller.getStatus().includes('已接入'));
+  assert.equal(await cachedControlCount(), 1);
+  await page.evaluate(() => { skinFixture.selectCachedTab(skinFixture.cachedCollection); skinFixture.controller.check(); });
+  assert.equal(await cachedControlCount(), 0);
+  await page.evaluate(() => skinFixture.selectCachedTab(skinFixture.owner));
+  await page.waitForFunction(() => skinFixture.controller.getStatus().includes('已接入'));
+  assert.equal(await cachedControlCount(), 1);
+  assert.equal(await page.evaluate(() => {
+    const f = skinFixture, name = 'sgs-toolbox-skin-controls', root = f.owner.getChildByName(name);
+    f.cachedSkinWindow.visible = false; f.controller.check();
+    f.cachedSkinWindow.visible = true; f.controller.check();
+    return f.owner.getChildByName(name) === root;
+  }), true);
+  assert.equal(await cachedControlCount(), 1);
   await page.evaluate(() => {
     const enhanced = skinFixture.owner.formData;
     skinFixture.laterCalls = 0;
     skinFixture.owner.formData = function (...args) { skinFixture.laterCalls++; return enhanced.apply(this, args); };
     skinFixture.controllerContext.scope.dispose(); skinFixture.ctx.scope.dispose();
+    Laya.stage.addChild(skinFixture.owner); skinFixture.cachedSkinWindow.destroy(true);
     skinFixture.owner.tabGroup.SelectedValue = 1; skinFixture.owner.formData();
   });
   assert.equal(await page.evaluate(() => skinFixture.laterCalls), 1);

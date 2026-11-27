@@ -49,13 +49,11 @@ export const pluginReleases = [
   },
   {
     "id": "poker-lobby",
-    "compact": true,
-    "excludeFromFull": true
+    "compact": true
   },
   {
     "id": "themes-flow",
-    "compact": true,
-    "excludeFromFull": true
+    "compact": true
   },
   {
     "id": "stargazing",

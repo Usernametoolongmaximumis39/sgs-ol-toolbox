@@ -8,6 +8,7 @@ import { readCatalogue, readInventory, collectSkins, summarizeSkins, filterSkins
 import { createSkinCollection, resolveSkinRuntime } from '../src/plugins/skins/runtime.js';
 import { ResourceScope } from '../src/core/resources.js';
 import { isNativeNodeMounted, isNativeNodeVisibleOnStage } from '../src/shared/native-tree.js';
+import { createNativeSkins, openNativeSkinWindow } from '../src/plugins/skins/native.js';
 import { createSkinDownload } from '../src/plugins/skins/download.js';
 import { createLocalSkins } from '../src/plugins/skins/local.js';
 import { fitMobileSeat } from '../src/plugins/skins/mobile-seat-framing.js';
@@ -168,6 +169,169 @@ test('skin download discovers cached native detail without scanning the stage an
   scope.dispose();
   assert.equal(listeners.size, 0);
   assert.equal(button.isConnected, false);
+});
+
+function nativeSkinWindowFixture(t, hasCache = true) {
+  class Sprite {
+    _children = [];
+    graphics = { clear() {}, drawLine() {}, drawLines() {}, drawCircle() {}, drawRect() {} };
+    visible = true;
+    parent = null;
+    addChild(child) {
+      child.removeSelf();
+      this._children.push(child); child.parent = this;
+      return child;
+    }
+    removeSelf() {
+      if (this.parent) this.parent._children.splice(this.parent._children.indexOf(this), 1);
+      this.parent = null;
+    }
+    size(width, height) { Object.assign(this, { width, height }); }
+    pos(x, y) { Object.assign(this, { x, y }); }
+    on() {}
+    off() {}
+    destroy() { this.removeSelf(); this.destroyed = true; }
+  }
+  const stage = new Sprite(), stageChildren = stage._children;
+  let stageReads = 0;
+  Object.defineProperty(stage, '_children', { get() { stageReads++; return stageChildren; } });
+  const container = new Sprite(), content = container.addChild(new Sprite()), collection = new Sprite();
+  container.name = 'SkinWindow';
+  container.isHideWindow = true;
+  container.viewStack = { selectedChild: null };
+  const skin = Object.assign(new Sprite(), {
+    name: 'GeneralSkinView', loading: true, refreshes: 0,
+    formData() { this.refreshes++; }, selectGenerals() {}, onCreateGeneralSkinPanelItem() {},
+    showGeneralSkinNew() {}, onClearPanelItems() {}, clearLineBackItem() {}, ShowNewView() {},
+    changeView() {}, onSearchChange() {}, refreshNewSkinEntryState() {},
+  });
+  function finishLoading() {
+    Object.assign(skin, { loading: false, skinPanel: new Sprite(), ownRadioBtn: {}, typeRadioBtn: {},
+      tabGroup: { SelectedValue: 1, visible: true }, searchView: new Sprite() });
+  }
+  function select(view) {
+    container.viewStack.selectedChild?.removeSelf();
+    container.viewStack.selectedChild = content.addChild(view);
+  }
+  function mount() {
+    stageChildren.push(container); container.parent = stage;
+  }
+  const calls = [];
+  let cached = null;
+  const dispatcher = { ShowWindowAfterCloseOther(...args) { calls.push(args); } };
+  if (hasCache) dispatcher._events = { OPEN_WINDOW: { caller: { WindowInstanceDict: {
+    getStringKey(name) { assert.equal(name, 'SkinWindow'); return cached; },
+  } } } };
+  const scope = new ResourceScope();
+  t.after(() => assert.deepEqual(scope.dispose(), []));
+  let poll;
+  scope.interval = callback => { poll = callback; };
+  const window = Object.assign(new EventTarget(), { Laya: { stage, Sprite, Text: Sprite } });
+  const ctx = { window, scope, settings: { get: (_key, fallback) => fallback },
+    native: { account: () => ({ id: '1001' }) },
+    game: { getDispatcher: () => dispatcher, getClass: () => Sprite } };
+  return { ctx, container, content, collection, skin, select, mount, finishLoading, calls,
+    controls: () => skin._children.filter(node => node.name === 'sgs-toolbox-skin-controls'),
+    stageReads: () => stageReads, poll: () => poll(), cache: () => { cached = container; } };
+}
+
+test('native skins poll the cached SkinWindow tab through loading, removal and hide/reopen', t => {
+  const f = nativeSkinWindowFixture(t), originalForm = f.skin.formData;
+  const controller = createNativeSkins(f.ctx);
+  assert.match(controller.getStatus(), /等待打开/);
+  f.cache();
+  f.select(f.skin);
+  f.poll();
+  assert.match(controller.getStatus(), /等待打开/, 'a detached cached window is ignored');
+  f.mount();
+  f.container.visible = false;
+  f.poll();
+  assert.match(controller.getStatus(), /等待打开/, 'a hidden cached window is ignored');
+  f.container.visible = true;
+  f.select(f.collection);
+  f.content.addChild(f.skin);
+  f.finishLoading();
+  f.poll();
+  assert.deepEqual(f.controls(), [], 'a mounted skin view in an inactive tab is ignored');
+
+  f.select(f.skin);
+  delete f.skin.skinPanel;
+  f.skin.loading = true;
+  f.poll();
+  assert.match(controller.getStatus(), /等待打开/, 'the active tab is waiting for its native controls');
+  assert.deepEqual(f.controls(), []);
+  f.finishLoading();
+  f.skin.loading = true;
+  f.poll();
+  assert.deepEqual(f.controls(), [], 'the native load must finish even if controls already exist');
+  f.skin.loading = false;
+  f.poll();
+  assert.match(controller.getStatus(), /已接入/);
+  assert.equal(f.controls().length, 1);
+  const [first] = f.controls();
+  assert.notEqual(f.skin.formData, originalForm);
+
+  f.select(f.collection);
+  f.poll();
+  assert.equal(first.destroyed, true);
+  assert.equal(f.skin.formData, originalForm);
+  assert.match(controller.getStatus(), /等待打开/);
+  f.select(f.skin);
+  f.poll();
+  assert.equal(f.controls().length, 1);
+  const [reopened] = f.controls(), refreshes = f.skin.refreshes;
+  f.container.visible = false;
+  f.poll();
+  assert.deepEqual(f.controls(), [reopened]);
+  assert.equal(f.skin.refreshes, refreshes);
+  f.container.visible = true;
+  f.poll();
+  f.poll();
+  assert.deepEqual(f.controls(), [reopened]);
+  assert.equal(f.skin.refreshes, refreshes + 1);
+  assert.equal(f.stageReads(), 0);
+});
+
+test('openNativeSkinWindow checks the displayed tab in a cached SkinWindow without scanning stage', t => {
+  const f = nativeSkinWindowFixture(t);
+  const open = () => openNativeSkinWindow(f.ctx);
+  const request = ['SkinWindow', null, 2];
+  open();
+  assert.deepEqual(f.calls.splice(0), [request], 'no cached window');
+  f.cache();
+  f.select(f.skin);
+  open();
+  assert.deepEqual(f.calls.splice(0), [request], 'cached but detached window');
+  f.mount();
+  open();
+  assert.deepEqual(f.calls.splice(0), [], 'the active skin page is already loading');
+  f.container.visible = false;
+  open();
+  assert.deepEqual(f.calls.splice(0), [request], 'hidden window');
+  f.container.visible = true;
+  f.content.addChild(f.collection);
+  f.container.viewStack.displayedChild = f.collection;
+  open();
+  assert.deepEqual(f.calls.splice(0), [request], 'collection remains displayed while skin is selected');
+  f.container.viewStack.displayedChild = f.skin;
+  f.finishLoading();
+  open();
+  assert.deepEqual(f.calls, []);
+  assert.equal(f.stageReads(), 0);
+});
+
+test('native skins retain stage discovery for hosts without a window cache', t => {
+  const f = nativeSkinWindowFixture(t, false);
+  f.mount();
+  f.select(f.skin);
+  f.finishLoading();
+  openNativeSkinWindow(f.ctx);
+  assert.deepEqual(f.calls, []);
+  assert.ok(f.stageReads() > 0);
+  const previousReads = f.stageReads();
+  createNativeSkins(f.ctx);
+  assert.equal(f.controls().length, 1);
+  assert.ok(f.stageReads() > previousReads);
 });
 
 test('Yjcm indexes battle clips by the dynamic skin and exact active form', () => {

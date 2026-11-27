@@ -20,9 +20,22 @@ const visible = node => {
   for (let p = node, i = 0; p && i++ < 24; p = p.parent) if (p.visible === false || p.destroyed) return false;
   return Boolean(node?.parent);
 };
+function isSkinView(node) {
+  return typeof node?.formData === 'function' && typeof node.selectGenerals === 'function'
+    && typeof node.onCreateGeneralSkinPanelItem === 'function';
+}
 function isSkinWindow(node) {
-  return typeof node.formData === 'function' && typeof node.selectGenerals === 'function'
-    && typeof node.onCreateGeneralSkinPanelItem === 'function' && node.skinPanel && node.ownRadioBtn && node.typeRadioBtn && node.tabGroup;
+  return isSkinView(node) && node.skinPanel && node.ownRadioBtn && node.typeRadioBtn && node.tabGroup;
+}
+function selectedSkinView(window) {
+  if (isSkinView(window)) return window;
+  const stack = window?.viewStack;
+  // Hosts with a separate displayed child may still be loading the selected tab.
+  const view = stack && ('displayedChild' in stack ? stack.displayedChild : stack.selectedChild);
+  return isSkinView(view) ? view : null;
+}
+function isMountedSkinView(stage, window, view) {
+  return isMountedWindowNode(stage, window) && isMountedWindowNode(window, view);
 }
 export function findSkinWindow(stage) {
   const queue = stage ? [stage] : [];
@@ -37,14 +50,15 @@ export function findSkinWindow(stage) {
 
 export function openNativeSkinWindow(ctx) {
   const stage = (ctx.window.Laya ?? ctx.window.laya)?.stage;
-  if (findSkinWindow(stage)) return;
+  const dispatcher = read(() => ctx.game.getDispatcher?.());
+  const cached = cachedNativeWindow(dispatcher, SKIN_WINDOW);
+  if (cached === undefined ? findSkinWindow(stage) : isMountedSkinView(stage, cached, selectedSkinView(cached))) return;
   if (!ctx.native.account().id) throw new Error('请登录本服后再打开皮肤管理。');
-  const dispatcher = ctx.game.getDispatcher?.();
-  if (typeof dispatcher?.ShowWindowAfterCloseOther !== 'function' || typeof ctx.game.getClass?.('SkinWindow') !== 'function') {
+  if (typeof dispatcher?.ShowWindowAfterCloseOther !== 'function' || typeof ctx.game.getClass?.(SKIN_WINDOW) !== 'function') {
     throw new Error('本服皮肤管理暂不可用，请在游戏大厅重试。');
   }
   // The lobby opens SkinWindow on its skin tab (Ti.SKIN = 2).
-  dispatcher.ShowWindowAfterCloseOther('SkinWindow', null, 2);
+  dispatcher.ShowWindowAfterCloseOther(SKIN_WINDOW, null, 2);
 }
 
 export function enhanceSkinWindow(ctx, owner) {
@@ -326,8 +340,8 @@ export function enhanceSkinWindow(ctx, owner) {
   // The new-acquisition section must also be reachable without current releases.
   owner.tabGroup.SetTabVisableByTabValue?.(owner.NEW_TYPE_VALUE, true);
   const attachment = { owner, state, refresh,
-    check() {
-      if (!visible(owner)) { wasVisible = false; controls.closeMenus(); return; }
+    check(isVisible = visible(owner)) {
+      if (!isVisible) { wasVisible = false; controls.closeMenus(); return; }
       const installed = ctx.backgrounds?.isInstalled?.() === true;
       if (installed !== backgroundInstalled) {
         backgroundInstalled = installed;
@@ -390,21 +404,26 @@ export function createNativeSkins(ctx) {
       if (stage !== stageBefore || dispatcher !== dispatcherBefore) {
         stageBefore = stage; dispatcherBefore = dispatcher; lastDiscovery = -Infinity;
       }
-      if (attachment && (!alive(attachment.owner) || !attachment.owner.parent)) {
-        attachment.dispose(); attachment = null; lastDiscovery = -Infinity;
+      const cached = cachedNativeWindow(dispatcher, SKIN_WINDOW);
+      const selected = selectedSkinView(cached);
+      const ready = isMountedSkinView(stage, cached, selected) && selected.loading !== true;
+      if (attachment && (!alive(attachment.owner) || !attachment.owner.parent
+        || (cached !== undefined && selected !== attachment.owner))) {
+        const previous = attachment; attachment = null; previous.dispose(); lastDiscovery = -Infinity;
       }
-      if (!attachment || !visible(attachment.owner)) {
-        const cached = cachedNativeWindow(dispatcher, SKIN_WINDOW);
-        let owner = isMountedWindowNode(stage, cached) && isSkinWindow(cached) ? cached : null;
-        if (cached === undefined && (forceDiscovery || Date.now() - lastDiscovery >= DISCOVERY_INTERVAL)) {
+      let owner = null;
+      if (cached === undefined) {
+        if ((!attachment || !visible(attachment.owner)) && (forceDiscovery || Date.now() - lastDiscovery >= DISCOVERY_INTERVAL)) {
           lastDiscovery = Date.now();
           owner = findSkinWindow(stage);
         }
-        if (owner && owner !== attachment?.owner) {
-          attachment?.dispose(); attachment = enhanceSkinWindow(ctx, owner);
-        }
+      } else if (!attachment && ready && isSkinWindow(selected) && typeof selected.searchView?.on === 'function') {
+        owner = selected;
       }
-      attachment?.check();
+      if (owner && owner !== attachment?.owner) {
+        attachment?.dispose(); attachment = enhanceSkinWindow(ctx, owner);
+      }
+      attachment?.check(cached === undefined ? undefined : ready);
       message = attachment ? '已接入游戏皮肤管理。' : '等待打开游戏的皮肤管理。';
     } catch (error) {
       attachment?.dispose(); attachment = null;
